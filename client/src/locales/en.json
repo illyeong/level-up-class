@@ -1,0 +1,46 @@
+{
+  "menu": {
+    "dashboard": "Dashboard",
+    "character": "My Character",
+    "quest": "Quest",
+    "academy": "Academy",
+    "adventure": "Adventure",
+    "trade": "Trade Center",
+    "town": "Town Square",
+    "settings": "System Settings"
+  },
+  "submenu": {
+    "status": "Status",
+    "notice": "Notice",
+    "avatarRoom": "Avatar Room",
+    "inventory": "Inventory",
+    "petHouse": "Pet House",
+    "shop": "Shop",
+    "dailyQuest": "Daily/Sudden Quest",
+    "weeklyQuest": "Weekly Quest",
+    "classRole": "Class Role",
+    "achievement": "Achievement",
+    "assignment": "Assignment",
+    "studyRoom": "Study Room",
+    "wrongAnswerNote": "Wrong Answer Note",
+    "readingBook": "Reading Book",
+    "quizDungeon": "Quiz Dungeon (Solo)",
+    "bossRaid": "Boss Raid (Co-op)",
+    "arena": "Arena (PvP)",
+    "miniGame": "Mini Game",
+    "classBank": "Class Bank",
+    "classShop": "Class Shop",
+    "stockMarket": "Stock Market",
+    "avatarMarket": "Avatar Market",
+    "secretShop": "Secret Shop",
+    "freeBoard": "Free Board",
+    "complimentMailbox": "Compliment Mailbox",
+    "suggestionBox": "Suggestion Box",
+    "editProfile": "Edit Profile",
+    "themeSettings": "Theme Settings"
+  },
+  "common": {
+    "update": "Update",
+    "logout": "Logout"
+  }
+}

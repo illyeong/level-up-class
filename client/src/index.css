@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+/* 💡 추가된 부분: Tailwind의 기본 폰트를 쿠키런체로 바꿔치기 합니다! */
+@theme {
+  --font-sans: 'NexonMaplestory', sans-serif;
+}
+
+@font-face {
+    font-family: 'NexonMaplestory';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@2.1/MaplestoryOTFLight.woff') format('woff');
+    font-weight: 300;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'NexonMaplestory';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@2.1/MaplestoryOTFBold.woff') format('woff');
+    font-weight: 700;
+    font-display: swap;
+}
+/* 기존에 있던 body { ... } 부분은 깔끔하게 지워주시면 됩니다! */

@@ -1,0 +1,61 @@
+{
+  "menu": {
+    "dashboard": "대시보드",
+    "character": "내 캐릭터",
+    "quest": "퀘스트",
+    "academy": "아카데미",
+    "adventure": "어드벤처",
+    "trade": "무역 센터",
+    "town": "마을 광장",
+    "settings": "시스템 설정"
+  },
+  "submenu": {
+    "status": "내 상태창 (Status)",
+    "notice": "알림판 (Notice)",
+    "avatarRoom": "아바타 룸",
+    "inventory": "인벤토리 (가방)",
+    "petHouse": "펫 하우스",
+    "shop": "상점",
+    "dailyQuest": "일일/돌발 퀘스트",
+    "weeklyQuest": "주간 퀘스트",
+    "classRole": "1인 1역",
+    "achievement": "업적 (Achievement)",
+    "assignment": "과제 제출소",
+    "studyRoom": "학습 자료실",
+    "wrongAnswerNote": "오답 노트",
+    "readingBook": "독서 도감",
+    "quizDungeon": "퀴즈 던전 (솔로)",
+    "bossRaid": "보스 레이드 (협동)",
+    "arena": "투기장 (경쟁)",
+    "miniGame": "미니 게임",
+    "classBank": "학급 은행",
+    "classShop": "학급 상점",
+    "stockMarket": "주식 거래소",
+    "avatarMarket": "아바타 거래소",
+    "secretShop": "비밀 상점",
+    "freeBoard": "자유 게시판",
+    "complimentMailbox": "칭찬 우체통",
+    "suggestionBox": "건의/투표소",
+    "editProfile": "내 정보 수정",
+    "themeSettings": "테마 설정"
+  },
+  "common": {
+    "update": "업데이트",
+    "logout": "로그아웃"
+  },
+  "character": {
+    "title": "내 캐릭터",
+    "level": "레벨 {{level}}",
+    "exp": "경험치",
+    "gold": "골드",
+    "diamond": "다이아",
+    "equipment": "장착 중인 아이템",
+    "slot": {
+      "head": "머리",
+      "body": "옷",
+      "weapon": "무기",
+      "pet": "펫"
+    },
+    "emptySlot": "비어있음"
+  }
+}

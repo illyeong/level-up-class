@@ -1,0 +1,46 @@
+{
+  "menu": {
+    "dashboard": "แดชบอร์ด",
+    "character": "ตัวละครของฉัน",
+    "quest": "เควสต์",
+    "academy": "สถาบัน",
+    "adventure": "ผจญภัย",
+    "trade": "ศูนย์การค้า",
+    "town": "จัตุรัสเมือง",
+    "settings": "ตั้งค่าระบบ"
+  },
+  "submenu": {
+    "status": "สถานะ",
+    "notice": "ประกาศ",
+    "avatarRoom": "ห้องอวตาร",
+    "inventory": "กระเป๋า",
+    "petHouse": "บ้านสัตว์เลี้ยง",
+    "shop": "ร้านค้า",
+    "dailyQuest": "เควสต์ประจำวัน/ฉุกเฉิน",
+    "weeklyQuest": "เควสต์ประจำสัปดาห์",
+    "classRole": "หน้าที่ในชั้นเรียน",
+    "achievement": "ความสำเร็จ",
+    "assignment": "ส่งงาน",
+    "studyRoom": "ห้องเรียน",
+    "wrongAnswerNote": "สมุดจดข้อผิดพลาด",
+    "readingBook": "สมุดบันทึกการอ่าน",
+    "quizDungeon": "ดันเจี้ยนควิซ (เดี่ยว)",
+    "bossRaid": "บอสเรด (ร่วมมือ)",
+    "arena": "ลานประลอง (แข่งขัน)",
+    "miniGame": "มินิเกม",
+    "classBank": "ธนาคารชั้นเรียน",
+    "classShop": "ร้านค้าชั้นเรียน",
+    "stockMarket": "ตลาดหุ้น",
+    "avatarMarket": "ตลาดอวตาร",
+    "secretShop": "ร้านลับ",
+    "freeBoard": "กระดานสนทนาอิสระ",
+    "complimentMailbox": "ตู้ไปรษณีย์ชื่นชม",
+    "suggestionBox": "กล่องแสดงความคิดเห็น",
+    "editProfile": "แก้ไขข้อมูลส่วนตัว",
+    "themeSettings": "ตั้งค่าธีม"
+  },
+  "common": {
+    "update": "อัปเดต",
+    "logout": "ออกจากระบบ"
+  }
+}
