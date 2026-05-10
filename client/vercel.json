@@ -1,0 +1,11 @@
+{
+  "headers": [
+    {
+      "source": "/avatar_game/Build/(.*).unityweb",
+      "headers": [
+        { "key": "Content-Encoding", "value": "br" },
+        { "key": "Content-Type", "value": "application/octet-stream" }
+      ]
+    }
+  ]
+}
