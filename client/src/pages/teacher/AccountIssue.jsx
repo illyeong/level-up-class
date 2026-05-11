@@ -1,8 +1,9 @@
+// src/pages/teacher/AccountIssue.jsx
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../../firebase'; // ⚠️ 실제 firebase.js 경로 확인!
 
-function TeacherDashboard({ user }) {
+function AccountIssue({ user }) {
   const [students, setStudents] = useState([]);
   const [studentCount, setStudentCount] = useState(25); // 기본 생성 인원
   const [isLoading, setIsLoading] = useState(false);
@@ -54,14 +55,13 @@ function TeacherDashboard({ user }) {
           pin: pin,
           diamonds: 1000, // 초기 정착 지원금 (1000 다이아)
           parts: "",      // 장착한 아바타 파츠 (초기엔 빈 값)
-          teacherUid: user.uid // 담당 선생님(현재 로그인한 사람)의 UID
+          teacherUid: user.uid // 담당 선생님의 UID
         });
       }
 
-      // 묶어둔 데이터를 한방에 DB로 쏘기!
       await batch.commit();
       alert('성공적으로 학생 계정이 발급되었습니다!');
-      fetchStudents(); // 생성 후 목록 새로고침
+      fetchStudents(); 
 
     } catch (error) {
       console.error("계정 생성 중 에러:", error);
@@ -78,8 +78,8 @@ function TeacherDashboard({ user }) {
         {/* 상단 헤더 */}
         <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 flex justify-between items-center border border-slate-200">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">👨‍🏫 학급 관리 대시보드</h1>
-            <p className="text-slate-500 mt-1">{user?.displayName || "선생님"} 환영합니다. 학생들의 상점 계정을 관리하세요.</p>
+            <h1 className="text-2xl font-bold text-slate-800">👨‍🎓 학생 계정 일괄 발급</h1>
+            <p className="text-slate-500 mt-1">우리 반 학생들의 상점 로그인 코드와 PIN 번호를 생성하고 관리합니다.</p>
           </div>
         </div>
 
@@ -150,4 +150,4 @@ function TeacherDashboard({ user }) {
   );
 }
 
-export default TeacherDashboard;
+export default AccountIssue;
