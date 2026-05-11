@@ -1,21 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase'; // ⚠️ 실제 firebase.js 경로 확인!
 
 function AvatarRoom() {
   const [myDiamonds, setMyDiamonds] = useState(0);
-  const iframeRef = useRef(null);
-  
-  // 🌟 핵심 해결책: 이벤트 리스너 안에서 최신 다이아 값을 안전하게 읽기 위한 Ref
-  const diamondsRef = useRef(0); 
-
-  // 학생 UID (임시)
   const studentUid = localStorage.getItem('currentStudentUid') || "test_student_01";
-
-  // 화면의 다이아가 바뀔 때마다 Ref 값도 조용히 최신 상태로 맞춰줍니다.
-  useEffect(() => {
-    diamondsRef.current = myDiamonds;
-  }, [myDiamonds]);
 
   // =====================================================================
   // [목표 2] 접속 시 DB에서 데이터 불러오기 및 유니티로 전송
@@ -29,17 +18,17 @@ function AvatarRoom() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setMyDiamonds(data.diamonds); 
-          
           console.log("📥 DB 데이터 불러오기 성공:", data);
 
-          if (iframeRef.current && data.parts) {
-            iframeRef.current.contentWindow.postMessage({
+          // 🌟 해결책 1: useRef 대신 확실한 ID 값으로 iframe 찾기
+          const iframe = document.getElementById("avatar-iframe");
+          if (iframe && data.parts) {
+            iframe.contentWindow.postMessage({
               type: "REACT_LOAD_AVATAR",
               parts: data.parts
             }, "*");
           }
         } else {
-          console.log("학생 데이터가 없습니다. (새 계정)");
           setMyDiamonds(9999);
         }
       } catch (error) {
@@ -55,39 +44,31 @@ function AvatarRoom() {
   // [목표 1] 유니티 결제 신호 수신 시 -> 다이아 차감 및 DB 영구 저장
   // =====================================================================
   useEffect(() => {
-    const handleUnityMessage = async (event) => {
+    const handleUnityMessage = (event) => {
       if (event.data && event.data.type === "UNITY_PURCHASE") {
         const { cost, equipment } = event.data;
-        console.log("🔥 유니티 결제 신호 도착! 비용:", cost, "장비:", equipment);
+        
+        // 🌟 해결책 2: useRef 없이 React의 기본 기능(prev)으로 최신 다이아 안전하게 계산
+        setMyDiamonds((prevDiamonds) => {
+          const newDiamonds = prevDiamonds - cost;
 
-        // 1. Ref를 사용해 아주 안전하게 '현재 최신 다이아몬드'를 가져와 계산합니다.
-        const currentDiamonds = diamondsRef.current;
-        const newDiamonds = currentDiamonds - cost;
-
-        // 2. 화면의 다이아를 깎아줍니다. (단순 계산만 수행!)
-        setMyDiamonds(newDiamonds);
-
-        // 3. DB 영구 저장은 상태 업데이트와 완전히 분리하여 독립적으로 실행합니다.
-        try {
-          const docRef = doc(db, "students", studentUid);
-          await updateDoc(docRef, {
+          // 비동기 DB 저장을 State 업데이트 로직과 분리하여 뒤에서 조용히 실행
+          updateDoc(doc(db, "students", studentUid), {
             diamonds: newDiamonds,    
             parts: equipment          
+          }).then(() => {
+            console.log(`💾 DB 영구 저장 완료! 남은 다이아: ${newDiamonds}`);
+            alert(`저장 완료! ${cost} 다이아가 차감되었습니다.`);
+          }).catch((error) => {
+            console.error("DB 저장 에러:", error);
           });
           
-          console.log(`💾 DB 영구 저장 완료! 남은 다이아: ${newDiamonds}`);
-          alert(`저장 완료! ${cost} 다이아가 차감되었습니다.`);
-        } catch (error) {
-          console.error("DB 저장 에러:", error);
-          alert("데이터 저장에 실패했습니다. 인터넷 연결을 확인해주세요.");
-        }
+          return newDiamonds; // 화면의 다이아 즉시 깎임
+        });
       }
     };
 
-    // 이벤트 리스너 부착
     window.addEventListener("message", handleUnityMessage);
-    
-    // 클린업 함수 (컴포넌트 종료 시 리스너 제거)
     return () => {
       window.removeEventListener("message", handleUnityMessage);
     };
@@ -106,7 +87,7 @@ function AvatarRoom() {
       {/* 🌟 유니티 iframe 화면 */}
       <div className="flex-1 w-full relative bg-slate-100">
         <iframe
-          ref={iframeRef}
+          id="avatar-iframe" /* 👈 useRef를 없애고 ID를 달아주었습니다! */
           title="Avatar Game"
           src="/avatar_game/index.html" 
           style={{ width: "100%", height: "100%", border: "none" }}

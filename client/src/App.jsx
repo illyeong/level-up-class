@@ -5,7 +5,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import NavigationBar from './components/NavigationBar';
 import MyCharacter from './components/MyCharacter';
 import StudentDashboard from './components/StudentDashboard';
-import AvatarRoom from './pages/student/AvatarRoom.jsx';
+import AvatarRoom from './pages/student/AvatarShop.jsx';
 
 // 🌟 새로 만든 선생님 로그인 페이지 (파일 경로가 맞는지 확인해주세요!)
 import TeacherLogin from './pages/teacher/TeacherLogin.jsx';
