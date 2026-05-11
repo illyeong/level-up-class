@@ -1,6 +1,6 @@
 import React from 'react';
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { auth } from '../firebase'; // 🔥 실제 firebase.js 경로 확인!
+import { auth } from '../../firebase'; // 🔥 실제 firebase.js 경로 확인!
 
 function TeacherLogin() {
   const handleGoogleLogin = async () => {
