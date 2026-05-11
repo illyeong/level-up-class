@@ -1,25 +1,32 @@
 import React, { useState } from 'react';
-import TeacherDashboard from './TeacherDashboard'; 
+import TeacherLayout from './TeacherLayout'; // 🌟 방금 만든 레이아웃 뼈대 불러오기
 
 function TeacherLogin() {
-  // 선생님 정보를 담을 공간
   const [teacherUser, setTeacherUser] = useState(null);
 
-  // 🌟 구글 로그인 창 띄우지 않고 그냥 묻지도 따지지도 않고 바로 통과!
   const handleDirectLogin = () => {
     setTeacherUser({
-      displayName: "신석초 선생님", // 대시보드에 뜰 이름
-      uid: "admin_master_001"    // DB에 저장될 임시 관리자 고유 ID
+      displayName: "신석초 선생님", 
+      uid: "admin_master_001"    
     });
   };
 
-  // 🌟 입장이 허락되었다면, 대시보드를 띄웁니다!
+  const handleLogout = () => {
+    window.location.reload(); 
+  };
+
+  // =========================================================
+  // 🌟 로그인 성공 시: 네비게이션 바가 들어있는 '레이아웃' 화면으로 쏙 넘어갑니다!
+  // =========================================================
   if (teacherUser) {
-    return <TeacherDashboard user={teacherUser} />;
+    return <TeacherLayout user={teacherUser} onLogout={handleLogout} />;
   }
 
+  // =========================================================
+  // 🌟 로그인 전: 네비게이션 바가 없는 깔끔한 로그인 화면 렌더링
+  // =========================================================
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 flex items-center justify-center p-4 w-full relative">
       <div className="bg-white/95 backdrop-blur-sm p-10 rounded-3xl shadow-2xl w-full max-w-md transform transition-all hover:scale-[1.01]">
         
         <div className="text-center mb-8">
@@ -35,7 +42,6 @@ function TeacherLogin() {
           </p>
         </div>
 
-        {/* 🚀 프리패스 버튼 */}
         <button 
           onClick={handleDirectLogin}
           className="flex items-center justify-center w-full bg-indigo-600 border border-transparent rounded-xl px-6 py-4 text-white font-bold text-lg hover:bg-indigo-700 transition-all duration-300 shadow-md"
