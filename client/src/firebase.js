@@ -1,6 +1,7 @@
 // src/firebase.js
 
 // 👇 이 3줄이 맨 위에 반드시 있어야 합니다!
+
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore"; // 👈 이 녀석이 빠져서 난 에러입니다!
 import { getAuth } from "firebase/auth";
