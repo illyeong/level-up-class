@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, writeBatch, serverTimestamp, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase'; 
+
+// 🌟 다이아와 골드 아이콘 모두 불러오기
 import iconGold from '../../assets/images/icon-gold.png'; 
+import iconDiamond from '../../assets/images/icon-diamond.png'; 
 
 function TeacherDashboard() {
   const [students, setStudents] = useState([]);
@@ -65,7 +68,7 @@ function TeacherDashboard() {
     }
   };
 
-  // 🌟 3. 트랜잭션 실행 (레벨 데이터 유지 및 로그 최적화)
+  // 3. 트랜잭션 실행
   const submitTransaction = async () => {
     if (selectedIds.length === 0) return alert("학생을 최소 1명 이상 선택해주세요.");
     if (!amount || amount <= 0) return alert("올바른 금액을 입력해주세요.");
@@ -94,7 +97,6 @@ function TeacherDashboard() {
         }
       });
 
-      // 🌟 로그 저장: 'targetIds' 배열을 사용하여 학생이 나중에 본인 것만 필터링 가능하게 함
       const logRef = doc(collection(db, "transactions"));
       batch.set(logRef, {
         timestamp: serverTimestamp(),
@@ -103,7 +105,7 @@ function TeacherDashboard() {
         amount: actualAmount,
         reason: reason,
         targetCount: selectedIds.length,
-        targetIds: selectedIds // 학생 페이지에서 array-contains 쿼리로 사용 예정
+        targetIds: selectedIds 
       });
 
       await batch.commit();
@@ -152,17 +154,18 @@ function TeacherDashboard() {
           <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors mr-2 text-sm">
             📋 지급/차감 내역 보기
           </button>
-          <button onClick={() => openModal('dia_add')} className="bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
-            💎 다이아 지급
+          {/* 🌟 다이아/골드 버튼 이미지 적용 */}
+          <button onClick={() => openModal('dia_add')} className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
+            <img src={iconDiamond} alt="다이아" className="w-4 h-4" /> 다이아 지급
           </button>
-          <button onClick={() => openModal('dia_sub')} className="bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-600 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
-            💎 다이아 차감
+          <button onClick={() => openModal('dia_sub')} className="flex items-center gap-1 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-600 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
+            <img src={iconDiamond} alt="다이아" className="w-4 h-4" /> 다이아 차감
           </button>
-          <button onClick={() => openModal('gold_add')} className="bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-500 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
-            🪙 골드 지급
+          <button onClick={() => openModal('gold_add')} className="flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-500 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
+            <img src={iconGold} alt="골드" className="w-4 h-4" /> 골드 지급
           </button>
-          <button onClick={() => openModal('gold_sub')} className="bg-orange-50 border border-orange-200 text-orange-700 hover:bg-orange-600 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
-            🪙 골드 차감
+          <button onClick={() => openModal('gold_sub')} className="flex items-center gap-1 bg-orange-50 border border-orange-200 text-orange-700 hover:bg-orange-600 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
+            <img src={iconGold} alt="골드" className="w-4 h-4" /> 골드 차감
           </button>
         </div>
       </div>
@@ -176,7 +179,6 @@ function TeacherDashboard() {
               <div className="absolute top-2 left-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
                 {student.studentCode.split('-').pop()}번
               </div>
-              {/* 🌟 1번 요청: 이름(ID) 옆에 레벨 표시 */}
               <div className="absolute bottom-2 right-2 bg-amber-400 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
                 LV.{student.level || 1}
               </div>
@@ -185,10 +187,15 @@ function TeacherDashboard() {
             <div className="p-3 text-center">
               <h3 className="text-sm font-bold text-slate-800 mb-2 truncate">{student.studentCode}</h3>
               <div className="flex flex-col gap-1 text-xs">
+                {/* 🌟 다이아 현황 이미지 적용 */}
                 <div className="flex justify-between items-center bg-indigo-50 px-2 py-1.5 rounded-md">
-                  <span className="text-[10px] text-indigo-400">💎 다이아</span>
+                  <div className="flex items-center gap-1">
+                    <img src={iconDiamond} alt="Diamond" className="w-3 h-3" />
+                    <span className="text-[10px] text-indigo-400">다이아</span>
+                  </div>
                   <span className="font-bold text-indigo-700">{(student.diamonds || 0).toLocaleString()}</span>
                 </div>
+                {/* 🌟 골드 현황 이미지 적용 */}
                 <div className="flex justify-between items-center bg-amber-50 px-2 py-1.5 rounded-md">
                   <div className="flex items-center gap-1">
                     <img src={iconGold} alt="Gold" className="w-3 h-3" />
@@ -209,7 +216,13 @@ function TeacherDashboard() {
             <div className={`p-5 text-white font-bold text-xl flex justify-between items-center
               ${modalType.includes('dia') ? (modalType.includes('add') ? 'bg-indigo-600' : 'bg-rose-600') : (modalType.includes('add') ? 'bg-amber-500' : 'bg-orange-600')}
             `}>
-              <h2>{modalType.includes('dia') ? '💎 다이아' : '🪙 골드'} {modalType.includes('add') ? '일괄 지급' : '일괄 차감'}</h2>
+              {/* 🌟 모달 제목에 이미지 적용 */}
+              <h2 className="flex items-center gap-2">
+                {modalType.includes('dia') 
+                  ? <><img src={iconDiamond} alt="다이아" className="w-6 h-6" /> 다이아</> 
+                  : <><img src={iconGold} alt="골드" className="w-6 h-6" /> 골드</>} 
+                {modalType.includes('add') ? '일괄 지급' : '일괄 차감'}
+              </h2>
               <button onClick={() => setIsModalOpen(false)} className="text-white hover:text-slate-200">✕</button>
             </div>
 
@@ -231,9 +244,12 @@ function TeacherDashboard() {
                     <div key={student.id} onClick={() => toggleSelect(student.id)}
                       className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedIds.includes(student.id) ? 'border-indigo-500 bg-indigo-50 shadow-md' : 'border-slate-200 bg-white hover:border-indigo-300'}`}>
                       <div className="flex-1">
-                        {/* 🌟 모달 안에서도 레벨 표시 */}
                         <div className="font-bold text-xs text-slate-800">{student.studentCode} <span className="text-amber-500 text-[10px]">LV.{student.level || 1}</span></div>
-                        <div className="text-[9px] text-slate-500">💎{student.diamonds || 0} / 🪙{student.gold || 0}</div>
+                        {/* 🌟 리스트 내 재화 이미지 적용 */}
+                        <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">
+                          <img src={iconDiamond} alt="다이아" className="w-3 h-3" /> {student.diamonds || 0} / 
+                          <img src={iconGold} alt="골드" className="w-3 h-3 ml-1" /> {student.gold || 0}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -288,7 +304,12 @@ function TeacherDashboard() {
                   {logs.map(log => (
                     <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="p-4 text-slate-500">{log.timestamp ? new Date(log.timestamp.toDate()).toLocaleString() : '방금 전'}</td>
-                      <td className="p-4 font-bold">{log.currency}</td>
+                      {/* 🌟 로그 테이블 내 재화 이미지 적용 */}
+                      <td className="p-4 font-bold flex items-center gap-1">
+                        {log.currency === '다이아' 
+                          ? <><img src={iconDiamond} alt="다이아" className="w-4 h-4" /> 다이아</> 
+                          : <><img src={iconGold} alt="골드" className="w-4 h-4" /> 골드</>}
+                      </td>
                       <td className={`p-4 font-bold ${log.amount > 0 ? 'text-indigo-600' : 'text-rose-600'}`}>{log.amount > 0 ? `+${log.amount}` : log.amount}</td>
                       <td className="p-4 text-slate-700">{log.reason}</td>
                       <td className="p-4 font-medium text-slate-600">{log.targetCount}명</td>
