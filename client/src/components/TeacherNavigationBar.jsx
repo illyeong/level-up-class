@@ -1,33 +1,51 @@
 import React, { useState } from 'react';
 
+// 🌟 학생용과 동일한 아이콘 경로를 불러옵니다.
+import iconDashboard from '../assets/images/icon-dashboard.png';
+import iconQuest from '../assets/images/icon-quest.png';
+import iconAdventure from '../assets/images/icon-adventure.png';
+
 const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-  const [expandedMenu, setExpandedMenu] = useState('studentManage');
+  const [expandedMenu, setExpandedMenu] = useState('dashboard');
 
-  // 🌟 선생님 전용 학급 경영 메뉴 리스트
+  // 🌟 선생님이 요청하신 새로운 메뉴 구조
   const teacherMenuData = [
     {
-      id: 'studentManage', icon: '👨‍🎓', title: '학급/학생 관리', isReady: true,
+      id: 'dashboard', icon: iconDashboard, title: '대시보드', isReady: true,
+      subMenus: [] // 하위 메뉴 없음 (바로 이동)
+    },
+    {
+      id: 'myCharacter', icon: '🦸‍♂️', title: '내 캐릭터', isReady: true,
+      subMenus: [] // 하위 메뉴 없음 (바로 이동)
+    },
+    {
+      id: 'adventure', icon: iconAdventure, title: '어드벤처', isReady: true,
       subMenus: [
-        { title: '학생 계정 발급', id: 'dashboard' }, // 아까 만든 TeacherDashboard 연결
+        { title: '퀴즈 던전', id: 'quizDungeon' },
+        { title: '보스 레이드', id: 'bossRaid' },
+        { title: '투기장', id: 'arena' },
+        { title: '미니 게임', id: 'miniGame' },
+        { title: '어드벤처 관리', id: 'adventureManage' } // 선생님 전용 관리 메뉴 추가
+      ]
+    },
+    {
+      id: 'questManage', icon: iconQuest, title: '퀘스트 관리소', isReady: true,
+      subMenus: [] // 하위 목록 모두 삭제 (바로 이동)
+    },
+    {
+      id: 'economyManage', icon: '💎', title: '학급 경제 관리', isReady: true,
+      subMenus: [
+        { title: '주식etf 관리', id: 'stockManage' },
+        { title: '은행 관리', id: 'bankManage' }
+      ]
+    },
+    {
+      id: 'studentManage', icon: '👨‍🎓', title: '학급/학생 관리', isReady: true, // 시스템 설정 위로 이동
+      subMenus: [
+        { title: '학생 계정 발급', id: 'accountIssue' },
         { title: '학생 상세 정보', id: 'studentDetail' },
-        { title: '학급 알림장 발송', id: 'sendNotice' }
-      ]
-    },
-    {
-      id: 'economyManage', icon: '💎', title: '학급 경제 은행', isReady: true,
-      subMenus: [
-        { title: '다이아 일괄 지급/차감', id: 'diamondManage' },
-        { title: '아바타 상점 로그', id: 'shopLog' },
-        { title: '학급 은행 금리 설정', id: 'bankSettings' }
-      ]
-    },
-    {
-      id: 'questManage', icon: '📜', title: '퀘스트 관리소', isReady: true,
-      subMenus: [
-        { title: '퀘스트 결재 대기열', id: 'questApproval' },
-        { title: '신규 퀘스트 등록', id: 'questCreate' },
-        { title: '학급 직업 월급 관리', id: 'salaryManage' }
+        { title: '학급 공지 발송', id: 'sendNotice' } // 알림장 발송 -> 학급 공지 발송으로 변경
       ]
     },
     {
@@ -40,9 +58,13 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
   ];
 
   const handleMenuClick = (menuId) => {
-    if (changeView && teacherMenuData.find(m => m.id === menuId && m.subMenus.length === 0)) {
+    const clickedMenu = teacherMenuData.find(m => m.id === menuId);
+    
+    // 💡 하위 메뉴가 없는 메인 메뉴(대시보드, 내 캐릭터, 퀘스트 관리소 등)를 누르면 바로 화면 이동!
+    if (changeView && clickedMenu && clickedMenu.subMenus.length === 0) {
       changeView(menuId);
     }
+
     if (!isSidebarOpen) {
       setSidebarOpen(true);
       setExpandedMenu(menuId);
@@ -95,7 +117,13 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
               `}
             >
               <div className="flex items-center">
-                <span className="text-3xl drop-shadow-md inline-block w-8 text-center">{menu.icon}</span>
+                {/* 🌟 학생용 네비게이션과 동일한 아이콘 렌더링 방식 적용 */}
+                {menu.icon.length > 10 ? (
+                  <img src={menu.icon} alt={menu.title} className={`drop-shadow-md object-contain ${menu.id === 'adventure' ? 'w-11 h-11' : 'w-8 h-8'}`} />
+                ) : (
+                  <span className="text-3xl drop-shadow-md inline-block w-8 text-center">{menu.icon}</span>
+                )}
+
                 {isSidebarOpen && (
                   <span className={`ml-4 text-sm font-medium ${(currentView === menu.id || menu.subMenus.some(sub => sub.id === currentView)) ? 'font-bold' : ''}`}>
                     {menu.title}
@@ -140,8 +168,8 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
           onClick={onLogout}
           className="flex items-center w-full p-3 text-indigo-300 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors group"
         >
-          <span className="text-2xl group-hover:scale-110 transition-transform inline-block w-8 text-center">🏃‍♂️</span>
-          {isSidebarOpen && <span className="ml-4 font-bold text-sm">학생 화면 복귀</span>}
+          <span className="text-2xl group-hover:scale-110 transition-transform inline-block w-8 text-center">🚪</span>
+          {isSidebarOpen && <span className="ml-4 font-bold text-sm">학생 화면 복귀 (로그아웃)</span>}
         </button>
       </div>
     </nav>

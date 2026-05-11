@@ -18,14 +18,7 @@ function App() {
       <div className="relative w-full h-screen">
         {/* 선생님 로그인 화면 렌더링 */}
         <TeacherLogin />
-        
-        {/* 다시 학생 화면으로 돌아가고 싶을 때 누르는 탈출 버튼 */}
-        <button 
-          onClick={() => setIsTeacherMode(false)}
-          className="absolute top-4 left-4 bg-white/80 hover:bg-white text-slate-500 font-bold py-2 px-4 rounded-full shadow-md backdrop-blur-sm transition-all z-50"
-        >
-          ← 학생 화면으로
-        </button>
+
       </div>
     );
   }
