@@ -8,7 +8,7 @@ import StudentDashboard from './components/StudentDashboard';
 import AvatarRoom from './pages/student/AvatarRoom.jsx';
 
 // 🌟 새로 만든 선생님 로그인 페이지 (파일 경로가 맞는지 확인해주세요!)
-import TeacherLogin from './pages/TeacherLogin.jsx';
+import TeacherLogin from './pages/teacher/TeacherLogin.jsx';
 
 // =====================================================================
 // 1. 기존 App의 내용을 '학생용 메인 화면' 묶음으로 분리합니다.
