@@ -1,23 +1,21 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// src/firebase.js
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// 👇 이 3줄이 맨 위에 반드시 있어야 합니다!
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore"; // 👈 이 녀석이 빠져서 난 에러입니다!
+import { getAuth } from "firebase/auth";
+
+// 선생님의 실제 Firebase 설정값
 const firebaseConfig = {
-  apiKey: "AIzaSyCpOf86UP1nA2-MzvMxjglomdMG8y6xS9I",
+  apiKey: "선생님의_API_KEY",
   authDomain: "level-up-class.firebaseapp.com",
   projectId: "level-up-class",
-  storageBucket: "level-up-class.firebasestorage.app",
-  messagingSenderId: "1095450799104",
-  appId: "1:1095450799104:web:650aea6a8afd352d257ce5",
-  measurementId: "G-E5VF05T6NE"
+  storageBucket: "level-up-class.appspot.com",
+  messagingSenderId: "선생님의_SENDER_ID",
+  appId: "선생님의_APP_ID"
 };
 
-// Initialize Firebase
+// 초기화 및 내보내기
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
