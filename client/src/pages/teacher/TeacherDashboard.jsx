@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, writeBatch, serverTimestamp, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase'; 
 
-// 🌟 다이아와 골드 아이콘 모두 불러오기
 import iconGold from '../../assets/images/icon-gold.png'; 
 import iconDiamond from '../../assets/images/icon-diamond.png'; 
 
@@ -10,7 +9,6 @@ function TeacherDashboard() {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 팝업(모달) 상태 관리
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState(''); 
   const [selectedIds, setSelectedIds] = useState([]);
@@ -18,11 +16,9 @@ function TeacherDashboard() {
   const [reason, setReason] = useState('');
   const [searchQuery, setSearchQuery] = useState(''); 
 
-  // 로그 모달 상태 관리
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [logs, setLogs] = useState([]);
 
-  // 1. 학생 데이터 불러오기
   const fetchStudents = async () => {
     setIsLoading(true);
     try {
@@ -44,7 +40,6 @@ function TeacherDashboard() {
     fetchStudents();
   }, []);
 
-  // 2. 지급/차감 모달 열기
   const openModal = (type) => {
     setModalType(type);
     setSelectedIds([]); 
@@ -68,11 +63,16 @@ function TeacherDashboard() {
     }
   };
 
-  // 3. 트랜잭션 실행
+  // 🌟 퀵 버튼 클릭 시 금액 추가 기능
+  const addQuickAmount = (val) => {
+    setAmount(prev => (Number(prev || 0) + val).toString());
+  };
+
   const submitTransaction = async () => {
     if (selectedIds.length === 0) return alert("학생을 최소 1명 이상 선택해주세요.");
     if (!amount || amount <= 0) return alert("올바른 금액을 입력해주세요.");
-    if (!reason.trim()) return alert("지급/차감 사유를 입력해주세요.");
+    
+    // 🌟 사유 필수 입력 체크(reason.trim())를 삭제했습니다. 사유가 없으면 "일반 지급/차감"으로 저장됩니다.
 
     setIsLoading(true);
     try {
@@ -103,7 +103,7 @@ function TeacherDashboard() {
         type: modalType,
         currency: currencyLabel,
         amount: actualAmount,
-        reason: reason,
+        reason: reason.trim() || (isAdd ? "선생님 보상 지급" : "선생님 차감 집행"), // 사유 비었을 때 기본값
         targetCount: selectedIds.length,
         targetIds: selectedIds 
       });
@@ -154,7 +154,6 @@ function TeacherDashboard() {
           <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors mr-2 text-sm">
             📋 지급/차감 내역 보기
           </button>
-          {/* 🌟 다이아/골드 버튼 이미지 적용 */}
           <button onClick={() => openModal('dia_add')} className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
             <img src={iconDiamond} alt="다이아" className="w-4 h-4" /> 다이아 지급
           </button>
@@ -173,7 +172,6 @@ function TeacherDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {students.map((student) => (
           <div key={student.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow relative">
-            
             <div className="h-28 bg-gradient-to-b from-slate-50 to-white flex items-center justify-center border-b border-slate-100 relative">
               {student.parts ? <span className="text-6xl drop-shadow-sm">🦸‍♂️</span> : <span className="text-6xl drop-shadow-sm opacity-50">🧍</span>}
               <div className="absolute top-2 left-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
@@ -183,11 +181,9 @@ function TeacherDashboard() {
                 LV.{student.level || 1}
               </div>
             </div>
-
             <div className="p-3 text-center">
               <h3 className="text-sm font-bold text-slate-800 mb-2 truncate">{student.studentCode}</h3>
               <div className="flex flex-col gap-1 text-xs">
-                {/* 🌟 다이아 현황 이미지 적용 */}
                 <div className="flex justify-between items-center bg-indigo-50 px-2 py-1.5 rounded-md">
                   <div className="flex items-center gap-1">
                     <img src={iconDiamond} alt="Diamond" className="w-3 h-3" />
@@ -195,7 +191,6 @@ function TeacherDashboard() {
                   </div>
                   <span className="font-bold text-indigo-700">{(student.diamonds || 0).toLocaleString()}</span>
                 </div>
-                {/* 🌟 골드 현황 이미지 적용 */}
                 <div className="flex justify-between items-center bg-amber-50 px-2 py-1.5 rounded-md">
                   <div className="flex items-center gap-1">
                     <img src={iconGold} alt="Gold" className="w-3 h-3" />
@@ -209,14 +204,12 @@ function TeacherDashboard() {
         ))}
       </div>
 
-      {/* 지급/차감 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in-up">
             <div className={`p-5 text-white font-bold text-xl flex justify-between items-center
               ${modalType.includes('dia') ? (modalType.includes('add') ? 'bg-indigo-600' : 'bg-rose-600') : (modalType.includes('add') ? 'bg-amber-500' : 'bg-orange-600')}
             `}>
-              {/* 🌟 모달 제목에 이미지 적용 */}
               <h2 className="flex items-center gap-2">
                 {modalType.includes('dia') 
                   ? <><img src={iconDiamond} alt="다이아" className="w-6 h-6" /> 다이아</> 
@@ -245,7 +238,6 @@ function TeacherDashboard() {
                       className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedIds.includes(student.id) ? 'border-indigo-500 bg-indigo-50 shadow-md' : 'border-slate-200 bg-white hover:border-indigo-300'}`}>
                       <div className="flex-1">
                         <div className="font-bold text-xs text-slate-800">{student.studentCode} <span className="text-amber-500 text-[10px]">LV.{student.level || 1}</span></div>
-                        {/* 🌟 리스트 내 재화 이미지 적용 */}
                         <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">
                           <img src={iconDiamond} alt="다이아" className="w-3 h-3" /> {student.diamonds || 0} / 
                           <img src={iconGold} alt="골드" className="w-3 h-3 ml-1" /> {student.gold || 0}
@@ -256,32 +248,41 @@ function TeacherDashboard() {
                 </div>
               </div>
 
-              <div className="w-full lg:w-80 p-6 bg-white flex flex-col">
+              <div className="w-full lg:w-80 p-6 bg-white flex flex-col overflow-y-auto">
                 <div className="mb-6 p-4 bg-slate-100 rounded-xl text-center border border-slate-200">
                   <span className="text-slate-500 text-xs font-medium">선택된 학생</span>
                   <div className="text-3xl font-black text-indigo-600 my-1">{selectedIds.length} <span className="text-lg text-slate-700">명</span></div>
                 </div>
+
                 <div className="mb-4">
-                  <label className="block text-xs font-bold text-slate-700 mb-2">금액</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-2">지급/차감 금액</label>
                   <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
-                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-bold text-xl text-slate-800 focus:outline-none focus:border-indigo-500" placeholder="예: 100" />
+                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-bold text-xl text-slate-800 focus:outline-none focus:border-indigo-500 mb-3" placeholder="금액 입력" />
+                  
+                  {/* 🌟 10, 50, 100 퀵 버튼 추가 */}
+                  <div className="flex gap-2">
+                    <button onClick={() => addQuickAmount(10)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2 rounded-lg text-sm transition-colors">+10</button>
+                    <button onClick={() => addQuickAmount(50)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2 rounded-lg text-sm transition-colors">+50</button>
+                    <button onClick={() => addQuickAmount(100)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2 rounded-lg text-sm transition-colors">+100</button>
+                  </div>
                 </div>
-                <div className="mb-6 flex-1">
-                  <label className="block text-xs font-bold text-slate-700 mb-2">사유 (필수)</label>
+
+                <div className="mb-6">
+                  <label className="block text-xs font-bold text-slate-700 mb-2">지급/차감 사유 (선택)</label>
                   <textarea value={reason} onChange={(e) => setReason(e.target.value)}
-                    className="w-full h-24 border-2 border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-none" placeholder="예: 퀴즈 우승 보상 등" />
+                    className="w-full h-24 border-2 border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-none" placeholder="비워두셔도 됩니다." />
                 </div>
+
                 <button onClick={submitTransaction}
-                  className={`w-full py-4 rounded-xl font-bold text-lg text-white shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98]
-                    ${modalType.includes('dia') ? (modalType.includes('add') ? 'bg-indigo-600' : 'bg-rose-600') : (modalType.includes('add') ? 'bg-amber-500' : 'bg-orange-600')}
-                  `}>실행하기</button>
+                  className={`w-full py-4 rounded-xl font-bold text-lg text-white shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98] mt-auto
+                    ${modalType.includes('dia') ? (modalType.includes('add') ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-rose-600 hover:bg-rose-700') : (modalType.includes('add') ? 'bg-amber-500 hover:bg-amber-600' : 'bg-orange-600 hover:bg-orange-700')}
+                  `}>집행하기</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* 로그 보기 모달 */}
       {isLogOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden">
@@ -304,7 +305,6 @@ function TeacherDashboard() {
                   {logs.map(log => (
                     <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="p-4 text-slate-500">{log.timestamp ? new Date(log.timestamp.toDate()).toLocaleString() : '방금 전'}</td>
-                      {/* 🌟 로그 테이블 내 재화 이미지 적용 */}
                       <td className="p-4 font-bold flex items-center gap-1">
                         {log.currency === '다이아' 
                           ? <><img src={iconDiamond} alt="다이아" className="w-4 h-4" /> 다이아</> 
