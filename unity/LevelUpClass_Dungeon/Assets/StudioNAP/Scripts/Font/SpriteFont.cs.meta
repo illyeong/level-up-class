@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 33263a04abc5c064ea00cba70c791ddd
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323514
+  packageName: Ultra Light Damage Number Text Font
+  packageVersion: 1.0
+  assetPath: Assets/StudioNAP/Scripts/Font/SpriteFont.cs
+  uploadId: 764983

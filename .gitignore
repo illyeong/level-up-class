@@ -1,0 +1,14 @@
+node_modules
+
+# Unity
+unity/*/Library/
+unity/*/Temp/
+unity/*/Logs/
+unity/*/obj/
+unity/*/Build/
+unity/*/Builds/
+unity/*/UserSettings/
+unity/*/*.csproj
+unity/*/*.slnx
+unity/*/*.sln
+node_modules

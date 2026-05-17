@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 470c34e86daebbd4ebc1594b61f5455e
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 323514
+  packageName: Ultra Light Damage Number Text Font
+  packageVersion: 1.0
+  assetPath: Assets/StudioNAP/Scripts/PerformanceTest.cs
+  uploadId: 764983
