@@ -1,19 +1,41 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 const StudentDashboard = () => {
+  const [student, setStudent] = useState(null);
+  const studentUid = localStorage.getItem('currentStudentUid') || 'test_student_01';
+
+  useEffect(() => {
+    const load = async () => {
+      const snap = await getDoc(doc(db, 'students', studentUid));
+      if (snap.exists()) setStudent(snap.data());
+    };
+    load();
+  }, [studentUid]);
+
+  const name     = student?.studentCode || '용감한 용사';
+  const level    = student?.level || 1;
+  const gold     = student?.gold || 0;
+  const diamonds = student?.diamonds || 0;
+  const image    = student?.characterImage;
+
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8 text-gray-800">🏰 학생 대시보드</h1>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* 캐릭터 정보 카드 */}
         <div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-100 text-center">
-          <div className="w-32 h-32 bg-indigo-100 rounded-full mx-auto flex items-center justify-center text-5xl mb-4 border-4 border-white shadow-inner">
-            🧑‍🎓
+          <div className="w-32 h-32 bg-indigo-100 rounded-full mx-auto flex items-center justify-center mb-4 border-4 border-white shadow-inner overflow-hidden">
+            {image
+              ? <img src={image} alt="캐릭터" className="w-full h-full object-contain" />
+              : <span className="text-5xl">🧑‍🎓</span>
+            }
           </div>
-          <h2 className="text-2xl font-bold">용감한 용사</h2>
-          <p className="text-indigo-600 font-bold mb-4">Lv. 5</p>
-          
+          <h2 className="text-2xl font-bold">{name}</h2>
+          <p className="text-indigo-600 font-bold mb-4">Lv. {level}</p>
+
           <div className="w-full bg-gray-200 h-3 rounded-full mb-6">
             <div className="bg-indigo-500 h-3 rounded-full" style={{width: '45%'}}></div>
           </div>
@@ -21,11 +43,11 @@ const StudentDashboard = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-blue-50 p-3 rounded-2xl">
               <p className="text-sm text-blue-500 font-bold">다이아</p>
-              <p className="font-bold text-xl">💎 15</p>
+              <p className="font-bold text-xl">💎 {diamonds.toLocaleString()}</p>
             </div>
             <div className="bg-yellow-50 p-3 rounded-2xl">
               <p className="text-sm text-yellow-600 font-bold">골드</p>
-              <p className="font-bold text-xl">🪙 3,000</p>
+              <p className="font-bold text-xl">🪙 {gold.toLocaleString()}</p>
             </div>
           </div>
         </div>
