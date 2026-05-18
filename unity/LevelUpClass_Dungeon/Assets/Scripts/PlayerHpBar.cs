@@ -22,12 +22,14 @@ public class PlayerHpBar : MonoBehaviour
     [Header("딜레이 바 속도")]
     public float delaySpeed = 2f;
 
-    private LayerLab.ArtMaker.PlayerCombat playerCombat;
+    [Header("플레이어 (자동 탐색, 안 되면 직접 연결)")]
+    public LayerLab.ArtMaker.PlayerCombat playerCombat;
     private float delayFill = 1f;
 
     void Start()
     {
-        playerCombat = FindFirstObjectByType<LayerLab.ArtMaker.PlayerCombat>();
+        if (playerCombat == null)
+            playerCombat = FindFirstObjectByType<LayerLab.ArtMaker.PlayerCombat>();
 
         if (playerCombat == null)
             Debug.LogWarning("[PlayerHpBar] PlayerCombat을 찾지 못했습니다.");

@@ -1,0 +1,160 @@
+================================================================
+                       CASUAL VFX PACK
+                By Layer Lab  -  Documentation v1.0
+================================================================
+
+
+----------------------------------------------------------------
+INTRODUCTION
+----------------------------------------------------------------
+
+Casual VFX Pack is a collection of clean, bright 2D cartoon-style
+particle effects for casual and mobile games. All effects are built
+with Unity's Particle System and ship as ready-to-use prefabs.
+
+To get started, drag any prefab from the "Prefabas" folder into
+your Scene -- it plays immediately. To preview everything, open
+Demo/Scenes/Demo.unity and press Play.
+
+
+----------------------------------------------------------------
+FOLDER STRUCTURE
+----------------------------------------------------------------
+
+  Prefabas/          All effect prefabs (75) -- drop into a
+                     scene to use
+  Materials/         Particle materials (108)
+  Textures/          Particle textures (PNG, with some PSD
+                     sources)
+  Mesh/              Meshes used by particles (Cylinder1,
+                     Cylinder2, Plane)
+  Demo/Scenes/       Demo scene (Demo.unity)
+  Demo/Background/   Background images and material for the
+                     demo scene
+
+  Note: the prefab folder is named "Prefabas" (original asset
+  spelling).
+
+
+----------------------------------------------------------------
+EFFECT LIST
+----------------------------------------------------------------
+
+75 prefabs in the "Prefabas" folder:
+
+  Booster      ( 4)  Booster_ArrowUp, Booster_Heart,
+                     Booster_Lightning, Booster_Note
+  Buff         (11)  Buff1 (6 colors), Buff2 (5 colors)
+  Explosion    ( 9)  Explosion_Effect (6 colors),
+                     Explosion_Large / LMedium / LSmall
+  MagicCircle  (36)  MagicCircle1-MagicCircle6, each in 6 colors
+  Hit          ( 6)  Hit1-Hit6
+  Heal         ( 2)  Heal1, Heal2
+  Other        ( 7)  Cloud1, Levelup, Poisoning, Shield, Smoke,
+                     SpeedUp, Whirlwind
+
+Color variants: Blue / Green / Purple / Red / White / Yellow.
+
+
+----------------------------------------------------------------
+USING EFFECTS
+----------------------------------------------------------------
+
+Drag a prefab from "Prefabas" into your Scene -- "Play On Awake"
+is enabled, so it plays right away.
+
+This pack contains only prefabs and art assets -- no scripts are
+included. To spawn effects at runtime, instantiate the prefab
+with Unity's standard GameObject.Instantiate, and remove it with
+Destroy once it has finished playing.
+
+  Note: every Particle System in this pack has "Looping" enabled,
+  so effects repeat until removed. For one-shot effects (e.g.
+  Explosion, Hit), either disable "Looping" on the prefab or
+  Destroy the spawned object after a fixed delay.
+
+  Tip: if you spawn effects frequently, use object pooling
+  instead of Instantiate/Destroy to reduce GC overhead on mobile.
+
+
+----------------------------------------------------------------
+SCALING EFFECTS
+----------------------------------------------------------------
+
+Use the Scale Tool or set Transform > Scale in the Inspector.
+Keep the scale uniform -- non-uniform scaling can skew mesh-based
+particles.
+
+Most Particle Systems use Scaling Mode = Hierarchy, so the parent
+Transform's Scale resizes the whole effect at once. A few
+sub-systems use Local mode -- if a child does not resize as
+expected, check its Particle System's Scaling Mode.
+
+  Note: Transform Scale affects only Particle Systems. Lights,
+  Trail Renderers, and Audio Sources must be adjusted manually
+  after scaling.
+
+
+----------------------------------------------------------------
+MATERIALS & TEXTURES
+----------------------------------------------------------------
+
+The asset uses Unity's built-in legacy particle shaders. For
+most materials, the name suffix indicates the blend mode:
+
+  _add   Shader: Particles/Additive
+         Use: Glows, lights, magic circles -- bright;
+              black is transparent
+
+  _ab    Shader: Particles/Alpha Blended
+         Use: Clouds, leaves, icons -- keeps shape and
+              dark areas
+
+A few materials carry neither suffix (e.g. ring2, ring3,
+arrow_red_dd) -- check their shader directly in the Inspector.
+
+Some .psd source files are included in "Textures/" so you can
+edit colors or shapes directly.
+
+To create a color not provided, either tweak the Particle
+System's Start Color / Color over Lifetime, or duplicate a
+material and change its texture/tint.
+
+
+----------------------------------------------------------------
+UPGRADING TO URP
+----------------------------------------------------------------
+
+The asset ships with Built-in Render Pipeline shaders. In a URP
+project, materials may appear pink (magenta). To fix:
+
+  1. Confirm your project is set up for URP.
+  2. Run Window > Rendering > Render Pipeline Converter and
+     convert built-in materials.
+  3. For any still-broken material, set the shader to Universal
+     Render Pipeline > Particles > Unlit; for _add materials,
+     use Surface Type "Transparent" with "Additive" blending.
+
+  Warning: back up or commit your project before converting --
+  material conversion is hard to undo.
+
+
+----------------------------------------------------------------
+FAQ
+----------------------------------------------------------------
+
+Q. Can I use this in a commercial game?
+A. Yes -- it follows the standard Unity Asset Store EULA.
+
+Q. Materials show up pink (magenta).
+A. Built-in shaders are incompatible with URP/HDRP. See the
+   "Upgrading to URP" section above.
+
+Q. An effect keeps repeating and never disappears.
+A. All Particle Systems in this pack ship with "Looping" enabled.
+   For one-shot effects, disable "Looping" and Destroy the object
+   after it finishes playing.
+
+Q. Is it mobile-friendly?
+A. Yes -- these are lightweight 2D cartoon effects. Use object
+   pooling when spawning many at once.

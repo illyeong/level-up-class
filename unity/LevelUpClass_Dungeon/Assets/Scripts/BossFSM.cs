@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using StudioNAP;
+using Spine.Unity;
 
 /// <summary>
 /// Stage 2 보스 전투 AI.
@@ -11,6 +12,7 @@ using StudioNAP;
 /// </summary>
 public class BossFSM : MonoBehaviour
 {
+    public UnityEngine.UI.Slider bossHpBar;
     [Header("보스 기본 설정")]
     public string bossName = "다크 슬라임 킹";
     public int maxHealth = 300;
@@ -39,21 +41,24 @@ public class BossFSM : MonoBehaviour
     public Image bossHpFillImage;  // Hp_Fill Image 연결
     public GameObject bossHpBarUI;
 
-    [Header("애니메이션")]
-    public Animator anim;
-    public string idleAnimName   = "Boss_Idle";
-    public string walkAnimName   = "Boss_Walk";
-    public string attackAnimName = "Boss_Attack";
-    public string chargeAnimName = "Boss_Charge";
-    public string jumpAnimName   = "Boss_Jump";
-    public string hitAnimName    = "Boss_Hit";
-    public string deadAnimName   = "Boss_Dead";
-    public string rageAnimName   = "Boss_Rage";
+    [Header("애니메이션 (Spine)")]
+    public SkeletonAnimation skeletonAnim;
+    public SkeletonGraphic   skeletonGraphic;
+    public string idleAnimName   = "Idle";
+    public string walkAnimName   = "Walk";
+    public string attackAnimName = "Attack";
+    public string chargeAnimName = "";
+    public string jumpAnimName   = "";
+    public string hitAnimName    = "Hit";
+    public string deadAnimName   = "Die";
+    public string rageAnimName   = "";
+
+    [Header("플레이어 (자동 탐색, 안 되면 직접 연결)")]
+    public Transform playerTarget;
 
     private int currentHealth;
     private int movingDir = -1;
     private Rigidbody2D rb;
-    private Transform playerTarget;
     private SpriteRenderer spriteRenderer;
 
     public int CurrentHealth => currentHealth;
@@ -70,20 +75,29 @@ public class BossFSM : MonoBehaviour
 
     void Start()
     {
-        currentHealth  = maxHealth;
-        anim         ??= GetComponent<Animator>();
-        rb             = GetComponent<Rigidbody2D>();
-        spriteRenderer = GetComponent<SpriteRenderer>();
+        currentHealth   = maxHealth;
+        rb              = GetComponent<Rigidbody2D>();
+        spriteRenderer  = GetComponent<SpriteRenderer>();
+        skeletonAnim    ??= GetComponent<SkeletonAnimation>();
+        skeletonGraphic ??= GetComponent<SkeletonGraphic>();
 
-        GameObject playerObj = GameObject.FindWithTag("Player");
-        if (playerObj != null) playerTarget = playerObj.transform;
-        else Debug.LogWarning("[BossFSM] Player 태그가 붙은 오브젝트를 찾지 못했습니다.");
+        if (playerTarget == null)
+        {
+            var byTag  = GameObject.FindWithTag("Player");
+            var byName = GameObject.Find("Character");
+            var found  = byTag ?? byName;
+            if (found != null) playerTarget = found.transform;
+            else Debug.LogWarning("[BossFSM] 플레이어를 찾지 못했습니다. Inspector에서 직접 연결하세요.");
+        }
 
         if (bossHpBar != null)
         {
             bossHpBar.maxValue = maxHealth;
             bossHpBar.value    = maxHealth;
         }
+
+        // Spine AnimationState 초기화 (한 프레임 뒤 Idle 재생)
+        Invoke(nameof(InitAnim), 0.1f);
         if (bossHpBarUI != null) bossHpBarUI.SetActive(true);
         if (clearPortal != null) clearPortal.SetActive(false);
     }
@@ -117,15 +131,34 @@ public class BossFSM : MonoBehaviour
             return;
         }
 
-        // 일반 공격
-        if (dist <= attackRange && Time.time >= lastNormalAttackTime + normalAttackCooldown)
+        // 사거리 안 — 멈추고 쿨다운 기다린 뒤 공격
+        if (dist <= attackRange)
         {
-            StartCoroutine(NormalAttack());
+            rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+            PlayAnim(idleAnimName);
+            if (Time.time >= lastNormalAttackTime + normalAttackCooldown)
+                StartCoroutine(NormalAttack());
             return;
         }
 
         // 기본 추적
         Chase(currentChaseSpeed);
+    }
+
+    private string currentAnimName = "";
+
+    void InitAnim() => PlayAnim(idleAnimName);
+
+    void PlayAnim(string animName, bool loop = true)
+    {
+        if (string.IsNullOrEmpty(animName)) return;
+        if (animName == currentAnimName) return; // 이미 재생 중이면 스킵
+        currentAnimName = animName;
+
+        if (skeletonGraphic != null && skeletonGraphic.AnimationState != null)
+            skeletonGraphic.AnimationState.SetAnimation(0, animName, loop);
+        else if (skeletonAnim != null && skeletonAnim.AnimationState != null)
+            skeletonAnim.AnimationState.SetAnimation(0, animName, loop);
     }
 
     void Chase(float speed)
@@ -135,19 +168,9 @@ public class BossFSM : MonoBehaviour
         movingDir = (playerTarget.position.x > transform.position.x) ? 1 : -1;
         transform.localScale = new Vector3(-movingDir, 1, 1);
         rb.linearVelocity = new Vector2(speed * movingDir, rb.linearVelocity.y);
-        if (anim) anim.Play(walkAnimName);
+        PlayAnim(walkAnimName);
 
-        // 절벽 / 벽 감지 시 정지
-        if (frontCheck != null)
-        {
-            RaycastHit2D ground = Physics2D.Raycast(frontCheck.position, Vector2.down, 1f, groundLayer);
-            RaycastHit2D wall   = Physics2D.Raycast(frontCheck.position, Vector2.right * movingDir, 0.2f, groundLayer);
-            if (!ground.collider || wall.collider)
-            {
-                rb.linearVelocity = Vector2.zero;
-                if (anim) anim.Play(idleAnimName);
-            }
-        }
+        // 벽/절벽 감지 제거 — Invisible Wall이 막아줌
     }
 
     // ── 일반 공격 ─────────────────────────────────────────────────────
@@ -158,7 +181,7 @@ public class BossFSM : MonoBehaviour
         lastNormalAttackTime = Time.time;
         rb.linearVelocity = Vector2.zero;
 
-        if (anim) anim.Play(attackAnimName);
+        PlayAnim(attackAnimName, false);
         yield return new WaitForSeconds(0.3f);
 
         DealDamageToPlayer(attackPower);
@@ -174,7 +197,7 @@ public class BossFSM : MonoBehaviour
         isCharging = true;
         lastChargeAttackTime = Time.time;
 
-        if (anim) anim.Play(string.IsNullOrEmpty(chargeAnimName) ? attackAnimName : chargeAnimName);
+        PlayAnim(string.IsNullOrEmpty(chargeAnimName) ? attackAnimName : chargeAnimName, false);
         yield return new WaitForSeconds(0.4f);
 
         int chargeDir = (playerTarget.position.x > transform.position.x) ? 1 : -1;
@@ -200,7 +223,7 @@ public class BossFSM : MonoBehaviour
         lastJumpAttackTime = Time.time;
         rb.linearVelocity = Vector2.zero;
 
-        if (anim) anim.Play(string.IsNullOrEmpty(jumpAnimName) ? attackAnimName : jumpAnimName);
+        PlayAnim(string.IsNullOrEmpty(jumpAnimName) ? attackAnimName : jumpAnimName, false);
 
         // 위로 점프
         rb.AddForce(Vector2.up * 8f, ForceMode2D.Impulse);
@@ -239,7 +262,7 @@ public class BossFSM : MonoBehaviour
         isAttacking = true;
         rb.linearVelocity = Vector2.zero;
 
-        if (anim) anim.Play(rageAnimName);
+        PlayAnim(string.IsNullOrEmpty(rageAnimName) ? attackAnimName : rageAnimName, false);
 
         // 빨간 플래시 6회
         for (int i = 0; i < 6; i++)
@@ -281,20 +304,9 @@ public class BossFSM : MonoBehaviour
 
         if (currentHealth <= 0) { Die(); return; }
 
-        isHit        = true;
-        isAttacking  = false;
-        isCharging   = false;
-        StopAllCoroutines();
-
-        rb.linearVelocity = Vector2.zero;
-        if (anim) anim.Play(hitAnimName, -1, 0f);
-        Invoke(nameof(ResetHit), 0.5f);
-    }
-
-    void ResetHit()
-    {
-        if (isDead) return;
-        isHit = false;
+        // 히트 애니메이션 없으므로 경직 없이 바로 재개
+        isAttacking = false;
+        isCharging  = false;
     }
 
     // ── 사망 ─────────────────────────────────────────────────────────
@@ -305,7 +317,7 @@ public class BossFSM : MonoBehaviour
         StopAllCoroutines();
         rb.linearVelocity = Vector2.zero;
 
-        if (anim) anim.Play(deadAnimName);
+        PlayAnim(deadAnimName, false);
         if (spriteRenderer) spriteRenderer.color = Color.white;
 
         var col = GetComponent<Collider2D>();
