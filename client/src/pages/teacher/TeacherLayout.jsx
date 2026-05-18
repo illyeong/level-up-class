@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import TeacherNavigationBar from '../../components/TeacherNavigationBar';
 
 // 🌟 필요한 화면 컴포넌트들 완벽하게 불러오기
-import AccountIssue from './AccountIssue'; 
-import TeacherDashboard from './TeacherDashboard'; // 👈 이게 빠져있었습니다!
+import AccountIssue from './AccountIssue';
+import TeacherDashboard from './TeacherDashboard';
+import QuestManage from './QuestManage';
 
 function TeacherLayout({ user, onLogout }) {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -24,7 +25,8 @@ function TeacherLayout({ user, onLogout }) {
         {currentView === 'dashboard' && <TeacherDashboard />}
 
         {/* 학생 계정 발급 화면 */}
-        {currentView === 'accountIssue' && <AccountIssue user={user} />}
+        {currentView === 'accountIssue'    && <AccountIssue user={user} />}
+        {currentView === 'questManage'     && <QuestManage />}
         
         {/* 임시 준비 중 화면들 */}
         {currentView === 'myCharacter' && <div className="p-10 text-2xl font-bold text-slate-800">선생님 캐릭터 룸 (준비 중 🦸‍♂️)</div>}
