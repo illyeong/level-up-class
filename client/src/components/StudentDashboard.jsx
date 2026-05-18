@@ -48,21 +48,21 @@ const StudentDashboard = ({ studentCode }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* 캐릭터 카드 */}
         <div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-100 text-center">
-          <div className="w-36 h-36 mx-auto flex items-center justify-center mb-4 relative">
+          <div className="w-full h-52 mx-auto flex items-center justify-center mb-4 relative bg-indigo-50 rounded-2xl overflow-hidden border border-indigo-100">
             {studentData?.characterImage ? (
               <img
                 src={studentData.characterImage}
                 alt="내 캐릭터"
-                className="w-full h-full object-contain drop-shadow-md"
+                className="w-full h-full object-contain scale-[3.5] drop-shadow-md"
                 onError={e => { e.target.style.display = 'none'; }}
               />
             ) : (
-              <div className="w-full h-full bg-indigo-100 rounded-full flex items-center justify-center text-5xl border-4 border-white shadow-inner">
+              <div className="w-full h-full flex items-center justify-center text-6xl">
                 {studentData?.parts ? '🦸‍♂️' : '🧑‍🎓'}
               </div>
             )}
             {/* 레벨 뱃지 */}
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white px-3 py-0.5 rounded-full font-bold text-xs shadow-md border-2 border-white whitespace-nowrap">
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white px-3 py-0.5 rounded-full font-bold text-xs shadow-md border-2 border-white whitespace-nowrap">
               Lv. {level}
             </div>
           </div>

@@ -15,7 +15,7 @@ const NavigationBar = ({ changeView, currentView }) => {
     {
       id: 'dashboard', icon: iconDashboard, title: t('menu.dashboard', '대시보드'), isReady: true,
       subMenus: [
-        { title: t('submenu.status', '학급 현황'), id: 'dashboard' }, 
+        { title: '우리반 전체 보기', id: 'classAll' },
         { title: t('submenu.notice', '알림장'), id: 'notice' }
       ]
     },
