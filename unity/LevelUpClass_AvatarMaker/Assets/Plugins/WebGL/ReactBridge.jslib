@@ -33,7 +33,7 @@ mergeInto(LibraryManager.library, {
     var funcName = UTF8ToString(funcNamePtr);
     window.addEventListener("message", function(event) {
       if (!event.data || !event.data.type) return;
-      unityInstance.SendMessage(objName, funcName, JSON.stringify(event.data));
+      SendMessage(objName, funcName, JSON.stringify(event.data));
     });
   }
 
