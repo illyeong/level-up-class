@@ -1,18 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 
-const StudentDashboard = () => {
+const StudentDashboard = ({ studentCode }) => {
   const [student, setStudent] = useState(null);
-  const studentUid = localStorage.getItem('currentStudentUid') || 'test_student_01';
 
   useEffect(() => {
     const load = async () => {
-      const snap = await getDoc(doc(db, 'students', studentUid));
-      if (snap.exists()) setStudent(snap.data());
+      try {
+        if (studentCode) {
+          const q = query(collection(db, 'students'), where('studentCode', '==', studentCode));
+          const snap = await getDocs(q);
+          if (!snap.empty) setStudent(snap.docs[0].data());
+        } else {
+          const uid = localStorage.getItem('currentStudentUid');
+          if (uid) {
+            const snap = await getDoc(doc(db, 'students', uid));
+            if (snap.exists()) setStudent(snap.data());
+          }
+        }
+      } catch (e) { console.error(e); }
     };
     load();
-  }, [studentUid]);
+  }, [studentCode]);
 
   const name     = student?.studentCode || '용감한 용사';
   const level    = student?.level || 1;
@@ -27,7 +37,7 @@ const StudentDashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* 캐릭터 정보 카드 */}
         <div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-100 text-center">
-          <div className="w-32 h-32 bg-indigo-100 rounded-full mx-auto flex items-center justify-center mb-4 border-4 border-white shadow-inner overflow-hidden">
+          <div className="w-40 h-48 bg-indigo-50 rounded-2xl mx-auto flex items-center justify-center mb-4 border-2 border-indigo-100 shadow-inner overflow-hidden">
             {image
               ? <img src={image} alt="캐릭터" className="w-full h-full object-contain" />
               : <span className="text-5xl">🧑‍🎓</span>

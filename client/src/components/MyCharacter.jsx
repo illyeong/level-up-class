@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 
-export default function MyCharacter() {
+export default function MyCharacter({ studentCode }) {
   const { t } = useTranslation();
   const [studentData, setStudentData] = useState(null);
-  const studentUid = localStorage.getItem('currentStudentUid') || 'test_student_01';
 
   useEffect(() => {
     const load = async () => {
-      const snap = await getDoc(doc(db, 'students', studentUid));
-      if (snap.exists()) setStudentData(snap.data());
+      try {
+        if (studentCode) {
+          const q = query(collection(db, 'students'), where('studentCode', '==', studentCode));
+          const snap = await getDocs(q);
+          if (!snap.empty) setStudentData(snap.docs[0].data());
+        } else {
+          const uid = localStorage.getItem('currentStudentUid');
+          if (uid) {
+            const snap = await getDoc(doc(db, 'students', uid));
+            if (snap.exists()) setStudentData(snap.data());
+          }
+        }
+      } catch (e) { console.error(e); }
     };
     load();
-  }, [studentUid]);
+  }, [studentCode]);
 
   const name    = studentData?.studentCode || '용사';
   const level   = studentData?.level || 1;
@@ -38,9 +48,8 @@ export default function MyCharacter() {
         <div className="lg:col-span-1 bg-white rounded-3xl shadow-lg border border-slate-100 p-8 flex flex-col items-center justify-center transform transition-all hover:-translate-y-1 hover:shadow-xl">
 
           {/* 아바타 이미지 영역 */}
-          <div className="relative w-40 h-40 mb-6">
-            <div className="absolute inset-0 bg-indigo-100 rounded-full animate-pulse opacity-50"></div>
-            <div className="relative w-full h-full bg-indigo-50 border-4 border-indigo-300 rounded-full flex items-center justify-center shadow-inner overflow-hidden">
+          <div className="relative w-48 h-56 mb-6">
+            <div className="relative w-full h-full bg-indigo-50 border-2 border-indigo-200 rounded-2xl flex items-center justify-center shadow-inner overflow-hidden">
               {image
                 ? <img src={image} alt="캐릭터" className="w-full h-full object-contain" />
                 : <span className="text-6xl">🧑‍🎓</span>
