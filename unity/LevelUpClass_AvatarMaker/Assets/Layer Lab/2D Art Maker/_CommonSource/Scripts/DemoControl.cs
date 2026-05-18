@@ -149,14 +149,14 @@ namespace LayerLab.ArtMaker
         {
             yield return new UnityEngine.WaitForEndOfFrame();
 
-            Texture2D screenshot = ScreenCapture.CaptureScreenshotAsTexture();
-            byte[]    bytes      = screenshot.EncodeToPNG();
-            string    imageBase64 = "data:image/png;base64," + Convert.ToBase64String(bytes);
-            Destroy(screenshot);
+            // 전용 캡처 카메라로 캐릭터만 찍기 (없으면 전체 스크린샷 fallback)
+            string imageBase64 = CharacterCapture.Instance != null
+                ? CharacterCapture.Instance.Capture()
+                : "data:image/png;base64," + Convert.ToBase64String(
+                    ScreenCapture.CaptureScreenshotAsTexture().EncodeToPNG());
 
             // 결제 후 보유 파츠 갱신 (다음부터 재결제 안 되게)
-            var newOwned = new Dictionary<PartsType, int>(Player.Instance.PartsManager.ActiveIndices);
-            SetOwnedParts(newOwned);
+            SetOwnedParts(new Dictionary<PartsType, int>(Player.Instance.PartsManager.ActiveIndices));
 
             #if UNITY_WEBGL && !UNITY_EDITOR
                 SendCharacterDataToReact(jsonParts, imageBase64);
