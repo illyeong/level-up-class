@@ -37,9 +37,9 @@ const StudentDashboard = ({ studentCode }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* 캐릭터 정보 카드 */}
         <div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-100 text-center">
-          <div className="w-full h-56 bg-indigo-50 rounded-2xl mx-auto flex items-center justify-center mb-4 border-2 border-indigo-100 shadow-inner overflow-hidden">
+          <div className="w-full h-64 bg-indigo-50 rounded-2xl mx-auto flex items-center justify-center mb-4 border-2 border-indigo-100 shadow-inner overflow-hidden">
             {image
-              ? <img src={image} alt="캐릭터" className="w-full h-full object-contain scale-[3]" />
+              ? <img src={image} alt="캐릭터" className="w-full h-full object-contain scale-[4]" />
               : <span className="text-5xl">🧑‍🎓</span>
             }
           </div>

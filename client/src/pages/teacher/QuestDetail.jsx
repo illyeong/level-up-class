@@ -386,9 +386,9 @@ function QuestDetail({ questId, onBack, isModal = false }) {
               )}
 
               {/* 캐릭터 이미지 영역 */}
-              <div className="h-20 bg-gradient-to-b from-slate-50 to-white flex items-center justify-center border-b border-slate-100">
-                {student.parts
-                  ? <span className="text-4xl drop-shadow-sm">🦸‍♂️</span>
+              <div className="h-20 bg-gradient-to-b from-slate-50 to-white flex items-center justify-center border-b border-slate-100 overflow-hidden">
+                {student.characterImage
+                  ? <img src={student.characterImage} alt="캐릭터" className="h-full w-full object-contain scale-[2.5]" onError={e => { e.target.style.display='none'; }} />
                   : <span className="text-4xl opacity-30">🧍</span>
                 }
               </div>
