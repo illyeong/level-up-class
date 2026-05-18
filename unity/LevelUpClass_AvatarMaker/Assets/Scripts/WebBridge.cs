@@ -57,6 +57,27 @@ public class WebBridge : MonoBehaviour
         partsManager.EquipParts(PartsType.Gear_Right, p.Gear_Right);
         partsManager.EquipParts(PartsType.Top,        p.Top);
         partsManager.EquipParts(PartsType.Skin,       p.Skin);
+
+        // 불러온 파츠를 DemoControl에 등록 → 동일 파츠 재선택 시 결제 0원
+        DemoControl.Instance?.SetOwnedParts(new System.Collections.Generic.Dictionary<PartsType, int>
+        {
+            { PartsType.Back,       p.Back       },
+            { PartsType.Beard,      p.Beard      },
+            { PartsType.Boots,      p.Boots      },
+            { PartsType.Bottom,     p.Bottom     },
+            { PartsType.Brow,       p.Brow       },
+            { PartsType.Eyes,       p.Eyes       },
+            { PartsType.Gloves,     p.Gloves     },
+            { PartsType.Hair_Short, p.Hair_Short },
+            { PartsType.Hair_Hat,   p.Hair_Hat   },
+            { PartsType.Helmet,     p.Helmet     },
+            { PartsType.Mouth,      p.Mouth      },
+            { PartsType.Eyewear,    p.Eyewear    },
+            { PartsType.Gear_Left,  p.Gear_Left  },
+            { PartsType.Gear_Right, p.Gear_Right },
+            { PartsType.Top,        p.Top        },
+            { PartsType.Skin,       p.Skin       },
+        });
     }
 
     // ── 직렬화 클래스 ─────────────────────────────────────────────

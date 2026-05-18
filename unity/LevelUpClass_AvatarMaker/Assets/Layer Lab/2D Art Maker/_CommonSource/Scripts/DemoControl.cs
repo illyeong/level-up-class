@@ -1,8 +1,9 @@
 using System;
-using TMPro; 
+using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using System.Runtime.InteropServices; 
+using System.Runtime.InteropServices;
 
 namespace LayerLab.ArtMaker
 {
@@ -33,7 +34,12 @@ namespace LayerLab.ArtMaker
         #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void SendPurchaseDataToReact(int totalCost, string equipmentJson);
+        [DllImport("__Internal")]
+        private static extern void SendCharacterDataToReact(string partsJson, string imageBase64);
         #endif
+
+        // Firebase에서 불러온 보유 파츠 (이미 결제 완료된 것들)
+        private Dictionary<PartsType, int> _ownedParts = new();
 
         private void Awake() { Instance = this; }
 
@@ -53,9 +59,8 @@ namespace LayerLab.ArtMaker
             PanelPreset.Init();
             AnimationController.Instance.Init();
             
-            ColorPresetManager.Instance.SetRandomAllColor();
-            StartCoroutine(UpdateHexAfterRandomColors());
-            Player.Instance.PartsManager.ClearClothes(); 
+            // 피부색은 랜덤 아닌 기본값 유지 (Firebase 로드 시 덮어씀)
+            Player.Instance.PartsManager.ClearClothes();
 
             Player.Instance.PartsManager.OnChangedParts += (type, index) => UpdateDiamondCost();
             UpdateDiamondCost(); 
@@ -72,6 +77,13 @@ namespace LayerLab.ArtMaker
             if (purchaseButton != null) purchaseButton.SetActive(CurrentPlayMode == PlayMode.Home);
         }
 
+        /// <summary>Firebase에서 불러온 보유 파츠를 등록 — 이미 결제된 것은 비용에서 제외</summary>
+        public void SetOwnedParts(Dictionary<PartsType, int> owned)
+        {
+            _ownedParts = owned ?? new();
+            UpdateDiamondCost();
+        }
+
         public void UpdateDiamondCost()
         {
             int count = 0;
@@ -82,13 +94,16 @@ namespace LayerLab.ArtMaker
                 if (pType == PartsType.None || pType == PartsType.Skin) continue;
                 if (activeIndices.TryGetValue(pType, out int idx))
                 {
+                    // 보유 중인 파츠와 동일하면 결제 불필요
+                    if (_ownedParts.TryGetValue(pType, out int ownedIdx) && idx == ownedIdx) continue;
+
                     if (slot.CanHide) { if (idx >= 0) count++; }
                     else { if (idx > 0) count++; }
                 }
             }
             currentTotalCost = count * 100;
             if (textTotalDiamonds != null) textTotalDiamonds.text = $"결제하기\n{currentTotalCost} 다이아";
-            
+
             Canvas.ForceUpdateCanvases();
         }
 
@@ -119,12 +134,34 @@ namespace LayerLab.ArtMaker
         {
             string jsonParts = "{";
             foreach (var pair in Player.Instance.PartsManager.ActiveIndices) jsonParts += $"\"{pair.Key}\":{pair.Value},";
-            jsonParts = jsonParts.TrimEnd(',') + "}"; 
+            jsonParts = jsonParts.TrimEnd(',') + "}";
 
             #if UNITY_WEBGL && !UNITY_EDITOR
                 SendPurchaseDataToReact(currentTotalCost, jsonParts);
             #endif
             Debug.Log($"[유니티] 결제 다이아: {currentTotalCost}, 데이터: {jsonParts}");
+
+            // 구매 완료 후 스크린샷 캡처해서 React로 전송
+            StartCoroutine(CaptureAndSendCharacter(jsonParts));
+        }
+
+        private System.Collections.IEnumerator CaptureAndSendCharacter(string jsonParts)
+        {
+            yield return new UnityEngine.WaitForEndOfFrame();
+
+            Texture2D screenshot = ScreenCapture.CaptureScreenshotAsTexture();
+            byte[]    bytes      = screenshot.EncodeToPNG();
+            string    imageBase64 = "data:image/png;base64," + Convert.ToBase64String(bytes);
+            Destroy(screenshot);
+
+            // 결제 후 보유 파츠 갱신 (다음부터 재결제 안 되게)
+            var newOwned = new Dictionary<PartsType, int>(Player.Instance.PartsManager.ActiveIndices);
+            SetOwnedParts(newOwned);
+
+            #if UNITY_WEBGL && !UNITY_EDITOR
+                SendCharacterDataToReact(jsonParts, imageBase64);
+            #endif
+            Debug.Log("[유니티] 캐릭터 이미지 전송 완료");
         }
 
         public void OnClick_RandomParts()

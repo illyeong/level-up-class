@@ -16,6 +16,17 @@ mergeInto(LibraryManager.library, {
     }, "*");
   },
 
+  // 캐릭터 이미지 + 파츠를 React로 전송 (구매 완료 후 스크린샷)
+  SendCharacterDataToReact: function(partsJsonPtr, imageBase64Ptr) {
+    var partsJson   = UTF8ToString(partsJsonPtr);
+    var imageBase64 = UTF8ToString(imageBase64Ptr);
+    window.parent.postMessage({
+      type: "UNITY_SAVE_CHARACTER",
+      parts: JSON.parse(partsJson),
+      characterImage: imageBase64
+    }, "*");
+  },
+
   // React → Unity 메시지 수신 등록
   RegisterMessageListener: function(objNamePtr, funcNamePtr) {
     var objName  = UTF8ToString(objNamePtr);
