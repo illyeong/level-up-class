@@ -51,7 +51,7 @@ export default function MyCharacter({ studentCode }) {
           <div className="relative w-48 h-56 mb-6">
             <div className="relative w-full h-full bg-indigo-50 border-2 border-indigo-200 rounded-2xl flex items-center justify-center shadow-inner overflow-hidden">
               {image
-                ? <img src={image} alt="캐릭터" className="w-full h-full object-contain scale-[2]" />
+                ? <img src={image} alt="캐릭터" className="w-full h-full object-contain scale-[3]" />
                 : <span className="text-6xl">🧑‍🎓</span>
               }
             </div>
