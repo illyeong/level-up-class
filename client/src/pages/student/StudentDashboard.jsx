@@ -39,7 +39,7 @@ const StudentDashboard = ({ studentCode }) => {
         <div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-100 text-center">
           <div className="w-40 h-48 bg-indigo-50 rounded-2xl mx-auto flex items-center justify-center mb-4 border-2 border-indigo-100 shadow-inner overflow-hidden">
             {image
-              ? <img src={image} alt="캐릭터" className="w-full h-full object-contain" />
+              ? <img src={image} alt="캐릭터" className="w-full h-full object-contain scale-[2]" />
               : <span className="text-5xl">🧑‍🎓</span>
             }
           </div>
