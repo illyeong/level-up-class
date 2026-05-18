@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, writeBatch, serverTimestamp, query, orderBy, limit } from 'firebase/firestore';
-import { db } from '../../firebase'; 
+import { db } from '../../firebase';
 
-import iconGold from '../../assets/images/icon-gold.png'; 
-import iconDiamond from '../../assets/images/icon-diamond.png'; 
+import iconGold from '../../assets/images/icon-gold.png';
+import iconDiamond from '../../assets/images/icon-diamond.png';
+import iconQuest from '../../assets/images/icon-quest.png'; 
 
 function TeacherDashboard() {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [questStats, setQuestStats] = useState([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState(''); 
@@ -36,8 +38,33 @@ function TeacherDashboard() {
     }
   };
 
+  const fetchQuestStats = async () => {
+    try {
+      const questsSnap = await getDocs(collection(db, 'quests'));
+      const activeQuests = questsSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(q => q.active)
+        .sort((a, b) => {
+          if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
+          return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+        });
+
+      const stats = await Promise.all(
+        activeQuests.map(async q => {
+          const snap = await getDocs(collection(db, 'quests', q.id, 'completions'));
+          const checkedCount = snap.docs.filter(d => d.data().checked === true).length;
+          return { ...q, checkedCount };
+        })
+      );
+      setQuestStats(stats);
+    } catch (err) {
+      console.error('퀘스트 통계 에러:', err);
+    }
+  };
+
   useEffect(() => {
     fetchStudents();
+    fetchQuestStats();
   }, []);
 
   const openModal = (type) => {
@@ -168,6 +195,57 @@ function TeacherDashboard() {
           </button>
         </div>
       </div>
+
+      {/* 퀘스트 현황 섹션 */}
+      {questStats.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <img src={iconQuest} alt="퀘스트" className="w-6 h-6 object-contain" />
+            <h2 className="font-extrabold text-slate-700 text-base">오늘의 퀘스트 현황</h2>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {questStats.map(quest => {
+              const total = students.length || 1;
+              const pct = Math.round((quest.checkedCount / total) * 100);
+              const isDaily = quest.type === 'daily';
+              return (
+                <div key={quest.id}
+                  className={`shrink-0 w-52 rounded-2xl shadow-sm border-2 overflow-hidden
+                    ${isDaily
+                      ? 'border-sky-200 bg-gradient-to-b from-sky-50 to-white'
+                      : 'border-violet-200 bg-gradient-to-b from-violet-50 to-white'}`}>
+                  {/* 상단 타입 띠 */}
+                  <div className={`px-3 py-1.5 text-[10px] font-extrabold tracking-wide
+                    ${isDaily ? 'bg-sky-500 text-white' : 'bg-violet-500 text-white'}`}>
+                    {isDaily ? '📅 일일퀘스트' : '📆 주간퀘스트'}
+                  </div>
+                  <div className="p-3">
+                    <div className="font-extrabold text-sm text-slate-800 mb-2 leading-tight truncate">
+                      {quest.title}
+                    </div>
+                    {/* 진행률 */}
+                    <div className="flex justify-between text-xs font-bold mb-1">
+                      <span className={isDaily ? 'text-sky-600' : 'text-violet-600'}>
+                        {quest.checkedCount}명 / {students.length}명
+                      </span>
+                      <span className="text-slate-500 font-extrabold">{pct}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all
+                          ${isDaily
+                            ? 'bg-gradient-to-r from-sky-400 to-sky-600'
+                            : 'bg-gradient-to-r from-violet-400 to-violet-600'}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {students.map((student) => (
