@@ -6,7 +6,7 @@ import iconGold from '../../assets/images/icon-gold.png';
 import iconDiamond from '../../assets/images/icon-diamond.png';
 import iconQuest from '../../assets/images/icon-quest.png'; 
 
-function TeacherDashboard() {
+function TeacherDashboard({ onStudentTestLogin }) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [questStats, setQuestStats] = useState([]);
@@ -178,6 +178,13 @@ function TeacherDashboard() {
         </div>
         
         <div className="flex flex-wrap gap-2">
+          {onStudentTestLogin && (
+            <button
+              onClick={() => onStudentTestLogin('SINSEOK-5-01')}
+              className="flex items-center gap-1.5 bg-amber-400 hover:bg-amber-500 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm mr-1">
+              🧪 SINSEOK-5-01 학생 테스트
+            </button>
+          )}
           <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors mr-2 text-sm">
             📋 지급/차감 내역 보기
           </button>

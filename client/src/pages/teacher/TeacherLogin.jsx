@@ -1,25 +1,28 @@
 import React, { useState } from 'react';
 import TeacherLayout from './TeacherLayout'; // 🌟 방금 만든 레이아웃 뼈대 불러오기
 
-function TeacherLogin() {
+function TeacherLogin({ onStudentTestLogin }) {
   const [teacherUser, setTeacherUser] = useState(null);
 
   const handleDirectLogin = () => {
     setTeacherUser({
-      displayName: "신석초 선생님", 
-      uid: "admin_master_001"    
+      displayName: "신석초 선생님",
+      uid: "admin_master_001"
     });
   };
 
   const handleLogout = () => {
-    window.location.reload(); 
+    window.location.reload();
   };
 
-  // =========================================================
-  // 🌟 로그인 성공 시: 네비게이션 바가 들어있는 '레이아웃' 화면으로 쏙 넘어갑니다!
-  // =========================================================
   if (teacherUser) {
-    return <TeacherLayout user={teacherUser} onLogout={handleLogout} />;
+    return (
+      <TeacherLayout
+        user={teacherUser}
+        onLogout={handleLogout}
+        onStudentTestLogin={onStudentTestLogin}
+      />
+    );
   }
 
   // =========================================================

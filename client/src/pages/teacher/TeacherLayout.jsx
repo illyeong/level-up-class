@@ -6,7 +6,7 @@ import AccountIssue from './AccountIssue';
 import TeacherDashboard from './TeacherDashboard';
 import QuestManage from './QuestManage';
 
-function TeacherLayout({ user, onLogout }) {
+function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
   const [currentView, setCurrentView] = useState('dashboard');
 
   return (
@@ -22,7 +22,7 @@ function TeacherLayout({ user, onLogout }) {
       <main className="flex-1 overflow-auto relative bg-slate-100">
         
         {/* 🌟 가짜 글씨를 없애고 "진짜 대시보드 컴포넌트"를 연결했습니다! */}
-        {currentView === 'dashboard' && <TeacherDashboard />}
+        {currentView === 'dashboard' && <TeacherDashboard onStudentTestLogin={onStudentTestLogin} />}
 
         {/* 학생 계정 발급 화면 */}
         {currentView === 'accountIssue'    && <AccountIssue user={user} />}

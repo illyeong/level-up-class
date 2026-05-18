@@ -2,23 +2,26 @@ import React, { useState } from 'react';
 import NavigationBar from './components/NavigationBar';
 import MyCharacter from './components/MyCharacter';
 import StudentDashboard from './components/StudentDashboard';
-import AvatarRoom from './pages/student/AvatarShop.jsx'; // 이름 바꾼 아바타 상점 파일
+import AvatarRoom from './pages/student/AvatarShop.jsx';
+import StudentQuestPage from './pages/student/StudentQuestPage.jsx';
 import TeacherLogin from './pages/teacher/TeacherLogin.jsx';
 
 function App() {
-  // 🌟 주소창 대신 '비밀 버튼 클릭'으로 관리자 화면을 띄우는 상태!
   const [isTeacherMode, setIsTeacherMode] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard');
+  const [testStudentCode, setTestStudentCode] = useState(null);
 
-  // =========================================================
-  // 1. 관리자 모드가 켜졌을 때 (비밀 통로 진입 성공!)
-  // =========================================================
+  // 교사 페이지에서 학생 계정으로 테스트 로그인
+  const handleStudentTestLogin = (code) => {
+    setTestStudentCode(code);
+    setIsTeacherMode(false);
+    setCurrentView('quest');
+  };
+
   if (isTeacherMode) {
     return (
       <div className="relative w-full h-screen">
-        {/* 선생님 로그인 화면 렌더링 */}
-        <TeacherLogin />
-
+        <TeacherLogin onStudentTestLogin={handleStudentTestLogin} />
       </div>
     );
   }
@@ -35,9 +38,7 @@ function App() {
         {currentView === 'myCharacter' && <MyCharacter />}
         {currentView === 'avatarRoom' && <AvatarRoom />}
         
-        {currentView === 'quest' && (
-          <div className="p-8 text-2xl font-bold text-slate-800">퀘스트 화면 (준비 중 ⚔️)</div>
-        )}
+        {currentView === 'quest' && <StudentQuestPage studentCode={testStudentCode} />}
         {currentView === 'academy' && (
           <div className="p-8 text-2xl font-bold text-slate-800">아카데미 화면 (준비 중 📚)</div>
         )}
