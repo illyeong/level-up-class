@@ -34,9 +34,9 @@ function App() {
       <NavigationBar changeView={setCurrentView} currentView={currentView} />
       
       <main className="flex-1 overflow-auto relative">
-        {currentView === 'dashboard' && <StudentDashboard />}
-        {currentView === 'myCharacter' && <MyCharacter />}
-        {currentView === 'avatarRoom' && <AvatarRoom />}
+        {currentView === 'dashboard' && <StudentDashboard studentCode={testStudentCode} />}
+        {currentView === 'myCharacter' && <MyCharacter studentCode={testStudentCode} />}
+        {currentView === 'avatarRoom' && <AvatarRoom studentCode={testStudentCode} />}
         
         {currentView === 'quest' && <StudentQuestPage studentCode={testStudentCode} />}
         {currentView === 'academy' && (

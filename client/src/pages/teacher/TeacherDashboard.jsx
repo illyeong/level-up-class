@@ -258,7 +258,18 @@ function TeacherDashboard({ onStudentTestLogin }) {
         {students.map((student) => (
           <div key={student.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow relative">
             <div className="h-28 bg-gradient-to-b from-slate-50 to-white flex items-center justify-center border-b border-slate-100 relative">
-              {student.parts ? <span className="text-6xl drop-shadow-sm">🦸‍♂️</span> : <span className="text-6xl drop-shadow-sm opacity-50">🧍</span>}
+              {student.characterImage ? (
+                <img
+                  src={student.characterImage}
+                  alt="캐릭터"
+                  className="h-20 object-contain drop-shadow-sm"
+                  onError={e => { e.target.style.display = 'none'; }}
+                />
+              ) : student.parts ? (
+                <span className="text-6xl drop-shadow-sm">🦸‍♂️</span>
+              ) : (
+                <span className="text-6xl drop-shadow-sm opacity-30">🧍</span>
+              )}
               <div className="absolute top-2 left-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
                 {student.studentCode.split('-').pop()}번
               </div>

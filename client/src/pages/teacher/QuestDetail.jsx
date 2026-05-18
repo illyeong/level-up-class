@@ -27,7 +27,7 @@ const getStudentNum = (studentCode) => {
   return parts[parts.length - 1];
 };
 
-function QuestDetail({ questId, onBack }) {
+function QuestDetail({ questId, onBack, isModal = false }) {
   const [quest, setQuest] = useState(null);
   const [students, setStudents] = useState([]);
   const [completions, setCompletions] = useState({});
@@ -217,10 +217,12 @@ function QuestDetail({ questId, onBack }) {
 
       {/* 상단: 뒤로가기 + 제목 + 배지 */}
       <div className="flex items-center flex-wrap gap-3 mb-6">
-        <button onClick={onBack}
-          className="flex items-center gap-1 text-slate-500 hover:text-slate-800 font-bold text-sm bg-white px-3 py-2 rounded-xl border border-slate-200 hover:border-slate-400 transition-colors">
-          ← 목록으로
-        </button>
+        {!isModal && (
+          <button onClick={onBack}
+            className="flex items-center gap-1 text-slate-500 hover:text-slate-800 font-bold text-sm bg-white px-3 py-2 rounded-xl border border-slate-200 hover:border-slate-400 transition-colors">
+            ← 목록으로
+          </button>
+        )}
         <h1 className="text-2xl font-extrabold text-slate-800">{quest.title}</h1>
         <div className="flex gap-1.5 flex-wrap">
           <span className={`text-xs font-bold px-2.5 py-1 rounded-full

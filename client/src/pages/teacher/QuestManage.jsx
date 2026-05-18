@@ -519,10 +519,6 @@ function QuestManage() {
   };
 
   // 상세 페이지
-  if (selectedQuestId) {
-    return <QuestDetail questId={selectedQuestId} onBack={() => setSelectedQuestId(null)} />;
-  }
-
   const filtered = activeQuests.filter(q => filter === 'all' || q.type === filter);
 
   return (
@@ -648,6 +644,28 @@ function QuestManage() {
           onClose={() => setIsFormOpen(false)}
           onToggleSkill={toggleSkill}
         />
+      )}
+
+      {/* 퀘스트 상세 팝업 모달 */}
+      {selectedQuestId && (
+        <div
+          className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setSelectedQuestId(null); }}
+        >
+          <div className="bg-slate-100 rounded-2xl w-full max-w-6xl h-[90vh] overflow-y-auto relative shadow-2xl">
+            {/* 닫기 버튼 */}
+            <button
+              onClick={() => setSelectedQuestId(null)}
+              className="sticky top-4 float-right mr-4 z-10 bg-white hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-full w-9 h-9 flex items-center justify-center shadow-md font-bold text-lg transition-colors border border-slate-200">
+              ✕
+            </button>
+            <QuestDetail
+              questId={selectedQuestId}
+              onBack={() => setSelectedQuestId(null)}
+              isModal
+            />
+          </div>
+        </div>
       )}
     </div>
   );

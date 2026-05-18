@@ -1,53 +1,104 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../firebase';
 
-const StudentDashboard = () => {
+const StudentDashboard = ({ studentCode }) => {
+  const [studentData, setStudentData] = useState(null);
+  const [isLoading, setIsLoading]     = useState(false);
+
+  useEffect(() => {
+    if (!studentCode) return;
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const q    = query(collection(db, 'students'), where('studentCode', '==', studentCode));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          setStudentData({ id: snap.docs[0].id, ...snap.docs[0].data() });
+        }
+      } catch (err) {
+        console.error('학생 데이터 로딩 에러:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, [studentCode]);
+
+  const name     = studentData?.name     || studentData?.studentCode || '용감한 용사';
+  const level    = studentData?.level    || 5;
+  const exp      = studentData?.exp      || 0;
+  const maxExp   = studentData?.maxExp   || 1000;
+  const diamonds = studentData?.diamonds ?? 0;
+  const gold     = studentData?.gold     ?? 0;
+  const expPct   = Math.min(100, Math.round((exp / maxExp) * 100));
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-slate-400 font-bold">불러오는 중...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8 text-gray-800">🏰 학생 대시보드</h1>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* 캐릭터 정보 카드 */}
+        {/* 캐릭터 카드 */}
         <div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-100 text-center">
-          <div className="w-32 h-32 bg-indigo-100 rounded-full mx-auto flex items-center justify-center text-5xl mb-4 border-4 border-white shadow-inner">
-            🧑‍🎓
-          </div>
-          <h2 className="text-2xl font-bold">용감한 용사</h2>
-          <p className="text-indigo-600 font-bold mb-4">Lv. 5</p>
-          
-          <div className="w-full bg-gray-200 h-3 rounded-full mb-6">
-            <div className="bg-indigo-500 h-3 rounded-full" style={{width: '45%'}}></div>
+          <div className="w-36 h-36 mx-auto flex items-center justify-center mb-4 relative">
+            {studentData?.characterImage ? (
+              <img
+                src={studentData.characterImage}
+                alt="내 캐릭터"
+                className="w-full h-full object-contain drop-shadow-md"
+                onError={e => { e.target.style.display = 'none'; }}
+              />
+            ) : (
+              <div className="w-full h-full bg-indigo-100 rounded-full flex items-center justify-center text-5xl border-4 border-white shadow-inner">
+                {studentData?.parts ? '🦸‍♂️' : '🧑‍🎓'}
+              </div>
+            )}
+            {/* 레벨 뱃지 */}
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white px-3 py-0.5 rounded-full font-bold text-xs shadow-md border-2 border-white whitespace-nowrap">
+              Lv. {level}
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-blue-50 p-3 rounded-2xl">
-              <p className="text-sm text-blue-500 font-bold">다이아</p>
-              <p className="font-bold text-xl">💎 15</p>
+          <h2 className="text-xl font-bold mt-3 text-slate-800">{name}</h2>
+
+          {/* EXP 바 */}
+          <div className="mt-4 mb-5">
+            <div className="flex justify-between text-xs text-slate-400 font-medium mb-1">
+              <span>EXP</span>
+              <span>{exp} / {maxExp}</span>
             </div>
-            <div className="bg-yellow-50 p-3 rounded-2xl">
-              <p className="text-sm text-yellow-600 font-bold">골드</p>
-              <p className="font-bold text-xl">🪙 3,000</p>
+            <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
+              <div className="bg-indigo-500 h-3 rounded-full transition-all" style={{ width: `${expPct}%` }} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-blue-50 p-3 rounded-2xl border border-blue-100">
+              <p className="text-xs text-blue-500 font-bold mb-0.5">다이아</p>
+              <p className="font-extrabold text-lg text-blue-700">💎 {diamonds.toLocaleString()}</p>
+            </div>
+            <div className="bg-yellow-50 p-3 rounded-2xl border border-yellow-100">
+              <p className="text-xs text-yellow-600 font-bold mb-0.5">골드</p>
+              <p className="font-extrabold text-lg text-amber-600">🪙 {gold.toLocaleString()}</p>
             </div>
           </div>
         </div>
 
-        {/* 퀘스트 목록 */}
+        {/* 퀘스트 요약 (우측) */}
         <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-lg border border-gray-100">
-          <h3 className="text-xl font-bold mb-6">📜 퀘스트 목록</h3>
-          <div className="space-y-4">
-            <div className="p-4 bg-green-50 rounded-xl border border-green-100 flex justify-between items-center">
-              <div>
-                <span className="text-xs bg-green-200 text-green-700 px-2 py-1 rounded font-bold">일일</span>
-                <h4 className="font-bold mt-1">마음 일기 쓰기</h4>
-              </div>
-              <button className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow">완료하기</button>
-            </div>
-            <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 flex justify-between items-center">
-              <div>
-                <span className="text-xs bg-purple-200 text-purple-700 px-2 py-1 rounded font-bold">주간</span>
-                <h4 className="font-bold mt-1">1인 1역 완수하기</h4>
-              </div>
-              <button className="bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow">진행 중</button>
-            </div>
+          <h3 className="text-xl font-bold mb-5 text-slate-800">📜 오늘의 퀘스트</h3>
+          <div className="flex flex-col items-center justify-center h-40 text-slate-400">
+            <span className="text-4xl mb-2">⚔️</span>
+            <p className="font-bold">퀘스트 탭에서 확인하세요</p>
+            <p className="text-sm mt-1">일일 퀘스트와 주간 퀘스트를 완료해 보상을 받아요!</p>
           </div>
         </div>
       </div>
