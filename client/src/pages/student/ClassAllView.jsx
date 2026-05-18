@@ -45,8 +45,11 @@ export default function ClassAllView() {
                 Lv.{s.level || 1}
               </div>
               <div className="text-xs font-bold text-slate-700 truncate w-full">
-                {s.studentCode || '?'}
+                {s.name || s.studentCode || '?'}
               </div>
+              {s.name && (
+                <div className="text-[9px] text-slate-400 truncate w-full">{s.studentCode}</div>
+              )}
             </div>
           </div>
         ))}

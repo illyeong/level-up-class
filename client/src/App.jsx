@@ -5,6 +5,7 @@ import StudentDashboard from './components/StudentDashboard';
 import AvatarRoom from './pages/student/AvatarShop.jsx';
 import StudentQuestPage from './pages/student/StudentQuestPage.jsx';
 import ClassAllView from './pages/student/ClassAllView.jsx';
+import EditProfile from './pages/student/EditProfile.jsx';
 import TeacherLogin from './pages/teacher/TeacherLogin.jsx';
 
 function App() {
@@ -40,7 +41,13 @@ function App() {
         {currentView === 'avatarRoom' && <AvatarRoom studentCode={testStudentCode} />}
         
         {currentView === 'quest' && <StudentQuestPage studentCode={testStudentCode} />}
-        {currentView === 'classAll' && <ClassAllView />}
+        {currentView === 'classAll'    && <ClassAllView />}
+        {currentView === 'editProfile' && (
+          <EditProfile
+            studentCode={testStudentCode}
+            onNameSaved={(name) => console.log('이름 저장됨:', name)}
+          />
+        )}
         {currentView === 'academy' && (
           <div className="p-8 text-2xl font-bold text-slate-800">아카데미 화면 (준비 중 📚)</div>
         )}

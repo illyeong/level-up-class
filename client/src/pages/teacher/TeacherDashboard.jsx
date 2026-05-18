@@ -278,7 +278,12 @@ function TeacherDashboard({ onStudentTestLogin }) {
               </div>
             </div>
             <div className="p-3 text-center">
-              <h3 className="text-sm font-bold text-slate-800 mb-2 truncate">{student.studentCode}</h3>
+              <h3 className="text-sm font-bold text-slate-800 mb-1 truncate">
+                {student.name || student.studentCode}
+              </h3>
+              {student.name && (
+                <div className="text-[10px] text-slate-400 font-mono truncate mb-1">{student.studentCode}</div>
+              )}
               <div className="flex flex-col gap-1 text-xs">
                 <div className="flex justify-between items-center bg-indigo-50 px-2 py-1.5 rounded-md">
                   <div className="flex items-center gap-1">

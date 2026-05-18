@@ -1,141 +1,242 @@
-// src/pages/teacher/AccountIssue.jsx
-import React, { useState, useEffect } from 'react';
-import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
-import { db } from '../../firebase'; // ⚠️ 실제 firebase.js 경로 확인!
+import React, { useState, useEffect, useRef } from 'react';
+import { collection, getDocs, writeBatch, doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
+
+// studentCode에서 자리번호 추출 (예: "SINSEOK-5-01" → 1)
+const getSeatNum = (code) => parseInt(code?.split('-').pop()) || 0;
 
 function AccountIssue({ user }) {
-  const [students, setStudents] = useState([]);
-  const [studentCount, setStudentCount] = useState(25); // 기본 생성 인원
-  const [isLoading, setIsLoading] = useState(false);
+  const [students, setStudents]         = useState([]);
+  const [studentCount, setStudentCount] = useState(25);
+  const [isLoading, setIsLoading]       = useState(false);
 
-  // DB에서 우리 반 학생 목록 불러오기
+  // 인라인 편집 상태
+  const [editingId, setEditingId]   = useState(null);   // 현재 편집 중인 학생 doc id
+  const [editField, setEditField]   = useState('');     // 'name' | 'seatNum'
+  const [editValue, setEditValue]   = useState('');
+  const inputRef = useRef(null);
+
   const fetchStudents = async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, "students"));
-      const studentList = [];
-      querySnapshot.forEach((doc) => {
-        studentList.push({ id: doc.id, ...doc.data() });
-      });
-      // 번호순(studentCode 기준) 정렬
-      studentList.sort((a, b) => a.studentCode.localeCompare(b.studentCode));
-      setStudents(studentList);
-    } catch (error) {
-      console.error("학생 목록 불러오기 에러:", error);
+      const snap = await getDocs(collection(db, 'students'));
+      const list = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => getSeatNum(a.studentCode) - getSeatNum(b.studentCode));
+      setStudents(list);
+    } catch (err) {
+      console.error('학생 목록 에러:', err);
     }
   };
 
-  useEffect(() => {
-    fetchStudents();
-  }, []);
+  useEffect(() => { fetchStudents(); }, []);
 
-  // 🌟 학생 계정 일괄 생성 로직
+  // 편집 시작
+  const startEdit = (student, field) => {
+    setEditingId(student.id);
+    setEditField(field);
+    setEditValue(field === 'name' ? (student.name || '') : String(getSeatNum(student.studentCode)));
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  // 편집 저장
+  const saveEdit = async () => {
+    if (!editingId) return;
+    const trimmed = editValue.trim();
+    try {
+      if (editField === 'name') {
+        await updateDoc(doc(db, 'students', editingId), { name: trimmed });
+        setStudents(prev => prev.map(s => s.id === editingId ? { ...s, name: trimmed } : s));
+      }
+      // seatNum은 studentCode가 ID이므로 표시만 (실제 변경 불가)
+    } catch (err) {
+      console.error('저장 에러:', err);
+      alert('저장 중 오류가 발생했습니다.');
+    } finally {
+      setEditingId(null);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') saveEdit();
+    if (e.key === 'Escape') setEditingId(null);
+  };
+
+  // 일괄 계정 생성
   const generateStudentAccounts = async () => {
-    if (!window.confirm(`정말 ${studentCount}명의 학생 계정을 새로 생성하시겠습니까?\n(기존 데이터가 있다면 덮어쓸 수 있으니 주의하세요!)`)) return;
-    
+    if (!window.confirm(
+      `정말 ${studentCount}명의 학생 계정을 새로 생성하시겠습니까?\n기존 데이터가 있다면 덮어쓸 수 있으니 주의하세요!`
+    )) return;
+
     setIsLoading(true);
     try {
       const batch = writeBatch(db);
-
       for (let i = 1; i <= studentCount; i++) {
-        // 1번부터 순서대로 번호 생성 (예: 01, 02, 03 ...)
-        const studentNumber = String(i).padStart(2, '0');
-        
-        // 아이들이 로그인할 때 쓸 아이디 (예: SINSEOK-5-01)
-        const studentCode = `SINSEOK-5-${studentNumber}`; 
-        
-        // 랜덤 4자리 PIN 번호 (비밀번호)
-        const pin = Math.floor(1000 + Math.random() * 9000).toString(); 
-        
-        // DB 문서 참조 (문서 ID를 studentCode로 지정해서 찾기 쉽게 만듦)
-        const studentRef = doc(db, "students", studentCode);
-        
-        // 생성할 초기 데이터
+        const num         = String(i).padStart(2, '0');
+        const studentCode = `SINSEOK-5-${num}`;
+        const pin         = Math.floor(1000 + Math.random() * 9000).toString();
+        const studentRef  = doc(db, 'students', studentCode);
+
         batch.set(studentRef, {
-          studentCode: studentCode,
-          pin: pin,
-          diamonds: 1000, // 초기 정착 지원금 (1000 다이아)
-          parts: "",      // 장착한 아바타 파츠 (초기엔 빈 값)
-          teacherUid: user.uid // 담당 선생님의 UID
+          studentCode,
+          pin,
+          name:       '',
+          diamonds:   1000,
+          gold:       0,
+          level:      1,
+          exp:        0,
+          maxExp:     1000,
+          parts:      '',
+          teacherUid: user.uid,
         });
       }
-
       await batch.commit();
-      alert('성공적으로 학생 계정이 발급되었습니다!');
-      fetchStudents(); 
-
-    } catch (error) {
-      console.error("계정 생성 중 에러:", error);
+      alert('학생 계정이 발급되었습니다!');
+      fetchStudents();
+    } catch (err) {
+      console.error('계정 생성 에러:', err);
       alert('계정 생성에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // 이름 일괄 저장 (여러 명을 한 번에 편집한 경우 대비)
+  const handleRowBlur = () => {
+    // 약간의 딜레이로 같은 행 내 다른 셀 클릭 감지
+    setTimeout(() => {
+      if (editingId) saveEdit();
+    }, 150);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 p-8">
       <div className="max-w-5xl mx-auto">
-        
-        {/* 상단 헤더 */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 flex justify-between items-center border border-slate-200">
+
+        {/* 헤더 */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 border border-slate-200 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">👨‍🎓 학생 계정 일괄 발급</h1>
-            <p className="text-slate-500 mt-1">우리 반 학생들의 상점 로그인 코드와 PIN 번호를 생성하고 관리합니다.</p>
+            <h1 className="text-2xl font-bold text-slate-800">👨‍🎓 학생 계정 발급</h1>
+            <p className="text-slate-500 mt-1 text-sm">학생 로그인 코드, PIN, 이름을 관리합니다.</p>
           </div>
         </div>
 
-        {/* 계정 생성 컨트롤 패널 */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 border border-indigo-100 border-l-4 border-l-indigo-500">
+        {/* 계정 생성 패널 */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 border-l-4 border-indigo-500 border border-indigo-100">
           <h2 className="text-lg font-bold text-slate-800 mb-4">🚀 학생 계정 일괄 발급</h2>
-          <div className="flex items-end gap-4">
-            <div className="flex flex-col">
-              <label className="text-sm font-medium text-slate-600 mb-1">우리 반 학생 수</label>
-              <input 
-                type="number" 
+          <div className="flex items-end gap-4 flex-wrap">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">우리 반 학생 수</label>
+              <input
+                type="number" min="1" max="50"
                 value={studentCount}
-                onChange={(e) => setStudentCount(e.target.value)}
+                onChange={e => setStudentCount(e.target.value)}
                 className="border border-slate-300 rounded-lg px-4 py-2 w-32 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                min="1" max="50"
               />
             </div>
-            <button 
+            <button
               onClick={generateStudentAccounts}
               disabled={isLoading}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-sm transition-colors disabled:bg-slate-400"
-            >
-              {isLoading ? "생성 중..." : "계정 및 PIN 번호 생성"}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-sm transition-colors disabled:bg-slate-400">
+              {isLoading ? '생성 중...' : '계정 및 PIN 번호 생성'}
             </button>
           </div>
           <p className="text-xs text-slate-400 mt-3">
-            * 생성된 계정에는 자동으로 초기 정착금 1,000 다이아가 지급됩니다.
+            * 신규 생성 시 초기 정착금 1,000 다이아가 지급됩니다. 이름 칸은 생성 후 직접 입력하거나 학생이 직접 수정합니다.
           </p>
         </div>
 
-        {/* 학생 목록 테이블 */}
+        {/* 학생 목록 */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 bg-slate-50 border-b border-slate-200">
-            <h2 className="text-lg font-bold text-slate-800">📋 학생 계정 목록 (총 {students.length}명)</h2>
+          <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-slate-800">📋 학생 목록 (총 {students.length}명)</h2>
+            <p className="text-xs text-slate-400">이름 셀을 클릭하면 수정할 수 있습니다</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
+                  <th className="p-4 font-semibold w-16 text-center">번호</th>
+                  <th className="p-4 font-semibold">이름</th>
                   <th className="p-4 font-semibold">로그인 코드 (ID)</th>
-                  <th className="p-4 font-semibold">PIN 번호 (PW)</th>
-                  <th className="p-4 font-semibold">보유 다이아 💎</th>
+                  <th className="p-4 font-semibold">PIN 번호</th>
+                  <th className="p-4 font-semibold">💎 다이아</th>
+                  <th className="p-4 font-semibold">🪙 골드</th>
                 </tr>
               </thead>
               <tbody>
                 {students.length > 0 ? (
-                  students.map((student) => (
-                    <tr key={student.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                      <td className="p-4 font-mono font-medium text-indigo-600">{student.studentCode}</td>
-                      <td className="p-4 font-mono font-bold text-rose-500 tracking-widest">{student.pin}</td>
-                      <td className="p-4 font-semibold text-slate-700">{student.diamonds.toLocaleString()}</td>
-                    </tr>
-                  ))
+                  students.map(student => {
+                    const seatNum = getSeatNum(student.studentCode);
+                    const isEditingName = editingId === student.id && editField === 'name';
+
+                    return (
+                      <tr key={student.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                        {/* 번호 */}
+                        <td className="p-4 text-center font-bold text-slate-500 text-sm">
+                          {seatNum}
+                        </td>
+
+                        {/* 이름 (인라인 편집) */}
+                        <td className="p-4">
+                          {isEditingName ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                ref={inputRef}
+                                value={editValue}
+                                onChange={e => setEditValue(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                                onBlur={handleRowBlur}
+                                placeholder="이름 입력"
+                                className="border-2 border-indigo-400 rounded-lg px-3 py-1.5 text-sm w-32 focus:outline-none"
+                              />
+                              <button
+                                onClick={saveEdit}
+                                className="text-xs bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition-colors">
+                                저장
+                              </button>
+                              <button
+                                onClick={() => setEditingId(null)}
+                                className="text-xs text-slate-400 hover:text-slate-600 px-1.5 py-1.5">
+                                취소
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => startEdit(student, 'name')}
+                              className="flex items-center gap-2 group w-full text-left">
+                              <span className={`text-sm font-bold ${student.name ? 'text-slate-800' : 'text-slate-300 italic'}`}>
+                                {student.name || '(미입력)'}
+                              </span>
+                              <span className="text-slate-300 group-hover:text-indigo-400 transition-colors text-xs">✏️</span>
+                            </button>
+                          )}
+                        </td>
+
+                        {/* 로그인 코드 */}
+                        <td className="p-4 font-mono font-medium text-indigo-600 text-sm">
+                          {student.studentCode}
+                        </td>
+
+                        {/* PIN */}
+                        <td className="p-4 font-mono font-bold text-rose-500 tracking-widest text-sm">
+                          {student.pin}
+                        </td>
+
+                        {/* 다이아 */}
+                        <td className="p-4 font-semibold text-slate-700 text-sm">
+                          {(student.diamonds || 0).toLocaleString()}
+                        </td>
+
+                        {/* 골드 */}
+                        <td className="p-4 font-semibold text-slate-700 text-sm">
+                          {(student.gold || 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan="3" className="p-8 text-center text-slate-400">
+                    <td colSpan="6" className="p-8 text-center text-slate-400">
                       아직 생성된 학생 계정이 없습니다. 위에서 계정을 발급해 주세요!
                     </td>
                   </tr>
