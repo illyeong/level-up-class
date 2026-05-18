@@ -39,47 +39,40 @@ const DEFAULT_FORM = {
   difficulty: 'easy', rewards: { exp: 100, gold: 100, diamond: 0 }, skills: [], active: true,
 };
 
-// ─────────────────────── QuestCard ───────────────────────────
-function QuestCard({ quest, onDetail, onEdit, onDuplicate, onDelete, onToggleActive }) {
+// ─────────────────────── ActiveQuestCard ─────────────────────
+function ActiveQuestCard({ quest, studentCount, onDetail, onEdit, onDuplicate, onEnd }) {
   const diff = DIFF[quest.difficulty] || DIFF.easy;
-  return (
-    <div className={`bg-white rounded-2xl shadow-sm border-2 transition-all hover:shadow-md overflow-hidden
-      ${quest.active ? 'border-slate-200' : 'border-slate-100 opacity-60'}`}>
-      <div className="p-4 pb-3">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="font-extrabold text-slate-800 text-sm leading-tight">{quest.title}</h3>
-          <button
-            onClick={onToggleActive}
-            className={`shrink-0 w-10 h-5 rounded-full transition-colors relative
-              ${quest.active ? 'bg-indigo-500' : 'bg-slate-300'}`}
-          >
-            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all
-              ${quest.active ? 'left-5' : 'left-0.5'}`} />
-          </button>
-        </div>
+  const isDaily = quest.type === 'daily';
+  const checked = quest.checkedCount || 0;
+  const pct = studentCount > 0 ? Math.round((checked / studentCount) * 100) : 0;
 
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border-2 border-slate-200 hover:shadow-md transition-all overflow-hidden">
+      <div className="p-4 pb-3">
+        {/* 제목 */}
+        <h3 className="font-extrabold text-slate-800 text-sm leading-tight mb-2">{quest.title}</h3>
+
+        {/* 배지 */}
         <div className="flex flex-wrap gap-1 mb-2">
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full
-            ${quest.type === 'daily' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`}>
-            {quest.type === 'daily' ? '일일' : '주간'}
+            ${isDaily ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`}>
+            {isDaily ? '일일퀘스트' : '주간퀘스트'}
           </span>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${diff.cls}`}>{diff.label}</span>
-          {quest.selfCheck && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">자체체크</span>
-          )}
-          {quest.repeatDaily && quest.type === 'daily' && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">매일반복</span>
-          )}
+          {quest.selfCheck   && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">자체체크</span>}
+          {quest.repeatDaily && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">매일반복</span>}
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-600 mb-2">
+        {/* 보상 */}
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-600 mb-3">
           {quest.rewards?.exp     > 0 && <span>⭐+{quest.rewards.exp}</span>}
           {quest.rewards?.gold    > 0 && <span>🪙+{quest.rewards.gold}</span>}
           {quest.rewards?.diamond > 0 && <span>💎+{quest.rewards.diamond}</span>}
         </div>
 
+        {/* 능력치 */}
         {quest.skills?.length > 0 && (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 mb-3">
             {quest.skills.map(skill => (
               <span key={skill}
                 className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border
@@ -89,9 +82,27 @@ function QuestCard({ quest, onDetail, onEdit, onDuplicate, onDelete, onToggleAct
             ))}
           </div>
         )}
+
+        {/* 진행률 */}
+        <div>
+          <div className="flex justify-between text-[11px] font-bold mb-1">
+            <span className={isDaily ? 'text-sky-600' : 'text-violet-600'}>
+              {checked}명 / {studentCount}명
+            </span>
+            <span className="text-slate-500">{pct}%</span>
+          </div>
+          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500
+                ${isDaily ? 'bg-sky-500' : 'bg-violet-500'}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
       </div>
 
-      <div className="px-4 pb-3 flex gap-1.5">
+      {/* 버튼 */}
+      <div className="px-4 pb-4 flex gap-1.5">
         <button onClick={onDetail}
           className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg font-bold text-[11px] transition-colors">
           상세보기
@@ -104,8 +115,69 @@ function QuestCard({ quest, onDetail, onEdit, onDuplicate, onDelete, onToggleAct
           className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-bold text-[11px] transition-colors">
           복제
         </button>
+        <button onClick={onEnd}
+          className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg font-bold text-[11px] transition-colors border border-rose-200">
+          종료
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────── EndedQuestCard ──────────────────────
+function EndedQuestCard({ quest, onReactivate, onDelete }) {
+  const diff = DIFF[quest.difficulty] || DIFF.easy;
+  const isDaily = quest.type === 'daily';
+  const endedDate = quest.endedAt
+    ? new Date(quest.endedAt.toDate()).toLocaleDateString('ko-KR')
+    : null;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border-2 border-slate-100 opacity-75 overflow-hidden">
+      {/* 종료 띠 */}
+      <div className="px-4 py-1.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+        <span className="text-[10px] font-bold text-slate-500">🔒 종료된 퀘스트</span>
+        {endedDate && <span className="text-[10px] text-slate-400">{endedDate} 종료</span>}
+      </div>
+
+      <div className="p-4 pb-3">
+        <h3 className="font-extrabold text-slate-600 text-sm leading-tight mb-2">{quest.title}</h3>
+
+        <div className="flex flex-wrap gap-1 mb-2">
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full
+            ${isDaily ? 'bg-sky-100 text-sky-600' : 'bg-violet-100 text-violet-600'}`}>
+            {isDaily ? '일일퀘스트' : '주간퀘스트'}
+          </span>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${diff.cls}`}>{diff.label}</span>
+          {quest.selfCheck && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-600">자체체크</span>}
+        </div>
+
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-2">
+          {quest.rewards?.exp     > 0 && <span>⭐+{quest.rewards.exp}</span>}
+          {quest.rewards?.gold    > 0 && <span>🪙+{quest.rewards.gold}</span>}
+          {quest.rewards?.diamond > 0 && <span>💎+{quest.rewards.diamond}</span>}
+        </div>
+
+        {quest.skills?.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {quest.skills.map(skill => (
+              <span key={skill}
+                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border opacity-70
+                  ${SKILL_COLORS[skill] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                {skill}+1
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="px-4 pb-4 flex gap-2">
+        <button onClick={onReactivate}
+          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl font-bold text-xs transition-colors">
+          ↺ 다시 활성화하기
+        </button>
         <button onClick={onDelete}
-          className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-lg font-bold text-[11px] transition-colors">
+          className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-xl font-bold text-xs transition-colors border border-rose-200">
           삭제
         </button>
       </div>
@@ -129,7 +201,6 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* 이름 */}
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5">퀘스트 이름 *</label>
             <input value={form.title} onChange={e => set('title', e.target.value)}
@@ -137,7 +208,6 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
               placeholder="예: 아침 독서 10분" />
           </div>
 
-          {/* 설명 */}
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5">설명 (선택)</label>
             <textarea value={form.description} onChange={e => set('description', e.target.value)}
@@ -145,7 +215,6 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
               placeholder="퀘스트 내용을 간단히 설명해주세요" />
           </div>
 
-          {/* 종류 + 난이도 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5">퀘스트 종류</label>
@@ -173,7 +242,6 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
             </div>
           </div>
 
-          {/* 자체체크 토글 */}
           <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
             <div>
               <div className="text-sm font-bold text-slate-700">학생 자체 체크</div>
@@ -187,7 +255,6 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
             </button>
           </div>
 
-          {/* 매일반복 토글 (일일퀘스트일 때만) */}
           {form.type === 'daily' && (
             <div className="flex items-center justify-between p-3 bg-orange-50 rounded-xl border border-orange-200">
               <div>
@@ -203,7 +270,6 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
             </div>
           )}
 
-          {/* 보상 */}
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-2">보상</label>
             <div className="grid grid-cols-3 gap-2">
@@ -218,7 +284,6 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
             </div>
           </div>
 
-          {/* 능력치 */}
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-2">능력치 태그 (선택)</label>
             <div className="flex flex-wrap gap-2">
@@ -263,7 +328,8 @@ function RecommendedSidebar({ onSelect }) {
           {RECOMMENDED.map((t, i) => {
             const diff = DIFF[t.difficulty] || DIFF.easy;
             return (
-              <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-200 hover:border-violet-300 hover:bg-violet-50 transition-all">
+              <div key={i}
+                className="p-3 bg-slate-50 rounded-xl border border-slate-200 hover:border-violet-300 hover:bg-violet-50 transition-all">
                 <div className="font-bold text-xs text-slate-800 mb-1.5 leading-tight">{t.title}</div>
                 <div className="flex flex-wrap gap-1 mb-1.5">
                   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full
@@ -280,8 +346,7 @@ function RecommendedSidebar({ onSelect }) {
                   {t.rewards.gold    > 0 && <span>🪙{t.rewards.gold}</span>}
                   {t.rewards.diamond > 0 && <span>💎{t.rewards.diamond}</span>}
                 </div>
-                <button
-                  onClick={() => onSelect(t)}
+                <button onClick={() => onSelect(t)}
                   className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-lg transition-colors">
                   + 추가하기
                 </button>
@@ -296,30 +361,57 @@ function RecommendedSidebar({ onSelect }) {
 
 // ─────────────────────── Main ─────────────────────────────────
 function QuestManage() {
-  const [quests, setQuests] = useState([]);
+  const [quests, setQuests]       = useState([]);
+  const [studentCount, setStudentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [mainTab, setMainTab]     = useState('active'); // 'active' | 'ended'
+  const [filter, setFilter]       = useState('all');
   const [selectedQuestId, setSelectedQuestId] = useState(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen]   = useState(false);
   const [editingQuestId, setEditingQuestId] = useState(null);
-  const [form, setForm] = useState(DEFAULT_FORM);
+  const [form, setForm]           = useState(DEFAULT_FORM);
 
-  const fetchQuests = async () => {
+  const fetchData = async () => {
     setIsLoading(true);
     try {
-      const snap = await getDocs(collection(db, 'quests'));
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-      setQuests(list);
+      const [studentsSnap, questsSnap] = await Promise.all([
+        getDocs(collection(db, 'students')),
+        getDocs(collection(db, 'quests')),
+      ]);
+
+      setStudentCount(studentsSnap.size);
+
+      const list = questsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // 각 퀘스트의 체크 완료 인원 가져오기
+      const listWithStats = await Promise.all(
+        list.map(async quest => {
+          try {
+            const snap = await getDocs(collection(db, 'quests', quest.id, 'completions'));
+            const checkedCount = snap.docs.filter(d => d.data().checked === true).length;
+            return { ...quest, checkedCount };
+          } catch {
+            return { ...quest, checkedCount: 0 };
+          }
+        })
+      );
+
+      listWithStats.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      setQuests(listWithStats);
     } catch (err) {
-      console.error('퀘스트 로딩 에러:', err);
+      console.error('데이터 로딩 에러:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => { fetchQuests(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
+  // 퀘스트 분류
+  const activeQuests = quests.filter(q => q.active !== false);
+  const endedQuests  = quests.filter(q => q.active === false);
+
+  // ── 폼 열기 ──
   const openCreate = () => {
     setEditingQuestId(null);
     setForm(DEFAULT_FORM);
@@ -329,15 +421,15 @@ function QuestManage() {
   const openEdit = (quest) => {
     setEditingQuestId(quest.id);
     setForm({
-      title: quest.title,
+      title:       quest.title,
       description: quest.description || '',
-      type: quest.type,
-      selfCheck: quest.selfCheck,
+      type:        quest.type,
+      selfCheck:   quest.selfCheck   || false,
       repeatDaily: quest.repeatDaily || false,
-      difficulty: quest.difficulty,
-      rewards: { ...quest.rewards },
-      skills: quest.skills || [],
-      active: quest.active,
+      difficulty:  quest.difficulty,
+      rewards:     { ...quest.rewards },
+      skills:      quest.skills || [],
+      active:      quest.active,
     });
     setIsFormOpen(true);
   };
@@ -348,6 +440,24 @@ function QuestManage() {
     setIsFormOpen(true);
   };
 
+  // 종료된 퀘스트를 같은 내용으로 새로 생성
+  const openReactivate = (quest) => {
+    setEditingQuestId(null);
+    setForm({
+      title:       quest.title,
+      description: quest.description || '',
+      type:        quest.type,
+      selfCheck:   quest.selfCheck   || false,
+      repeatDaily: quest.repeatDaily || false,
+      difficulty:  quest.difficulty  || 'easy',
+      rewards:     { ...quest.rewards },
+      skills:      quest.skills || [],
+      active:      true,
+    });
+    setIsFormOpen(true);
+  };
+
+  // ── CRUD ──
   const submitForm = async () => {
     if (!form.title.trim()) return alert('퀘스트 이름을 입력해주세요.');
     setIsLoading(true);
@@ -358,7 +468,7 @@ function QuestManage() {
         await addDoc(collection(db, 'quests'), { ...form, createdAt: serverTimestamp() });
       }
       setIsFormOpen(false);
-      fetchQuests();
+      fetchData();
     } catch (err) {
       console.error('저장 에러:', err);
       alert('저장 중 오류가 발생했습니다.');
@@ -367,29 +477,30 @@ function QuestManage() {
     }
   };
 
-  const toggleActive = async (quest) => {
+  const endQuest = async (questId) => {
+    if (!window.confirm('이 퀘스트를 종료할까요?\n종료된 퀘스트는 "종료된 퀘스트 보기"에서 다시 활성화할 수 있습니다.')) return;
     try {
-      await updateDoc(doc(db, 'quests', quest.id), { active: !quest.active });
-      setQuests(prev => prev.map(q => q.id === quest.id ? { ...q, active: !q.active } : q));
+      await updateDoc(doc(db, 'quests', questId), { active: false, endedAt: serverTimestamp() });
+      setQuests(prev => prev.map(q => q.id === questId ? { ...q, active: false } : q));
     } catch (err) {
-      console.error('활성화 토글 에러:', err);
+      console.error('종료 에러:', err);
     }
   };
 
   const duplicateQuest = async (quest) => {
     try {
-      const { id, createdAt, updatedAt, ...data } = quest;
+      const { id, createdAt, updatedAt, endedAt, checkedCount, ...data } = quest;
       await addDoc(collection(db, 'quests'), {
-        ...data, title: `${data.title} (복사)`, createdAt: serverTimestamp(),
+        ...data, title: `${data.title} (복사)`, active: true, createdAt: serverTimestamp(),
       });
-      fetchQuests();
+      fetchData();
     } catch (err) {
       console.error('복제 에러:', err);
     }
   };
 
   const deleteQuest = async (questId) => {
-    if (!window.confirm('이 퀘스트를 삭제할까요?')) return;
+    if (!window.confirm('이 퀘스트를 완전히 삭제할까요? 복구할 수 없습니다.')) return;
     try {
       await deleteDoc(doc(db, 'quests', questId));
       setQuests(prev => prev.filter(q => q.id !== questId));
@@ -407,11 +518,12 @@ function QuestManage() {
     }));
   };
 
+  // 상세 페이지
   if (selectedQuestId) {
     return <QuestDetail questId={selectedQuestId} onBack={() => setSelectedQuestId(null)} />;
   }
 
-  const filtered = quests.filter(q => filter === 'all' || q.type === filter);
+  const filtered = activeQuests.filter(q => filter === 'all' || q.type === filter);
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
@@ -425,60 +537,107 @@ function QuestManage() {
               <p className="text-slate-500 text-sm">학생들에게 줄 퀘스트를 만들고 관리합니다.</p>
             </div>
           </div>
-          <button onClick={openCreate}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
-            + 새 퀘스트 만들기
-          </button>
+          <div className="flex items-center gap-3">
+            {/* 탭 전환 */}
+            <div className="flex rounded-xl border-2 border-slate-200 overflow-hidden">
+              <button
+                onClick={() => setMainTab('active')}
+                className={`px-4 py-2 text-sm font-bold transition-colors
+                  ${mainTab === 'active' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+                활성 퀘스트 ({activeQuests.length})
+              </button>
+              <button
+                onClick={() => setMainTab('ended')}
+                className={`px-4 py-2 text-sm font-bold transition-colors
+                  ${mainTab === 'ended' ? 'bg-slate-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+                종료된 퀘스트 ({endedQuests.length})
+              </button>
+            </div>
+            <button onClick={openCreate}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
+              + 새 퀘스트 만들기
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 바디: 좌측 추천 + 우측 목록 */}
-      <div className="flex gap-4 px-6 pb-6 flex-1">
-        {/* 좌측: 추천 퀘스트 사이드바 */}
-        <RecommendedSidebar onSelect={openFromTemplate} />
+      {/* ── 활성 퀘스트 탭 ── */}
+      {mainTab === 'active' && (
+        <div className="flex gap-4 px-6 pb-6 flex-1">
+          {/* 좌측: 추천 퀘스트 */}
+          <RecommendedSidebar onSelect={openFromTemplate} />
 
-        {/* 우측: 메인 퀘스트 목록 */}
-        <div className="flex-1 min-w-0">
-          {/* 필터 */}
-          <div className="flex gap-2 mb-4 items-center">
-            {[['all', '전체'], ['daily', '일일퀘스트'], ['weekly', '주간퀘스트']].map(([val, label]) => (
-              <button key={val} onClick={() => setFilter(val)}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors
-                  ${filter === val
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'bg-white text-slate-600 hover:bg-indigo-50 border border-slate-200'}`}>
-                {label}
-              </button>
-            ))}
-            <span className="ml-auto text-sm text-slate-400 font-medium">{filtered.length}개</span>
+          {/* 우측: 활성 퀘스트 목록 */}
+          <div className="flex-1 min-w-0">
+            <div className="flex gap-2 mb-4 items-center">
+              {[['all', '전체'], ['daily', '일일퀘스트'], ['weekly', '주간퀘스트']].map(([val, label]) => (
+                <button key={val} onClick={() => setFilter(val)}
+                  className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors
+                    ${filter === val
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'bg-white text-slate-600 hover:bg-indigo-50 border border-slate-200'}`}>
+                  {label}
+                </button>
+              ))}
+              <span className="ml-auto text-sm text-slate-400 font-medium">{filtered.length}개</span>
+            </div>
+
+            {isLoading ? (
+              <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-20 text-slate-400">
+                <div className="text-5xl mb-3">⚔️</div>
+                <p className="font-bold text-lg text-slate-600">활성 퀘스트가 없습니다</p>
+                <p className="text-sm mt-1">왼쪽 추천 퀘스트를 추가하거나 새 퀘스트를 만들어보세요!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {filtered.map(quest => (
+                  <ActiveQuestCard
+                    key={quest.id}
+                    quest={quest}
+                    studentCount={studentCount}
+                    onDetail={() => setSelectedQuestId(quest.id)}
+                    onEdit={() => openEdit(quest)}
+                    onDuplicate={() => duplicateQuest(quest)}
+                    onEnd={() => endQuest(quest.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
+        </div>
+      )}
 
-          {/* 퀘스트 그리드 */}
+      {/* ── 종료된 퀘스트 탭 ── */}
+      {mainTab === 'ended' && (
+        <div className="px-6 pb-6">
           {isLoading ? (
             <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
-          ) : filtered.length === 0 ? (
+          ) : endedQuests.length === 0 ? (
             <div className="text-center py-20 text-slate-400">
-              <div className="text-5xl mb-3">⚔️</div>
-              <p className="font-bold text-lg text-slate-600">퀘스트가 없습니다</p>
-              <p className="text-sm mt-1">왼쪽 추천 퀘스트를 추가하거나 새 퀘스트를 만들어보세요!</p>
+              <div className="text-5xl mb-3">🔒</div>
+              <p className="font-bold text-lg text-slate-600">종료된 퀘스트가 없습니다</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {filtered.map(quest => (
-                <QuestCard
-                  key={quest.id}
-                  quest={quest}
-                  onDetail={() => setSelectedQuestId(quest.id)}
-                  onEdit={() => openEdit(quest)}
-                  onDuplicate={() => duplicateQuest(quest)}
-                  onDelete={() => deleteQuest(quest.id)}
-                  onToggleActive={() => toggleActive(quest)}
-                />
-              ))}
-            </div>
+            <>
+              <p className="text-sm text-slate-400 mb-4 font-medium">
+                종료된 퀘스트 {endedQuests.length}개 — "다시 활성화하기"를 누르면 같은 내용으로 새 퀘스트를 만들 수 있습니다.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {endedQuests.map(quest => (
+                  <EndedQuestCard
+                    key={quest.id}
+                    quest={quest}
+                    onReactivate={() => openReactivate(quest)}
+                    onDelete={() => deleteQuest(quest.id)}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </div>
-      </div>
+      )}
 
       {isFormOpen && (
         <QuestFormModal
