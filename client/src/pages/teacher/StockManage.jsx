@@ -172,14 +172,14 @@ function StockManage() {
     }
   };
 
-  // ── 학급 특별 채권 초기 생성 ─────────────────────────────────
+  // ── 선생님의 영혼 초기 생성 ─────────────────────────────────
   const initSoulEtf = async () => {
     const soulRef = doc(db, 'etfs', 'teacher_soul');
     const snap    = await getDoc(soulRef);
     if (snap.exists()) { alert('이미 생성되어 있습니다!'); return; }
 
     await setDoc(soulRef, {
-      id: 'teacher_soul', symbol: 'SOUL', name: '학급 특별 채권',
+      id: 'teacher_soul', symbol: 'SOUL', name: '선생님의 영혼',
       theme: '특별',
       description: '우리 선생님의 소중한 영혼이 담긴 특별 ETF입니다. 매일 0.8%씩 자동 상승합니다.',
       currentPrice: 100, prevPrice: 100, changePercent: 0,
@@ -191,14 +191,14 @@ function StockManage() {
       updatedAt: new Date().toISOString(),
       updatedDate: '',
     });
-    alert('✅ 학급 특별 채권 ETF가 생성되었습니다!\n학생들이 주식 페이지에 접속하면 자동으로 50주가 지급됩니다.');
+    alert('✅ 선생님의 영혼 ETF가 생성되었습니다!\n학생들이 주식 페이지에 접속하면 자동으로 50주가 지급됩니다.');
     fetchAll();
   };
 
-  // ── 학급 특별 채권 배당 지급 (가격 초기화 + 학생 수령 대기) ─────
+  // ── 선생님의 영혼 배당 지급 (가격 초기화 + 학생 수령 대기) ─────
   const paySoulDividend = async () => {
     const soul = etfs.find(e => e.id === 'teacher_soul');
-    if (!soul) return alert('학급 특별 채권 ETF가 없습니다.');
+    if (!soul) return alert('선생님의 영혼 ETF가 없습니다.');
 
     const dividendPerShare = Math.floor(soul.currentPrice - 100);
     if (dividendPerShare <= 0) {
@@ -206,7 +206,7 @@ function StockManage() {
     }
 
     if (!window.confirm(
-      `학급 특별 채권 배당금을 지급하시겠습니까?\n\n` +
+      `선생님의 영혼 배당금을 지급하시겠습니까?\n\n` +
       `현재 가격: 🪙${soul.currentPrice}\n` +
       `주당 배당금: 🪙${dividendPerShare}\n` +
       `가격 100G로 초기화됩니다.\n\n` +
@@ -266,14 +266,14 @@ function StockManage() {
     }
   };
 
-  // ── 학급 특별 채권 활성화/비활성화 ──────────────────────────
+  // ── 선생님의 영혼 활성화/비활성화 ──────────────────────────
   const toggleSoulActive = async () => {
     const soul = etfs.find(e => e.id === 'teacher_soul');
     if (!soul) return;
     const newActive = soul.active === false;
     if (!window.confirm(newActive
-      ? '학급 특별 채권 ETF를 활성화하시겠습니까?\n학생 시장 탭에 다시 표시됩니다.'
-      : '학급 특별 채권 ETF를 비활성화하시겠습니까?\n학생 시장 탭에서 숨겨집니다. (보유 주식은 유지됩니다)'
+      ? '선생님의 영혼 ETF를 활성화하시겠습니까?\n학생 시장 탭에 다시 표시됩니다.'
+      : '선생님의 영혼 ETF를 비활성화하시겠습니까?\n학생 시장 탭에서 숨겨집니다. (보유 주식은 유지됩니다)'
     )) return;
     setIsSoulToggling(true);
     try {
@@ -287,7 +287,7 @@ function StockManage() {
     }
   };
 
-  // ── 학급 특별 채권 가격 수동 설정 ───────────────────────────
+  // ── 선생님의 영혼 가격 수동 설정 ───────────────────────────
   const setSoulPriceManual = async () => {
     const price = parseFloat(soulPrice);
     if (!price || price <= 0) return alert('올바른 가격을 입력해주세요.');
@@ -313,7 +313,7 @@ function StockManage() {
         : e
       ));
       setSoulPrice('');
-      alert(`✅ 학급 특별 채권 가격이 🪙${price.toLocaleString()}으로 설정되었습니다!\n(오늘 자동 0.8% 상승은 적용되지 않습니다)`);
+      alert(`✅ 선생님의 영혼 가격이 🪙${price.toLocaleString()}으로 설정되었습니다!\n(오늘 자동 0.8% 상승은 적용되지 않습니다)`);
     } catch (err) {
       console.error(err);
       alert('가격 설정 실패');
@@ -429,7 +429,7 @@ function StockManage() {
           </div>
         </div>
 
-        {/* 학급 특별 채권 ETF 관리 카드 */}
+        {/* 선생님의 영혼 ETF 관리 카드 */}
         {(() => {
           const soul = etfs.find(e => e.id === 'teacher_soul');
           return (
@@ -448,8 +448,8 @@ function StockManage() {
               <div className="relative z-10 p-5">
               <div className="flex flex-col md:flex-row justify-between gap-4">
                 <div>
-                  <div className="text-xs font-bold opacity-70 mb-1">👻 특별 ETF 관리</div>
-                  <h2 className="font-extrabold text-xl mb-1">학급 특별 채권</h2>
+                  <div className="text-xs font-bold opacity-70 mb-1">👻 특별 채권 관리</div>
+                  <h2 className="font-extrabold text-xl mb-1">선생님의 영혼</h2>
                   {soul ? (
                     <div className="flex items-center gap-3">
                       <span className="text-2xl font-black">🪙 {(soul.currentPrice || 100).toLocaleString()}</span>
@@ -467,7 +467,7 @@ function StockManage() {
                   )}
                   <div className="text-xs opacity-60 mt-1">매일 1% 자동 상승 · 기본 50주 지급 · 최대 100주</div>
                   <div className="text-xs bg-white/15 rounded-lg px-3 py-2 mt-2 leading-relaxed space-y-0.5">
-                    <div>💡 매일 1%씩 자동 상승 (학급 특별 채권 형태)</div>
+                    <div>💡 매일 1%씩 자동 상승 (선생님의 영혼 형태)</div>
                     <div>💰 배당 지급 시 (현재가 - 100G) × 보유주수를 학생에게 지급 후 100G 초기화</div>
                     <div>🎓 교실 상황에 따라 가격을 선생님이 직접 조정 가능</div>
                   </div>

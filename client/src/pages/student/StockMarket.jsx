@@ -148,7 +148,7 @@ function EtfDetailModal({ etf, myGold, holdings, onBuy, onSell, onClose, isBusy 
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* 학급 특별 채권 특별 안내 */}
+          {/* 선생님의 영혼 특별 안내 */}
           {isSoul && (
             <div className="bg-gradient-to-br from-violet-50 to-pink-50 border border-violet-200 rounded-2xl p-4 space-y-2">
               <div className="font-extrabold text-violet-800 text-sm flex items-center gap-1.5">
@@ -384,7 +384,7 @@ function StockMarket({ studentCode }) {
             : '');
         }
 
-        // ── 학급 특별 채권: 매일 0.8% 자동 가격 상승 ──────────────
+        // ── 선생님의 영혼: 매일 0.8% 자동 가격 상승 ──────────────
         const soulEtf = etfList.find(e => e.id === 'teacher_soul');
         if (soulEtf) {
           const today2 = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
@@ -406,7 +406,7 @@ function StockMarket({ studentCode }) {
           }
         }
 
-        // 학급 특별 채권 항상 맨 위, 나머지는 등락률 순
+        // 선생님의 영혼 항상 맨 위, 나머지는 등락률 순
         etfList.sort((a, b) => {
           if (a.id === 'teacher_soul') return -1;
           if (b.id === 'teacher_soul') return 1;
@@ -430,14 +430,14 @@ function StockMarket({ studentCode }) {
             holdSnap.docs.forEach(d => { holdMap[d.id] = d.data(); });
             setHoldings(holdMap);
 
-            // 7. 학급 특별 채권 50주 기본 지급 (미보유 시)
+            // 7. 선생님의 영혼 50주 기본 지급 (미보유 시)
             const soulEtf2 = etfList.find(e => e.id === 'teacher_soul');
             if (soulEtf2 && !holdMap['teacher_soul']) {
               const grantData = {
                 quantity:     50,
                 baseQuantity: 50,
                 avgBuyPrice:  soulEtf2.currentPrice || 100,
-                etfName:      '학급 특별 채권',
+                etfName:      '선생님의 영혼',
                 etfSymbol:    'SOUL',
                 grantedAt:    serverTimestamp(),
               };
@@ -500,7 +500,7 @@ function StockMarket({ studentCode }) {
     load();
   }, [studentCode]);
 
-  // ── 학급 특별 채권 배당금 수령 ────────────────────────────────
+  // ── 선생님의 영혼 배당금 수령 ────────────────────────────────
   const receiveSoulDividend = async () => {
     const amount = student?.pendingSoulDividend || 0;
     if (!studentDocId || amount <= 0) return;
@@ -631,7 +631,7 @@ function StockMarket({ studentCode }) {
       // teacher_soul이 아직 etfs 목록에 없을 때 폴백 데이터 사용
       if (!etf && etfId === 'teacher_soul') {
         etf = {
-          id: 'teacher_soul', symbol: 'SOUL', name: '학급 특별 채권',
+          id: 'teacher_soul', symbol: 'SOUL', name: '선생님의 영혼',
           theme: '특별', currentPrice: h.avgBuyPrice || 100,
           changePercent: 0.8, dividendRate: 0,
         };
@@ -703,11 +703,11 @@ function StockMarket({ studentCode }) {
         </div>
       )}
 
-      {/* 학급 특별 채권 배당금 수령 대기 배너 */}
+      {/* 선생님의 영혼 배당금 수령 대기 배너 */}
       {(student?.pendingSoulDividend || 0) > 0 && (
         <div className="bg-gradient-to-r from-violet-600 to-pink-600 text-white px-4 py-3 flex items-center justify-between gap-3">
           <div>
-            <div className="text-xs font-bold opacity-80">👻 학급 특별 채권 배당금이 도착했습니다!</div>
+            <div className="text-xs font-bold opacity-80">👻 선생님의 영혼 배당금이 도착했습니다!</div>
             <div className="text-xl font-black">🪙 +{(student.pendingSoulDividend || 0).toLocaleString()} G</div>
           </div>
           <button
@@ -857,7 +857,7 @@ function StockMarket({ studentCode }) {
                 <div className="text-xs text-slate-400 mt-0.5">투자 원금: 🪙 {totalInvested.toLocaleString()}</div>
               </div>
 
-              {/* ── 학급 특별 채권 특별 카드 (항상 최상단) ── */}
+              {/* ── 선생님의 영혼 특별 카드 (항상 최상단) ── */}
               {portfolioItems.filter(i => i.etf.id === 'teacher_soul').map(({ etf, holding, currentValue, pnl, pnlPct }) => {
                 const baseQty  = holding.baseQuantity || 50;
                 const extraQty = Math.max(0, holding.quantity - baseQty);
@@ -878,7 +878,7 @@ function StockMarket({ studentCode }) {
                     <div className="relative z-10 p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <div className="text-[10px] font-bold opacity-70 mb-0.5">👻 특별 ETF · SOUL</div>
+                        <div className="text-[10px] font-bold opacity-70 mb-0.5">👻 특별 채권 · SOUL</div>
                         <h3 className="font-extrabold text-xl">{etf.name}</h3>
                       </div>
                       <div className="text-right">
