@@ -9,6 +9,7 @@ import EditProfile from './pages/student/EditProfile.jsx';
 import ClassBank from './pages/student/ClassBank.jsx';
 import ClassShop from './pages/student/ClassShop.jsx';
 import AdventurePage from './pages/student/AdventurePage.jsx';
+import StockMarket from './pages/student/StockMarket.jsx';
 import TeacherLogin from './pages/teacher/TeacherLogin.jsx';
 
 const ADVENTURE_VIEWS = ['adventure', 'quizDungeon', 'explorationDungeon', 'arena', 'bossRaid', 'miniGame'];
@@ -49,6 +50,7 @@ function App() {
         {currentView === 'classAll'    && <ClassAllView />}
         {currentView === 'classBank'   && <ClassBank studentCode={testStudentCode} />}
         {currentView === 'classShop'   && <ClassShop studentCode={testStudentCode} />}
+        {currentView === 'stockMarket' && <StockMarket studentCode={testStudentCode} />}
         {currentView === 'editProfile' && (
           <EditProfile
             studentCode={testStudentCode}

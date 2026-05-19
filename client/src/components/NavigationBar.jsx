@@ -58,7 +58,7 @@ const NavigationBar = ({ changeView, currentView }) => {
       subMenus: [
         { title: '학급 은행', id: 'classBank' },
         { title: '학급 상점', id: 'classShop' },
-        { title: '주식 시장', id: 'stockMarket' }
+        { title: '주식/ETF 거래소', id: 'stockMarket' }
       ]
     },
     {
