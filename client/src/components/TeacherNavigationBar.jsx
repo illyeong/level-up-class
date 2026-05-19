@@ -9,29 +9,29 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [expandedMenu, setExpandedMenu] = useState('dashboard');
 
-  // 🌟 선생님이 요청하신 새로운 메뉴 구조
   const teacherMenuData = [
     {
       id: 'dashboard', icon: iconDashboard, title: '대시보드', isReady: true,
-      subMenus: [] // 하위 메뉴 없음 (바로 이동)
+      subMenus: []
     },
     {
       id: 'myCharacter', icon: '🦸‍♂️', title: '내 캐릭터', isReady: true,
-      subMenus: [] // 하위 메뉴 없음 (바로 이동)
+      subMenus: []
+    },
+    {
+      id: 'questManage', icon: iconQuest, title: '퀘스트 관리소', isReady: true,
+      subMenus: []
     },
     {
       id: 'adventure', icon: iconAdventure, title: '어드벤처', isReady: true,
       subMenus: [
-        { title: '퀴즈 던전', id: 'quizDungeon' },
+        { title: '퀴즈던전',    id: 'quizDungeon' },
+        { title: '탐험던전',    id: 'explorationDungeon' },
+        { title: '투기장',     id: 'arena' },
         { title: '보스 레이드', id: 'bossRaid' },
-        { title: '투기장', id: 'arena' },
-        { title: '미니 게임', id: 'miniGame' },
-        { title: '어드벤처 관리', id: 'adventureManage' } // 선생님 전용 관리 메뉴 추가
+        { title: '미니 게임',  id: 'miniGame' },
+        { title: '어드벤처 관리', id: 'adventureManage' }
       ]
-    },
-    {
-      id: 'questManage', icon: iconQuest, title: '퀘스트 관리소', isReady: true,
-      subMenus: [] // 하위 목록 모두 삭제 (바로 이동)
     },
     {
       id: 'economyManage', icon: '💎', title: '학급 경제 관리', isReady: true,
@@ -42,11 +42,9 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
       ]
     },
     {
-      id: 'studentManage', icon: '👨‍🎓', title: '학급/학생 관리', isReady: true, // 시스템 설정 위로 이동
+      id: 'studentManage', icon: '👨‍🎓', title: '학급/학생 관리', isReady: true,
       subMenus: [
         { title: '학생 계정 발급', id: 'accountIssue' },
-        { title: '학생 상세 정보', id: 'studentDetail' },
-        { title: '학급 공지 발송', id: 'sendNotice' } // 알림장 발송 -> 학급 공지 발송으로 변경
       ]
     },
     {
@@ -55,6 +53,10 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
         { title: '초기화 및 백업', id: 'systemBackup' },
         { title: '접근 권한 설정', id: 'accessSettings' }
       ]
+    },
+    {
+      id: 'inquiry', icon: '💬', title: '건의 및 문의하기', isReady: true,
+      subMenus: []
     }
   ];
 

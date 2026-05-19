@@ -12,9 +12,10 @@ function TeacherDashboard({ onStudentTestLogin }) {
   const [questStats, setQuestStats] = useState([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState(''); 
+  const [modalMode, setModalMode] = useState('add'); // 'add' | 'sub'
   const [selectedIds, setSelectedIds] = useState([]);
-  const [amount, setAmount] = useState('');
+  const [diaAmount, setDiaAmount] = useState('');
+  const [goldAmount, setGoldAmount] = useState('');
   const [reason, setReason] = useState('');
   const [searchQuery, setSearchQuery] = useState(''); 
 
@@ -67,10 +68,11 @@ function TeacherDashboard({ onStudentTestLogin }) {
     fetchQuestStats();
   }, []);
 
-  const openModal = (type) => {
-    setModalType(type);
-    setSelectedIds([]); 
-    setAmount('');
+  const openModal = (mode) => {
+    setModalMode(mode);
+    setSelectedIds([]);
+    setDiaAmount('');
+    setGoldAmount('');
     setReason('');
     setSearchQuery('');
     setIsModalOpen(true);
@@ -90,57 +92,50 @@ function TeacherDashboard({ onStudentTestLogin }) {
     }
   };
 
-  // 🌟 퀵 버튼 클릭 시 금액 추가 기능
-  const addQuickAmount = (val) => {
-    setAmount(prev => (Number(prev || 0) + val).toString());
+  const addQuick = (field, val) => {
+    if (field === 'dia')  setDiaAmount  (prev => (Number(prev  || 0) + val).toString());
+    if (field === 'gold') setGoldAmount (prev => (Number(prev || 0) + val).toString());
   };
 
   const submitTransaction = async () => {
     if (selectedIds.length === 0) return alert("학생을 최소 1명 이상 선택해주세요.");
-    if (!amount || amount <= 0) return alert("올바른 금액을 입력해주세요.");
-    
-    // 🌟 사유 필수 입력 체크(reason.trim())를 삭제했습니다. 사유가 없으면 "일반 지급/차감"으로 저장됩니다.
+    const diaAmt  = Number(diaAmount)  || 0;
+    const goldAmt = Number(goldAmount) || 0;
+    if (diaAmt === 0 && goldAmt === 0) return alert("다이아 또는 골드 금액을 입력해주세요.");
 
+    const isAdd = modalMode === 'add';
     setIsLoading(true);
     try {
       const batch = writeBatch(db);
-      
-      const isAdd = modalType.includes('_add');
-      const isDiamond = modalType.includes('dia');
-      const actualAmount = isAdd ? Number(amount) : -Number(amount);
-      const currencyLabel = isDiamond ? '다이아' : '골드';
 
       selectedIds.forEach(id => {
-        const studentRef = doc(db, "students", id);
-        const targetStudent = students.find(s => s.id === id);
-        
-        const currentDia = targetStudent.diamonds || 0;
-        const currentGold = targetStudent.gold || 0;
-
-        if (isDiamond) {
-          batch.update(studentRef, { diamonds: currentDia + actualAmount });
-        } else {
-          batch.update(studentRef, { gold: currentGold + actualAmount });
-        }
+        const s = students.find(st => st.id === id);
+        if (!s) return;
+        const updates = {};
+        if (diaAmt  > 0) updates.diamonds = Math.max(0, (s.diamonds || 0) + (isAdd ? diaAmt  : -diaAmt));
+        if (goldAmt > 0) updates.gold     = Math.max(0, (s.gold     || 0) + (isAdd ? goldAmt : -goldAmt));
+        batch.update(doc(db, "students", id), updates);
       });
 
       const logRef = doc(collection(db, "transactions"));
       batch.set(logRef, {
-        timestamp: serverTimestamp(),
-        type: modalType,
-        currency: currencyLabel,
-        amount: actualAmount,
-        reason: reason.trim() || (isAdd ? "선생님 보상 지급" : "선생님 차감 집행"), // 사유 비었을 때 기본값
+        timestamp:   serverTimestamp(),
+        mode:        modalMode,
+        diaAmount:   isAdd ? diaAmt  : -diaAmt,
+        goldAmount:  isAdd ? goldAmt : -goldAmt,
+        reason:      reason.trim() || (isAdd ? "선생님 보상 지급" : "선생님 차감 집행"),
         targetCount: selectedIds.length,
-        targetIds: selectedIds 
+        targetIds:   selectedIds,
       });
 
       await batch.commit();
 
-      alert(`${currencyLabel} 처리가 완료되었습니다!`);
+      const parts = [];
+      if (diaAmt  > 0) parts.push(`💎 ${diaAmt.toLocaleString()} 다이아`);
+      if (goldAmt > 0) parts.push(`🪙 ${goldAmt.toLocaleString()} 골드`);
+      alert(`${parts.join(', ')} ${isAdd ? '지급' : '차감'} 완료!`);
       setIsModalOpen(false);
-      fetchStudents(); 
-
+      fetchStudents();
     } catch (error) {
       console.error("트랜잭션 에러:", error);
       alert("처리 중 오류가 발생했습니다.");
@@ -188,17 +183,13 @@ function TeacherDashboard({ onStudentTestLogin }) {
           <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors mr-2 text-sm">
             📋 지급/차감 내역 보기
           </button>
-          <button onClick={() => openModal('dia_add')} className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
-            <img src={iconDiamond} alt="다이아" className="w-4 h-4" /> 다이아 지급
+          <button onClick={() => openModal('add')}
+            className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors">
+            ✨ 지급하기
           </button>
-          <button onClick={() => openModal('dia_sub')} className="flex items-center gap-1 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-600 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
-            <img src={iconDiamond} alt="다이아" className="w-4 h-4" /> 다이아 차감
-          </button>
-          <button onClick={() => openModal('gold_add')} className="flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-500 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
-            <img src={iconGold} alt="골드" className="w-4 h-4" /> 골드 지급
-          </button>
-          <button onClick={() => openModal('gold_sub')} className="flex items-center gap-1 bg-orange-50 border border-orange-200 text-orange-700 hover:bg-orange-600 hover:text-white px-3 py-2 rounded-lg font-bold text-xs transition-colors">
-            <img src={iconGold} alt="골드" className="w-4 h-4" /> 골드 차감
+          <button onClick={() => openModal('sub')}
+            className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors">
+            ✕ 차감하기
           </button>
         </div>
       </div>
@@ -307,17 +298,13 @@ function TeacherDashboard({ onStudentTestLogin }) {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in-up">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className={`p-5 text-white font-bold text-xl flex justify-between items-center
-              ${modalType.includes('dia') ? (modalType.includes('add') ? 'bg-indigo-600' : 'bg-rose-600') : (modalType.includes('add') ? 'bg-amber-500' : 'bg-orange-600')}
-            `}>
+              ${modalMode === 'add' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
               <h2 className="flex items-center gap-2">
-                {modalType.includes('dia') 
-                  ? <><img src={iconDiamond} alt="다이아" className="w-6 h-6" /> 다이아</> 
-                  : <><img src={iconGold} alt="골드" className="w-6 h-6" /> 골드</>} 
-                {modalType.includes('add') ? '일괄 지급' : '일괄 차감'}
+                {modalMode === 'add' ? '✨ 일괄 지급' : '✕ 일괄 차감'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-white hover:text-slate-200">✕</button>
+              <button onClick={() => setIsModalOpen(false)} className="text-white hover:text-white/70">✕</button>
             </div>
 
             <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
@@ -349,35 +336,66 @@ function TeacherDashboard({ onStudentTestLogin }) {
                 </div>
               </div>
 
-              <div className="w-full lg:w-80 p-6 bg-white flex flex-col overflow-y-auto">
-                <div className="mb-6 p-4 bg-slate-100 rounded-xl text-center border border-slate-200">
+              <div className="w-full lg:w-80 p-5 bg-white flex flex-col overflow-y-auto gap-4">
+                {/* 선택 인원 */}
+                <div className="p-3 bg-slate-50 rounded-xl text-center border border-slate-200">
                   <span className="text-slate-500 text-xs font-medium">선택된 학생</span>
-                  <div className="text-3xl font-black text-indigo-600 my-1">{selectedIds.length} <span className="text-lg text-slate-700">명</span></div>
+                  <div className="text-3xl font-black text-indigo-600 my-0.5">{selectedIds.length} <span className="text-lg text-slate-700">명</span></div>
                 </div>
 
-                <div className="mb-4">
-                  <label className="block text-xs font-bold text-slate-700 mb-2">지급/차감 금액</label>
-                  <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
-                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-bold text-xl text-slate-800 focus:outline-none focus:border-indigo-500 mb-3" placeholder="금액 입력" />
-                  
-                  {/* 🌟 10, 50, 100 퀵 버튼 추가 */}
-                  <div className="flex gap-2">
-                    <button onClick={() => addQuickAmount(10)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2 rounded-lg text-sm transition-colors">+10</button>
-                    <button onClick={() => addQuickAmount(50)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2 rounded-lg text-sm transition-colors">+50</button>
-                    <button onClick={() => addQuickAmount(100)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2 rounded-lg text-sm transition-colors">+100</button>
+                {/* 💎 다이아 */}
+                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 mb-2">
+                    <img src={iconDiamond} className="w-4 h-4" alt="다이아" /> 다이아 금액
+                  </label>
+                  <input
+                    type="number" min="0" value={diaAmount}
+                    onChange={e => setDiaAmount(e.target.value)}
+                    className="w-full border-2 border-indigo-200 rounded-xl px-4 py-2.5 font-bold text-lg text-slate-800 focus:outline-none focus:border-indigo-500 bg-white mb-2"
+                    placeholder="0" />
+                  <div className="flex gap-1.5">
+                    {[10, 50, 100, 500].map(v => (
+                      <button key={v} onClick={() => addQuick('dia', v)}
+                        className="flex-1 bg-white hover:bg-indigo-100 text-indigo-600 font-bold py-1.5 rounded-lg text-xs border border-indigo-200 transition-colors">
+                        +{v}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                <div className="mb-6">
-                  <label className="block text-xs font-bold text-slate-700 mb-2">지급/차감 사유 (선택)</label>
-                  <textarea value={reason} onChange={(e) => setReason(e.target.value)}
-                    className="w-full h-24 border-2 border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-none" placeholder="비워두셔도 됩니다." />
+                {/* 🪙 골드 */}
+                <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-amber-700 mb-2">
+                    <img src={iconGold} className="w-4 h-4" alt="골드" /> 골드 금액
+                  </label>
+                  <input
+                    type="number" min="0" value={goldAmount}
+                    onChange={e => setGoldAmount(e.target.value)}
+                    className="w-full border-2 border-amber-200 rounded-xl px-4 py-2.5 font-bold text-lg text-slate-800 focus:outline-none focus:border-amber-500 bg-white mb-2"
+                    placeholder="0" />
+                  <div className="flex gap-1.5">
+                    {[50, 100, 300, 500].map(v => (
+                      <button key={v} onClick={() => addQuick('gold', v)}
+                        className="flex-1 bg-white hover:bg-amber-100 text-amber-600 font-bold py-1.5 rounded-lg text-xs border border-amber-200 transition-colors">
+                        +{v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 사유 */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">사유 (선택)</label>
+                  <textarea value={reason} onChange={e => setReason(e.target.value)}
+                    className="w-full h-16 border-2 border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-none"
+                    placeholder="비워두셔도 됩니다." />
                 </div>
 
                 <button onClick={submitTransaction}
-                  className={`w-full py-4 rounded-xl font-bold text-lg text-white shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98] mt-auto
-                    ${modalType.includes('dia') ? (modalType.includes('add') ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-rose-600 hover:bg-rose-700') : (modalType.includes('add') ? 'bg-amber-500 hover:bg-amber-600' : 'bg-orange-600 hover:bg-orange-700')}
-                  `}>집행하기</button>
+                  className={`w-full py-4 rounded-xl font-bold text-lg text-white shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]
+                    ${modalMode === 'add' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
+                  {modalMode === 'add' ? '✨ 지급 집행하기' : '✕ 차감 집행하기'}
+                </button>
               </div>
             </div>
           </div>
@@ -396,26 +414,44 @@ function TeacherDashboard({ onStudentTestLogin }) {
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
                     <th className="p-4 font-semibold">일시</th>
-                    <th className="p-4 font-semibold">재화</th>
-                    <th className="p-4 font-semibold">금액</th>
+                    <th className="p-4 font-semibold">구분</th>
+                    <th className="p-4 font-semibold">내용</th>
                     <th className="p-4 font-semibold">사유</th>
                     <th className="p-4 font-semibold">대상</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {logs.map(log => (
-                    <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="p-4 text-slate-500">{log.timestamp ? new Date(log.timestamp.toDate()).toLocaleString() : '방금 전'}</td>
-                      <td className="p-4 font-bold flex items-center gap-1">
-                        {log.currency === '다이아' 
-                          ? <><img src={iconDiamond} alt="다이아" className="w-4 h-4" /> 다이아</> 
-                          : <><img src={iconGold} alt="골드" className="w-4 h-4" /> 골드</>}
-                      </td>
-                      <td className={`p-4 font-bold ${log.amount > 0 ? 'text-indigo-600' : 'text-rose-600'}`}>{log.amount > 0 ? `+${log.amount}` : log.amount}</td>
-                      <td className="p-4 text-slate-700">{log.reason}</td>
-                      <td className="p-4 font-medium text-slate-600">{log.targetCount}명</td>
-                    </tr>
-                  ))}
+                  {logs.map(log => {
+                    // 신규 포맷 (diaAmount/goldAmount) & 구형 포맷 (currency/amount) 모두 지원
+                    const isAdd = log.mode === 'add' || (log.amount > 0);
+                    const parts = [];
+                    if (log.diaAmount  !== undefined && log.diaAmount  !== 0)
+                      parts.push(`💎 ${log.diaAmount  > 0 ? '+' : ''}${log.diaAmount.toLocaleString()}`);
+                    if (log.goldAmount !== undefined && log.goldAmount !== 0)
+                      parts.push(`🪙 ${log.goldAmount > 0 ? '+' : ''}${log.goldAmount.toLocaleString()}`);
+                    // 구형 포맷 fallback
+                    if (parts.length === 0 && log.currency) {
+                      const sign = log.amount > 0 ? '+' : '';
+                      parts.push(`${log.currency === '다이아' ? '💎' : '🪙'} ${sign}${(log.amount || 0).toLocaleString()}`);
+                    }
+                    return (
+                      <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="p-4 text-slate-500 whitespace-nowrap">
+                          {log.timestamp ? new Date(log.timestamp.toDate()).toLocaleString('ko-KR') : '방금 전'}
+                        </td>
+                        <td className="p-4">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isAdd ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
+                            {isAdd ? '지급' : '차감'}
+                          </span>
+                        </td>
+                        <td className={`p-4 font-bold ${isAdd ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {parts.join('  ')}
+                        </td>
+                        <td className="p-4 text-slate-700">{log.reason}</td>
+                        <td className="p-4 font-medium text-slate-600">{log.targetCount}명</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -31,10 +31,7 @@ const NavigationBar = ({ changeView, currentView }) => {
     {
       id: 'quest', icon: iconQuest, title: t('menu.quest', '퀘스트'), isReady: true,
       subMenus: [
-        { title: t('submenu.dailyQuest', '일일 퀘스트'), id: 'dailyQuest' },
-        { title: t('submenu.weeklyQuest', '주간 퀘스트'), id: 'weeklyQuest' },
-        { title: t('submenu.classRole', '학급 직업'), id: 'classRole' },
-        { title: t('submenu.achievement', '업적'), id: 'achievement' }
+        { title: '업적', id: 'achievement' }
       ]
     },
     {
@@ -49,20 +46,19 @@ const NavigationBar = ({ changeView, currentView }) => {
     {
       id: 'adventure', icon: iconAdventure, title: t('menu.adventure', '어드벤처'), isReady: true,
       subMenus: [
-        { title: t('submenu.quizDungeon', '퀴즈 던전'), id: 'quizDungeon' },
-        { title: t('submenu.bossRaid', '보스 레이드'), id: 'bossRaid' },
-        { title: t('submenu.arena', '투기장'), id: 'arena' },
-        { title: t('submenu.miniGame', '미니 게임'), id: 'miniGame' }
+        { title: '퀴즈던전',  id: 'quizDungeon' },
+        { title: '탐험던전',  id: 'explorationDungeon' },
+        { title: '투기장',   id: 'arena' },
+        { title: '보스 레이드', id: 'bossRaid' },
+        { title: '미니 게임', id: 'miniGame' }
       ]
     },
     {
       id: 'trade', icon: '💰', title: t('menu.trade', '무역 센터'), isReady: true,
       subMenus: [
-        { title: t('submenu.classBank', '학급 은행'), id: 'classBank' },
-        { title: t('submenu.classShop', '학급 상점'), id: 'classShop' },
-        { title: t('submenu.stockMarket', '주식 시장'), id: 'stockMarket' },
-        { title: t('submenu.avatarMarket', '아바타 거래소'), id: 'avatarMarket' },
-        { title: t('submenu.secretShop', '비밀 상점'), id: 'secretShop' }
+        { title: '학급 은행', id: 'classBank' },
+        { title: '학급 상점', id: 'classShop' },
+        { title: '주식 시장', id: 'stockMarket' }
       ]
     },
     {
