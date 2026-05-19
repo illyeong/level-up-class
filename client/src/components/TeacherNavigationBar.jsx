@@ -36,8 +36,9 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
     {
       id: 'economyManage', icon: '💎', title: '학급 경제 관리', isReady: true,
       subMenus: [
-        { title: '주식etf 관리', id: 'stockManage' },
-        { title: '은행 관리', id: 'bankManage' }
+        { title: '학급 상점 관리', id: 'classShopManage' },
+        { title: '은행 관리',     id: 'bankManage' },
+        { title: '주식etf 관리',  id: 'stockManage' },
       ]
     },
     {

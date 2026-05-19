@@ -7,6 +7,7 @@ import StudentQuestPage from './pages/student/StudentQuestPage.jsx';
 import ClassAllView from './pages/student/ClassAllView.jsx';
 import EditProfile from './pages/student/EditProfile.jsx';
 import ClassBank from './pages/student/ClassBank.jsx';
+import ClassShop from './pages/student/ClassShop.jsx';
 import TeacherLogin from './pages/teacher/TeacherLogin.jsx';
 
 function App() {
@@ -44,6 +45,7 @@ function App() {
         {currentView === 'quest' && <StudentQuestPage studentCode={testStudentCode} />}
         {currentView === 'classAll'    && <ClassAllView />}
         {currentView === 'classBank'   && <ClassBank studentCode={testStudentCode} />}
+        {currentView === 'classShop'   && <ClassShop studentCode={testStudentCode} />}
         {currentView === 'editProfile' && (
           <EditProfile
             studentCode={testStudentCode}
