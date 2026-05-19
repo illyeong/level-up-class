@@ -41,6 +41,9 @@ namespace LayerLab.ArtMaker
         // Firebase에서 불러온 보유 파츠 (이미 결제 완료된 것들)
         private Dictionary<PartsType, int> _ownedParts = new();
 
+        // 변경된 색상 파츠 추적
+        private HashSet<PartsType> _changedColorTypes = new();
+
         private void Awake() { Instance = this; }
 
         private void Start()
@@ -63,7 +66,15 @@ namespace LayerLab.ArtMaker
             Player.Instance.PartsManager.ClearClothes();
 
             Player.Instance.PartsManager.OnChangedParts += (type, index) => UpdateDiamondCost();
-            UpdateDiamondCost(); 
+            Player.Instance.PartsManager.OnColorChange  += (type, color) =>
+            {
+                if (CanChangeColor(type))
+                {
+                    _changedColorTypes.Add(type);
+                    UpdateDiamondCost();
+                }
+            };
+            UpdateDiamondCost();
         }
 
         public static bool CanChangeColor(PartsType partsType) => 
@@ -101,6 +112,9 @@ namespace LayerLab.ArtMaker
                     else { if (idx > 0) count++; }
                 }
             }
+            // 색상 변경도 각 100 다이아 추가
+            count += _changedColorTypes.Count;
+
             currentTotalCost = count * 100;
             if (textTotalDiamonds != null) textTotalDiamonds.text = $"결제하기\n{currentTotalCost} 다이아";
 
@@ -155,8 +169,9 @@ namespace LayerLab.ArtMaker
                 : "data:image/png;base64," + Convert.ToBase64String(
                     ScreenCapture.CaptureScreenshotAsTexture().EncodeToPNG());
 
-            // 결제 후 보유 파츠 갱신 (다음부터 재결제 안 되게)
+            // 결제 후 보유 파츠 + 색상 갱신 (다음부터 재결제 안 되게)
             SetOwnedParts(new Dictionary<PartsType, int>(Player.Instance.PartsManager.ActiveIndices));
+            _changedColorTypes.Clear();
 
             #if UNITY_WEBGL && !UNITY_EDITOR
                 SendCharacterDataToReact(jsonParts, imageBase64);

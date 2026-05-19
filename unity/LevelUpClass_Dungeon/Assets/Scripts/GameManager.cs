@@ -47,6 +47,16 @@ public class GameManager : MonoBehaviour
     public int attackUpgradeLevel  = 0;
     public int defenseUpgradeLevel = 0;
 
+    // ── 세션 통계 (씬 간 유지, 저장 안 함) ───────────────────────
+    [HideInInspector] public int sessionKillCount  = 0;
+    [HideInInspector] public int sessionEarnedGold = 0;
+
+    public void ResetSession()
+    {
+        sessionKillCount  = 0;
+        sessionEarnedGold = 0;
+    }
+
     // ─────────────────────────────────────────────────────────────
 
     void Awake()

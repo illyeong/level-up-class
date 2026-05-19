@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 62b9a7e211ea2074c83a96a2ab1e590f
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 264730
+  packageName: Fantasy Chest Boxes Animated
+  packageVersion: 1.1
+  assetPath: Assets/FantasyMonsters/Scripts/Monster.cs
+  uploadId: 611390

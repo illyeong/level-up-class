@@ -243,12 +243,45 @@ AvatarShop: iframe onload 후 2초 간격 최대 10회 재시도 → UNITY_READY
 
 ---
 
+## 최근 작업 내역 (2026-05-19~20)
+
+### Unity Dungeon — 완료
+- [x] BossFSM Spine 애니메이션 연동 (PlayAnim + currentAnimName 중복방지)
+- [x] BossFSM 이동 수정 (frontCheck 벽감지 제거, 절벽감지 제거)
+- [x] CameraFollow 카메라 쉐이크 (Shake 메서드)
+- [x] 착지 이펙트 (landingEffectPrefab) + 카메라 쉐이크 연결
+- [x] 피격 이펙트 (hitEffectPrefab, critHitEffectPrefab) — MonsterFSM + BossFSM
+- [x] 크리티컬 피격 시 "치명타" 황금색 텍스트 (SpawnCritLabel)
+- [x] TakeDamage(damage, isCritical) 파라미터 추가
+- [x] GameResultUI.cs — 보스 클리어 보상 선택창 (IronChest 프리팹 3개 스폰)
+- [x] GameResultUI.cs — 사망 화면 (처치 몬스터 수, 획득 골드)
+- [x] ChestClickHandler.cs — OnMouseDown 클릭 감지
+- [x] RewardFloater.cs — 보상 텍스트 위로 떠오르는 효과 (UnscaledDeltaTime)
+- [x] GameManager sessionKillCount, sessionEarnedGold 세션 통계 추가
+- [x] 보스 사망 시 PlayerCombat.ReturnToLobby → GameResultUI.ShowDeathPanel 연결
+
+### Unity AvatarMaker — 완료
+- [x] DemoControl.cs — 색상 변경 시 100 다이아 추가 (_changedColorTypes HashSet)
+  - OnColorChange 이벤트 구독 → 변경된 색상 파츠 타입 추적
+  - UpdateDiamondCost()에서 _changedColorTypes.Count * 100 포함
+  - 구매 완료 후 _changedColorTypes.Clear() → 재결제 방지
+
+### React 웹 — 완료
+- [x] StudentDashboard (components/) — Firebase 연동, characterImage 표시
+- [x] MyCharacter — Firebase 연동, studentCode prop 처리
+- [x] ClassAllView — 우리반 전체 캐릭터/레벨 카드
+- [x] NavigationBar — 내 상태창 삭제, 우리반 전체 보기 추가
+- [x] QuestDetail — characterImage 표시
+- [x] TeacherDashboard — characterImage 크기 조정
+- [x] PlayerHpBar — playerCombat public 필드로 직접 연결 가능
+
+---
+
 ## 알려진 미완성/TODO
 
 ### 웹
 - [ ] 자정 자동 보상/초기화 (Firebase Cloud Functions — 일일/주간 퀘스트)
 - [ ] 학생 로그인 시스템 (현재 testStudentCode prop으로 테스트)
-- [ ] MyCharacter.jsx — 실제 Firebase 데이터 연동 (현재 더미데이터)
 - [ ] 주식 거래소 교사 관리 페이지 — 마켓 이벤트/뉴스 등록 기능
 
 ### Unity AvatarMaker
@@ -256,8 +289,10 @@ AvatarShop: iframe onload 후 2초 간격 최대 10회 재시도 → UNITY_READY
 - [ ] 피부색(ColorPresetManager) Firebase 저장/로드
 
 ### Unity Dungeon
-- [ ] Stage2_Boss → Clear 씬 전환
-- [ ] BossFSM HP 바 UI 연결
+- [ ] GameResultUI — ChestSpawnCenter 오브젝트 씬에 배치 (상자 위치 정확하게)
+- [ ] GameResultUI — RewardTextPrefab 만들어서 연결
+- [ ] GameResultUI — 보상 획득 후 Firebase 다이아/EXP 저장 연동
+- [ ] BossFSM — Clear Portal 연결 (보상 확인 후 이동)
 - [ ] Lobby, DungeonSelect, Clear 씬 구현
 - [ ] 웹 characterImage/parts → 던전 캐릭터 외형 연동
 

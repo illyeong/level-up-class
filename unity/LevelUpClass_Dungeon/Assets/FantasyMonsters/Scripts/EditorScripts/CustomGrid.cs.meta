@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 1dfd797768182c54f8f36e9c8b1531c3
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 264730
+  packageName: Fantasy Chest Boxes Animated
+  packageVersion: 1.1
+  assetPath: Assets/FantasyMonsters/Scripts/EditorScripts/CustomGrid.cs
+  uploadId: 611390

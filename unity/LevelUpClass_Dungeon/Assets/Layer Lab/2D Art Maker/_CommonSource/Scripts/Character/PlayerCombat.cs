@@ -191,8 +191,9 @@ namespace LayerLab.ArtMaker
 
         void ReturnToLobby()
         {
-            // 로비에서 체력을 회복시키므로 여기서는 씬 이동만 처리
-            if (GameManager.Instance != null)
+            if (GameResultUI.Instance != null)
+                GameResultUI.Instance.ShowDeathPanel();
+            else if (GameManager.Instance != null)
                 GameManager.Instance.GoToScene(GameManager.SceneLobby);
             else
                 UnityEngine.SceneManagement.SceneManager.LoadScene("Lobby");
@@ -219,20 +220,21 @@ namespace LayerLab.ArtMaker
                 Collider2D[] hitMonsters = Physics2D.OverlapCircleAll(attackPoint.position, attackRange, monsterLayer);
                 foreach (Collider2D monster in hitMonsters)
                 {
-                    int finalDamage = attackPower;
-                    if (Random.Range(0, 100) < critChance)
-                        finalDamage = Mathf.RoundToInt(attackPower * critDamageMultiplier);
+                    bool isCrit = Random.Range(0, 100) < critChance;
+                    int finalDamage = isCrit
+                        ? Mathf.RoundToInt(attackPower * critDamageMultiplier)
+                        : attackPower;
 
                     BossFSM boss = monster.GetComponent<BossFSM>();
                     if (boss != null && !boss.isDead)
                     {
-                        boss.TakeDamage(finalDamage);
+                        boss.TakeDamage(finalDamage, isCrit);
                         continue;
                     }
 
                     MonsterFSM target = monster.GetComponent<MonsterFSM>();
                     if (target != null)
-                        target.TakeDamage(finalDamage);
+                        target.TakeDamage(finalDamage, isCrit);
                 }
             }
         }

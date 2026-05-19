@@ -12,6 +12,10 @@ public class MonsterFSM : MonoBehaviour
     [Header("보상")]
     public int goldDrop = 10;
 
+    [Header("피격 이펙트")]
+    public GameObject hitEffectPrefab;
+    public GameObject critHitEffectPrefab;
+
     [Header("이동 및 공격 설정")]
     public float moveSpeed = 2f;
     public float chaseSpeed = 3.5f;
@@ -167,12 +171,23 @@ public class MonsterFSM : MonoBehaviour
         }
     }
 
-    public void TakeDamage(int damage)
+    public void TakeDamage(int damage, bool isCritical = false)
     {
         if (isDead) return;
         currentHealth -= damage;
         Vector3 textPos = transform.position + new Vector3(0, 1.5f, 0);
+
         SpriteFont.ShowDamage(damage.ToString(), textPos, FontType.Rainbow);
+        if (isCritical) SpawnCritLabel(textPos + new Vector3(0, 0.5f, 0));
+
+        // 피격 이펙트 스폰
+        GameObject effectToSpawn = (isCritical && critHitEffectPrefab != null)
+            ? critHitEffectPrefab : hitEffectPrefab;
+        if (effectToSpawn != null)
+        {
+            var fx = Instantiate(effectToSpawn, transform.position, Quaternion.identity);
+            Destroy(fx, 2f);
+        }
 
         GetComponentInChildren<MonsterHpBar>(true)?.Show();
         isAggro = true;
@@ -197,6 +212,21 @@ public class MonsterFSM : MonoBehaviour
         isHit = false;
     }
 
+    static void SpawnCritLabel(Vector3 pos)
+    {
+        var go = new UnityEngine.GameObject("치명타");
+        go.transform.position = pos;
+        var tm = go.AddComponent<TextMesh>();
+        tm.text        = "치명타";
+        tm.color       = new Color(1f, 0.7f, 0f);  // 황금색
+        tm.fontSize    = 50;
+        tm.characterSize = 0.12f;
+        tm.anchor      = TextAnchor.MiddleCenter;
+        tm.fontStyle   = FontStyle.Bold;
+        go.GetComponent<MeshRenderer>().sortingOrder = 9998;
+        go.AddComponent<LayerLab.ArtMaker.PlayerDamageFloater>();
+    }
+
     void Die()
     {
         isDead = true;
@@ -208,8 +238,13 @@ public class MonsterFSM : MonoBehaviour
         if (col) col.enabled = false;
         if (rb)  rb.isKinematic = true;
 
-        // 처치 보상 골드 지급
+        // 처치 보상 골드 지급 + 세션 통계
         GameManager.Instance?.AddGold(goldDrop);
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.sessionKillCount++;
+            GameManager.Instance.sessionEarnedGold += goldDrop;
+        }
 
         Destroy(gameObject, 1.5f);
     }

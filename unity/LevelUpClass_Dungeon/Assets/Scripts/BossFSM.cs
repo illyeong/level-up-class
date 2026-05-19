@@ -37,6 +37,15 @@ public class BossFSM : MonoBehaviour
     [Header("포탈 (보스 처치 후 활성화)")]
     public GameObject clearPortal;
 
+    [Header("피격 이펙트")]
+    public GameObject hitEffectPrefab;
+    public GameObject critHitEffectPrefab;
+
+    [Header("착지 이펙트 (Rage 점프 착지 시)")]
+    public GameObject landingEffectPrefab; // 파티클 프리팹
+    public float shakeDuration  = 0.35f;
+    public float shakeMagnitude = 0.4f;
+
     [Header("보스 HP 바 UI")]
     public Image bossHpFillImage;  // Hp_Fill Image 연결
     public GameObject bossHpBarUI;
@@ -241,6 +250,17 @@ public class BossFSM : MonoBehaviour
         rb.linearVelocity = new Vector2(0f, -15f);
         yield return new WaitForSeconds(0.2f);
 
+        // ── 착지 연출 ─────────────────────────────────────────
+        // 파티클 이펙트 스폰
+        if (landingEffectPrefab != null)
+        {
+            var fx = Instantiate(landingEffectPrefab, transform.position, Quaternion.identity);
+            Destroy(fx, 2f);
+        }
+
+        // 카메라 흔들림
+        CameraFollow.Instance?.Shake(shakeDuration, shakeMagnitude);
+
         // 착지 충격 — Player 레이어만 감지
         Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, 2.5f, LayerMask.GetMask("Player"));
         foreach (var hit in hits)
@@ -291,16 +311,27 @@ public class BossFSM : MonoBehaviour
         pc?.TakePlayerDamage(damage, transform.position);
     }
 
-    public void TakeDamage(int damage)
+    public void TakeDamage(int damage, bool isCritical = false)
     {
         if (isDead) return;
         currentHealth -= damage;
 
-        SpriteFont.ShowDamage(damage.ToString(), transform.position + new Vector3(0, 1.5f, 0), FontType.Rainbow);
+        Vector3 textPos = transform.position + new Vector3(0, 1.5f, 0);
+        SpriteFont.ShowDamage(damage.ToString(), textPos, FontType.Rainbow);
+        if (isCritical) SpawnCritLabel(textPos + new Vector3(0, 0.5f, 0));
 
         GetComponentInChildren<MonsterHpBar>(true)?.Show();
         if (bossHpFillImage != null)
             bossHpFillImage.fillAmount = Mathf.Clamp01((float)currentHealth / maxHealth);
+
+        // 피격 이펙트 스폰 (크리티컬이면 크리티컬 이펙트 우선)
+        GameObject effectToSpawn = (isCritical && critHitEffectPrefab != null)
+            ? critHitEffectPrefab : hitEffectPrefab;
+        if (effectToSpawn != null)
+        {
+            var fx = Instantiate(effectToSpawn, transform.position, Quaternion.identity);
+            Destroy(fx, 2f);
+        }
 
         if (currentHealth <= 0) { Die(); return; }
 
@@ -332,10 +363,27 @@ public class BossFSM : MonoBehaviour
         Destroy(gameObject, 4f);
     }
 
+    static void SpawnCritLabel(Vector3 pos)
+    {
+        var go = new UnityEngine.GameObject("치명타");
+        go.transform.position = pos;
+        var tm = go.AddComponent<TextMesh>();
+        tm.text          = "치명타";
+        tm.color         = new Color(1f, 0.7f, 0f);
+        tm.fontSize      = 50;
+        tm.characterSize = 0.12f;
+        tm.anchor        = TextAnchor.MiddleCenter;
+        tm.fontStyle     = FontStyle.Bold;
+        go.GetComponent<MeshRenderer>().sortingOrder = 9998;
+        go.AddComponent<LayerLab.ArtMaker.PlayerDamageFloater>();
+    }
+
     void ActivateClearPortal()
     {
-        if (clearPortal != null) clearPortal.SetActive(true);
-        SpriteFont.ShowDamage("BOSS CLEAR!", transform.position + new Vector3(0, 2f, 0), FontType.Rainbow);
+        if (GameResultUI.Instance != null)
+            GameResultUI.Instance.ShowRewardPanel();
+        else if (clearPortal != null)
+            clearPortal.SetActive(true);
     }
 
     // ── 에디터 기즈모 ─────────────────────────────────────────────────
