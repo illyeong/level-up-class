@@ -433,7 +433,19 @@ function StockManage() {
         {(() => {
           const soul = etfs.find(e => e.id === 'teacher_soul');
           return (
-            <div className="bg-gradient-to-r from-violet-600 to-pink-600 rounded-2xl p-5 shadow-md mb-6 text-white">
+            <div className="relative rounded-2xl overflow-hidden shadow-md mb-6 text-white"
+              style={{ background: 'linear-gradient(135deg, #5b21b6, #be185d)' }}>
+              {/* 배경 이미지 */}
+              <div className="absolute inset-0" style={{
+                backgroundImage: 'url(/images/soul-bond-bg.png)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                opacity: 0.25,
+              }} />
+              {/* 그라데이션 오버레이 */}
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-900/65 to-pink-900/55" />
+              {/* 실제 컨텐츠 */}
+              <div className="relative z-10 p-5">
               <div className="flex flex-col md:flex-row justify-between gap-4">
                 <div>
                   <div className="text-xs font-bold opacity-70 mb-1">👻 특별 ETF 관리</div>
@@ -453,7 +465,7 @@ function StockManage() {
                   ) : (
                     <div className="text-white/70 text-sm">아직 생성되지 않았습니다</div>
                   )}
-                  <div className="text-xs opacity-60 mt-1">매일 0.8% 자동 상승 · 기본 50주 지급 · 최대 100주</div>
+                  <div className="text-xs opacity-60 mt-1">매일 1% 자동 상승 · 기본 50주 지급 · 최대 100주</div>
                   <div className="text-xs bg-white/15 rounded-lg px-3 py-2 mt-2 leading-relaxed space-y-0.5">
                     <div>💡 매일 1%씩 자동 상승 (학급 특별 채권 형태)</div>
                     <div>💰 배당 지급 시 (현재가 - 100G) × 보유주수를 학생에게 지급 후 100G 초기화</div>
@@ -493,7 +505,7 @@ function StockManage() {
                           : soul.active !== false ? '🔴 비활성화 (학생 시장에서 숨김)' : '🟢 활성화하기'}
                       </button>
                       <div className="text-[10px] text-white/60 text-center">
-                        수동 설정 시 오늘 자동 0.8% 적용 안 됨
+                        수동 설정 시 오늘 자동 1% 적용 안 됨
                       </div>
                     </>
                   ) : (
@@ -503,6 +515,7 @@ function StockManage() {
                     </button>
                   )}
                 </div>
+              </div>
               </div>
             </div>
           );

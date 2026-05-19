@@ -863,7 +863,19 @@ function StockMarket({ studentCode }) {
                 const extraQty = Math.max(0, holding.quantity - baseQty);
                 return (
                   <div key={etf.id} onClick={() => setSelectedEtf(etf)}
-                    className="bg-gradient-to-br from-violet-600 to-pink-600 rounded-2xl p-5 cursor-pointer hover:shadow-xl transition-all text-white">
+                    className="relative rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl transition-all text-white"
+                    style={{ background: 'linear-gradient(135deg, #5b21b6, #be185d)' }}>
+                    {/* 배경 이미지 */}
+                    <div className="absolute inset-0" style={{
+                      backgroundImage: 'url(/images/soul-bond-bg.png)',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      opacity: 0.28,
+                    }} />
+                    {/* 그라데이션 오버레이 (텍스트 가독성) */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-violet-900/60 to-pink-900/50" />
+                    {/* 컨텐츠 */}
+                    <div className="relative z-10 p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="text-[10px] font-bold opacity-70 mb-0.5">👻 특별 ETF · SOUL</div>
@@ -881,7 +893,7 @@ function StockMarket({ studentCode }) {
 
                     {/* 설명 */}
                     <div className="bg-white/15 rounded-xl px-4 py-2.5 mb-3 text-xs leading-relaxed space-y-0.5">
-                      <div>📈 매일 오전 8시 전일가 대비 <strong>0.8%</strong> 자동 상승</div>
+                      <div>📈 매일 오전 8시 전일가 대비 <strong>1%</strong> 자동 상승</div>
                       <div>🔒 기본 <strong>50주</strong>는 절대 매도 불가 (무료 지급)</div>
                       <div>🛒 추가 매수 가능, 최대 <strong>100주</strong>까지 보유 가능</div>
                       <div>💸 50주 이하로는 매도할 수 없습니다</div>
@@ -910,8 +922,9 @@ function StockMarket({ studentCode }) {
                       <span className="bg-white/20 rounded-lg px-2 py-1">기본 {baseQty}주 (매도 불가)</span>
                       {extraQty > 0 && <span className="bg-white/20 rounded-lg px-2 py-1">추가 {extraQty}주 (매도 가능)</span>}
                       <span className="bg-white/20 rounded-lg px-2 py-1 ml-auto">
-                        내일 예상 +{Math.floor((etf.currentPrice || 0) * 0.008).toLocaleString()}G/주
+                        내일 예상 +{Math.floor((etf.currentPrice || 0) * 0.01).toLocaleString()}G/주
                       </span>
+                    </div>
                     </div>
                   </div>
                 );
