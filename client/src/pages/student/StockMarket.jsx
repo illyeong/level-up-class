@@ -870,7 +870,7 @@ function StockMarket({ studentCode }) {
                       backgroundImage: 'url(/images/soul-bond-bg.png)',
                       backgroundSize: 'cover',
                       backgroundPosition: 'center',
-                      opacity: 0.28,
+                      opacity: 0.55,
                     }} />
                     {/* 그라데이션 오버레이 (텍스트 가독성) */}
                     <div className="absolute inset-0 bg-gradient-to-br from-violet-900/60 to-pink-900/50" />

@@ -440,7 +440,7 @@ function StockManage() {
                 backgroundImage: 'url(/images/soul-bond-bg.png)',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                opacity: 0.25,
+                opacity: 0.55,
               }} />
               {/* 그라데이션 오버레이 */}
               <div className="absolute inset-0 bg-gradient-to-r from-violet-900/65 to-pink-900/55" />
