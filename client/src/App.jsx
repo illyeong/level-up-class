@@ -8,7 +8,10 @@ import ClassAllView from './pages/student/ClassAllView.jsx';
 import EditProfile from './pages/student/EditProfile.jsx';
 import ClassBank from './pages/student/ClassBank.jsx';
 import ClassShop from './pages/student/ClassShop.jsx';
+import AdventurePage from './pages/student/AdventurePage.jsx';
 import TeacherLogin from './pages/teacher/TeacherLogin.jsx';
+
+const ADVENTURE_VIEWS = ['adventure', 'quizDungeon', 'explorationDungeon', 'arena', 'bossRaid', 'miniGame'];
 
 function App() {
   const [isTeacherMode, setIsTeacherMode] = useState(false);
@@ -37,7 +40,7 @@ function App() {
     <div className="flex h-screen bg-slate-50 relative">
       <NavigationBar changeView={setCurrentView} currentView={currentView} />
       
-      <main className="flex-1 overflow-auto relative">
+      <main className="flex-1 overflow-hidden flex flex-col relative">
         {currentView === 'dashboard' && <StudentDashboard studentCode={testStudentCode} />}
         {currentView === 'myCharacter' && <MyCharacter studentCode={testStudentCode} />}
         {currentView === 'avatarRoom' && <AvatarRoom studentCode={testStudentCode} />}
@@ -51,6 +54,9 @@ function App() {
             studentCode={testStudentCode}
             onNameSaved={(name) => console.log('이름 저장됨:', name)}
           />
+        )}
+        {ADVENTURE_VIEWS.includes(currentView) && (
+          <AdventurePage currentView={currentView} studentCode={testStudentCode} />
         )}
         {currentView === 'academy' && (
           <div className="p-8 text-2xl font-bold text-slate-800">아카데미 화면 (준비 중 📚)</div>
