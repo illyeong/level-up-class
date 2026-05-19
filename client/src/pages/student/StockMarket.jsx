@@ -5,6 +5,16 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
+// 이번 주 월요일 날짜 문자열
+const getMostRecentMonday = () => {
+  const now = new Date();
+  const diff = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  const monday = new Date(now);
+  monday.setDate(monday.getDate() - diff);
+  monday.setHours(0, 0, 0, 0);
+  return monday.toISOString().split('T')[0];
+};
+
 const THEME_COLORS = {
   '기술':     'bg-sky-100 text-sky-700',
   '반도체':   'bg-violet-100 text-violet-700',
@@ -248,11 +258,12 @@ function StockMarket({ studentCode }) {
   const [studentDocId, setStudentDocId] = useState(null);
   const [holdings, setHoldings]       = useState({});  // { etfId: { quantity, avgBuyPrice } }
   const [selectedEtf, setSelectedEtf] = useState(null);
-  const [tab, setTab]                 = useState('market'); // 'market' | 'portfolio'
+  const [tab, setTab]                 = useState('market');
   const [themeFilter, setThemeFilter] = useState('전체');
   const [isLoading, setIsLoading]     = useState(true);
   const [isBusy, setIsBusy]           = useState(false);
   const [lastUpdated, setLastUpdated] = useState('');
+  const [dividendNotif, setDividendNotif] = useState(null); // 배당금 알림
 
   // ── 데이터 로딩 ──────────────────────────────────────────────
   useEffect(() => {
@@ -298,14 +309,52 @@ function StockMarket({ studentCode }) {
           const snap = await getDocs(q);
           if (!snap.empty) {
             const sDoc = snap.docs[0];
+            const sData = sDoc.data();
             setStudentDocId(sDoc.id);
-            setStudent({ id: sDoc.id, ...sDoc.data() });
+            setStudent({ id: sDoc.id, ...sData });
 
             // 6. 보유 주식 로드
             const holdSnap = await getDocs(collection(db, 'portfolios', sDoc.id, 'holdings'));
             const holdMap = {};
             holdSnap.docs.forEach(d => { holdMap[d.id] = d.data(); });
             setHoldings(holdMap);
+
+            // 7. 배당금 자동 지급 체크 (주간)
+            const thisMonday = getMostRecentMonday();
+            const hasDivEtfs = Object.keys(holdMap).length > 0;
+            if (hasDivEtfs && (!sData.lastDividendDate || sData.lastDividendDate < thisMonday)) {
+              let totalDiv = 0;
+              const batch = writeBatch(db);
+              for (const [etfId, holding] of Object.entries(holdMap)) {
+                const etf = etfList.find(e => e.id === etfId);
+                if (!etf || !etf.dividendRate || holding.quantity <= 0) continue;
+                const div = Math.floor(holding.quantity * (etf.currentPrice || 0) * etf.dividendRate);
+                if (div <= 0) continue;
+                totalDiv += div;
+                batch.set(doc(collection(db, 'dividendLogs')), {
+                  studentId:    sDoc.id,
+                  studentCode:  sData.studentCode,
+                  studentName:  sData.name || sData.studentCode,
+                  etfId, etfName: etf.name, etfSymbol: etf.symbol,
+                  quantity:     holding.quantity,
+                  priceAtTime:  etf.currentPrice || 0,
+                  dividendRate: etf.dividendRate,
+                  dividendAmount: div,
+                  weekOf:  thisMonday,
+                  paidAt:  serverTimestamp(),
+                });
+              }
+              if (totalDiv > 0) {
+                batch.update(doc(db, 'students', sDoc.id), {
+                  gold: (sData.gold || 0) + totalDiv,
+                  lastDividendDate: thisMonday,
+                });
+                await batch.commit();
+                setStudent(prev => ({ ...prev, gold: (prev.gold || 0) + totalDiv, lastDividendDate: thisMonday }));
+                setDividendNotif(totalDiv);
+                setTimeout(() => setDividendNotif(null), 6000);
+              }
+            }
           }
         }
       } catch (err) {
@@ -467,6 +516,16 @@ function StockMarket({ studentCode }) {
           </div>
         )}
       </div>
+
+      {/* 배당금 알림 배너 */}
+      {dividendNotif && (
+        <div className="bg-amber-400 text-amber-900 px-4 py-2.5 flex items-center justify-between animate-pulse">
+          <span className="font-extrabold text-sm">
+            💰 이번 주 배당금 🪙 {dividendNotif.toLocaleString()} 골드가 입금되었습니다!
+          </span>
+          <button onClick={() => setDividendNotif(null)} className="text-amber-800 hover:text-amber-900 font-bold">✕</button>
+        </div>
+      )}
 
       {/* 탭 */}
       <div className="flex border-b border-slate-200 bg-white">
