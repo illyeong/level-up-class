@@ -234,10 +234,11 @@ function ItemFormModal({ form, setForm, isEditing, onSubmit, onClose }) {
 
 // ─────────────────────── Main ─────────────────────────────────
 function ClassShopManage() {
-  const [items, setItems]       = useState([]);
+  const [items, setItems]         = useState([]);
   const [purchases, setPurchases] = useState([]);
+  const [usages, setUsages]       = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [tab, setTab]           = useState('items');
+  const [tab, setTab]             = useState('items');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId]   = useState(null);
   const [form, setForm]         = useState(DEFAULT_FORM);
@@ -257,7 +258,6 @@ function ClassShopManage() {
       );
       setPurchases(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch {
-      // orderBy 인덱스 없을 경우 client-side sort fallback
       const snap = await getDocs(collection(db, 'shopPurchases'));
       setPurchases(
         snap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -266,10 +266,18 @@ function ClassShopManage() {
     }
   };
 
+  const fetchUsages = async () => {
+    const snap = await getDocs(collection(db, 'shopUsages'));
+    setUsages(
+      snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.usedAt?.seconds || 0) - (a.usedAt?.seconds || 0))
+    );
+  };
+
   useEffect(() => {
     (async () => {
       setIsLoading(true);
-      await Promise.all([fetchItems(), fetchPurchases()]);
+      await Promise.all([fetchItems(), fetchPurchases(), fetchUsages()]);
       setIsLoading(false);
     })();
   }, []);
@@ -356,6 +364,11 @@ function ClassShopManage() {
               ${tab === 'purchases' ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200'}`}>
             구매 내역 ({purchases.length})
           </button>
+          <button onClick={() => setTab('usages')}
+            className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors
+              ${tab === 'usages' ? 'bg-violet-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200'}`}>
+            사용 내역 ({usages.length})
+          </button>
         </div>
 
         {/* 물품 목록 */}
@@ -436,6 +449,62 @@ function ClassShopManage() {
                             🪙 {(p.totalPrice || 0).toLocaleString()} G
                           </td>
                           <td className="px-5 py-3 text-xs text-slate-400">{fmtDate(p.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 사용 내역 탭 */}
+        {tab === 'usages' && (
+          <div className="space-y-4">
+            {usages.length > 0 && (
+              <div className="bg-violet-50 border border-violet-200 rounded-2xl p-4 flex items-center gap-4">
+                <div className="text-center">
+                  <div className="text-xl font-extrabold text-violet-700">{usages.length}건</div>
+                  <div className="text-[10px] text-violet-500 font-bold">총 사용</div>
+                </div>
+              </div>
+            )}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100">
+                <h3 className="font-bold text-slate-700 text-sm">전체 사용 내역</h3>
+              </div>
+              {usages.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <div className="text-4xl mb-2">📋</div>
+                  <p className="font-bold">사용 내역이 없습니다</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-500 text-xs border-b border-slate-100">
+                        <th className="px-5 py-3 font-semibold">학생</th>
+                        <th className="px-5 py-3 font-semibold">물품</th>
+                        <th className="px-5 py-3 font-semibold text-center">수량</th>
+                        <th className="px-5 py-3 font-semibold">사용 일시</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {usages.map(u => (
+                        <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-5 py-3">
+                            <div className="font-bold text-slate-800 text-sm">{u.studentName}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">{u.studentCode}</div>
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">{u.itemIcon || '🛍️'}</span>
+                              <span className="font-bold text-sm text-slate-700">{u.itemName}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 text-center font-bold text-violet-600 text-sm">{u.quantity}개</td>
+                          <td className="px-5 py-3 text-xs text-slate-400">{fmtDate(u.usedAt)}</td>
                         </tr>
                       ))}
                     </tbody>
