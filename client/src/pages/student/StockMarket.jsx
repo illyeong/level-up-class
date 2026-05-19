@@ -357,18 +357,24 @@ function StockMarket({ studentCode }) {
           || etfList.some(e => e.updatedDate !== today && e.id !== 'teacher_soul');
 
         if (needsUpdate) {
+          // API 새로고침 전에 teacher_soul 보관 (API 목록에 없으므로 사라지면 안 됨)
+          const prevSoul = etfList.find(e => e.id === 'teacher_soul');
+
           // 3. Vercel API에서 실시간 가격 가져오기
           const res = await fetch('/api/stock-prices');
           const data = await res.json();
 
           if (data.prices?.length > 0) {
-            // 4. Firestore에 저장
+            // 4. Firestore에 저장 (teacher_soul 제외)
             const batch = writeBatch(db);
             data.prices.forEach(price => {
               batch.set(doc(db, 'etfs', price.id), price, { merge: true });
             });
             await batch.commit();
             etfList = data.prices;
+
+            // teacher_soul은 API에 없으므로 다시 추가
+            if (prevSoul) etfList = [...etfList, prevSoul];
             setLastUpdated(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }));
           }
         } else {
@@ -600,7 +606,15 @@ function StockMarket({ studentCode }) {
   const portfolioItems = Object.entries(holdings)
     .filter(([, h]) => h.quantity > 0)
     .map(([etfId, h]) => {
-      const etf = etfs.find(e => e.id === etfId);
+      let etf = etfs.find(e => e.id === etfId);
+      // teacher_soul이 아직 etfs 목록에 없을 때 폴백 데이터 사용
+      if (!etf && etfId === 'teacher_soul') {
+        etf = {
+          id: 'teacher_soul', symbol: 'SOUL', name: '선생님의 영혼',
+          theme: '특별', currentPrice: h.avgBuyPrice || 100,
+          changePercent: 0.8, dividendRate: 0,
+        };
+      }
       if (!etf) return null;
       const currentValue  = etf.currentPrice * h.quantity;
       const cost          = h.avgBuyPrice * h.quantity;
