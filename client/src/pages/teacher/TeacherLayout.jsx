@@ -5,6 +5,7 @@ import TeacherNavigationBar from '../../components/TeacherNavigationBar';
 import AccountIssue from './AccountIssue';
 import TeacherDashboard from './TeacherDashboard';
 import QuestManage from './QuestManage';
+import BankManage from './BankManage';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -27,6 +28,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
         {/* 학생 계정 발급 화면 */}
         {currentView === 'accountIssue'    && <AccountIssue user={user} />}
         {currentView === 'questManage'     && <QuestManage />}
+        {currentView === 'bankManage'      && <BankManage />}
         
         {/* 임시 준비 중 화면들 */}
         {currentView === 'myCharacter' && <div className="p-10 text-2xl font-bold text-slate-800">선생님 캐릭터 룸 (준비 중 🦸‍♂️)</div>}
