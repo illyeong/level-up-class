@@ -93,8 +93,9 @@ function EtfEditModal({ etf, onSave, onClose }) {
 function StockManage() {
   const [etfs, setEtfs]             = useState([]);
   const [students, setStudents]     = useState([]);
-  const [soulPrice, setSoulPrice]   = useState('');  // 수동 가격 입력
+  const [soulPrice, setSoulPrice]       = useState('');
   const [isSoulSaving, setIsSoulSaving] = useState(false);
+  const [isSoulToggling, setIsSoulToggling] = useState(false);
   const [portfolioMap, setPortfolioMap] = useState({}); // { studentId: holdings{} }
   const [dividendLogs, setDividendLogs] = useState([]);
   const [tab, setTab]               = useState('etfs');
@@ -192,6 +193,27 @@ function StockManage() {
     });
     alert('✅ 선생님의 영혼 ETF가 생성되었습니다!\n학생들이 주식 페이지에 접속하면 자동으로 50주가 지급됩니다.');
     fetchAll();
+  };
+
+  // ── 선생님의 영혼 활성화/비활성화 ──────────────────────────
+  const toggleSoulActive = async () => {
+    const soul = etfs.find(e => e.id === 'teacher_soul');
+    if (!soul) return;
+    const newActive = soul.active === false;
+    if (!window.confirm(newActive
+      ? '선생님의 영혼 ETF를 활성화하시겠습니까?\n학생 시장 탭에 다시 표시됩니다.'
+      : '선생님의 영혼 ETF를 비활성화하시겠습니까?\n학생 시장 탭에서 숨겨집니다. (보유 주식은 유지됩니다)'
+    )) return;
+    setIsSoulToggling(true);
+    try {
+      await updateDoc(doc(db, 'etfs', 'teacher_soul'), { active: newActive });
+      setEtfs(prev => prev.map(e => e.id === 'teacher_soul' ? { ...e, active: newActive } : e));
+      alert(newActive ? '✅ 활성화되었습니다.' : '🔴 비활성화되었습니다.');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSoulToggling(false);
+    }
   };
 
   // ── 선생님의 영혼 가격 수동 설정 ───────────────────────────
@@ -377,6 +399,16 @@ function StockManage() {
                           {isSoulSaving ? '...' : '설정'}
                         </button>
                       </div>
+                      <button
+                        onClick={toggleSoulActive}
+                        disabled={isSoulToggling}
+                        className={`w-full py-2 rounded-xl font-bold text-sm transition-colors disabled:opacity-50
+                          ${soul.active !== false
+                            ? 'bg-white/20 hover:bg-red-500/40 text-white border border-white/30'
+                            : 'bg-emerald-500 hover:bg-emerald-400 text-white'}`}>
+                        {isSoulToggling ? '처리 중...'
+                          : soul.active !== false ? '🔴 비활성화 (학생 시장에서 숨김)' : '🟢 활성화하기'}
+                      </button>
                       <div className="text-[10px] text-white/60 text-center">
                         수동 설정 시 오늘 자동 0.8% 적용 안 됨
                       </div>

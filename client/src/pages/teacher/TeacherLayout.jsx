@@ -35,10 +35,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
         {currentView === 'stockManage'     && <StockManage />}
         
         {/* 임시 준비 중 화면들 */}
-        {currentView === 'myCharacter' && <div className="p-10 text-2xl font-bold text-slate-800">선생님 캐릭터 룸 (준비 중 🦸‍♂️)</div>}
-        {currentView === 'sendNotice' && <div className="p-10 text-2xl font-bold text-slate-800">학급 공지 발송 화면 (준비 중 📢)</div>}
-        {currentView === 'stockManage' && <div className="p-10 text-2xl font-bold text-slate-800">주식 ETF 관리 화면 (준비 중 📈)</div>}
-        {currentView === 'bankManage' && <div className="p-10 text-2xl font-bold text-slate-800">은행 관리 화면 (준비 중 🏦)</div>}
+        {currentView === 'myCharacter'     && <div className="p-10 text-2xl font-bold text-slate-800">선생님 캐릭터 룸 (준비 중 🦸‍♂️)</div>}
         {currentView === 'adventureManage' && <div className="p-10 text-2xl font-bold text-slate-800">어드벤처 관리 화면 (준비 중 ⚔️)</div>}
         
       </main>
