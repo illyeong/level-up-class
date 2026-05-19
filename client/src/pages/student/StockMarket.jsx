@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, doc, writeBatch,
+  collection, getDocs, doc, writeBatch, updateDoc, setDoc,
   serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -25,6 +25,8 @@ const THEME_COLORS = {
   '부동산':   'bg-amber-100 text-amber-700',
   '원자재':   'bg-yellow-100 text-yellow-700',
   '배당·금융':'bg-blue-100 text-blue-700',
+  '암호화폐': 'bg-orange-100 text-orange-700',
+  '한국주식': 'bg-red-100 text-red-700',
 };
 
 const fmtDate = (ts) => {
@@ -33,50 +35,69 @@ const fmtDate = (ts) => {
   return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 };
 
-// ─────────────────────── ETF 카드 ─────────────────────────────
-function EtfCard({ etf, myGold, onSelect }) {
-  const isUp    = etf.changePercent > 0;
-  const isDown  = etf.changePercent < 0;
-  const sign    = isUp ? '+' : '';
-  const canBuy  = myGold >= etf.currentPrice;
+// ─────────────────────── 세로 리스트 행 ──────────────────────
+function StockListRow({ etf, myGold, myHolding, onSelect, isLast }) {
+  const isUp   = etf.changePercent > 0;
+  const isDown = etf.changePercent < 0;
+  const qty    = myHolding?.quantity || 0;
+  const expectedDiv = qty > 0 && etf.dividendRate > 0
+    ? Math.floor(qty * (etf.currentPrice || 0) * etf.dividendRate)
+    : 0;
 
   return (
     <div
       onClick={() => onSelect(etf)}
-      className="bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer overflow-hidden">
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-              <span className="font-mono text-xs text-slate-400 font-bold">{etf.symbol}</span>
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${THEME_COLORS[etf.theme] || 'bg-slate-100 text-slate-600'}`}>
-                {etf.theme}
-              </span>
-            </div>
-            <h3 className="font-extrabold text-slate-800 text-sm leading-tight">{etf.name}</h3>
-          </div>
-          <div className="text-right shrink-0">
-            <div className="font-extrabold text-slate-800 text-base">
-              🪙 {(etf.currentPrice || 0).toLocaleString()}
-            </div>
-            <div className={`text-sm font-bold ${isUp ? 'text-emerald-600' : isDown ? 'text-rose-500' : 'text-slate-400'}`}>
-              {sign}{etf.changePercent?.toFixed(2)}%
-              {isUp ? ' ▲' : isDown ? ' ▼' : ''}
-            </div>
-          </div>
+      className={`flex items-center px-4 py-3.5 hover:bg-slate-50 active:bg-slate-100 cursor-pointer transition-colors
+        ${isLast ? '' : 'border-b border-slate-100'}`}>
+
+      {/* 등락 컬러 바 */}
+      <div className={`w-1 self-stretch rounded-full mr-4 shrink-0
+        ${isUp ? 'bg-emerald-400' : isDown ? 'bg-rose-400' : 'bg-slate-200'}`} />
+
+      {/* 종목 정보 */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+          <span className="font-extrabold text-slate-800 text-sm leading-tight">{etf.name}</span>
+          <span className="text-[10px] text-slate-400 font-mono font-bold shrink-0">{etf.symbol}</span>
         </div>
-
-        {etf.dividendRate > 0 && (
-          <div className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full inline-block">
-            🏦 주간 배당 {(etf.dividendRate * 100).toFixed(1)}%
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0
+            ${THEME_COLORS[etf.theme] || 'bg-slate-100 text-slate-600'}`}>
+            {etf.theme}
+          </span>
+          {etf.dividendRate > 0 && (
+            <span className="text-[10px] text-slate-400 shrink-0">
+              배당 {(etf.dividendRate * 100).toFixed(1)}%/주
+            </span>
+          )}
+          {qty > 0 && (
+            <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-1.5 py-0.5 rounded-md shrink-0">
+              {qty}주 보유
+            </span>
+          )}
+          {expectedDiv > 0 && (
+            <span className="text-[10px] bg-amber-50 text-amber-600 font-bold px-1.5 py-0.5 rounded-md shrink-0">
+              💰+{expectedDiv.toLocaleString()}G
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className={`px-4 py-1.5 text-xs font-bold text-center
-        ${canBuy ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'}`}>
-        {canBuy ? '매수 가능' : `골드 ${((etf.currentPrice || 0) - myGold).toLocaleString()} 부족`}
+      {/* 가격 + 등락률 */}
+      <div className="text-right ml-4 shrink-0">
+        <div className="font-extrabold text-slate-800 text-sm">
+          🪙 {(etf.currentPrice || 0).toLocaleString()}
+        </div>
+        <div className={`text-sm font-bold ${isUp ? 'text-emerald-600' : isDown ? 'text-rose-500' : 'text-slate-400'}`}>
+          {isUp ? '+' : ''}{(etf.changePercent || 0).toFixed(2)}%
+          {isUp ? ' ▲' : isDown ? ' ▼' : ''}
+        </div>
       </div>
+
+      {/* 화살표 */}
+      <svg className="w-4 h-4 text-slate-300 ml-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
     </div>
   );
 }
@@ -86,9 +107,13 @@ function EtfDetailModal({ etf, myGold, holdings, onBuy, onSell, onClose, isBusy 
   const [mode, setMode]       = useState('buy'); // 'buy' | 'sell'
   const [quantity, setQuantity] = useState(1);
 
-  const holding     = holdings[etf.id] || { quantity: 0, avgBuyPrice: 0 };
-  const maxBuy      = Math.floor(myGold / (etf.currentPrice || 1));
-  const maxSell     = holding.quantity;
+  const holding      = holdings[etf.id] || { quantity: 0, avgBuyPrice: 0, baseQuantity: 0 };
+  const isSoul       = etf.id === 'teacher_soul';
+  const baseQty      = isSoul ? (holding.baseQuantity || 50) : 0;
+  const maxBuy       = isSoul
+    ? Math.min(Math.floor(myGold / (etf.currentPrice || 1)), 100 - holding.quantity)
+    : Math.floor(myGold / (etf.currentPrice || 1));
+  const maxSell      = Math.max(0, holding.quantity - baseQty);
   const totalCost   = etf.currentPrice * quantity;
   const totalRevenue= etf.currentPrice * quantity;
   const profitLoss  = (etf.currentPrice - holding.avgBuyPrice) * holding.quantity;
@@ -120,8 +145,51 @@ function EtfDetailModal({ etf, myGold, holdings, onBuy, onSell, onClose, isBusy 
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* 설명 */}
-          <p className="text-sm text-slate-600 leading-relaxed">{etf.description}</p>
+          {/* 선생님의 영혼 특별 안내 */}
+          {isSoul && (
+            <div className="bg-gradient-to-br from-violet-50 to-pink-50 border border-violet-200 rounded-2xl p-4 space-y-2">
+              <div className="font-extrabold text-violet-800 text-sm flex items-center gap-1.5">
+                👻 세상에 단 하나뿐인 ETF
+              </div>
+              <p className="text-xs text-violet-700 leading-relaxed">
+                우리 선생님의 소중한 영혼이 담긴 특별 ETF입니다.<br/>
+                매일 오전 8시 전일 대비 <strong>0.8%씩</strong> 자동 상승하며,
+                선생님이 특별한 날 가격을 직접 조정하기도 합니다.
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="bg-white/70 rounded-xl p-2 text-center border border-violet-100">
+                  <div className="font-extrabold text-violet-700">50주</div>
+                  <div className="text-violet-500">기본 무료 지급</div>
+                </div>
+                <div className="bg-white/70 rounded-xl p-2 text-center border border-violet-100">
+                  <div className="font-extrabold text-violet-700">최대 100주</div>
+                  <div className="text-violet-500">추가 매수 가능</div>
+                </div>
+              </div>
+              <div className="text-[10px] text-violet-500 bg-violet-100 rounded-lg px-3 py-1.5 font-medium">
+                ⚠️ 기본 50주는 매도 불가 · 추가 구매분만 매도 가능
+              </div>
+              {holding.quantity > 0 && (
+                <div className="text-[11px] text-slate-600 border-t border-violet-100 pt-2 grid grid-cols-3 gap-1 text-center">
+                  <div>
+                    <div className="font-bold text-slate-700">{holding.quantity}주</div>
+                    <div className="text-slate-400">현재 보유</div>
+                  </div>
+                  <div>
+                    <div className="font-bold text-emerald-600">{maxSell}주</div>
+                    <div className="text-slate-400">매도 가능</div>
+                  </div>
+                  <div>
+                    <div className="font-bold text-indigo-600">{Math.max(0, 100 - holding.quantity)}주</div>
+                    <div className="text-slate-400">추가 매수 가능</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 일반 설명 */}
+          {!isSoul && <p className="text-sm text-slate-600 leading-relaxed">{etf.description}</p>}
 
           {/* 배당 정보 */}
           {etf.dividendRate > 0 && (
@@ -261,9 +329,10 @@ function StockMarket({ studentCode }) {
   const [tab, setTab]                 = useState('market');
   const [themeFilter, setThemeFilter] = useState('전체');
   const [isLoading, setIsLoading]     = useState(true);
-  const [isBusy, setIsBusy]           = useState(false);
-  const [lastUpdated, setLastUpdated] = useState('');
-  const [dividendNotif, setDividendNotif] = useState(null); // 배당금 알림
+  const [isBusy, setIsBusy]               = useState(false);
+  const [lastUpdated, setLastUpdated]     = useState('');
+  const [dividendNotif, setDividendNotif] = useState(null);
+  const [dividendsReceived, setDividendsReceived] = useState(0); // 누적 수령 배당금
 
   // ── 데이터 로딩 ──────────────────────────────────────────────
   useEffect(() => {
@@ -300,7 +369,34 @@ function StockMarket({ studentCode }) {
             : '');
         }
 
-        etfList.sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0));
+        // ── 선생님의 영혼: 매일 0.8% 자동 가격 상승 ──────────────
+        const soulEtf = etfList.find(e => e.id === 'teacher_soul');
+        if (soulEtf) {
+          const today2 = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
+          if (soulEtf.lastPriceUpdate !== today2 && !soulEtf.teacherSetToday) {
+            const newPrice  = parseFloat((soulEtf.currentPrice * 1.008).toFixed(2));
+            const changePct = parseFloat(((newPrice - soulEtf.currentPrice) / soulEtf.currentPrice * 100).toFixed(2));
+            await updateDoc(doc(db, 'etfs', 'teacher_soul'), {
+              prevPrice:       soulEtf.currentPrice,
+              currentPrice:    newPrice,
+              changePercent:   changePct,
+              lastPriceUpdate: today2,
+              updatedDate:     today2,
+              teacherSetToday: false,
+            });
+            etfList = etfList.map(e => e.id === 'teacher_soul'
+              ? { ...e, prevPrice: e.currentPrice, currentPrice: newPrice, changePercent: changePct }
+              : e
+            );
+          }
+        }
+
+        // 선생님의 영혼 항상 맨 위, 나머지는 등락률 순
+        etfList.sort((a, b) => {
+          if (a.id === 'teacher_soul') return -1;
+          if (b.id === 'teacher_soul') return 1;
+          return (b.changePercent || 0) - (a.changePercent || 0);
+        });
         setEtfs(etfList);
 
         // 5. 학생 데이터 로드
@@ -319,7 +415,30 @@ function StockMarket({ studentCode }) {
             holdSnap.docs.forEach(d => { holdMap[d.id] = d.data(); });
             setHoldings(holdMap);
 
-            // 7. 배당금 자동 지급 체크 (주간)
+            // 7. 선생님의 영혼 50주 기본 지급 (미보유 시)
+            const soulEtf2 = etfList.find(e => e.id === 'teacher_soul');
+            if (soulEtf2 && !holdMap['teacher_soul']) {
+              const grantData = {
+                quantity:     50,
+                baseQuantity: 50,
+                avgBuyPrice:  soulEtf2.currentPrice || 100,
+                etfName:      '선생님의 영혼',
+                etfSymbol:    'SOUL',
+                grantedAt:    serverTimestamp(),
+              };
+              await setDoc(doc(db, 'portfolios', sDoc.id, 'holdings', 'teacher_soul'), grantData);
+              holdMap['teacher_soul'] = { ...grantData };
+              setHoldings({ ...holdMap });
+            }
+
+            // 8. 누적 배당금 수령 합계 로드
+            const divLogSnap = await getDocs(
+              query(collection(db, 'dividendLogs'), where('studentId', '==', sDoc.id))
+            );
+            const received = divLogSnap.docs.reduce((sum, d) => sum + (d.data().dividendAmount || 0), 0);
+            setDividendsReceived(received);
+
+            // 8. 배당금 자동 지급 체크 (주간)
             const thisMonday = getMostRecentMonday();
             const hasDivEtfs = Object.keys(holdMap).length > 0;
             if (hasDivEtfs && (!sData.lastDividendDate || sData.lastDividendDate < thisMonday)) {
@@ -475,12 +594,17 @@ function StockMarket({ studentCode }) {
     .map(([etfId, h]) => {
       const etf = etfs.find(e => e.id === etfId);
       if (!etf) return null;
-      const currentValue = etf.currentPrice * h.quantity;
-      const cost         = h.avgBuyPrice * h.quantity;
-      const pnl          = currentValue - cost;
-      const pnlPct       = cost > 0 ? (pnl / cost * 100).toFixed(2) : '0.00';
-      return { etf, holding: h, currentValue, cost, pnl, pnlPct };
+      const currentValue  = etf.currentPrice * h.quantity;
+      const cost          = h.avgBuyPrice * h.quantity;
+      const pnl           = currentValue - cost;
+      const pnlPct        = cost > 0 ? (pnl / cost * 100).toFixed(2) : '0.00';
+      const weeklyDiv     = etf.dividendRate > 0
+        ? Math.floor(h.quantity * (etf.currentPrice || 0) * etf.dividendRate) : 0;
+      return { etf, holding: h, currentValue, cost, pnl, pnlPct, weeklyDiv };
     }).filter(Boolean);
+
+  // 이번 주 예상 총 배당금
+  const totalExpectedDiv = portfolioItems.reduce((s, i) => s + (i.weeklyDiv || 0), 0);
 
   const totalInvested = portfolioItems.reduce((s, i) => s + i.cost, 0);
   const totalValue    = portfolioItems.reduce((s, i) => s + i.currentValue, 0);
@@ -516,6 +640,25 @@ function StockMarket({ studentCode }) {
           </div>
         )}
       </div>
+
+      {/* 배당금 수령 요약 (보유 ETF 있을 때) */}
+      {(dividendsReceived > 0 || totalExpectedDiv > 0) && (
+        <div className="bg-amber-950 text-amber-100 px-4 py-2 flex items-center gap-4 text-xs flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <span>🏦 지금까지 받은 배당금</span>
+            <span className="font-extrabold text-amber-300 text-sm">🪙 {dividendsReceived.toLocaleString()}</span>
+          </div>
+          {totalExpectedDiv > 0 && (
+            <>
+              <span className="text-amber-700">|</span>
+              <div className="flex items-center gap-1.5">
+                <span>💰 이번 주 예상 배당금</span>
+                <span className="font-extrabold text-emerald-300 text-sm">🪙 +{totalExpectedDiv.toLocaleString()}</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* 배당금 알림 배너 */}
       {dividendNotif && (
@@ -555,19 +698,43 @@ function StockMarket({ studentCode }) {
           </div>
 
           {!studentCode && (
-            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 font-medium">
+            <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 font-medium">
               💡 교사 페이지에서 테스트 로그인하면 ETF를 매수할 수 있습니다.
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filteredEtfs.map(etf => (
-              <EtfCard
-                key={etf.id} etf={etf}
-                myGold={student?.gold || 0}
-                onSelect={studentCode ? setSelectedEtf : () => {}}
-              />
-            ))}
+          {/* 요약 헤더 */}
+          <div className="flex items-center justify-between mb-2 px-1">
+            <span className="text-xs text-slate-500 font-medium">{filteredEtfs.length}개 종목</span>
+            <div className="flex gap-2 text-[11px] font-bold">
+              <span className="text-emerald-600">
+                ▲ {filteredEtfs.filter(e => e.changePercent > 0).length}
+              </span>
+              <span className="text-slate-300">|</span>
+              <span className="text-rose-500">
+                ▼ {filteredEtfs.filter(e => e.changePercent < 0).length}
+              </span>
+            </div>
+          </div>
+
+          {/* 세로 리스트 */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            {filteredEtfs.length === 0 ? (
+              <div className="text-center py-16 text-slate-400">
+                <div className="text-4xl mb-2">📊</div>
+                <p className="font-bold">해당 종목이 없습니다</p>
+              </div>
+            ) : (
+              filteredEtfs.map((etf, idx) => (
+                <StockListRow
+                  key={etf.id} etf={etf}
+                  myGold={student?.gold || 0}
+                  myHolding={holdings[etf.id]}
+                  onSelect={studentCode ? setSelectedEtf : () => {}}
+                  isLast={idx === filteredEtfs.length - 1}
+                />
+              ))
+            )}
           </div>
         </div>
       )}
@@ -595,16 +762,21 @@ function StockMarket({ studentCode }) {
               </div>
 
               {/* 보유 ETF 목록 */}
-              {portfolioItems.map(({ etf, holding, currentValue, pnl, pnlPct }) => (
+              {portfolioItems.map(({ etf, holding, currentValue, pnl, pnlPct, weeklyDiv }) => (
                 <div key={etf.id}
                   onClick={() => setSelectedEtf(etf)}
                   className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 cursor-pointer hover:shadow-md transition-all">
                   <div className="flex items-start justify-between">
-                    <div>
+                    <div className="min-w-0 mr-2">
                       <div className="font-extrabold text-slate-800 text-sm">{etf.name}</div>
                       <div className="text-xs text-slate-400 mt-0.5">{holding.quantity}주 보유 · 평균 🪙{holding.avgBuyPrice.toLocaleString()}</div>
+                      {weeklyDiv > 0 && (
+                        <div className="mt-1.5 text-[10px] bg-amber-50 border border-amber-100 text-amber-600 font-bold px-2 py-0.5 rounded-full inline-block">
+                          💰 이번 주 예상 배당 +{weeklyDiv.toLocaleString()}G
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <div className="font-extrabold text-slate-800">🪙 {currentValue.toLocaleString()}</div>
                       <div className={`text-sm font-bold ${pnl >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                         {pnl >= 0 ? '+' : ''}{pnl.toLocaleString()} ({pnlPct}%)

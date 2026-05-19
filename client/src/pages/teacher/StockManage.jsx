@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, doc, writeBatch,
+  collection, getDocs, getDoc, doc, writeBatch,
   updateDoc, serverTimestamp, setDoc,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -93,6 +93,8 @@ function EtfEditModal({ etf, onSave, onClose }) {
 function StockManage() {
   const [etfs, setEtfs]             = useState([]);
   const [students, setStudents]     = useState([]);
+  const [soulPrice, setSoulPrice]   = useState('');  // 수동 가격 입력
+  const [isSoulSaving, setIsSoulSaving] = useState(false);
   const [portfolioMap, setPortfolioMap] = useState({}); // { studentId: holdings{} }
   const [dividendLogs, setDividendLogs] = useState([]);
   const [tab, setTab]               = useState('etfs');
@@ -166,6 +168,64 @@ function StockManage() {
       alert('가격 업데이트 실패. 인터넷 연결을 확인해주세요.');
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  // ── 선생님의 영혼 초기 생성 ─────────────────────────────────
+  const initSoulEtf = async () => {
+    const soulRef = doc(db, 'etfs', 'teacher_soul');
+    const snap    = await getDoc(soulRef);
+    if (snap.exists()) { alert('이미 생성되어 있습니다!'); return; }
+
+    await setDoc(soulRef, {
+      id: 'teacher_soul', symbol: 'SOUL', name: '선생님의 영혼',
+      theme: '특별',
+      description: '우리 선생님의 소중한 영혼이 담긴 특별 ETF입니다. 매일 0.8%씩 자동 상승합니다.',
+      currentPrice: 100, prevPrice: 100, changePercent: 0,
+      basePrice: 100, baseShares: 50, maxShares: 100,
+      dailyGrowthRate: 0.008, dividendRate: 0,
+      isTeacherControlled: true, teacherSetToday: false,
+      lastPriceUpdate: '', active: true,
+      currency: 'gold',
+      updatedAt: new Date().toISOString(),
+      updatedDate: '',
+    });
+    alert('✅ 선생님의 영혼 ETF가 생성되었습니다!\n학생들이 주식 페이지에 접속하면 자동으로 50주가 지급됩니다.');
+    fetchAll();
+  };
+
+  // ── 선생님의 영혼 가격 수동 설정 ───────────────────────────
+  const setSoulPriceManual = async () => {
+    const price = parseFloat(soulPrice);
+    if (!price || price <= 0) return alert('올바른 가격을 입력해주세요.');
+    const soulEtf = etfs.find(e => e.id === 'teacher_soul');
+    if (!soulEtf) return alert('먼저 ETF를 초기 생성해주세요.');
+
+    const prevPrice   = soulEtf.currentPrice || 100;
+    const changePct   = parseFloat(((price - prevPrice) / prevPrice * 100).toFixed(2));
+    const today       = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
+
+    setIsSoulSaving(true);
+    try {
+      await updateDoc(doc(db, 'etfs', 'teacher_soul'), {
+        prevPrice, currentPrice: price,
+        changePercent: changePct,
+        lastPriceUpdate: today,
+        teacherSetToday: true,   // 오늘은 자동 0.8% 적용 안 함
+        updatedAt: new Date().toISOString(),
+        updatedDate: today,
+      });
+      setEtfs(prev => prev.map(e => e.id === 'teacher_soul'
+        ? { ...e, prevPrice, currentPrice: price, changePercent: changePct }
+        : e
+      ));
+      setSoulPrice('');
+      alert(`✅ 선생님의 영혼 가격이 🪙${price.toLocaleString()}으로 설정되었습니다!\n(오늘 자동 0.8% 상승은 적용되지 않습니다)`);
+    } catch (err) {
+      console.error(err);
+      alert('가격 설정 실패');
+    } finally {
+      setIsSoulSaving(false);
     }
   };
 
@@ -275,6 +335,63 @@ function StockManage() {
             </button>
           </div>
         </div>
+
+        {/* 선생님의 영혼 ETF 관리 카드 */}
+        {(() => {
+          const soul = etfs.find(e => e.id === 'teacher_soul');
+          return (
+            <div className="bg-gradient-to-r from-violet-600 to-pink-600 rounded-2xl p-5 shadow-md mb-6 text-white">
+              <div className="flex flex-col md:flex-row justify-between gap-4">
+                <div>
+                  <div className="text-xs font-bold opacity-70 mb-1">👻 특별 ETF 관리</div>
+                  <h2 className="font-extrabold text-xl mb-1">선생님의 영혼</h2>
+                  {soul ? (
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl font-black">🪙 {(soul.currentPrice || 100).toLocaleString()}</span>
+                      <span className={`text-sm font-bold px-2 py-0.5 rounded-full
+                        ${soul.changePercent > 0 ? 'bg-white/20' : soul.changePercent < 0 ? 'bg-red-900/30' : 'bg-white/10'}`}>
+                        {soul.changePercent > 0 ? '+' : ''}{(soul.changePercent || 0).toFixed(2)}%
+                        {soul.changePercent > 0 ? ' ▲' : soul.changePercent < 0 ? ' ▼' : ''}
+                      </span>
+                      {soul.teacherSetToday && (
+                        <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">오늘 수동 설정됨</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-white/70 text-sm">아직 생성되지 않았습니다</div>
+                  )}
+                  <div className="text-xs opacity-60 mt-1">매일 0.8% 자동 상승 · 기본 50주 지급 · 최대 100주</div>
+                </div>
+                <div className="flex flex-col gap-2 min-w-[220px]">
+                  {soul ? (
+                    <>
+                      <div className="flex gap-2">
+                        <input
+                          type="number" min="1" value={soulPrice}
+                          onChange={e => setSoulPrice(e.target.value)}
+                          placeholder={`현재: ${soul.currentPrice || 100}`}
+                          className="flex-1 bg-white/20 border border-white/30 rounded-xl px-3 py-2 text-white placeholder-white/50 font-bold text-sm focus:outline-none focus:border-white"
+                        />
+                        <button onClick={setSoulPriceManual} disabled={isSoulSaving || !soulPrice}
+                          className="px-4 py-2 bg-white text-violet-700 font-extrabold text-sm rounded-xl hover:bg-white/90 transition-colors disabled:opacity-50">
+                          {isSoulSaving ? '...' : '설정'}
+                        </button>
+                      </div>
+                      <div className="text-[10px] text-white/60 text-center">
+                        수동 설정 시 오늘 자동 0.8% 적용 안 됨
+                      </div>
+                    </>
+                  ) : (
+                    <button onClick={initSoulEtf}
+                      className="px-5 py-2.5 bg-white text-violet-700 font-extrabold text-sm rounded-xl hover:bg-white/90 transition-colors">
+                      👻 ETF 초기 생성하기
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 배당 요약 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
