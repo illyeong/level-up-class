@@ -148,7 +148,7 @@ function EtfDetailModal({ etf, myGold, holdings, onBuy, onSell, onClose, isBusy 
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* 선생님의 영혼 특별 안내 */}
+          {/* 학급 특별 채권 특별 안내 */}
           {isSoul && (
             <div className="bg-gradient-to-br from-violet-50 to-pink-50 border border-violet-200 rounded-2xl p-4 space-y-2">
               <div className="font-extrabold text-violet-800 text-sm flex items-center gap-1.5">
@@ -334,8 +334,9 @@ function StockMarket({ studentCode }) {
   const [isLoading, setIsLoading]     = useState(true);
   const [isBusy, setIsBusy]               = useState(false);
   const [lastUpdated, setLastUpdated]     = useState('');
-  const [dividendNotif, setDividendNotif] = useState(null);
-  const [dividendsReceived, setDividendsReceived] = useState(0); // 누적 수령 배당금
+  const [dividendNotif, setDividendNotif]         = useState(null);
+  const [dividendsReceived, setDividendsReceived] = useState(0);
+  const [isReceivingSoul, setIsReceivingSoul]     = useState(false);
 
   // ── 데이터 로딩 ──────────────────────────────────────────────
   useEffect(() => {
@@ -383,12 +384,12 @@ function StockMarket({ studentCode }) {
             : '');
         }
 
-        // ── 선생님의 영혼: 매일 0.8% 자동 가격 상승 ──────────────
+        // ── 학급 특별 채권: 매일 0.8% 자동 가격 상승 ──────────────
         const soulEtf = etfList.find(e => e.id === 'teacher_soul');
         if (soulEtf) {
           const today2 = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
           if (soulEtf.lastPriceUpdate !== today2 && !soulEtf.teacherSetToday) {
-            const newPrice  = parseFloat((soulEtf.currentPrice * 1.008).toFixed(2));
+            const newPrice  = Math.floor(soulEtf.currentPrice * 1.01); // 1%, 소수점 없음
             const changePct = parseFloat(((newPrice - soulEtf.currentPrice) / soulEtf.currentPrice * 100).toFixed(2));
             await updateDoc(doc(db, 'etfs', 'teacher_soul'), {
               prevPrice:       soulEtf.currentPrice,
@@ -405,7 +406,7 @@ function StockMarket({ studentCode }) {
           }
         }
 
-        // 선생님의 영혼 항상 맨 위, 나머지는 등락률 순
+        // 학급 특별 채권 항상 맨 위, 나머지는 등락률 순
         etfList.sort((a, b) => {
           if (a.id === 'teacher_soul') return -1;
           if (b.id === 'teacher_soul') return 1;
@@ -429,14 +430,14 @@ function StockMarket({ studentCode }) {
             holdSnap.docs.forEach(d => { holdMap[d.id] = d.data(); });
             setHoldings(holdMap);
 
-            // 7. 선생님의 영혼 50주 기본 지급 (미보유 시)
+            // 7. 학급 특별 채권 50주 기본 지급 (미보유 시)
             const soulEtf2 = etfList.find(e => e.id === 'teacher_soul');
             if (soulEtf2 && !holdMap['teacher_soul']) {
               const grantData = {
                 quantity:     50,
                 baseQuantity: 50,
                 avgBuyPrice:  soulEtf2.currentPrice || 100,
-                etfName:      '선생님의 영혼',
+                etfName:      '학급 특별 채권',
                 etfSymbol:    'SOUL',
                 grantedAt:    serverTimestamp(),
               };
@@ -498,6 +499,26 @@ function StockMarket({ studentCode }) {
     };
     load();
   }, [studentCode]);
+
+  // ── 학급 특별 채권 배당금 수령 ────────────────────────────────
+  const receiveSoulDividend = async () => {
+    const amount = student?.pendingSoulDividend || 0;
+    if (!studentDocId || amount <= 0) return;
+    setIsReceivingSoul(true);
+    try {
+      await updateDoc(doc(db, 'students', studentDocId), {
+        gold:                (student.gold || 0) + amount,
+        pendingSoulDividend: 0,
+      });
+      setStudent(prev => ({ ...prev, gold: (prev.gold || 0) + amount, pendingSoulDividend: 0 }));
+      alert(`🎉 배당금 🪙${amount.toLocaleString()} 골드를 수령했습니다!`);
+    } catch (err) {
+      console.error(err);
+      alert('수령 중 오류가 발생했습니다.');
+    } finally {
+      setIsReceivingSoul(false);
+    }
+  };
 
   // ── 매수 ────────────────────────────────────────────────────
   const handleBuy = async (etf, quantity) => {
@@ -610,7 +631,7 @@ function StockMarket({ studentCode }) {
       // teacher_soul이 아직 etfs 목록에 없을 때 폴백 데이터 사용
       if (!etf && etfId === 'teacher_soul') {
         etf = {
-          id: 'teacher_soul', symbol: 'SOUL', name: '선생님의 영혼',
+          id: 'teacher_soul', symbol: 'SOUL', name: '학급 특별 채권',
           theme: '특별', currentPrice: h.avgBuyPrice || 100,
           changePercent: 0.8, dividendRate: 0,
         };
@@ -682,6 +703,22 @@ function StockMarket({ studentCode }) {
         </div>
       )}
 
+      {/* 학급 특별 채권 배당금 수령 대기 배너 */}
+      {(student?.pendingSoulDividend || 0) > 0 && (
+        <div className="bg-gradient-to-r from-violet-600 to-pink-600 text-white px-4 py-3 flex items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-bold opacity-80">👻 학급 특별 채권 배당금이 도착했습니다!</div>
+            <div className="text-xl font-black">🪙 +{(student.pendingSoulDividend || 0).toLocaleString()} G</div>
+          </div>
+          <button
+            onClick={receiveSoulDividend}
+            disabled={isReceivingSoul}
+            className="shrink-0 bg-white text-violet-700 font-extrabold text-sm px-4 py-2.5 rounded-xl hover:bg-white/90 active:scale-95 transition-all disabled:opacity-60">
+            {isReceivingSoul ? '처리 중...' : '보상 수령하기 ✓'}
+          </button>
+        </div>
+      )}
+
       {/* 배당금 알림 배너 */}
       {dividendNotif && (
         <div className="bg-amber-400 text-amber-900 px-4 py-2.5 flex items-center justify-between animate-pulse">
@@ -706,6 +743,35 @@ function StockMarket({ studentCode }) {
       {/* ── 시장 탭 ── */}
       {tab === 'market' && (
         <div className="p-4">
+          {/* 내 포트폴리오 요약 (보유 ETF 있을 때) */}
+          {portfolioItems.length > 0 && (
+            <div className="bg-slate-800 text-white rounded-2xl px-5 py-4 mb-4 flex flex-wrap items-center gap-x-6 gap-y-1">
+              <div className="min-w-0">
+                <div className="text-[10px] text-slate-400 mb-0.5">총 평가금액</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-2xl font-black">🪙 {totalValue.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-0.5 text-xs font-bold">
+                  <span className={totalPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                    {totalPnl >= 0 ? '+' : ''}{totalPnl.toLocaleString()} ({totalPnlPct}%)
+                    {totalPnl >= 0 ? ' 📈' : ' 📉'}
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">
+                  투자 원금: 🪙 {totalInvested.toLocaleString()}
+                </div>
+              </div>
+              {totalExpectedDiv > 0 && (
+                <div className="ml-auto text-right">
+                  <div className="text-[10px] text-slate-400 mb-0.5">이번 주 예상 배당</div>
+                  <div className="text-base font-extrabold text-amber-300">
+                    +{totalExpectedDiv.toLocaleString()} G
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 테마 필터 */}
           <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
             {themes.map(theme => (
@@ -791,7 +857,7 @@ function StockMarket({ studentCode }) {
                 <div className="text-xs text-slate-400 mt-0.5">투자 원금: 🪙 {totalInvested.toLocaleString()}</div>
               </div>
 
-              {/* ── 선생님의 영혼 특별 카드 (항상 최상단) ── */}
+              {/* ── 학급 특별 채권 특별 카드 (항상 최상단) ── */}
               {portfolioItems.filter(i => i.etf.id === 'teacher_soul').map(({ etf, holding, currentValue, pnl, pnlPct }) => {
                 const baseQty  = holding.baseQuantity || 50;
                 const extraQty = Math.max(0, holding.quantity - baseQty);
