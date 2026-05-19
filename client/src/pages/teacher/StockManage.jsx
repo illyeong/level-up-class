@@ -383,6 +383,9 @@ function StockManage() {
                     <div className="text-white/70 text-sm">아직 생성되지 않았습니다</div>
                   )}
                   <div className="text-xs opacity-60 mt-1">매일 0.8% 자동 상승 · 기본 50주 지급 · 최대 100주</div>
+                  <div className="text-xs bg-white/15 rounded-lg px-3 py-1.5 mt-2 leading-relaxed">
+                    💡 교실 상황에 따라 ETF 가격을 선생님이 직접 조정하실 수 있습니다.
+                  </div>
                 </div>
                 <div className="flex flex-col gap-2 min-w-[220px]">
                   {soul ? (

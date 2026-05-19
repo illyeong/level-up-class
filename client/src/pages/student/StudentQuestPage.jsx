@@ -4,6 +4,7 @@ import {
   serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import iconQuest from '../../assets/images/icon-quest.png';
 
 const SKILL_COLORS = {
   '인성':   'bg-purple-100 text-purple-700',
@@ -345,7 +346,10 @@ function StudentQuestPage({ studentCode }) {
       {/* 헤더 */}
       <div className="flex items-start justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-800">⚔️ 나의 퀘스트</h1>
+          <h1 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+            <img src={iconQuest} alt="퀘스트" className="w-8 h-8 object-contain drop-shadow-sm" />
+            나의 퀘스트
+          </h1>
           {studentCode && studentName && (
             <p className="text-sm text-slate-500 mt-0.5 font-medium">{studentName}</p>
           )}

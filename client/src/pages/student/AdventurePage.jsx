@@ -257,9 +257,11 @@ function AdventurePage({ currentView, studentCode }) {
 
   if (!studentCode) {
     return (
-      <div className="flex flex-col h-full">
-        <TicketBar tickets={null} />
-        <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+      <div className="min-h-full bg-slate-50">
+        <div className="sticky top-0 z-10">
+          <TicketBar tickets={null} />
+        </div>
+        <div className="flex flex-col items-center justify-center py-20 text-slate-400">
           <div className="text-6xl mb-4">⚔️</div>
           <p className="font-bold text-lg text-slate-600">로그인이 필요합니다</p>
           <p className="text-sm mt-1">교사 페이지에서 테스트 로그인하세요.</p>
@@ -269,24 +271,25 @@ function AdventurePage({ currentView, studentCode }) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <TicketBar tickets={isLoading ? null : tickets} isRefreshing={isRefreshed} />
-      <div className="flex-1 overflow-auto bg-slate-50">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full text-slate-400 font-bold">
-            불러오는 중...
-          </div>
-        ) : currentView === 'adventure' ? (
-          <AdventureHub tickets={tickets} />
-        ) : (
-          <AdventureContent
-            view={currentView}
-            tickets={tickets}
-            onUseTicket={handleUseTicket}
-            isBusy={isBusy}
-          />
-        )}
+    <div className="min-h-full bg-slate-50">
+      {/* 티켓바: sticky로 스크롤해도 항상 상단 고정 */}
+      <div className="sticky top-0 z-10">
+        <TicketBar tickets={isLoading ? null : tickets} isRefreshing={isRefreshed} />
       </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20 text-slate-400 font-bold">
+          불러오는 중...
+        </div>
+      ) : currentView === 'adventure' ? (
+        <AdventureHub tickets={tickets} />
+      ) : (
+        <AdventureContent
+          view={currentView}
+          tickets={tickets}
+          onUseTicket={handleUseTicket}
+          isBusy={isBusy}
+        />
+      )}
     </div>
   );
 }

@@ -41,7 +41,7 @@ function App() {
     <div className="flex h-screen bg-slate-50 relative">
       <NavigationBar changeView={setCurrentView} currentView={currentView} />
       
-      <main className="flex-1 overflow-hidden flex flex-col relative">
+      <main className="flex-1 overflow-auto relative">
         {currentView === 'dashboard' && <StudentDashboard studentCode={testStudentCode} />}
         {currentView === 'myCharacter' && <MyCharacter studentCode={testStudentCode} />}
         {currentView === 'avatarRoom' && <AvatarRoom studentCode={testStudentCode} />}
