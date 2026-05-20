@@ -34,6 +34,8 @@ public class WebBridge : MonoBehaviour
             var data = JsonUtility.FromJson<LoadAvatarMsg>(json);
             if (data?.parts != null)
                 ApplyPartsData(data.parts);
+            if (data?.colors != null)
+                ApplyColorsData(data.colors);
         }
     }
 
@@ -80,6 +82,29 @@ public class WebBridge : MonoBehaviour
         });
     }
 
+    void ApplyColorsData(ColorData c)
+    {
+        ApplyColor(PartsType.Hair_Short, c.Hair_Short);
+        ApplyColor(PartsType.Brow,       c.Brow);
+        ApplyColor(PartsType.Beard,      c.Beard);
+        ApplyColor(PartsType.Skin,       c.Skin);
+    }
+
+    void ApplyColor(PartsType type, string hex)
+    {
+        if (string.IsNullOrEmpty(hex)) return;
+        if (!ColorUtility.TryParseHtmlString("#" + hex, out Color color)) return;
+
+        switch (type)
+        {
+            case PartsType.Hair_Short: partsManager.ChangeHairColor(color);  break;
+            case PartsType.Brow:       partsManager.ChangeBrowColor(color);  break;
+            case PartsType.Beard:      partsManager.ChangeBeardColor(color); break;
+            case PartsType.Skin:       partsManager.ChangeSkinColor(color);  break;
+        }
+        ColorPresetManager.Instance?.SetSelectByColor(type, color);
+    }
+
     // ── 직렬화 클래스 ─────────────────────────────────────────────
 
     [System.Serializable]
@@ -90,6 +115,16 @@ public class WebBridge : MonoBehaviour
     {
         public string type;
         public PartsData parts;
+        public ColorData colors;
+    }
+
+    [System.Serializable]
+    public class ColorData
+    {
+        public string Hair_Short;
+        public string Brow;
+        public string Beard;
+        public string Skin;
     }
 }
 

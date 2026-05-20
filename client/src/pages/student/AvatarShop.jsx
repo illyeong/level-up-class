@@ -5,15 +5,16 @@ import { db } from '../../firebase';
 function AvatarShop({ studentCode }) {
   const [myDiamonds, setMyDiamonds]     = useState(0);
   const [studentDocId, setStudentDocId] = useState(null);
-  const [isReady, setIsReady]           = useState(false);   // Firebase 로딩 완료
-  const [avatarSent, setAvatarSent]     = useState(false);   // Unity에 아바타 전송 여부
-  const [unityLoaded, setUnityLoaded]   = useState(false);   // iframe onload 여부
+  const [isReady, setIsReady]           = useState(false);
+  const [avatarSent, setAvatarSent]     = useState(false);
+  const [unityLoaded, setUnityLoaded]   = useState(false);
 
-  // ─── refs (이벤트 핸들러에서 최신값 접근용) ────────────────
+  // ─── refs ────────────────────────────────────────────────
   const diamondsRef      = useRef(0);
   const studentDocIdRef  = useRef(null);
-  const savedPartsRef    = useRef(null);   // Firebase에서 불러온 parts
-  const savedImageRef    = useRef(null);   // Firebase에서 불러온 characterImage
+  const savedPartsRef    = useRef(null);
+  const savedColorsRef   = useRef(null);   // Firebase에서 불러온 colors
+  const savedImageRef    = useRef(null);
   const retryTimerRef    = useRef(null);   // 반복 전송 타이머 id
   const retryCountRef    = useRef(0);      // 반복 횟수
 
@@ -30,7 +31,8 @@ function AvatarShop({ studentCode }) {
     iframe.contentWindow.postMessage({
       type:           'REACT_LOAD_AVATAR',
       parts:          savedPartsRef.current,
-      characterImage: savedImageRef.current ?? null,
+      colors:         savedColorsRef.current ?? null,
+      characterImage: savedImageRef.current  ?? null,
     }, '*');
 
     console.log(`📤 [${new Date().toLocaleTimeString()}] 저장된 아바타 전송 (시도 ${retryCountRef.current + 1}회)`);
@@ -93,8 +95,9 @@ function AvatarShop({ studentCode }) {
           setMyDiamonds(data.diamonds ?? 0);
 
           // 저장된 아바타 데이터를 ref에 보관 (이후 Unity가 준비되면 전송)
-          savedPartsRef.current = data.parts         ?? null;
-          savedImageRef.current = data.characterImage ?? null;
+          savedPartsRef.current   = data.parts          ?? null;
+          savedColorsRef.current  = data.colors         ?? null;
+          savedImageRef.current   = data.characterImage ?? null;
 
           if (savedPartsRef.current) {
             console.log('💾 Firebase에서 아바타 파츠 로딩 완료. Unity 준비를 기다리는 중...');
@@ -189,13 +192,14 @@ function AvatarShop({ studentCode }) {
 
       // ── 캐릭터 이미지 별도 저장 ────────────────────────────
       if (msg.type === 'UNITY_SAVE_CHARACTER') {
-        const { parts, characterImage } = msg;
+        const { parts, colors, characterImage } = msg;
         const currentDocId = studentDocIdRef.current;
         if (!currentDocId) return;
 
         const updateData = {};
-        if (parts)          { updateData.parts          = parts;          savedPartsRef.current = parts; }
-        if (characterImage) { updateData.characterImage = characterImage; savedImageRef.current = characterImage; }
+        if (parts)          { updateData.parts          = parts;          savedPartsRef.current  = parts; }
+        if (colors)         { updateData.colors         = colors;         savedColorsRef.current = colors; }
+        if (characterImage) { updateData.characterImage = characterImage; savedImageRef.current  = characterImage; }
 
         try {
           await updateDoc(doc(db, 'students', currentDocId), updateData);

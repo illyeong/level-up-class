@@ -1,12 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 const DUNGEON_URL = '/Dungeon_Main/index.html';
 
 function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
-  const [phase, setPhase]   = useState('lobby');  // 'lobby' | 'playing'
+  const [phase, setPhase]   = useState('lobby');
   const [isBusy, setIsBusy] = useState(false);
   const iframeRef           = useRef(null);
   const dungeonTickets      = tickets?.dungeon ?? 0;
+  const characterDataRef    = useRef(null); // { parts, colors }
+
+  // 입장 전 Firebase에서 캐릭터 데이터 미리 로드
+  useEffect(() => {
+    if (!studentCode) return;
+    const load = async () => {
+      try {
+        const q    = query(collection(db, 'students'), where('studentCode', '==', studentCode));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const d = snap.docs[0].data();
+          characterDataRef.current = { parts: d.parts ?? null, colors: d.colors ?? null };
+        }
+      } catch (e) { console.error('캐릭터 데이터 로드 에러:', e); }
+    };
+    load();
+  }, [studentCode]);
 
   // Unity → React 메시지 수신 (필요 시 확장)
   useEffect(() => {
@@ -20,13 +39,17 @@ function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
     return () => window.removeEventListener('message', handler);
   }, [phase]);
 
-  // Unity 로드 후 studentCode 전달
+  // Unity 로드 후 studentCode + 캐릭터 데이터 전달
   const handleIframeLoad = () => {
-    if (!iframeRef.current?.contentWindow || !studentCode) return;
-    iframeRef.current.contentWindow.postMessage(
-      { type: 'REACT_STUDENT_CODE', studentCode },
-      '*'
-    );
+    const win = iframeRef.current?.contentWindow;
+    if (!win) return;
+
+    if (studentCode)
+      win.postMessage({ type: 'REACT_STUDENT_CODE', studentCode }, '*');
+
+    const cd = characterDataRef.current;
+    if (cd?.parts)
+      win.postMessage({ type: 'REACT_LOAD_AVATAR', parts: cd.parts, colors: cd.colors ?? null }, '*');
   };
 
   const handleEnter = async () => {

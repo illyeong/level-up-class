@@ -16,13 +16,15 @@ mergeInto(LibraryManager.library, {
     }, "*");
   },
 
-  // 캐릭터 이미지 + 파츠를 React로 전송 (구매 완료 후 스크린샷)
-  SendCharacterDataToReact: function(partsJsonPtr, imageBase64Ptr) {
+  // 캐릭터 이미지 + 파츠 + 색상을 React로 전송 (구매 완료 후 스크린샷)
+  SendCharacterDataToReact: function(partsJsonPtr, colorsJsonPtr, imageBase64Ptr) {
     var partsJson   = UTF8ToString(partsJsonPtr);
+    var colorsJson  = UTF8ToString(colorsJsonPtr);
     var imageBase64 = UTF8ToString(imageBase64Ptr);
     window.parent.postMessage({
       type: "UNITY_SAVE_CHARACTER",
       parts: JSON.parse(partsJson),
+      colors: JSON.parse(colorsJson),
       characterImage: imageBase64
     }, "*");
   },

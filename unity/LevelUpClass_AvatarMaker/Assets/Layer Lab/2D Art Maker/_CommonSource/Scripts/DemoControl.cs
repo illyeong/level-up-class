@@ -35,7 +35,7 @@ namespace LayerLab.ArtMaker
         [DllImport("__Internal")]
         private static extern void SendPurchaseDataToReact(int totalCost, string equipmentJson);
         [DllImport("__Internal")]
-        private static extern void SendCharacterDataToReact(string partsJson, string imageBase64);
+        private static extern void SendCharacterDataToReact(string partsJson, string colorsJson, string imageBase64);
         #endif
 
         // Firebase에서 불러온 보유 파츠 (이미 결제 완료된 것들)
@@ -173,11 +173,23 @@ namespace LayerLab.ArtMaker
             SetOwnedParts(new Dictionary<PartsType, int>(Player.Instance.PartsManager.ActiveIndices));
             _changedColorTypes.Clear();
 
+            // 색상 JSON 빌드
+            string colorsJson = BuildColorsJson();
+
             #if UNITY_WEBGL && !UNITY_EDITOR
-                SendCharacterDataToReact(jsonParts, imageBase64);
+                SendCharacterDataToReact(jsonParts, colorsJson, imageBase64);
             #endif
             Debug.Log("[유니티] 캐릭터 이미지 전송 완료");
         }
+
+        private string BuildColorsJson()
+        {
+            var pm = ColorPresetManager.Instance;
+            if (pm == null) return "{}";
+            string H(PartsType t) => ColorUtility.ToHtmlStringRGB(pm.GetColorByType(t));
+            return $"{{\"Hair_Short\":\"{H(PartsType.Hair_Short)}\",\"Brow\":\"{H(PartsType.Brow)}\",\"Beard\":\"{H(PartsType.Beard)}\",\"Skin\":\"{H(PartsType.Skin)}\"}}";
+        }
+
 
         public void OnClick_RandomParts()
         {

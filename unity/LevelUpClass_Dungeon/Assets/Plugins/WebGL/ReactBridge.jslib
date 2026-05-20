@@ -15,7 +15,10 @@ mergeInto(LibraryManager.library, {
     var funcName = UTF8ToString(funcNamePtr);
     window.addEventListener("message", function(event) {
       if (!event.data || !event.data.type) return;
-      SendMessage(objName, funcName, JSON.stringify(event.data));
+      var json = JSON.stringify(event.data);
+      SendMessage(objName, funcName, json);
+      // 캐릭터 로더도 동시에 수신
+      try { SendMessage("DungeonCharacterLoader", "OnReceiveMessage", json); } catch(e) {}
     });
   }
 
