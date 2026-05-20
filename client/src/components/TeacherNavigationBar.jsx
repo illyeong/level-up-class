@@ -64,11 +64,14 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
     }
   ];
 
+  // 서브메뉴와 상관없이 자체 페이지로 이동하는 메뉴
+  const DIRECT_NAV_MENUS = ['dashboard', 'myCharacter', 'questManage', 'inquiry'];
+
   const handleMenuClick = (menuId) => {
     const clickedMenu = teacherMenuData.find(m => m.id === menuId);
-    
-    // 💡 하위 메뉴가 없는 메인 메뉴(대시보드, 내 캐릭터, 퀘스트 관리소 등)를 누르면 바로 화면 이동!
-    if (changeView && clickedMenu && clickedMenu.subMenus.length === 0) {
+
+    if (changeView && clickedMenu &&
+      (clickedMenu.subMenus.length === 0 || DIRECT_NAV_MENUS.includes(menuId))) {
       changeView(menuId);
     }
 
