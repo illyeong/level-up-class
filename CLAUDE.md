@@ -16,6 +16,7 @@
 - i18next 다국어 (ko/en/th)
 - Unity 6 (WebGL 빌드) + Spine 2D
 - Vercel Serverless Functions (`client/api/`)
+- jszip (PPTX 텍스트 추출)
 
 ---
 
@@ -24,11 +25,12 @@
 level-up-class/
 ├── client/
 │   ├── api/
-│   │   └── stock-prices.js       — Vercel 서버리스: Yahoo Finance ETF 가격 프록시
+│   │   ├── stock-prices.js      — Yahoo Finance ETF 가격 프록시
+│   │   └── generate-quiz.js     — AI 퀴즈 생성 (Claude API / Gemini 전환 가능)
 │   ├── public/
 │   │   ├── images/
-│   │   │   └── soul-bond-bg.png  — 선생님의 영혼 카드 배경 이미지
-│   │   └── avatar_game/          — Unity AvatarMaker WebGL 빌드
+│   │   │   └── soul-bond-bg.png — 선생님의 영혼 카드 배경 이미지
+│   │   └── avatar_game/         — Unity AvatarMaker WebGL 빌드
 │   └── src/
 │       ├── components/
 │       │   ├── NavigationBar.jsx
@@ -43,6 +45,8 @@ level-up-class/
 │       │   ├── ClassBank.jsx           — 학급 은행 (예치/출금/이자)
 │       │   ├── ClassShop.jsx           — 학급 상점 (구매→보유→사용 시스템)
 │       │   ├── AdventurePage.jsx       — 어드벤처 허브 (이용권 sticky 바)
+│       │   ├── QuizDungeon.jsx         — 솔로 퀴즈 던전 (로비+배틀+결과)
+│       │   ├── BossRaid.jsx            — 월드 보스 레이드 (Firebase 실시간 HP)
 │       │   └── StockMarket.jsx         — 주식/ETF 거래소
 │       └── pages/teacher/
 │           ├── TeacherLogin.jsx
@@ -50,10 +54,14 @@ level-up-class/
 │           ├── TeacherDashboard.jsx    — 재화 지급/차감, 퀘스트 현황, 테스트 로그인
 │           ├── QuestManage.jsx         — 퀘스트 관리소
 │           ├── QuestDetail.jsx         — 퀘스트 상세 팝업
+│           ├── QuestKiosk.jsx          — 학생 체크인 키오스크 (전체화면 오버레이)
 │           ├── AccountIssue.jsx        — 학생 계정 발급 (이름/번호 인라인 편집)
-│           ├── BankManage.jsx          — 학급 은행 관리 (이율 설정, 이자 지급)
+│           ├── BankManage.jsx          — 학급 은행 관리
 │           ├── ClassShopManage.jsx     — 학급 상점 관리 (아이템 등록, 사용내역)
-│           └── StockManage.jsx         — 주식 ETF 관리 (가격 새로고침, 배당, 선생님의 영혼)
+│           ├── StockManage.jsx         — 주식 ETF 관리 (선생님의 영혼 포함)
+│           ├── QuizDungeonManage.jsx   — 퀴즈 던전 관리 (AI 생성, PDF/PPT 업로드)
+│           ├── BossRaidManage.jsx      — 보스 레이드 관리 (생성/종료/보상 지급)
+│           └── AdventureManage.jsx     — 어드벤처 관리 (이용권 부여/조회)
 ```
 
 ---
@@ -72,20 +80,24 @@ testStudentCode: string | null  ← "SINSEOK-5-01" 등
 ### 학생 페이지
 - [x] 대시보드 — Firebase 연동, characterImage/레벨/골드/다이아
 - [x] 아바타샵 — studentCode→docId 변환, UNITY_READY 기반 저장된 아바타 로딩
-- [x] 퀘스트 — 진행중/완료/보상로그 3탭, 자체체크, 확인 후 포트폴리오 이동, 기한 표시
-- [x] 학급 은행 — 다이아/골드 예치·출금, 주간 복리이자, 거래내역
-- [x] 학급 상점 — 구매→보유(인벤토리)→사용 시스템, 구매 즉시 사용 여부 팝업
-- [x] 어드벤처 — 이용권 바(sticky), 주간 자동 지급(월요일), 던전/보스/투기장 이용권
+- [x] 퀘스트 — 진행중/완료/보상로그 3탭, 자체체크, 기한 표시
+- [x] 학급 은행 — 다이아/골드 예치·출금, 주간 복리이자
+- [x] 학급 상점 — 구매→보유(인벤토리)→사용 시스템
+- [x] 어드벤처 — 이용권 바(sticky), 주간 자동 지급, 퀴즈던전, 보스레이드
 - [x] 주식/ETF 거래소 — 실시간 가격(Yahoo Finance), 매수/매도, 포트폴리오, 배당
 - [x] 프로필 편집 — 학생 이름 설정/변경
 
 ### 교사 페이지
-- [x] 대시보드 — 재화 지급/차감(골드+다이아 동시), 퀘스트 현황, SINSEOK-5-01 테스트 로그인
+- [x] 대시보드 — 재화 지급/차감(골드+다이아 동시), 퀘스트 현황, 테스트 로그인
 - [x] 퀘스트 관리소 — 생성/수정/복제/종료/추천템플릿, 진행률, 종료된 퀘스트 탭
-- [x] 학생 계정 발급 — 번호·이름 칸 추가, 인라인 편집 (✏️ 클릭)
-- [x] 학급 은행 관리 — 이율 설정(다이아/골드 별도), 이자 일괄 지급, 학생 예치현황
+- [x] 학생 체크인 (키오스크) — 전체화면 오버레이, 퀘스트 선택→학생 카드 탭
+- [x] 학생 계정 발급 — 번호·이름 칸 추가, 인라인 편집
+- [x] 학급 은행 관리 — 이율 설정, 이자 일괄 지급
 - [x] 학급 상점 관리 — 아이템 등록/수정/삭제, 구매내역, 사용내역
-- [x] 주식 ETF 관리 — 가격 새로고침, 배당 일괄 지급, 선생님의 영혼 특별 채권 관리
+- [x] 주식 ETF 관리 — 가격 새로고침, 배당 지급, 선생님의 영혼 특별 채권
+- [x] 퀴즈 던전 관리 — AI 생성(Claude/Gemini), PDF/PPT 업로드, 던전 목록
+- [x] 보스 레이드 관리 — 레이드 생성/종료, 실시간 HP 모니터링, 보상 지급
+- [x] 어드벤처 관리 — 이용권 3종 현황, 개별/선택/전체 부여, 초기화
 
 ---
 
@@ -96,126 +108,110 @@ testStudentCode: string | null  ← "SINSEOK-5-01" 등
 ├── studentCode: "SINSEOK-5-01"
 ├── name: "홍길동"
 ├── diamonds, gold, level, exp, maxExp
-├── parts: { Back, Beard, Boots, ... }   ← 16개 파츠
+├── parts: { Back, Beard, Boots, ... }
 ├── characterImage: "data:image/png;base64,..."
 ├── tickets: { dungeon: 3, bossRaid: 1, arena: 5 }
-├── lastTicketRefreshDate: "2025-05-19"   ← 주간 이용권 갱신 추적
-├── bankDiamond, bankGold                ← 은행 예치금
-├── bankDiamondInterest, bankGoldInterest ← 누적 이자
-├── lastDividendDate                     ← ETF 배당 중복 방지
-└── pendingSoulDividend: number          ← 선생님의 영혼 수령 대기 배당금
+├── lastTicketRefreshDate: "2025-05-19"
+├── bankDiamond, bankGold, bankDiamondInterest, bankGoldInterest
+├── lastDividendDate
+└── pendingSoulDividend: number
 ```
 
-### quests/{questId}
+### quests/{questId}/completions/{studentId}
 ```
-├── title, description, type('daily'|'weekly'), difficulty
-├── selfCheck: boolean, repeatDaily: boolean
-├── rewards: { exp, gold, diamond }, skills: string[]
-├── active: boolean, createdAt, endedAt
-
-quests/{questId}/completions/{studentId}
 ├── checked, checkedAt, rewarded, rewardedAt, rewardedBy
-└── acknowledgedAt  ← 학생이 "확인했어요" 버튼 누른 시점
+└── acknowledgedAt
 ```
 
 ### 학급 경제
 ```
-bankSettings/config
-├── weeklyDiamondRate, weeklyGoldRate
-└── lastInterestApplied: timestamp
+bankSettings/config — weeklyDiamondRate, weeklyGoldRate
+bankLogs/{id} — 예치/출금/이자
+shopItems/{id}, shopPurchases/{id}
+shopInventory/{studentId}_{itemId} — totalQuantity, usedQuantity
+shopUsages/{id}
+portfolios/{studentId}/holdings/{etfId} — quantity, avgBuyPrice, baseQuantity
+etfs/{id} — currentPrice, changePercent, dividendRate, topHoldings
+dividendLogs/{id}
+```
 
-bankLogs/{id} — 예치/출금/이자 기록
+### 퀴즈 던전
+```
+quizDungeons/{id}
+├── title, grade, semester, subject, publisher, difficulty
+├── active: boolean, playCount: number
+├── rewards: { gold, exp, diamond }
+└── questions: [{ question, options[4], answer(0-3), explanation }]
 
-shopItems/{id} — 상점 아이템
-shopPurchases/{id} — 구매 기록
-shopInventory/{studentId}_{itemId} — 보유 수량 (totalQuantity, usedQuantity)
-shopUsages/{id} — 사용 기록
+quizResults/{id}
+├── studentId, dungeonId, score, totalQuestions, accuracy
+├── cleared, wrongIndexes[], goldEarned, expEarned, diamondEarned
+└── completedAt
+```
 
-portfolios/{studentId}/holdings/{etfId}
-├── quantity, avgBuyPrice, baseQuantity(선생님의 영혼은 50)
-
-etfs/{id}
-├── name, symbol, theme, topHoldings, description
-├── currentPrice, prevPrice, changePercent
-├── dividendRate, basePrice, updatedDate
-└── (teacher_soul 전용) dailyGrowthRate, baseShares, maxShares, teacherSetToday
-
-dividendLogs/{id} — ETF 배당 지급 기록
-dividendLogs/{id} — dividendAmount, weekOf, studentId...
+### 보스 레이드
+```
+worldBossRaids/{id}
+├── bossName, bossEmoji, status: 'active'|'cleared'
+├── maxHP, currentHP (Firestore increment으로 원자적 감소)
+├── questions: [...] (연결된 퀴즈 던전 문제)
+├── participants: { [studentId]: { name, damage, answeredCount } }
+├── rewards: { gold, exp, diamond }, rewardsPaid: boolean
+└── createdAt, clearedAt
 ```
 
 ---
 
-## 선생님의 영혼 (teacher_soul) 특별 채권 시스템
-- ETF ID: `teacher_soul`, symbol: `SOUL`
-- 모든 학생 **50주 자동 지급** (첫 주식 페이지 접속 시)
-- **매일 1%** 자동 상승 (Math.floor), 소수점 없음
-- 최대 100주 보유, **50주 미만으로 매도 불가**
-- 교사가 **배당금 지급** 클릭 → (currentPrice - 100) × 보유주수 → pendingSoulDividend 설정 → 가격 100G 초기화
-- 학생이 **"보상 수령하기"** 버튼으로 골드 수령
-- 배경 이미지: `/images/soul-bond-bg.png` (opacity 0.55 + 그라데이션 오버레이)
+## 선생님의 영혼 (teacher_soul) 특별 채권
+- 매일 1% 자동 상승 (Math.floor, 소수점 없음)
+- 모든 학생 50주 자동 지급, 최대 100주, 50주 미만 매도 불가
+- 배당 지급: (currentPrice - 100) × 보유주수 → pendingSoulDividend → 가격 100G 초기화
+- 배경: `/images/soul-bond-bg.png` (opacity 0.55)
+- 환경변수: ANTHROPIC_API_KEY (Claude) 또는 무시 (추후 설정)
 
 ---
 
-## 주식/ETF 거래소 ETF 목록 (15종)
-| ID | 티커 | 이름 | 테마 |
-|----|------|------|------|
-| tech | QQQ | 미국 기술주 ETF | 기술 |
-| semiconductor | SOXX | 반도체 ETF | 반도체 |
-| healthcare | XLV | 헬스케어 ETF | 헬스케어 |
-| battery | LIT | 2차전지·리튬 ETF | 2차전지 |
-| energy | XLE | 에너지 ETF | 에너지 |
-| consumer | XLY | 소비재 ETF | 소비재 |
-| reits | VNQ | 부동산 리츠 ETF | 부동산 |
-| gold | GLD | 금 ETF | 원자재 |
-| bank | KBE | 미국 은행주 ETF | 배당·금융 |
-| bitcoin | IBIT | 비트코인 ETF | 암호화폐 |
-| k_semiconductor | 091160.KS | KODEX 반도체 | 한국주식 |
-| k_battery | 305720.KS | KODEX 2차전지 | 한국주식 |
-| k_healthcare | 266420.KS | KODEX 헬스케어 | 한국주식 |
-| k_kospi200 | 069500.KS | KODEX 200 | 한국주식 |
-| samsung | 005930.KS | 삼성전자 | 한국주식 |
-
-- 가격: Yahoo Finance → `/api/stock-prices` → Firestore 저장
-- 한국 ETF: KRW ÷ 1000 스케일 (기본가격은 game gold 단위로 설정)
-- 학생 첫 접속 시 Firestore 자동 갱신 (누락 ETF 감지 포함)
+## AI 퀴즈 생성 (`client/api/generate-quiz.js`)
+- 현재: Claude API (`claude-haiku-4-5-20251001`)
+- 환경변수: `ANTHROPIC_API_KEY` (Vercel Dashboard에 등록)
+- PDF 지원: base64로 Claude에 직접 전송
+- PPT/PPTX 지원: jszip으로 텍스트 추출 → textarea 자동 입력
+- Gemini로 전환: 파일 하단 주석 참고
 
 ---
 
 ## 어드벤처 이용권 시스템
 ```
 tickets 필드 (students/{uid})
-├── dungeon:  주 3회 지급, 최대 3개
-├── bossRaid: 주 1회 지급, 최대 3개
-└── arena:    주 5회 지급, 최대 5개
+├── dungeon:  주 3회, 최대 3개
+├── bossRaid: 주 1회, 최대 3개
+└── arena:    주 5회, 최대 5개
 
-매주 월요일 자동 갱신 (첫 접속 시 체크)
-AdventurePage: sticky 티켓 바 (위치 고정, 내용은 스크롤)
+매주 월요일 자동 갱신 (첫 접속 시)
+교사가 AdventureManage에서 수동 부여/초기화 가능
 ```
 
 ---
 
-## 학생 퀘스트 시스템 상세
-```
-퀘스트 완료 흐름:
-  selfCheck → checked: true
-  교사 보상지급 → rewarded: true
-  학생 "확인했어요" → acknowledgedAt: timestamp → "완료한 퀘스트" 탭으로 이동
-
-탭 구성: 진행중 | 완료한 퀘스트 | 보상 로그
-보상 로그: 누적 EXP/골드/다이아 합계 + 내역 리스트
-```
+## 퀴즈 던전 구현 단계
+- [x] 1단계: 교사 AI 퀴즈 생성 + 발행
+- [x] 2단계: 학생 솔로 퀴즈 배틀 (로비→배틀→결과)
+- [x] 3단계: 결과 저장, 보상 지급 (EXP 레벨업 포함)
+- [x] 4단계: 월드 보스 레이드 (Firebase 실시간 HP 공유)
+- [ ] 5단계: Unity 보스+HP 시각화 (집에서 Unity 작업 예정)
+  - 구조: React(퀴즈 팝업) + Unity iframe(보스 씬) + Firebase(HP 공유)
+  - 플레이어 캐릭터: characterImage PNG → Unity에서 표시
+  - 보스: 기존 BossFSM Spine 에셋 재사용
 
 ---
 
 ## 주요 통신 흐름 (React ↔ Unity AvatarMaker)
 ```
-React → Unity: { type: "REACT_LOAD_AVATAR", parts: {...}, characterImage: "..." }
+React → Unity: { type: "REACT_LOAD_AVATAR", parts, characterImage }
 Unity → React: { type: "UNITY_READY" }
 Unity → React: { type: "UNITY_PURCHASE", cost, equipment, characterImage }
 Unity → React: { type: "UNITY_SAVE_CHARACTER", parts, characterImage }
 ```
-AvatarShop: iframe onload 후 2초 간격 최대 10회 재시도 → UNITY_READY 수신 시 중단
 
 ---
 
@@ -228,14 +224,13 @@ AvatarShop: iframe onload 후 2초 간격 최대 10회 재시도 → UNITY_READY
 - 아카데미 (준비중)
 - 어드벤처 → 퀴즈던전, 탐험던전, 투기장, 보스레이드, 미니게임
 - 무역 센터 → 학급 은행, 학급 상점, 주식/ETF 거래소
-- 마을 광장
 - 시스템 설정 → 프로필 수정
 
 ### 교사 (TeacherNavigationBar.jsx)
 - 대시보드
 - 내 캐릭터
-- **퀘스트 관리소** (어드벤처 위)
-- 어드벤처 → 퀴즈던전, 탐험던전, 투기장, 보스레이드, 어드벤처 관리
+- **퀘스트 관리소** → 🖐️ 학생 체크인
+- 어드벤처 → 퀴즈던전 관리, 보스레이드 관리, 퀴즈던전, 탐험던전, 투기장, 보스레이드, 미니게임, **어드벤처 관리**
 - 학급 경제 관리 → 학급 상점 관리, 은행 관리, 주식etf 관리
 - 학급/학생 관리 → 학생 계정 발급
 - 시스템 설정
@@ -243,62 +238,27 @@ AvatarShop: iframe onload 후 2초 간격 최대 10회 재시도 → UNITY_READY
 
 ---
 
-## 최근 작업 내역 (2026-05-19~20)
-
-### Unity Dungeon — 완료
-- [x] BossFSM Spine 애니메이션 연동 (PlayAnim + currentAnimName 중복방지)
-- [x] BossFSM 이동 수정 (frontCheck 벽감지 제거, 절벽감지 제거)
-- [x] CameraFollow 카메라 쉐이크 (Shake 메서드)
-- [x] 착지 이펙트 (landingEffectPrefab) + 카메라 쉐이크 연결
-- [x] 피격 이펙트 (hitEffectPrefab, critHitEffectPrefab) — MonsterFSM + BossFSM
-- [x] 크리티컬 피격 시 "치명타" 황금색 텍스트 (SpawnCritLabel)
-- [x] TakeDamage(damage, isCritical) 파라미터 추가
-- [x] GameResultUI.cs — 보스 클리어 보상 선택창 (IronChest 프리팹 3개 스폰)
-- [x] GameResultUI.cs — 사망 화면 (처치 몬스터 수, 획득 골드)
-- [x] ChestClickHandler.cs — OnMouseDown 클릭 감지
-- [x] RewardFloater.cs — 보상 텍스트 위로 떠오르는 효과 (UnscaledDeltaTime)
-- [x] GameManager sessionKillCount, sessionEarnedGold 세션 통계 추가
-- [x] 보스 사망 시 PlayerCombat.ReturnToLobby → GameResultUI.ShowDeathPanel 연결
-
-### Unity AvatarMaker — 완료
-- [x] DemoControl.cs — 색상 변경 시 100 다이아 추가 (_changedColorTypes HashSet)
-  - OnColorChange 이벤트 구독 → 변경된 색상 파츠 타입 추적
-  - UpdateDiamondCost()에서 _changedColorTypes.Count * 100 포함
-  - 구매 완료 후 _changedColorTypes.Clear() → 재결제 방지
-
-### React 웹 — 완료
-- [x] StudentDashboard (components/) — Firebase 연동, characterImage 표시
-- [x] MyCharacter — Firebase 연동, studentCode prop 처리
-- [x] ClassAllView — 우리반 전체 캐릭터/레벨 카드
-- [x] NavigationBar — 내 상태창 삭제, 우리반 전체 보기 추가
-- [x] QuestDetail — characterImage 표시
-- [x] TeacherDashboard — characterImage 크기 조정
-- [x] PlayerHpBar — playerCombat public 필드로 직접 연결 가능
-
----
-
-## 알려진 미완성/TODO
+## 알려진 TODO
 
 ### 웹
-- [ ] 자정 자동 보상/초기화 (Firebase Cloud Functions — 일일/주간 퀘스트)
-- [ ] 학생 로그인 시스템 (현재 testStudentCode prop으로 테스트)
-- [ ] 주식 거래소 교사 관리 페이지 — 마켓 이벤트/뉴스 등록 기능
+- [ ] 자정 자동 보상/초기화 (Firebase Cloud Functions)
+- [ ] 학생 로그인 시스템 (현재 testStudentCode prop)
+- [ ] MyCharacter.jsx — 실제 Firebase 데이터 연동
+
+### Unity Dungeon (5단계 보스레이드)
+- [ ] BossRaidScene 씬 제작 (판타지 배경 + 보스 배치)
+- [ ] Firebase bossHP 리스너 → BossFSM TakeDamage 연결
+- [ ] 플레이어 슬롯 (characterImage PNG + 이름 표시)
+- [ ] React↔Unity postMessage 연결 (studentCode 전달)
+- [ ] WebGL 빌드 → public/boss_raid/
 
 ### Unity AvatarMaker
-- [ ] UNITY_AVATAR_LOADED 신호 전송 (아바타 적용 완료 시)
-- [ ] 피부색(ColorPresetManager) Firebase 저장/로드
-
-### Unity Dungeon
-- [ ] GameResultUI — ChestSpawnCenter 오브젝트 씬에 배치 (상자 위치 정확하게)
-- [ ] GameResultUI — RewardTextPrefab 만들어서 연결
-- [ ] GameResultUI — 보상 획득 후 Firebase 다이아/EXP 저장 연동
-- [ ] BossFSM — Clear Portal 연결 (보상 확인 후 이동)
-- [ ] Lobby, DungeonSelect, Clear 씬 구현
-- [ ] 웹 characterImage/parts → 던전 캐릭터 외형 연동
+- [ ] UNITY_AVATAR_LOADED 신호 전송
+- [ ] 피부색 Firebase 저장/로드
 
 ---
 
-## 레이어 설정 (Unity)
+## 레이어 설정 (Unity Dungeon)
 - `Ground` — 바닥/벽
 - `Player` — 플레이어 (Tag: "Player")
 - `Monster` — 몬스터/보스
