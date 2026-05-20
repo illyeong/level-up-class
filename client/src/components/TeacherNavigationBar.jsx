@@ -25,6 +25,8 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
     {
       id: 'adventure', icon: iconAdventure, title: '어드벤처', isReady: true,
       subMenus: [
+        { title: '퀴즈던전 관리',  id: 'quizDungeonManage' },
+        { title: '보스레이드 관리', id: 'bossRaidManage' },
         { title: '퀴즈던전',    id: 'quizDungeon' },
         { title: '탐험던전',    id: 'explorationDungeon' },
         { title: '투기장',     id: 'arena' },

@@ -8,6 +8,8 @@ import QuestManage from './QuestManage';
 import BankManage from './BankManage';
 import ClassShopManage from './ClassShopManage';
 import StockManage from './StockManage';
+import QuizDungeonManage from './QuizDungeonManage';
+import BossRaidManage from './BossRaidManage';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -32,7 +34,9 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
         {currentView === 'questManage'     && <QuestManage />}
         {currentView === 'bankManage'       && <BankManage />}
         {currentView === 'classShopManage' && <ClassShopManage />}
-        {currentView === 'stockManage'     && <StockManage />}
+        {currentView === 'stockManage'        && <StockManage />}
+        {currentView === 'quizDungeonManage' && <QuizDungeonManage />}
+        {currentView === 'bossRaidManage'    && <BossRaidManage />}
         
         {/* 임시 준비 중 화면들 */}
         {currentView === 'myCharacter'     && <div className="p-10 text-2xl font-bold text-slate-800">선생님 캐릭터 룸 (준비 중 🦸‍♂️)</div>}

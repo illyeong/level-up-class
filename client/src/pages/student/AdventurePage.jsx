@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
+import QuizDungeon from './QuizDungeon';
+import BossRaid from './BossRaid';
 
 // ── 이용권 설정 ────────────────────────────────────────────────
 const TICKET_CONFIG = {
@@ -280,6 +282,20 @@ function AdventurePage({ currentView, studentCode }) {
         <div className="flex items-center justify-center py-20 text-slate-400 font-bold">
           불러오는 중...
         </div>
+      ) : currentView === 'quizDungeon' ? (
+        <QuizDungeon
+          studentCode={studentCode}
+          studentDocId={studentDocId}
+          tickets={tickets}
+          onUseTicket={handleUseTicket}
+        />
+      ) : currentView === 'bossRaid' ? (
+        <BossRaid
+          studentCode={studentCode}
+          studentDocId={studentDocId}
+          tickets={tickets}
+          onUseTicket={handleUseTicket}
+        />
       ) : currentView === 'adventure' ? (
         <AdventureHub tickets={tickets} />
       ) : (
