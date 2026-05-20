@@ -3,13 +3,17 @@
     {
       "source": "/avatar_game/Build/(.*).br",
       "headers": [
-        { "key": "Content-Encoding", "value": "br" }
+        { "key": "Content-Encoding", "value": "br" },
+        { "key": "Content-Type",     "value": "application/octet-stream" },
+        { "key": "Cache-Control",    "value": "no-transform" }
       ]
     },
     {
       "source": "/Dungeon_Main/Build/(.*).br",
       "headers": [
-        { "key": "Content-Encoding", "value": "br" }
+        { "key": "Content-Encoding", "value": "br" },
+        { "key": "Content-Type",     "value": "application/octet-stream" },
+        { "key": "Cache-Control",    "value": "no-transform" }
       ]
     }
   ]
