@@ -11,6 +11,7 @@ import StockManage from './StockManage';
 import QuizDungeonManage from './QuizDungeonManage';
 import BossRaidManage from './BossRaidManage';
 import QuestKiosk from './QuestKiosk';
+import AdventureManage from './AdventureManage';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -40,7 +41,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
 
         {/* 임시 준비 중 화면들 */}
         {currentView === 'myCharacter'     && <div className="p-10 text-2xl font-bold text-slate-800">선생님 캐릭터 룸 (준비 중 🦸‍♂️)</div>}
-        {currentView === 'adventureManage' && <div className="p-10 text-2xl font-bold text-slate-800">어드벤처 관리 화면 (준비 중 ⚔️)</div>}
+        {currentView === 'adventureManage' && <AdventureManage />}
         
       </main>
 
