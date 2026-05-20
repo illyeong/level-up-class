@@ -297,6 +297,61 @@ function QuizDungeonManage() {
     }
   };
 
+  // ── 테스트 던전 (인구 분포) 직접 삽입 ───────────────────────
+  const insertTestDungeon = async () => {
+    if (!window.confirm('테스트용 퀴즈 던전 "우리나라의 인구 분포"를 추가할까요?')) return;
+    const TEST = {
+      title: '5학년 사회 - 우리나라의 인구 분포',
+      grade: 5, semester: 1, subject: '사회', publisher: null, part: null,
+      unit: '우리나라의 인구 분포', difficulty: 'normal',
+      active: true, playCount: 0,
+      rewards: { gold: 100, exp: 80, diamond: 1 },
+      questionCount: 5,
+      questions: [
+        {
+          question: '농사를 짓던 과거에 사람들이 주로 모여 살았던 곳은 어디인가요?',
+          options: ['①산지', '②평야', '③해안', '④섬'],
+          answer: 1,
+          explanation: '농사에 유리한 평야 지역에 사람들이 많이 모여 살았습니다.',
+        },
+        {
+          question: '1960년대 이후 사람들이 도시로 이동하게 된 주요 원인은 무엇인가요?',
+          options: ['①자연재해', '②전쟁', '③산업화', '④기후변화'],
+          answer: 2,
+          explanation: '1960년대 산업화가 발달하면서 일자리를 찾아 사람들이 도시로 이동하기 시작했습니다.',
+        },
+        {
+          question: '수도권에 인구가 집중되어 생기는 문제점이 아닌 것은?',
+          options: ['①환경오염', '②교통 혼잡', '③주택 부족', '④농업 발전'],
+          answer: 3,
+          explanation: '수도권 과밀화로 환경오염·교통 혼잡·주택 부족이 발생하며, 농업 발전은 해당되지 않습니다.',
+        },
+        {
+          question: '비수도권 지역에서 인구가 줄어들 때 나타나는 문제는?',
+          options: ['①교통 혼잡', '②빈집 증가와 폐업', '③주택 부족', '④환경오염'],
+          answer: 1,
+          explanation: '인구가 줄면 빈집이 늘어나고 가게들이 폐업하며 일손이 부족해집니다.',
+        },
+        {
+          question: '비수도권 청년들이 수도권으로 이동하는 주된 이유는?',
+          options: ['①좋은 날씨', '②일자리와 교육 기회', '③아름다운 자연', '④전통문화 체험'],
+          answer: 1,
+          explanation: '수도권의 일자리·교육 기회·편의 시설 등을 찾아 청장년층이 이동합니다.',
+        },
+      ],
+      createdAt: serverTimestamp(),
+    };
+    try {
+      await addDoc(collection(db, 'quizDungeons'), TEST);
+      alert('✅ 테스트 던전이 추가됐습니다!\n"발행된 던전" 탭에서 확인하세요.');
+      fetchDungeons();
+      setTab('dungeons');
+    } catch (err) {
+      console.error(err);
+      alert('오류가 발생했습니다: ' + err.message);
+    }
+  };
+
   // ── AI 퀴즈 생성 ─────────────────────────────────────────────
   const handleGenerate = async () => {
     if (!sourceText.trim() && !pdfBase64) return alert('수업 자료를 입력하거나 PDF를 업로드해주세요.');
@@ -396,7 +451,7 @@ function QuizDungeonManage() {
             <h1 className="text-2xl font-extrabold text-slate-800">⚔️ 퀴즈 던전 관리</h1>
             <p className="text-slate-500 text-sm mt-0.5">AI가 수업 자료를 퀴즈로 자동 변환합니다.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {['create', 'dungeons'].map((t, i) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors
@@ -404,6 +459,11 @@ function QuizDungeonManage() {
                 {['🤖 AI 퀴즈 생성', `📚 발행된 던전 (${dungeons.length})`][i]}
               </button>
             ))}
+            <button
+              onClick={insertTestDungeon}
+              className="px-4 py-2 rounded-xl font-bold text-sm bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors">
+              🧪 테스트 던전 추가
+            </button>
           </div>
         </div>
 

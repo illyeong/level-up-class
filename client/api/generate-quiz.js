@@ -1,11 +1,11 @@
 /**
  * Vercel Serverless Function — 퀴즈 자동 생성
+ * Claude API (Anthropic) 사용
  *
- * 현재: Google Gemini API 사용 (무료)
- * 나중에 Claude로 전환하려면 하단 주석 참고
- *
- * 환경변수 설정:
- *   GEMINI_API_KEY = AIza...  (aistudio.google.com에서 발급)
+ * 환경변수:
+ *   ANTHROPIC_API_KEY = sk-ant-...
+ *   → console.anthropic.com 가입 시 $5 무료 크레딧 제공 (카드 불필요)
+ *   → Vercel Dashboard → Settings → Environment Variables에 추가
  */
 
 const DIFFICULTY_MAP = {
@@ -21,11 +21,11 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: '허용되지 않는 메서드' });
 
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  if (!GEMINI_API_KEY) {
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+  if (!ANTHROPIC_API_KEY) {
     return res.status(500).json({
       error: 'API 키가 설정되지 않았습니다.',
-      hint: 'Vercel Dashboard → Settings → Environment Variables에 GEMINI_API_KEY를 추가하세요.',
+      hint: 'console.anthropic.com 가입 후 API 키 발급 → Vercel 환경변수에 ANTHROPIC_API_KEY 추가',
     });
   }
 
@@ -69,42 +69,40 @@ answer 값은 0~3 사이 정수 (0=①, 1=②, 2=③, 3=④)
 ${sourceText?.trim() || '(PDF 파일에서 자료 참고)'}`;
 
   try {
-    // ── Gemini API 호출 ───────────────────────────────────────
-    const GEMINI_MODEL = 'gemini-1.5-flash-8b'; // 무료 티어 지원 경량 모델
-
-    // PDF 포함 여부에 따라 parts 구성
-    const parts = [];
+    // PDF 포함 여부에 따라 메시지 구성
+    let messageContent;
     if (pdfBase64) {
-      parts.push({
-        inline_data: { mime_type: 'application/pdf', data: pdfBase64 },
-      });
-    }
-    parts.push({ text: prompt });
-
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            temperature:     0.4,
-            maxOutputTokens: 3000,
-          },
-        }),
-      }
-    );
-
-    if (!geminiRes.ok) {
-      const err = await geminiRes.json().catch(() => ({}));
-      return res.status(geminiRes.status).json({
-        error: `Gemini API 오류: ${err.error?.message || geminiRes.statusText}`,
-      });
+      messageContent = [
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
+        { type: 'text', text: prompt },
+      ];
+    } else {
+      messageContent = prompt;
     }
 
-    const geminiData = await geminiRes.json();
-    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-api-key':         ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model:      'claude-haiku-4-5-20251001',
+        max_tokens: 3000,
+        messages:   [{ role: 'user', content: messageContent }],
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return res.status(response.status).json({
+        error: `Claude API 오류: ${err.error?.message || response.statusText}`,
+      });
+    }
+
+    const data    = await response.json();
+    const rawText = data.content?.[0]?.text || '';
 
     // JSON 추출
     const jsonMatch = rawText.match(/\[[\s\S]*\]/);
@@ -131,33 +129,3 @@ ${sourceText?.trim() || '(PDF 파일에서 자료 참고)'}`;
     return res.status(500).json({ error: err.message || '서버 오류가 발생했습니다.' });
   }
 }
-
-/* ─────────────────────────────────────────────────────────────
- * 나중에 Claude API로 전환하는 방법
- * ─────────────────────────────────────────────────────────────
- * 1. Vercel 환경변수에 ANTHROPIC_API_KEY 추가
- * 2. 아래 코드로 Gemini 호출 부분을 교체:
- *
- * const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
- *   method: 'POST',
- *   headers: {
- *     'Content-Type': 'application/json',
- *     'x-api-key': process.env.ANTHROPIC_API_KEY,
- *     'anthropic-version': '2023-06-01',
- *   },
- *   body: JSON.stringify({
- *     model: 'claude-haiku-4-5-20251001',
- *     max_tokens: 3000,
- *     messages: [{
- *       role: 'user',
- *       content: pdfBase64
- *         ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
- *            { type: 'text', text: prompt }]
- *         : prompt,
- *     }],
- *   }),
- * });
- * const claudeData = await claudeRes.json();
- * const rawText = claudeData.content?.[0]?.text || '';
- * ─────────────────────────────────────────────────────────────
- */
