@@ -70,7 +70,7 @@ ${sourceText?.trim() || '(PDF 파일에서 자료 참고)'}`;
 
   try {
     // ── Gemini API 호출 ───────────────────────────────────────
-    const GEMINI_MODEL = 'gemini-1.5-flash'; // 빠르고 무료
+    const GEMINI_MODEL = 'gemini-2.0-flash'; // 최신 빠른 모델 (무료)
 
     // PDF 포함 여부에 따라 parts 구성
     const parts = [];
