@@ -3136,8 +3136,9 @@ GameObject:
   - component: {fileID: 1214127417}
   - component: {fileID: 1214127419}
   - component: {fileID: 1214127418}
+  - component: {fileID: 1214127420}
   m_Layer: 5
-  m_Name: Left_Image
+  m_Name: Right_Image
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3200,6 +3201,19 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1214127416}
   m_CullTransparentMesh: 1
+--- !u!114 &1214127420
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1214127416}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 224981b6e3cdb274bbe8a2dbfc82ab5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LayerLab.ArtMaker.MobileInputButton
+  direction: 1
 --- !u!1 &1262007341
 GameObject:
   m_ObjectHideFlags: 0
@@ -3286,8 +3300,9 @@ GameObject:
   - component: {fileID: 1278305000}
   - component: {fileID: 1278305002}
   - component: {fileID: 1278305001}
+  - component: {fileID: 1278305003}
   m_Layer: 5
-  m_Name: Right_Image
+  m_Name: Left_Image
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3350,6 +3365,19 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1278304999}
   m_CullTransparentMesh: 1
+--- !u!114 &1278305003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1278304999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 224981b6e3cdb274bbe8a2dbfc82ab5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LayerLab.ArtMaker.MobileInputButton
+  direction: -1
 --- !u!1 &1289421709
 GameObject:
   m_ObjectHideFlags: 0

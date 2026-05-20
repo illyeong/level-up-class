@@ -48,8 +48,10 @@ namespace LayerLab.ArtMaker
             // 1. 발밑에 바닥이 있는지 체크
             isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
 
-            // 2. 좌우 이동
+            // 2. 좌우 이동 (키보드 우선, 없으면 모바일 버튼)
             float moveX = Input.GetAxisRaw("Horizontal");
+            if (Mathf.Approximately(moveX, 0f))
+                moveX = MobileInput.horizontal;
             rb.linearVelocity = new Vector2(moveX * moveSpeed, rb.linearVelocity.y);
 
             // 3. 점프

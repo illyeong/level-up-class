@@ -3,6 +3,7 @@ import { collection, getDocs, doc, updateDoc, query, where } from 'firebase/fire
 import { db } from '../../firebase';
 import QuizDungeon from './QuizDungeon';
 import BossRaid from './BossRaid';
+import ExplorationDungeon from './ExplorationDungeon';
 
 // ── 이용권 설정 ────────────────────────────────────────────────
 const TICKET_CONFIG = {
@@ -293,6 +294,12 @@ function AdventurePage({ currentView, studentCode }) {
         <BossRaid
           studentCode={studentCode}
           studentDocId={studentDocId}
+          tickets={tickets}
+          onUseTicket={handleUseTicket}
+        />
+      ) : currentView === 'explorationDungeon' ? (
+        <ExplorationDungeon
+          studentCode={studentCode}
           tickets={tickets}
           onUseTicket={handleUseTicket}
         />

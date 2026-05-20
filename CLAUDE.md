@@ -47,6 +47,7 @@ level-up-class/
 │       │   ├── AdventurePage.jsx       — 어드벤처 허브 (이용권 sticky 바)
 │       │   ├── QuizDungeon.jsx         — 솔로 퀴즈 던전 (로비+배틀+결과)
 │       │   ├── BossRaid.jsx            — 월드 보스 레이드 (Firebase 실시간 HP)
+│       │   ├── ExplorationDungeon.jsx  — 탐험던전 (Unity WebGL iframe, /Dungeon_Main/)
 │       │   └── StockMarket.jsx         — 주식/ETF 거래소
 │       └── pages/teacher/
 │           ├── TeacherLogin.jsx
@@ -255,6 +256,18 @@ Unity → React: { type: "UNITY_SAVE_CHARACTER", parts, characterImage }
 ### Unity AvatarMaker
 - [ ] UNITY_AVATAR_LOADED 신호 전송
 - [ ] 피부색 Firebase 저장/로드
+
+---
+
+## 모바일 입력 시스템 (Unity Dungeon)
+```
+MobileInput.cs         — static float horizontal 공유 상태
+MobileInputButton.cs   — UI 버튼에 부착, IPointerDownHandler/IPointerUpHandler
+  direction: 1 (오른쪽) / -1 (왼쪽)
+PlayerMovement.cs      — 키보드 없으면 MobileInput.horizontal 사용
+```
+- 씬 연결: 각 버튼 오브젝트에 MobileInputButton 컴포넌트 추가 후 Direction 설정
+- 키보드(PC)와 모바일 버튼 동시 지원, 키보드 우선
 
 ---
 
