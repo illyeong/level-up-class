@@ -239,12 +239,42 @@ Unity → React: { type: "UNITY_SAVE_CHARACTER", parts, characterImage }
 
 ---
 
+## 탐험던전 Unity WebGL 연동
+```
+client/public/Dungeon_Main/
+├── index.html
+├── Build/
+│   ├── Dungeon_Main.data.br
+│   ├── Dungeon_Main.framework.js.br
+│   ├── Dungeon_Main.loader.js
+│   └── Dungeon_Main.wasm.br
+└── TemplateData/
+```
+- ExplorationDungeon.jsx: 로비(이용권 확인) → 입장(이용권 1개 소비) → Unity iframe
+- Unity 로드 후 studentCode 자동 전달 (REACT_STUDENT_CODE 메시지)
+- Unity에서 DUNGEON_EXIT 메시지 수신 시 로비로 복귀
+- vite.config.js: unityWebGLHeaders 플러그인으로 .br 파일 Content-Encoding: br 헤더 자동 부여 (로컬 개발용)
+- Vercel 배포 시 vercel.json에 동일 헤더 추가 필요
+
+## Unity Dungeon 빌드 관련
+```
+Assets/Plugins/WebGL/ReactBridge.jslib  — 필수
+  SendPurchaseDataToReact: 스텁 (DemoControl.cs 링커 에러 방지)
+  SendDungeonResultToReact: 던전 결과 → React 전송용
+  RegisterMessageListener: React → Unity 메시지 수신 등록
+```
+- DemoControl.cs가 [DllImport("__Internal")] SendPurchaseDataToReact 선언
+- .jslib 없으면 wasm-ld undefined symbol 에러로 빌드 실패
+
+---
+
 ## 알려진 TODO
 
 ### 웹
 - [ ] 자정 자동 보상/초기화 (Firebase Cloud Functions)
 - [ ] 학생 로그인 시스템 (현재 testStudentCode prop)
 - [ ] MyCharacter.jsx — 실제 Firebase 데이터 연동
+- [ ] Vercel 배포 시 vercel.json에 .br 헤더 설정 추가
 
 ### Unity Dungeon (5단계 보스레이드)
 - [ ] BossRaidScene 씬 제작 (판타지 배경 + 보스 배치)
