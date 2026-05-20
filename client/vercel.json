@@ -5,6 +5,12 @@
       "headers": [
         { "key": "Content-Encoding", "value": "br" }
       ]
+    },
+    {
+      "source": "/Dungeon_Main/Build/(.*).br",
+      "headers": [
+        { "key": "Content-Encoding", "value": "br" }
+      ]
     }
   ]
 }
