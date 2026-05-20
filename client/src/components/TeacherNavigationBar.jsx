@@ -20,7 +20,9 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
     },
     {
       id: 'questManage', icon: iconQuest, title: '퀘스트 관리소', isReady: true,
-      subMenus: []
+      subMenus: [
+        { title: '🖐️ 학생 체크인', id: 'questKiosk' },
+      ]
     },
     {
       id: 'adventure', icon: iconAdventure, title: '어드벤처', isReady: true,

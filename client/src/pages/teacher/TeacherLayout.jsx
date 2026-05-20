@@ -10,6 +10,7 @@ import ClassShopManage from './ClassShopManage';
 import StockManage from './StockManage';
 import QuizDungeonManage from './QuizDungeonManage';
 import BossRaidManage from './BossRaidManage';
+import QuestKiosk from './QuestKiosk';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -25,8 +26,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
 
       {/* 우측 메인 화면 */}
       <main className="flex-1 overflow-auto relative bg-slate-100">
-        
-        {/* 🌟 가짜 글씨를 없애고 "진짜 대시보드 컴포넌트"를 연결했습니다! */}
+
         {currentView === 'dashboard' && <TeacherDashboard onStudentTestLogin={onStudentTestLogin} />}
 
         {/* 학생 계정 발급 화면 */}
@@ -37,12 +37,19 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
         {currentView === 'stockManage'        && <StockManage />}
         {currentView === 'quizDungeonManage' && <QuizDungeonManage />}
         {currentView === 'bossRaidManage'    && <BossRaidManage />}
-        
+
         {/* 임시 준비 중 화면들 */}
         {currentView === 'myCharacter'     && <div className="p-10 text-2xl font-bold text-slate-800">선생님 캐릭터 룸 (준비 중 🦸‍♂️)</div>}
         {currentView === 'adventureManage' && <div className="p-10 text-2xl font-bold text-slate-800">어드벤처 관리 화면 (준비 중 ⚔️)</div>}
         
       </main>
+
+      {/* 학생 체크인 키오스크 모드 - 전체 화면 오버레이 (nav 포함 모두 덮음) */}
+      {currentView === 'questKiosk' && (
+        <div className="fixed inset-0 z-[100] overflow-y-auto">
+          <QuestKiosk onExit={() => setCurrentView('dashboard')} />
+        </div>
+      )}
     </div>
   );
 }

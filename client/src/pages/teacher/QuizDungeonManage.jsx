@@ -1,6 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
+import JSZip from 'jszip';
+
+// PPTX에서 텍스트 추출 (슬라이드별 XML 파싱)
+const extractPptxText = async (file) => {
+  const zip = new JSZip();
+  const content = await zip.loadAsync(file);
+
+  // 슬라이드 파일 찾기 (ppt/slides/slide1.xml, slide2.xml ...)
+  const slideFiles = Object.keys(content.files)
+    .filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name))
+    .sort((a, b) => {
+      const na = parseInt(a.match(/\d+/)?.[0] || 0);
+      const nb = parseInt(b.match(/\d+/)?.[0] || 0);
+      return na - nb;
+    });
+
+  if (slideFiles.length === 0) throw new Error('슬라이드를 찾을 수 없습니다.');
+
+  const slideTexts = [];
+  for (let i = 0; i < slideFiles.length; i++) {
+    const xml = await content.files[slideFiles[i]].async('text');
+    // <a:t>태그 안의 텍스트 추출
+    const matches = [...xml.matchAll(/<a:t[^>]*>([\s\S]*?)<\/a:t>/g)];
+    const text = matches
+      .map(m => m[1]
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'").trim()
+      )
+      .filter(Boolean)
+      .join(' ');
+    if (text) slideTexts.push(`[슬라이드 ${i + 1}]\n${text}`);
+  }
+  return slideTexts.join('\n\n');
+};
 
 // ─────────────────────── 교육과정 데이터 ────────────────────
 const NATIONAL = ['국정'];
@@ -162,6 +197,9 @@ function QuizDungeonManage() {
   const [part, setPart]         = useState('');
   const [unit, setUnit]         = useState('');
   const [sourceText, setSourceText] = useState('');
+  const [pdfBase64, setPdfBase64]   = useState('');
+  const [pdfName, setPdfName]       = useState('');
+  const [isPptxLoading, setIsPptxLoading] = useState(false);
   const [count, setCount]       = useState(5);
   const [difficulty, setDifficulty] = useState('normal');
   const [rewards, setRewards]   = useState({ gold: 100, exp: 50, diamond: 0 });
@@ -215,14 +253,53 @@ function QuizDungeonManage() {
   const resetForm = () => {
     setGrade(''); setSemester(''); setSubject(''); setPublisher('');
     setPart(''); setUnit(''); setSourceText('');
+    setPdfBase64(''); setPdfName(''); setIsPptxLoading(false);
     setCount(5); setDifficulty('normal');
     setRewards({ gold: 100, exp: 50, diamond: 0 });
     setQuestions([]); setStep('form'); setGenError('');
   };
 
+  // PDF 파일 읽기
+  const handlePdfUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') return alert('PDF 파일만 업로드 가능합니다.');
+    if (file.size > 20 * 1024 * 1024) return alert('파일 크기는 20MB 이하여야 합니다.');
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target.result.split(',')[1]; // data: 부분 제거
+      setPdfBase64(base64);
+      setPdfName(file.name);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // PPTX 파일 읽기 → 텍스트 추출 → sourceText에 자동 입력
+  const handlePptxUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['ppt', 'pptx'].includes(ext)) return alert('PPT 또는 PPTX 파일만 업로드 가능합니다.');
+    if (file.size > 30 * 1024 * 1024) return alert('파일 크기는 30MB 이하여야 합니다.');
+
+    setIsPptxLoading(true);
+    try {
+      const text = await extractPptxText(file);
+      if (!text) throw new Error('텍스트를 추출할 수 없습니다.');
+      setSourceText(text);
+      alert(`✅ "${file.name}" 텍스트 추출 완료!\n${text.split('\n\n').length}개 슬라이드에서 내용을 가져왔습니다.\n아래 텍스트를 확인 후 퀴즈를 생성하세요.`);
+    } catch (err) {
+      console.error(err);
+      alert(`PPT 텍스트 추출 실패: ${err.message}\n파일이 손상되었거나 텍스트가 없는 경우입니다.`);
+    } finally {
+      setIsPptxLoading(false);
+      e.target.value = ''; // 같은 파일 재업로드 허용
+    }
+  };
+
   // ── AI 퀴즈 생성 ─────────────────────────────────────────────
   const handleGenerate = async () => {
-    if (!sourceText.trim()) return alert('수업 자료를 입력해주세요.');
+    if (!sourceText.trim() && !pdfBase64) return alert('수업 자료를 입력하거나 PDF를 업로드해주세요.');
     if (!grade || !subject) return alert('학년과 과목을 선택해주세요.');
 
     setIsGenerating(true);
@@ -232,7 +309,9 @@ function QuizDungeonManage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sourceText, grade: parseInt(grade), semester: parseInt(semester) || null,
+          sourceText: sourceText || undefined,
+          pdfBase64:  pdfBase64  || undefined,
+          grade: parseInt(grade), semester: parseInt(semester) || null,
           subject, publisher, unit: [part, unit].filter(Boolean).join(' '),
           count, difficulty,
         }),
@@ -418,15 +497,80 @@ function QuizDungeonManage() {
 
                 {/* 수업 자료 입력 */}
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-                  <h2 className="font-bold text-slate-700 text-sm mb-3">📝 수업 자료 입력</h2>
-                  <textarea
-                    value={sourceText}
-                    onChange={e => setSourceText(e.target.value)}
-                    placeholder="수업 자료, 교과서 내용, 판서 내용 등을 여기에 붙여넣으세요.
-AI가 자동으로 퀴즈 문제를 만들어드립니다."
-                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 resize-none h-40"
-                  />
-                  <div className="text-right text-xs text-slate-400 mt-1">{sourceText.length}자</div>
+                  <h2 className="font-bold text-slate-700 text-sm mb-4">📝 수업 자료 입력</h2>
+
+                  {/* 파일 업로드 */}
+                  <div className="mb-4">
+                    <label className="block text-xs font-bold text-slate-500 mb-2">
+                      📎 파일 업로드 (PDF / PPT / PPTX)
+                    </label>
+
+                    {/* PDF 선택됨 */}
+                    {pdfBase64 ? (
+                      <div className="flex items-center gap-3 p-3 bg-indigo-50 border-2 border-indigo-300 rounded-xl mb-2">
+                        <span className="text-2xl">📄</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-indigo-800 truncate">{pdfName}</div>
+                          <div className="text-xs text-indigo-500">PDF 준비 완료 · AI가 직접 읽습니다</div>
+                        </div>
+                        <button onClick={() => { setPdfBase64(''); setPdfName(''); }}
+                          className="text-slate-400 hover:text-rose-500 font-bold text-lg transition-colors shrink-0">✕</button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        {/* PDF 업로드 */}
+                        <label className="flex flex-col items-center justify-center h-20 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
+                          <span className="text-xl mb-0.5">📄</span>
+                          <span className="text-xs font-bold text-slate-500">PDF 업로드</span>
+                          <span className="text-[9px] text-slate-400">AI가 직접 읽음</span>
+                          <input type="file" accept=".pdf" className="hidden" onChange={handlePdfUpload} />
+                        </label>
+
+                        {/* PPT 업로드 */}
+                        <label className={`flex flex-col items-center justify-center h-20 border-2 border-dashed rounded-xl transition-colors
+                          ${isPptxLoading
+                            ? 'border-amber-300 bg-amber-50 cursor-wait'
+                            : 'border-slate-300 cursor-pointer hover:border-amber-400 hover:bg-amber-50'}`}>
+                          {isPptxLoading ? (
+                            <>
+                              <span className="text-xl mb-0.5 animate-pulse">⏳</span>
+                              <span className="text-xs font-bold text-amber-600">텍스트 추출 중...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xl mb-0.5">📊</span>
+                              <span className="text-xs font-bold text-slate-500">PPT / PPTX 업로드</span>
+                              <span className="text-[9px] text-slate-400">텍스트 자동 추출</span>
+                            </>
+                          )}
+                          <input type="file" accept=".ppt,.pptx" className="hidden"
+                            disabled={isPptxLoading} onChange={handlePptxUpload} />
+                        </label>
+                      </div>
+                    )}
+
+                    {/* 업로드 방식 안내 */}
+                    <div className="flex gap-3 text-[10px] text-slate-400">
+                      <span>📄 PDF: AI가 직접 분석</span>
+                      <span>📊 PPT: 텍스트 추출 → 편집 가능</span>
+                    </div>
+                  </div>
+
+                  {/* 텍스트 입력 */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-2">
+                      ✏️ 텍스트로 직접 입력 {pdfBase64 && <span className="text-slate-300">(PDF와 함께 참고 내용 추가 가능)</span>}
+                    </label>
+                    <textarea
+                      value={sourceText}
+                      onChange={e => setSourceText(e.target.value)}
+                      placeholder={pdfBase64
+                        ? "PDF 외 추가로 참고할 내용이 있으면 입력하세요 (선택)"
+                        : "수업 자료, 교과서 내용, 판서 내용 등을 붙여넣으세요.\nAI가 자동으로 퀴즈 문제를 만들어드립니다."}
+                      className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 resize-none h-32"
+                    />
+                    <div className="text-right text-xs text-slate-400 mt-1">{sourceText.length}자</div>
+                  </div>
                 </div>
 
                 {/* 설정 */}
@@ -526,53 +670,74 @@ AI가 자동으로 퀴즈 문제를 만들어드립니다."
 
         {/* ── 발행된 던전 탭 ── */}
         {tab === 'dungeons' && (
-          isLoading ? (
-            <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
-          ) : dungeons.length === 0 ? (
-            <div className="text-center py-20 text-slate-400">
-              <div className="text-5xl mb-3">⚔️</div>
-              <p className="font-bold text-lg text-slate-600">발행된 퀴즈 던전이 없습니다</p>
-              <p className="text-sm mt-1">AI 퀴즈 생성 탭에서 첫 번째 던전을 만들어보세요!</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {dungeons.map(d => (
-                <div key={d.id}
-                  className={`bg-white rounded-2xl shadow-sm border-2 p-5 transition-all
-                    ${d.active ? 'border-slate-200' : 'border-slate-100 opacity-60'}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h3 className="font-extrabold text-slate-800">{d.title}</h3>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${DIFF_COLOR[d.difficulty]}`}>
-                          {DIFF_LABEL[d.difficulty]}
-                        </span>
-                        <span className="text-[10px] text-slate-400">{d.questionCount}문제</span>
-                        <span className="text-[10px] text-slate-400">{fmtDate(d.createdAt)}</span>
-                      </div>
-                      <div className="flex gap-3 text-xs text-slate-500">
-                        {d.rewards?.gold   > 0 && <span>🪙 {d.rewards.gold}</span>}
-                        {d.rewards?.exp    > 0 && <span>⭐ {d.rewards.exp}</span>}
-                        {d.rewards?.diamond > 0 && <span>💎 {d.rewards.diamond}</span>}
-                        {d.playCount > 0 && <span className="text-indigo-500 font-bold">플레이 {d.playCount}회</span>}
-                      </div>
+          <div>
+            {/* 요약 카드 */}
+            {!isLoading && dungeons.length > 0 && (
+              <div className="grid grid-cols-3 gap-3 mb-5">
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 text-center">
+                  <div className="text-2xl font-extrabold text-indigo-600">{dungeons.length}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">전체 던전</div>
+                </div>
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 text-center">
+                  <div className="text-2xl font-extrabold text-emerald-600">{dungeons.filter(d => d.active).length}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">활성 던전</div>
+                </div>
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 text-center">
+                  <div className="text-2xl font-extrabold text-amber-600">
+                    {dungeons.reduce((s, d) => s + (d.playCount || 0), 0)}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">총 플레이</div>
+                </div>
+              </div>
+            )}
+
+            {isLoading ? (
+              <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
+            ) : dungeons.length === 0 ? (
+              <div className="text-center py-20 text-slate-400">
+                <div className="text-5xl mb-3">⚔️</div>
+                <p className="font-bold text-lg text-slate-600">발행된 퀴즈 던전이 없습니다</p>
+                <p className="text-sm mt-1">AI 퀴즈 생성 탭에서 첫 번째 던전을 만들어보세요!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {dungeons.map(d => (
+                  <div key={d.id}
+                    className={`bg-white rounded-2xl shadow-sm border-2 overflow-hidden transition-all
+                      ${d.active ? 'border-slate-200 hover:shadow-md' : 'border-slate-100 opacity-60'}`}>
+                    {/* 상단 색 띠 */}
+                    <div className={`px-4 py-2 text-white text-[10px] font-bold flex justify-between
+                      ${d.difficulty === 'easy' ? 'bg-emerald-500' : d.difficulty === 'hard' ? 'bg-rose-500' : 'bg-sky-500'}`}>
+                      <span>{DIFF_LABEL[d.difficulty]}</span>
+                      <span>{d.questionCount}문제</span>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button onClick={() => toggleDungeonActive(d)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors
-                          ${d.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                        {d.active ? '✅ 활성' : '⏸️ 비활성'}
-                      </button>
-                      <button onClick={() => deleteDungeon(d.id)}
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-500 border border-rose-200 hover:bg-rose-100 transition-colors">
-                        삭제
-                      </button>
+                    <div className="p-4">
+                      <h3 className="font-extrabold text-slate-800 mb-1 leading-tight">{d.title}</h3>
+                      <div className="text-xs text-slate-400 mb-3">{fmtDate(d.createdAt)}</div>
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {d.rewards?.gold    > 0 && <span className="text-xs bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-full border border-amber-100">🪙{d.rewards.gold}</span>}
+                        {d.rewards?.exp     > 0 && <span className="text-xs bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-full border border-indigo-100">⭐{d.rewards.exp}</span>}
+                        {d.rewards?.diamond > 0 && <span className="text-xs bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded-full border border-blue-100">💎{d.rewards.diamond}</span>}
+                        {(d.playCount || 0) > 0 && <span className="text-xs text-indigo-500 font-bold ml-auto">▶ {d.playCount}회</span>}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => toggleDungeonActive(d)}
+                          className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition-colors
+                            ${d.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}>
+                          {d.active ? '✅ 활성화 중' : '⏸️ 비활성'}
+                        </button>
+                        <button onClick={() => deleteDungeon(d.id)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-500 border border-rose-200 hover:bg-rose-100 transition-colors">
+                          삭제
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
