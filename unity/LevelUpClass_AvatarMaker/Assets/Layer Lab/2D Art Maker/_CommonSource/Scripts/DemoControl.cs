@@ -186,34 +186,11 @@ namespace LayerLab.ArtMaker
 
         private string BuildColorsJson()
         {
-            // 실제 스켈레톤 슬롯에서 직접 읽기 → _customColors보다 정확
-            var partsManager = Player.Instance?.PartsManager;
-            string H(string slot)
-            {
-                try
-                {
-                    if (partsManager != null)
-                    {
-                        var color = partsManager.GetColorBySlotType(slot);
-                        return ColorUtility.ToHtmlStringRGB(color);
-                    }
-                }
-                catch { }
-                // fallback: ColorPresetManager
-                var pm = ColorPresetManager.Instance;
-                if (pm != null)
-                {
-                    var map = new System.Collections.Generic.Dictionary<string, PartsType>
-                    {
-                        {"hair", PartsType.Hair_Short}, {"brow", PartsType.Brow},
-                        {"beard", PartsType.Beard},     {"body", PartsType.Skin}
-                    };
-                    if (map.TryGetValue(slot, out var t))
-                        return ColorUtility.ToHtmlStringRGB(pm.GetColorByType(t));
-                }
-                return "FFFFFF";
-            }
-            return $"{{\"Hair_Short\":\"{H("hair")}\",\"Brow\":\"{H("brow")}\",\"Beard\":\"{H("beard")}\",\"Skin\":\"{H("body")}\"}}";
+            var pm = ColorPresetManager.Instance;
+            if (pm == null) return "{}";
+            // OnColorChange에서 SetSelectByColor로 _customColors가 최신 상태 유지됨
+            string H(PartsType t) => ColorUtility.ToHtmlStringRGB(pm.GetColorByType(t));
+            return $"{{\"Hair_Short\":\"{H(PartsType.Hair_Short)}\",\"Brow\":\"{H(PartsType.Brow)}\",\"Beard\":\"{H(PartsType.Beard)}\",\"Skin\":\"{H(PartsType.Skin)}\"}}";
         }
 
 
