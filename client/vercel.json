@@ -3,15 +3,8 @@
     {
       "source": "/avatar_game/Build/(.*).br",
       "headers": [
-        { "key": "Content-Type",  "value": "application/octet-stream" },
-        { "key": "Cache-Control", "value": "public, max-age=31536000" }
-      ]
-    },
-    {
-      "source": "/Dungeon_Main/Build/(.*).br",
-      "headers": [
-        { "key": "Content-Type",  "value": "application/octet-stream" },
-        { "key": "Cache-Control", "value": "public, max-age=31536000" }
+        { "key": "Content-Encoding", "value": "br" },
+        { "key": "Content-Type",     "value": "application/octet-stream" }
       ]
     }
   ]
