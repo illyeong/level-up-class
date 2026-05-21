@@ -4,7 +4,7 @@
 
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore"; // 👈 이 녀석이 빠져서 난 에러입니다!
-import { getAuth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 // 선생님의 실제 Firebase 설정값
 const firebaseConfig = {
@@ -18,5 +18,6 @@ const firebaseConfig = {
 
 // 초기화 및 내보내기
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const auth = getAuth(app);
+export const db           = getFirestore(app);
+export const auth         = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
