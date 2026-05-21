@@ -51,6 +51,10 @@ public class GameManager : MonoBehaviour
     [HideInInspector] public int sessionKillCount  = 0;
     [HideInInspector] public int sessionEarnedGold = 0;
 
+    // ── 캐릭터 외형 (씬 전환 시 재적용용) ────────────────────────
+    [HideInInspector] public string savedPartsJson  = "";
+    [HideInInspector] public string savedColorsJson = "";
+
     public void ResetSession()
     {
         sessionKillCount  = 0;

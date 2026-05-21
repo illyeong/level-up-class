@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, writeBatch, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
+const newPin = () => Math.floor(1000 + Math.random() * 9000).toString();
+
 // studentCode에서 자리번호 추출 (예: "SINSEOK-5-01" → 1)
 const getSeatNum = (code) => parseInt(code?.split('-').pop()) || 0;
 
@@ -100,6 +102,38 @@ function AccountIssue({ user }) {
     }
   };
 
+  // 개별 PIN 초기화
+  const resetPin = async (student) => {
+    const pin = newPin();
+    try {
+      await updateDoc(doc(db, 'students', student.id), { pin });
+      setStudents(prev => prev.map(s => s.id === student.id ? { ...s, pin } : s));
+    } catch (err) {
+      alert('PIN 초기화 실패');
+    }
+  };
+
+  // 전체 PIN 재생성
+  const resetAllPins = async () => {
+    if (!window.confirm('전체 학생 PIN을 새로 생성할까요?')) return;
+    setIsLoading(true);
+    try {
+      const batch = writeBatch(db);
+      const updated = students.map(s => {
+        const pin = newPin();
+        batch.update(doc(db, 'students', s.id), { pin });
+        return { ...s, pin };
+      });
+      await batch.commit();
+      setStudents(updated);
+      alert('전체 PIN이 재생성되었습니다.');
+    } catch (err) {
+      alert('PIN 재생성 실패');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // 이름 일괄 저장 (여러 명을 한 번에 편집한 경우 대비)
   const handleRowBlur = () => {
     // 약간의 딜레이로 같은 행 내 다른 셀 클릭 감지
@@ -117,6 +151,19 @@ function AccountIssue({ user }) {
           <div>
             <h1 className="text-2xl font-bold text-slate-800">👨‍🎓 학생 계정 발급</h1>
             <p className="text-slate-500 mt-1 text-sm">학생 로그인 코드, PIN, 이름을 관리합니다.</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={resetAllPins}
+              disabled={isLoading || students.length === 0}
+              className="bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors">
+              🔄 전체 PIN 재생성
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="bg-slate-600 hover:bg-slate-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors">
+              🖨️ 출력
+            </button>
           </div>
         </div>
 
@@ -218,8 +265,18 @@ function AccountIssue({ user }) {
                         </td>
 
                         {/* PIN */}
-                        <td className="p-4 font-mono font-bold text-rose-500 tracking-widest text-sm">
-                          {student.pin}
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-rose-500 tracking-widest text-sm">
+                              {student.pin || '없음'}
+                            </span>
+                            <button
+                              onClick={() => resetPin(student)}
+                              className="text-[10px] text-slate-400 hover:text-rose-500 hover:bg-rose-50 px-1.5 py-0.5 rounded border border-slate-200 hover:border-rose-200 transition-colors"
+                              title="PIN 초기화">
+                              🔄
+                            </button>
+                          </div>
                         </td>
 
                         {/* 다이아 */}

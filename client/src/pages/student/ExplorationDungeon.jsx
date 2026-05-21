@@ -20,7 +20,19 @@ function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
         const snap = await getDocs(q);
         if (!snap.empty) {
           const d = snap.docs[0].data();
-          characterDataRef.current = { parts: d.parts ?? null, colors: d.colors ?? null };
+          characterDataRef.current = {
+            parts:  d.parts  ?? null,
+            colors: d.colors ?? null,
+            stats: {
+              level:         d.level         ?? 1,
+              exp:           d.exp           ?? 0,
+              maxExp:        d.maxExp        ?? 1000,
+              gold:          d.gold          ?? 0,
+              diamonds:      d.diamonds      ?? 0,
+              maxHealth:     d.maxHealth     ?? 100,
+              currentHealth: d.currentHealth ?? d.maxHealth ?? 100,
+            }
+          };
         }
       } catch (e) { console.error('캐릭터 데이터 로드 에러:', e); }
     };
@@ -49,9 +61,11 @@ function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
     if (studentCode)
       win.postMessage({ type: 'REACT_STUDENT_CODE', studentCode }, '*');
     const cd = characterDataRef.current;
-    if (cd?.parts) {
-      const msg = { type: 'REACT_LOAD_AVATAR', parts: cd.parts };
-      if (cd.colors) msg.colors = cd.colors; // null이면 아예 안 보냄
+    if (cd) {
+      const msg = { type: 'REACT_LOAD_AVATAR' };
+      if (cd.parts)  msg.parts  = cd.parts;
+      if (cd.colors) msg.colors = cd.colors;
+      if (cd.stats)  msg.stats  = cd.stats;
       win.postMessage(msg, '*');
     }
   };
@@ -72,7 +86,19 @@ function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
         const snap = await getDocs(q);
         if (!snap.empty) {
           const d = snap.docs[0].data();
-          characterDataRef.current = { parts: d.parts ?? null, colors: d.colors ?? null };
+          characterDataRef.current = {
+            parts:  d.parts  ?? null,
+            colors: d.colors ?? null,
+            stats: {
+              level:         d.level         ?? 1,
+              exp:           d.exp           ?? 0,
+              maxExp:        d.maxExp        ?? 1000,
+              gold:          d.gold          ?? 0,
+              diamonds:      d.diamonds      ?? 0,
+              maxHealth:     d.maxHealth     ?? 100,
+              currentHealth: d.currentHealth ?? d.maxHealth ?? 100,
+            }
+          };
         }
       }
       await onUseTicket('dungeon');

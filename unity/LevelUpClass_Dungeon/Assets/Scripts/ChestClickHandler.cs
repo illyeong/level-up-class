@@ -1,15 +1,16 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 /// <summary>
-/// IronChest 프리팹에 런타임으로 추가되는 클릭 핸들러.
-/// OnMouseDown으로 클릭 감지 → GameResultUI에 전달.
+/// IronChest 클릭 감지.
+/// Main Camera에 Physics2DRaycaster 컴포넌트가 필요합니다.
 /// </summary>
-public class ChestClickHandler : MonoBehaviour
+public class ChestClickHandler : MonoBehaviour, IPointerClickHandler
 {
-    [HideInInspector] public int chestIndex;
+    [HideInInspector] public int  chestIndex;
     [HideInInspector] public bool opened = false;
 
-    void OnMouseDown()
+    public void OnPointerClick(PointerEventData eventData)
     {
         if (opened) return;
         GameResultUI.Instance?.OnChestClick(chestIndex);

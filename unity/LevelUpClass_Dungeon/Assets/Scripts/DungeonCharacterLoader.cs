@@ -32,11 +32,22 @@ public class DungeonCharacterLoader : MonoBehaviour
         var data = JsonUtility.FromJson<LoadAvatarMsg>(json);
         if (data == null) return;
 
-        var pm = FindPartsManager();
-        if (pm == null) { Debug.LogWarning("[DungeonCharacterLoader] PartsManager를 찾지 못했습니다."); return; }
+        // 스탯 먼저 적용 (PlayerCombat.Start()보다 늦게 받는 경우 직접 반영)
+        if (data.stats != null) ApplyStats(data.stats);
 
-        if (data.parts  != null) ApplyParts(pm, data.parts);
-        if (data.colors != null) ApplyColors(pm, data.colors);
+        // GameManager에 저장 → 씬 전환 후 재적용용
+        if (GameManager.Instance != null)
+        {
+            if (data.parts  != null) GameManager.Instance.savedPartsJson  = ExtractJson(json, "parts");
+            if (data.colors != null) GameManager.Instance.savedColorsJson = ExtractJson(json, "colors");
+        }
+
+        var pm = FindPartsManager();
+        if (pm != null)
+        {
+            if (data.parts  != null) ApplyParts(pm, data.parts);
+            if (data.colors != null) ApplyColors(pm, data.colors);
+        }
     }
 
     LayerLab.ArtMaker.PartsManager FindPartsManager()
@@ -49,6 +60,73 @@ public class DungeonCharacterLoader : MonoBehaviour
             if (pm != null) return pm;
         }
         return FindFirstObjectByType<LayerLab.ArtMaker.PartsManager>();
+    }
+
+    /// <summary>씬 전환 후 GameManager에 저장된 외형 재적용 (Stage2, BossScene 등에서 호출)</summary>
+    public static void ApplyFromGameManager()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null) return;
+
+        var pm = FindFirstObjectByType<DungeonCharacterLoader>()?.FindPartsManager()
+              ?? FindFirstObjectByType<LayerLab.ArtMaker.PartsManager>();
+        if (pm == null) return;
+
+        if (!string.IsNullOrEmpty(gm.savedPartsJson))
+        {
+            var p = JsonUtility.FromJson<PartsData>("{" + gm.savedPartsJson + "}");
+            if (p != null) FindFirstObjectByType<DungeonCharacterLoader>()?.ApplyParts(pm, p);
+        }
+        if (!string.IsNullOrEmpty(gm.savedColorsJson))
+        {
+            var c = JsonUtility.FromJson<ColorData>("{" + gm.savedColorsJson + "}");
+            if (c != null) FindFirstObjectByType<DungeonCharacterLoader>()?.ApplyColors(pm, c);
+        }
+    }
+
+    // JSON 문자열에서 특정 키의 값(object) 추출
+    static string ExtractJson(string fullJson, string key)
+    {
+        // 단순 추출 — 중첩 객체 처리
+        var search = $"\"{key}\":";
+        int start  = fullJson.IndexOf(search);
+        if (start < 0) return "";
+        start += search.Length;
+        int depth = 0; int end = start;
+        for (; end < fullJson.Length; end++)
+        {
+            if (fullJson[end] == '{') depth++;
+            else if (fullJson[end] == '}') { if (--depth < 0) break; }
+            else if (fullJson[end] == ',' && depth == 0) break;
+        }
+        return fullJson.Substring(start, end - start).Trim().Trim('{', '}');
+    }
+
+    void ApplyStats(StatsData s)
+    {
+        var gm = GameManager.Instance;
+        if (gm == null) return;
+
+        gm.level         = s.level;
+        gm.gold          = s.gold;
+        gm.maxHealth     = s.maxHealth > 0 ? s.maxHealth : gm.maxHealth;
+        gm.currentHealth = s.currentHealth > 0 ? s.currentHealth : gm.maxHealth;
+
+        // 레벨 기반 스탯 계산 (기본 + 레벨당 증가)
+        gm.attackPower = 10 + (s.level - 1) * 2;
+        gm.defense     = 5  + (s.level - 1) * 1;
+
+        // PlayerCombat이 이미 Start()를 지났으면 직접 반영
+        var pc = FindFirstObjectByType<LayerLab.ArtMaker.PlayerCombat>();
+        if (pc != null)
+        {
+            pc.maxHealth     = gm.maxHealth;
+            pc.currentHealth = gm.currentHealth;
+            pc.attackPower   = gm.attackPower;
+            pc.defense       = gm.defense;
+        }
+
+        Debug.Log($"[DungeonCharacterLoader] 스탯 적용 — Lv.{s.level} HP:{s.currentHealth}/{s.maxHealth} ATK:{gm.attackPower}");
     }
 
     void ApplyParts(LayerLab.ArtMaker.PartsManager pm, PartsData p)
@@ -99,6 +177,19 @@ public class DungeonCharacterLoader : MonoBehaviour
         public string    type;
         public PartsData parts;
         public ColorData colors;
+        public StatsData stats;
+    }
+
+    [System.Serializable]
+    class StatsData
+    {
+        public int level         = 1;
+        public int exp           = 0;
+        public int maxExp        = 1000;
+        public int gold          = 0;
+        public int diamonds      = 0;
+        public int maxHealth     = 100;
+        public int currentHealth = 100;
     }
 
     [System.Serializable]
