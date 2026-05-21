@@ -32,11 +32,22 @@ public class WebBridge : MonoBehaviour
         if (msg.type == "REACT_LOAD_AVATAR")
         {
             var data = JsonUtility.FromJson<LoadAvatarMsg>(json);
-            if (data?.parts != null)
-                ApplyPartsData(data.parts);
-            if (data?.colors != null)
-                ApplyColorsData(data.colors);
+            if (data != null)
+                StartCoroutine(ApplyAvatarRoutine(data));
         }
+    }
+
+    System.Collections.IEnumerator ApplyAvatarRoutine(LoadAvatarMsg data)
+    {
+        // 1프레임 대기 — DemoControl.Init() 등이 완전히 끝난 후 적용
+        yield return null;
+        yield return null;
+
+        if (data.parts != null) ApplyPartsData(data.parts);
+
+        // 파츠 적용 후 1프레임 더 기다려 색상 적용 (EquipParts 내부 리셋 방지)
+        yield return null;
+        if (data.colors != null) ApplyColorsData(data.colors);
     }
 
     void ApplyPartsData(PartsData p)
