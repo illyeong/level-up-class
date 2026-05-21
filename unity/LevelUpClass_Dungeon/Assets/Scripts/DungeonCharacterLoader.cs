@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Runtime.InteropServices;
 
 /// <summary>
 /// 탐험던전 입장 시 React에서 보내는 REACT_LOAD_AVATAR 메시지를 수신해
@@ -7,6 +8,18 @@ using UnityEngine;
 /// </summary>
 public class DungeonCharacterLoader : MonoBehaviour
 {
+#if UNITY_WEBGL && !UNITY_EDITOR
+    [DllImport("__Internal")]
+    private static extern void RegisterMessageListener(string objName, string funcName);
+#endif
+
+    void Start()
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        RegisterMessageListener(gameObject.name, "OnReceiveMessage");
+#endif
+    }
+
     public void OnReceiveMessage(string json)
     {
         var msg = JsonUtility.FromJson<MsgBase>(json);

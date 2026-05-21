@@ -27,29 +27,36 @@ function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
     load();
   }, [studentCode]);
 
-  // Unity → React 메시지 수신 (필요 시 확장)
+  // Unity → React 메시지 수신
   useEffect(() => {
     if (phase !== 'playing') return;
     const handler = (e) => {
       if (!e.data?.type) return;
-      // 예: { type: 'DUNGEON_EXIT' } 수신 시 로비로 복귀
       if (e.data.type === 'DUNGEON_EXIT') setPhase('lobby');
+
+      // Unity 준비 완료 → 캐릭터 데이터 전송
+      if (e.data.type === 'UNITY_READY' || e.data.type === 'DUNGEON_READY') {
+        sendCharacterData();
+      }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
   }, [phase]);
 
-  // Unity 로드 후 studentCode + 캐릭터 데이터 전달
-  const handleIframeLoad = () => {
+  const sendCharacterData = () => {
     const win = iframeRef.current?.contentWindow;
     if (!win) return;
-
     if (studentCode)
       win.postMessage({ type: 'REACT_STUDENT_CODE', studentCode }, '*');
-
     const cd = characterDataRef.current;
     if (cd?.parts)
       win.postMessage({ type: 'REACT_LOAD_AVATAR', parts: cd.parts, colors: cd.colors ?? null }, '*');
+  };
+
+  // iframe 로드 완료 시 일단 전송 시도 + UNITY_READY 수신 시 재전송
+  const handleIframeLoad = () => {
+    // Unity 초기화에 시간 필요 → 1초 후 시도 + READY 신호 수신 시 재전송
+    setTimeout(sendCharacterData, 1000);
   };
 
   const handleEnter = async () => {
