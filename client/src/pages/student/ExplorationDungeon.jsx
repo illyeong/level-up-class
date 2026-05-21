@@ -53,16 +53,25 @@ function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
       win.postMessage({ type: 'REACT_LOAD_AVATAR', parts: cd.parts, colors: cd.colors ?? null }, '*');
   };
 
-  // iframe 로드 완료 시 일단 전송 시도 + UNITY_READY 수신 시 재전송
   const handleIframeLoad = () => {
-    // Unity 초기화에 시간 필요 → 1초 후 시도 + READY 신호 수신 시 재전송
-    setTimeout(sendCharacterData, 1000);
+    // DUNGEON_READY 신호를 못 받았을 경우 대비 — 3초/6초 fallback
+    setTimeout(sendCharacterData, 3000);
+    setTimeout(sendCharacterData, 6000);
   };
 
   const handleEnter = async () => {
     if (dungeonTickets <= 0 || isBusy) return;
     setIsBusy(true);
     try {
+      // 캐릭터 데이터가 아직 없으면 여기서 확실히 로드
+      if (!characterDataRef.current && studentCode) {
+        const q    = query(collection(db, 'students'), where('studentCode', '==', studentCode));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const d = snap.docs[0].data();
+          characterDataRef.current = { parts: d.parts ?? null, colors: d.colors ?? null };
+        }
+      }
       await onUseTicket('dungeon');
       setPhase('playing');
     } catch (err) {
