@@ -10,19 +10,22 @@ namespace LayerLab.ArtMaker
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            MobileInput.horizontal = direction;
+            MobileInput.horizontal     = direction;
+            MobileInput.isMovingButton = true;
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
             if (Mathf.Approximately(MobileInput.horizontal, direction))
                 MobileInput.horizontal = 0f;
+            MobileInput.isMovingButton = false;
         }
 
         void OnDisable()
         {
             if (Mathf.Approximately(MobileInput.horizontal, direction))
                 MobileInput.horizontal = 0f;
+            MobileInput.isMovingButton = false;
         }
     }
 }

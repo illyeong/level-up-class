@@ -88,7 +88,7 @@ namespace LayerLab.ArtMaker
                 }
             }
 
-            if (Input.GetMouseButtonDown(0) && Time.time >= nextAttackTime)
+            if (Input.GetMouseButtonDown(0) && Time.time >= nextAttackTime && !MobileInput.isMovingButton)
             {
                 Attack();
                 nextAttackTime = Time.time + attackCooldown;
