@@ -29,8 +29,16 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
       }
       onTeacherLogin(result.user);
     } catch (e) {
-      if (e.code !== 'auth/popup-closed-by-user')
-        setError('로그인에 실패했습니다.');
+      console.error('Google 로그인 에러:', e.code, e.message);
+      if (e.code === 'auth/popup-closed-by-user') {
+        // 사용자가 팝업 닫은 것 — 에러 표시 안 함
+      } else if (e.code === 'auth/popup-blocked') {
+        setError('팝업이 차단됐습니다. 브라우저 팝업 허용 후 다시 시도하세요.');
+      } else if (e.code === 'auth/unauthorized-domain') {
+        setError('이 도메인은 Firebase에 등록되지 않았습니다. Firebase Console → Authentication → 승인된 도메인에 추가하세요.');
+      } else {
+        setError(`로그인 실패: ${e.code}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -156,6 +164,16 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
             {error}
           </p>
         )}
+
+        {/* 테스트 접근 (숨겨진 버튼) */}
+        <div className="text-center mt-10">
+          <button
+            onClick={() => onTeacherLogin({ email: 'test@test.com', displayName: '테스트 교사' })}
+            className="text-white/10 hover:text-white/40 text-xs transition-colors"
+            title="테스트 모드">
+            ·
+          </button>
+        </div>
 
       </div>
     </div>
