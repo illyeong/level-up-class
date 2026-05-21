@@ -9,6 +9,17 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
+
     // ── 씬 이름 상수 ──────────────────────────────────────────────
     public const string SceneLobby         = "Lobby";
     public const string SceneDungeonSelect = "DungeonSelect";
@@ -61,18 +72,6 @@ public class GameManager : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────
-
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
-        LoadData();
-    }
 
     // ── Gold ──────────────────────────────────────────────────────
 
