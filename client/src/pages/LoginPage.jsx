@@ -165,13 +165,17 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
           </p>
         )}
 
-        {/* 테스트 접근 (숨겨진 버튼) */}
-        <div className="text-center mt-10">
+        {/* 테스트 버튼 */}
+        <div className="mt-8 border-t border-white/10 pt-6 flex gap-3">
           <button
             onClick={() => onTeacherLogin({ email: 'test@test.com', displayName: '테스트 교사' })}
-            className="text-white/10 hover:text-white/40 text-xs transition-colors"
-            title="테스트 모드">
-            ·
+            className="flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors">
+            🧪 교사 테스트
+          </button>
+          <button
+            onClick={() => onStudentLogin({ id: 'test', studentCode: 'SINSEOK-5-01', name: '테스트 학생' })}
+            className="flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors">
+            🧪 학생 테스트
           </button>
         </div>
 
