@@ -11,12 +11,16 @@ public class DungeonCharacterLoader : MonoBehaviour
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")]
     private static extern void RegisterMessageListener(string objName, string funcName);
+    [DllImport("__Internal")]
+    private static extern void SendDungeonResultToReact(string json);
 #endif
 
     void Start()
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
         RegisterMessageListener(gameObject.name, "OnReceiveMessage");
+        // React에 준비 완료 신호 → React가 캐릭터 데이터를 보내줌
+        SendDungeonResultToReact("{\"type\":\"DUNGEON_READY\"}");
 #endif
     }
 
