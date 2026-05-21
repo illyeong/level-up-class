@@ -49,8 +49,11 @@ function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
     if (studentCode)
       win.postMessage({ type: 'REACT_STUDENT_CODE', studentCode }, '*');
     const cd = characterDataRef.current;
-    if (cd?.parts)
-      win.postMessage({ type: 'REACT_LOAD_AVATAR', parts: cd.parts, colors: cd.colors ?? null }, '*');
+    if (cd?.parts) {
+      const msg = { type: 'REACT_LOAD_AVATAR', parts: cd.parts };
+      if (cd.colors) msg.colors = cd.colors; // null이면 아예 안 보냄
+      win.postMessage(msg, '*');
+    }
   };
 
   const handleIframeLoad = () => {

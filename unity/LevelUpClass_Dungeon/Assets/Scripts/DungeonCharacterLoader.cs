@@ -53,6 +53,9 @@ public class DungeonCharacterLoader : MonoBehaviour
 
     void ApplyParts(LayerLab.ArtMaker.PartsManager pm, PartsData p)
     {
+        // 파츠 맵핑 초기화 (Init 없이는 EquipParts가 파츠를 못 찾음)
+        pm.Init();
+
         pm.EquipParts(LayerLab.ArtMaker.PartsType.Back,       p.Back);
         pm.EquipParts(LayerLab.ArtMaker.PartsType.Beard,      p.Beard);
         pm.EquipParts(LayerLab.ArtMaker.PartsType.Boots,      p.Boots);
