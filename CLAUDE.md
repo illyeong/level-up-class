@@ -268,24 +268,51 @@ Assets/Plugins/WebGL/ReactBridge.jslib  — 필수
 
 ---
 
+## 최근 작업 내역 (2026-05-20~21)
+
+### 웹 — 완료
+- [x] 로그인 시스템 (LoginPage.jsx) — 교사 구글 OAuth, 학생 코드+PIN
+- [x] App.jsx 전면 개편 — appMode: login/student/teacher, sessionStorage 세션 유지
+- [x] AccountIssue.jsx — PIN 개별/전체 초기화 버튼, 출력 버튼
+- [x] StudentDashboard/MyCharacter/TeacherDashboard/QuestDetail — characterImage 표시
+- [x] ClassAllView — 우리반 전체 캐릭터/레벨 카드
+- [x] vercel.json — Dungeon_Main .br 헤더 추가, Compression Disabled 대응
+
+### Unity Dungeon — 완료
+- [x] GameManager — DontDestroyOnLoad 추가 (씬 전환 시 데이터 유지)
+- [x] GameManager — savedAvatarJson 필드 (캐릭터 외형 씬간 전달)
+- [x] DungeonCharacterLoader — DUNGEON_READY 신호, 스탯/파츠/색상 적용, json GameManager 저장
+- [x] CharacterAutoSetup — Stage2/BossScene에서 GameManager 데이터로 자동 재적용
+- [x] ExplorationDungeon.jsx — stats(level, hp, gold) 포함해서 Unity로 전달
+- [x] GameResultUI — 보스 클리어 상자 선택 보상창 (IronChest, Spine 애니, Physics2DRaycaster)
+- [x] GameResultUI — 월드스페이스 dim overlay (상자 위에 렌더링)
+- [x] MobileInput — isMovingButton 플래그 (이동버튼 시 공격 차단)
+- [x] PlayerCombat — 이동버튼 중 공격 차단
+- [x] BossFSM — Spine 애니 지원, Walk 중복방지(currentAnimName), Phase2 분노모드
+- [x] ChestClickHandler — IPointerClickHandler 방식 (Canvas가 OnMouseDown 가로채는 문제 해결)
+
+### Unity AvatarMaker — 완료
+- [x] 색상 저장 — DemoControl.OnColorChange에서 SetSelectByColor 즉시 업데이트
+- [x] 색상 불러오기 지연 적용 — WebBridge 코루틴으로 파츠 후 1프레임 뒤 색상 적용
+- [x] 색상 변경 시 다이아 추가 (_changedColorTypes)
+
+---
+
 ## 알려진 TODO
 
 ### 웹
 - [ ] 자정 자동 보상/초기화 (Firebase Cloud Functions)
-- [ ] 학생 로그인 시스템 (현재 testStudentCode prop)
-- [ ] MyCharacter.jsx — 실제 Firebase 데이터 연동
-- [ ] Vercel 배포 시 vercel.json에 .br 헤더 설정 추가
+- [ ] VITE_TEACHER_EMAILS 환경변수 Vercel에 등록 필요
 
-### Unity Dungeon (5단계 보스레이드)
-- [ ] BossRaidScene 씬 제작 (판타지 배경 + 보스 배치)
-- [ ] Firebase bossHP 리스너 → BossFSM TakeDamage 연결
-- [ ] 플레이어 슬롯 (characterImage PNG + 이름 표시)
-- [ ] React↔Unity postMessage 연결 (studentCode 전달)
-- [ ] WebGL 빌드 → public/boss_raid/
+### Unity Dungeon
+- [ ] Stage2/BossScene CharacterAutoSetup 오브젝트 씬에 배치 확인
+- [ ] Dungeon_Main에 GameManager 오브젝트 배치 확인
+- [ ] GameResultUI 보상 획득 후 Firebase gold/exp 실제 저장 연동
+- [ ] Clear 씬, Lobby 씬 구현
 
 ### Unity AvatarMaker
 - [ ] UNITY_AVATAR_LOADED 신호 전송
-- [ ] 피부색 Firebase 저장/로드
+- [ ] WebGL Compression Disabled 빌드 후 배포
 
 ---
 
