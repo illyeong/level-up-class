@@ -34,13 +34,43 @@ const getMostRecentMonday = () => {
 };
 
 // ─────────────────────── 이용권 바 ────────────────────────────
-function TicketBar({ tickets, isRefreshing }) {
+function TicketBar({ tickets, isRefreshing, studentInfo }) {
   return (
-    <div className="bg-slate-900 border-b border-slate-700/60 px-4 py-2.5 flex items-center gap-5 flex-wrap shrink-0">
-      <span className="text-amber-400 font-extrabold text-[11px] tracking-widest uppercase mr-1">
-        🎮 이용권
-      </span>
+    <div className="bg-slate-900 border-b border-slate-700/60 px-4 py-2 flex items-center gap-4 flex-wrap shrink-0">
 
+      {/* 캐릭터 스탯 */}
+      {studentInfo && (
+        <div className="flex items-center gap-3 pr-4 border-r border-slate-700">
+          {/* 레벨 */}
+          <div className="flex flex-col items-center">
+            <span className="text-[9px] text-slate-400 font-medium">레벨</span>
+            <span className="text-sm font-extrabold text-amber-400">Lv.{studentInfo.level ?? 1}</span>
+          </div>
+          {/* EXP 바 */}
+          <div className="flex flex-col gap-0.5 w-20">
+            <span className="text-[9px] text-slate-400 font-medium">EXP</span>
+            <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-indigo-400 rounded-full transition-all"
+                style={{ width: `${Math.min(100, Math.round(((studentInfo.exp ?? 0) / (studentInfo.maxExp ?? 1000)) * 100))}%` }}
+              />
+            </div>
+            <span className="text-[9px] text-slate-500">{studentInfo.exp ?? 0}/{studentInfo.maxExp ?? 1000}</span>
+          </div>
+          {/* 골드 */}
+          <div className="flex flex-col items-center">
+            <span className="text-[9px] text-slate-400 font-medium">골드</span>
+            <span className="text-sm font-extrabold text-yellow-400">🪙{(studentInfo.gold ?? 0).toLocaleString()}</span>
+          </div>
+          {/* 다이아 */}
+          <div className="flex flex-col items-center">
+            <span className="text-[9px] text-slate-400 font-medium">다이아</span>
+            <span className="text-sm font-extrabold text-cyan-400">💎{studentInfo.diamonds ?? 0}</span>
+          </div>
+        </div>
+      )}
+
+      {/* 이용권 */}
       {Object.entries(TICKET_CONFIG).map(([key, cfg]) => {
         const count = tickets?.[key] ?? '-';
         const filled = typeof count === 'number' ? count : 0;
@@ -187,8 +217,9 @@ function AdventureContent({ view, tickets, onUseTicket, isBusy }) {
 function AdventurePage({ currentView, studentCode }) {
   const [studentDocId, setStudentDocId] = useState(null);
   const [tickets, setTickets]           = useState(null);
+  const [studentInfo, setStudentInfo]   = useState(null);
   const [isLoading, setIsLoading]       = useState(true);
-  const [isRefreshed, setIsRefreshed]   = useState(false); // 이번 로딩에서 갱신됐는지
+  const [isRefreshed, setIsRefreshed]   = useState(false);
   const [isBusy, setIsBusy]             = useState(false);
 
   useEffect(() => {
@@ -205,6 +236,13 @@ function AdventurePage({ currentView, studentCode }) {
         const sDoc = snap.docs[0];
         const data = sDoc.data();
         setStudentDocId(sDoc.id);
+        setStudentInfo({
+          level:    data.level    ?? 1,
+          exp:      data.exp      ?? 0,
+          maxExp:   data.maxExp   ?? 1000,
+          gold:     data.gold     ?? 0,
+          diamonds: data.diamonds ?? 0,
+        });
 
         const savedTickets = data.tickets || { dungeon: 0, bossRaid: 0, arena: 0 };
         const lastMonday   = getMostRecentMonday();
@@ -277,7 +315,7 @@ function AdventurePage({ currentView, studentCode }) {
     <div className="min-h-full bg-slate-50">
       {/* 티켓바: sticky로 스크롤해도 항상 상단 고정 */}
       <div className="sticky top-0 z-10">
-        <TicketBar tickets={isLoading ? null : tickets} isRefreshing={isRefreshed} />
+        <TicketBar tickets={isLoading ? null : tickets} isRefreshing={isRefreshed} studentInfo={isLoading ? null : studentInfo} />
       </div>
       {isLoading ? (
         <div className="flex items-center justify-center py-20 text-slate-400 font-bold">

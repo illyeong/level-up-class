@@ -366,17 +366,19 @@ function StockMarket({ studentCode }) {
           const data = await res.json();
 
           if (data.prices?.length > 0) {
-            // 4. Firestore에 저장 (teacher_soul 제외)
-            const batch = writeBatch(db);
-            data.prices.forEach(price => {
-              batch.set(doc(db, 'etfs', price.id), price, { merge: true });
-            });
-            await batch.commit();
+            // 4. 실제 데이터일 때만 Firestore에 저장 (실패 시 저장 안 함 → 다음 방문자가 재시도)
+            if (data.success !== false) {
+              const batch = writeBatch(db);
+              data.prices.forEach(price => {
+                batch.set(doc(db, 'etfs', price.id), price, { merge: true });
+              });
+              await batch.commit();
+              setLastUpdated(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }));
+            }
             etfList = data.prices;
 
             // teacher_soul은 API에 없으므로 다시 추가
             if (prevSoul) etfList = [...etfList, prevSoul];
-            setLastUpdated(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }));
           }
         } else {
           setLastUpdated(etfList[0]?.updatedAt
@@ -384,12 +386,13 @@ function StockMarket({ studentCode }) {
             : '');
         }
 
-        // ── 선생님의 영혼: 매일 0.8% 자동 가격 상승 ──────────────
+        // ── 선생님의 영혼: 날짜 바뀌면 무조건 1% 상승 ────────────
+        // teacherSetToday는 당일 수동 설정 여부이므로, 날짜가 바뀌면 무시하고 상승 적용
         const soulEtf = etfList.find(e => e.id === 'teacher_soul');
         if (soulEtf) {
           const today2 = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
-          if (soulEtf.lastPriceUpdate !== today2 && !soulEtf.teacherSetToday) {
-            const newPrice  = Math.floor(soulEtf.currentPrice * 1.01); // 1%, 소수점 없음
+          if (soulEtf.lastPriceUpdate !== today2) {
+            const newPrice  = Math.floor(soulEtf.currentPrice * 1.01);
             const changePct = parseFloat(((newPrice - soulEtf.currentPrice) / soulEtf.currentPrice * 100).toFixed(2));
             await updateDoc(doc(db, 'etfs', 'teacher_soul'), {
               prevPrice:       soulEtf.currentPrice,
