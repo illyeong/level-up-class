@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, getDocs, writeBatch, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 const newPin = () => Math.floor(1000 + Math.random() * 9000).toString();
@@ -7,16 +7,30 @@ const newPin = () => Math.floor(1000 + Math.random() * 9000).toString();
 // studentCode에서 자리번호 추출 (예: "SINSEOK-5-01" → 1)
 const getSeatNum = (code) => parseInt(code?.split('-').pop()) || 0;
 
+// 기존 학생코드에서 prefix 추출 (예: "SINSEOK-5-01" → "SINSEOK-5")
+const getPrefix = (students) => {
+  if (students.length === 0) return 'SINSEOK-5';
+  const code = students[0].studentCode || '';
+  const parts = code.split('-');
+  return parts.slice(0, parts.length - 1).join('-') || 'SINSEOK-5';
+};
+
 function AccountIssue({ user }) {
   const [students, setStudents]         = useState([]);
   const [studentCount, setStudentCount] = useState(25);
   const [isLoading, setIsLoading]       = useState(false);
 
   // 인라인 편집 상태
-  const [editingId, setEditingId]   = useState(null);   // 현재 편집 중인 학생 doc id
-  const [editField, setEditField]   = useState('');     // 'name' | 'seatNum'
+  const [editingId, setEditingId]   = useState(null);
+  const [editField, setEditField]   = useState('');
   const [editValue, setEditValue]   = useState('');
   const inputRef = useRef(null);
+
+  // 학생 추가 모달 상태
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addSeatNum, setAddSeatNum]     = useState('');
+  const [addName, setAddName]           = useState('');
+  const [isAdding, setIsAdding]         = useState(false);
 
   const fetchStudents = async () => {
     try {
@@ -134,6 +148,60 @@ function AccountIssue({ user }) {
     }
   };
 
+  // 학생 1명 추가
+  const addStudent = async () => {
+    const num = parseInt(addSeatNum);
+    if (!num || num < 1 || num > 99) return alert('1~99 사이의 번호를 입력해주세요.');
+    const prefix      = getPrefix(students);
+    const studentCode = `${prefix}-${String(num).padStart(2, '0')}`;
+    if (students.some(s => s.studentCode === studentCode)) {
+      return alert(`${studentCode} 코드가 이미 존재합니다.`);
+    }
+    setIsAdding(true);
+    try {
+      const pin  = newPin();
+      const data = {
+        studentCode,
+        pin,
+        name:       addName.trim(),
+        diamonds:   1000,
+        gold:       0,
+        level:      1,
+        exp:        0,
+        maxExp:     1000,
+        parts:      '',
+        teacherUid: user.uid,
+      };
+      await setDoc(doc(db, 'students', studentCode), data);
+      setStudents(prev =>
+        [...prev, { id: studentCode, ...data }]
+          .sort((a, b) => getSeatNum(a.studentCode) - getSeatNum(b.studentCode))
+      );
+      setShowAddModal(false);
+      setAddSeatNum('');
+      setAddName('');
+    } catch (err) {
+      console.error('학생 추가 에러:', err);
+      alert('학생 추가에 실패했습니다.');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  // 학생 1명 삭제
+  const deleteStudent = async (student) => {
+    if (!window.confirm(
+      `정말 [${student.studentCode}] ${student.name || '(이름없음)'} 계정을 삭제하시겠습니까?\n\n보유 재화, 퀘스트 기록 등 모든 데이터가 사라집니다.`
+    )) return;
+    try {
+      await deleteDoc(doc(db, 'students', student.id));
+      setStudents(prev => prev.filter(s => s.id !== student.id));
+    } catch (err) {
+      console.error('삭제 에러:', err);
+      alert('삭제에 실패했습니다.');
+    }
+  };
+
   // 이름 일괄 저장 (여러 명을 한 번에 편집한 경우 대비)
   const handleRowBlur = () => {
     // 약간의 딜레이로 같은 행 내 다른 셀 클릭 감지
@@ -153,6 +221,11 @@ function AccountIssue({ user }) {
             <p className="text-slate-500 mt-1 text-sm">학생 로그인 코드, PIN, 이름을 관리합니다.</p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors">
+              ➕ 학생 추가
+            </button>
             <button
               onClick={resetAllPins}
               disabled={isLoading || students.length === 0}
@@ -208,6 +281,7 @@ function AccountIssue({ user }) {
                   <th className="p-4 font-semibold">PIN 번호</th>
                   <th className="p-4 font-semibold">💎 다이아</th>
                   <th className="p-4 font-semibold">🪙 골드</th>
+                  <th className="p-4 font-semibold w-16 text-center">삭제</th>
                 </tr>
               </thead>
               <tbody>
@@ -288,12 +362,22 @@ function AccountIssue({ user }) {
                         <td className="p-4 font-semibold text-slate-700 text-sm">
                           {(student.gold || 0).toLocaleString()}
                         </td>
+
+                        {/* 삭제 */}
+                        <td className="p-4 text-center">
+                          <button
+                            onClick={() => deleteStudent(student)}
+                            className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 w-8 h-8 rounded-lg flex items-center justify-center mx-auto transition-colors"
+                            title="계정 삭제">
+                            🗑️
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan="6" className="p-8 text-center text-slate-400">
+                    <td colSpan="7" className="p-8 text-center text-slate-400">
                       아직 생성된 학생 계정이 없습니다. 위에서 계정을 발급해 주세요!
                     </td>
                   </tr>
@@ -304,6 +388,68 @@ function AccountIssue({ user }) {
         </div>
 
       </div>
+
+      {/* 학생 추가 모달 */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="p-5 bg-emerald-600 text-white font-bold text-lg flex justify-between items-center">
+              <span>➕ 학생 추가</span>
+              <button onClick={() => setShowAddModal(false)} className="text-emerald-200 hover:text-white text-xl">✕</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                  번호 <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number" min="1" max="99"
+                  value={addSeatNum}
+                  onChange={e => setAddSeatNum(e.target.value)}
+                  placeholder="예: 26"
+                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500"
+                  autoFocus
+                />
+                {addSeatNum && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    생성 코드: <span className="font-mono font-bold text-indigo-600">
+                      {getPrefix(students)}-{String(parseInt(addSeatNum) || 0).padStart(2, '0')}
+                    </span>
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">이름 (선택)</label>
+                <input
+                  type="text"
+                  value={addName}
+                  onChange={e => setAddName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addStudent()}
+                  placeholder="나중에 입력해도 됩니다"
+                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <p className="text-xs text-slate-400 bg-slate-50 rounded-xl p-3">
+                📌 PIN은 자동 발급됩니다. 초기 지급금: 💎 1,000 다이아
+              </p>
+            </div>
+            <div className="p-4 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={() => { setShowAddModal(false); setAddSeatNum(''); setAddName(''); }}
+                className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50">
+                취소
+              </button>
+              <button
+                onClick={addStudent}
+                disabled={isAdding || !addSeatNum}
+                className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm disabled:opacity-40 transition-colors">
+                {isAdding ? '추가 중...' : '추가하기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

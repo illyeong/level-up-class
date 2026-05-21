@@ -73,8 +73,17 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
 
   // ── 렌더링 ────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
+      {/* 배경 이미지 */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: 'url(/images/openingpage.png)' }}
+      />
+      {/* 어두운 오버레이 (가독성) */}
+      <div className="absolute inset-0 bg-slate-900/55" />
+
+      {/* 콘텐츠 */}
+      <div className="relative z-10 w-full max-w-md">
 
         {/* 타이틀 */}
         <div className="text-center mb-10">
@@ -166,16 +175,15 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
         )}
 
         {/* 테스트 버튼 */}
-        <div className="mt-8 border-t border-white/10 pt-6 flex gap-3">
+        <div className="mt-8 border-t border-white/10 pt-6">
           <button
-            onClick={() => onTeacherLogin({ email: 'test@test.com', displayName: '테스트 교사' })}
-            className="flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors">
+            onClick={() => {
+              const pw = window.prompt('관리자 비밀번호를 입력하세요');
+              if (pw === '1234') onTeacherLogin({ email: 'test@test.com', displayName: '테스트 교사' });
+              else if (pw !== null) alert('비밀번호가 틀렸습니다.');
+            }}
+            className="w-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors">
             🧪 교사 테스트
-          </button>
-          <button
-            onClick={() => onStudentLogin({ id: 'test', studentCode: 'SINSEOK-5-01', name: '테스트 학생' })}
-            className="flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors">
-            🧪 학생 테스트
           </button>
         </div>
 
@@ -183,3 +191,4 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
     </div>
   );
 }
+
