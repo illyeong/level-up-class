@@ -32,11 +32,12 @@ const DEFAULT_DUNGEONS = [
 
 export default function DungeonMapEditor() {
   const [dungeons, setDungeons] = useState(DEFAULT_DUNGEONS);
-  const [dragging, setDragging] = useState(null); // { id, startX, startY, origX, origY }
+  const [dragging, setDragging] = useState(null);
   const [selected, setSelected] = useState(null);
   const [saved, setSaved]       = useState(false);
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
+  const [mode, setMode]         = useState('edit'); // 'edit' | 'preview'
   const mapRef = useRef(null);
 
   useEffect(() => {
@@ -100,9 +101,18 @@ export default function DungeonMapEditor() {
     try {
       await setDoc(doc(db, 'systemConfig', 'dungeons'), { list: dungeons });
       setSaved(true);
+      setMode('preview'); // 저장 후 미리보기로 전환
       setTimeout(() => setSaved(false), 2500);
     } catch (e) { alert('저장 실패'); }
     finally { setSaving(false); }
+  };
+
+  // 미리보기용 순차 상태 계산 (첫 active = current, 나머지 = locked)
+  const getPreviewState = (dungeon) => {
+    const isActive = dungeon.active !== false;
+    if (!isActive) return 'locked';
+    const prevActive = dungeons.filter(d => d.active !== false && d.id < dungeon.id);
+    return prevActive.length === 0 ? 'current' : 'locked';
   };
 
   const selectedDungeon = dungeons.find(d => d.id === selected);
@@ -116,11 +126,23 @@ export default function DungeonMapEditor() {
           <h3 className="font-extrabold text-slate-800 text-base">🗺️ 던전 위치 편집</h3>
           <p className="text-xs text-slate-400 mt-0.5">번호를 드래그해서 위치를 조정하고 저장하세요</p>
         </div>
-        <button onClick={save} disabled={saving}
-          className={`px-5 py-2.5 rounded-xl font-extrabold text-sm transition-all
-            ${saved ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'} disabled:opacity-50`}>
-          {saved ? '✅ 저장됨!' : saving ? '저장 중...' : '💾 저장하기'}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* 편집/미리보기 탭 */}
+          <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs">
+            {[['edit','✏️ 편집'],['preview','👁️ 미리보기']].map(([v,l]) => (
+              <button key={v} onClick={() => setMode(v)}
+                className={`px-3 py-2 font-bold transition-colors
+                  ${mode===v ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <button onClick={save} disabled={saving}
+            className={`px-5 py-2.5 rounded-xl font-extrabold text-sm transition-all
+              ${saved ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'} disabled:opacity-50`}>
+            {saved ? '✅ 저장됨!' : saving ? '저장 중...' : '💾 저장하기'}
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-4">
@@ -138,29 +160,58 @@ export default function DungeonMapEditor() {
           <img src="/images/FantasyGameMap.png" alt="map"
             className="w-full h-full object-cover pointer-events-none" />
 
-          {dungeons.map(d => (
-            <div
-              key={d.id}
-              onMouseDown={e => onMouseDown(e, d.id)}
-              onTouchStart={e => onTouchStart(e, d.id)}
-              style={{
+          {dungeons.map(d => {
+            const previewState = getPreviewState(d);
+            const flagIcon =
+              previewState === 'current'   ? '/images/Current.png'
+              : previewState === 'completed' ? '/images/Completed.png'
+              :                               '/images/Locked.png';
+
+            return mode === 'preview' ? (
+              /* 미리보기 모드: 실제 깃발 표시 */
+              <div key={d.id} style={{
                 position: 'absolute',
-                left:   `${d.pos.x}%`,
-                top:    `${d.pos.y}%`,
-                transform: 'translate(-50%, -50%)',
-                zIndex: selected === d.id ? 20 : 10,
-                cursor: 'grab',
+                left: `${d.pos.x}%`, top: `${d.pos.y}%`,
+                transform: 'translate(-50%,-50%)', zIndex: 10,
               }}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold shadow-lg border-2 transition-all
-                ${selected === d.id
-                  ? 'bg-yellow-400 border-yellow-600 text-yellow-900 scale-125'
-                  : d.active === false
-                  ? 'bg-slate-500 border-slate-700 text-slate-200'
-                  : 'bg-indigo-600 border-indigo-800 text-white hover:scale-110'}`}>
-                {d.id + 1}
+                <div className="flex flex-col items-center gap-0.5">
+                  <img src={flagIcon} alt=""
+                    style={{
+                      width: 36, height: 36, objectFit: 'contain',
+                      filter: d.active === false ? 'brightness(0.6) saturate(0.3)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.7))',
+                    }} />
+                  <span className={`text-[8px] font-extrabold px-1 py-0.5 rounded-full whitespace-nowrap
+                    ${d.active===false ? 'bg-slate-500 text-slate-200'
+                    : previewState==='current' ? 'bg-amber-400 text-amber-900'
+                    : 'bg-slate-600 text-slate-300'}`}>
+                    {d.name}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            ) : (
+              /* 편집 모드: 드래그 가능한 번호 원 */
+              <div
+                key={d.id}
+                onMouseDown={e => onMouseDown(e, d.id)}
+                onTouchStart={e => onTouchStart(e, d.id)}
+                style={{
+                  position: 'absolute',
+                  left: `${d.pos.x}%`, top: `${d.pos.y}%`,
+                  transform: 'translate(-50%,-50%)',
+                  zIndex: selected === d.id ? 20 : 10,
+                  cursor: 'grab',
+                }}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold shadow-lg border-2 transition-all
+                  ${selected === d.id
+                    ? 'bg-yellow-400 border-yellow-600 text-yellow-900 scale-125'
+                    : d.active === false
+                    ? 'bg-slate-500 border-slate-700 text-slate-200'
+                    : 'bg-indigo-600 border-indigo-800 text-white hover:scale-110'}`}>
+                  {d.id + 1}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* 선택된 던전 정보 */}

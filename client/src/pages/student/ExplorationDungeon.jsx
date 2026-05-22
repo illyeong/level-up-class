@@ -38,6 +38,22 @@ const DUNGEONS = [
   { id: 24, name: '마왕 성채',      desc: '세계를 지배하려는 마왕의 최후 요새.',                   level: 52, pos:{ x:85, y:17 }, reward:'🪙 1200G · 💎 15 · ⭐ 800EXP' },
 ];
 
+// ── 순차 해금: 앞 던전 클리어해야 다음 Current.png ────────────
+const getSequentialState = (dungeon, completedMap, allDungeons) => {
+  const isActive = dungeon.active !== false;
+  if (!isActive) return 'locked';
+
+  if (completedMap[dungeon.id] === 'completed') return 'completed';
+
+  // 이 던전보다 id 작은 모든 active 던전이 클리어됐으면 current, 아니면 locked
+  const prevActive = allDungeons
+    .filter(d => d.active !== false && d.id < dungeon.id)
+    .sort((a, b) => a.id - b.id);
+
+  const allPrevCleared = prevActive.every(d => completedMap[d.id] === 'completed');
+  return allPrevCleared ? 'current' : 'locked';
+};
+
 // ── 유틸 ──────────────────────────────────────────────────────
 const getMaxExpForLevel = (lv) =>
   lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
@@ -297,11 +313,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
   const markCompleted = async (stageId) => {
     const docId = studentDocIdRef.current;
     if (!docId) return;
-    const newProgress = { ...progress };
-    newProgress[stageId] = 'completed';
-    const nextId = stageId + 1;
-    if (nextId < DUNGEONS.length && newProgress[nextId] === 'locked')
-      newProgress[nextId] = 'current';
+    const newProgress = { ...progress, [stageId]: 'completed' };
     try {
       await updateDoc(doc(db, 'students', docId), { dungeonProgress: newProgress });
       setProgress(newProgress);
@@ -352,9 +364,9 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
   const activeDungeons = dungeonList;
 
   return (
-    <div className="min-h-full bg-slate-900 flex flex-col">
+    <div className="bg-slate-900 flex flex-col" style={{ height: 'calc(100vh - 88px)' }}>
       {/* 상단 바 */}
-      <div className="bg-slate-800 border-b border-slate-700 px-5 py-3 flex items-center gap-4 shrink-0">
+      <div className="bg-slate-800 border-b border-slate-700 px-5 py-2.5 flex items-center gap-4 shrink-0">
         <h1 className="font-extrabold text-white text-base">🗺️ 탐험던전</h1>
         <span className="text-slate-400 text-xs">클리어: {completedCount}/{DUNGEONS.length}</span>
         <div className="ml-auto flex items-center gap-2">
@@ -365,9 +377,9 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
         </div>
       </div>
 
-      {/* 맵 영역 */}
-      <div className="flex-1 overflow-auto p-3">
-        <div className="relative mx-auto" style={{ width: '100%', maxWidth: '1100px', aspectRatio: '2236/1080' }}>
+      {/* 맵 영역 - 남은 공간 전체 채움 */}
+      <div className="flex-1 min-h-0 flex items-center justify-center p-2">
+        <div className="relative" style={{ aspectRatio: '2236/1080', maxHeight: '100%', maxWidth: '100%', width: '100%' }}>
           {/* 배경 맵 */}
           <img
             src="/images/FantasyGameMap.png"
@@ -381,7 +393,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
             <DungeonNode
               key={dungeon.id}
               dungeon={dungeon}
-              state={progress[dungeon.id] || 'locked'}
+              state={getSequentialState(dungeon, progress, activeDungeons)}
               isSelected={selectedDungeon?.id === dungeon.id}
               onClick={d => setSelectedDungeon(prev => prev?.id === d.id ? null : d)}
             />
@@ -391,7 +403,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
           {selectedDungeon && (
             <DungeonPopup
               dungeon={selectedDungeon}
-              state={progress[selectedDungeon.id] || 'locked'}
+              state={getSequentialState(selectedDungeon, progress, activeDungeons)}
               onEnter={handleEnter}
               onClose={() => setSelectedDungeon(null)}
               isBusy={isBusy}

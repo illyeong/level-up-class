@@ -573,6 +573,33 @@ function ContentTab() {
                       </select>
                     </div>
                   </div>
+
+                  {/* 반복 설정 */}
+                  {q.type === 'daily' && (
+                    <div className="flex items-center justify-between p-3 bg-orange-50 rounded-xl border border-orange-200">
+                      <div>
+                        <div className="text-sm font-bold text-orange-800">매일 반복</div>
+                        <div className="text-xs text-orange-500">매일 자정 초기화</div>
+                      </div>
+                      <button onClick={() => setQuests(prev => prev.map((x,j)=>j===i?{...x,repeatDaily:!x.repeatDaily}:x))}
+                        className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${q.repeatDaily!==false?'bg-orange-500':'bg-slate-300'}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${q.repeatDaily!==false?'left-6':'left-1'}`} />
+                      </button>
+                    </div>
+                  )}
+                  {q.type === 'weekly' && (
+                    <div className="flex items-center justify-between p-3 bg-violet-50 rounded-xl border border-violet-200">
+                      <div>
+                        <div className="text-sm font-bold text-violet-800">매주 반복</div>
+                        <div className="text-xs text-violet-500">매주 월요일 초기화</div>
+                      </div>
+                      <button onClick={() => setQuests(prev => prev.map((x,j)=>j===i?{...x,repeatWeekly:!x.repeatWeekly}:x))}
+                        className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${q.repeatWeekly!==false?'bg-violet-500':'bg-slate-300'}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${q.repeatWeekly!==false?'left-6':'left-1'}`} />
+                      </button>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-3 gap-3">
                     {[['exp','⭐ EXP'],['gold','🪙 골드'],['diamond','💎 다이아']].map(([k,label]) => (
                       <div key={k}>
@@ -598,6 +625,8 @@ function ContentTab() {
                       </span>
                       <span className="text-[10px] text-slate-400">{DIFF_LABEL[q.difficulty]}</span>
                       <span className="text-[10px] text-slate-400">{q.selfCheck?'자체체크':'교사확인'}</span>
+                      {q.type==='daily'  && q.repeatDaily!==false  && <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-bold">매일반복</span>}
+                      {q.type==='weekly' && q.repeatWeekly!==false && <span className="text-[10px] bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full font-bold">매주반복</span>}
                     </div>
                     <div className="font-bold text-slate-800 text-sm truncate">{q.title}</div>
                     <div className="text-xs text-slate-400 mt-0.5">
@@ -743,7 +772,23 @@ function ContentTab() {
                     <div className="text-xs text-slate-400 truncate">{d.desc}</div>
                     <div className="text-xs text-amber-600 font-medium mt-0.5">{d.reward}</div>
                   </div>
-                  <div className="flex gap-1 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* 구현됨/미구현 토글 */}
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-[9px] font-bold text-slate-400">
+                        {d.active !== false ? '구현됨' : '미구현'}
+                      </span>
+                      <button
+                        onClick={() => {
+                          const next = dungeons.map((x,j) => j===i ? {...x, active: x.active===false} : x);
+                          saveDungeons(next);
+                        }}
+                        className={`w-10 h-5 rounded-full transition-colors relative
+                          ${d.active !== false ? 'bg-indigo-500' : 'bg-slate-300'}`}>
+                        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all
+                          ${d.active !== false ? 'left-5' : 'left-0.5'}`} />
+                      </button>
+                    </div>
                     <button onClick={() => setEditingD(i)}
                       className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-600 rounded-lg font-bold">수정</button>
                     <button onClick={() => saveDungeons(dungeons.filter((_,j)=>j!==i))}
