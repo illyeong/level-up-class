@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../firebase';
 import TeacherNavigationBar from '../../components/TeacherNavigationBar';
 
 // 🌟 필요한 화면 컴포넌트들 완벽하게 불러오기
@@ -16,6 +18,25 @@ import BoardManage from './BoardManage';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
   const [currentView, setCurrentView] = useState('dashboard');
+  const [notices, setNotices]         = useState([]);
+  const [dismissedIds, setDismissedIds] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('dismissedNotices') || '[]'); } catch { return []; }
+  });
+
+  useEffect(() => {
+    getDocs(query(collection(db, 'notices'), where('active', '==', true)))
+      .then(snap => setNotices(snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))))
+      .catch(() => {});
+  }, []);
+
+  const dismiss = (id) => {
+    const next = [...dismissedIds, id];
+    setDismissedIds(next);
+    sessionStorage.setItem('dismissedNotices', JSON.stringify(next));
+  };
+
+  const visibleNotices = notices.filter(n => !dismissedIds.includes(n.id));
 
   return (
     <div className="flex h-screen bg-slate-50 w-full">
@@ -28,6 +49,17 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
 
       {/* 우측 메인 화면 */}
       <main className="flex-1 overflow-auto relative bg-slate-100">
+
+        {/* 공지사항 배너 */}
+        {visibleNotices.map(n => (
+          <div key={n.id} className={`px-5 py-2.5 flex items-center justify-between text-sm
+            ${n.type === 'urgent' ? 'bg-rose-500 text-white' : n.type === 'update' ? 'bg-emerald-500 text-white' : 'bg-amber-400 text-amber-900'}`}>
+            <span className="font-bold">
+              {n.type === 'urgent' ? '🚨' : n.type === 'update' ? '🆕' : '📢'} {n.title} — <span className="font-normal">{n.content}</span>
+            </span>
+            <button onClick={() => dismiss(n.id)} className="ml-4 opacity-70 hover:opacity-100 font-bold text-lg shrink-0">✕</button>
+          </div>
+        ))}
 
         {/* 학급 정보 배너 */}
         {selectedClass && (

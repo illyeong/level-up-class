@@ -59,7 +59,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
   const handleCreate = async () => {
     if (!selectedSchool || !grade || !classNum || !studentCount) return;
     const count = parseInt(studentCount);
-    if (count < 1 || count > 50) return alert('학생 수는 1~50명으로 입력해주세요.');
+    if (count < 1 || count > 32) return alert('학생 수는 1~32명으로 입력해주세요.');
 
     setIsCreating(true);
     setStep(3);
@@ -197,7 +197,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5">학생 수 <span className="text-rose-500">*</span></label>
               <input
-                type="number" min="1" max="50"
+                type="number" min="1" max="32"
                 value={studentCount}
                 onChange={e => setStudentCount(e.target.value)}
                 placeholder="예: 25"

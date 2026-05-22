@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
+import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 
 // 🌟 학생용과 동일한 아이콘 경로를 불러옵니다.
 import iconDashboard from '../assets/images/icon-dashboard.png';
 import iconQuest from '../assets/images/icon-quest.png';
 import iconAdventure from '../assets/images/icon-adventure.png';
 
-const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
+const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [expandedMenu, setExpandedMenu] = useState('dashboard');
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [fbText, setFbText]             = useState('');
+  const [fbSaving, setFbSaving]         = useState(false);
 
   const teacherMenuData = [
     {
@@ -73,7 +78,26 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
   // 서브메뉴와 상관없이 자체 페이지로 이동하는 메뉴
   const DIRECT_NAV_MENUS = ['dashboard', 'myCharacter', 'questManage', 'inquiry'];
 
+  const submitFeedback = async () => {
+    if (!fbText.trim()) return;
+    setFbSaving(true);
+    try {
+      await addDoc(collection(db, 'feedbacks'), {
+        teacherUid:   teacherUser?.uid   || null,
+        teacherEmail: teacherUser?.email || '',
+        message:      fbText.trim(),
+        status:       'new',
+        createdAt:    serverTimestamp(),
+      });
+      setFbText('');
+      setShowFeedback(false);
+      alert('✅ 건의/문의가 전달되었습니다. 감사합니다!');
+    } catch (e) { alert('전송 실패'); }
+    finally { setFbSaving(false); }
+  };
+
   const handleMenuClick = (menuId) => {
+    if (menuId === 'inquiry') { setShowFeedback(true); return; }
     const clickedMenu = teacherMenuData.find(m => m.id === menuId);
 
     if (changeView && clickedMenu &&
@@ -97,6 +121,7 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
   };
 
   return (
+    <>
     <nav className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-indigo-950 text-indigo-100 transition-all duration-300 flex flex-col h-full z-50 shadow-2xl`}>
       
       {/* 최상단 로고 영역 */}
@@ -189,6 +214,33 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
         </button>
       </div>
     </nav>
+
+    {/* 건의/문의 모달 */}
+    {showFeedback && (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          <div className="p-5 bg-indigo-600 text-white font-bold text-lg flex justify-between">
+            <span>💬 건의 및 문의하기</span>
+            <button onClick={() => setShowFeedback(false)} className="text-indigo-200 hover:text-white">✕</button>
+          </div>
+          <div className="p-5 space-y-3">
+            <p className="text-xs text-slate-500">버그 신고, 기능 요청, 개선 사항 등 무엇이든 남겨주세요. 관리자가 확인 후 처리합니다.</p>
+            <textarea value={fbText} onChange={e => setFbText(e.target.value)}
+              placeholder="내용을 입력하세요..."
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none h-32 focus:outline-none focus:border-indigo-500" />
+          </div>
+          <div className="p-4 border-t border-slate-100 flex gap-3">
+            <button onClick={() => setShowFeedback(false)}
+              className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm">취소</button>
+            <button onClick={submitFeedback} disabled={fbSaving || !fbText.trim()}
+              className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40">
+              {fbSaving ? '전송 중...' : '전송하기'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

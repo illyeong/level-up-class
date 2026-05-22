@@ -235,18 +235,18 @@ function StudentQuestPage({ studentCode }) {
             setStudentId(sDoc.id);
             setStudentName(sData.name || sData.studentCode);
 
-            // teacherUid로 퀘스트 필터링 (없으면 teacherUid:null 퀘스트 fallback)
+            // teacherUid로 퀘스트 필터링
+            // fallback(teacherUid:null)은 테스트 계정(admin_master_001)에만 적용
+            const isTestAccount = sData.teacherUid === 'admin_master_001';
             let allQuests = [];
             if (sData.teacherUid) {
               const qs = await getDocs(
                 query(collection(db, 'quests'), where('teacherUid', '==', sData.teacherUid))
               );
               allQuests = qs.docs.map(d => ({ id: d.id, ...d.data() }));
-              // 매칭 없으면 teacherUid 없는 퀘스트도 포함
-              if (allQuests.length === 0) {
+              if (allQuests.length === 0 && isTestAccount) {
                 const qs2 = await getDocs(collection(db, 'quests'));
-                allQuests = qs2.docs.map(d => ({ id: d.id, ...d.data() }))
-                  .filter(q => !q.teacherUid);
+                allQuests = qs2.docs.map(d => ({ id: d.id, ...d.data() })).filter(q => !q.teacherUid);
               }
             } else {
               const qs = await getDocs(collection(db, 'quests'));

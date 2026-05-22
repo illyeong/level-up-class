@@ -4,6 +4,10 @@ import { auth } from './firebase';
 
 import LoginPage        from './pages/LoginPage.jsx';
 import ClassSelectPage  from './pages/teacher/ClassSelectPage.jsx';
+import AdminPage        from './pages/admin/AdminPage.jsx';
+
+const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || '')
+  .split(',').map(e => e.trim()).filter(Boolean);
 import NavigationBar    from './components/NavigationBar';
 import TeacherLogin     from './pages/teacher/TeacherLogin.jsx';
 import MyCharacter      from './components/MyCharacter';
@@ -20,7 +24,7 @@ import LearningBoard    from './pages/student/LearningBoard.jsx';
 
 const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','miniGame'];
 
-// appMode: 'loading' | 'login' | 'classSelect' | 'student' | 'teacher'
+// appMode: 'loading' | 'login' | 'classSelect' | 'student' | 'teacher' | 'admin'
 function App() {
   const [appMode,        setAppMode]        = useState('loading');
   const [teacherUser,    setTeacherUser]    = useState(null);
@@ -33,14 +37,17 @@ function App() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // 구글 로그인 유지 → 학급 선택 (저장된 학급 있으면 복원)
         setTeacherUser(user);
-        const savedClass = sessionStorage.getItem('selectedClass');
-        if (savedClass) {
-          setSelectedClass(JSON.parse(savedClass));
-          setAppMode('teacher');
+        if (ADMIN_EMAILS.includes(user.email)) {
+          setAppMode('admin');
         } else {
-          setAppMode('classSelect');
+          const savedClass = sessionStorage.getItem('selectedClass');
+          if (savedClass) {
+            setSelectedClass(JSON.parse(savedClass));
+            setAppMode('teacher');
+          } else {
+            setAppMode('classSelect');
+          }
         }
       } else {
         // 로그아웃 또는 미로그인 → 학생 세션 확인
@@ -60,9 +67,10 @@ function App() {
   const handleTeacherLogin = (user) => {
     setTeacherUser(user);
     if (!user.uid) {
-      // 테스트 모드 — SINSEOK 학생들(teacherUid: admin_master_001)과 연결
       setSelectedClass({ id: null, teacherUid: 'admin_master_001' });
       setAppMode('teacher');
+    } else if (ADMIN_EMAILS.includes(user.email)) {
+      setAppMode('admin');
     } else {
       setAppMode('classSelect');
     }
@@ -85,7 +93,7 @@ function App() {
 
   // ── 로그아웃 ─────────────────────────────────────────────────
   const handleLogout = async () => {
-    if (appMode === 'teacher' || appMode === 'classSelect') await signOut(auth);
+    if (appMode === 'teacher' || appMode === 'classSelect' || appMode === 'admin') await signOut(auth);
     sessionStorage.removeItem('studentInfo');
     sessionStorage.removeItem('selectedClass');
     setTeacherUser(null);
@@ -117,6 +125,10 @@ function App() {
 
   if (appMode === 'login') {
     return <LoginPage onTeacherLogin={handleTeacherLogin} onStudentLogin={handleStudentLogin} />;
+  }
+
+  if (appMode === 'admin') {
+    return <AdminPage adminUser={teacherUser} onLogout={handleLogout} />;
   }
 
   if (appMode === 'classSelect') {

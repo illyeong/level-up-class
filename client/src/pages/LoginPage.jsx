@@ -170,7 +170,17 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
         )}
 
         {/* 테스트 버튼 */}
-        <div className="mt-8 border-t border-white/10 pt-6 flex gap-2">
+        <div className="mt-8 border-t border-white/10 pt-6 flex flex-col gap-2">
+          <button
+            onClick={() => {
+              const pw = window.prompt('관리자 비밀번호를 입력하세요');
+              if (pw === '133653') onTeacherLogin({ email: import.meta.env.VITE_ADMIN_EMAILS?.split(',')[0]?.trim() || 'admin@admin.com', displayName: '관리자' });
+              else if (pw !== null) alert('비밀번호가 틀렸습니다.');
+            }}
+            className="w-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors">
+            🛡️ 관리자 페이지
+          </button>
+          <div className="flex gap-2">
           <button
             onClick={() => {
               const pw = window.prompt('관리자 비밀번호를 입력하세요');
@@ -189,6 +199,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
             className="flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors">
             🧪 학생 테스트
           </button>
+          </div>
         </div>
 
       </div>

@@ -18,13 +18,14 @@ function TodayQuestWidget({ studentId, teacherUid }) {
     (async () => {
       try {
         let list = [];
+        const isTestAccount = teacherUid === 'admin_master_001';
         if (teacherUid) {
           const snap = await getDocs(
             query(collection(db, 'quests'), where('active', '==', true), where('teacherUid', '==', teacherUid))
           );
           list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          // 매칭 없으면 teacherUid 없는 퀘스트 fallback
-          if (list.length === 0) {
+          // fallback은 테스트 계정에만 적용
+          if (list.length === 0 && isTestAccount) {
             const snap2 = await getDocs(query(collection(db, 'quests'), where('active', '==', true)));
             list = snap2.docs.map(d => ({ id: d.id, ...d.data() })).filter(q => !q.teacherUid);
           }
