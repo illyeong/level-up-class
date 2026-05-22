@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -40,6 +41,11 @@ public class GameResultUI : MonoBehaviour
     [Header("월드 스페이스 오버레이")]
     public int dimSortingOrder   = 100; // 게임 배경보다 위
     public int chestSortingOrder = 200; // 오버레이보다 위
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    [DllImport("__Internal")]
+    private static extern void SendDungeonResultToReact(string json);
+#endif
 
     // ── 내부 상태 ─────────────────────────────────────────────
     private RewardData[]        _rewards    = new RewardData[3];
@@ -246,11 +252,15 @@ public class GameResultUI : MonoBehaviour
         if (_selected < 0) return;
 
         var r = _rewards[_selected];
+
+        // React(Firebase)로 보상 전송
+#if UNITY_WEBGL && !UNITY_EDITOR
+        string json = $"{{\"type\":\"DUNGEON_RESULT\",\"gold\":{r.gold},\"exp\":{r.exp},\"diamond\":{r.diamond}}}";
+        SendDungeonResultToReact(json);
+#endif
+
         if (GameManager.Instance != null)
-        {
             GameManager.Instance.AddGold(r.gold);
-            // 다이아는 GameManager에 diamond 필드 추가 후 처리 가능
-        }
 
         // 상자 정리
         foreach (var obj in _spawnedChests)
@@ -281,6 +291,15 @@ public class GameResultUI : MonoBehaviour
     // Inspector 버튼에 연결
     public void OnReturnToLobby()
     {
+        // 처치 몬스터 비례 획득 골드를 React(Firebase)로 전송
+        int earnedGold = GameManager.Instance?.sessionEarnedGold ?? 0;
+        if (earnedGold > 0)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            string json = $"{{\"type\":\"DUNGEON_RESULT\",\"gold\":{earnedGold},\"exp\":0,\"diamond\":0}}";
+            SendDungeonResultToReact(json);
+#endif
+        }
         Time.timeScale = 1f;
         GameManager.Instance?.GoToScene(GameManager.SceneLobby);
     }

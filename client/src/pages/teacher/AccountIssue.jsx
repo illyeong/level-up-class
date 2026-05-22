@@ -188,6 +188,27 @@ function AccountIssue({ user }) {
     }
   };
 
+  // 학생 데이터 초기화 (재화·캐릭터 → 초기값)
+  const resetStudentData = async (student) => {
+    if (!window.confirm(
+      `[${student.studentCode}] ${student.name || '(이름없음)'} 학생의\n경험치·골드·다이아·캐릭터를 초기화할까요?\n\n💎 1,000 다이아 / 🪙 0 골드 / Lv.1 / 캐릭터 없음`
+    )) return;
+    try {
+      await updateDoc(doc(db, 'students', student.id), {
+        gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 1000,
+        parts: {}, characterImage: '',
+      });
+      setStudents(prev => prev.map(s => s.id === student.id
+        ? { ...s, gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 1000, parts: {}, characterImage: '' }
+        : s
+      ));
+      alert(`✅ ${student.name || student.studentCode} 초기화 완료!`);
+    } catch (err) {
+      console.error(err);
+      alert('초기화에 실패했습니다.');
+    }
+  };
+
   // 학생 1명 삭제
   const deleteStudent = async (student) => {
     if (!window.confirm(
@@ -281,6 +302,7 @@ function AccountIssue({ user }) {
                   <th className="p-4 font-semibold">PIN 번호</th>
                   <th className="p-4 font-semibold">💎 다이아</th>
                   <th className="p-4 font-semibold">🪙 골드</th>
+                  <th className="p-4 font-semibold w-20 text-center">초기화</th>
                   <th className="p-4 font-semibold w-16 text-center">삭제</th>
                 </tr>
               </thead>
@@ -363,6 +385,16 @@ function AccountIssue({ user }) {
                           {(student.gold || 0).toLocaleString()}
                         </td>
 
+                        {/* 데이터 초기화 */}
+                        <td className="p-4 text-center">
+                          <button
+                            onClick={() => resetStudentData(student)}
+                            className="text-slate-300 hover:text-amber-500 hover:bg-amber-50 w-8 h-8 rounded-lg flex items-center justify-center mx-auto transition-colors"
+                            title="데이터 초기화">
+                            🔄
+                          </button>
+                        </td>
+
                         {/* 삭제 */}
                         <td className="p-4 text-center">
                           <button
@@ -377,7 +409,7 @@ function AccountIssue({ user }) {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="7" className="p-8 text-center text-slate-400">
+                    <td colSpan="8" className="p-8 text-center text-slate-400">
                       아직 생성된 학생 계정이 없습니다. 위에서 계정을 발급해 주세요!
                     </td>
                   </tr>

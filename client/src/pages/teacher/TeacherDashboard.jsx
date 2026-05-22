@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, writeBatch, updateDoc, serverTimestamp, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, serverTimestamp, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 import iconGold from '../../assets/images/icon-gold.png';
@@ -159,32 +159,6 @@ function TeacherDashboard({ onStudentTestLogin }) {
     }
   };
 
-  // 학생 데이터 초기화
-  const resetStudentData = async (student) => {
-    if (!window.confirm(
-      `[${student.studentCode}] ${student.name || '(이름없음)'} 학생의\n경험치·골드·다이아·캐릭터를 초기값으로 초기화할까요?\n\n💎 1,000 다이아 / 🪙 0 골드 / Lv.1 / 캐릭터 없음`
-    )) return;
-    try {
-      await updateDoc(doc(db, 'students', student.id), {
-        gold:           0,
-        diamonds:       1000,
-        level:          1,
-        exp:            0,
-        maxExp:         1000,
-        parts:          {},
-        characterImage: '',
-      });
-      setStudents(prev => prev.map(s => s.id === student.id
-        ? { ...s, gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 1000, parts: {}, characterImage: '' }
-        : s
-      ));
-      alert(`✅ ${student.name || student.studentCode} 초기화 완료!`);
-    } catch (err) {
-      console.error('초기화 에러:', err);
-      alert('초기화에 실패했습니다.');
-    }
-  };
-
   const filteredStudents = students.filter(s => s.studentCode.includes(searchQuery));
 
   return (
@@ -317,11 +291,6 @@ function TeacherDashboard({ onStudentTestLogin }) {
                   <span className="font-bold text-amber-600">{(student.gold || 0).toLocaleString()}</span>
                 </div>
               </div>
-              <button
-                onClick={() => resetStudentData(student)}
-                className="mt-2 w-full text-[10px] text-slate-400 hover:text-rose-500 hover:bg-rose-50 py-1 rounded-md border border-slate-100 hover:border-rose-200 transition-colors font-bold">
-                🔄 데이터 초기화
-              </button>
             </div>
           </div>
         ))}
