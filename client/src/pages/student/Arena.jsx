@@ -154,8 +154,128 @@ function HistoryScreen({ studentDocId, studentCode, onBack }) {
   );
 }
 
+// ── 랭킹 화면 ────────────────────────────────────────────────
+function RankingScreen({ classmates, studentDocId, onBack }) {
+  const [ranks, setRanks]     = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!classmates.length) { setLoading(false); return; }
+    (async () => {
+      try {
+        const ids = classmates.map(s => s.id);
+        // studentId 기준 로그 (최대 10개씩 in 쿼리)
+        const chunks = [];
+        for (let i = 0; i < ids.length; i += 10) chunks.push(ids.slice(i, i + 10));
+
+        const stats = {}; // { id: { name, code, level, characterImage, wins, loses } }
+        const initStat = (s) => {
+          if (!stats[s.id]) stats[s.id] = {
+            id: s.id, name: s.name || s.studentCode, code: s.studentCode,
+            level: s.level || 1, characterImage: s.characterImage || '',
+            wins: 0, loses: 0,
+          };
+        };
+        classmates.forEach(initStat);
+
+        for (const chunk of chunks) {
+          const [asChallenger, asOpponent] = await Promise.all([
+            getDocs(query(collection(db, 'arenaLogs'), where('studentId',  'in', chunk))),
+            getDocs(query(collection(db, 'arenaLogs'), where('opponentId', 'in', chunk))),
+          ]);
+          asChallenger.docs.forEach(d => {
+            const { studentId, opponentId, isWin } = d.data();
+            if (stats[studentId])  isWin ? stats[studentId].wins++  : stats[studentId].loses++;
+            if (stats[opponentId]) isWin ? stats[opponentId].loses++ : stats[opponentId].wins++;
+          });
+          asOpponent.docs.forEach(d => {
+            const { studentId, opponentId, isWin } = d.data();
+            // asChallenger와 중복 방지: opponentId가 chunk에 있고 studentId가 chunk에 없는 경우만
+            if (!chunk.includes(studentId)) {
+              if (stats[studentId])  isWin ? stats[studentId].wins++  : stats[studentId].loses++;
+              if (stats[opponentId]) isWin ? stats[opponentId].loses++ : stats[opponentId].wins++;
+            }
+          });
+        }
+
+        const list = Object.values(stats)
+          .sort((a, b) => {
+            if (b.wins !== a.wins) return b.wins - a.wins;
+            const aTotal = a.wins + a.loses, bTotal = b.wins + b.loses;
+            if (bTotal && aTotal) return (b.wins / bTotal) - (a.wins / aTotal);
+            return bTotal - aTotal;
+          });
+        setRanks(list);
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    })();
+  }, [classmates]);
+
+  const MEDALS = ['🥇','🥈','🥉'];
+
+  return (
+    <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-5">
+      <div className="flex items-center gap-3 mb-5">
+        <button onClick={onBack} className="text-slate-400 hover:text-white text-sm font-bold px-3 py-1.5 bg-slate-800 rounded-xl">← 뒤로</button>
+        <h2 className="font-extrabold text-white text-lg">🏆 투기장 랭킹</h2>
+      </div>
+
+      {loading ? (
+        <div className="text-slate-400 text-center py-10 animate-pulse">집계 중...</div>
+      ) : ranks.length === 0 ? (
+        <div className="text-center py-16 text-slate-500">
+          <div className="text-4xl mb-3">🏆</div><p className="font-bold">아직 전적이 없습니다</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {ranks.map((r, idx) => {
+            const total   = r.wins + r.loses;
+            const winRate = total > 0 ? Math.round(r.wins / total * 100) : 0;
+            const isMe    = r.id === studentDocId;
+            return (
+              <div key={r.id}
+                className={`rounded-2xl p-4 flex items-center gap-3 border
+                  ${isMe ? 'bg-indigo-900/50 border-indigo-500' : 'bg-slate-900/50 border-slate-700'}`}>
+                {/* 순위 */}
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg font-extrabold
+                  bg-slate-800 text-slate-300">
+                  {idx < 3 ? MEDALS[idx] : <span className="text-sm">{idx + 1}</span>}
+                </div>
+
+                {/* 캐릭터 */}
+                <div className="w-10 h-10 rounded-xl bg-slate-800 overflow-hidden shrink-0 flex items-center justify-center border border-slate-600">
+                  {r.characterImage
+                    ? <img src={r.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
+                    : <span className="text-lg">🧑‍🎓</span>}
+                </div>
+
+                {/* 이름 + 정보 */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`font-extrabold text-sm truncate ${isMe ? 'text-indigo-300' : 'text-white'}`}>{r.name}</span>
+                    {isMe && <span className="text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded-full shrink-0">나</span>}
+                  </div>
+                  <div className="text-xs text-slate-500">Lv.{r.level} · {total}전 {r.wins}승 {r.loses}패</div>
+                </div>
+
+                {/* 승률 */}
+                <div className="text-right shrink-0">
+                  <div className={`text-base font-extrabold ${winRate >= 60 ? 'text-yellow-400' : winRate >= 40 ? 'text-slate-300' : 'text-rose-400'}`}>
+                    {winRate}%
+                  </div>
+                  <div className="text-[10px] text-slate-500">{r.wins}승</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 캐릭터 카드 ───────────────────────────────────────────────
-function CharacterCard({ student, label, isMe, highlight }) {
+function CharacterCard({ student, label, isMe, highlight, rank }) {
   const stats = getStats(student?.level || 1);
   const lv    = student?.level || 1;
   const expPct = Math.min(100, Math.round(((student?.exp||0) / getMaxExpForLevel(lv)) * 100));
@@ -184,9 +304,16 @@ function CharacterCard({ student, label, isMe, highlight }) {
         </div>
       </div>
 
-      {/* 이름 */}
-      <div className="font-extrabold text-white text-sm mb-1 truncate max-w-[120px]">
-        {student?.name || student?.studentCode || '???'}
+      {/* 이름 + 랭킹 */}
+      <div className="flex flex-col items-center mb-1">
+        <div className="font-extrabold text-white text-sm truncate max-w-[120px]">
+          {student?.name || student?.studentCode || '???'}
+        </div>
+        {rank != null && (
+          <div className="text-[10px] font-bold text-slate-400 mt-0.5">
+            {rank === 0 ? '🥇 1위' : rank === 1 ? '🥈 2위' : rank === 2 ? '🥉 3위' : `${rank + 1}위`}
+          </div>
+        )}
       </div>
 
       {/* EXP 바 */}
@@ -260,6 +387,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   const [battleHP, setBattleHP]   = useState({ me: 0, opp: 0 });
   const [battleMaxHP, setBattleMaxHP] = useState({ me: 0, opp: 0 });
   const [hitFlash, setHitFlash]   = useState({ me: false, opp: false });
+  const [hitDmg, setHitDmg]       = useState({ me: null, opp: null }); // { dmg, isCrit } | null
   const logRef = useRef(null);
 
   // 매칭 상태 저장
@@ -281,7 +409,8 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   const [me, setMe]               = useState(null);
   const [classmates, setClassmates] = useState([]);
   const [isBusy, setIsBusy]       = useState(false);
-  const [result, setResult]       = useState(null); // { isWin, reward }
+  const [result, setResult]       = useState(null);
+  const [rankMap, setRankMap]     = useState({}); // { studentId: rankIndex }
   const [matchAnim, setMatchAnim] = useState(false);
   const studentDocIdRef           = useRef(null);
   const arenaTickets              = tickets?.arena ?? 0;
@@ -306,6 +435,13 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
           .map(d => ({ id: d.id, ...d.data() }))
           .filter(s => s.id !== meDoc.id);
         setClassmates(others);
+
+        // 레벨 기반 임시 rankMap (대전 기록 없어도 표시)
+        const all = [{ id: meDoc.id, ...meDoc.data() }, ...others]
+          .sort((a, b) => (b.level || 1) - (a.level || 1));
+        const rm = {};
+        all.forEach((s, i) => { rm[s.id] = i; });
+        setRankMap(rm);
       } catch (e) { console.error(e); }
     })();
   }, [studentCode]);
@@ -420,18 +556,20 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             oppHP = Math.max(0, oppHP - dmg);
             addLog(`${isCrit ? '💥 크리티컬! ' : ''}${name}의 공격 → ${dmg} 데미지`, isCrit ? 'crit' : 'attack');
             setHitFlash(h => ({ ...h, opp: true }));
-            setTimeout(() => setHitFlash(h => ({ ...h, opp: false })), 200);
+            setHitDmg(h => ({ ...h, opp: { dmg, isCrit } }));
+            setTimeout(() => { setHitFlash(h => ({ ...h, opp: false })); setHitDmg(h => ({ ...h, opp: null })); }, 700);
           } else {
             myHP = Math.max(0, myHP - dmg);
             addLog(`${isCrit ? '💥 크리티컬! ' : ''}${name}의 반격 → ${dmg} 데미지`, isCrit ? 'crit' : 'attack');
             setHitFlash(h => ({ ...h, me: true }));
-            setTimeout(() => setHitFlash(h => ({ ...h, me: false })), 200);
+            setHitDmg(h => ({ ...h, me: { dmg, isCrit } }));
+            setTimeout(() => { setHitFlash(h => ({ ...h, me: false })); setHitDmg(h => ({ ...h, me: null })); }, 700);
           }
           setBattleHP({ me: myHP, opp: oppHP });
           setBattleLog([...log]);
           if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
 
-          await new Promise(r => setTimeout(r, 200));
+          await new Promise(r => setTimeout(r, 500));
         }
       }
 
@@ -530,10 +668,16 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
           {classmates.length === 0 ? '대전 상대 없음' : arenaTickets <= 0 ? '이용권 없음' : '⚔️ 대전 상대 찾기'}
         </button>
 
-        <button onClick={() => setPhase('history')}
-          className="w-full max-w-xs py-2.5 rounded-2xl font-bold text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-all mt-2">
-          📋 전적 기록 보기
-        </button>
+        <div className="flex gap-2 w-full max-w-xs mt-2">
+          <button onClick={() => setPhase('history')}
+            className="flex-1 py-2.5 rounded-2xl font-bold text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-all">
+            📋 전적 기록
+          </button>
+          <button onClick={() => setPhase('ranking')}
+            className="flex-1 py-2.5 rounded-2xl font-bold text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-all">
+            🏆 랭킹
+          </button>
+        </div>
       </div>
     );
   }
@@ -576,14 +720,14 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
 
         {/* VS 카드 */}
         <div className={`flex items-stretch gap-3 mb-4 transition-opacity duration-300 ${matchAnim ? 'opacity-30' : 'opacity-100'}`}>
-          <div className="flex-1"><CharacterCard student={me} label="나" isMe /></div>
+          <div className="flex-1"><CharacterCard student={me} label="나" isMe rank={rankMap[me?.id]} /></div>
 
           <div className="flex flex-col items-center justify-center gap-2 shrink-0">
             <div className="text-2xl font-extrabold text-slate-500">VS</div>
             <div className="w-px flex-1 bg-slate-700" />
           </div>
 
-          <div className="flex-1"><CharacterCard student={opponent} label="상대" isMe={false} /></div>
+          <div className="flex-1"><CharacterCard student={opponent} label="상대" isMe={false} rank={rankMap[opponent?.id]} /></div>
         </div>
 
         {/* 상대 바꾸기 */}
@@ -626,14 +770,20 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         <div className="flex items-stretch gap-4 flex-1 min-h-0" style={{ maxHeight: '55%' }}>
           {/* 나 */}
           <div className={`flex-1 flex flex-col items-center gap-3 bg-indigo-950/60 rounded-3xl p-5 border-2 transition-all
-            ${hitFlash.me ? 'border-rose-500 bg-rose-950/40 scale-[0.98]' : 'border-indigo-700'}`}>
+            ${hitFlash.me ? (hitDmg.me?.isCrit ? 'border-yellow-400 bg-yellow-950/30 scale-[0.95]' : 'border-rose-500 bg-rose-950/40 scale-[0.98]') : 'border-indigo-700'}`}>
             <div className="text-xs font-extrabold text-indigo-400 tracking-widest">나</div>
-            <div className="flex-1 w-full flex items-center justify-center">
+            <div className="flex-1 w-full flex items-center justify-center relative">
               <div className="w-32 h-32 rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-600">
                 {me?.characterImage
                   ? <img src={me.characterImage} alt="" className="w-full h-full object-contain scale-[2.5]" />
                   : <span className="text-5xl">🧑‍🎓</span>}
               </div>
+              {hitDmg.me && (
+                <div className={`absolute -top-2 left-1/2 -translate-x-1/2 font-extrabold animate-bounce pointer-events-none
+                  ${hitDmg.me.isCrit ? 'text-yellow-300 text-2xl drop-shadow-[0_0_8px_#facc15]' : 'text-rose-400 text-xl'}`}>
+                  {hitDmg.me.isCrit ? '💥 ' : ''}-{hitDmg.me.dmg}
+                </div>
+              )}
             </div>
             <div className="w-full">
               <div className="text-white font-extrabold text-sm truncate text-center mb-2">{me?.name || me?.studentCode}</div>
@@ -658,14 +808,20 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
 
           {/* 상대 */}
           <div className={`flex-1 flex flex-col items-center gap-3 bg-rose-950/60 rounded-3xl p-5 border-2 transition-all
-            ${hitFlash.opp ? 'border-yellow-400 bg-yellow-950/40 scale-[0.98]' : 'border-rose-800'}`}>
+            ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'border-yellow-400 bg-yellow-950/30 scale-[0.95]' : 'border-rose-400 bg-rose-950/60 scale-[0.98]') : 'border-rose-800'}`}>
             <div className="text-xs font-extrabold text-rose-400 tracking-widest">상대</div>
-            <div className="flex-1 w-full flex items-center justify-center">
+            <div className="flex-1 w-full flex items-center justify-center relative">
               <div className="w-32 h-32 rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-600">
                 {opponent?.characterImage
                   ? <img src={opponent.characterImage} alt="" className="w-full h-full object-contain scale-[2.5]" />
                   : <span className="text-5xl">🧑‍🎓</span>}
               </div>
+              {hitDmg.opp && (
+                <div className={`absolute -top-2 left-1/2 -translate-x-1/2 font-extrabold animate-bounce pointer-events-none
+                  ${hitDmg.opp.isCrit ? 'text-yellow-300 text-2xl drop-shadow-[0_0_8px_#facc15]' : 'text-rose-400 text-xl'}`}>
+                  {hitDmg.opp.isCrit ? '💥 ' : ''}-{hitDmg.opp.dmg}
+                </div>
+              )}
             </div>
             <div className="w-full">
               <div className="text-white font-extrabold text-sm truncate text-center mb-2">{opponent?.name || opponent?.studentCode}</div>
@@ -698,6 +854,15 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         </div>
       </div>
     );
+  }
+
+  // ── 랭킹 ─────────────────────────────────────────────────────
+  if (phase === 'ranking') {
+    return <RankingScreen
+      classmates={[...(me ? [me] : []), ...classmates]}
+      studentDocId={studentDocIdRef.current}
+      onBack={() => setPhase('lobby')}
+    />;
   }
 
   // ── 전적 기록 ────────────────────────────────────────────────
