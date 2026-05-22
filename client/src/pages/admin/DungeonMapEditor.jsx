@@ -44,8 +44,21 @@ export default function DungeonMapEditor() {
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'systemConfig', 'dungeons'));
-        if (snap.exists() && snap.data().list?.length > 0)
-          setDungeons(snap.data().list);
+        if (snap.exists() && snap.data().list?.length > 0) {
+          const saved = snap.data().list;
+          // 이름 변경됐으면 이름·설명 업데이트, 위치/active/이미지는 유지
+          const needsUpdate = saved[0]?.name !== DEFAULT_DUNGEONS[0].name;
+          if (needsUpdate) {
+            const merged = DEFAULT_DUNGEONS.map(d => {
+              const s = saved.find(x => x.id === d.id);
+              return s ? { ...d, pos: s.pos, active: s.active, monsterImage: s.monsterImage, monsters: s.monsters } : d;
+            });
+            await setDoc(doc(db, 'systemConfig', 'dungeons'), { list: merged });
+            setDungeons(merged);
+          } else {
+            setDungeons(saved);
+          }
+        }
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();

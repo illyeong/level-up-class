@@ -70,10 +70,10 @@ function DungeonNode({ dungeon, state, isSelected, onClick }) {
   const isActive = dungeon.active !== false;
 
   const icon =
-    !isActive                           ? '/images/Locked.png'
+    !isActive || state === 'locked'       ? '/images/Locked.png'
     : state === 'completed' && isSelected ? '/images/CompletedSelected.png'
-    : state === 'completed'             ? '/images/Completed.png'
-    :                                     '/images/Current.png';
+    : state === 'completed'               ? '/images/Completed.png'
+    :                                       '/images/Current.png';
 
   return (
     <button
@@ -214,11 +214,20 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'systemConfig', 'dungeons'));
-        // 관리자가 수정한 데이터가 있으면 사용, 없으면 기본값으로 초기화
         if (snap.exists() && snap.data().list?.length > 0) {
-          // 기본 DUNGEONS보다 적으면 (관리자가 추가 전) 기본값 유지
           const saved = snap.data().list;
-          setDungeonList(saved.length >= DUNGEONS.length ? saved : DUNGEONS);
+          // 이름이 바뀌었으면 위치/active/이미지는 유지하되 이름·설명은 업데이트
+          const needsUpdate = saved[0]?.name !== DUNGEONS[0].name;
+          if (needsUpdate) {
+            const merged = DUNGEONS.map(d => {
+              const s = saved.find(x => x.id === d.id);
+              return s ? { ...d, pos: s.pos, active: s.active, monsterImage: s.monsterImage, monsters: s.monsters } : d;
+            });
+            await setDoc(doc(db, 'systemConfig', 'dungeons'), { list: merged });
+            setDungeonList(merged);
+          } else {
+            setDungeonList(saved);
+          }
         } else {
           await setDoc(doc(db, 'systemConfig', 'dungeons'), { list: DUNGEONS });
         }
