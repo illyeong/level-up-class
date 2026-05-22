@@ -155,13 +155,13 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned }) {
       <div className="p-4">
         {/* 작성자 */}
         <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-9 h-9 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+          <div className="w-14 h-14 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
             {post.isTeacher ? (
-              <span className="text-base">👑</span>
+              <span className="text-2xl">👑</span>
             ) : post.characterImage ? (
-              <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-[1.8]" />
+              <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-[2.2]" />
             ) : (
-              <span className="text-base">🧑‍🎓</span>
+              <span className="text-2xl">🧑‍🎓</span>
             )}
           </div>
           <div className="flex-1 min-w-0">
