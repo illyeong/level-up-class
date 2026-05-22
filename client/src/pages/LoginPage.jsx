@@ -90,9 +90,8 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
           <img
             src="/images/levelupclass.png"
             alt="LevelUp Class"
-            className="mx-auto max-h-40 w-auto object-contain drop-shadow-lg"
+            className="mx-auto max-h-80 w-auto object-contain drop-shadow-lg"
           />
-          <p className="text-indigo-300 mt-2 font-medium">게임형 학급 관리 플랫폼</p>
         </div>
 
         {/* 모드 선택 */}
