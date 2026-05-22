@@ -4,7 +4,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
 
 
-export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
+export default function LoginPage({ onTeacherLogin, onStudentLogin, onAdminLogin }) {
   const [mode, setMode]         = useState(null); // null | 'student'
   const [studentCode, setCode]  = useState('');
   const [pin, setPin]           = useState('');
@@ -174,7 +174,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
           <button
             onClick={() => {
               const pw = window.prompt('관리자 비밀번호를 입력하세요');
-              if (pw === '133653') onTeacherLogin({ email: import.meta.env.VITE_ADMIN_EMAILS?.split(',')[0]?.trim() || 'admin@admin.com', displayName: '관리자' });
+              if (pw === '133653') onAdminLogin();
               else if (pw !== null) alert('비밀번호가 틀렸습니다.');
             }}
             className="w-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors">

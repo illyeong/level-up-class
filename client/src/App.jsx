@@ -124,7 +124,13 @@ function App() {
   }
 
   if (appMode === 'login') {
-    return <LoginPage onTeacherLogin={handleTeacherLogin} onStudentLogin={handleStudentLogin} />;
+    return (
+      <LoginPage
+        onTeacherLogin={handleTeacherLogin}
+        onStudentLogin={handleStudentLogin}
+        onAdminLogin={() => setAppMode('admin')}
+      />
+    );
   }
 
   if (appMode === 'admin') {
