@@ -7,7 +7,7 @@ import { db } from '../../firebase';
 
 // ── 레벨별 다음 레벨까지 필요 EXP ────────────────────────────
 const getMaxExpForLevel = (lv) =>
-  lv <= 10 ? 500 : lv <= 30 ? 1000 : lv <= 60 ? 2000 : 3500;
+  lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
 
 // ── 경험치 + 레벨업 계산 ──────────────────────────────────────
 const calcLevelUp = (currentLevel, currentExp, currentMaxExp, gainedExp) => {

@@ -99,20 +99,24 @@ function ActiveQuestCard({ quest, studentCount, onDetail, onEdit, onDuplicate, o
   const pct = studentCount > 0 ? Math.round((checked / studentCount) * 100) : 0;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border-2 border-slate-200 hover:shadow-md transition-all overflow-hidden">
+    <div className={`bg-white rounded-2xl shadow-sm border-2 hover:shadow-md transition-all overflow-hidden
+      ${isDaily ? 'border-sky-300' : 'border-violet-300'}`}>
+      {/* 상단 컬러 띠 */}
+      <div className={`px-4 py-1.5 text-white text-[11px] font-extrabold
+        ${isDaily ? 'bg-sky-500' : 'bg-violet-500'}`}>
+        {isDaily ? '📅 일일퀘스트' : '📆 주간퀘스트'}
+      </div>
       <div className="p-4 pb-3">
         {/* 제목 */}
         <h3 className="font-extrabold text-slate-800 text-sm leading-tight mb-2">{quest.title}</h3>
 
         {/* 배지 */}
         <div className="flex flex-wrap gap-1 mb-2">
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full
-            ${isDaily ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`}>
-            {isDaily ? '일일퀘스트' : '주간퀘스트'}
-          </span>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${diff.cls}`}>{diff.label}</span>
-          {quest.selfCheck   && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">자체체크</span>}
-          {quest.repeatDaily && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">매일반복</span>}
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${diff.cls}`}>{diff.label}</span>
+          {quest.selfCheck    && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">자체체크</span>}
+          {quest.repeatDaily  && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">매일반복</span>}
+          {quest.repeatWeekly && quest.type === 'weekly' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">매주반복</span>}
         </div>
 
         {/* 보상 */}

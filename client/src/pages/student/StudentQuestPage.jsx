@@ -50,7 +50,9 @@ function ActiveQuestCard({ quest, completion, onToggleCheck, onAcknowledge, isBu
     <div className={`bg-white rounded-2xl overflow-hidden shadow-sm transition-all
       ${isRewarded
         ? 'border-2 border-amber-300 shadow-md shadow-amber-100'
-        : isChecked ? 'border-2 border-teal-300' : 'border-2 border-slate-200 hover:border-indigo-200 hover:shadow-md'}`}>
+        : isChecked
+          ? `border-2 ${isDaily ? 'border-sky-400' : 'border-violet-400'}`
+          : `border-2 ${isDaily ? 'border-sky-200 hover:border-sky-400' : 'border-violet-200 hover:border-violet-400'} hover:shadow-md`}`}>
 
       {/* 상단 띠: 타입 + 기한 */}
       <div className={`px-4 py-2 flex items-center justify-between gap-2

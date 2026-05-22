@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   doc, getDoc, getDocs, collection,
-  writeBatch, setDoc, deleteDoc, serverTimestamp,
+  writeBatch, setDoc, deleteDoc, serverTimestamp, increment,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -104,10 +104,16 @@ function QuestDetail({ questId, onBack, isModal = false }) {
       targetIds.forEach(sid => {
         const student = students.find(s => s.id === sid);
         if (!student) return;
+        // 스킬 포인트 (+1 per skill)
+        const skillUpdates = {};
+        (quest.skills || []).forEach(skill => {
+          skillUpdates[`skillPoints.${skill}`] = increment(1);
+        });
         batch.update(doc(db, 'students', sid), {
           gold:     (student.gold     || 0) + (quest.rewards?.gold    || 0),
           diamonds: (student.diamonds || 0) + (quest.rewards?.diamond || 0),
           exp:      (student.exp      || 0) + (quest.rewards?.exp     || 0),
+          ...skillUpdates,
         });
         batch.set(doc(db, 'quests', questId, 'completions', sid), {
           checked:     true,

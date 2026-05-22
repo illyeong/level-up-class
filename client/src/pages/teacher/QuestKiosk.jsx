@@ -50,12 +50,15 @@ function QuestList({ quests, onSelect, onExit, isLoading }) {
               <button
                 key={q.id}
                 onClick={() => onSelect(q)}
-                className="bg-white rounded-3xl shadow-sm border-2 border-slate-200 p-6 text-left hover:border-indigo-400 hover:shadow-md active:scale-[0.98] transition-all">
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full
-                    ${q.type === 'daily' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`}>
-                    {q.type === 'daily' ? '📅 일일퀘스트' : '📆 주간퀘스트'}
-                  </span>
+                className={`bg-white rounded-3xl shadow-sm border-2 text-left hover:shadow-md active:scale-[0.98] transition-all overflow-hidden
+                  ${q.type === 'daily' ? 'border-sky-300 hover:border-sky-400' : 'border-violet-300 hover:border-violet-400'}`}>
+                {/* 상단 컬러 띠 */}
+                <div className={`px-5 py-2 text-white text-xs font-extrabold
+                  ${q.type === 'daily' ? 'bg-sky-500' : 'bg-violet-500'}`}>
+                  {q.type === 'daily' ? '📅 일일퀘스트' : '📆 주간퀘스트'}
+                </div>
+                <div className="p-5">
+                <div className="flex items-center justify-end mb-2">
                   <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${DIFF_COLOR[q.difficulty] || DIFF_COLOR.normal}`}>
                     {DIFF_LABEL[q.difficulty] || '보통'}
                   </span>
@@ -68,6 +71,7 @@ function QuestList({ quests, onSelect, onExit, isLoading }) {
                   {q.rewards?.exp     > 0 && <span>⭐ {q.rewards.exp} EXP</span>}
                   {q.rewards?.gold    > 0 && <span>🪙 {q.rewards.gold} G</span>}
                   {q.rewards?.diamond > 0 && <span>💎 {q.rewards.diamond}</span>}
+                </div>
                 </div>
               </button>
             ))}

@@ -14,7 +14,7 @@ function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
   const studentDocIdRef                 = useRef(null);
 
   const getMaxExpForLevel = (lv) =>
-    lv <= 10 ? 500 : lv <= 30 ? 1000 : lv <= 60 ? 2000 : 3500;
+    lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
 
   const calcLevelUp = (level, exp, maxExp, gained) => {
     let lv = level || 1, ex = (exp || 0) + gained;
