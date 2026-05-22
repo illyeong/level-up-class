@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
+  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import iconQuest from '../../assets/images/icon-quest.png';
@@ -425,9 +425,12 @@ function QuestManage({ selectedClass }) {
   const fetchData = async () => {
     setIsLoading(true);
     try {
+      const questQ = selectedClass?.teacherUid
+        ? query(collection(db, 'quests'), where('teacherUid', '==', selectedClass.teacherUid))
+        : collection(db, 'quests');
       const [studentsSnap, questsSnap] = await Promise.all([
         getDocs(collection(db, 'students')),
-        getDocs(collection(db, 'quests')),
+        getDocs(questQ),
       ]);
 
       setStudentCount(studentsSnap.size);

@@ -170,15 +170,24 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
         )}
 
         {/* 테스트 버튼 */}
-        <div className="mt-8 border-t border-white/10 pt-6">
+        <div className="mt-8 border-t border-white/10 pt-6 flex gap-2">
           <button
             onClick={() => {
               const pw = window.prompt('관리자 비밀번호를 입력하세요');
               if (pw === '1234') onTeacherLogin({ email: 'test@test.com', displayName: '테스트 교사' });
               else if (pw !== null) alert('비밀번호가 틀렸습니다.');
             }}
-            className="w-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors">
+            className="flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors">
             🧪 교사 테스트
+          </button>
+          <button
+            onClick={() => {
+              const pw = window.prompt('비밀번호를 입력하세요');
+              if (pw === '0505') onStudentLogin({ id: 'test', studentCode: 'SINSEOK-5-15', name: '테스트 학생' });
+              else if (pw !== null) alert('비밀번호가 틀렸습니다.');
+            }}
+            className="flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors">
+            🧪 학생 테스트
           </button>
         </div>
 

@@ -235,17 +235,27 @@ function StudentQuestPage({ studentCode }) {
             setStudentId(sDoc.id);
             setStudentName(sData.name || sData.studentCode);
 
-            // teacherUid로 퀘스트 필터링
-            const questQuery = sData.teacherUid
-              ? query(collection(db, 'quests'), where('teacherUid', '==', sData.teacherUid))
-              : collection(db, 'quests');
-            const questsSnap = await getDocs(questQuery);
-            const allQuests = questsSnap.docs
-              .map(d => ({ id: d.id, ...d.data() }))
-              .sort((a, b) => {
-                if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
-                return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
-              });
+            // teacherUid로 퀘스트 필터링 (없으면 teacherUid:null 퀘스트 fallback)
+            let allQuests = [];
+            if (sData.teacherUid) {
+              const qs = await getDocs(
+                query(collection(db, 'quests'), where('teacherUid', '==', sData.teacherUid))
+              );
+              allQuests = qs.docs.map(d => ({ id: d.id, ...d.data() }));
+              // 매칭 없으면 teacherUid 없는 퀘스트도 포함
+              if (allQuests.length === 0) {
+                const qs2 = await getDocs(collection(db, 'quests'));
+                allQuests = qs2.docs.map(d => ({ id: d.id, ...d.data() }))
+                  .filter(q => !q.teacherUid);
+              }
+            } else {
+              const qs = await getDocs(collection(db, 'quests'));
+              allQuests = qs.docs.map(d => ({ id: d.id, ...d.data() }));
+            }
+            allQuests.sort((a, b) => {
+              if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
+              return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+            });
             setQuests(allQuests);
 
             const compMap = {};

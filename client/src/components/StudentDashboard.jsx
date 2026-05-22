@@ -17,17 +17,27 @@ function TodayQuestWidget({ studentId, teacherUid }) {
     if (!studentId) { setIsLoading(false); return; }
     (async () => {
       try {
-        const q = teacherUid
-          ? query(collection(db, 'quests'), where('active', '==', true), where('teacherUid', '==', teacherUid))
-          : query(collection(db, 'quests'), where('active', '==', true));
-        const snap = await getDocs(q);
-        const list = snap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
+        let list = [];
+        if (teacherUid) {
+          const snap = await getDocs(
+            query(collection(db, 'quests'), where('active', '==', true), where('teacherUid', '==', teacherUid))
+          );
+          list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          // 매칭 없으면 teacherUid 없는 퀘스트 fallback
+          if (list.length === 0) {
+            const snap2 = await getDocs(query(collection(db, 'quests'), where('active', '==', true)));
+            list = snap2.docs.map(d => ({ id: d.id, ...d.data() })).filter(q => !q.teacherUid);
+          }
+        } else {
+          const snap = await getDocs(query(collection(db, 'quests'), where('active', '==', true)));
+          list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        }
+        const listSorted = list
           .sort((a, b) => {
             if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
             return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
           });
-        setQuests(list);
+        setQuests(listSorted);
 
         const cMap = {};
         await Promise.all(list.map(async q => {

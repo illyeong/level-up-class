@@ -1,15 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 
-export default function ClassAllView() {
+export default function ClassAllView({ studentCode }) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const snap = await getDocs(collection(db, 'students'));
+        // 내 teacherUid 먼저 조회 → 같은 반 학생만 표시
+        let teacherUid = null;
+        if (studentCode) {
+          const meSnap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)));
+          if (!meSnap.empty) teacherUid = meSnap.docs[0].data().teacherUid || null;
+        }
+
+        const q = teacherUid
+          ? query(collection(db, 'students'), where('teacherUid', '==', teacherUid))
+          : collection(db, 'students');
+        const snap = await getDocs(q);
         const list = snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (a.studentCode || '').localeCompare(b.studentCode || ''));
@@ -18,7 +28,7 @@ export default function ClassAllView() {
       finally { setIsLoading(false); }
     };
     load();
-  }, []);
+  }, [studentCode]);
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-full text-slate-400 font-bold">

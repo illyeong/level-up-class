@@ -157,7 +157,7 @@ function App() {
         {currentView === 'myCharacter'  && <MyCharacter      studentCode={activeStudentCode} />}
         {currentView === 'avatarRoom'   && <AvatarRoom        studentCode={activeStudentCode} />}
         {currentView === 'quest'        && <StudentQuestPage  studentCode={activeStudentCode} />}
-        {currentView === 'classAll'     && <ClassAllView />}
+        {currentView === 'classAll'     && <ClassAllView studentCode={activeStudentCode} />}
         {currentView === 'classBank'    && <ClassBank         studentCode={activeStudentCode} />}
         {currentView === 'classShop'    && <ClassShop         studentCode={activeStudentCode} />}
         {currentView === 'stockMarket'  && <StockMarket       studentCode={activeStudentCode} />}
