@@ -133,7 +133,12 @@ function ResultScreen({ isWin, opponent, reward, onClose }) {
 
 // ── 메인 ─────────────────────────────────────────────────────
 export default function Arena({ studentCode, tickets, onUseTicket }) {
-  const [phase, setPhase]         = useState('lobby');  // lobby|matching|vs|result
+  const [phase, setPhase]         = useState('lobby');  // lobby|matching|vs|battle|result
+  const [battleLog, setBattleLog] = useState([]);
+  const [battleHP, setBattleHP]   = useState({ me: 0, opp: 0 });
+  const [battleMaxHP, setBattleMaxHP] = useState({ me: 0, opp: 0 });
+  const [hitFlash, setHitFlash]   = useState({ me: false, opp: false });
+  const logRef = useRef(null);
   const [me, setMe]               = useState(null);
   const [classmates, setClassmates] = useState([]);
   const [opponent, setOpponent]   = useState(null);
@@ -211,40 +216,102 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
     finally { setIsBusy(false); }
   };
 
-  // 대련 시작 (이용권 소비 + 임시 결과)
+  // ── 데미지 계산 ──────────────────────────────────────────────
+  const calcDmg = (atkStats, defStats) => {
+    const base   = Math.max(1, atkStats.attack - Math.floor(defStats.defense / 2));
+    const isCrit = Math.random() * 100 < atkStats.crit;
+    return { dmg: isCrit ? Math.floor(base * 1.6) : base, isCrit };
+  };
+
+  // ── 대련 시작 (자동 턴제) ─────────────────────────────────────
   const startBattle = async () => {
     if (isBusy) return;
     setIsBusy(true);
     try {
       await onUseTicket('arena');
 
-      // 임시: 레벨 기반 승률 계산
-      const myStats  = getStats(me?.level || 1);
+      const myStats  = getStats(me?.level  || 1);
       const oppStats = getStats(opponent?.level || 1);
-      const myPower  = myStats.attack + myStats.defense + myStats.hp / 10;
-      const oppPower = oppStats.attack + oppStats.defense + oppStats.hp / 10;
-      const winChance = myPower / (myPower + oppPower);
-      const isWin = Math.random() < winChance + 0.1; // 약간 유리하게
+      let myHP  = myStats.hp;
+      let oppHP = oppStats.hp;
+
+      setBattleMaxHP({ me: myHP, opp: oppHP });
+      setBattleHP({ me: myHP, opp: oppHP });
+      setBattleLog([]);
+      setPhase('battle');
+
+      const myName  = me?.name  || me?.studentCode  || '나';
+      const oppName = opponent?.name || opponent?.studentCode || '상대';
+      const log = [];
+      const addLog = (msg, type = 'normal') => { log.push({ msg, type }); };
+
+      // 공격 속도에 따른 선공 결정
+      const myFirst = myStats.attackSpeed >= oppStats.attackSpeed;
+      addLog(`⚔️ 대련 시작! ${myFirst ? myName : oppName}이(가) 선공!`, 'system');
+
+      const TURN_MS  = 1000;  // 1초 간격
+      const MAX_TURN = 15;    // 최대 15턴 (~15초)
+
+      for (let turn = 1; turn <= MAX_TURN; turn++) {
+        if (myHP <= 0 || oppHP <= 0) break;
+
+        // 약간의 딜레이 후 턴 실행
+        await new Promise(r => setTimeout(r, TURN_MS));
+
+        if (myHP <= 0 || oppHP <= 0) break;
+
+        const attackOrder = myFirst
+          ? [{ atk: myStats, def: oppStats, name: myName, isMe: true  },
+             { atk: oppStats, def: myStats, name: oppName, isMe: false }]
+          : [{ atk: oppStats, def: myStats, name: oppName, isMe: false },
+             { atk: myStats, def: oppStats, name: myName, isMe: true  }];
+
+        for (const { atk, def, name, isMe } of attackOrder) {
+          if (myHP <= 0 || oppHP <= 0) break;
+
+          const { dmg, isCrit } = calcDmg(atk, def);
+          if (isMe) {
+            oppHP = Math.max(0, oppHP - dmg);
+            addLog(`${isCrit ? '💥 크리티컬! ' : ''}${name}의 공격 → ${dmg} 데미지`, isCrit ? 'crit' : 'attack');
+            setHitFlash(h => ({ ...h, opp: true }));
+            setTimeout(() => setHitFlash(h => ({ ...h, opp: false })), 200);
+          } else {
+            myHP = Math.max(0, myHP - dmg);
+            addLog(`${isCrit ? '💥 크리티컬! ' : ''}${name}의 반격 → ${dmg} 데미지`, isCrit ? 'crit' : 'attack');
+            setHitFlash(h => ({ ...h, me: true }));
+            setTimeout(() => setHitFlash(h => ({ ...h, me: false })), 200);
+          }
+          setBattleHP({ me: myHP, opp: oppHP });
+          setBattleLog([...log]);
+          if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+
+          await new Promise(r => setTimeout(r, 200));
+        }
+      }
+
+      // 결과 판정
+      const isWin = myHP > oppHP;
+      addLog(isWin ? `🏆 ${myName} 승리!` : `💀 ${oppName} 승리!`, 'result');
+      setBattleLog([...log]);
 
       const reward = isWin ? WIN_REWARD : LOSE_REWARD;
       const docId  = studentDocIdRef.current;
 
       // 보상 지급
-      const { level, exp, maxExp, leveled } = calcLevelUp(me.level, me.exp, reward.exp);
+      const { level, exp, maxExp } = calcLevelUp(me.level, me.exp, reward.exp);
       await updateDoc(doc(db, 'students', docId), {
         gold:     (me.gold     || 0) + reward.gold,
         diamonds: (me.diamonds || 0) + reward.diamond,
         exp, level, maxExp,
       });
       setMe(prev => ({ ...prev, gold: (prev.gold||0)+reward.gold, diamonds: (prev.diamonds||0)+reward.diamond, exp, level, maxExp }));
-
-      // 대전 로그
       await addDoc(collection(db, 'arenaLogs'), {
-        studentId: docId, studentCode: me.studentCode, studentName: me.name || me.studentCode,
-        opponentId: opponent?.id, opponentCode: opponent?.studentCode, opponentName: opponent?.name || opponent?.studentCode,
+        studentId: docId, studentCode: me.studentCode, studentName: myName,
+        opponentId: opponent?.id, opponentCode: opponent?.studentCode, opponentName: oppName,
         isWin, reward, createdAt: serverTimestamp(),
       });
 
+      await new Promise(r => setTimeout(r, 1200));
       setResult({ isWin, reward });
       setPhase('result');
     } catch (e) { console.error(e); }
@@ -384,6 +451,89 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         <p className="text-center text-[10px] text-slate-600 mt-2">
           * 이용권 1개 소비 · 대련 시작 후 취소 불가
         </p>
+      </div>
+    );
+  }
+
+  // ── 자동 전투 화면 ──────────────────────────────────────────
+  if (phase === 'battle') {
+    const myMaxHP  = battleMaxHP.me  || 1;
+    const oppMaxHP = battleMaxHP.opp || 1;
+    const myPct    = Math.max(0, Math.round((battleHP.me  / myMaxHP)  * 100));
+    const oppPct   = Math.max(0, Math.round((battleHP.opp / oppMaxHP) * 100));
+    const LOG_COLORS = { crit: 'text-yellow-400', attack: 'text-slate-200', system: 'text-indigo-400', result: 'text-emerald-400' };
+
+    return (
+      <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-4 gap-4">
+
+        {/* 캐릭터 + HP */}
+        <div className="flex items-stretch gap-3">
+          {/* 나 */}
+          <div className={`flex-1 flex flex-col items-center gap-2 bg-indigo-950/60 rounded-2xl p-4 border transition-all
+            ${hitFlash.me ? 'border-rose-500 bg-rose-950/40' : 'border-indigo-700'}`}>
+            <div className="text-[10px] font-bold text-indigo-400">나</div>
+            <div className="w-20 h-20 rounded-xl bg-slate-800 overflow-hidden flex items-center justify-center">
+              {me?.characterImage
+                ? <img src={me.characterImage} alt="" className="w-full h-full object-contain scale-[2.2]" />
+                : <span className="text-3xl">🧑‍🎓</span>}
+            </div>
+            <div className="text-white font-extrabold text-xs truncate max-w-[90px]">{me?.name || me?.studentCode}</div>
+            <div className="w-full">
+              <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                <span>HP</span><span className={myPct < 30 ? 'text-rose-400 font-bold' : 'text-slate-400'}>{battleHP.me}/{myMaxHP}</span>
+              </div>
+              <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-300 ${myPct > 50 ? 'bg-emerald-500' : myPct > 25 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                  style={{ width: `${myPct}%` }} />
+              </div>
+            </div>
+          </div>
+
+          {/* VS */}
+          <div className="flex flex-col items-center justify-center shrink-0 gap-1">
+            <div className="text-slate-600 font-extrabold text-lg">VS</div>
+            <div className="flex gap-0.5">
+              {[0,1,2].map(i => <div key={i} className="w-1 h-1 bg-slate-600 rounded-full animate-bounce" style={{ animationDelay: `${i*0.2}s` }} />)}
+            </div>
+          </div>
+
+          {/* 상대 */}
+          <div className={`flex-1 flex flex-col items-center gap-2 bg-rose-950/60 rounded-2xl p-4 border transition-all
+            ${hitFlash.opp ? 'border-yellow-400 bg-yellow-950/40' : 'border-rose-800'}`}>
+            <div className="text-[10px] font-bold text-rose-400">상대</div>
+            <div className="w-20 h-20 rounded-xl bg-slate-800 overflow-hidden flex items-center justify-center">
+              {opponent?.characterImage
+                ? <img src={opponent.characterImage} alt="" className="w-full h-full object-contain scale-[2.2]" />
+                : <span className="text-3xl">🧑‍🎓</span>}
+            </div>
+            <div className="text-white font-extrabold text-xs truncate max-w-[90px]">{opponent?.name || opponent?.studentCode}</div>
+            <div className="w-full">
+              <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                <span>HP</span><span className={oppPct < 30 ? 'text-rose-400 font-bold' : 'text-slate-400'}>{battleHP.opp}/{oppMaxHP}</span>
+              </div>
+              <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-300 ${oppPct > 50 ? 'bg-emerald-500' : oppPct > 25 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                  style={{ width: `${oppPct}%` }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 전투 로그 */}
+        <div ref={logRef}
+          className="flex-1 bg-slate-900/80 rounded-2xl border border-slate-700 p-3 overflow-y-auto min-h-0 max-h-64">
+          {battleLog.length === 0 ? (
+            <p className="text-slate-600 text-xs text-center py-4 animate-pulse">전투 준비 중...</p>
+          ) : (
+            <div className="space-y-1">
+              {battleLog.map((entry, i) => (
+                <div key={i} className={`text-xs font-medium ${LOG_COLORS[entry.type] || 'text-slate-300'}`}>
+                  {entry.msg}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
