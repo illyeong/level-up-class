@@ -3,6 +3,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 
 import LoginPage        from './pages/LoginPage.jsx';
+import ClassSelectPage  from './pages/teacher/ClassSelectPage.jsx';
 import NavigationBar    from './components/NavigationBar';
 import TeacherLogin     from './pages/teacher/TeacherLogin.jsx';
 import MyCharacter      from './components/MyCharacter';
@@ -18,21 +19,28 @@ import StockMarket      from './pages/student/StockMarket.jsx';
 
 const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','miniGame'];
 
-// appMode: 'loading' | 'login' | 'student' | 'teacher'
+// appMode: 'loading' | 'login' | 'classSelect' | 'student' | 'teacher'
 function App() {
-  const [appMode,      setAppMode]      = useState('loading');
-  const [teacherUser,  setTeacherUser]  = useState(null);   // Firebase Auth user
-  const [studentInfo,  setStudentInfo]  = useState(null);   // { id, studentCode, name, ... }
-  const [currentView,  setCurrentView]  = useState('dashboard');
-  const [testStudentCode, setTestStudentCode] = useState(null); // 교사 테스트 로그인용
+  const [appMode,        setAppMode]        = useState('loading');
+  const [teacherUser,    setTeacherUser]    = useState(null);
+  const [selectedClass,  setSelectedClass]  = useState(null);
+  const [studentInfo,    setStudentInfo]    = useState(null);
+  const [currentView,    setCurrentView]    = useState('dashboard');
+  const [testStudentCode, setTestStudentCode] = useState(null);
 
   // ── Firebase Auth 상태 감지 (교사 로그인 유지) ─────────────────
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // 구글 로그인 유지 → 교사 모드로 복원
+        // 구글 로그인 유지 → 학급 선택 (저장된 학급 있으면 복원)
         setTeacherUser(user);
-        setAppMode('teacher');
+        const savedClass = sessionStorage.getItem('selectedClass');
+        if (savedClass) {
+          setSelectedClass(JSON.parse(savedClass));
+          setAppMode('teacher');
+        } else {
+          setAppMode('classSelect');
+        }
       } else {
         // 로그아웃 또는 미로그인 → 학생 세션 확인
         const saved = sessionStorage.getItem('studentInfo');
@@ -47,9 +55,16 @@ function App() {
     return unsub;
   }, []);
 
-  // ── 교사 로그인 콜백 ─────────────────────────────────────────
+  // ── 교사 로그인 콜백 → 학급 선택으로 ────────────────────────
   const handleTeacherLogin = (user) => {
     setTeacherUser(user);
+    setAppMode('classSelect');
+  };
+
+  // ── 학급 선택 콜백 ───────────────────────────────────────────
+  const handleClassSelected = (cls) => {
+    setSelectedClass(cls);
+    sessionStorage.setItem('selectedClass', JSON.stringify(cls));
     setAppMode('teacher');
   };
 
@@ -63,9 +78,11 @@ function App() {
 
   // ── 로그아웃 ─────────────────────────────────────────────────
   const handleLogout = async () => {
-    if (appMode === 'teacher') await signOut(auth);
+    if (appMode === 'teacher' || appMode === 'classSelect') await signOut(auth);
     sessionStorage.removeItem('studentInfo');
+    sessionStorage.removeItem('selectedClass');
     setTeacherUser(null);
+    setSelectedClass(null);
     setStudentInfo(null);
     setTestStudentCode(null);
     setAppMode('login');
@@ -95,6 +112,16 @@ function App() {
     return <LoginPage onTeacherLogin={handleTeacherLogin} onStudentLogin={handleStudentLogin} />;
   }
 
+  if (appMode === 'classSelect') {
+    return (
+      <ClassSelectPage
+        teacherUser={teacherUser}
+        onClassSelected={handleClassSelected}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   if (appMode === 'teacher') {
     return (
       <div className="relative w-full h-screen">
@@ -102,6 +129,12 @@ function App() {
           onStudentTestLogin={handleStudentTestLogin}
           onLogout={handleLogout}
           teacherEmail={teacherUser?.email}
+          selectedClass={selectedClass}
+          onChangeClass={() => {
+            sessionStorage.removeItem('selectedClass');
+            setSelectedClass(null);
+            setAppMode('classSelect');
+          }}
         />
       </div>
     );

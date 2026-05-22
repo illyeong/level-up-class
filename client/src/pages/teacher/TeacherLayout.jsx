@@ -13,7 +13,7 @@ import BossRaidManage from './BossRaidManage';
 import QuestKiosk from './QuestKiosk';
 import AdventureManage from './AdventureManage';
 
-function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
+function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
   const [currentView, setCurrentView] = useState('dashboard');
 
   return (
@@ -27,6 +27,21 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin }) {
 
       {/* 우측 메인 화면 */}
       <main className="flex-1 overflow-auto relative bg-slate-100">
+
+        {/* 학급 정보 배너 */}
+        {selectedClass && (
+          <div className="bg-indigo-600 text-white px-5 py-2 flex items-center justify-between text-sm">
+            <span className="font-bold">
+              🏫 {selectedClass.schoolName} {selectedClass.grade}학년 {selectedClass.classNumber}반
+            </span>
+            {onChangeClass && (
+              <button onClick={onChangeClass}
+                className="text-indigo-200 hover:text-white text-xs font-bold underline">
+                학급 변경
+              </button>
+            )}
+          </div>
+        )}
 
         {currentView === 'dashboard' && <TeacherDashboard onStudentTestLogin={onStudentTestLogin} />}
 
