@@ -171,11 +171,11 @@ function TeacherDashboard({ onStudentTestLogin }) {
         level:          1,
         exp:            0,
         maxExp:         1000,
-        parts:          '',
+        parts:          {},
         characterImage: '',
       });
       setStudents(prev => prev.map(s => s.id === student.id
-        ? { ...s, gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 1000, parts: '', characterImage: '' }
+        ? { ...s, gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 1000, parts: {}, characterImage: '' }
         : s
       ));
       alert(`✅ ${student.name || student.studentCode} 초기화 완료!`);
