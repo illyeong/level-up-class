@@ -755,16 +755,21 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         exp, level, maxExp,
       });
       setMe(prev => ({ ...prev, gold: (prev.gold||0)+reward.gold, diamonds: (prev.diamonds||0)+reward.diamond, exp, level, maxExp }));
-      await addDoc(collection(db, 'arenaLogs'), {
-        studentId: docId, studentCode: me.studentCode, studentName: myName,
-        studentCharacterImage: me.characterImage || '',
-        opponentId: opponent?.id, opponentCode: opponent?.studentCode, opponentName: oppName,
-        opponentCharacterImage: opponent?.characterImage || '',
-        isWin, reward, createdAt: serverTimestamp(),
-      });
 
       // 방금 싸운 상대 기록 (다음 매칭에서 제외)
       if (opponent?.id) addRecentOpponent(opponent.id);
+
+      // 테스트 계정(SINSEOK / admin_master_001)은 전적 기록 저장 안 함
+      const isTestBattle = me?.teacherUid === 'admin_master_001' || opponent?.teacherUid === 'admin_master_001';
+      if (!isTestBattle) {
+        await addDoc(collection(db, 'arenaLogs'), {
+          studentId: docId, studentCode: me.studentCode, studentName: myName,
+          studentCharacterImage: me.characterImage || '',
+          opponentId: opponent?.id, opponentCode: opponent?.studentCode, opponentName: oppName,
+          opponentCharacterImage: opponent?.characterImage || '',
+          isWin, reward, createdAt: serverTimestamp(),
+        });
+      }
 
       await new Promise(r => setTimeout(r, 1200));
       setResult({ isWin, reward });

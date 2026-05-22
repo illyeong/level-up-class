@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import DungeonMapEditor from './DungeonMapEditor';
 import {
   collection, getDocs, doc, addDoc, updateDoc, deleteDoc,
-  setDoc, getDoc, query, orderBy, serverTimestamp,
+  setDoc, getDoc, query, orderBy, serverTimestamp, writeBatch,
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../../firebase';
@@ -446,6 +446,33 @@ function SettingsTab() {
         className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl transition-colors disabled:opacity-50">
         {saving ? '저장 중...' : '💾 설정 저장'}
       </button>
+
+      {/* 테스트 데이터 초기화 */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3 mt-2">
+        <div className="font-bold text-slate-700 text-sm">🧪 테스트 데이터 관리</div>
+        <button
+          onClick={async () => {
+            if (!window.confirm('SINSEOK 테스트 학급의 투기장 전적을 모두 삭제할까요?')) return;
+            try {
+              const snap = await getDocs(collection(db, 'arenaLogs'));
+              // SINSEOK 코드가 포함된 로그 삭제
+              const batch = writeBatch(db);
+              let cnt = 0;
+              snap.docs.forEach(d => {
+                const data = d.data();
+                if ((data.studentCode || '').includes('SINSEOK') || (data.opponentCode || '').includes('SINSEOK')) {
+                  batch.delete(doc(db, 'arenaLogs', d.id));
+                  cnt++;
+                }
+              });
+              await batch.commit();
+              alert(`✅ SINSEOK 전적 ${cnt}건 삭제 완료`);
+            } catch (e) { alert('삭제 실패: ' + e.message); }
+          }}
+          className="w-full py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-sm border border-rose-200 transition-colors">
+          🗑️ SINSEOK 테스트 전적 초기화
+        </button>
+      </div>
     </div>
   );
 }
