@@ -110,8 +110,9 @@ function DungeonNode({ dungeon, state, isSelected, onClick }) {
 }
 
 // ── 던전 정보 팝업 ────────────────────────────────────────────
-function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets }) {
-  const isActive = dungeon.active !== false;
+function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets, prevDungeonName }) {
+  const isActive  = dungeon.active !== false;
+  const isLocked  = isActive && state === 'locked'; // 활성이지만 이전 단계 미클리어
 
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/50"
@@ -170,6 +171,10 @@ function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets
           {!isActive ? (
             <div className="w-full py-3 rounded-2xl bg-slate-100 text-slate-400 text-center font-extrabold text-sm">
               🚧 현재 구현 예정인 던전입니다
+            </div>
+          ) : isLocked ? (
+            <div className="w-full py-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 text-center text-sm leading-relaxed">
+              🔒 <span className="font-extrabold text-slate-700">「{prevDungeonName || '이전'}」</span> 던전을 먼저 클리어하세요.
             </div>
           ) : (
             <>
@@ -409,16 +414,23 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
           ))}
 
           {/* 던전 정보 팝업 */}
-          {selectedDungeon && (
+          {selectedDungeon && (() => {
+            // 이전 active 던전 이름 계산
+            const prevDungeon = dungeonList
+              .filter(d => d.active !== false && d.id < selectedDungeon.id)
+              .sort((a, b) => b.id - a.id)[0];
+            return (
             <DungeonPopup
               dungeon={selectedDungeon}
               state={getSequentialState(selectedDungeon, progress, dungeonList)}
+              prevDungeonName={prevDungeon?.name}
               onEnter={handleEnter}
               onClose={() => setSelectedDungeon(null)}
               isBusy={isBusy}
               dungeonTickets={dungeonTickets}
             />
-          )}
+            );
+          })()}
         </div>
       </div>
     </div>

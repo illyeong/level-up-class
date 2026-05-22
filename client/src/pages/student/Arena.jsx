@@ -933,6 +933,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
     const advantage = myPower > oppPower ? 'win' : myPower < oppPower ? 'lose' : 'even';
 
     return (
+      <>
       <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950 p-4 flex flex-col">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4">
@@ -974,9 +975,54 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         </button>
 
         <p className="text-center text-[10px] text-slate-600 mt-2">
-          * 이용권 1개 소비 · 대련 시작 후 취소 불가
+          * 이용권 소비됨 · 대련 시작 후 취소 불가
         </p>
+
+        {/* 전적/랭킹 */}
+        <div className="flex gap-2 mt-2">
+          <button onClick={() => setShowHistory(true)}
+            className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-all">
+            📋 전적 기록
+          </button>
+          <button onClick={() => setShowRanking(true)}
+            className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-all">
+            🏆 랭킹
+          </button>
+        </div>
       </div>
+
+      {/* 전적 기록 모달 */}
+      {showHistory && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setShowHistory(false)}>
+          <div className="bg-slate-900 rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden border border-slate-700 shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
+              <h2 className="font-extrabold text-white text-lg">📋 전적 기록</h2>
+              <button onClick={() => setShowHistory(false)} className="text-slate-400 hover:text-white text-xl w-8 h-8 flex items-center justify-center">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0 p-4">
+              <HistoryInner studentDocId={studentDocIdRef.current} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 랭킹 모달 */}
+      {showRanking && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setShowRanking(false)}>
+          <div className="bg-slate-900 rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden border border-slate-700 shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
+              <h2 className="font-extrabold text-white text-lg">🏆 투기장 랭킹</h2>
+              <button onClick={() => setShowRanking(false)} className="text-slate-400 hover:text-white text-xl w-8 h-8 flex items-center justify-center">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0 p-4">
+              <RankingInner classmates={[...(me ? [me] : []), ...classmates]} studentDocId={studentDocIdRef.current} />
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
