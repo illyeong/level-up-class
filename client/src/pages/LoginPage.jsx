@@ -88,10 +88,11 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
         {/* 타이틀 */}
         <div className="text-center mb-10">
           <img
-            src="/images/levelupclass.png"
+            src={`/images/levelupclass.png?t=${Date.now()}`}
             alt="LevelUp Class"
             className="w-full object-contain drop-shadow-lg"
           />
+          <p className="text-indigo-300 mt-3 font-medium">게임형 학급 관리 시스템</p>
         </div>
 
         {/* 모드 선택 */}
