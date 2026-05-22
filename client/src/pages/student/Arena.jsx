@@ -133,16 +133,25 @@ function ResultScreen({ isWin, opponent, reward, onClose }) {
 
 // ── 메인 ─────────────────────────────────────────────────────
 export default function Arena({ studentCode, tickets, onUseTicket }) {
-  const [phase, setPhase]         = useState('lobby');  // lobby|matching|vs|battle|result
+  // sessionStorage로 매칭 상태 유지 (네비게이션 이동해도 상대 유지)
+  const savedMatch = (() => { try { return JSON.parse(sessionStorage.getItem('arenaMatch') || 'null'); } catch { return null; } })();
+
+  const [phase, setPhase]         = useState(savedMatch ? 'vs' : 'lobby');
+  const [opponent, setOpponent]   = useState(savedMatch?.opponent || null);
+  const [changes, setChanges]     = useState(savedMatch?.changes ?? 0);
   const [battleLog, setBattleLog] = useState([]);
   const [battleHP, setBattleHP]   = useState({ me: 0, opp: 0 });
   const [battleMaxHP, setBattleMaxHP] = useState({ me: 0, opp: 0 });
   const [hitFlash, setHitFlash]   = useState({ me: false, opp: false });
   const logRef = useRef(null);
+
+  // 매칭 상태 저장
+  const saveMatch = (opp, ch) => {
+    sessionStorage.setItem('arenaMatch', JSON.stringify({ opponent: opp, changes: ch }));
+  };
+  const clearMatch = () => sessionStorage.removeItem('arenaMatch');
   const [me, setMe]               = useState(null);
   const [classmates, setClassmates] = useState([]);
-  const [opponent, setOpponent]   = useState(null);
-  const [changes, setChanges]     = useState(0);
   const [isBusy, setIsBusy]       = useState(false);
   const [result, setResult]       = useState(null); // { isWin, reward }
   const [matchAnim, setMatchAnim] = useState(false);
@@ -189,6 +198,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
     const opp = pickRandom();
     setOpponent(opp);
     setChanges(0);
+    saveMatch(opp, 0);
     setMatchAnim(false);
     setPhase('vs');
     setIsBusy(false);
@@ -209,8 +219,10 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
       setMatchAnim(true);
       await new Promise(r => setTimeout(r, 600));
       const opp = pickRandom(opponent?.id);
+      const newChanges = changes + 1;
       setOpponent(opp);
-      setChanges(c => c + 1);
+      setChanges(newChanges);
+      saveMatch(opp, newChanges);
       setMatchAnim(false);
     } catch (e) { console.error(e); }
     finally { setIsBusy(false); }
@@ -229,6 +241,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
     setIsBusy(true);
     try {
       await onUseTicket('arena');
+      clearMatch(); // 전투 시작 시 매칭 초기화
 
       const myStats  = getStats(me?.level  || 1);
       const oppStats = getStats(opponent?.level || 1);
@@ -319,6 +332,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   };
 
   const reset = () => {
+    clearMatch();
     setPhase('lobby');
     setOpponent(null);
     setChanges(0);
