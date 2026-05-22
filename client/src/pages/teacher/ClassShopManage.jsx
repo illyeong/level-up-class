@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
-  doc, serverTimestamp, query, orderBy, limit,
+  doc, setDoc, getDoc, serverTimestamp, query, orderBy, limit,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -237,11 +237,28 @@ function ClassShopManage() {
   const [items, setItems]         = useState([]);
   const [purchases, setPurchases] = useState([]);
   const [usages, setUsages]       = useState([]);
+
+  // 이용권 가격
+  const [ticketPrices, setTicketPrices]   = useState({ dungeon: 200, bossRaid: 200, arena: 200 });
+  const [isSavingTicket, setIsSavingTicket] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [tab, setTab]             = useState('items');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId]   = useState(null);
   const [form, setForm]         = useState(DEFAULT_FORM);
+
+  const saveTicketPrices = async () => {
+    setIsSavingTicket(true);
+    try {
+      await setDoc(doc(db, 'ticketShopSettings', 'config'), ticketPrices);
+      alert('✅ 이용권 가격이 저장되었습니다.');
+    } catch (err) {
+      console.error(err);
+      alert('저장 실패');
+    } finally {
+      setIsSavingTicket(false);
+    }
+  };
 
   const fetchItems = async () => {
     const snap = await getDocs(collection(db, 'shopItems'));
@@ -277,6 +294,9 @@ function ClassShopManage() {
   useEffect(() => {
     (async () => {
       setIsLoading(true);
+      // 이용권 가격 로드
+      const tSnap = await getDoc(doc(db, 'ticketShopSettings', 'config'));
+      if (tSnap.exists()) setTicketPrices(prev => ({ ...prev, ...tSnap.data() }));
       await Promise.all([fetchItems(), fetchPurchases(), fetchUsages()]);
       setIsLoading(false);
     })();
@@ -349,6 +369,36 @@ function ClassShopManage() {
           <button onClick={openCreate}
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
             + 물품 등록
+          </button>
+        </div>
+
+        {/* 이용권 가격 설정 */}
+        <div className="bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-700 mb-6">
+          <h2 className="font-extrabold text-white text-sm mb-1">🎫 어드벤처 이용권 가격 설정</h2>
+          <p className="text-slate-400 text-xs mb-4">학생이 다이아로 구매하는 이용권 가격입니다 (기본값: 💎200)</p>
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            {[
+              { key: 'dungeon',  icon: '🗡️', label: '던전',    max: 3 },
+              { key: 'bossRaid', icon: '👹', label: '보스레이드', max: 3 },
+              { key: 'arena',    icon: '🏟️', label: '투기장',   max: 5 },
+            ].map(({ key, icon, label, max }) => (
+              <div key={key} className="bg-slate-800 rounded-xl p-3">
+                <div className="text-white font-bold text-xs mb-2">{icon} {label} (최대 {max}개)</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-cyan-300 text-sm">💎</span>
+                  <input
+                    type="number" min="0"
+                    value={ticketPrices[key]}
+                    onChange={e => setTicketPrices(prev => ({ ...prev, [key]: Number(e.target.value) || 0 }))}
+                    className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-white font-bold text-sm text-center focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <button onClick={saveTicketPrices} disabled={isSavingTicket}
+            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50">
+            {isSavingTicket ? '저장 중...' : '💾 가격 저장'}
           </button>
         </div>
 

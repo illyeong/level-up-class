@@ -12,6 +12,14 @@ function EditProfile({ studentCode, onNameSaved }) {
   const [isSaved, setIsSaved]         = useState(false);
   const [error, setError]             = useState('');
 
+  // PIN 변경 상태
+  const [currentPin, setCurrentPin]   = useState('');
+  const [newPin1, setNewPin1]         = useState('');
+  const [newPin2, setNewPin2]         = useState('');
+  const [pinSaved, setPinSaved]       = useState(false);
+  const [pinError, setPinError]       = useState('');
+  const [savedPin, setSavedPin]       = useState(''); // Firebase에서 불러온 현재 PIN
+
   // 이미 studentCode가 전달되면 자동 조회
   useEffect(() => {
     if (studentCode) {
@@ -40,6 +48,7 @@ function EditProfile({ studentCode, onNameSaved }) {
         setStudentDocId(snap.docs[0].id);
         setCurrentName(data.name || '');
         setNewName(data.name || '');
+        setSavedPin(data.pin || '');
         setIsSearched(true);
       }
     } catch (err) {
@@ -66,6 +75,27 @@ function EditProfile({ studentCode, onNameSaved }) {
     } catch (err) {
       console.error('이름 저장 에러:', err);
       setError('저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const savePin = async () => {
+    setPinError('');
+    if (!currentPin) return setPinError('현재 PIN을 입력해주세요.');
+    if (currentPin !== savedPin) return setPinError('현재 PIN이 올바르지 않습니다.');
+    if (newPin1.length !== 4 || !/^\d{4}$/.test(newPin1)) return setPinError('새 PIN은 숫자 4자리여야 합니다.');
+    if (newPin1 !== newPin2) return setPinError('새 PIN이 일치하지 않습니다.');
+
+    setIsLoading(true);
+    try {
+      await updateDoc(doc(db, 'students', studentDocId), { pin: newPin1 });
+      setSavedPin(newPin1);
+      setCurrentPin(''); setNewPin1(''); setNewPin2('');
+      setPinSaved(true);
+      setTimeout(() => setPinSaved(false), 3000);
+    } catch (err) {
+      setPinError('저장 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -164,6 +194,58 @@ function EditProfile({ studentCode, onNameSaved }) {
               {currentName && newName.trim() === currentName && (
                 <p className="text-center text-xs text-slate-400 mt-2">현재 저장된 이름입니다</p>
               )}
+
+              {/* PIN 변경 */}
+              <div className="mt-8 pt-6 border-t border-slate-200">
+                <h3 className="text-sm font-extrabold text-slate-700 mb-4">🔒 PIN 번호 변경</h3>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">현재 PIN</label>
+                    <input
+                      type="password" maxLength={4} value={currentPin}
+                      onChange={e => setCurrentPin(e.target.value.replace(/\D/,'').slice(0,4))}
+                      placeholder="현재 PIN 4자리"
+                      className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-center font-mono text-lg tracking-widest focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">새 PIN</label>
+                    <input
+                      type="password" maxLength={4} value={newPin1}
+                      onChange={e => setNewPin1(e.target.value.replace(/\D/,'').slice(0,4))}
+                      placeholder="새 PIN 4자리"
+                      className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-center font-mono text-lg tracking-widest focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">새 PIN 확인</label>
+                    <input
+                      type="password" maxLength={4} value={newPin2}
+                      onChange={e => setNewPin2(e.target.value.replace(/\D/,'').slice(0,4))}
+                      placeholder="새 PIN 다시 입력"
+                      className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-center font-mono text-lg tracking-widest focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {pinError && (
+                  <p className="mt-2 text-xs text-rose-500 font-bold">⚠️ {pinError}</p>
+                )}
+
+                {pinSaved ? (
+                  <div className="mt-3 w-full py-3 bg-emerald-500 text-white font-bold text-sm rounded-xl text-center">
+                    ✅ PIN이 변경되었습니다!
+                  </div>
+                ) : (
+                  <button
+                    onClick={savePin}
+                    disabled={isLoading || !currentPin || !newPin1 || !newPin2}
+                    className="mt-3 w-full py-3 bg-slate-700 hover:bg-slate-800 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-40">
+                    {isLoading ? '저장 중...' : 'PIN 변경하기'}
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

@@ -7,13 +7,15 @@ import { getFirestore } from "firebase/firestore"; // 👈 이 녀석이 빠져�
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 // 선생님의 실제 Firebase 설정값
-const firebaseConfig = {
-  apiKey: "선생님의_API_KEY",
+const firebaseConfig = 
+{
+  apiKey: "AIzaSyCpOf86UP1nA2-MzvMxjglomdMG8y6xS9I",
   authDomain: "level-up-class.firebaseapp.com",
   projectId: "level-up-class",
-  storageBucket: "level-up-class.appspot.com",
-  messagingSenderId: "선생님의_SENDER_ID",
-  appId: "선생님의_APP_ID"
+  storageBucket: "level-up-class.firebasestorage.app",
+  messagingSenderId: "1095450799104",
+  appId: "1:1095450799104:web:650aea6a8afd352d257ce5",
+  measurementId: "G-E5VF05T6NE"
 };
 
 // 초기화 및 내보내기

@@ -1,9 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, doc, writeBatch,
+  collection, getDocs, doc, writeBatch, getDoc,
   serverTimestamp, query, where, increment,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+
+// ── 이용권 설정 ───────────────────────────────────────────────
+const TICKET_META = {
+  dungeon:  { label: '던전 이용권',    icon: '🗡️', max: 3, color: 'sky'    },
+  bossRaid: { label: '보스레이드 이용권', icon: '👹', max: 3, color: 'rose'   },
+  arena:    { label: '투기장 이용권',  icon: '🏟️', max: 5, color: 'violet' },
+};
+
+// ── 이용권 카드 ───────────────────────────────────────────────
+function TicketCard({ ticketKey, price, myDiamonds, currentCount, onBuy, isBuying }) {
+  const meta    = TICKET_META[ticketKey];
+  const isFull  = currentCount >= meta.max;
+  const canBuy  = !isFull && myDiamonds >= price;
+
+  return (
+    <div className={`bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-4 border-2 transition-all
+      ${isFull ? 'border-slate-700 opacity-60' : 'border-indigo-500/50 hover:border-indigo-400 hover:shadow-lg hover:shadow-indigo-900/30'}`}>
+      <div className="flex items-center gap-3 mb-3">
+        <div className="text-3xl">{meta.icon}</div>
+        <div>
+          <div className="font-extrabold text-white text-sm">{meta.label}</div>
+          <div className="text-xs text-slate-400">{currentCount}/{meta.max} 보유 중</div>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 mb-3">
+        {Array.from({ length: meta.max }, (_, i) => (
+          <div key={i} className={`h-2 flex-1 rounded-full
+            ${i < currentCount
+              ? meta.color === 'sky' ? 'bg-sky-400' : meta.color === 'rose' ? 'bg-rose-400' : 'bg-violet-400'
+              : 'bg-slate-600'}`} />
+        ))}
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-cyan-300 font-extrabold text-sm">💎 {price}</span>
+        <button
+          onClick={() => !isBuying && canBuy && onBuy(ticketKey, price)}
+          disabled={!canBuy || isBuying}
+          className={`px-4 py-1.5 rounded-xl font-extrabold text-xs transition-all active:scale-95
+            ${isFull ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+            : !canBuy ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm'}`}>
+          {isFull ? '최대 보유' : !canBuy ? '다이아 부족' : '구매'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const fmtDate = (ts) => {
   if (!ts) return '';
@@ -189,6 +236,8 @@ function ClassShop({ studentCode }) {
   const [usages, setUsages]           = useState([]);
   const [tab, setTab]                 = useState('shop');
   const [isLoading, setIsLoading]     = useState(true);
+  const [ticketPrices, setTicketPrices] = useState({ dungeon: 200, bossRaid: 200, arena: 200 });
+  const [isBuyingTicket, setIsBuyingTicket] = useState(false);
 
   // 구매 관련
   const [buyTarget, setBuyTarget]     = useState(null);
@@ -205,6 +254,10 @@ function ClassShop({ studentCode }) {
     const load = async () => {
       setIsLoading(true);
       try {
+        // 이용권 가격 로드
+        const tSnap = await getDoc(doc(db, 'ticketShopSettings', 'config'));
+        if (tSnap.exists()) setTicketPrices(prev => ({ ...prev, ...tSnap.data() }));
+
         const itemsSnap = await getDocs(collection(db, 'shopItems'));
         setItems(
           itemsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -241,6 +294,37 @@ function ClassShop({ studentCode }) {
     };
     load();
   }, [studentCode]);
+
+  // ── 이용권 구매 ──────────────────────────────────────────────
+  const buyTicket = async (ticketKey, price) => {
+    if (!student || !studentDocId) return;
+    const meta    = TICKET_META[ticketKey];
+    const curDia  = student.diamonds || 0;
+    const curCnt  = student.tickets?.[ticketKey] ?? 0;
+    if (curDia < price)        return alert(`다이아 부족! (필요: 💎${price} / 보유: 💎${curDia})`);
+    if (curCnt >= meta.max)    return alert(`이미 최대 보유 수(${meta.max}개)입니다.`);
+
+    setIsBuyingTicket(true);
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'students', studentDocId), {
+        diamonds: curDia - price,
+        [`tickets.${ticketKey}`]: Math.min(meta.max, curCnt + 1),
+      });
+      await batch.commit();
+      setStudent(prev => ({
+        ...prev,
+        diamonds: curDia - price,
+        tickets: { ...prev.tickets, [ticketKey]: Math.min(meta.max, curCnt + 1) },
+      }));
+      alert(`✅ ${meta.label} 1개 구매 완료!`);
+    } catch (err) {
+      console.error('이용권 구매 에러:', err);
+      alert('구매 중 오류가 발생했습니다.');
+    } finally {
+      setIsBuyingTicket(false);
+    }
+  };
 
   // ── 구매 확정 ────────────────────────────────────────────────
   const confirmBuy = async () => {
@@ -438,29 +522,60 @@ function ClassShop({ studentCode }) {
             <div className="text-6xl mb-4">🛒</div>
             <p className="font-bold text-lg text-slate-600">로그인이 필요합니다</p>
           </div>
-        ) : items.length === 0 ? (
-          <div className="text-center py-20 text-slate-400">
-            <div className="text-6xl mb-4">🏪</div>
-            <p className="font-bold text-lg text-slate-600">등록된 물품이 없습니다</p>
-          </div>
         ) : (
           <div>
-            {shopItems.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
-                {shopItems.map(item => (
-                  <ShopItemCard key={item.id} item={item} myGold={student?.gold || 0} onBuy={i => { setBuyTarget(i); setBuyQty(1); }} />
+            {/* 이용권 상점 (상단 고정) */}
+            <div className="bg-slate-900 rounded-2xl p-4 mb-6 border border-slate-700">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="font-extrabold text-white text-sm">🎫 어드벤처 이용권</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">다이아로 구매 · 즉시 지급</p>
+                </div>
+                {student && (
+                  <span className="text-cyan-300 font-extrabold text-sm">💎 {(student.diamonds || 0).toLocaleString()}</span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {Object.keys(TICKET_META).map(key => (
+                  <TicketCard
+                    key={key}
+                    ticketKey={key}
+                    price={ticketPrices[key] ?? 200}
+                    myDiamonds={student?.diamonds || 0}
+                    currentCount={student?.tickets?.[key] ?? 0}
+                    onBuy={buyTicket}
+                    isBuying={isBuyingTicket}
+                  />
                 ))}
               </div>
-            )}
-            {soldOutItems.length > 0 && (
-              <>
-                <div className="text-sm font-bold text-slate-400 mb-3">품절된 물품</div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {soldOutItems.map(item => (
-                    <ShopItemCard key={item.id} item={item} myGold={student?.gold || 0} onBuy={() => {}} />
-                  ))}
-                </div>
-              </>
+            </div>
+
+            {/* 일반 상점 아이템 */}
+            {items.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">
+                <div className="text-5xl mb-3">🏪</div>
+                <p className="font-bold text-slate-600">등록된 물품이 없습니다</p>
+              </div>
+            ) : (
+              <div>
+                {shopItems.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
+                    {shopItems.map(item => (
+                      <ShopItemCard key={item.id} item={item} myGold={student?.gold || 0} onBuy={i => { setBuyTarget(i); setBuyQty(1); }} />
+                    ))}
+                  </div>
+                )}
+                {soldOutItems.length > 0 && (
+                  <>
+                    <div className="text-sm font-bold text-slate-400 mb-3">품절된 물품</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
+                      {soldOutItems.map(item => (
+                        <ShopItemCard key={item.id} item={item} myGold={student?.gold || 0} onBuy={() => {}} />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
         )
