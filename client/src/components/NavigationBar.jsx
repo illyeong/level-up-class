@@ -35,6 +35,10 @@ const NavigationBar = ({ changeView, currentView }) => {
       ]
     },
     {
+      id: 'board', icon: '📋', title: '학습 게시판', isReady: true,
+      subMenus: []
+    },
+    {
       id: 'academy', icon: '📚', title: t('menu.academy', '아카데미'), isReady: false,
       subMenus: [
         { title: t('submenu.assignment', '과제 제출'), id: 'assignment' },

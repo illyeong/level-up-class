@@ -52,6 +52,12 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout }) => {
       ]
     },
     {
+      id: 'boardManage', icon: '📋', title: '학습 게시판', isReady: true,
+      subMenus: [
+        { title: '게시판 관리', id: 'boardManage' },
+      ]
+    },
+    {
       id: 'systemSettings', icon: '⚙️', title: '시스템 설정', isReady: true,
       subMenus: [
         { title: '초기화 및 백업', id: 'systemBackup' },
