@@ -3,9 +3,6 @@ import { signInWithPopup } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
 
-// .env 파일에 VITE_TEACHER_EMAILS=email1@gmail.com,email2@gmail.com 등록
-const TEACHER_EMAILS = (import.meta.env.VITE_TEACHER_EMAILS || '')
-  .split(',').map(e => e.trim()).filter(Boolean);
 
 export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
   const [mode, setMode]         = useState(null); // null | 'student'
@@ -22,11 +19,6 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
       const result = await signInWithPopup(auth, googleProvider);
       const email  = result.user.email;
 
-      if (TEACHER_EMAILS.length > 0 && !TEACHER_EMAILS.includes(email)) {
-        await auth.signOut();
-        setError('등록된 교사 계정이 아닙니다.');
-        return;
-      }
       onTeacherLogin(result.user);
     } catch (e) {
       console.error('Google 로그인 에러:', e.code, e.message);
