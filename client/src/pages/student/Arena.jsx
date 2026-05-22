@@ -117,14 +117,26 @@ function HistoryScreen({ studentDocId, studentCode, onBack }) {
             const myName    = log.perspective === 'me' ? log.studentName  : log.opponentName;
             const enemyName = log.perspective === 'me' ? log.opponentName : log.studentName;
 
+            // 상대방 이미지: 내가 도전자면 상대 이미지, 내가 상대로 매칭됐으면 도전자 이미지
+            const enemyImg = log.perspective === 'me'
+              ? log.opponentCharacterImage
+              : log.studentCharacterImage;
+
             return (
               <div key={log.id}
                 className={`rounded-2xl border p-4 flex items-center gap-3
                   ${iWon ? 'bg-yellow-950/30 border-yellow-700/40' : 'bg-rose-950/30 border-rose-800/40'}`}>
                 {/* 승패 뱃지 */}
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-extrabold shrink-0
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-base font-extrabold shrink-0
                   ${iWon ? 'bg-yellow-500 text-yellow-900' : 'bg-slate-700 text-slate-400'}`}>
                   {iWon ? '승' : '패'}
+                </div>
+
+                {/* 상대 캐릭터 */}
+                <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-600 overflow-hidden shrink-0 flex items-center justify-center">
+                  {enemyImg
+                    ? <img src={enemyImg} alt="" className="w-full h-full object-contain scale-[2]" />
+                    : <span className="text-xl">🧑‍🎓</span>}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -243,10 +255,10 @@ function RankingScreen({ classmates, studentDocId, onBack }) {
                 </div>
 
                 {/* 캐릭터 */}
-                <div className="w-10 h-10 rounded-xl bg-slate-800 overflow-hidden shrink-0 flex items-center justify-center border border-slate-600">
+                <div className="w-14 h-14 rounded-xl bg-slate-800 overflow-hidden shrink-0 flex items-center justify-center border border-slate-600">
                   {r.characterImage
-                    ? <img src={r.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
-                    : <span className="text-lg">🧑‍🎓</span>}
+                    ? <img src={r.characterImage} alt="" className="w-full h-full object-contain scale-[2.5]" />
+                    : <span className="text-2xl">🧑‍🎓</span>}
                 </div>
 
                 {/* 이름 + 정보 */}
@@ -270,6 +282,158 @@ function RankingScreen({ classmates, studentDocId, onBack }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── 전적 내부 (모달용) ────────────────────────────────────────
+function HistoryInner({ studentDocId }) {
+  const [logs, setLogs]   = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!studentDocId) { setLoading(false); return; }
+    (async () => {
+      try {
+        const [asMe, asOpp] = await Promise.all([
+          getDocs(query(collection(db, 'arenaLogs'), where('studentId',  '==', studentDocId))),
+          getDocs(query(collection(db, 'arenaLogs'), where('opponentId', '==', studentDocId))),
+        ]);
+        const all = [
+          ...asMe.docs.map(d  => ({ id: d.id, ...d.data(), perspective: 'me'  })),
+          ...asOpp.docs.map(d => ({ id: d.id, ...d.data(), perspective: 'opp' })),
+        ].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        setLogs(all);
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    })();
+  }, [studentDocId]);
+
+  const fmtDate = (ts) => {
+    if (!ts) return '';
+    const d = ts.toDate ? ts.toDate() : new Date(ts.seconds * 1000);
+    return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const wins  = logs.filter(l => l.perspective === 'me' ? l.isWin  : !l.isWin).length;
+  const loses = logs.filter(l => l.perspective === 'me' ? !l.isWin : l.isWin).length;
+
+  if (loading) return <div className="text-slate-400 text-center py-8 animate-pulse">불러오는 중...</div>;
+  if (logs.length === 0) return (
+    <div className="text-center py-12 text-slate-500">
+      <div className="text-4xl mb-3">⚔️</div><p className="font-bold">아직 전적이 없습니다</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      {/* 요약 */}
+      <div className="flex gap-2 mb-4">
+        {[['전체', logs.length, 'text-white'], ['승', wins, 'text-yellow-400'], ['패', loses, 'text-rose-400'],
+          [`${logs.length ? Math.round(wins/logs.length*100) : 0}%`, '승률', 'text-indigo-400']].map(([val, label, cls], i) => (
+          <div key={i} className="flex-1 bg-slate-800 rounded-xl p-2 text-center border border-slate-700">
+            <div className={`text-lg font-extrabold ${cls}`}>{i < 3 ? val : val}</div>
+            <div className="text-[10px] text-slate-500">{i < 3 ? label : '승률'}</div>
+          </div>
+        ))}
+      </div>
+      {logs.map(log => {
+        const iWon     = log.perspective === 'me' ? log.isWin : !log.isWin;
+        const enemyName = log.perspective === 'me' ? log.opponentName : log.studentName;
+        const enemyImg  = log.perspective === 'me' ? log.opponentCharacterImage : log.studentCharacterImage;
+        return (
+          <div key={log.id} className={`rounded-2xl border p-3 flex items-center gap-3
+            ${iWon ? 'bg-yellow-950/30 border-yellow-700/40' : 'bg-rose-950/30 border-rose-800/40'}`}>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-extrabold shrink-0
+              ${iWon ? 'bg-yellow-500 text-yellow-900' : 'bg-slate-700 text-slate-400'}`}>
+              {iWon ? '승' : '패'}
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-600 overflow-hidden shrink-0 flex items-center justify-center">
+              {enemyImg ? <img src={enemyImg} alt="" className="w-full h-full object-contain scale-[2]" /> : <span className="text-xl">🧑‍🎓</span>}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-white font-extrabold text-sm truncate">{enemyName}</span>
+                {log.perspective === 'opp' && <span className="text-[9px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full shrink-0">상대로 매칭됨</span>}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{fmtDate(log.createdAt)}</div>
+            </div>
+            {iWon && log.reward && (
+              <div className="text-right shrink-0 text-[11px] font-bold space-y-0.5">
+                {log.reward.gold    > 0 && <div className="text-amber-400">🪙+{log.reward.gold}</div>}
+                {log.reward.diamond > 0 && <div className="text-cyan-400">💎+{log.reward.diamond}</div>}
+                {log.reward.exp     > 0 && <div className="text-indigo-400">⭐+{log.reward.exp}</div>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── 랭킹 내부 (모달용) ────────────────────────────────────────
+function RankingInner({ classmates, studentDocId }) {
+  const [ranks, setRanks]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const MEDALS = ['🥇','🥈','🥉'];
+
+  useEffect(() => {
+    if (!classmates.length) { setLoading(false); return; }
+    (async () => {
+      try {
+        const ids = classmates.map(s => s.id);
+        const stats = {};
+        classmates.forEach(s => {
+          stats[s.id] = { id: s.id, name: s.name || s.studentCode, level: s.level || 1, characterImage: s.characterImage || '', wins: 0, loses: 0 };
+        });
+        const chunks = [];
+        for (let i = 0; i < ids.length; i += 10) chunks.push(ids.slice(i, i + 10));
+        for (const chunk of chunks) {
+          const snap = await getDocs(query(collection(db, 'arenaLogs'), where('studentId', 'in', chunk)));
+          snap.docs.forEach(d => {
+            const { studentId, opponentId, isWin } = d.data();
+            if (stats[studentId])  isWin ? stats[studentId].wins++  : stats[studentId].loses++;
+            if (stats[opponentId]) isWin ? stats[opponentId].loses++ : stats[opponentId].wins++;
+          });
+        }
+        setRanks(Object.values(stats).sort((a, b) => b.wins !== a.wins ? b.wins - a.wins : ((b.wins/(b.wins+b.loses||1)) - (a.wins/(a.wins+a.loses||1)))));
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    })();
+  }, [classmates]);
+
+  if (loading) return <div className="text-slate-400 text-center py-8 animate-pulse">집계 중...</div>;
+
+  return (
+    <div className="space-y-2">
+      {ranks.map((r, idx) => {
+        const total   = r.wins + r.loses;
+        const winRate = total > 0 ? Math.round(r.wins / total * 100) : 0;
+        const isMe    = r.id === studentDocId;
+        return (
+          <div key={r.id} className={`rounded-2xl p-3 flex items-center gap-3 border
+            ${isMe ? 'bg-indigo-900/50 border-indigo-500' : 'bg-slate-800/50 border-slate-700'}`}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-slate-700 text-base font-extrabold">
+              {idx < 3 ? MEDALS[idx] : <span className="text-sm text-slate-300">{idx+1}</span>}
+            </div>
+            <div className="w-14 h-14 rounded-xl bg-slate-800 overflow-hidden shrink-0 flex items-center justify-center border border-slate-600">
+              {r.characterImage ? <img src={r.characterImage} alt="" className="w-full h-full object-contain scale-[2.5]" /> : <span className="text-2xl">🧑‍🎓</span>}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className={`font-extrabold text-sm truncate ${isMe ? 'text-indigo-300' : 'text-white'}`}>{r.name}</span>
+                {isMe && <span className="text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded-full shrink-0">나</span>}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Lv.{r.level} · {total}전 {r.wins}승 {r.loses}패</div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className={`text-base font-extrabold ${winRate >= 60 ? 'text-yellow-400' : winRate >= 40 ? 'text-slate-300' : 'text-rose-400'}`}>{winRate}%</div>
+              <div className="text-[10px] text-slate-500">{r.wins}승</div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -410,7 +574,9 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   const [classmates, setClassmates] = useState([]);
   const [isBusy, setIsBusy]       = useState(false);
   const [result, setResult]       = useState(null);
-  const [rankMap, setRankMap]     = useState({}); // { studentId: rankIndex }
+  const [rankMap, setRankMap]     = useState({});
+  const [showHistory, setShowHistory] = useState(false);
+  const [showRanking, setShowRanking] = useState(false);
   const [matchAnim, setMatchAnim] = useState(false);
   const studentDocIdRef           = useRef(null);
   const arenaTickets              = tickets?.arena ?? 0;
@@ -591,7 +757,9 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
       setMe(prev => ({ ...prev, gold: (prev.gold||0)+reward.gold, diamonds: (prev.diamonds||0)+reward.diamond, exp, level, maxExp }));
       await addDoc(collection(db, 'arenaLogs'), {
         studentId: docId, studentCode: me.studentCode, studentName: myName,
+        studentCharacterImage: me.characterImage || '',
         opponentId: opponent?.id, opponentCode: opponent?.studentCode, opponentName: oppName,
+        opponentCharacterImage: opponent?.characterImage || '',
         isWin, reward, createdAt: serverTimestamp(),
       });
 
@@ -669,16 +837,48 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         </button>
 
         <div className="flex gap-2 w-full max-w-xs mt-2">
-          <button onClick={() => setPhase('history')}
+          <button onClick={() => setShowHistory(true)}
             className="flex-1 py-2.5 rounded-2xl font-bold text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-all">
             📋 전적 기록
           </button>
-          <button onClick={() => setPhase('ranking')}
+          <button onClick={() => setShowRanking(true)}
             className="flex-1 py-2.5 rounded-2xl font-bold text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-all">
             🏆 랭킹
           </button>
         </div>
       </div>
+
+      {/* 전적 기록 모달 */}
+      {showHistory && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setShowHistory(false)}>
+          <div className="bg-slate-900 rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden border border-slate-700 shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
+              <h2 className="font-extrabold text-white text-lg">📋 전적 기록</h2>
+              <button onClick={() => setShowHistory(false)} className="text-slate-400 hover:text-white text-xl w-8 h-8 flex items-center justify-center">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0 p-4">
+              <HistoryInner studentDocId={studentDocIdRef.current} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 랭킹 모달 */}
+      {showRanking && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setShowRanking(false)}>
+          <div className="bg-slate-900 rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden border border-slate-700 shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
+              <h2 className="font-extrabold text-white text-lg">🏆 투기장 랭킹</h2>
+              <button onClick={() => setShowRanking(false)} className="text-slate-400 hover:text-white text-xl w-8 h-8 flex items-center justify-center">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0 p-4">
+              <RankingInner classmates={[...(me ? [me] : []), ...classmates]} studentDocId={studentDocIdRef.current} />
+            </div>
+          </div>
+        </div>
+      )}
     );
   }
 
@@ -856,23 +1056,6 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
     );
   }
 
-  // ── 랭킹 ─────────────────────────────────────────────────────
-  if (phase === 'ranking') {
-    return <RankingScreen
-      classmates={[...(me ? [me] : []), ...classmates]}
-      studentDocId={studentDocIdRef.current}
-      onBack={() => setPhase('lobby')}
-    />;
-  }
-
-  // ── 전적 기록 ────────────────────────────────────────────────
-  if (phase === 'history') {
-    return <HistoryScreen
-      studentDocId={studentDocIdRef.current}
-      studentCode={studentCode}
-      onBack={() => setPhase('lobby')}
-    />;
-  }
 
   // ── 결과 ────────────────────────────────────────────────────
   if (phase === 'result' && result) {
