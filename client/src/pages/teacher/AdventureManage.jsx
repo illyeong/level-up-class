@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, writeBatch, updateDoc, increment } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, updateDoc, increment, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 const TICKET_CONFIG = {
@@ -16,7 +16,7 @@ const COLOR_MAP = {
 
 const getSeatNum = (code) => parseInt(code?.split('-').pop()) || 0;
 
-function AdventureManage() {
+function AdventureManage({ selectedClass }) {
   const [students, setStudents]     = useState([]);
   const [isLoading, setIsLoading]   = useState(true);
   const [isBusy, setIsBusy]         = useState(false);
@@ -31,7 +31,14 @@ function AdventureManage() {
     const load = async () => {
       setIsLoading(true);
       try {
-        const snap = await getDocs(collection(db, 'students'));
+        const tid = selectedClass?.id;
+        const tuid = selectedClass?.teacherUid;
+        const q = tid
+          ? query(collection(db, 'students'), where('classId', '==', tid))
+          : tuid
+          ? query(collection(db, 'students'), where('teacherUid', '==', tuid))
+          : collection(db, 'students');
+        const snap = await getDocs(q);
         setStudents(
           snap.docs.map(d => ({ id: d.id, ...d.data() }))
             .sort((a, b) => getSeatNum(a.studentCode) - getSeatNum(b.studentCode))

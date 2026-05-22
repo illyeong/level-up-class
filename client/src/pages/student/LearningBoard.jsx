@@ -111,8 +111,8 @@ function CommentSection({ post, boardId, student }) {
         <div className="mt-2 space-y-2">
           {localComments.map(c => (
             <div key={c.id} className="flex items-start gap-2">
-              <div className="w-6 h-6 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                {c.characterImage ? <img src={c.characterImage} alt="" className="w-full h-full object-contain scale-150" /> : <span className="text-[10px]">🧑</span>}
+              <div className="w-10 h-10 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                {c.characterImage ? <img src={c.characterImage} alt="" className="w-full h-full object-contain scale-[2]" /> : <span className="text-base">🧑</span>}
               </div>
               <div className="flex-1">
                 {editingId === c.id ? (
@@ -144,8 +144,8 @@ function CommentSection({ post, boardId, student }) {
 
           {student && (
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                {student.characterImage ? <img src={student.characterImage} alt="" className="w-full h-full object-contain scale-150" /> : <span className="text-[10px]">🧑</span>}
+              <div className="w-10 h-10 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                {student.characterImage ? <img src={student.characterImage} alt="" className="w-full h-full object-contain scale-[2]" /> : <span className="text-base">🧑</span>}
               </div>
               <input value={text} onChange={e => setText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && submitComment()}

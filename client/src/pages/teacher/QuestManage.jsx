@@ -86,7 +86,8 @@ const RECOMMENDED = [
 ];
 
 const DEFAULT_FORM = {
-  title: '', description: '', type: 'daily', selfCheck: false, repeatDaily: false,
+  title: '', description: '', type: 'daily', selfCheck: false,
+  repeatDaily: true, repeatWeekly: true,
   difficulty: 'easy', rewards: { exp: 100, gold: 100, diamond: 0 }, skills: [], active: true,
 };
 
@@ -321,6 +322,21 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
             </div>
           )}
 
+          {form.type === 'weekly' && (
+            <div className="flex items-center justify-between p-3 bg-violet-50 rounded-xl border border-violet-200">
+              <div>
+                <div className="text-sm font-bold text-violet-800">매주 반복</div>
+                <div className="text-xs text-violet-600 mt-0.5">매주 월요일 자동 초기화되고 다시 활성화돼요</div>
+              </div>
+              <button onClick={() => set('repeatWeekly', !form.repeatWeekly)}
+                className={`w-12 h-6 rounded-full transition-colors relative
+                  ${form.repeatWeekly ? 'bg-violet-500' : 'bg-slate-300'}`}>
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all
+                  ${form.repeatWeekly ? 'left-7' : 'left-1'}`} />
+              </button>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-2">보상</label>
             <div className="grid grid-cols-3 gap-2">
@@ -425,17 +441,19 @@ function QuestManage({ selectedClass }) {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const questQ = selectedClass?.teacherUid
-        ? query(collection(db, 'quests'), where('teacherUid', '==', selectedClass.teacherUid))
-        : collection(db, 'quests');
       const [studentsSnap, questsSnap] = await Promise.all([
         getDocs(collection(db, 'students')),
-        getDocs(questQ),
+        getDocs(collection(db, 'quests')),
       ]);
 
       setStudentCount(studentsSnap.size);
 
-      const list = questsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // teacherUid로 필터링 (없으면 전체, admin_master_001은 null 퀘스트 포함)
+      const tid = selectedClass?.teacherUid;
+      let list = questsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (tid) {
+        list = list.filter(q => q.teacherUid === tid || (!q.teacherUid && tid === 'admin_master_001'));
+      }
 
       // 각 퀘스트의 체크 완료 인원 가져오기
       const listWithStats = await Promise.all(
@@ -490,7 +508,12 @@ function QuestManage({ selectedClass }) {
 
   const openFromTemplate = (template) => {
     setEditingQuestId(null);
-    setForm({ ...DEFAULT_FORM, ...template, repeatDaily: false });
+    setForm({
+      ...DEFAULT_FORM,
+      ...template,
+      repeatDaily:  template.type === 'daily'  ? true : false,
+      repeatWeekly: template.type === 'weekly' ? true : false,
+    });
     setIsFormOpen(true);
   };
 

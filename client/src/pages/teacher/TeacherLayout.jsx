@@ -15,6 +15,7 @@ import BossRaidManage from './BossRaidManage';
 import QuestKiosk from './QuestKiosk';
 import AdventureManage from './AdventureManage';
 import BoardManage from './BoardManage';
+import TeacherCharacter from './TeacherCharacter';
 import FeedbackBoard from './FeedbackBoard';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
@@ -89,8 +90,8 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'bossRaidManage'    && <BossRaidManage />}
 
         {/* 임시 준비 중 화면들 */}
-        {currentView === 'myCharacter'     && <div className="p-10 text-2xl font-bold text-slate-800">선생님 캐릭터 룸 (준비 중 🦸‍♂️)</div>}
-        {currentView === 'adventureManage' && <AdventureManage />}
+        {currentView === 'myCharacter'     && <TeacherCharacter selectedClass={selectedClass} />}
+        {currentView === 'adventureManage' && <AdventureManage selectedClass={selectedClass} />}
         {currentView === 'boardManage'     && <BoardManage selectedClass={selectedClass} user={user} />}
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
         
