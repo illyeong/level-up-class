@@ -47,7 +47,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'dashboard' && <TeacherDashboard onStudentTestLogin={onStudentTestLogin} selectedClass={selectedClass} />}
 
         {/* 학생 계정 발급 화면 */}
-        {currentView === 'accountIssue'    && <AccountIssue user={user} />}
+        {currentView === 'accountIssue'    && <AccountIssue user={user} selectedClass={selectedClass} />}
         {currentView === 'questManage'     && <QuestManage selectedClass={selectedClass} />}
         {currentView === 'bankManage'       && <BankManage />}
         {currentView === 'classShopManage' && <ClassShopManage />}
@@ -58,7 +58,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {/* 임시 준비 중 화면들 */}
         {currentView === 'myCharacter'     && <div className="p-10 text-2xl font-bold text-slate-800">선생님 캐릭터 룸 (준비 중 🦸‍♂️)</div>}
         {currentView === 'adventureManage' && <AdventureManage />}
-        {currentView === 'boardManage'     && <BoardManage selectedClass={selectedClass} />}
+        {currentView === 'boardManage'     && <BoardManage selectedClass={selectedClass} user={user} />}
         
       </main>
 

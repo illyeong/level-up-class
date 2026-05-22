@@ -5,6 +5,25 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
+// 이미지 압축 (최대 800px, JPEG 70%)
+const compressImage = (file) => new Promise((resolve) => {
+  const img = new Image();
+  img.onload = () => {
+    const MAX = 800;
+    let w = img.width, h = img.height;
+    if (w > MAX || h > MAX) {
+      if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+      else        { w = Math.round(w * MAX / h); h = MAX; }
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    resolve(canvas.toDataURL('image/jpeg', 0.7));
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(file);
+});
+
 const COLORS = [
   'bg-yellow-50 border-yellow-200',
   'bg-sky-50 border-sky-200',
@@ -17,19 +36,30 @@ const COLORS = [
 // ── 게시물 카드 ───────────────────────────────────────────────
 function PostCard({ post, index }) {
   return (
-    <div className={`rounded-2xl border-2 p-4 shadow-sm ${COLORS[index % COLORS.length]}`}>
+    <div className={`rounded-2xl border-2 p-4 shadow-sm
+      ${post.isTeacher ? 'bg-indigo-50 border-indigo-200' : COLORS[index % COLORS.length]}`}>
       <div className="flex items-center gap-2 mb-3">
         <div className="w-10 h-10 rounded-full bg-white border-2 border-white shadow overflow-hidden shrink-0 flex items-center justify-center">
-          {post.characterImage ? (
+          {post.isTeacher ? (
+            <span className="text-lg">👑</span>
+          ) : post.characterImage ? (
             <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-150" />
           ) : (
             <span className="text-lg">🧑‍🎓</span>
           )}
         </div>
-        <span className="font-extrabold text-slate-800 text-xs truncate">{post.studentName}</span>
+        <span className={`font-extrabold text-xs truncate ${post.isTeacher ? 'text-indigo-700' : 'text-slate-800'}`}>
+          {post.studentName}
+        </span>
       </div>
-      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{post.content}</p>
-      <div className="text-[10px] text-slate-400 mt-2">
+      {post.content && (
+        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-2">{post.content}</p>
+      )}
+      {post.imageBase64 && (
+        <img src={post.imageBase64} alt="첨부 이미지"
+          className="w-full rounded-xl object-cover max-h-48 mb-2 border border-slate-200" />
+      )}
+      <div className="text-[10px] text-slate-400">
         {post.createdAt?.toDate?.()?.toLocaleDateString('ko-KR', {
           month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
         }) || ''}
@@ -48,8 +78,11 @@ export default function LearningBoard({ studentCode }) {
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [showWrite, setShowWrite]     = useState(false);
   const [content, setContent]         = useState('');
+  const [imageBase64, setImageBase64] = useState('');
   const [isPosting, setIsPosting]     = useState(false);
-  const textRef = useRef(null);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const textRef  = useRef(null);
+  const fileRef  = useRef(null);
 
   // 학생 정보 + 게시판 목록 로드
   useEffect(() => {
@@ -62,15 +95,21 @@ export default function LearningBoard({ studentCode }) {
           const d = ss.docs[0].data();
           setStudent({ id: ss.docs[0].id, ...d });
 
-          // teacherUid로 게시판 필터 (active는 클라이언트에서 처리 → 복합 인덱스 불필요)
-          const bq = d.teacherUid
-            ? query(collection(db, 'boards'), where('teacherUid', '==', d.teacherUid))
-            : collection(db, 'boards');
-          const bs = await getDocs(bq);
-          setBoards(bs.docs
-            .map(b => ({ id: b.id, ...b.data() }))
-            .filter(b => b.active !== false)
-            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+          // teacherUid로 게시판 필터
+          let boardsList = [];
+          if (d.teacherUid) {
+            const bs = await getDocs(
+              query(collection(db, 'boards'), where('teacherUid', '==', d.teacherUid))
+            );
+            boardsList = bs.docs.map(b => ({ id: b.id, ...b.data() })).filter(b => b.active !== false);
+          }
+          // 매칭 없으면 teacherUid 없는 게시판도 포함 (테스트 계정 대응)
+          if (boardsList.length === 0) {
+            const bs = await getDocs(collection(db, 'boards'));
+            boardsList = bs.docs.map(b => ({ id: b.id, ...b.data() }))
+              .filter(b => b.active !== false && !b.teacherUid);
+          }
+          setBoards(boardsList.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
         }
       } catch (e) { console.error(e); }
       finally { setIsLoading(false); }
@@ -89,8 +128,21 @@ export default function LearningBoard({ studentCode }) {
     finally { setLoadingPosts(false); }
   };
 
+  const handleImageSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) return alert('10MB 이하 이미지만 업로드 가능합니다.');
+    setIsCompressing(true);
+    try {
+      const b64 = await compressImage(file);
+      setImageBase64(b64);
+    } catch { alert('이미지 처리 실패'); }
+    finally { setIsCompressing(false); e.target.value = ''; }
+  };
+
   const submitPost = async () => {
-    if (!content.trim() || !student || !selectedBoard) return;
+    if (!content.trim() && !imageBase64) return;
+    if (!student || !selectedBoard) return;
     setIsPosting(true);
     try {
       const newPost = {
@@ -99,6 +151,7 @@ export default function LearningBoard({ studentCode }) {
         studentName:    student.name || student.studentCode,
         characterImage: student.characterImage || '',
         content:        content.trim(),
+        imageBase64:    imageBase64 || '',
         createdAt:      serverTimestamp(),
       };
       const ref = await addDoc(
@@ -106,6 +159,7 @@ export default function LearningBoard({ studentCode }) {
       );
       setPosts(prev => [{ id: ref.id, ...newPost, createdAt: { toDate: () => new Date() } }, ...prev]);
       setContent('');
+      setImageBase64('');
       setShowWrite(false);
     } catch (e) {
       console.error(e);
@@ -176,23 +230,41 @@ export default function LearningBoard({ studentCode }) {
                   className="ml-auto text-slate-400 hover:text-slate-600 text-xl">✕</button>
               </div>
 
-              <div className="p-4">
+              <div className="p-4 space-y-3">
                 <textarea
                   ref={textRef}
                   value={content}
                   onChange={e => setContent(e.target.value)}
                   placeholder="내용을 입력하세요..."
-                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none h-32 focus:outline-none focus:border-indigo-500"
+                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none h-28 focus:outline-none focus:border-indigo-500"
                 />
-                <div className="text-right text-xs text-slate-400 mt-1">{content.length}자</div>
+
+                {/* 이미지 미리보기 */}
+                {imageBase64 && (
+                  <div className="relative">
+                    <img src={imageBase64} alt="첨부 이미지"
+                      className="w-full rounded-xl object-cover max-h-40 border border-slate-200" />
+                    <button onClick={() => setImageBase64('')}
+                      className="absolute top-2 right-2 bg-slate-900/60 text-white w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center hover:bg-rose-500 transition-colors">
+                      ✕
+                    </button>
+                  </div>
+                )}
+
+                {/* 이미지 업로드 버튼 */}
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+                <button onClick={() => fileRef.current?.click()} disabled={isCompressing}
+                  className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-xl border border-slate-200 hover:border-indigo-300 transition-colors disabled:opacity-50">
+                  {isCompressing ? '⏳ 처리 중...' : '🖼️ 이미지 첨부'}
+                </button>
               </div>
 
               <div className="p-4 border-t border-slate-100 flex gap-3">
-                <button onClick={() => { setShowWrite(false); setContent(''); }}
+                <button onClick={() => { setShowWrite(false); setContent(''); setImageBase64(''); }}
                   className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm">
                   취소
                 </button>
-                <button onClick={submitPost} disabled={isPosting || !content.trim()}
+                <button onClick={submitPost} disabled={isPosting || isCompressing || (!content.trim() && !imageBase64)}
                   className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40">
                   {isPosting ? '게시 중...' : '게시하기 ✓'}
                 </button>

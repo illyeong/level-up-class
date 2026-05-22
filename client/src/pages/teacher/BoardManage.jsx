@@ -5,16 +5,22 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
-export default function BoardManage({ selectedClass }) {
+export default function BoardManage({ selectedClass, user }) {
   const [boards, setBoards]       = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle]         = useState('');
   const [desc, setDesc]           = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const [selectedBoard, setSelectedBoard] = useState(null); // 게시물 보기
+  const [selectedBoard, setSelectedBoard] = useState(null);
   const [posts, setPosts]         = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
+
+  // 글쓰기
+  const [showWrite, setShowWrite]   = useState(false);
+  const [writeContent, setWriteContent] = useState('');
+  const [isPosting, setIsPosting]   = useState(false);
+  const textRef = React.useRef(null);
 
   const fetchBoards = async () => {
     try {
@@ -73,6 +79,31 @@ export default function BoardManage({ selectedClass }) {
     finally { setLoadingPosts(false); }
   };
 
+  const submitPost = async () => {
+    if (!writeContent.trim() || !selectedBoard) return;
+    setIsPosting(true);
+    try {
+      const newPost = {
+        studentId:      null,
+        studentCode:    null,
+        studentName:    selectedClass?.schoolName
+          ? `선생님 (${selectedClass.schoolName})`
+          : (user?.email || '선생님'),
+        characterImage: '',
+        isTeacher:      true,
+        content:        writeContent.trim(),
+        createdAt:      serverTimestamp(),
+      };
+      const ref = await addDoc(
+        collection(db, 'boards', selectedBoard.id, 'posts'), newPost
+      );
+      setPosts(prev => [{ id: ref.id, ...newPost, createdAt: { toDate: () => new Date() } }, ...prev]);
+      setWriteContent('');
+      setShowWrite(false);
+    } catch (e) { alert('게시 실패'); }
+    finally { setIsPosting(false); }
+  };
+
   const deletePost = async (postId) => {
     if (!window.confirm('이 게시물을 삭제할까요?')) return;
     await deleteDoc(doc(db, 'boards', selectedBoard.id, 'posts', postId));
@@ -109,39 +140,91 @@ export default function BoardManage({ selectedClass }) {
 
           {loadingPosts ? (
             <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
-          ) : posts.length === 0 ? (
-            <div className="text-center py-20 text-slate-400">
-              <div className="text-5xl mb-3">📭</div>
-              <p className="font-bold text-slate-500">아직 게시물이 없습니다</p>
-            </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-24">
               {posts.map((post, i) => (
                 <div key={post.id}
-                  className={`rounded-2xl border-2 p-4 shadow-sm relative group ${COLORS[i % COLORS.length]}`}>
-                  {/* 삭제 버튼 */}
+                  className={`rounded-2xl border-2 p-4 shadow-sm relative group
+                    ${post.isTeacher ? 'bg-indigo-50 border-indigo-200' : COLORS[i % COLORS.length]}`}>
                   <button onClick={() => deletePost(post.id)}
                     className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 text-xs font-bold transition-all">
                     ✕
                   </button>
-                  {/* 아바타 + 이름 */}
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-10 h-10 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
-                      {post.characterImage ? (
+                      {post.isTeacher ? (
+                        <span className="text-lg">👑</span>
+                      ) : post.characterImage ? (
                         <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-150" />
                       ) : (
                         <span className="text-lg">🧑‍🎓</span>
                       )}
                     </div>
-                    <span className="font-extrabold text-slate-800 text-xs truncate">{post.studentName}</span>
+                    <span className={`font-extrabold text-xs truncate ${post.isTeacher ? 'text-indigo-700' : 'text-slate-800'}`}>
+                      {post.studentName}
+                    </span>
                   </div>
-                  {/* 내용 */}
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{post.content}</p>
-                  <div className="text-[10px] text-slate-400 mt-2">
+                  {post.content && (
+                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-2">{post.content}</p>
+                  )}
+                  {post.imageBase64 && (
+                    <img src={post.imageBase64} alt="" className="w-full rounded-xl object-cover max-h-40 mb-2 border border-slate-200" />
+                  )}
+                  <div className="text-[10px] text-slate-400 mt-1">
                     {post.createdAt?.toDate?.()?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || ''}
                   </div>
                 </div>
               ))}
+              {posts.length === 0 && (
+                <div className="col-span-full text-center py-16 text-slate-400">
+                  <div className="text-5xl mb-3">📭</div>
+                  <p className="font-bold text-slate-500">아직 게시물이 없습니다</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 글쓰기 FAB */}
+          <button onClick={() => { setShowWrite(true); setTimeout(() => textRef.current?.focus(), 50); }}
+            className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-xl text-2xl flex items-center justify-center transition-all active:scale-95 z-10">
+            ✏️
+          </button>
+
+          {/* 글쓰기 모달 */}
+          {showWrite && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center text-xl shadow-sm">
+                    👑
+                  </div>
+                  <div>
+                    <div className="font-extrabold text-indigo-800 text-sm">선생님</div>
+                    <div className="text-[10px] text-indigo-400">{selectedBoard?.title}에 게시</div>
+                  </div>
+                  <button onClick={() => { setShowWrite(false); setWriteContent(''); }}
+                    className="ml-auto text-slate-400 hover:text-slate-600 text-xl">✕</button>
+                </div>
+                <div className="p-4">
+                  <textarea
+                    ref={textRef}
+                    value={writeContent}
+                    onChange={e => setWriteContent(e.target.value)}
+                    placeholder="내용을 입력하세요..."
+                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none h-32 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div className="p-4 border-t border-slate-100 flex gap-3">
+                  <button onClick={() => { setShowWrite(false); setWriteContent(''); }}
+                    className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm">
+                    취소
+                  </button>
+                  <button onClick={submitPost} disabled={isPosting || !writeContent.trim()}
+                    className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40">
+                    {isPosting ? '게시 중...' : '게시하기 ✓'}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

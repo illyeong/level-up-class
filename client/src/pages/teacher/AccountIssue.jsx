@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, getDocs, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, updateDoc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 const newPin = () => Math.floor(1000 + Math.random() * 9000).toString();
@@ -15,7 +15,7 @@ const getPrefix = (students) => {
   return parts.slice(0, parts.length - 1).join('-') || 'SINSEOK-5';
 };
 
-function AccountIssue({ user }) {
+function AccountIssue({ user, selectedClass }) {
   const [students, setStudents]         = useState([]);
   const [studentCount, setStudentCount] = useState(25);
   const [isLoading, setIsLoading]       = useState(false);
@@ -33,8 +33,11 @@ function AccountIssue({ user }) {
   const [isAdding, setIsAdding]         = useState(false);
 
   const fetchStudents = async () => {
+    if (!selectedClass?.id) { setStudents([]); return; }
     try {
-      const snap = await getDocs(collection(db, 'students'));
+      const snap = await getDocs(
+        query(collection(db, 'students'), where('classId', '==', selectedClass.id))
+      );
       const list = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => getSeatNum(a.studentCode) - getSeatNum(b.studentCode));
