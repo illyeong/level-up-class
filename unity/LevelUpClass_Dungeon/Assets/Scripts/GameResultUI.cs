@@ -253,12 +253,6 @@ public class GameResultUI : MonoBehaviour
 
         var r = _rewards[_selected];
 
-        // React(Firebase)로 보상 전송
-#if UNITY_WEBGL && !UNITY_EDITOR
-        string json = $"{{\"type\":\"DUNGEON_RESULT\",\"gold\":{r.gold},\"exp\":{r.exp},\"diamond\":{r.diamond}}}";
-        SendDungeonResultToReact(json);
-#endif
-
         if (GameManager.Instance != null)
             GameManager.Instance.AddGold(r.gold);
 
@@ -269,7 +263,15 @@ public class GameResultUI : MonoBehaviour
 
         if (_dimOverlay) Destroy(_dimOverlay);
         rewardPanel?.SetActive(false);
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // 보상 전송 후 React 맵 화면으로 복귀
+        string json = $"{{\"type\":\"DUNGEON_RESULT\",\"gold\":{r.gold},\"exp\":{r.exp},\"diamond\":{r.diamond}}}";
+        SendDungeonResultToReact(json);
+        SendDungeonResultToReact("{\"type\":\"DUNGEON_EXIT\"}");
+#else
         GameManager.Instance?.GoToScene(GameManager.SceneLobby);
+#endif
     }
 
     // ────────────────────────────────────────────────────────
@@ -301,7 +303,14 @@ public class GameResultUI : MonoBehaviour
 #endif
         }
         Time.timeScale = 1f;
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // WebGL: React 맵 화면으로 복귀
+        SendDungeonResultToReact("{\"type\":\"DUNGEON_EXIT\"}");
+#else
+        // 에디터 테스트: 기존 로비 씬으로
         GameManager.Instance?.GoToScene(GameManager.SceneLobby);
+#endif
     }
 
     // ────────────────────────────────────────────────────────

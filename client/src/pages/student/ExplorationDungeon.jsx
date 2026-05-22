@@ -271,13 +271,19 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
     if (phase !== 'playing') return;
     const handler = (e) => {
       if (!e.data?.type) return;
-      if (e.data.type === 'DUNGEON_EXIT') setPhase('map');
       if (e.data.type === 'UNITY_READY' || e.data.type === 'DUNGEON_READY') sendCharacterData();
+
       if (e.data.type === 'DUNGEON_RESULT') {
         const { gold = 0, exp = 0, diamond = 0 } = e.data;
-        applyReward({ gold, exp, diamond });
-        // 클리어 처리
-        if (selectedDungeon !== null) markCompleted(selectedDungeon.id);
+        // Firebase 저장 완료 후 EXIT 처리하도록 pendingExit 플래그 설정
+        applyReward({ gold, exp, diamond }).then(() => {
+          if (selectedDungeon !== null) markCompleted(selectedDungeon.id);
+        });
+      }
+
+      // DUNGEON_EXIT: 약간의 딜레이 후 맵으로 전환 (보상 저장 시간 확보)
+      if (e.data.type === 'DUNGEON_EXIT') {
+        setTimeout(() => setPhase('map'), 500);
       }
     };
     window.addEventListener('message', handler);
