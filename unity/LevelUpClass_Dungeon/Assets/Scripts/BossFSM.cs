@@ -39,7 +39,8 @@ public class BossFSM : MonoBehaviour
 
     [Header("피격 이펙트")]
     public GameObject hitEffectPrefab;
-    public GameObject critHitEffectPrefab;
+    public GameObject critHitEffectPrefab;   // 몬스터 위치에 재생되는 이펙트
+    public GameObject critBoomEffectPrefab;  // 머리 위에 뜨는 Boom! 이펙트
 
     [Header("착지 이펙트 (Rage 점프 착지 시)")]
     public GameObject landingEffectPrefab; // 파티클 프리팹
@@ -318,7 +319,6 @@ public class BossFSM : MonoBehaviour
 
         Vector3 textPos = transform.position + new Vector3(0, 1.5f, 0);
         SpriteFont.ShowDamage(damage.ToString(), textPos, FontType.Rainbow);
-        if (isCritical) SpawnCritLabel(textPos + new Vector3(0, 0.5f, 0));
 
         GetComponentInChildren<MonsterHpBar>(true)?.Show();
         if (bossHpFillImage != null)
@@ -331,6 +331,14 @@ public class BossFSM : MonoBehaviour
         {
             var fx = Instantiate(effectToSpawn, transform.position, Quaternion.identity);
             Destroy(fx, 2f);
+        }
+
+        // 크리티컬 Boom! 이펙트 (머리 위)
+        if (isCritical && critBoomEffectPrefab != null)
+        {
+            Vector3 boomPos = transform.position + new Vector3(0, 2.5f, 0);
+            var boom = Instantiate(critBoomEffectPrefab, boomPos, Quaternion.identity);
+            Destroy(boom, 2f);
         }
 
         if (currentHealth <= 0) { Die(); return; }
@@ -361,21 +369,6 @@ public class BossFSM : MonoBehaviour
 
         Invoke(nameof(ActivateClearPortal), 2f);
         Destroy(gameObject, 4f);
-    }
-
-    static void SpawnCritLabel(Vector3 pos)
-    {
-        var go = new UnityEngine.GameObject("치명타");
-        go.transform.position = pos;
-        var tm = go.AddComponent<TextMesh>();
-        tm.text          = "치명타";
-        tm.color         = new Color(1f, 0.7f, 0f);
-        tm.fontSize      = 50;
-        tm.characterSize = 0.12f;
-        tm.anchor        = TextAnchor.MiddleCenter;
-        tm.fontStyle     = FontStyle.Bold;
-        go.GetComponent<MeshRenderer>().sortingOrder = 9998;
-        go.AddComponent<LayerLab.ArtMaker.PlayerDamageFloater>();
     }
 
     void ActivateClearPortal()

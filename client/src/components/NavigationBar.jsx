@@ -22,9 +22,9 @@ const NavigationBar = ({ changeView, currentView }) => {
     {
       id: 'myCharacter', icon: '🦸‍♂️', title: t('menu.character', '내 캐릭터'), isReady: true,
       subMenus: [
-        { title: t('submenu.avatarRoom', '아바타 룸'), id: 'avatarRoom' }, 
-        { title: t('submenu.inventory', '인벤토리 (가방)'), id: 'inventory' }, 
-        { title: t('submenu.petHouse', '펫 하우스'), id: 'petHouse' }, 
+        { title: t('submenu.avatarRoom', '아바타 룸'), id: 'avatarRoom' },
+        { title: t('submenu.inventory', '인벤토리 (가방)'), id: 'inventory' },
+        { title: '🔒 펫 하우스 (업데이트)', id: 'petHouse', isReady: false },
         { title: t('submenu.shop', '상점'), id: 'shop' }
       ]
     },
@@ -36,10 +36,6 @@ const NavigationBar = ({ changeView, currentView }) => {
     },
     {
       id: 'board', icon: '📋', title: '학습 게시판', isReady: true,
-      subMenus: []
-    },
-    {
-      id: 'petHouse', icon: '🐔', title: '펫 하우스', isReady: true,
       subMenus: []
     },
     {
@@ -96,9 +92,10 @@ const NavigationBar = ({ changeView, currentView }) => {
     }
   };
 
-  const handleSubMenuClick = (e, subMenuId) => {
-    e.stopPropagation(); 
-    if (changeView) changeView(subMenuId); 
+  const handleSubMenuClick = (e, subMenu) => {
+    e.stopPropagation();
+    if (subMenu.isReady === false) return; // 잠긴 메뉴
+    if (changeView) changeView(subMenu.id);
   };
 
   return (
@@ -164,11 +161,13 @@ const NavigationBar = ({ changeView, currentView }) => {
                 {menu.subMenus.map((subMenu, idx) => (
                   <li 
                     key={idx} 
-                    onClick={(e) => handleSubMenuClick(e, subMenu.id)}
-                    className={`pl-14 py-2 text-sm rounded-lg cursor-pointer transition-colors flex items-center before:content-[''] before:w-1 before:h-1 before:rounded-full before:mr-3
-                      ${currentView === subMenu.id 
-                        ? 'text-amber-300 bg-indigo-900/50 before:bg-amber-400 font-bold' 
-                        : 'text-indigo-300 hover:text-amber-200 hover:bg-indigo-900/30 before:bg-indigo-600 hover:before:bg-amber-400'
+                    onClick={(e) => handleSubMenuClick(e, subMenu)}
+                    className={`pl-14 py-2 text-sm rounded-lg transition-colors flex items-center before:content-[''] before:w-1 before:h-1 before:rounded-full before:mr-3
+                      ${subMenu.isReady === false
+                        ? 'text-indigo-700 cursor-not-allowed before:bg-indigo-800 opacity-50'
+                        : currentView === subMenu.id
+                          ? 'text-amber-300 bg-indigo-900/50 before:bg-amber-400 font-bold cursor-pointer'
+                          : 'text-indigo-300 hover:text-amber-200 hover:bg-indigo-900/30 before:bg-indigo-600 hover:before:bg-amber-400 cursor-pointer'
                       }
                     `}
                   >

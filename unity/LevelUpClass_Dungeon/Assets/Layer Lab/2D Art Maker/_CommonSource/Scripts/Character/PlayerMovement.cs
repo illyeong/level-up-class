@@ -25,7 +25,9 @@ namespace LayerLab.ArtMaker
         private PlayerCombat playerCombat; 
         
         private bool isGrounded;
-        private string currentAnim = ""; 
+        private string currentAnim = "";
+
+        public void ResetAnimState() { currentAnim = ""; }
 
         void Start()
         {

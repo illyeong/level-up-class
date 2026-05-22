@@ -158,10 +158,13 @@ namespace LayerLab.ArtMaker
         void ResetHitState()
         {
             isHit = false;
+            // PlayerMovement가 currentAnim을 다시 평가하도록 리셋
+            GetComponent<PlayerMovement>()?.ResetAnimState();
+
             if (skeletonGraphic != null && skeletonGraphic.AnimationState != null)
-                skeletonGraphic.AnimationState.AddAnimation(0, idleAnimName, true, 0f);
+                skeletonGraphic.AnimationState.SetAnimation(0, idleAnimName, true);
             else if (skeletonAnim != null && skeletonAnim.AnimationState != null)
-                skeletonAnim.AnimationState.AddAnimation(0, idleAnimName, true, 0f);
+                skeletonAnim.AnimationState.SetAnimation(0, idleAnimName, true);
         }
 
         void ResetInvincibility()

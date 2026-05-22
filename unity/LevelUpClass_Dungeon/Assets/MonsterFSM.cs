@@ -14,7 +14,8 @@ public class MonsterFSM : MonoBehaviour
 
     [Header("피격 이펙트")]
     public GameObject hitEffectPrefab;
-    public GameObject critHitEffectPrefab;
+    public GameObject critHitEffectPrefab;   // 몬스터 위치에 재생되는 이펙트
+    public GameObject critBoomEffectPrefab;  // 머리 위에 뜨는 Boom! 이펙트
 
     [Header("이동 및 공격 설정")]
     public float moveSpeed = 2f;
@@ -178,7 +179,6 @@ public class MonsterFSM : MonoBehaviour
         Vector3 textPos = transform.position + new Vector3(0, 1.5f, 0);
 
         SpriteFont.ShowDamage(damage.ToString(), textPos, FontType.Rainbow);
-        if (isCritical) SpawnCritLabel(textPos + new Vector3(0, 0.5f, 0));
 
         // 피격 이펙트 스폰
         GameObject effectToSpawn = (isCritical && critHitEffectPrefab != null)
@@ -187,6 +187,14 @@ public class MonsterFSM : MonoBehaviour
         {
             var fx = Instantiate(effectToSpawn, transform.position, Quaternion.identity);
             Destroy(fx, 2f);
+        }
+
+        // 크리티컬 Boom! 이펙트 (머리 위)
+        if (isCritical && critBoomEffectPrefab != null)
+        {
+            Vector3 boomPos = transform.position + new Vector3(0, 2f, 0);
+            var boom = Instantiate(critBoomEffectPrefab, boomPos, Quaternion.identity);
+            Destroy(boom, 2f);
         }
 
         GetComponentInChildren<MonsterHpBar>(true)?.Show();
@@ -210,21 +218,6 @@ public class MonsterFSM : MonoBehaviour
     {
         if (isDead) return;
         isHit = false;
-    }
-
-    static void SpawnCritLabel(Vector3 pos)
-    {
-        var go = new UnityEngine.GameObject("치명타");
-        go.transform.position = pos;
-        var tm = go.AddComponent<TextMesh>();
-        tm.text        = "치명타";
-        tm.color       = new Color(1f, 0.7f, 0f);  // 황금색
-        tm.fontSize    = 50;
-        tm.characterSize = 0.12f;
-        tm.anchor      = TextAnchor.MiddleCenter;
-        tm.fontStyle   = FontStyle.Bold;
-        go.GetComponent<MeshRenderer>().sortingOrder = 9998;
-        go.AddComponent<LayerLab.ArtMaker.PlayerDamageFloater>();
     }
 
     void Die()
