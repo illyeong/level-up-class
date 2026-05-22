@@ -21,6 +21,7 @@ import ClassShop        from './pages/student/ClassShop.jsx';
 import AdventurePage    from './pages/student/AdventurePage.jsx';
 import StockMarket      from './pages/student/StockMarket.jsx';
 import LearningBoard    from './pages/student/LearningBoard.jsx';
+import PetHouse        from './pages/student/PetHouse.jsx';
 
 const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','miniGame'];
 
@@ -188,7 +189,8 @@ function App() {
         {ADVENTURE_VIEWS.includes(currentView) && (
           <AdventurePage currentView={currentView} studentCode={activeStudentCode} />
         )}
-        {currentView === 'board' && <LearningBoard studentCode={activeStudentCode} />}
+        {currentView === 'board'    && <LearningBoard studentCode={activeStudentCode} />}
+        {currentView === 'petHouse' && <PetHouse />}
         {currentView === 'academy' && (
           <div className="p-8 text-2xl font-bold text-slate-800">아카데미 화면 (준비 중 📚)</div>
         )}

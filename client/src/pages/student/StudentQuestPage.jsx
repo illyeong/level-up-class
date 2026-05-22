@@ -110,18 +110,6 @@ function ActiveQuestCard({ quest, completion, onToggleCheck, onAcknowledge, isBu
           )}
         </div>
 
-        {/* 능력치 */}
-        {quest.skills?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {quest.skills.map(skill => (
-              <span key={skill}
-                className={`text-xs font-semibold px-2.5 py-1 rounded-full
-                  ${SKILL_COLORS[skill] || 'bg-slate-100 text-slate-600'}`}>
-                {skill} +1
-              </span>
-            ))}
-          </div>
-        )}
 
         {/* 액션 */}
         {isRewarded ? (

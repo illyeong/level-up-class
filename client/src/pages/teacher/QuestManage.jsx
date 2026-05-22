@@ -126,8 +126,7 @@ function ActiveQuestCard({ quest, studentCount, onDetail, onEdit, onDuplicate, o
           {quest.rewards?.diamond > 0 && <span>💎+{quest.rewards.diamond}</span>}
         </div>
 
-        {/* 능력치 */}
-        {quest.skills?.length > 0 && (
+        {quest.skills?.length > 0 && false && (
           <div className="flex flex-wrap gap-1 mb-3">
             {quest.skills.map(skill => (
               <span key={skill}
@@ -355,20 +354,6 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-2">능력치 태그 (선택)</label>
-            <div className="flex flex-wrap gap-2">
-              {SKILL_OPTIONS.map(skill => (
-                <button key={skill} onClick={() => onToggleSkill(skill)}
-                  className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-colors
-                    ${form.skills.includes(skill)
-                      ? (SKILL_COLORS[skill] || 'bg-slate-100 text-slate-600 border-slate-200')
-                      : 'bg-white text-slate-400 border-slate-200 hover:border-slate-400'}`}>
-                  {skill} +1
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <div className="p-4 border-t border-slate-100 flex gap-3 shrink-0">

@@ -39,6 +39,10 @@ const NavigationBar = ({ changeView, currentView }) => {
       subMenus: []
     },
     {
+      id: 'petHouse', icon: '🐔', title: '펫 하우스', isReady: true,
+      subMenus: []
+    },
+    {
       id: 'academy', icon: '📚', title: t('menu.academy', '아카데미'), isReady: false,
       subMenus: [
         { title: t('submenu.assignment', '과제 제출'), id: 'assignment' },

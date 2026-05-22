@@ -33,8 +33,6 @@ export default function MyCharacter({ studentCode }) {
   const gold        = studentData?.gold || 0;
   const diamond     = studentData?.diamonds || 0;
   const image       = studentData?.characterImage;
-  const skillPoints = studentData?.skillPoints || {};
-
   const expPercentage = Math.min(100, (exp / maxExp) * 100);
 
   // 레벨 기반 스탯 (자동 계산)
@@ -45,15 +43,6 @@ export default function MyCharacter({ studentCode }) {
     crit:        5   + Math.floor(level * 0.5),
     attackSpeed: 10  + Math.floor(level * 1),
   };
-
-  const SKILL_META = [
-    { key: '인성',    icon: '💜', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-    { key: '의사소통', icon: '💙', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-    { key: '성실성',  icon: '💚', color: 'bg-green-100 text-green-700 border-green-200' },
-    { key: '창의성',  icon: '💛', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-    { key: '협동심',  icon: '💙', color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-    { key: '자기관리', icon: '🩶', color: 'bg-slate-100 text-slate-600 border-slate-200' },
-  ];
 
   const STAT_META = [
     { key: 'hp',          label: '체력',       icon: '❤️' },
@@ -145,25 +134,6 @@ export default function MyCharacter({ studentCode }) {
             </div>
           </div>
 
-          {/* 스킬 포인트 */}
-          <div className="bg-white rounded-3xl shadow-lg border border-slate-100 p-6">
-            <h3 className="text-base font-extrabold text-slate-800 mb-4 flex items-center gap-2">
-              ✨ 역량 포인트 <span className="text-xs text-slate-400 font-medium">퀘스트 완료 시 적립</span>
-            </h3>
-            <div className="grid grid-cols-3 gap-2">
-              {SKILL_META.map(s => {
-                const pts = skillPoints[s.key] || 0;
-                return (
-                  <div key={s.key}
-                    className={`flex flex-col items-center gap-1 rounded-2xl border px-3 py-3 ${s.color}`}>
-                    <span className="text-xl">{s.icon}</span>
-                    <span className="text-[11px] font-extrabold">{s.key}</span>
-                    <span className="text-lg font-black">{pts}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
 
         </div>
       </div>
