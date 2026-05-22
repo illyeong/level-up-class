@@ -54,7 +54,7 @@ const NavigationBar = ({ changeView, currentView }) => {
         { title: '탐험던전',  id: 'explorationDungeon' },
         { title: '투기장',   id: 'arena' },
         { title: '보스 레이드', id: 'bossRaid' },
-        { title: '미니 게임', id: 'miniGame' }
+        { title: '🔒 미니 게임 (업데이트)', id: 'miniGame', isReady: false }
       ]
     },
     {

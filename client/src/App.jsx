@@ -22,6 +22,7 @@ import AdventurePage    from './pages/student/AdventurePage.jsx';
 import StockMarket      from './pages/student/StockMarket.jsx';
 import LearningBoard    from './pages/student/LearningBoard.jsx';
 import PetHouse        from './pages/student/PetHouse.jsx';
+import Arena          from './pages/student/Arena.jsx';
 
 const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','miniGame'];
 

@@ -4,6 +4,7 @@ import { db } from '../../firebase';
 import QuizDungeon from './QuizDungeon';
 import BossRaid from './BossRaid';
 import ExplorationDungeon from './ExplorationDungeon';
+import Arena from './Arena';
 
 // ── 이용권 설정 ────────────────────────────────────────────────
 const TICKET_CONFIG = {
@@ -52,10 +53,10 @@ function TicketBar({ tickets, isRefreshing, studentInfo }) {
             <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-indigo-400 rounded-full transition-all"
-                style={{ width: `${Math.min(100, Math.round(((studentInfo.exp ?? 0) / (studentInfo.maxExp ?? 1000)) * 100))}%` }}
+                style={{ width: `${Math.min(100, Math.round(((studentInfo.exp ?? 0) / (studentInfo.maxExp ?? 100)) * 100))}%` }}
               />
             </div>
-            <span className="text-[9px] text-slate-500">{studentInfo.exp ?? 0}/{studentInfo.maxExp ?? 1000}</span>
+            <span className="text-[9px] text-slate-500">{studentInfo.exp ?? 0}/{studentInfo.maxExp ?? 100}</span>
           </div>
           {/* 골드 */}
           <div className="flex flex-col items-center">
@@ -236,10 +237,12 @@ function AdventurePage({ currentView, studentCode }) {
         const sDoc = snap.docs[0];
         const data = sDoc.data();
         setStudentDocId(sDoc.id);
+        const lv = data.level ?? 1;
+        const calcMaxExp = (l) => l <= 10 ? 100 : l <= 30 ? 300 : l <= 60 ? 800 : 2000;
         setStudentInfo({
-          level:    data.level    ?? 1,
+          level:    lv,
           exp:      data.exp      ?? 0,
-          maxExp:   data.maxExp   ?? 1000,
+          maxExp:   calcMaxExp(lv),
           gold:     data.gold     ?? 0,
           diamonds: data.diamonds ?? 0,
         });
@@ -337,6 +340,12 @@ function AdventurePage({ currentView, studentCode }) {
         />
       ) : currentView === 'explorationDungeon' ? (
         <ExplorationDungeon
+          studentCode={studentCode}
+          tickets={tickets}
+          onUseTicket={handleUseTicket}
+        />
+      ) : currentView === 'arena' ? (
+        <Arena
           studentCode={studentCode}
           tickets={tickets}
           onUseTicket={handleUseTicket}
