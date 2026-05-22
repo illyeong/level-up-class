@@ -233,6 +233,42 @@ function AccountIssue({ user }) {
 
   return (
     <div className="min-h-screen bg-slate-100 p-8">
+      {/* 인쇄 전용 카드 영역 (화면에선 숨김) */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #print-cards, #print-cards * { visibility: visible; }
+          #print-cards {
+            position: fixed; top: 0; left: 0; width: 100%;
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px; padding: 12px;
+          }
+          .print-card {
+            border: 1.5px dashed #aaa;
+            border-radius: 8px;
+            padding: 10px 14px;
+            page-break-inside: avoid;
+          }
+        }
+      `}</style>
+      <div id="print-cards" style={{ display: 'none' }}>
+        {students.map(s => (
+          <div key={s.id} className="print-card">
+            <div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>LevelUp Class 학생 계정</div>
+            <div style={{ fontWeight: 900, fontSize: 15 }}>{s.name || `${getSeatNum(s.studentCode)}번`}</div>
+            <div style={{ fontSize: 11, marginTop: 4 }}>
+              <span style={{ color: '#555' }}>코드: </span>
+              <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#3730a3' }}>{s.studentCode}</span>
+            </div>
+            <div style={{ fontSize: 11, marginTop: 2 }}>
+              <span style={{ color: '#555' }}>PIN: </span>
+              <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16, color: '#e11d48', letterSpacing: 3 }}>{s.pin}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className="max-w-5xl mx-auto">
 
         {/* 헤더 */}
