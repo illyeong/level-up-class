@@ -1,15 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 const DUNGEON_URL = '/Dungeon_Main/index.html';
 
 function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
-  const [phase, setPhase]   = useState('lobby');
-  const [isBusy, setIsBusy] = useState(false);
-  const iframeRef           = useRef(null);
-  const dungeonTickets      = tickets?.dungeon ?? 0;
-  const characterDataRef    = useRef(null); // { parts, colors }
+  const [phase, setPhase]               = useState('lobby');
+  const [isBusy, setIsBusy]             = useState(false);
+  const [dungeonReward, setDungeonReward] = useState(null);
+  const iframeRef                       = useRef(null);
+  const dungeonTickets                  = tickets?.dungeon ?? 0;
+  const characterDataRef                = useRef(null);
+  const studentDocIdRef                 = useRef(null);
+
+  const getMaxExpForLevel = (lv) =>
+    lv <= 10 ? 500 : lv <= 30 ? 1000 : lv <= 60 ? 2000 : 3500;
+
+  const calcLevelUp = (level, exp, maxExp, gained) => {
+    let lv = level || 1, ex = (exp || 0) + gained;
+    let mx = maxExp || getMaxExpForLevel(lv), leveled = false;
+    while (ex >= mx && lv < 99) { ex -= mx; lv++; mx = getMaxExpForLevel(lv); leveled = true; }
+    return { level: lv, exp: ex, maxExp: mx, leveled };
+  };
 
   // 입장 전 Firebase에서 캐릭터 데이터 미리 로드
   useEffect(() => {
@@ -19,6 +31,7 @@ function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
         const q    = query(collection(db, 'students'), where('studentCode', '==', studentCode));
         const snap = await getDocs(q);
         if (!snap.empty) {
+          studentDocIdRef.current = snap.docs[0].id;
           const d = snap.docs[0].data();
           characterDataRef.current = {
             parts:  d.parts  ?? null,
@@ -39,6 +52,25 @@ function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
     load();
   }, [studentCode]);
 
+  // 던전 보상 Firebase 반영
+  const applyDungeonReward = async ({ gold = 0, exp = 0, diamond = 0 }) => {
+    const docId = studentDocIdRef.current;
+    const cd    = characterDataRef.current;
+    if (!docId || !cd) return;
+
+    const s = cd.stats;
+    const { level, exp: newExp, maxExp } = calcLevelUp(s.level, s.exp, s.maxExp, exp);
+    try {
+      await updateDoc(doc(db, 'students', docId), {
+        gold:     (s.gold     || 0) + gold,
+        diamonds: (s.diamonds || 0) + diamond,
+        exp: newExp, level, maxExp,
+      });
+      // 로컬 stats 갱신
+      cd.stats = { ...s, gold: (s.gold||0)+gold, diamonds: (s.diamonds||0)+diamond, exp: newExp, level, maxExp };
+    } catch (e) { console.error('던전 보상 저장 에러:', e); }
+  };
+
   // Unity → React 메시지 수신
   useEffect(() => {
     if (phase !== 'playing') return;
@@ -49,6 +81,14 @@ function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
       // Unity 준비 완료 → 캐릭터 데이터 전송
       if (e.data.type === 'UNITY_READY' || e.data.type === 'DUNGEON_READY') {
         sendCharacterData();
+      }
+
+      // 던전 결과 수신 → Firebase 반영 + 보상 오버레이
+      if (e.data.type === 'DUNGEON_RESULT') {
+        const { gold = 0, exp = 0, diamond = 0 } = e.data;
+        applyDungeonReward({ gold, exp, diamond });
+        setDungeonReward({ gold, exp, diamond });
+        setTimeout(() => setDungeonReward(null), 4000);
       }
     };
     window.addEventListener('message', handler);
@@ -129,6 +169,20 @@ function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
           className="absolute top-3 right-3 z-10 bg-slate-900/70 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-colors backdrop-blur-sm">
           ✕ 나가기
         </button>
+
+        {/* 던전 보상 오버레이 */}
+        {dungeonReward && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+            <div className="bg-slate-900/80 backdrop-blur-sm rounded-3xl px-8 py-6 text-center shadow-2xl border border-white/20 animate-bounce">
+              <p className="text-white font-extrabold text-lg mb-3">🎁 던전 보상!</p>
+              <div className="flex gap-5 justify-center">
+                {dungeonReward.gold    > 0 && <div className="flex flex-col items-center"><span className="text-2xl">🪙</span><span className="text-yellow-300 font-extrabold text-sm">+{dungeonReward.gold}G</span></div>}
+                {dungeonReward.exp     > 0 && <div className="flex flex-col items-center"><span className="text-2xl">⭐</span><span className="text-indigo-300 font-extrabold text-sm">+{dungeonReward.exp} EXP</span></div>}
+                {dungeonReward.diamond > 0 && <div className="flex flex-col items-center"><span className="text-2xl">💎</span><span className="text-cyan-300 font-extrabold text-sm">+{dungeonReward.diamond}</span></div>}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

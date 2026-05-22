@@ -1,6 +1,158 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import {
+  collection, getDocs, doc, setDoc, deleteDoc,
+  query, where, serverTimestamp,
+} from 'firebase/firestore';
 import { db } from '../firebase';
+import AttendanceCheck from '../pages/student/AttendanceCheck';
+
+// ── 오늘의 퀘스트 위젯 ────────────────────────────────────────
+function TodayQuestWidget({ studentId }) {
+  const [quests, setQuests]           = useState([]);
+  const [completions, setCompletions] = useState({});
+  const [busyId, setBusyId]           = useState(null);
+  const [isLoading, setIsLoading]     = useState(true);
+
+  useEffect(() => {
+    if (!studentId) { setIsLoading(false); return; }
+    (async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'quests'), where('active', '==', true)));
+        const list = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => {
+            if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
+            return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+          });
+        setQuests(list);
+
+        const cMap = {};
+        await Promise.all(list.map(async q => {
+          const cSnap = await getDocs(collection(db, 'quests', q.id, 'completions'));
+          const mine  = cSnap.docs.find(d => d.id === studentId);
+          if (mine) cMap[q.id] = mine.data();
+        }));
+        setCompletions(cMap);
+      } catch (e) { console.error(e); }
+      finally { setIsLoading(false); }
+    })();
+  }, [studentId]);
+
+  const toggleCheck = async (quest) => {
+    if (!studentId || busyId) return;
+    const cur = completions[quest.id];
+    if (cur?.rewarded) return;
+    setBusyId(quest.id);
+    try {
+      const ref = doc(db, 'quests', quest.id, 'completions', studentId);
+      if (cur?.checked) {
+        await deleteDoc(ref);
+        setCompletions(prev => { const n = { ...prev }; delete n[quest.id]; return n; });
+      } else {
+        await setDoc(ref, { checked: true, checkedAt: serverTimestamp(), rewarded: false, rewardedBy: null });
+        setCompletions(prev => ({ ...prev, [quest.id]: { checked: true, rewarded: false } }));
+      }
+    } catch (e) { console.error(e); }
+    finally { setBusyId(null); }
+  };
+
+  const visible = quests.filter(q => !completions[q.id]?.rewarded || !completions[q.id]?.acknowledgedAt);
+
+  if (isLoading) return (
+    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 flex-1">
+      <h3 className="text-xl font-bold mb-3 text-slate-800">📜 오늘의 퀘스트</h3>
+      <p className="text-sm text-slate-400">불러오는 중...</p>
+    </div>
+  );
+
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 flex-1 overflow-hidden">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-base font-extrabold text-slate-800">📜 오늘의 퀘스트</h3>
+        <span className="text-xs text-slate-400 font-medium">{visible.length}개 진행 중</span>
+      </div>
+
+      {visible.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+          <span className="text-3xl mb-2">🎉</span>
+          <p className="font-bold text-sm">모든 퀘스트 완료!</p>
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+          {visible.map(quest => {
+            const comp      = completions[quest.id];
+            const isChecked = comp?.checked === true;
+            const isRewarded = comp?.rewarded === true;
+            const isDaily   = quest.type === 'daily';
+
+            return (
+              <div key={quest.id}
+                className={`rounded-xl border px-3 py-2.5 flex items-center gap-3 transition-all
+                  ${isRewarded   ? 'border-amber-200 bg-amber-50'
+                  : isChecked   ? 'border-teal-200 bg-teal-50'
+                  : 'border-slate-200 bg-white hover:border-indigo-200'}`}>
+
+                {/* 타입 도트 */}
+                <div className={`w-2 h-2 rounded-full shrink-0
+                  ${isDaily ? 'bg-sky-400' : 'bg-violet-400'}`} />
+
+                {/* 제목 */}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold truncate
+                    ${isRewarded ? 'text-amber-700' : isChecked ? 'text-teal-700' : 'text-slate-800'}`}>
+                    {quest.title}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full
+                      ${isDaily ? 'bg-sky-100 text-sky-600' : 'bg-violet-100 text-violet-600'}`}>
+                      {isDaily ? '일일' : '주간'}
+                    </span>
+                    {quest.rewards?.exp > 0 && (
+                      <span className="text-[9px] text-yellow-600 font-bold">⭐+{quest.rewards.exp}</span>
+                    )}
+                    {quest.rewards?.gold > 0 && (
+                      <span className="text-[9px] text-amber-600 font-bold">🪙+{quest.rewards.gold}</span>
+                    )}
+                    {quest.rewards?.diamond > 0 && (
+                      <span className="text-[9px] text-indigo-600 font-bold">💎+{quest.rewards.diamond}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 체크 버튼 or 상태 */}
+                {isRewarded ? (
+                  <span className="text-xs text-amber-600 font-bold shrink-0">🏆 완료</span>
+                ) : isChecked ? (
+                  <div className="flex flex-col items-end gap-0.5 shrink-0">
+                    <span className="text-[10px] text-teal-600 font-bold">✅ 체크됨</span>
+                    {quest.selfCheck && (
+                      <button onClick={() => toggleCheck(quest)} disabled={!!busyId}
+                        className="text-[9px] text-slate-400 hover:text-rose-400 transition-colors">
+                        취소
+                      </button>
+                    )}
+                  </div>
+                ) : quest.selfCheck ? (
+                  <button
+                    onClick={() => toggleCheck(quest)}
+                    disabled={!!busyId}
+                    className={`shrink-0 text-xs font-extrabold px-3 py-1.5 rounded-xl transition-all active:scale-95 disabled:opacity-50
+                      ${isDaily
+                        ? 'bg-sky-500 hover:bg-sky-600 text-white'
+                        : 'bg-violet-500 hover:bg-violet-600 text-white'}`}>
+                    {busyId === quest.id ? '...' : '완료 ✓'}
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-slate-400 shrink-0">교사확인</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const StudentDashboard = ({ studentCode }) => {
   const [studentData, setStudentData] = useState(null);
@@ -92,14 +244,13 @@ const StudentDashboard = ({ studentCode }) => {
           </div>
         </div>
 
-        {/* 퀘스트 요약 (우측) */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-3xl shadow-lg border border-gray-100">
-          <h3 className="text-xl font-bold mb-5 text-slate-800">📜 오늘의 퀘스트</h3>
-          <div className="flex flex-col items-center justify-center h-40 text-slate-400">
-            <span className="text-4xl mb-2">⚔️</span>
-            <p className="font-bold">퀘스트 탭에서 확인하세요</p>
-            <p className="text-sm mt-1">일일 퀘스트와 주간 퀘스트를 완료해 보상을 받아요!</p>
-          </div>
+        {/* 우측: 출석 체크 + 퀘스트 안내 */}
+        <div className="lg:col-span-2 flex flex-col gap-4">
+          {/* 출석 체크 */}
+          <AttendanceCheck studentCode={studentCode} />
+
+          {/* 오늘의 퀘스트 */}
+          <TodayQuestWidget studentId={studentData?.id} />
         </div>
       </div>
     </div>

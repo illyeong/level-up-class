@@ -23,15 +23,66 @@ const DIFF = {
   hard:   { label: '어려움', cls: 'bg-rose-100 text-rose-700' },
 };
 
+// 보상 기준: easy → gold 50 / exp 50 / diamond 25
+//            medium → gold 100 / exp 80 / diamond 50
+//            hard   → gold 200 / exp 150 / diamond 100  (diamond = gold/2)
 const RECOMMENDED = [
-  { title: '아침 독서 10분',     type: 'daily',  difficulty: 'easy',   selfCheck: true,  rewards: { exp: 50,  gold: 50,  diamond: 0 }, skills: ['성실성'],             description: '아침 시간에 10분 동안 책을 읽어요.' },
-  { title: '수업 집중하기',      type: 'daily',  difficulty: 'easy',   selfCheck: false, rewards: { exp: 100, gold: 100, diamond: 0 }, skills: ['성실성', '자기관리'],  description: '수업 시간 동안 스스로 집중해요.' },
-  { title: '숙제 완료하기',      type: 'daily',  difficulty: 'easy',   selfCheck: true,  rewards: { exp: 80,  gold: 80,  diamond: 0 }, skills: ['성실성'],             description: '오늘의 숙제를 모두 완료해요.' },
-  { title: '급식 잔반 없애기',   type: 'daily',  difficulty: 'easy',   selfCheck: true,  rewards: { exp: 50,  gold: 30,  diamond: 0 }, skills: ['인성'],              description: '음식을 남기지 않고 다 먹어요.' },
-  { title: '친구 도와주기',      type: 'weekly', difficulty: 'medium', selfCheck: false, rewards: { exp: 200, gold: 200, diamond: 1 }, skills: ['인성', '협동심'],     description: '이번 주에 어려운 친구를 도와줘요.' },
-  { title: '발표 1회 이상 하기', type: 'weekly', difficulty: 'medium', selfCheck: false, rewards: { exp: 150, gold: 150, diamond: 1 }, skills: ['의사소통'],          description: '이번 주 수업에서 1번 이상 발표해요.' },
-  { title: '모둠 활동 참여하기', type: 'weekly', difficulty: 'medium', selfCheck: true,  rewards: { exp: 180, gold: 150, diamond: 1 }, skills: ['협동심', '의사소통'], description: '모둠 활동에 적극적으로 참여해요.' },
-  { title: '독서 감상문 쓰기',   type: 'weekly', difficulty: 'hard',   selfCheck: false, rewards: { exp: 300, gold: 250, diamond: 2 }, skills: ['창의성', '성실성'],   description: '책 한 권을 읽고 감상문을 써요.' },
+  {
+    title: '지각하지 않고 등교하기',
+    type: 'daily', difficulty: 'easy', selfCheck: true,
+    rewards: { exp: 50, gold: 50, diamond: 25 },
+    skills: ['성실성'],
+    description: '제 시간에 등교해요.',
+  },
+  {
+    title: '아침시간에 조용히 하기',
+    type: 'daily', difficulty: 'easy', selfCheck: true,
+    rewards: { exp: 50, gold: 50, diamond: 25 },
+    skills: ['자기관리'],
+    description: '아침 자습 시간에 조용히 준비해요.',
+  },
+  {
+    title: '내 책상 위와 서랍 안 정리정돈하기',
+    type: 'daily', difficulty: 'easy', selfCheck: false,
+    rewards: { exp: 50, gold: 50, diamond: 25 },
+    skills: ['자기관리', '성실성'],
+    description: '책상 위와 서랍 안을 깔끔하게 정리해요.',
+  },
+  {
+    title: '수업 시간에 자신감 있게 손들고 발표 1회 하기',
+    type: 'daily', difficulty: 'medium', selfCheck: true,
+    rewards: { exp: 80, gold: 100, diamond: 50 },
+    skills: ['의사소통'],
+    description: '수업 중 자신 있게 손을 들고 한 번 이상 발표해요.',
+  },
+  {
+    title: '하루종일 비속어 쓰지 않고 고운말 사용하기',
+    type: 'daily', difficulty: 'easy', selfCheck: true,
+    rewards: { exp: 50, gold: 50, diamond: 25 },
+    skills: ['인성'],
+    description: '하루 동안 친구와 선생님께 바른말 고운말을 사용해요.',
+  },
+  {
+    title: '싸우지 않기 (말싸움 포함)',
+    type: 'daily', difficulty: 'easy', selfCheck: true,
+    rewards: { exp: 50, gold: 50, diamond: 25 },
+    skills: ['인성', '협동심'],
+    description: '친구와 말다툼이나 몸싸움 없이 하루를 보내요.',
+  },
+  {
+    title: '금지어 말하지 않기',
+    type: 'daily', difficulty: 'easy', selfCheck: true,
+    rewards: { exp: 50, gold: 50, diamond: 25 },
+    skills: ['인성'],
+    description: '「제가 안 했는데요」「쟤가 먼저 했는데요」「왜 저만 혼내요」「왜 저한테만 그래요」「꼭 해야 해요?」 같은 말을 하지 않아요.',
+  },
+  {
+    title: '일주일 동안 선생님 잔소리 듣지 않기',
+    type: 'weekly', difficulty: 'hard', selfCheck: false,
+    rewards: { exp: 150, gold: 200, diamond: 100 },
+    skills: ['자기관리', '성실성'],
+    description: '이번 주 내내 선생님의 잔소리를 듣지 않도록 스스로 행동을 조절해요.',
+  },
 ];
 
 const DEFAULT_FORM = {
