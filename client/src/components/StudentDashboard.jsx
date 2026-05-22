@@ -192,9 +192,12 @@ const StudentDashboard = ({ studentCode }) => {
   }, [studentCode]);
 
   const name     = studentData?.name     || studentData?.studentCode || '용감한 용사';
-  const level    = studentData?.level    || 5;
+  const getMaxExpForLevel = (lv) =>
+    lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
+
+  const level    = studentData?.level    || 1;
   const exp      = studentData?.exp      || 0;
-  const maxExp   = studentData?.maxExp   || 1000;
+  const maxExp   = getMaxExpForLevel(level);
   const diamonds = studentData?.diamonds ?? 0;
   const gold     = studentData?.gold     ?? 0;
   const expPct   = Math.min(100, Math.round((exp / maxExp) * 100));

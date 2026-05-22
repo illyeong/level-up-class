@@ -4,56 +4,29 @@ import { db } from '../../firebase';
 
 const DUNGEON_URL = '/Dungeon_Main/index.html';
 
-// ── 던전 데이터 ───────────────────────────────────────────────
+// ── 던전 데이터 (맵 위 빨간 V 위치 기준) ─────────────────────
 const DUNGEONS = [
-  {
-    id: 0, name: '고블린 동굴',
-    desc: '마을 외곽에 나타난 고블린 무리. 입문자를 위한 던전.',
-    level: 1, pos: { x: 12, y: 75 },
-    reward: '🪙 50G · ⭐ 30EXP',
-  },
-  {
-    id: 1, name: '어둠의 숲',
-    desc: '빛이 닿지 않는 깊은 숲. 나무 정령들이 침입자를 막는다.',
-    level: 3, pos: { x: 25, y: 60 },
-    reward: '🪙 80G · ⭐ 50EXP',
-  },
-  {
-    id: 2, name: '해적 항구',
-    desc: '저주받은 항구를 점령한 해적 유령들의 소굴.',
-    level: 5, pos: { x: 42, y: 70 },
-    reward: '🪙 120G · ⭐ 70EXP',
-  },
-  {
-    id: 3, name: '용암 동굴',
-    desc: '지하 깊은 곳, 마그마가 흐르는 고온의 동굴.',
-    level: 8, pos: { x: 58, y: 58 },
-    reward: '🪙 160G · ⭐ 90EXP',
-  },
-  {
-    id: 4, name: '폭풍 요새',
-    desc: '번개를 다루는 마법사가 지키는 하늘 위의 요새.',
-    level: 12, pos: { x: 72, y: 42 },
-    reward: '🪙 200G · ⭐ 120EXP',
-  },
-  {
-    id: 5, name: '얼음 신전',
-    desc: '영원한 겨울 속에 잠든 고대 신전. 냉기가 뼛속까지 스민다.',
-    level: 16, pos: { x: 52, y: 28 },
-    reward: '🪙 250G · ⭐ 150EXP',
-  },
-  {
-    id: 6, name: '번개의 탑',
-    desc: '구름을 뚫고 솟아있는 마력의 탑. 정상에 강력한 마법사가 기다린다.',
-    level: 20, pos: { x: 32, y: 18 },
-    reward: '🪙 300G · ⭐ 180EXP',
-  },
-  {
-    id: 7, name: '마왕 성채',
-    desc: '세계를 지배하려는 마왕의 최후 요새. 모든 용사의 최종 목표.',
-    level: 25, pos: { x: 72, y: 12 },
-    reward: '🪙 500G · 💎 5 · ⭐ 300EXP',
-  },
+  // ── 얼음 지역 (좌측) ──
+  { id:  0, name: '고블린 동굴',   desc: '마을 외곽 얼음 동굴에 고블린 무리가 들끓는다.',           level:  1, pos:{ x:8,  y:74 }, reward:'🪙 50G · ⭐ 30EXP' },
+  { id:  1, name: '서리 협곡',     desc: '뼈를 에는 칼바람이 부는 얼음 협곡.',                    level:  3, pos:{ x:14, y:53 }, reward:'🪙 80G · ⭐ 50EXP' },
+  { id:  2, name: '눈보라 성채',   desc: '눈보라 속에 숨겨진 고대 요새. 냉기 정령이 깃들었다.',     level:  5, pos:{ x:19, y:36 }, reward:'🪙 110G · ⭐ 70EXP' },
+  // ── 숲 지역 (중앙 좌) ──
+  { id:  3, name: '어둠의 숲',     desc: '빛이 닿지 않는 깊은 숲. 나무 정령들이 침입자를 막는다.',  level:  7, pos:{ x:31, y:63 }, reward:'🪙 140G · ⭐ 90EXP' },
+  { id:  4, name: '독버섯 지대',   desc: '치명적인 독을 내뿜는 버섯들이 가득한 숲 속.',             level:  9, pos:{ x:35, y:48 }, reward:'🪙 170G · ⭐ 110EXP' },
+  { id:  5, name: '숲의 신전',     desc: '숲 깊은 곳, 고대 신이 봉인된 신전.',                    level: 11, pos:{ x:31, y:32 }, reward:'🪙 200G · ⭐ 130EXP' },
+  // ── 요새 지역 (중앙) ──
+  { id:  6, name: '버려진 요새',   desc: '마족에게 함락된 왕국의 전진 요새.',                      level: 13, pos:{ x:44, y:49 }, reward:'🪙 230G · ⭐ 150EXP' },
+  { id:  7, name: '기사단 본거지', desc: '타락한 기사단이 점령한 철옹성.',                          level: 15, pos:{ x:47, y:34 }, reward:'🪙 260G · ⭐ 170EXP' },
+  { id:  8, name: '마법사의 탑',   desc: '금지된 마법을 연구하는 흑마법사의 탑.',                   level: 17, pos:{ x:44, y:21 }, reward:'🪙 300G · 💎 1 · ⭐ 200EXP' },
+  { id:  9, name: '성채 최심부',   desc: '요새 깊은 곳, 군주가 잠든 마지막 방.',                   level: 19, pos:{ x:52, y:14 }, reward:'🪙 340G · 💎 2 · ⭐ 230EXP' },
+  // ── 사막 지역 (중앙 우) ──
+  { id: 10, name: '뼈의 사막',     desc: '죽은 전사들의 뼈로 뒤덮인 황량한 사막.',                  level: 21, pos:{ x:61, y:41 }, reward:'🪙 380G · 💎 2 · ⭐ 260EXP' },
+  { id: 11, name: '선인장 미로',   desc: '독침을 쏘는 선인장 몬스터들의 미로.',                     level: 23, pos:{ x:65, y:57 }, reward:'🪙 420G · 💎 3 · ⭐ 290EXP' },
+  { id: 12, name: '사막 신전',     desc: '모래 폭풍 속에 묻힌 고대 파라오의 신전.',                  level: 25, pos:{ x:71, y:66 }, reward:'🪙 460G · 💎 3 · ⭐ 320EXP' },
+  // ── 화산 지역 (우측) ──
+  { id: 13, name: '용암 동굴',     desc: '마그마가 흐르는 화산 내부. 염왕이 지배한다.',              level: 28, pos:{ x:77, y:42 }, reward:'🪙 500G · 💎 4 · ⭐ 360EXP' },
+  { id: 14, name: '화산 사원',     desc: '불의 신에게 바쳐진 고대 사원.',                           level: 32, pos:{ x:82, y:26 }, reward:'🪙 550G · 💎 4 · ⭐ 400EXP' },
+  { id: 15, name: '마왕 성채',     desc: '세계를 지배하려는 마왕의 최후 요새. 모든 용사의 목표.',    level: 36, pos:{ x:87, y:12 }, reward:'🪙 700G · 💎 10 · ⭐ 500EXP' },
 ];
 
 // ── 유틸 ──────────────────────────────────────────────────────
@@ -84,8 +57,6 @@ function DungeonNode({ dungeon, state, isSelected, onClick }) {
     : state === 'current'               ? '/images/Current.png'
     :                                     '/images/Locked.png';
 
-  const size = state === 'locked' ? 48 : 56;
-
   return (
     <button
       onClick={() => state !== 'locked' && onClick(dungeon)}
@@ -97,17 +68,25 @@ function DungeonNode({ dungeon, state, isSelected, onClick }) {
         transform: 'translate(-50%, -50%)',
         zIndex:    10,
       }}
-      className={`flex flex-col items-center gap-1 transition-transform
-        ${state === 'locked' ? 'opacity-70 cursor-not-allowed' : 'hover:scale-110 active:scale-95 cursor-pointer'}`}>
+      className={`flex flex-col items-center gap-0.5 transition-transform
+        ${state === 'locked' ? 'cursor-not-allowed' : 'hover:scale-125 active:scale-95 cursor-pointer'}`}>
       <img
         src={icon}
         alt={dungeon.name}
-        style={{ width: size, height: size, objectFit: 'contain',
-          filter: isSelected ? 'drop-shadow(0 0 8px #facc15)' : undefined }}
+        style={{
+          width: 44, height: 44, objectFit: 'contain',
+          filter: isSelected
+            ? 'drop-shadow(0 0 6px #facc15) drop-shadow(0 0 12px #f59e0b)'
+            : state === 'locked'
+            ? 'brightness(0.7)'
+            : 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))',
+        }}
       />
       {state !== 'locked' && (
-        <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full shadow
-          ${state === 'completed' ? 'bg-emerald-500 text-white' : 'bg-amber-400 text-amber-900'}`}>
+        <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-md whitespace-nowrap
+          ${isSelected        ? 'bg-yellow-400 text-yellow-900'
+          : state==='completed' ? 'bg-emerald-500 text-white'
+          : 'bg-amber-400 text-amber-900'}`}>
           {dungeon.name}
         </span>
       )}
@@ -338,8 +317,8 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
       </div>
 
       {/* 맵 영역 */}
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="relative w-full max-w-4xl" style={{ aspectRatio: '2236/1080' }}>
+      <div className="flex-1 overflow-auto p-3">
+        <div className="relative mx-auto" style={{ width: '100%', maxWidth: '1100px', aspectRatio: '2236/1080' }}>
           {/* 배경 맵 */}
           <img
             src="/images/FantasyGameMap.png"

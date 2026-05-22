@@ -26,10 +26,13 @@ export default function MyCharacter({ studentCode }) {
     load();
   }, [studentCode]);
 
+  const getMaxExpForLevel = (lv) =>
+    lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
+
   const name        = studentData?.name || studentData?.studentCode || '용사';
   const level       = studentData?.level || 1;
   const exp         = studentData?.exp || 0;
-  const maxExp      = studentData?.maxExp || 100;
+  const maxExp      = getMaxExpForLevel(level);
   const gold        = studentData?.gold || 0;
   const diamond     = studentData?.diamonds || 0;
   const image       = studentData?.characterImage;
