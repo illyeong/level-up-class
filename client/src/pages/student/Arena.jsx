@@ -597,9 +597,15 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
           ? query(collection(db, 'students'), where('teacherUid', '==', tid))
           : collection(db, 'students');
         const snap = await getDocs(q);
+        const isTestAccount = meDoc.data().studentCode === 'SINSEOK-5-15';
         const others = snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
-          .filter(s => s.id !== meDoc.id);
+          .filter(s => {
+            if (s.id === meDoc.id) return false; // 나 자신 제외
+            // 내가 테스트 계정이 아니면 SINSEOK-5-15를 상대 풀에서 제외
+            if (!isTestAccount && s.studentCode === 'SINSEOK-5-15') return false;
+            return true;
+          });
         setClassmates(others);
 
         // 레벨 기반 임시 rankMap (대전 기록 없어도 표시)

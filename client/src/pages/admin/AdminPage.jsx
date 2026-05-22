@@ -452,25 +452,24 @@ function SettingsTab() {
         <div className="font-bold text-slate-700 text-sm">🧪 테스트 데이터 관리</div>
         <button
           onClick={async () => {
-            if (!window.confirm('SINSEOK 테스트 학급의 투기장 전적을 모두 삭제할까요?')) return;
+            if (!window.confirm('SINSEOK-5-15가 포함된 모든 전적을 삭제할까요?')) return;
             try {
               const snap = await getDocs(collection(db, 'arenaLogs'));
-              // SINSEOK 코드가 포함된 로그 삭제
-              const batch = writeBatch(db);
+              const b = writeBatch(db);
               let cnt = 0;
               snap.docs.forEach(d => {
-                const data = d.data();
-                if ((data.studentCode || '').includes('SINSEOK') || (data.opponentCode || '').includes('SINSEOK')) {
-                  batch.delete(doc(db, 'arenaLogs', d.id));
+                const { studentCode, opponentCode } = d.data();
+                if (studentCode === 'SINSEOK-5-15' || opponentCode === 'SINSEOK-5-15') {
+                  b.delete(doc(db, 'arenaLogs', d.id));
                   cnt++;
                 }
               });
-              await batch.commit();
-              alert(`✅ SINSEOK 전적 ${cnt}건 삭제 완료`);
+              await b.commit();
+              alert(`✅ SINSEOK-5-15 전적 ${cnt}건 삭제 완료`);
             } catch (e) { alert('삭제 실패: ' + e.message); }
           }}
           className="w-full py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-sm border border-rose-200 transition-colors">
-          🗑️ SINSEOK 테스트 전적 초기화
+          🗑️ SINSEOK-5-15 전적 초기화
         </button>
       </div>
     </div>
