@@ -58,18 +58,19 @@ const buildProgress = (raw = {}) => {
   return p;
 };
 
-// ── 던전 노드 ─────────────────────────────────────────────────
+// ── 던전 노드 (모든 스팟 클릭 가능) ─────────────────────────
 function DungeonNode({ dungeon, state, isSelected, onClick }) {
+  const isActive = dungeon.active !== false;
+
   const icon =
-    state === 'completed' && isSelected ? '/images/CompletedSelected.png'
+    !isActive                           ? '/images/Locked.png'
+    : state === 'completed' && isSelected ? '/images/CompletedSelected.png'
     : state === 'completed'             ? '/images/Completed.png'
-    : state === 'current'               ? '/images/Current.png'
-    :                                     '/images/Locked.png';
+    :                                     '/images/Current.png';
 
   return (
     <button
-      onClick={() => state !== 'locked' && onClick(dungeon)}
-      disabled={state === 'locked'}
+      onClick={() => onClick(dungeon)}
       style={{
         position:  'absolute',
         left:      `${dungeon.pos.x}%`,
@@ -77,88 +78,108 @@ function DungeonNode({ dungeon, state, isSelected, onClick }) {
         transform: 'translate(-50%, -50%)',
         zIndex:    10,
       }}
-      className={`flex flex-col items-center gap-0.5 transition-transform
-        ${state === 'locked' ? 'cursor-not-allowed' : 'hover:scale-125 active:scale-95 cursor-pointer'}`}>
+      className="flex flex-col items-center gap-0.5 transition-transform hover:scale-125 active:scale-95 cursor-pointer">
       <img
         src={icon}
         alt={dungeon.name}
         style={{
           width: 44, height: 44, objectFit: 'contain',
           filter: isSelected
-            ? 'drop-shadow(0 0 6px #facc15) drop-shadow(0 0 12px #f59e0b)'
-            : state === 'locked'
-            ? 'brightness(0.7)'
-            : 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))',
+            ? 'drop-shadow(0 0 6px #facc15) drop-shadow(0 0 14px #f59e0b)'
+            : !isActive
+            ? 'brightness(0.6) saturate(0.3)'
+            : 'drop-shadow(0 2px 4px rgba(0,0,0,0.7))',
         }}
       />
-      {state !== 'locked' && (
-        <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-md whitespace-nowrap
-          ${isSelected        ? 'bg-yellow-400 text-yellow-900'
-          : state==='completed' ? 'bg-emerald-500 text-white'
-          : 'bg-amber-400 text-amber-900'}`}>
-          {dungeon.name}
-        </span>
-      )}
+      <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-md whitespace-nowrap
+        ${isSelected          ? 'bg-yellow-400 text-yellow-900'
+        : !isActive           ? 'bg-slate-500 text-slate-200'
+        : state==='completed' ? 'bg-emerald-500 text-white'
+        : 'bg-amber-400 text-amber-900'}`}>
+        {dungeon.name}
+      </span>
     </button>
   );
 }
 
 // ── 던전 정보 팝업 ────────────────────────────────────────────
 function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets }) {
+  const isActive = dungeon.active !== false;
+
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/40"
+    <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/50"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden">
+
         {/* 헤더 */}
-        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 p-5 text-white">
+        <div className={`p-5 text-white bg-gradient-to-r ${isActive ? 'from-indigo-600 to-violet-600' : 'from-slate-600 to-slate-700'}`}>
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-xl font-extrabold">{dungeon.name}</h2>
             <button onClick={onClose} className="text-white/70 hover:text-white text-xl">✕</button>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="bg-white/20 px-2 py-0.5 rounded-full font-bold">
-              권장 Lv.{dungeon.level}
-            </span>
-            {state === 'completed' && (
-              <span className="bg-emerald-400/80 px-2 py-0.5 rounded-full font-bold text-emerald-900">
-                ✅ 클리어
-              </span>
-            )}
+          <div className="flex items-center gap-2 text-sm flex-wrap">
+            <span className="bg-white/20 px-2 py-0.5 rounded-full font-bold">권장 Lv.{dungeon.level}</span>
+            {!isActive && <span className="bg-slate-400/50 px-2 py-0.5 rounded-full font-bold">🚧 준비 중</span>}
+            {isActive && state === 'completed' && <span className="bg-emerald-400/80 px-2 py-0.5 rounded-full font-bold text-emerald-900">✅ 클리어</span>}
           </div>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-3">
+          {/* 몬스터 이미지 */}
+          {dungeon.monsterImage && (
+            <div className="flex justify-center">
+              <img src={dungeon.monsterImage} alt="출현 몬스터"
+                className="h-28 object-contain rounded-2xl border border-slate-100 bg-slate-50" />
+            </div>
+          )}
+
           <p className="text-slate-600 text-sm leading-relaxed">{dungeon.desc}</p>
+
+          {/* 출현 몬스터 이름 */}
+          {dungeon.monsters && (
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-sm">
+              <div className="font-bold text-rose-700 mb-1">👾 출현 몬스터</div>
+              <div className="text-rose-600">{dungeon.monsters}</div>
+            </div>
+          )}
 
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-sm">
             <div className="font-bold text-amber-700 mb-1">🎁 클리어 보상</div>
             <div className="text-amber-600 font-medium">{dungeon.reward}</div>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span>🗡️ 던전 이용권</span>
-            <span className={`font-extrabold ${dungeonTickets > 0 ? 'text-sky-600' : 'text-rose-500'}`}>
-              {dungeonTickets}장 보유
-            </span>
-          </div>
+          {isActive && (
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <span>🗡️ 던전 이용권</span>
+              <span className={`font-extrabold ${dungeonTickets > 0 ? 'text-sky-600' : 'text-rose-500'}`}>
+                {dungeonTickets}장 보유
+              </span>
+            </div>
+          )}
 
-          <button
-            onClick={onEnter}
-            disabled={dungeonTickets <= 0 || isBusy}
-            className={`w-full py-3 rounded-2xl font-extrabold text-base transition-all active:scale-95
-              ${dungeonTickets > 0 && !isBusy
-                ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg'
-                : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
-            {isBusy ? '처리 중...'
-              : dungeonTickets <= 0 ? '이용권 없음'
-              : state === 'completed' ? '🔄 재도전하기 (이용권 1개)'
-              : '⚔️ 입장하기 (이용권 1개)'}
-          </button>
-
-          {dungeonTickets <= 0 && (
-            <p className="text-center text-xs text-slate-400">
-              매주 <span className="font-bold text-indigo-400">월요일</span>에 이용권이 자동 지급됩니다
-            </p>
+          {/* 입장 버튼 */}
+          {!isActive ? (
+            <div className="w-full py-3 rounded-2xl bg-slate-100 text-slate-400 text-center font-extrabold text-sm">
+              🚧 현재 구현 예정인 던전입니다
+            </div>
+          ) : (
+            <>
+              <button onClick={onEnter} disabled={dungeonTickets <= 0 || isBusy}
+                className={`w-full py-3 rounded-2xl font-extrabold text-base transition-all active:scale-95
+                  ${dungeonTickets > 0 && !isBusy
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg'
+                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
+                {isBusy ? '처리 중...'
+                  : dungeonTickets <= 0 ? '이용권 없음'
+                  : state === 'completed' ? '🔄 재도전하기 (이용권 1개)'
+                  : '⚔️ 입장하기 (이용권 1개)'}
+              </button>
+              {dungeonTickets <= 0 && (
+                <p className="text-center text-xs text-slate-400">
+                  매주 <span className="font-bold text-indigo-400">월요일</span>에 이용권이 자동 지급됩니다
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>

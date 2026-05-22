@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import DungeonMapEditor from './DungeonMapEditor';
 import {
   collection, getDocs, doc, addDoc, updateDoc, deleteDoc,
   setDoc, getDoc, query, orderBy, serverTimestamp,
@@ -482,6 +483,25 @@ function ContentTab() {
     })();
   }, []);
 
+  // 이미지 압축 (몬스터 이미지용)
+  const compressImg = (file) => new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 300;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else        { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+      URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+
   const saveQuests = async (list) => {
     setSaving(true);
     try {
@@ -607,7 +627,12 @@ function ContentTab() {
 
       {/* ── 탐험 던전 ── */}
       {subTab === 'dungeons' && (
-        <div className="space-y-3">
+        <div className="space-y-4">
+          {/* 맵 에디터 */}
+          <DungeonMapEditor />
+          <div className="border-t border-slate-200 pt-4">
+            <h4 className="font-extrabold text-slate-700 text-sm mb-3">📋 던전 정보 편집</h4>
+          </div>
           {dungeons.length === 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-700">
               ⚠️ Firebase에 던전 데이터 없음. 탐험던전 페이지 접속 시 자동 저장됩니다.
@@ -639,6 +664,53 @@ function ContentTab() {
                     <input value={d.reward} onChange={e => setDungeons(prev=>prev.map((x,j)=>j===i?{...x,reward:e.target.value}:x))}
                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mt-1 focus:outline-none" placeholder="🪙 50G · ⭐ 30EXP" />
                   </div>
+
+                  {/* 출현 몬스터 */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-500">출현 몬스터 이름</label>
+                    <input value={d.monsters||''} onChange={e => setDungeons(prev=>prev.map((x,j)=>j===i?{...x,monsters:e.target.value}:x))}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mt-1 focus:outline-none" placeholder="예: 고블린, 오크 전사" />
+                  </div>
+
+                  {/* 몬스터 이미지 */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-500">출현 몬스터 이미지</label>
+                    <div className="flex items-center gap-3 mt-1">
+                      {d.monsterImage && (
+                        <div className="relative">
+                          <img src={d.monsterImage} alt="" className="w-16 h-16 object-contain rounded-xl border border-slate-200 bg-slate-50" />
+                          <button onClick={() => setDungeons(prev=>prev.map((x,j)=>j===i?{...x,monsterImage:''}:x))}
+                            className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] flex items-center justify-center">✕</button>
+                        </div>
+                      )}
+                      <label className="flex-1 flex items-center gap-2 text-xs text-slate-500 hover:text-indigo-600 cursor-pointer px-3 py-2 border border-dashed border-slate-300 rounded-xl hover:border-indigo-400 transition-colors">
+                        🖼️ 이미지 업로드
+                        <input type="file" accept="image/*" className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const b64 = await compressImg(file);
+                            setDungeons(prev=>prev.map((x,j)=>j===i?{...x,monsterImage:b64}:x));
+                            e.target.value = '';
+                          }} />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* 활성화 토글 */}
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50">
+                    <div>
+                      <div className="text-sm font-bold text-slate-700">던전 활성화 (구현 여부)</div>
+                      <div className="text-xs text-slate-400">비활성화 시 학생이 입장 불가 (정보는 볼 수 있음)</div>
+                    </div>
+                    <button onClick={() => setDungeons(prev=>prev.map((x,j)=>j===i?{...x,active:x.active===false}:x))}
+                      className={`w-12 h-6 rounded-full transition-colors relative shrink-0
+                        ${d.active !== false ? 'bg-indigo-500' : 'bg-slate-300'}`}>
+                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all
+                        ${d.active !== false ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs font-bold text-slate-500">위치 X (%)</label>
@@ -660,10 +732,13 @@ function ContentTab() {
               ) : (
                 <div className="p-4 flex items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                       <span className="font-bold text-slate-800 text-sm">{d.name}</span>
                       <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold">Lv.{d.level}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">({d.pos?.x},{d.pos?.y})</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold
+                        ${d.active !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                        {d.active !== false ? '✅ 구현됨' : '🔒 미구현'}
+                      </span>
                     </div>
                     <div className="text-xs text-slate-400 truncate">{d.desc}</div>
                     <div className="text-xs text-amber-600 font-medium mt-0.5">{d.reward}</div>
