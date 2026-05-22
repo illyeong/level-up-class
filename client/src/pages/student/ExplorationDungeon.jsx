@@ -132,11 +132,13 @@ function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets
         </div>
 
         <div className="p-5 space-y-3">
-          {/* 몬스터 이미지 */}
-          {dungeon.monsterImage && (
-            <div className="flex justify-center">
-              <img src={dungeon.monsterImage} alt="출현 몬스터"
-                className="h-28 object-contain rounded-2xl border border-slate-100 bg-slate-50" />
+          {/* 몬스터 이미지 (최대 5개) */}
+          {(dungeon.monsterImages||[]).length > 0 && (
+            <div className={`flex justify-center gap-2 ${(dungeon.monsterImages||[]).length > 3 ? 'flex-wrap' : ''}`}>
+              {(dungeon.monsterImages||[]).map((img, idx) => (
+                <img key={idx} src={img} alt="출현 몬스터"
+                  className="h-20 object-contain rounded-xl border border-slate-100 bg-slate-50 flex-1 max-w-[80px]" />
+              ))}
             </div>
           )}
 
@@ -221,7 +223,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
           if (needsUpdate) {
             const merged = DUNGEONS.map(d => {
               const s = saved.find(x => x.id === d.id);
-              return s ? { ...d, pos: s.pos, active: s.active, monsterImage: s.monsterImage, monsters: s.monsters } : d;
+              return s ? { ...d, pos: s.pos, active: s.active, monsterImages: s.monsterImages||[], monsters: s.monsters } : d;
             });
             await setDoc(doc(db, 'systemConfig', 'dungeons'), { list: merged });
             setDungeonList(merged);

@@ -51,7 +51,7 @@ export default function DungeonMapEditor() {
           if (needsUpdate) {
             const merged = DEFAULT_DUNGEONS.map(d => {
               const s = saved.find(x => x.id === d.id);
-              return s ? { ...d, pos: s.pos, active: s.active, monsterImage: s.monsterImage, monsters: s.monsters } : d;
+              return s ? { ...d, pos: s.pos, active: s.active, monsterImages: s.monsterImages||[], monsters: s.monsters } : d;
             });
             await setDoc(doc(db, 'systemConfig', 'dungeons'), { list: merged });
             setDungeons(merged);

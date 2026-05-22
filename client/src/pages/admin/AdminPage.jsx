@@ -512,7 +512,7 @@ function ContentTab() {
           if (saved[0]?.name === '고블린 동굴') {
             const merged = ADMIN_DUNGEON_DEFAULTS.map(d => {
               const s = saved.find(x => x.id === d.id);
-              return s ? { ...d, pos: s.pos, active: s.active, monsterImage: s.monsterImage, monsters: s.monsters } : d;
+              return s ? { ...d, pos: s.pos, active: s.active, monsterImages: s.monsterImages||[], monsters: s.monsters } : d;
             });
             await setDoc(doc(db, 'systemConfig', 'dungeons'), { list: merged });
             setDungeons(merged);
@@ -743,28 +743,33 @@ function ContentTab() {
                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mt-1 focus:outline-none" placeholder="예: 고블린, 오크 전사" />
                   </div>
 
-                  {/* 몬스터 이미지 */}
+                  {/* 몬스터 이미지 (최대 5개) */}
                   <div>
-                    <label className="text-xs font-bold text-slate-500">출현 몬스터 이미지</label>
-                    <div className="flex items-center gap-3 mt-1">
-                      {d.monsterImage && (
-                        <div className="relative">
-                          <img src={d.monsterImage} alt="" className="w-16 h-16 object-contain rounded-xl border border-slate-200 bg-slate-50" />
-                          <button onClick={() => setDungeons(prev=>prev.map((x,j)=>j===i?{...x,monsterImage:''}:x))}
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-500">출현 몬스터 이미지 (최대 5개)</label>
+                      <span className="text-[10px] text-slate-400">{(d.monsterImages||[]).length}/5</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(d.monsterImages||[]).map((img, mi) => (
+                        <div key={mi} className="relative">
+                          <img src={img} alt="" className="w-16 h-16 object-contain rounded-xl border border-slate-200 bg-slate-50" />
+                          <button onClick={() => setDungeons(prev=>prev.map((x,j)=>j===i?{...x,monsterImages:(x.monsterImages||[]).filter((_,k)=>k!==mi)}:x))}
                             className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] flex items-center justify-center">✕</button>
                         </div>
+                      ))}
+                      {(d.monsterImages||[]).length < 5 && (
+                        <label className="w-16 h-16 flex flex-col items-center justify-center gap-1 text-[10px] text-slate-400 hover:text-indigo-600 cursor-pointer border-2 border-dashed border-slate-300 rounded-xl hover:border-indigo-400 transition-colors">
+                          🖼️<span>추가</span>
+                          <input type="file" accept="image/*" className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const b64 = await compressImg(file);
+                              setDungeons(prev=>prev.map((x,j)=>j===i?{...x,monsterImages:[...(x.monsterImages||[]),b64]}:x));
+                              e.target.value = '';
+                            }} />
+                        </label>
                       )}
-                      <label className="flex-1 flex items-center gap-2 text-xs text-slate-500 hover:text-indigo-600 cursor-pointer px-3 py-2 border border-dashed border-slate-300 rounded-xl hover:border-indigo-400 transition-colors">
-                        🖼️ 이미지 업로드
-                        <input type="file" accept="image/*" className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const b64 = await compressImg(file);
-                            setDungeons(prev=>prev.map((x,j)=>j===i?{...x,monsterImage:b64}:x));
-                            e.target.value = '';
-                          }} />
-                      </label>
                     </div>
                   </div>
 
