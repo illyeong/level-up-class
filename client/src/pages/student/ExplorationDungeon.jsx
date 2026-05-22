@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 const DUNGEON_URL = '/Dungeon_Main/index.html';
@@ -169,6 +169,7 @@ function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets
 // ── 메인 ─────────────────────────────────────────────────────
 export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
   const [phase, setPhase]             = useState('map');
+  const [dungeonList, setDungeonList] = useState(DUNGEONS);
   const [isBusy, setIsBusy]           = useState(false);
   const [student, setStudent]         = useState(null);
   const [progress, setProgress]       = useState({});
@@ -179,6 +180,20 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
   const characterDataRef = useRef(null);
   const studentDocIdRef  = useRef(null);
   const dungeonTickets   = tickets?.dungeon ?? 0;
+
+  // 던전 목록 Firebase 로드 (없으면 기본값 저장)
+  useEffect(() => {
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'systemConfig', 'dungeons'));
+        if (snap.exists() && snap.data().list?.length > 0) {
+          setDungeonList(snap.data().list);
+        } else {
+          await setDoc(doc(db, 'systemConfig', 'dungeons'), { list: DUNGEONS });
+        }
+      } catch (e) { console.error(e); }
+    })();
+  }, []);
 
   // 학생 데이터 로드
   useEffect(() => {
@@ -310,6 +325,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
 
   // ── 맵 선택 화면 ──────────────────────────────────────────
   const completedCount = Object.values(progress).filter(s => s === 'completed').length;
+  const activeDungeons = dungeonList;
 
   return (
     <div className="min-h-full bg-slate-900 flex flex-col">
@@ -337,7 +353,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
           />
 
           {/* 던전 노드들 */}
-          {DUNGEONS.map(dungeon => (
+          {activeDungeons.map(dungeon => (
             <DungeonNode
               key={dungeon.id}
               dungeon={dungeon}

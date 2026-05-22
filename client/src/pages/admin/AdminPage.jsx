@@ -449,6 +449,241 @@ function SettingsTab() {
   );
 }
 
+// ── 6. 콘텐츠 관리 탭 ────────────────────────────────────────
+const DEFAULT_QUEST_TEMPLATES = [
+  { title:'지각하지 않고 등교하기',  type:'daily',  difficulty:'easy',   selfCheck:true,  rewards:{exp:50,gold:50,diamond:25},   description:'제 시간에 등교해요.' },
+  { title:'아침시간에 조용히 하기',  type:'daily',  difficulty:'easy',   selfCheck:true,  rewards:{exp:50,gold:50,diamond:25},   description:'아침 자습 시간에 조용히 준비해요.' },
+  { title:'내 책상 위와 서랍 안 정리정돈하기', type:'daily', difficulty:'easy', selfCheck:false, rewards:{exp:50,gold:50,diamond:25}, description:'책상 위와 서랍 안을 깔끔하게 정리해요.' },
+  { title:'수업 시간에 자신감 있게 손들고 발표 1회 하기', type:'daily', difficulty:'medium', selfCheck:true, rewards:{exp:80,gold:100,diamond:50}, description:'수업 중 자신 있게 손을 들고 한 번 이상 발표해요.' },
+  { title:'하루종일 비속어 쓰지 않고 고운말 사용하기', type:'daily', difficulty:'easy', selfCheck:true, rewards:{exp:50,gold:50,diamond:25}, description:'하루 동안 친구와 선생님께 바른말 고운말을 사용해요.' },
+  { title:'싸우지 않기 (말싸움 포함)', type:'daily', difficulty:'easy', selfCheck:true, rewards:{exp:50,gold:50,diamond:25}, description:'친구와 말다툼이나 몸싸움 없이 하루를 보내요.' },
+  { title:'금지어 말하지 않기', type:'daily', difficulty:'easy', selfCheck:true, rewards:{exp:50,gold:50,diamond:25}, description:'「제가 안 했는데요」「쟤가 먼저 했는데요」 같은 말을 하지 않아요.' },
+  { title:'일주일 동안 선생님 잔소리 듣지 않기', type:'weekly', difficulty:'hard', selfCheck:false, rewards:{exp:150,gold:200,diamond:100}, description:'이번 주 내내 선생님의 잔소리를 듣지 않도록 스스로 행동을 조절해요.' },
+];
+
+function ContentTab() {
+  const [subTab, setSubTab]     = useState('quests'); // 'quests' | 'dungeons'
+  const [quests, setQuests]     = useState([]);
+  const [dungeons, setDungeons] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [editingQ, setEditingQ] = useState(null); // index or null
+  const [editingD, setEditingD] = useState(null);
+  const [saving, setSaving]     = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const qSnap = await getDoc(doc(db, 'systemConfig', 'questTemplates'));
+        setQuests(qSnap.exists() ? qSnap.data().templates : DEFAULT_QUEST_TEMPLATES);
+        const dSnap = await getDoc(doc(db, 'systemConfig', 'dungeons'));
+        if (dSnap.exists()) setDungeons(dSnap.data().list);
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  const saveQuests = async (list) => {
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'systemConfig', 'questTemplates'), { templates: list });
+      setQuests(list); setEditingQ(null);
+    } catch (e) { alert('저장 실패'); }
+    finally { setSaving(false); }
+  };
+
+  const saveDungeons = async (list) => {
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'systemConfig', 'dungeons'), { list });
+      setDungeons(list); setEditingD(null);
+    } catch (e) { alert('저장 실패'); }
+    finally { setSaving(false); }
+  };
+
+  const DIFF_LABEL = { easy:'🟢 쉬움', medium:'🟡 보통', hard:'🔴 어려움' };
+
+  if (loading) return <div className="p-10 text-slate-400 font-bold text-center animate-pulse">불러오는 중...</div>;
+
+  return (
+    <div className="p-6">
+      <h2 className="text-xl font-extrabold text-slate-800 mb-4">🎮 콘텐츠 관리</h2>
+
+      {/* 서브탭 */}
+      <div className="flex gap-2 mb-6">
+        {[['quests','📜 추천 퀘스트'],['dungeons','🗺️ 탐험 던전']].map(([id,label]) => (
+          <button key={id} onClick={() => setSubTab(id)}
+            className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors
+              ${subTab===id ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── 추천 퀘스트 ── */}
+      {subTab === 'quests' && (
+        <div className="space-y-3">
+          {quests.map((q, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              {editingQ === i ? (
+                <div className="p-4 space-y-3">
+                  <input value={q.title} onChange={e => setQuests(prev => prev.map((x,j)=>j===i?{...x,title:e.target.value}:x))}
+                    className="w-full border-2 border-indigo-300 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none" placeholder="퀘스트 이름" />
+                  <textarea value={q.description||''} onChange={e => setQuests(prev => prev.map((x,j)=>j===i?{...x,description:e.target.value}:x))}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none h-16 focus:outline-none" placeholder="설명" />
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-500">타입</label>
+                      <select value={q.type} onChange={e => setQuests(prev => prev.map((x,j)=>j===i?{...x,type:e.target.value}:x))}
+                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mt-1">
+                        <option value="daily">일일</option><option value="weekly">주간</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-500">난이도</label>
+                      <select value={q.difficulty} onChange={e => setQuests(prev => prev.map((x,j)=>j===i?{...x,difficulty:e.target.value}:x))}
+                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mt-1">
+                        <option value="easy">쉬움</option><option value="medium">보통</option><option value="hard">어려움</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-500">자체체크</label>
+                      <select value={q.selfCheck?'true':'false'} onChange={e => setQuests(prev => prev.map((x,j)=>j===i?{...x,selfCheck:e.target.value==='true'}:x))}
+                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mt-1">
+                        <option value="true">자체체크</option><option value="false">교사확인</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[['exp','⭐ EXP'],['gold','🪙 골드'],['diamond','💎 다이아']].map(([k,label]) => (
+                      <div key={k}>
+                        <label className="text-xs font-bold text-slate-500">{label}</label>
+                        <input type="number" value={q.rewards?.[k]||0}
+                          onChange={e => setQuests(prev => prev.map((x,j)=>j===i?{...x,rewards:{...x.rewards,[k]:Number(e.target.value)}}:x))}
+                          className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mt-1 text-center" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => setEditingQ(null)} className="px-4 py-2 text-slate-500 border border-slate-200 rounded-xl text-sm font-bold">취소</button>
+                    <button onClick={() => saveQuests(quests)} disabled={saving}
+                      className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold disabled:opacity-50">저장</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${q.type==='daily'?'bg-sky-100 text-sky-700':'bg-violet-100 text-violet-700'}`}>
+                        {q.type==='daily'?'일일':'주간'}
+                      </span>
+                      <span className="text-[10px] text-slate-400">{DIFF_LABEL[q.difficulty]}</span>
+                      <span className="text-[10px] text-slate-400">{q.selfCheck?'자체체크':'교사확인'}</span>
+                    </div>
+                    <div className="font-bold text-slate-800 text-sm truncate">{q.title}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      ⭐{q.rewards?.exp} · 🪙{q.rewards?.gold} · 💎{q.rewards?.diamond}
+                    </div>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => setEditingQ(i)}
+                      className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-600 rounded-lg font-bold">수정</button>
+                    <button onClick={() => saveQuests(quests.filter((_,j)=>j!==i))}
+                      className="text-xs px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-lg font-bold">삭제</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          <button onClick={() => {
+            const newQ = {title:'새 퀘스트',type:'daily',difficulty:'easy',selfCheck:true,rewards:{exp:50,gold:50,diamond:25},description:''};
+            const next = [...quests, newQ];
+            setQuests(next); setEditingQ(next.length-1);
+          }}
+            className="w-full py-3 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-400 text-slate-400 hover:text-indigo-600 font-bold text-sm transition-colors">
+            + 추천 퀘스트 추가
+          </button>
+        </div>
+      )}
+
+      {/* ── 탐험 던전 ── */}
+      {subTab === 'dungeons' && (
+        <div className="space-y-3">
+          {dungeons.length === 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-700">
+              ⚠️ Firebase에 던전 데이터 없음. 탐험던전 페이지 접속 시 자동 저장됩니다.
+            </div>
+          )}
+          {dungeons.map((d, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              {editingD === i ? (
+                <div className="p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-500">던전 이름</label>
+                      <input value={d.name} onChange={e => setDungeons(prev=>prev.map((x,j)=>j===i?{...x,name:e.target.value}:x))}
+                        className="w-full border-2 border-indigo-300 rounded-xl px-3 py-2 text-sm font-bold mt-1 focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-500">권장 레벨</label>
+                      <input type="number" value={d.level} onChange={e => setDungeons(prev=>prev.map((x,j)=>j===i?{...x,level:Number(e.target.value)}:x))}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mt-1 text-center focus:outline-none" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500">설명</label>
+                    <textarea value={d.desc} onChange={e => setDungeons(prev=>prev.map((x,j)=>j===i?{...x,desc:e.target.value}:x))}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none h-16 mt-1 focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500">보상 텍스트</label>
+                    <input value={d.reward} onChange={e => setDungeons(prev=>prev.map((x,j)=>j===i?{...x,reward:e.target.value}:x))}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mt-1 focus:outline-none" placeholder="🪙 50G · ⭐ 30EXP" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-500">위치 X (%)</label>
+                      <input type="number" value={d.pos?.x||0} onChange={e => setDungeons(prev=>prev.map((x,j)=>j===i?{...x,pos:{...x.pos,x:Number(e.target.value)}}:x))}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mt-1 text-center focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-500">위치 Y (%)</label>
+                      <input type="number" value={d.pos?.y||0} onChange={e => setDungeons(prev=>prev.map((x,j)=>j===i?{...x,pos:{...x.pos,y:Number(e.target.value)}}:x))}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mt-1 text-center focus:outline-none" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => setEditingD(null)} className="px-4 py-2 text-slate-500 border border-slate-200 rounded-xl text-sm font-bold">취소</button>
+                    <button onClick={() => saveDungeons(dungeons)} disabled={saving}
+                      className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold disabled:opacity-50">저장</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-bold text-slate-800 text-sm">{d.name}</span>
+                      <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold">Lv.{d.level}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">({d.pos?.x},{d.pos?.y})</span>
+                    </div>
+                    <div className="text-xs text-slate-400 truncate">{d.desc}</div>
+                    <div className="text-xs text-amber-600 font-medium mt-0.5">{d.reward}</div>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => setEditingD(i)}
+                      className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-600 rounded-lg font-bold">수정</button>
+                    <button onClick={() => saveDungeons(dungeons.filter((_,j)=>j!==i))}
+                      className="text-xs px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-lg font-bold">삭제</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 메인 ─────────────────────────────────────────────────────
 const TABS = [
   { id: 'dashboard', label: '📊 대시보드' },
@@ -456,6 +691,7 @@ const TABS = [
   { id: 'notices',   label: '📢 공지사항' },
   { id: 'feedbacks', label: '💬 건의/문의' },
   { id: 'settings',  label: '⚙️ 시스템 설정' },
+  { id: 'content',   label: '🎮 콘텐츠 관리' },
 ];
 
 export default function AdminPage({ adminUser, onLogout }) {
@@ -495,6 +731,7 @@ export default function AdminPage({ adminUser, onLogout }) {
         {tab === 'notices'   && <NoticesTab />}
         {tab === 'feedbacks' && <FeedbacksTab />}
         {tab === 'settings'  && <SettingsTab />}
+        {tab === 'content'   && <ContentTab />}
       </main>
     </div>
   );

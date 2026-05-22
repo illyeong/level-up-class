@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where,
+  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import iconQuest from '../../assets/images/icon-quest.png';
@@ -372,7 +372,7 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
 }
 
 // ─────────────────────── RecommendedSidebar ──────────────────
-function RecommendedSidebar({ onSelect }) {
+function RecommendedSidebar({ onSelect, templates }) {
   return (
     <aside className="w-52 shrink-0 flex flex-col gap-3">
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -381,7 +381,7 @@ function RecommendedSidebar({ onSelect }) {
           <p className="text-[10px] text-violet-500 mt-0.5">추가하기로 바로 생성</p>
         </div>
         <div className="max-h-[calc(100vh-220px)] overflow-y-auto p-3 space-y-2.5">
-          {RECOMMENDED.map((t, i) => {
+          {(templates || RECOMMENDED).map((t, i) => {
             const diff = DIFF[t.difficulty] || DIFF.easy;
             return (
               <div key={i}
@@ -420,7 +420,8 @@ function QuestManage({ selectedClass }) {
   const [quests, setQuests]       = useState([]);
   const [studentCount, setStudentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [mainTab, setMainTab]     = useState('active'); // 'active' | 'ended'
+  const [mainTab, setMainTab]     = useState('active');
+  const [recommended, setRecommended] = useState(RECOMMENDED); // Firebase 우선, 없으면 기본값
   const [filter, setFilter]       = useState('all');
   const [selectedQuestId, setSelectedQuestId] = useState(null);
   const [isFormOpen, setIsFormOpen]   = useState(false);
@@ -466,7 +467,13 @@ function QuestManage({ selectedClass }) {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    // Firebase에서 추천 퀘스트 로드
+    getDoc(doc(db, 'systemConfig', 'questTemplates'))
+      .then(snap => { if (snap.exists()) setRecommended(snap.data().templates); })
+      .catch(() => {});
+  }, []);
 
   // 퀘스트 분류
   const activeQuests = quests.filter(q => q.active !== false);
@@ -635,7 +642,7 @@ function QuestManage({ selectedClass }) {
       {mainTab === 'active' && (
         <div className="flex gap-4 px-6 pb-6 flex-1">
           {/* 좌측: 추천 퀘스트 */}
-          <RecommendedSidebar onSelect={openFromTemplate} />
+          <RecommendedSidebar onSelect={openFromTemplate} templates={recommended} />
 
           {/* 우측: 활성 퀘스트 목록 */}
           <div className="flex-1 min-w-0">
