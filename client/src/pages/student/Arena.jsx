@@ -577,6 +577,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   const [rankMap, setRankMap]     = useState({});
   const [showHistory, setShowHistory] = useState(false);
   const [showRanking, setShowRanking] = useState(false);
+  const [ticketUsedMsg, setTicketUsedMsg] = useState(false);
   const [matchAnim, setMatchAnim] = useState(false);
   const studentDocIdRef           = useRef(null);
   const arenaTickets              = tickets?.arena ?? 0;
@@ -633,6 +634,14 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   const startMatching = async () => {
     if (arenaTickets <= 0 || isBusy) return;
     setIsBusy(true);
+    try {
+      await onUseTicket('arena'); // 매칭 시작 즉시 이용권 차감
+      setTicketUsedMsg(true);
+      setTimeout(() => setTicketUsedMsg(false), 2500);
+    } catch (e) {
+      setIsBusy(false);
+      return;
+    }
     setMatchAnim(true);
     setPhase('matching');
     await new Promise(r => setTimeout(r, 1800));
@@ -681,7 +690,6 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
     if (isBusy) return;
     setIsBusy(true);
     try {
-      await onUseTicket('arena');
       clearMatch(); // 전투 시작 시 매칭 초기화
 
       const myStats  = getStats(me?.level  || 1);
@@ -901,6 +909,11 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
       <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center justify-center gap-6">
         <div className="text-5xl animate-spin">⚔️</div>
         <p className="text-white font-extrabold text-xl animate-pulse">상대를 찾는 중...</p>
+        {ticketUsedMsg && (
+          <div className="bg-violet-900/80 border border-violet-500 text-violet-200 text-sm font-bold px-5 py-2.5 rounded-2xl animate-bounce">
+            🏟️ 투기장 이용권 1개 사용됨
+          </div>
+        )}
         <div className="flex gap-1">
           {[0,1,2].map(i => (
             <div key={i} className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: `${i*0.2}s` }} />
@@ -923,7 +936,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
       <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950 p-4 flex flex-col">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4">
-          <button onClick={reset} className="text-slate-400 hover:text-white text-sm font-bold px-3 py-1.5 bg-slate-800 rounded-xl">← 나가기</button>
+          <div />
           <div className={`text-xs font-extrabold px-3 py-1.5 rounded-full
             ${advantage==='win' ? 'bg-emerald-900 text-emerald-400' : advantage==='lose' ? 'bg-rose-900 text-rose-400' : 'bg-slate-800 text-slate-400'}`}>
             {advantage==='win' ? '⬆️ 유리' : advantage==='lose' ? '⬇️ 불리' : '🔄 互角'}
