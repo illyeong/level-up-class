@@ -19,3 +19,7 @@
     font-display: swap;
 }
 /* 기존에 있던 body { ... } 부분은 깔끔하게 지워주시면 됩니다! */
+
+/* 스크롤바 숨김 (ScrollPicker 등) */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

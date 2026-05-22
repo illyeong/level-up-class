@@ -97,7 +97,6 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser }
   };
 
   const handleMenuClick = (menuId) => {
-    if (menuId === 'inquiry') { setShowFeedback(true); return; }
     const clickedMenu = teacherMenuData.find(m => m.id === menuId);
 
     if (changeView && clickedMenu &&

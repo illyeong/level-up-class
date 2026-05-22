@@ -15,6 +15,7 @@ import BossRaidManage from './BossRaidManage';
 import QuestKiosk from './QuestKiosk';
 import AdventureManage from './AdventureManage';
 import BoardManage from './BoardManage';
+import FeedbackBoard from './FeedbackBoard';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -91,6 +92,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'myCharacter'     && <div className="p-10 text-2xl font-bold text-slate-800">선생님 캐릭터 룸 (준비 중 🦸‍♂️)</div>}
         {currentView === 'adventureManage' && <AdventureManage />}
         {currentView === 'boardManage'     && <BoardManage selectedClass={selectedClass} user={user} />}
+        {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
         
       </main>
 

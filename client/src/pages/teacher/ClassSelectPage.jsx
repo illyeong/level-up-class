@@ -16,6 +16,79 @@ const makeStudentCode = (schoolName, grade, classNum, studentNum) => {
 
 const newPin = () => Math.floor(1000 + Math.random() * 9000).toString();
 
+// ── 스크롤 피커 ───────────────────────────────────────────────
+function ScrollPicker({ items, value, onChange, label }) {
+  const ITEM_H = 44;
+  const ref    = useRef(null);
+  const isInit = useRef(false);
+
+  // 선택값 → 스크롤 위치
+  useEffect(() => {
+    if (!ref.current) return;
+    const idx = items.findIndex(i => String(i.value) === String(value));
+    if (idx < 0) return;
+    ref.current.scrollTop = idx * ITEM_H;
+    isInit.current = true;
+  }, []);
+
+  const handleScroll = () => {
+    if (!ref.current || !isInit.current) return;
+    const idx = Math.round(ref.current.scrollTop / ITEM_H);
+    const clamped = Math.max(0, Math.min(idx, items.length - 1));
+    if (String(items[clamped]?.value) !== String(value)) {
+      onChange(String(items[clamped].value));
+    }
+  };
+
+  const snapTo = (idx) => {
+    if (!ref.current) return;
+    ref.current.scrollTo({ top: idx * ITEM_H, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-xs font-bold text-slate-500">{label}</span>
+      <div className="relative w-28">
+        {/* 선택 영역 하이라이트 */}
+        <div className="absolute inset-x-0 pointer-events-none z-10"
+          style={{ top: ITEM_H * 2, height: ITEM_H }}>
+          <div className="h-full border-t-2 border-b-2 border-indigo-400 bg-indigo-50/60 rounded-lg mx-1" />
+        </div>
+        {/* 위아래 그라데이션 페이드 */}
+        <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white to-transparent pointer-events-none z-20 rounded-t-2xl" />
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent pointer-events-none z-20 rounded-b-2xl" />
+
+        <div
+          ref={ref}
+          onScroll={handleScroll}
+          className="overflow-y-scroll scrollbar-hide rounded-2xl bg-white border border-slate-200 shadow-inner"
+          style={{
+            height: ITEM_H * 5,
+            scrollSnapType: 'y mandatory',
+            WebkitOverflowScrolling: 'touch',
+          }}>
+          {/* 상단 패딩 (2칸) */}
+          <div style={{ height: ITEM_H * 2 }} />
+          {items.map((item, idx) => (
+            <div
+              key={item.value}
+              onClick={() => snapTo(idx)}
+              style={{ height: ITEM_H, scrollSnapAlign: 'center' }}
+              className={`flex items-center justify-center text-sm font-extrabold cursor-pointer transition-colors select-none
+                ${String(item.value) === String(value)
+                  ? 'text-indigo-700'
+                  : 'text-slate-400 hover:text-slate-600'}`}>
+              {item.label}
+            </div>
+          ))}
+          {/* 하단 패딩 (2칸) */}
+          <div style={{ height: ITEM_H * 2 }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 학교 검색 훅 ──────────────────────────────────────────────
 function useSchoolSearch() {
   const [query2, setQuery]    = useState('');
@@ -44,9 +117,9 @@ function useSchoolSearch() {
 function CreateClassModal({ onClose, onCreated, teacherUser }) {
   const { query, setQuery, results, loading, clearResults } = useSchoolSearch();
   const [selectedSchool, setSelectedSchool] = useState(null);
-  const [grade,          setGrade]          = useState('');
-  const [classNum,       setClassNum]       = useState('');
-  const [studentCount,   setStudentCount]   = useState('');
+  const [grade,          setGrade]          = useState('1');
+  const [classNum,       setClassNum]       = useState('1');
+  const [studentCount,   setStudentCount]   = useState('25');
   const [isCreating,     setIsCreating]     = useState(false);
   const [step,           setStep]           = useState(1); // 1:학교선택 2:정보입력 3:생성중
 
@@ -173,36 +246,31 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
               )}
             </div>
 
-            {/* 학년 / 반 */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">학년 <span className="text-rose-500">*</span></label>
-                <select value={grade} onChange={e => setGrade(e.target.value)}
-                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500">
-                  <option value="">선택</option>
-                  {[1,2,3,4,5,6].map(g => <option key={g} value={g}>{g}학년</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">반 <span className="text-rose-500">*</span></label>
-                <select value={classNum} onChange={e => setClassNum(e.target.value)}
-                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500">
-                  <option value="">선택</option>
-                  {Array.from({length: 20}, (_,i) => i+1).map(n => <option key={n} value={n}>{n}반</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* 학생 수 */}
+            {/* 학년 / 반 / 학생수 스크롤 피커 */}
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5">학생 수 <span className="text-rose-500">*</span></label>
-              <input
-                type="number" min="1" max="32"
-                value={studentCount}
-                onChange={e => setStudentCount(e.target.value)}
-                placeholder="예: 25"
-                className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500"
-              />
+              <div className="text-xs font-bold text-slate-600 mb-3 text-center">
+                학년 · 반 · 학생 수 <span className="text-rose-500">*</span>
+              </div>
+              <div className="flex justify-center gap-4 py-2">
+                <ScrollPicker
+                  label="학년"
+                  value={grade || '1'}
+                  onChange={v => setGrade(v)}
+                  items={[1,2,3,4,5,6].map(g => ({ value: String(g), label: `${g}학년` }))}
+                />
+                <ScrollPicker
+                  label="반"
+                  value={classNum || '1'}
+                  onChange={v => setClassNum(v)}
+                  items={Array.from({length:20},(_,i)=>i+1).map(n => ({ value: String(n), label: `${n}반` }))}
+                />
+                <ScrollPicker
+                  label="학생 수"
+                  value={studentCount || '25'}
+                  onChange={v => setStudentCount(v)}
+                  items={Array.from({length:32},(_,i)=>i+1).map(n => ({ value: String(n), label: `${n}명` }))}
+                />
+              </div>
             </div>
 
             {/* 미리보기 */}
@@ -231,7 +299,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
               </button>
               <button
                 onClick={handleCreate}
-                disabled={!selectedSchool || !grade || !classNum || !studentCount}
+                disabled={!selectedSchool || !grade || !classNum || !studentCount || isCreating}
                 className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40 transition-colors">
                 학급 생성하기
               </button>

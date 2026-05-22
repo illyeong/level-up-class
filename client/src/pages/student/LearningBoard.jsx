@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  collection, getDocs, addDoc, updateDoc, query, where, orderBy,
+  collection, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy,
   doc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -53,11 +53,14 @@ const fmtDate = (ts) => {
 
 // ── 댓글 컴포넌트 ────────────────────────────────────────────
 function CommentSection({ post, boardId, student }) {
-  const [open, setOpen]       = useState(false);
-  const [text, setText]       = useState('');
-  const [saving, setSaving]   = useState(false);
+  const [open, setOpen]         = useState(false);
+  const [text, setText]         = useState('');
+  const [saving, setSaving]     = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [localComments, setLocalComments] = useState(post.comments || []);
 
-  const comments = post.comments || [];
+  const postRef = doc(db, 'boards', boardId, 'posts', post.id);
 
   const submitComment = async () => {
     if (!text.trim() || !student) return;
@@ -71,35 +74,70 @@ function CommentSection({ post, boardId, student }) {
         text:           text.trim(),
         createdAt:      new Date().toISOString(),
       };
-      const postRef = doc(db, 'boards', boardId, 'posts', post.id);
-      const updated = [...comments, newComment];
+      const updated = [...localComments, newComment];
       await updateDoc(postRef, { comments: updated });
-      post.comments = updated; // 로컬 갱신
+      setLocalComments(updated);
+      post.comments = updated;
       setText('');
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
+  };
+
+  const deleteComment = async (id) => {
+    const updated = localComments.filter(c => c.id !== id);
+    await updateDoc(postRef, { comments: updated });
+    setLocalComments(updated);
+    post.comments = updated;
+  };
+
+  const saveEdit = async (id) => {
+    if (!editText.trim()) return;
+    const updated = localComments.map(c => c.id === id ? { ...c, text: editText.trim() } : c);
+    await updateDoc(postRef, { comments: updated });
+    setLocalComments(updated);
+    post.comments = updated;
+    setEditingId(null);
   };
 
   return (
     <div className="border-t border-black/5 mt-2 pt-2">
       <button onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-indigo-600 transition-colors">
-        💬 댓글 {comments.length > 0 && <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">{comments.length}</span>}
+        💬 댓글 {localComments.length > 0 && <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">{localComments.length}</span>}
         <span className="text-slate-300">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
         <div className="mt-2 space-y-2">
-          {comments.map(c => (
+          {localComments.map(c => (
             <div key={c.id} className="flex items-start gap-2">
               <div className="w-6 h-6 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                {c.characterImage
-                  ? <img src={c.characterImage} alt="" className="w-full h-full object-contain scale-150" />
-                  : <span className="text-[10px]">🧑</span>}
+                {c.characterImage ? <img src={c.characterImage} alt="" className="w-full h-full object-contain scale-150" /> : <span className="text-[10px]">🧑</span>}
               </div>
-              <div className="flex-1 bg-white/60 rounded-xl px-2.5 py-1.5">
-                <span className="text-[10px] font-extrabold text-slate-700">{c.authorName} </span>
-                <span className="text-xs text-slate-600">{c.text}</span>
+              <div className="flex-1">
+                {editingId === c.id ? (
+                  <div className="flex gap-1">
+                    <input value={editText} onChange={e => setEditText(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && saveEdit(c.id)}
+                      className="flex-1 text-xs bg-white border border-indigo-300 rounded-xl px-2.5 py-1.5 focus:outline-none" autoFocus />
+                    <button onClick={() => saveEdit(c.id)} className="text-[10px] font-bold text-indigo-600 px-1">저장</button>
+                    <button onClick={() => setEditingId(null)} className="text-[10px] text-slate-400 px-1">취소</button>
+                  </div>
+                ) : (
+                  <div className="bg-white/60 rounded-xl px-2.5 py-1.5 group/comment relative">
+                    <span className="text-[10px] font-extrabold text-slate-700">{c.authorName} </span>
+                    <span className="text-xs text-slate-600">{c.text}</span>
+                    {/* 수정/삭제 — 본인 댓글만 */}
+                    {student?.id === c.authorId && (
+                      <div className="absolute top-1 right-1 opacity-0 group-hover/comment:opacity-100 flex gap-0.5 transition-opacity">
+                        <button onClick={() => { setEditingId(c.id); setEditText(c.text); }}
+                          className="text-[9px] text-slate-400 hover:text-indigo-500 px-1 py-0.5 rounded bg-white/80">수정</button>
+                        <button onClick={() => deleteComment(c.id)}
+                          className="text-[9px] text-slate-400 hover:text-rose-500 px-1 py-0.5 rounded bg-white/80">삭제</button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -107,9 +145,7 @@ function CommentSection({ post, boardId, student }) {
           {student && (
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                {student.characterImage
-                  ? <img src={student.characterImage} alt="" className="w-full h-full object-contain scale-150" />
-                  : <span className="text-[10px]">🧑</span>}
+                {student.characterImage ? <img src={student.characterImage} alt="" className="w-full h-full object-contain scale-150" /> : <span className="text-[10px]">🧑</span>}
               </div>
               <input value={text} onChange={e => setText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && submitComment()}
@@ -128,7 +164,23 @@ function CommentSection({ post, boardId, student }) {
 }
 
 // ── 게시물 카드 ───────────────────────────────────────────────
-function PostCard({ post, studentId, student, boardId, onReact, isPinned }) {
+function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDelete, onEdit }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(post.content || '');
+  const [editSaving, setEditSaving]   = useState(false);
+  const isMyPost = post.studentId && post.studentId === studentId;
+
+  const saveEdit = async () => {
+    if (!editContent.trim() && !post.imageBase64) return;
+    setEditSaving(true);
+    try {
+      await updateDoc(doc(db, 'boards', boardId, 'posts', post.id), { content: editContent.trim() });
+      post.content = editContent.trim();
+      onEdit?.(post.id, editContent.trim());
+      setIsEditing(false);
+    } catch (e) { console.error(e); }
+    finally { setEditSaving(false); }
+  };
   const color = post.isTeacher
     ? { bg: 'bg-indigo-50', border: 'border-indigo-300' }
     : getCardColor(post.cardColor);
@@ -153,7 +205,7 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned }) {
       )}
 
       <div className="p-4">
-        {/* 작성자 */}
+        {/* 작성자 + 수정/삭제 */}
         <div className="flex items-center gap-2.5 mb-3">
           <div className="w-14 h-14 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
             {post.isTeacher ? (
@@ -171,12 +223,33 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned }) {
             </div>
             <div className="text-[10px] text-slate-400">{fmtDate(post.createdAt)}</div>
           </div>
+          {/* 본인 게시물만 수정/삭제 */}
+          {isMyPost && (
+            <div className="flex gap-1 shrink-0">
+              <button onClick={() => setIsEditing(true)}
+                className="text-[10px] text-slate-400 hover:text-indigo-500 px-1.5 py-0.5 rounded-lg bg-white/60 hover:bg-white transition-colors font-bold">수정</button>
+              <button onClick={() => onDelete?.(post.id)}
+                className="text-[10px] text-slate-400 hover:text-rose-500 px-1.5 py-0.5 rounded-lg bg-white/60 hover:bg-white transition-colors font-bold">삭제</button>
+            </div>
+          )}
         </div>
 
-        {/* 내용 */}
-        {post.content && (
+        {/* 내용 (편집 모드) */}
+        {isEditing ? (
+          <div className="mb-3 space-y-2">
+            <textarea value={editContent} onChange={e => setEditContent(e.target.value)}
+              className="w-full text-sm bg-white/70 border-2 border-indigo-300 rounded-xl px-3 py-2 resize-none h-20 focus:outline-none" autoFocus />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setIsEditing(false)} className="text-xs text-slate-500 hover:text-slate-700 font-bold px-2 py-1">취소</button>
+              <button onClick={saveEdit} disabled={editSaving}
+                className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1 rounded-lg disabled:opacity-50">
+                {editSaving ? '...' : '저장'}
+              </button>
+            </div>
+          </div>
+        ) : post.content ? (
           <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-3">{post.content}</p>
-        )}
+        ) : null}
 
         {/* 이미지 */}
         {post.imageBase64 && (
@@ -314,6 +387,18 @@ export default function LearningBoard({ studentCode }) {
     finally { setIsPosting(false); }
   };
 
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm('게시물을 삭제할까요?')) return;
+    try {
+      await deleteDoc(doc(db, 'boards', selectedBoard.id, 'posts', postId));
+      setPosts(prev => prev.filter(p => p.id !== postId));
+    } catch (e) { console.error(e); }
+  };
+
+  const handleEditPost = (postId, newContent) => {
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, content: newContent } : p));
+  };
+
   const handleReact = async (postId, emoji, currentMyReaction) => {
     if (!student) return;
     const postRef = doc(db, 'boards', selectedBoard.id, 'posts', postId);
@@ -419,6 +504,8 @@ export default function LearningBoard({ studentCode }) {
                   boardId={selectedBoard.id}
                   onReact={handleReact}
                   isPinned={post.pinned}
+                  onDelete={handleDeletePost}
+                  onEdit={handleEditPost}
                 />
               ))}
             </div>
