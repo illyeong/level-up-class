@@ -145,18 +145,17 @@ export default function DungeonMapEditor() {
         </div>
       </div>
 
-      <div className="flex gap-4">
-        {/* 맵 에디터 */}
-        <div
-          ref={mapRef}
-          className="relative flex-1 rounded-2xl overflow-hidden select-none"
-          style={{ aspectRatio: '2236/1080', cursor: dragging ? 'grabbing' : 'default' }}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseUp}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onMouseUp}
-        >
+      {/* 맵 - 전체 너비 (학생 화면과 동일한 레이아웃) */}
+      <div
+        ref={mapRef}
+        className="relative w-full rounded-2xl overflow-hidden select-none"
+        style={{ aspectRatio: '2236/1080', cursor: mode==='edit' && dragging ? 'grabbing' : 'default' }}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onMouseUp}
+      >
           <img src="/images/FantasyGameMap.png" alt="map"
             className="w-full h-full object-cover pointer-events-none" />
 
@@ -214,57 +213,53 @@ export default function DungeonMapEditor() {
           })}
         </div>
 
-        {/* 선택된 던전 정보 */}
-        <div className="w-52 shrink-0 space-y-2">
-          <div className="bg-white rounded-2xl border border-slate-200 p-4">
-            {selectedDungeon ? (
-              <>
-                <div className="font-extrabold text-slate-800 text-sm mb-1">
-                  {selectedDungeon.id + 1}. {selectedDungeon.name}
+      {/* 하단 컨트롤 패널 */}
+      <div className="flex gap-4 mt-3">
+        {/* 선택된 던전 X/Y 조정 */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 w-64 shrink-0">
+          {selectedDungeon ? (
+            <>
+              <div className="font-extrabold text-slate-800 text-sm mb-1">
+                {selectedDungeon.id + 1}. {selectedDungeon.name}
+              </div>
+              <div className="text-xs text-slate-400 mb-3">Lv.{selectedDungeon.level}</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500">X (%)</label>
+                  <input type="number" step="0.1" value={selectedDungeon.pos.x}
+                    onChange={e => setDungeons(prev => prev.map(d =>
+                      d.id === selected ? { ...d, pos: { ...d.pos, x: parseFloat(e.target.value)||0 } } : d
+                    ))}
+                    className="w-full border border-slate-200 rounded-lg px-2 py-1 text-sm text-center mt-0.5 focus:outline-none focus:border-indigo-400" />
                 </div>
-                <div className="text-xs text-slate-400 mb-3">Lv.{selectedDungeon.level}</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500">X (%)</label>
-                    <input
-                      type="number" step="0.1"
-                      value={selectedDungeon.pos.x}
-                      onChange={e => setDungeons(prev => prev.map(d =>
-                        d.id === selected ? { ...d, pos: { ...d.pos, x: parseFloat(e.target.value)||0 } } : d
-                      ))}
-                      className="w-full border border-slate-200 rounded-lg px-2 py-1 text-sm text-center mt-0.5 focus:outline-none focus:border-indigo-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500">Y (%)</label>
-                    <input
-                      type="number" step="0.1"
-                      value={selectedDungeon.pos.y}
-                      onChange={e => setDungeons(prev => prev.map(d =>
-                        d.id === selected ? { ...d, pos: { ...d.pos, y: parseFloat(e.target.value)||0 } } : d
-                      ))}
-                      className="w-full border border-slate-200 rounded-lg px-2 py-1 text-sm text-center mt-0.5 focus:outline-none focus:border-indigo-400"
-                    />
-                  </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500">Y (%)</label>
+                  <input type="number" step="0.1" value={selectedDungeon.pos.y}
+                    onChange={e => setDungeons(prev => prev.map(d =>
+                      d.id === selected ? { ...d, pos: { ...d.pos, y: parseFloat(e.target.value)||0 } } : d
+                    ))}
+                    className="w-full border border-slate-200 rounded-lg px-2 py-1 text-sm text-center mt-0.5 focus:outline-none focus:border-indigo-400" />
                 </div>
-              </>
-            ) : (
-              <p className="text-xs text-slate-400 text-center py-4">번호를 클릭하거나<br/>드래그하세요</p>
-            )}
-          </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-slate-400 text-center py-3">번호를 클릭하거나 드래그하세요</p>
+          )}
+        </div>
 
-          {/* 번호 목록 */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-3 max-h-80 overflow-y-auto">
-            <div className="text-[10px] font-bold text-slate-400 mb-2">던전 목록</div>
+        {/* 번호 목록 - 가로 스크롤 */}
+        <div className="flex-1 bg-white rounded-2xl border border-slate-200 p-3 overflow-x-auto">
+          <div className="text-[10px] font-bold text-slate-400 mb-2">던전 목록 (클릭하여 선택)</div>
+          <div className="flex gap-1.5 flex-wrap">
             {dungeons.map(d => (
               <button key={d.id} onClick={() => setSelected(d.id)}
-                className={`w-full text-left px-2 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-2 mb-0.5
-                  ${selected === d.id ? 'bg-indigo-100 text-indigo-700 font-bold' : 'hover:bg-slate-50 text-slate-600'}`}>
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-extrabold shrink-0
-                  ${selected === d.id ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors shrink-0
+                  ${selected === d.id ? 'bg-indigo-100 text-indigo-700 font-bold border border-indigo-300' : 'hover:bg-slate-50 text-slate-600 border border-slate-200'}`}>
+                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-extrabold
+                  ${selected === d.id ? 'bg-indigo-600 text-white' : d.active===false ? 'bg-slate-400 text-white' : 'bg-indigo-200 text-indigo-700'}`}>
                   {d.id + 1}
                 </span>
-                <span className="truncate">{d.name}</span>
+                <span>{d.name}</span>
               </button>
             ))}
           </div>

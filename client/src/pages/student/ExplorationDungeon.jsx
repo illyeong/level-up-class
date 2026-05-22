@@ -39,16 +39,14 @@ const DUNGEONS = [
 ];
 
 // ── 순차 해금: 앞 던전 클리어해야 다음 Current.png ────────────
+// allDungeons = 전체 던전 목록 (active 관계없이 전부)
 const getSequentialState = (dungeon, completedMap, allDungeons) => {
-  const isActive = dungeon.active !== false;
-  if (!isActive) return 'locked';
-
+  if (dungeon.active === false) return 'locked';
   if (completedMap[dungeon.id] === 'completed') return 'completed';
 
-  // 이 던전보다 id 작은 모든 active 던전이 클리어됐으면 current, 아니면 locked
+  // 이 던전보다 id 작은 active 던전 중 미완료가 하나라도 있으면 locked
   const prevActive = allDungeons
-    .filter(d => d.active !== false && d.id < dungeon.id)
-    .sort((a, b) => a.id - b.id);
+    .filter(d => d.active !== false && d.id < dungeon.id);
 
   const allPrevCleared = prevActive.every(d => completedMap[d.id] === 'completed');
   return allPrevCleared ? 'current' : 'locked';
@@ -393,7 +391,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
             <DungeonNode
               key={dungeon.id}
               dungeon={dungeon}
-              state={getSequentialState(dungeon, progress, activeDungeons)}
+              state={getSequentialState(dungeon, progress, dungeonList)}
               isSelected={selectedDungeon?.id === dungeon.id}
               onClick={d => setSelectedDungeon(prev => prev?.id === d.id ? null : d)}
             />
@@ -403,7 +401,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
           {selectedDungeon && (
             <DungeonPopup
               dungeon={selectedDungeon}
-              state={getSequentialState(selectedDungeon, progress, activeDungeons)}
+              state={getSequentialState(selectedDungeon, progress, dungeonList)}
               onEnter={handleEnter}
               onClose={() => setSelectedDungeon(null)}
               isBusy={isBusy}
