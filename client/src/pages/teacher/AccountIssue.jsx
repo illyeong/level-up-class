@@ -33,11 +33,12 @@ function AccountIssue({ user, selectedClass }) {
   const [isAdding, setIsAdding]         = useState(false);
 
   const fetchStudents = async () => {
-    if (!selectedClass?.id) { setStudents([]); return; }
+    if (!selectedClass?.id && !selectedClass?.teacherUid) { setStudents([]); return; }
     try {
-      const snap = await getDocs(
-        query(collection(db, 'students'), where('classId', '==', selectedClass.id))
-      );
+      const q = selectedClass.id
+        ? query(collection(db, 'students'), where('classId',    '==', selectedClass.id))
+        : query(collection(db, 'students'), where('teacherUid', '==', selectedClass.teacherUid));
+      const snap = await getDocs(q);
       const list = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => getSeatNum(a.studentCode) - getSeatNum(b.studentCode));
