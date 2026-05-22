@@ -90,7 +90,8 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
           <img
             src="/images/levelupclass.png"
             alt="LevelUp Class"
-            className="mx-auto max-h-80 w-auto object-contain drop-shadow-lg"
+            className="mx-auto object-contain drop-shadow-lg"
+            style={{ height: '640px' }}
           />
         </div>
 
