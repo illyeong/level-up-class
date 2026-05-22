@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
   doc, serverTimestamp, query, where, orderBy,
@@ -17,10 +17,31 @@ export default function BoardManage({ selectedClass, user }) {
   const [loadingPosts, setLoadingPosts] = useState(false);
 
   // 글쓰기
-  const [showWrite, setShowWrite]   = useState(false);
+  const [showWrite, setShowWrite]       = useState(false);
   const [writeContent, setWriteContent] = useState('');
-  const [isPosting, setIsPosting]   = useState(false);
-  const textRef = React.useRef(null);
+  const [writeImage, setWriteImage]     = useState('');
+  const [isPosting, setIsPosting]       = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const textRef = useRef(null);
+  const fileRef = useRef(null);
+
+  const compressImage = (file) => new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else        { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+      URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(file);
+  });
 
   const fetchBoards = async () => {
     try {
@@ -92,6 +113,9 @@ export default function BoardManage({ selectedClass, user }) {
         characterImage: '',
         isTeacher:      true,
         content:        writeContent.trim(),
+        imageBase64:    writeImage || '',
+        reactions:      {},
+        comments:       [],
         createdAt:      serverTimestamp(),
       };
       const ref = await addDoc(
@@ -99,6 +123,7 @@ export default function BoardManage({ selectedClass, user }) {
       );
       setPosts(prev => [{ id: ref.id, ...newPost, createdAt: { toDate: () => new Date() } }, ...prev]);
       setWriteContent('');
+      setWriteImage('');
       setShowWrite(false);
     } catch (e) { alert('게시 실패'); }
     finally { setIsPosting(false); }
@@ -205,21 +230,41 @@ export default function BoardManage({ selectedClass, user }) {
                   <button onClick={() => { setShowWrite(false); setWriteContent(''); }}
                     className="ml-auto text-slate-400 hover:text-slate-600 text-xl">✕</button>
                 </div>
-                <div className="p-4">
+                <div className="p-4 space-y-3">
                   <textarea
                     ref={textRef}
                     value={writeContent}
                     onChange={e => setWriteContent(e.target.value)}
                     placeholder="내용을 입력하세요..."
-                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none h-32 focus:outline-none focus:border-indigo-500"
+                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none h-28 focus:outline-none focus:border-indigo-500"
                   />
+                  {writeImage && (
+                    <div className="relative">
+                      <img src={writeImage} alt="" className="w-full rounded-xl object-cover max-h-48 border border-slate-200" />
+                      <button onClick={() => setWriteImage('')}
+                        className="absolute top-2 right-2 bg-slate-900/60 text-white w-6 h-6 rounded-full text-xs flex items-center justify-center hover:bg-rose-500">✕</button>
+                    </div>
+                  )}
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setIsCompressing(true);
+                      try { setWriteImage(await compressImage(file)); }
+                      catch { alert('이미지 처리 실패'); }
+                      finally { setIsCompressing(false); e.target.value = ''; }
+                    }} />
+                  <button onClick={() => fileRef.current?.click()} disabled={isCompressing}
+                    className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-xl border border-slate-200 transition-colors">
+                    {isCompressing ? '⏳ 처리 중...' : '🖼️ 이미지 첨부'}
+                  </button>
                 </div>
                 <div className="p-4 border-t border-slate-100 flex gap-3">
-                  <button onClick={() => { setShowWrite(false); setWriteContent(''); }}
+                  <button onClick={() => { setShowWrite(false); setWriteContent(''); setWriteImage(''); }}
                     className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm">
                     취소
                   </button>
-                  <button onClick={submitPost} disabled={isPosting || !writeContent.trim()}
+                  <button onClick={submitPost} disabled={isPosting || isCompressing || (!writeContent.trim() && !writeImage)}
                     className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40">
                     {isPosting ? '게시 중...' : '게시하기 ✓'}
                   </button>

@@ -27,9 +27,11 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
 
   const fetchStudents = async () => {
     setIsLoading(true);
-    if (!selectedClass?.id) { setStudents([]); setIsLoading(false); return; }
+    if (!selectedClass?.id && !selectedClass?.teacherUid) { setStudents([]); setIsLoading(false); return; }
     try {
-      const q = query(collection(db, 'students'), where('classId', '==', selectedClass.id));
+      const q = selectedClass.id
+        ? query(collection(db, 'students'), where('classId',    '==', selectedClass.id))
+        : query(collection(db, 'students'), where('teacherUid', '==', selectedClass.teacherUid));
       const querySnapshot = await getDocs(q);
       const studentList = [];
       querySnapshot.forEach((doc) => {

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  collection, getDocs, addDoc, query, where, orderBy,
-  serverTimestamp,
+  collection, getDocs, addDoc, updateDoc, query, where, orderBy,
+  doc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
-// 이미지 압축 (최대 800px, JPEG 70%)
+// ── 이미지 압축 ───────────────────────────────────────────────
 const compressImage = (file) => new Promise((resolve) => {
   const img = new Image();
   img.onload = () => {
@@ -18,51 +18,198 @@ const compressImage = (file) => new Promise((resolve) => {
     const canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-    resolve(canvas.toDataURL('image/jpeg', 0.7));
+    resolve(canvas.toDataURL('image/jpeg', 0.75));
     URL.revokeObjectURL(img.src);
   };
   img.src = URL.createObjectURL(file);
 });
 
-const COLORS = [
-  'bg-yellow-50 border-yellow-200',
-  'bg-sky-50 border-sky-200',
-  'bg-pink-50 border-pink-200',
-  'bg-emerald-50 border-emerald-200',
-  'bg-violet-50 border-violet-200',
-  'bg-orange-50 border-orange-200',
+// ── 상수 ─────────────────────────────────────────────────────
+const CARD_COLORS = [
+  { id: 'yellow', bg: 'bg-yellow-50',  border: 'border-yellow-200', label: '노랑' },
+  { id: 'sky',    bg: 'bg-sky-50',     border: 'border-sky-200',    label: '하늘' },
+  { id: 'pink',   bg: 'bg-pink-50',    border: 'border-pink-200',   label: '분홍' },
+  { id: 'green',  bg: 'bg-emerald-50', border: 'border-emerald-200',label: '초록' },
+  { id: 'violet', bg: 'bg-violet-50',  border: 'border-violet-200', label: '보라' },
+  { id: 'orange', bg: 'bg-orange-50',  border: 'border-orange-200', label: '주황' },
+  { id: 'white',  bg: 'bg-white',      border: 'border-slate-200',  label: '흰색' },
+  { id: 'indigo', bg: 'bg-indigo-50',  border: 'border-indigo-200', label: '남색' },
 ];
 
-// ── 게시물 카드 ───────────────────────────────────────────────
-function PostCard({ post, index }) {
+const getCardColor = (id) => CARD_COLORS.find(c => c.id === id) || CARD_COLORS[0];
+
+const REACTIONS = ['❤️', '👍', '🔥', '😮'];
+
+const fmtDate = (ts) => {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date();
+  const now = new Date();
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60)   return '방금 전';
+  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+  return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+};
+
+// ── 댓글 컴포넌트 ────────────────────────────────────────────
+function CommentSection({ post, boardId, student }) {
+  const [open, setOpen]       = useState(false);
+  const [text, setText]       = useState('');
+  const [saving, setSaving]   = useState(false);
+
+  const comments = post.comments || [];
+
+  const submitComment = async () => {
+    if (!text.trim() || !student) return;
+    setSaving(true);
+    try {
+      const newComment = {
+        id:             `${Date.now()}_${student.id}`,
+        authorId:       student.id,
+        authorName:     student.name || student.studentCode,
+        characterImage: student.characterImage || '',
+        text:           text.trim(),
+        createdAt:      new Date().toISOString(),
+      };
+      const postRef = doc(db, 'boards', boardId, 'posts', post.id);
+      const updated = [...comments, newComment];
+      await updateDoc(postRef, { comments: updated });
+      post.comments = updated; // 로컬 갱신
+      setText('');
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+
   return (
-    <div className={`rounded-2xl border-2 p-4 shadow-sm
-      ${post.isTeacher ? 'bg-indigo-50 border-indigo-200' : COLORS[index % COLORS.length]}`}>
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-10 h-10 rounded-full bg-white border-2 border-white shadow overflow-hidden shrink-0 flex items-center justify-center">
-          {post.isTeacher ? (
-            <span className="text-lg">👑</span>
-          ) : post.characterImage ? (
-            <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-150" />
-          ) : (
-            <span className="text-lg">🧑‍🎓</span>
+    <div className="border-t border-black/5 mt-2 pt-2">
+      <button onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-indigo-600 transition-colors">
+        💬 댓글 {comments.length > 0 && <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">{comments.length}</span>}
+        <span className="text-slate-300">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-2">
+          {comments.map(c => (
+            <div key={c.id} className="flex items-start gap-2">
+              <div className="w-6 h-6 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                {c.characterImage
+                  ? <img src={c.characterImage} alt="" className="w-full h-full object-contain scale-150" />
+                  : <span className="text-[10px]">🧑</span>}
+              </div>
+              <div className="flex-1 bg-white/60 rounded-xl px-2.5 py-1.5">
+                <span className="text-[10px] font-extrabold text-slate-700">{c.authorName} </span>
+                <span className="text-xs text-slate-600">{c.text}</span>
+              </div>
+            </div>
+          ))}
+
+          {student && (
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                {student.characterImage
+                  ? <img src={student.characterImage} alt="" className="w-full h-full object-contain scale-150" />
+                  : <span className="text-[10px]">🧑</span>}
+              </div>
+              <input value={text} onChange={e => setText(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && submitComment()}
+                placeholder="댓글 입력..."
+                className="flex-1 text-xs bg-white/70 border border-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-indigo-400" />
+              <button onClick={submitComment} disabled={saving || !text.trim()}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 disabled:opacity-40 px-1">
+                {saving ? '...' : '↑'}
+              </button>
+            </div>
           )}
         </div>
-        <span className={`font-extrabold text-xs truncate ${post.isTeacher ? 'text-indigo-700' : 'text-slate-800'}`}>
-          {post.studentName}
-        </span>
-      </div>
-      {post.content && (
-        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-2">{post.content}</p>
       )}
-      {post.imageBase64 && (
-        <img src={post.imageBase64} alt="첨부 이미지"
-          className="w-full rounded-xl object-cover max-h-48 mb-2 border border-slate-200" />
+    </div>
+  );
+}
+
+// ── 게시물 카드 ───────────────────────────────────────────────
+function PostCard({ post, studentId, student, boardId, onReact, isPinned }) {
+  const color = post.isTeacher
+    ? { bg: 'bg-indigo-50', border: 'border-indigo-300' }
+    : getCardColor(post.cardColor);
+
+  const reactionCounts = {};
+  Object.values(post.reactions || {}).forEach(e => {
+    reactionCounts[e] = (reactionCounts[e] || 0) + 1;
+  });
+  const myReaction = (post.reactions || {})[studentId];
+  const totalReactions = Object.values(reactionCounts).reduce((a,b) => a+b, 0);
+
+  return (
+    <div className={`rounded-2xl border-2 ${color.bg} ${color.border} shadow-sm
+      hover:shadow-md transition-all duration-200 overflow-hidden mb-4 break-inside-avoid
+      ${isPinned ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
+
+      {/* 핀 배지 */}
+      {isPinned && (
+        <div className="bg-amber-400 text-amber-900 text-[10px] font-extrabold px-3 py-0.5 flex items-center gap-1">
+          📌 선생님이 고정한 글
+        </div>
       )}
-      <div className="text-[10px] text-slate-400">
-        {post.createdAt?.toDate?.()?.toLocaleDateString('ko-KR', {
-          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-        }) || ''}
+
+      <div className="p-4">
+        {/* 작성자 */}
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="w-9 h-9 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+            {post.isTeacher ? (
+              <span className="text-base">👑</span>
+            ) : post.characterImage ? (
+              <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-[1.8]" />
+            ) : (
+              <span className="text-base">🧑‍🎓</span>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className={`font-extrabold text-xs truncate ${post.isTeacher ? 'text-indigo-700' : 'text-slate-800'}`}>
+              {post.studentName}
+              {post.isTeacher && <span className="ml-1 text-[9px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full">선생님</span>}
+            </div>
+            <div className="text-[10px] text-slate-400">{fmtDate(post.createdAt)}</div>
+          </div>
+        </div>
+
+        {/* 내용 */}
+        {post.content && (
+          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-3">{post.content}</p>
+        )}
+
+        {/* 이미지 */}
+        {post.imageBase64 && (
+          <img src={post.imageBase64} alt=""
+            className="w-full rounded-xl object-cover mb-3 border border-slate-200/80 cursor-zoom-in"
+            onClick={() => window.open(post.imageBase64, '_blank')}
+          />
+        )}
+
+        {/* 반응 */}
+        {/* 반응 */}
+        <div className="flex items-center gap-1 flex-wrap pt-2 border-t border-black/5">
+          {REACTIONS.map(emoji => {
+            const cnt = reactionCounts[emoji] || 0;
+            const isMe = myReaction === emoji;
+            return (
+              <button key={emoji} onClick={() => onReact(post.id, emoji, myReaction)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold transition-all active:scale-95
+                  ${isMe
+                    ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
+                    : 'bg-white/70 text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>
+                <span>{emoji}</span>
+                {cnt > 0 && <span className={isMe ? 'text-indigo-600' : 'text-slate-400'}>{cnt}</span>}
+              </button>
+            );
+          })}
+          {totalReactions > 0 && (
+            <span className="text-[10px] text-slate-400 ml-1">{totalReactions}개 반응</span>
+          )}
+        </div>
+
+        {/* 댓글 */}
+        <CommentSection post={post} boardId={boardId} student={student} />
       </div>
     </div>
   );
@@ -70,21 +217,29 @@ function PostCard({ post, index }) {
 
 // ── 메인 ─────────────────────────────────────────────────────
 export default function LearningBoard({ studentCode }) {
-  const [boards, setBoards]           = useState([]);
+  const [boards, setBoards]             = useState([]);
   const [selectedBoard, setSelectedBoard] = useState(null);
-  const [posts, setPosts]             = useState([]);
-  const [student, setStudent]         = useState(null);
-  const [isLoading, setIsLoading]     = useState(true);
+  const [posts, setPosts]               = useState([]);
+  const [student, setStudent]           = useState(null);
+  const [isLoading, setIsLoading]       = useState(true);
   const [loadingPosts, setLoadingPosts] = useState(false);
-  const [showWrite, setShowWrite]     = useState(false);
-  const [content, setContent]         = useState('');
-  const [imageBase64, setImageBase64] = useState('');
-  const [isPosting, setIsPosting]     = useState(false);
-  const [isCompressing, setIsCompressing] = useState(false);
-  const textRef  = useRef(null);
-  const fileRef  = useRef(null);
 
-  // 학생 정보 + 게시판 목록 로드
+  // 글쓰기
+  const [showWrite, setShowWrite]       = useState(false);
+  const [content, setContent]           = useState('');
+  const [cardColor, setCardColor]       = useState('yellow');
+  const [imageBase64, setImageBase64]   = useState('');
+  const [isPosting, setIsPosting]       = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
+
+  // 필터
+  const [sort, setSort]                 = useState('newest'); // newest | oldest | popular
+  const [searchQuery, setSearchQuery]   = useState('');
+
+  const textRef = useRef(null);
+  const fileRef = useRef(null);
+
+  // 학생 정보 + 게시판 로드
   useEffect(() => {
     if (!studentCode) { setIsLoading(false); return; }
     (async () => {
@@ -95,15 +250,11 @@ export default function LearningBoard({ studentCode }) {
           const d = ss.docs[0].data();
           setStudent({ id: ss.docs[0].id, ...d });
 
-          // teacherUid로 게시판 필터
           let boardsList = [];
           if (d.teacherUid) {
-            const bs = await getDocs(
-              query(collection(db, 'boards'), where('teacherUid', '==', d.teacherUid))
-            );
+            const bs = await getDocs(query(collection(db, 'boards'), where('teacherUid', '==', d.teacherUid)));
             boardsList = bs.docs.map(b => ({ id: b.id, ...b.data() })).filter(b => b.active !== false);
           }
-          // 매칭 없으면 teacherUid 없는 게시판도 포함 (테스트 계정 대응)
           if (boardsList.length === 0) {
             const bs = await getDocs(collection(db, 'boards'));
             boardsList = bs.docs.map(b => ({ id: b.id, ...b.data() }))
@@ -131,12 +282,10 @@ export default function LearningBoard({ studentCode }) {
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) return alert('10MB 이하 이미지만 업로드 가능합니다.');
+    if (file.size > 10 * 1024 * 1024) return alert('10MB 이하 이미지만 가능합니다.');
     setIsCompressing(true);
-    try {
-      const b64 = await compressImage(file);
-      setImageBase64(b64);
-    } catch { alert('이미지 처리 실패'); }
+    try { setImageBase64(await compressImage(file)); }
+    catch { alert('이미지 처리 실패'); }
     finally { setIsCompressing(false); e.target.value = ''; }
   };
 
@@ -152,122 +301,201 @@ export default function LearningBoard({ studentCode }) {
         characterImage: student.characterImage || '',
         content:        content.trim(),
         imageBase64:    imageBase64 || '',
+        cardColor,
+        reactions:      {},
+        pinned:         false,
         createdAt:      serverTimestamp(),
       };
-      const ref = await addDoc(
-        collection(db, 'boards', selectedBoard.id, 'posts'), newPost
-      );
+      const ref = await addDoc(collection(db, 'boards', selectedBoard.id, 'posts'), newPost);
       setPosts(prev => [{ id: ref.id, ...newPost, createdAt: { toDate: () => new Date() } }, ...prev]);
-      setContent('');
-      setImageBase64('');
+      setContent(''); setImageBase64(''); setCardColor('yellow');
       setShowWrite(false);
-    } catch (e) {
-      console.error(e);
-      alert('게시 실패');
-    } finally {
-      setIsPosting(false);
-    }
+    } catch (e) { alert('게시 실패'); }
+    finally { setIsPosting(false); }
   };
+
+  const handleReact = async (postId, emoji, currentMyReaction) => {
+    if (!student) return;
+    const postRef = doc(db, 'boards', selectedBoard.id, 'posts', postId);
+    const newEmoji = currentMyReaction === emoji ? null : emoji;
+    const field = `reactions.${student.id}`;
+
+    try {
+      if (newEmoji) {
+        await updateDoc(postRef, { [field]: newEmoji });
+        setPosts(prev => prev.map(p => p.id === postId
+          ? { ...p, reactions: { ...p.reactions, [student.id]: newEmoji } }
+          : p
+        ));
+      } else {
+        // 반응 취소 - 해당 학생 키 삭제
+        const updatedReactions = { ...(posts.find(p => p.id === postId)?.reactions || {}) };
+        delete updatedReactions[student.id];
+        await updateDoc(postRef, { reactions: updatedReactions });
+        setPosts(prev => prev.map(p => p.id === postId
+          ? { ...p, reactions: updatedReactions }
+          : p
+        ));
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  // 정렬 + 검색 + 핀 적용
+  const filteredPosts = posts
+    .filter(p => !searchQuery || p.content?.includes(searchQuery) || p.studentName?.includes(searchQuery))
+    .sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      if (sort === 'newest')  return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+      if (sort === 'oldest')  return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
+      if (sort === 'popular') {
+        const ra = Object.values(a.reactions || {}).length;
+        const rb = Object.values(b.reactions || {}).length;
+        return rb - ra;
+      }
+      return 0;
+    });
 
   // ── 게시판 내부 ────────────────────────────────────────────
   if (selectedBoard) {
     return (
-      <div className="min-h-full bg-slate-50 p-5">
-        {/* 헤더 */}
-        <div className="flex items-center gap-3 mb-5">
-          <button onClick={() => { setSelectedBoard(null); setPosts([]); }}
-            className="text-slate-500 hover:text-slate-800 font-bold text-sm px-3 py-1.5 bg-white rounded-xl border border-slate-200 shrink-0">
-            ← 목록
-          </button>
-          <div className="flex-1 min-w-0">
-            <h1 className="font-extrabold text-slate-800 text-lg truncate">{selectedBoard.title}</h1>
-            {selectedBoard.description && (
-              <p className="text-xs text-slate-500 mt-0.5">{selectedBoard.description}</p>
-            )}
+      <div className="min-h-full bg-slate-100">
+        {/* 게시판 헤더 */}
+        <div className="bg-white border-b border-slate-200 px-5 py-4 sticky top-0 z-20">
+          <div className="flex items-center gap-3 mb-3">
+            <button onClick={() => { setSelectedBoard(null); setPosts([]); setSearchQuery(''); }}
+              className="text-slate-500 hover:text-slate-800 font-bold text-sm px-3 py-1.5 bg-slate-100 rounded-xl shrink-0">
+              ← 목록
+            </button>
+            <div className="flex-1 min-w-0">
+              <h1 className="font-extrabold text-slate-800 text-lg truncate">{selectedBoard.title}</h1>
+              {selectedBoard.description && (
+                <p className="text-xs text-slate-500">{selectedBoard.description}</p>
+              )}
+            </div>
+            <span className="text-xs text-slate-400 shrink-0 font-medium">{posts.length}개</span>
           </div>
-          <span className="text-xs text-slate-400 shrink-0">{posts.length}개</span>
+
+          {/* 검색 + 정렬 */}
+          <div className="flex gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-32">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                placeholder="검색..."
+                className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 bg-slate-50" />
+            </div>
+            <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-white text-xs">
+              {[['newest','최신'],['oldest','오래된'],['popular','인기']].map(([val, label]) => (
+                <button key={val} onClick={() => setSort(val)}
+                  className={`px-3 py-1.5 font-bold transition-colors
+                    ${sort === val ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* 게시물 그리드 */}
-        {loadingPosts ? (
-          <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-24">
-            {posts.map((post, i) => <PostCard key={post.id} post={post} index={i} />)}
-            {posts.length === 0 && (
-              <div className="col-span-full text-center py-16 text-slate-400">
-                <div className="text-5xl mb-3">✏️</div>
-                <p className="font-bold text-slate-500">첫 번째 게시물을 작성해보세요!</p>
-              </div>
-            )}
-          </div>
-        )}
+        {/* 게시물 */}
+        <div className="p-4 pb-24">
+          {loadingPosts ? (
+            <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
+          ) : filteredPosts.length === 0 ? (
+            <div className="text-center py-16 text-slate-400">
+              <div className="text-5xl mb-3">✏️</div>
+              <p className="font-bold text-slate-500">
+                {searchQuery ? '검색 결과가 없습니다' : '첫 번째 게시물을 작성해보세요!'}
+              </p>
+            </div>
+          ) : (
+            /* Masonry: CSS columns */
+            <div style={{ columns: '2 280px', columnGap: '16px' }}>
+              {filteredPosts.map(post => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  studentId={student?.id}
+                  student={student}
+                  boardId={selectedBoard.id}
+                  onReact={handleReact}
+                  isPinned={post.pinned}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
-        {/* 글쓰기 버튼 (FAB) */}
+        {/* 글쓰기 FAB */}
         <button onClick={() => { setShowWrite(true); setTimeout(() => textRef.current?.focus(), 50); }}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-xl text-2xl flex items-center justify-center transition-all active:scale-95 z-10">
-          ✏️
+          className="fixed bottom-6 right-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-xl px-5 py-3 font-extrabold text-sm flex items-center gap-2 transition-all active:scale-95 z-10">
+          ✏️ 글쓰기
         </button>
 
         {/* 글쓰기 모달 */}
         {showWrite && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-              {/* 내 아바타 + 이름 미리보기 */}
-              <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-white border-2 border-slate-200 overflow-hidden flex items-center justify-center shadow-sm">
+            <div className={`${getCardColor(cardColor).bg} ${getCardColor(cardColor).border} border-2 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden`}>
+
+              {/* 내 정보 */}
+              <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b border-black/10">
+                <div className="w-10 h-10 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden flex items-center justify-center shrink-0">
                   {student?.characterImage ? (
-                    <img src={student.characterImage} alt="" className="w-full h-full object-contain scale-150" />
-                  ) : (
-                    <span className="text-xl">🧑‍🎓</span>
-                  )}
+                    <img src={student.characterImage} alt="" className="w-full h-full object-contain scale-[1.8]" />
+                  ) : <span className="text-lg">🧑‍🎓</span>}
                 </div>
-                <div>
+                <div className="flex-1">
                   <div className="font-extrabold text-slate-800 text-sm">{student?.name || studentCode}</div>
                   <div className="text-[10px] text-slate-400">{selectedBoard.title}에 게시</div>
                 </div>
-                <button onClick={() => { setShowWrite(false); setContent(''); }}
-                  className="ml-auto text-slate-400 hover:text-slate-600 text-xl">✕</button>
+                <button onClick={() => { setShowWrite(false); setContent(''); setImageBase64(''); }}
+                  className="text-slate-400 hover:text-slate-600 text-xl w-8 h-8 flex items-center justify-center">✕</button>
               </div>
 
               <div className="p-4 space-y-3">
-                <textarea
-                  ref={textRef}
-                  value={content}
-                  onChange={e => setContent(e.target.value)}
+                {/* 텍스트 */}
+                <textarea ref={textRef} value={content} onChange={e => setContent(e.target.value)}
                   placeholder="내용을 입력하세요..."
-                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none h-28 focus:outline-none focus:border-indigo-500"
-                />
+                  className="w-full bg-transparent border-0 text-sm resize-none h-24 focus:outline-none placeholder-slate-400 text-slate-800" />
 
                 {/* 이미지 미리보기 */}
                 {imageBase64 && (
                   <div className="relative">
-                    <img src={imageBase64} alt="첨부 이미지"
-                      className="w-full rounded-xl object-cover max-h-40 border border-slate-200" />
+                    <img src={imageBase64} alt="" className="w-full rounded-xl object-cover max-h-48 border border-black/10" />
                     <button onClick={() => setImageBase64('')}
-                      className="absolute top-2 right-2 bg-slate-900/60 text-white w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center hover:bg-rose-500 transition-colors">
-                      ✕
-                    </button>
+                      className="absolute top-2 right-2 bg-slate-900/60 text-white w-6 h-6 rounded-full text-xs flex items-center justify-center hover:bg-rose-500">✕</button>
                   </div>
                 )}
 
-                {/* 이미지 업로드 버튼 */}
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
-                <button onClick={() => fileRef.current?.click()} disabled={isCompressing}
-                  className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-xl border border-slate-200 hover:border-indigo-300 transition-colors disabled:opacity-50">
-                  {isCompressing ? '⏳ 처리 중...' : '🖼️ 이미지 첨부'}
-                </button>
-              </div>
+                {/* 카드 색상 선택 */}
+                <div>
+                  <div className="text-[10px] text-slate-500 font-bold mb-1.5">카드 색상</div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {CARD_COLORS.map(c => (
+                      <button key={c.id} onClick={() => setCardColor(c.id)}
+                        className={`w-6 h-6 rounded-full border-2 transition-all ${c.bg}
+                          ${cardColor === c.id ? 'border-slate-600 scale-110 shadow-md' : 'border-slate-300 hover:scale-105'}`}
+                        title={c.label} />
+                    ))}
+                  </div>
+                </div>
 
-              <div className="p-4 border-t border-slate-100 flex gap-3">
-                <button onClick={() => { setShowWrite(false); setContent(''); setImageBase64(''); }}
-                  className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm">
-                  취소
-                </button>
-                <button onClick={submitPost} disabled={isPosting || isCompressing || (!content.trim() && !imageBase64)}
-                  className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40">
-                  {isPosting ? '게시 중...' : '게시하기 ✓'}
-                </button>
+                {/* 하단 액션 */}
+                <div className="flex items-center gap-2 pt-1 border-t border-black/10">
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+                  <button onClick={() => fileRef.current?.click()} disabled={isCompressing}
+                    className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-xl hover:bg-white/60 transition-colors">
+                    {isCompressing ? '⏳' : '🖼️'} 사진
+                  </button>
+                  <div className="flex-1" />
+                  <button onClick={() => { setShowWrite(false); setContent(''); setImageBase64(''); }}
+                    className="px-4 py-2 rounded-xl text-slate-600 font-bold text-sm hover:bg-black/5">
+                    취소
+                  </button>
+                  <button onClick={submitPost} disabled={isPosting || isCompressing || (!content.trim() && !imageBase64)}
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-extrabold text-sm disabled:opacity-40 active:scale-95 transition-all">
+                    {isPosting ? '게시 중...' : '게시 ✓'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -279,30 +507,38 @@ export default function LearningBoard({ studentCode }) {
   // ── 게시판 목록 ────────────────────────────────────────────
   return (
     <div className="min-h-full bg-slate-50 p-6">
-      <h1 className="text-2xl font-extrabold text-slate-800 mb-1">📋 학습 게시판</h1>
-      <p className="text-slate-500 text-sm mb-6">선생님이 만든 게시판에 학습 내용을 공유해요</p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-extrabold text-slate-800">📋 학습 게시판</h1>
+        <p className="text-slate-500 text-sm mt-0.5">선생님이 만든 게시판에 학습 내용을 공유해요</p>
+      </div>
 
       {isLoading ? (
-        <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
+        <div className="text-center py-20 text-slate-400 font-bold animate-pulse">불러오는 중...</div>
       ) : boards.length === 0 ? (
         <div className="text-center py-20 text-slate-400">
-          <div className="text-6xl mb-4">📋</div>
+          <div className="text-6xl mb-4 opacity-40">📋</div>
           <p className="font-bold text-slate-600">아직 열린 게시판이 없습니다</p>
           <p className="text-sm mt-1">선생님이 게시판을 만들면 여기 표시됩니다</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {boards.map((board, i) => (
-            <button key={board.id} onClick={() => openBoard(board)}
-              className={`text-left rounded-2xl p-5 border-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all ${COLORS[i % COLORS.length]}`}>
-              <div className="text-3xl mb-3">📋</div>
-              <h3 className="font-extrabold text-slate-800 text-base mb-1">{board.title}</h3>
-              {board.description && (
-                <p className="text-xs text-slate-500">{board.description}</p>
-              )}
-              <div className="mt-3 text-xs text-indigo-600 font-bold">입장하기 →</div>
-            </button>
-          ))}
+          {boards.map((board, i) => {
+            const color = CARD_COLORS[i % CARD_COLORS.length];
+            return (
+              <button key={board.id} onClick={() => openBoard(board)}
+                className={`text-left rounded-2xl p-5 border-2 ${color.bg} ${color.border}
+                  shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all active:scale-[0.98]`}>
+                <div className="text-3xl mb-3">📋</div>
+                <h3 className="font-extrabold text-slate-800 text-base mb-1 leading-tight">{board.title}</h3>
+                {board.description && (
+                  <p className="text-xs text-slate-500 leading-relaxed">{board.description}</p>
+                )}
+                <div className="mt-4 flex items-center justify-between">
+                  <span className="text-xs text-indigo-600 font-extrabold">입장하기 →</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

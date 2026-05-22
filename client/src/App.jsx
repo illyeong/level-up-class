@@ -60,7 +60,8 @@ function App() {
   const handleTeacherLogin = (user) => {
     setTeacherUser(user);
     if (!user.uid) {
-      // 테스트 모드 — 학급 선택 건너뜀
+      // 테스트 모드 — SINSEOK 학생들(teacherUid: admin_master_001)과 연결
+      setSelectedClass({ id: null, teacherUid: 'admin_master_001' });
       setAppMode('teacher');
     } else {
       setAppMode('classSelect');
