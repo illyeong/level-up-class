@@ -55,10 +55,15 @@ function App() {
     return unsub;
   }, []);
 
-  // ── 교사 로그인 콜백 → 학급 선택으로 ────────────────────────
+  // ── 교사 로그인 콜백 → 학급 선택으로 (테스트는 바로 입장) ───
   const handleTeacherLogin = (user) => {
     setTeacherUser(user);
-    setAppMode('classSelect');
+    if (!user.uid) {
+      // 테스트 모드 — 학급 선택 건너뜀
+      setAppMode('teacher');
+    } else {
+      setAppMode('classSelect');
+    }
   };
 
   // ── 학급 선택 콜백 ───────────────────────────────────────────
