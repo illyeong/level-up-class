@@ -87,8 +87,11 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
 
         {/* 타이틀 */}
         <div className="text-center mb-10">
-          <div className="text-6xl mb-4">🏰</div>
-          <h1 className="text-4xl font-black text-white tracking-tight">LevelUp Class</h1>
+          <img
+            src="/images/levelupclass.png"
+            alt="LevelUp Class"
+            className="mx-auto max-h-40 w-auto object-contain drop-shadow-lg"
+          />
           <p className="text-indigo-300 mt-2 font-medium">게임형 학급 관리 플랫폼</p>
         </div>
 
