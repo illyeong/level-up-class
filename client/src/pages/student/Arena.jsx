@@ -37,6 +37,123 @@ const LOSE_REWARD = { gold: 0,   diamond: 0,  exp: 25 };
 const CHANGE_COST = 30;
 const MAX_CHANGES = 3;
 
+// ── 전적 기록 화면 ────────────────────────────────────────────
+function HistoryScreen({ studentDocId, studentCode, onBack }) {
+  const [logs, setLogs]       = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!studentDocId) { setLoading(false); return; }
+    (async () => {
+      try {
+        const [asMe, asOpp] = await Promise.all([
+          getDocs(query(collection(db, 'arenaLogs'), where('studentId',   '==', studentDocId))),
+          getDocs(query(collection(db, 'arenaLogs'), where('opponentId',  '==', studentDocId))),
+        ]);
+        const all = [
+          ...asMe.docs.map(d  => ({ id: d.id,  ...d.data(),  perspective: 'me'  })),
+          ...asOpp.docs.map(d => ({ id: d.id,  ...d.data(),  perspective: 'opp' })),
+        ].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        setLogs(all);
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    })();
+  }, [studentDocId]);
+
+  const fmtDate = (ts) => {
+    if (!ts) return '';
+    const d = ts.toDate ? ts.toDate() : new Date(ts.seconds * 1000);
+    return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const wins  = logs.filter(l => l.perspective === 'me' ? l.isWin : !l.isWin).length;
+  const loses = logs.filter(l => l.perspective === 'me' ? !l.isWin : l.isWin).length;
+
+  return (
+    <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-5">
+      {/* 헤더 */}
+      <div className="flex items-center gap-3 mb-5">
+        <button onClick={onBack} className="text-slate-400 hover:text-white text-sm font-bold px-3 py-1.5 bg-slate-800 rounded-xl">← 뒤로</button>
+        <h2 className="font-extrabold text-white text-lg">📋 전적 기록</h2>
+      </div>
+
+      {/* 승패 요약 */}
+      {!loading && logs.length > 0 && (
+        <div className="flex gap-3 mb-5">
+          <div className="flex-1 bg-slate-900/60 rounded-2xl p-3 text-center border border-slate-700">
+            <div className="text-2xl font-extrabold text-white">{logs.length}</div>
+            <div className="text-xs text-slate-400 mt-0.5">전체</div>
+          </div>
+          <div className="flex-1 bg-yellow-950/40 rounded-2xl p-3 text-center border border-yellow-700/40">
+            <div className="text-2xl font-extrabold text-yellow-400">{wins}</div>
+            <div className="text-xs text-slate-400 mt-0.5">승</div>
+          </div>
+          <div className="flex-1 bg-rose-950/40 rounded-2xl p-3 text-center border border-rose-800/40">
+            <div className="text-2xl font-extrabold text-rose-400">{loses}</div>
+            <div className="text-xs text-slate-400 mt-0.5">패</div>
+          </div>
+          <div className="flex-1 bg-indigo-950/40 rounded-2xl p-3 text-center border border-indigo-700/40">
+            <div className="text-2xl font-extrabold text-indigo-400">
+              {logs.length > 0 ? Math.round(wins / logs.length * 100) : 0}%
+            </div>
+            <div className="text-xs text-slate-400 mt-0.5">승률</div>
+          </div>
+        </div>
+      )}
+
+      {/* 목록 */}
+      {loading ? (
+        <div className="text-slate-400 text-center py-10 animate-pulse">불러오는 중...</div>
+      ) : logs.length === 0 ? (
+        <div className="text-center py-16 text-slate-500">
+          <div className="text-4xl mb-3">⚔️</div>
+          <p className="font-bold">아직 전적이 없습니다</p>
+        </div>
+      ) : (
+        <div className="space-y-2 overflow-y-auto flex-1">
+          {logs.map(log => {
+            // perspective: 'me' = 내가 도전자, 'opp' = 내가 상대로 매칭된 것
+            const iWon = log.perspective === 'me' ? log.isWin : !log.isWin;
+            const myName    = log.perspective === 'me' ? log.studentName  : log.opponentName;
+            const enemyName = log.perspective === 'me' ? log.opponentName : log.studentName;
+
+            return (
+              <div key={log.id}
+                className={`rounded-2xl border p-4 flex items-center gap-3
+                  ${iWon ? 'bg-yellow-950/30 border-yellow-700/40' : 'bg-rose-950/30 border-rose-800/40'}`}>
+                {/* 승패 뱃지 */}
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-extrabold shrink-0
+                  ${iWon ? 'bg-yellow-500 text-yellow-900' : 'bg-slate-700 text-slate-400'}`}>
+                  {iWon ? '승' : '패'}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-white font-extrabold text-sm truncate">{enemyName}</span>
+                    {log.perspective === 'opp' && (
+                      <span className="text-[9px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full shrink-0">상대로 매칭됨</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-500">{fmtDate(log.createdAt)}</div>
+                </div>
+
+                {/* 보상 */}
+                {iWon && log.reward && (
+                  <div className="text-right shrink-0">
+                    {log.reward.gold    > 0 && <div className="text-xs text-amber-400 font-bold">🪙+{log.reward.gold}</div>}
+                    {log.reward.diamond > 0 && <div className="text-xs text-cyan-400 font-bold">💎+{log.reward.diamond}</div>}
+                    {log.reward.exp     > 0 && <div className="text-xs text-indigo-400 font-bold">⭐+{log.reward.exp}</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 캐릭터 카드 ───────────────────────────────────────────────
 function CharacterCard({ student, label, isMe, highlight }) {
   const stats = getStats(student?.level || 1);
@@ -150,6 +267,17 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
     sessionStorage.setItem('arenaMatch', JSON.stringify({ opponent: opp, changes: ch }));
   };
   const clearMatch = () => sessionStorage.removeItem('arenaMatch');
+
+  // 최근 대련 상대 기록 (세션 내 중복 방지)
+  const recentOpponents = useRef(
+    (() => { try { return JSON.parse(sessionStorage.getItem('arenaRecent') || '[]'); } catch { return []; } })()
+  );
+  const addRecentOpponent = (id) => {
+    const list = [id, ...recentOpponents.current.filter(x => x !== id)].slice(0, 5);
+    recentOpponents.current = list;
+    sessionStorage.setItem('arenaRecent', JSON.stringify(list));
+  };
+
   const [me, setMe]               = useState(null);
   const [classmates, setClassmates] = useState([]);
   const [isBusy, setIsBusy]       = useState(false);
@@ -183,9 +311,14 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   }, [studentCode]);
 
   const pickRandom = (excludeId = null) => {
-    const pool = classmates.filter(s => s.id !== excludeId);
-    if (pool.length === 0) return classmates[0] ?? null;
-    return pool[Math.floor(Math.random() * pool.length)];
+    const recent = recentOpponents.current;
+    // 최근 상대 + 현재 상대 제외한 풀
+    let pool = classmates.filter(s => s.id !== excludeId && !recent.includes(s.id));
+    // 풀이 비면 최근 상대 제한 완화 (현재 상대만 제외)
+    if (pool.length === 0) pool = classmates.filter(s => s.id !== excludeId);
+    // 그래도 비면 전체
+    if (pool.length === 0) pool = classmates;
+    return pool[Math.floor(Math.random() * pool.length)] ?? null;
   };
 
   // 매칭 시작
@@ -324,6 +457,9 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         isWin, reward, createdAt: serverTimestamp(),
       });
 
+      // 방금 싸운 상대 기록 (다음 매칭에서 제외)
+      if (opponent?.id) addRecentOpponent(opponent.id);
+
       await new Promise(r => setTimeout(r, 1200));
       setResult({ isWin, reward });
       setPhase('result');
@@ -392,6 +528,11 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
               ? 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-violet-900'
               : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
           {classmates.length === 0 ? '대전 상대 없음' : arenaTickets <= 0 ? '이용권 없음' : '⚔️ 대전 상대 찾기'}
+        </button>
+
+        <button onClick={() => setPhase('history')}
+          className="w-full max-w-xs py-2.5 rounded-2xl font-bold text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 transition-all mt-2">
+          📋 전적 기록 보기
         </button>
       </div>
     );
@@ -478,55 +619,62 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
     const LOG_COLORS = { crit: 'text-yellow-400', attack: 'text-slate-200', system: 'text-indigo-400', result: 'text-emerald-400' };
 
     return (
-      <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-4 gap-4">
+      <div className="bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-5 gap-5"
+        style={{ height: 'calc(100vh - 88px)' }}>
 
         {/* 캐릭터 + HP */}
-        <div className="flex items-stretch gap-3">
+        <div className="flex items-stretch gap-4 flex-1 min-h-0" style={{ maxHeight: '55%' }}>
           {/* 나 */}
-          <div className={`flex-1 flex flex-col items-center gap-2 bg-indigo-950/60 rounded-2xl p-4 border transition-all
-            ${hitFlash.me ? 'border-rose-500 bg-rose-950/40' : 'border-indigo-700'}`}>
-            <div className="text-[10px] font-bold text-indigo-400">나</div>
-            <div className="w-20 h-20 rounded-xl bg-slate-800 overflow-hidden flex items-center justify-center">
-              {me?.characterImage
-                ? <img src={me.characterImage} alt="" className="w-full h-full object-contain scale-[2.2]" />
-                : <span className="text-3xl">🧑‍🎓</span>}
-            </div>
-            <div className="text-white font-extrabold text-xs truncate max-w-[90px]">{me?.name || me?.studentCode}</div>
-            <div className="w-full">
-              <div className="flex justify-between text-[10px] text-slate-400 mb-1">
-                <span>HP</span><span className={myPct < 30 ? 'text-rose-400 font-bold' : 'text-slate-400'}>{battleHP.me}/{myMaxHP}</span>
+          <div className={`flex-1 flex flex-col items-center gap-3 bg-indigo-950/60 rounded-3xl p-5 border-2 transition-all
+            ${hitFlash.me ? 'border-rose-500 bg-rose-950/40 scale-[0.98]' : 'border-indigo-700'}`}>
+            <div className="text-xs font-extrabold text-indigo-400 tracking-widest">나</div>
+            <div className="flex-1 w-full flex items-center justify-center">
+              <div className="w-32 h-32 rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-600">
+                {me?.characterImage
+                  ? <img src={me.characterImage} alt="" className="w-full h-full object-contain scale-[2.5]" />
+                  : <span className="text-5xl">🧑‍🎓</span>}
               </div>
-              <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all duration-300 ${myPct > 50 ? 'bg-emerald-500' : myPct > 25 ? 'bg-amber-500' : 'bg-rose-500'}`}
+            </div>
+            <div className="w-full">
+              <div className="text-white font-extrabold text-sm truncate text-center mb-2">{me?.name || me?.studentCode}</div>
+              <div className="flex justify-between text-xs text-slate-400 mb-1.5">
+                <span className="font-bold">HP</span>
+                <span className={`font-extrabold ${myPct < 30 ? 'text-rose-400' : 'text-slate-300'}`}>{battleHP.me} / {myMaxHP}</span>
+              </div>
+              <div className="w-full h-4 bg-slate-700 rounded-full overflow-hidden shadow-inner">
+                <div className={`h-full rounded-full transition-all duration-500 ${myPct > 50 ? 'bg-emerald-500' : myPct > 25 ? 'bg-amber-500' : 'bg-rose-500'}`}
                   style={{ width: `${myPct}%` }} />
               </div>
             </div>
           </div>
 
           {/* VS */}
-          <div className="flex flex-col items-center justify-center shrink-0 gap-1">
-            <div className="text-slate-600 font-extrabold text-lg">VS</div>
-            <div className="flex gap-0.5">
-              {[0,1,2].map(i => <div key={i} className="w-1 h-1 bg-slate-600 rounded-full animate-bounce" style={{ animationDelay: `${i*0.2}s` }} />)}
+          <div className="flex flex-col items-center justify-center shrink-0 gap-2">
+            <div className="text-slate-500 font-extrabold text-2xl">VS</div>
+            <div className="flex gap-1">
+              {[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce" style={{ animationDelay: `${i*0.2}s` }} />)}
             </div>
           </div>
 
           {/* 상대 */}
-          <div className={`flex-1 flex flex-col items-center gap-2 bg-rose-950/60 rounded-2xl p-4 border transition-all
-            ${hitFlash.opp ? 'border-yellow-400 bg-yellow-950/40' : 'border-rose-800'}`}>
-            <div className="text-[10px] font-bold text-rose-400">상대</div>
-            <div className="w-20 h-20 rounded-xl bg-slate-800 overflow-hidden flex items-center justify-center">
-              {opponent?.characterImage
-                ? <img src={opponent.characterImage} alt="" className="w-full h-full object-contain scale-[2.2]" />
-                : <span className="text-3xl">🧑‍🎓</span>}
-            </div>
-            <div className="text-white font-extrabold text-xs truncate max-w-[90px]">{opponent?.name || opponent?.studentCode}</div>
-            <div className="w-full">
-              <div className="flex justify-between text-[10px] text-slate-400 mb-1">
-                <span>HP</span><span className={oppPct < 30 ? 'text-rose-400 font-bold' : 'text-slate-400'}>{battleHP.opp}/{oppMaxHP}</span>
+          <div className={`flex-1 flex flex-col items-center gap-3 bg-rose-950/60 rounded-3xl p-5 border-2 transition-all
+            ${hitFlash.opp ? 'border-yellow-400 bg-yellow-950/40 scale-[0.98]' : 'border-rose-800'}`}>
+            <div className="text-xs font-extrabold text-rose-400 tracking-widest">상대</div>
+            <div className="flex-1 w-full flex items-center justify-center">
+              <div className="w-32 h-32 rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-600">
+                {opponent?.characterImage
+                  ? <img src={opponent.characterImage} alt="" className="w-full h-full object-contain scale-[2.5]" />
+                  : <span className="text-5xl">🧑‍🎓</span>}
               </div>
-              <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all duration-300 ${oppPct > 50 ? 'bg-emerald-500' : oppPct > 25 ? 'bg-amber-500' : 'bg-rose-500'}`}
+            </div>
+            <div className="w-full">
+              <div className="text-white font-extrabold text-sm truncate text-center mb-2">{opponent?.name || opponent?.studentCode}</div>
+              <div className="flex justify-between text-xs text-slate-400 mb-1.5">
+                <span className="font-bold">HP</span>
+                <span className={`font-extrabold ${oppPct < 30 ? 'text-rose-400' : 'text-slate-300'}`}>{battleHP.opp} / {oppMaxHP}</span>
+              </div>
+              <div className="w-full h-4 bg-slate-700 rounded-full overflow-hidden shadow-inner">
+                <div className={`h-full rounded-full transition-all duration-500 ${oppPct > 50 ? 'bg-emerald-500' : oppPct > 25 ? 'bg-amber-500' : 'bg-rose-500'}`}
                   style={{ width: `${oppPct}%` }} />
               </div>
             </div>
@@ -535,13 +683,13 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
 
         {/* 전투 로그 */}
         <div ref={logRef}
-          className="flex-1 bg-slate-900/80 rounded-2xl border border-slate-700 p-3 overflow-y-auto min-h-0 max-h-64">
+          className="flex-1 min-h-0 bg-slate-900/80 rounded-3xl border border-slate-700 p-4 overflow-y-auto">
           {battleLog.length === 0 ? (
-            <p className="text-slate-600 text-xs text-center py-4 animate-pulse">전투 준비 중...</p>
+            <p className="text-slate-600 text-sm text-center py-6 animate-pulse">⚔️ 전투 준비 중...</p>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {battleLog.map((entry, i) => (
-                <div key={i} className={`text-xs font-medium ${LOG_COLORS[entry.type] || 'text-slate-300'}`}>
+                <div key={i} className={`text-sm font-medium leading-relaxed ${LOG_COLORS[entry.type] || 'text-slate-300'}`}>
                   {entry.msg}
                 </div>
               ))}
@@ -550,6 +698,15 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         </div>
       </div>
     );
+  }
+
+  // ── 전적 기록 ────────────────────────────────────────────────
+  if (phase === 'history') {
+    return <HistoryScreen
+      studentDocId={studentDocIdRef.current}
+      studentCode={studentCode}
+      onBack={() => setPhase('lobby')}
+    />;
   }
 
   // ── 결과 ────────────────────────────────────────────────────
