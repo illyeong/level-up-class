@@ -91,7 +91,11 @@ export default function AttendanceCheck({ studentCode }) {
         if (snap.empty) return;
         const d = snap.docs[0];
         studentRef.current = { id: d.id, ...d.data() };
-        if (d.data().lastAttendanceDate === today()) setStatus('already');
+        if (d.data().lastAttendanceDate === today()) {
+          setStatus('already');
+          // 오늘 받은 보상이 저장돼있으면 불러오기
+          if (d.data().lastAttendanceReward) setReward(d.data().lastAttendanceReward);
+        }
       } catch (e) { console.error(e); }
     })();
   }, [studentCode]);
@@ -106,10 +110,11 @@ export default function AttendanceCheck({ studentCode }) {
 
     try {
       await updateDoc(doc(db, 'students', s.id), {
-        diamonds:           (s.diamonds || 0) + r.diamonds,
-        gold:               (s.gold     || 0) + r.gold,
+        diamonds:               (s.diamonds || 0) + r.diamonds,
+        gold:                   (s.gold     || 0) + r.gold,
         exp, level, maxExp,
-        lastAttendanceDate: today(),
+        lastAttendanceDate:     today(),
+        lastAttendanceReward:   r,
       });
       studentRef.current = { ...s, diamonds: (s.diamonds||0)+r.diamonds, gold: (s.gold||0)+r.gold, exp, level, maxExp };
       setReward(r);
@@ -130,7 +135,7 @@ export default function AttendanceCheck({ studentCode }) {
         <div className="text-3xl">✅</div>
         <p className="font-extrabold text-slate-700 text-sm">오늘 출석 완료!</p>
         <p className="text-xs text-slate-400">내일 또 출석하면 보상을 받을 수 있어요</p>
-        {status === 'done' && reward && (
+        {reward && (
           <div className="flex gap-3 text-xs font-extrabold mt-1">
             <span className="text-blue-600">💎 +{reward.diamonds}</span>
             <span className="text-amber-600">🪙 +{reward.gold}</span>

@@ -62,12 +62,14 @@ export default function LearningBoard({ studentCode }) {
           const d = ss.docs[0].data();
           setStudent({ id: ss.docs[0].id, ...d });
 
-          // teacherUid로 게시판 필터
+          // teacherUid로 게시판 필터 (active는 클라이언트에서 처리 → 복합 인덱스 불필요)
           const bq = d.teacherUid
-            ? query(collection(db, 'boards'), where('teacherUid', '==', d.teacherUid), where('active', '==', true))
-            : query(collection(db, 'boards'), where('active', '==', true));
+            ? query(collection(db, 'boards'), where('teacherUid', '==', d.teacherUid))
+            : collection(db, 'boards');
           const bs = await getDocs(bq);
-          setBoards(bs.docs.map(b => ({ id: b.id, ...b.data() }))
+          setBoards(bs.docs
+            .map(b => ({ id: b.id, ...b.data() }))
+            .filter(b => b.active !== false)
             .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
         }
       } catch (e) { console.error(e); }
