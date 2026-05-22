@@ -7,7 +7,7 @@ import { db } from '../firebase';
 import AttendanceCheck from '../pages/student/AttendanceCheck';
 
 // ── 오늘의 퀘스트 위젯 ────────────────────────────────────────
-function TodayQuestWidget({ studentId }) {
+function TodayQuestWidget({ studentId, teacherUid }) {
   const [quests, setQuests]           = useState([]);
   const [completions, setCompletions] = useState({});
   const [busyId, setBusyId]           = useState(null);
@@ -17,7 +17,10 @@ function TodayQuestWidget({ studentId }) {
     if (!studentId) { setIsLoading(false); return; }
     (async () => {
       try {
-        const snap = await getDocs(query(collection(db, 'quests'), where('active', '==', true)));
+        const q = teacherUid
+          ? query(collection(db, 'quests'), where('active', '==', true), where('teacherUid', '==', teacherUid))
+          : query(collection(db, 'quests'), where('active', '==', true));
+        const snap = await getDocs(q);
         const list = snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
           .sort((a, b) => {
@@ -250,7 +253,7 @@ const StudentDashboard = ({ studentCode }) => {
           <AttendanceCheck studentCode={studentCode} />
 
           {/* 오늘의 퀘스트 */}
-          <TodayQuestWidget studentId={studentData?.id} />
+          <TodayQuestWidget studentId={studentData?.id} teacherUid={studentData?.teacherUid} />
         </div>
       </div>
     </div>

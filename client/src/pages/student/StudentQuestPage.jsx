@@ -226,23 +226,27 @@ function StudentQuestPage({ studentCode }) {
     const load = async () => {
       setIsLoading(true);
       try {
-        const questsSnap = await getDocs(collection(db, 'quests'));
-        const allQuests = questsSnap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => {
-            if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
-            return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
-          });
-        setQuests(allQuests);
-
         if (studentCode) {
           const sq   = query(collection(db, 'students'), where('studentCode', '==', studentCode));
           const snap = await getDocs(sq);
           if (!snap.empty) {
-            const sDoc = snap.docs[0];
+            const sDoc  = snap.docs[0];
             const sData = sDoc.data();
             setStudentId(sDoc.id);
             setStudentName(sData.name || sData.studentCode);
+
+            // teacherUid로 퀘스트 필터링
+            const questQuery = sData.teacherUid
+              ? query(collection(db, 'quests'), where('teacherUid', '==', sData.teacherUid))
+              : collection(db, 'quests');
+            const questsSnap = await getDocs(questQuery);
+            const allQuests = questsSnap.docs
+              .map(d => ({ id: d.id, ...d.data() }))
+              .sort((a, b) => {
+                if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
+                return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+              });
+            setQuests(allQuests);
 
             const compMap = {};
             await Promise.all(

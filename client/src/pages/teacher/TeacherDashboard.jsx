@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, writeBatch, serverTimestamp, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 import iconGold from '../../assets/images/icon-gold.png';
 import iconDiamond from '../../assets/images/icon-diamond.png';
 import iconQuest from '../../assets/images/icon-quest.png'; 
 
-function TeacherDashboard({ onStudentTestLogin }) {
+const getSeatNum = (code) => parseInt(code?.slice(-2)) || 0;
+
+function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [questStats, setQuestStats] = useState([]);
@@ -21,16 +23,20 @@ function TeacherDashboard({ onStudentTestLogin }) {
 
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [logs, setLogs] = useState([]);
+  const [studentQuestMap, setStudentQuestMap] = useState({}); // { studentId: [{title, checked}] }
 
   const fetchStudents = async () => {
     setIsLoading(true);
     try {
-      const querySnapshot = await getDocs(collection(db, "students"));
+      const q = selectedClass?.id
+        ? query(collection(db, 'students'), where('classId', '==', selectedClass.id))
+        : collection(db, 'students');
+      const querySnapshot = await getDocs(q);
       const studentList = [];
       querySnapshot.forEach((doc) => {
         studentList.push({ id: doc.id, ...doc.data() });
       });
-      studentList.sort((a, b) => a.studentCode.localeCompare(b.studentCode));
+      studentList.sort((a, b) => getSeatNum(a.studentCode) - getSeatNum(b.studentCode));
       setStudents(studentList);
     } catch (error) {
       console.error("학생 목록 에러:", error);
@@ -50,14 +56,32 @@ function TeacherDashboard({ onStudentTestLogin }) {
           return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
         });
 
+      const sqMap = {}; // { studentId: [{title, checked, rewarded}] }
+
       const stats = await Promise.all(
         activeQuests.map(async q => {
           const snap = await getDocs(collection(db, 'quests', q.id, 'completions'));
-          const checkedCount = snap.docs.filter(d => d.data().checked === true).length;
+          let checkedCount = 0;
+          snap.docs.forEach(d => {
+            const data = d.data();
+            if (data.checked) checkedCount++;
+            // 학생별 맵 구성 (일일퀘스트만)
+            if (q.type === 'daily') {
+              const sid = d.id;
+              if (!sqMap[sid]) sqMap[sid] = [];
+              sqMap[sid].push({
+                title:    q.title,
+                checked:  data.checked  || false,
+                rewarded: data.rewarded || false,
+              });
+            }
+          });
           return { ...q, checkedCount };
         })
       );
+
       setQuestStats(stats);
+      setStudentQuestMap(sqMap);
     } catch (err) {
       console.error('퀘스트 통계 에러:', err);
     }
@@ -248,6 +272,31 @@ function TeacherDashboard({ onStudentTestLogin }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {students.map((student) => (
           <div key={student.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow relative">
+            {/* 일일퀘스트 완료 현황 */}
+            {(() => {
+              const qs = studentQuestMap[student.id] || [];
+              if (qs.length === 0) return null;
+              const done = qs.filter(q => q.checked).length;
+              return (
+                <div className={`px-2.5 py-1.5 flex items-center justify-between gap-1
+                  ${done === qs.length ? 'bg-emerald-50 border-b border-emerald-100' : 'bg-slate-50 border-b border-slate-100'}`}>
+                  <div className="flex gap-1 flex-wrap">
+                    {qs.map((q, i) => (
+                      <span key={i} title={q.title}
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full truncate max-w-[80px]
+                          ${q.rewarded ? 'bg-amber-100 text-amber-700'
+                          : q.checked  ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-slate-200 text-slate-400'}`}>
+                        {q.checked ? '✓' : '○'} {q.title.length > 6 ? q.title.slice(0, 6) + '…' : q.title}
+                      </span>
+                    ))}
+                  </div>
+                  <span className={`text-[10px] font-extrabold shrink-0 ${done === qs.length ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {done}/{qs.length}
+                  </span>
+                </div>
+              );
+            })()}
             <div className="h-36 bg-gradient-to-b from-slate-50 to-white flex items-center justify-center border-b border-slate-100 relative overflow-hidden">
               {student.characterImage ? (
                 <img
@@ -262,7 +311,7 @@ function TeacherDashboard({ onStudentTestLogin }) {
                 <span className="text-6xl drop-shadow-sm opacity-30">🧍</span>
               )}
               <div className="absolute top-2 left-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
-                {student.studentCode.split('-').pop()}번
+                {getSeatNum(student.studentCode)}번
               </div>
               <div className="absolute bottom-2 right-2 bg-amber-400 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
                 LV.{student.level || 1}
@@ -326,7 +375,7 @@ function TeacherDashboard({ onStudentTestLogin }) {
                       className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedIds.includes(student.id) ? 'border-indigo-500 bg-indigo-50 shadow-md' : 'border-slate-200 bg-white hover:border-indigo-300'}`}>
                       <div className="flex-1 min-w-0">
                         <div className="font-extrabold text-sm text-slate-800 truncate">
-                          {student.name || student.studentCode}
+                          {getSeatNum(student.studentCode)}번 {student.name || ''}
                         </div>
                         <div className="font-mono text-[10px] text-slate-400 truncate">{student.studentCode}</div>
                         <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">

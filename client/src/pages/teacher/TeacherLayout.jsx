@@ -43,11 +43,11 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
           </div>
         )}
 
-        {currentView === 'dashboard' && <TeacherDashboard onStudentTestLogin={onStudentTestLogin} />}
+        {currentView === 'dashboard' && <TeacherDashboard onStudentTestLogin={onStudentTestLogin} selectedClass={selectedClass} />}
 
         {/* 학생 계정 발급 화면 */}
         {currentView === 'accountIssue'    && <AccountIssue user={user} />}
-        {currentView === 'questManage'     && <QuestManage />}
+        {currentView === 'questManage'     && <QuestManage selectedClass={selectedClass} />}
         {currentView === 'bankManage'       && <BankManage />}
         {currentView === 'classShopManage' && <ClassShopManage />}
         {currentView === 'stockManage'        && <StockManage />}

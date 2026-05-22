@@ -411,7 +411,7 @@ function RecommendedSidebar({ onSelect }) {
 }
 
 // ─────────────────────── Main ─────────────────────────────────
-function QuestManage() {
+function QuestManage({ selectedClass }) {
   const [quests, setQuests]       = useState([]);
   const [studentCount, setStudentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -516,7 +516,12 @@ function QuestManage() {
       if (editingQuestId) {
         await updateDoc(doc(db, 'quests', editingQuestId), { ...form, updatedAt: serverTimestamp() });
       } else {
-        await addDoc(collection(db, 'quests'), { ...form, createdAt: serverTimestamp() });
+        await addDoc(collection(db, 'quests'), {
+          ...form,
+          teacherUid: selectedClass?.teacherUid || null,
+          classId:    selectedClass?.id          || null,
+          createdAt:  serverTimestamp(),
+        });
       }
       setIsFormOpen(false);
       fetchData();
@@ -542,7 +547,10 @@ function QuestManage() {
     try {
       const { id, createdAt, updatedAt, endedAt, checkedCount, ...data } = quest;
       await addDoc(collection(db, 'quests'), {
-        ...data, title: `${data.title} (복사)`, active: true, createdAt: serverTimestamp(),
+        ...data, title: `${data.title} (복사)`, active: true,
+        teacherUid: selectedClass?.teacherUid || data.teacherUid || null,
+        classId:    selectedClass?.id          || data.classId    || null,
+        createdAt:  serverTimestamp(),
       });
       fetchData();
     } catch (err) {
