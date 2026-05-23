@@ -408,7 +408,6 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
             {comboLv.label} {combo}연속
           </div>
         )}
-      </div>
 
       {/* ── 플레이어 영역 ── */}
       <div className="bg-slate-800 px-4 py-2.5 flex items-center gap-3 shrink-0 border-t border-slate-700">
