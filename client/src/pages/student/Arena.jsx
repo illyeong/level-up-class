@@ -25,11 +25,11 @@ const calcLevelUp = (level, exp, gained) => {
 };
 
 const STAT_META = [
-  { key:'hp',          label:'체력',    icon:'❤️' },
-  { key:'attack',      label:'공격력',  icon:'⚔️' },
-  { key:'defense',     label:'방어력',  icon:'🛡️' },
-  { key:'crit',        label:'크리티컬',icon:'💥' },
-  { key:'attackSpeed', label:'공격속도',icon:'💨' },
+  { key:'hp',          label:'체력',     img:'/images/Icon_Heart02.png',            icon:'❤️' },
+  { key:'attack',      label:'공격력',   img:'/images/ItemIcon_Weapon_Sword.png',   icon:'⚔️' },
+  { key:'defense',     label:'방어력',   img:'/images/ItemIcon_Weapon_Shield.png',  icon:'🛡️' },
+  { key:'crit',        label:'크리티컬', img:'/images/Icon_Fire01.png',             icon:'💥' },
+  { key:'attackSpeed', label:'공격속도', img:null,                                  icon:'💨' },
 ];
 
 const WIN_REWARD  = { gold: 100, diamond: 50, exp: 50 };
@@ -493,7 +493,10 @@ function CharacterCard({ student, label, isMe, highlight, rank }) {
         {STAT_META.map(s => (
           <div key={s.key} className="flex items-center justify-between text-xs">
             <span className="text-slate-400 flex items-center gap-1">
-              <span>{s.icon}</span>{s.label}
+              {s.img
+                ? <img src={s.img} alt="" className="w-4 h-4 object-contain" />
+                : <span>{s.icon}</span>}
+              {s.label}
             </span>
             <span className="font-extrabold text-white">{stats[s.key]}</span>
           </div>

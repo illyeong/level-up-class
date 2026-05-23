@@ -74,6 +74,13 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
     starImgRef.current = img;
   }, []);
 
+  // 5초 후 강화 결과 처리 (onAnimationEnd 대신 타이머 사용)
+  useEffect(() => {
+    if (stage !== 'loading') return;
+    const t = setTimeout(doEnhanceResult, 5000);
+    return () => clearTimeout(t);
+  }, [stage, doEnhanceResult]);
+
   // ── 강화 결과 계산 ──
   const doEnhanceResult = useCallback(() => {
     const stars     = currentStars;           // 호출 시점의 별 수 (클로저 안전)
@@ -167,7 +174,7 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
         style={{ width: '100vw', height: '100vh' }} />
 
       <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-        <div className="bg-slate-900 rounded-3xl w-full max-w-sm border border-slate-700 shadow-2xl overflow-hidden">
+        <div className="bg-slate-900 rounded-3xl w-full max-w-md border border-slate-700 shadow-2xl overflow-hidden">
 
           {/* 헤더 */}
           <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-slate-800">
@@ -315,8 +322,7 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
 
                 <div className="space-y-2">
                   <div className="relative h-7 bg-slate-800 rounded-full overflow-hidden border border-slate-700 shadow-inner">
-                    <div className="gauge-bar-5s h-full rounded-full bg-gradient-to-r from-sky-500 via-amber-400 to-orange-500 shadow-lg"
-                      onAnimationEnd={doEnhanceResult} />
+                    <div className="gauge-bar-5s w-full h-full rounded-full bg-gradient-to-r from-sky-500 via-amber-400 to-orange-500 shadow-lg" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <span className="text-xs font-extrabold text-white drop-shadow">강화 중...</span>
                     </div>
@@ -608,7 +614,7 @@ export default function Equipment({ studentCode }) {
                             <div className="flex gap-px mt-1">
                               {Array.from({ length: 5 }, (_, i) => (
                                 <img key={i} src={STAR_IMG} alt="★"
-                                  className={`w-3 h-3 object-contain ${i < (invItem?.stars || 0) ? 'opacity-100' : 'opacity-10 grayscale'}`} />
+                                  className={`w-9 h-9 object-contain ${i < (invItem?.stars || 0) ? 'opacity-100' : 'opacity-10 grayscale'}`} />
                               ))}
                             </div>
                             <span className={`text-[7px] font-extrabold px-1.5 py-0.5 rounded-full mt-1 ${g.badge}`}>{g.label}</span>
@@ -676,7 +682,10 @@ export default function Equipment({ studentCode }) {
                     <div key={key} className={`flex items-center justify-between rounded-xl px-3 py-2.5 border
                       ${val > 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
                       <span className="text-xs text-slate-500 flex items-center gap-1.5">
-                        {meta.icon} {meta.label}
+                        {meta.img
+                          ? <img src={meta.img} alt="" className="w-4 h-4 object-contain" />
+                          : <span>{meta.icon}</span>}
+                        {meta.label}
                       </span>
                       <span className={`text-sm font-extrabold ${val > 0 ? 'text-indigo-600' : 'text-slate-300'}`}>
                         +{val}

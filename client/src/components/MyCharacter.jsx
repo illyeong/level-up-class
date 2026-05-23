@@ -79,11 +79,11 @@ export default function MyCharacter({ studentCode }) {
   }, {});
 
   const STAT_META = [
-    { key: 'hp',          label: '체력',      icon: '❤️' },
-    { key: 'attack',      label: '공격력',    icon: '⚔️' },
-    { key: 'defense',     label: '방어력',    icon: '🛡️' },
-    { key: 'crit',        label: '크리티컬',  icon: '💥' },
-    { key: 'attackSpeed', label: '공격속도',  icon: '💨' },
+    { key: 'hp',          label: '체력',      img: '/images/Icon_Heart02.png',            icon: '❤️' },
+    { key: 'attack',      label: '공격력',    img: '/images/ItemIcon_Weapon_Sword.png',   icon: '⚔️' },
+    { key: 'defense',     label: '방어력',    img: '/images/ItemIcon_Weapon_Shield.png',  icon: '🛡️' },
+    { key: 'crit',        label: '크리티컬',  img: '/images/Icon_Fire01.png',             icon: '💥' },
+    { key: 'attackSpeed', label: '공격속도',  img: null,                                  icon: '💨' },
   ];
 
   const equippedCount = Object.keys(equipped).length;
@@ -162,7 +162,9 @@ export default function MyCharacter({ studentCode }) {
                 return (
                   <div key={s.key} className="flex items-center justify-between bg-slate-50 rounded-2xl px-4 py-3 border border-slate-200">
                     <div className="flex items-center gap-2">
-                      <span className="text-lg">{s.icon}</span>
+                      {s.img
+                        ? <img src={s.img} alt="" className="w-6 h-6 object-contain" />
+                        : <span className="text-lg">{s.icon}</span>}
                       <span className="text-sm font-bold text-slate-600">{s.label}</span>
                     </div>
                     <div className="flex items-baseline gap-1">

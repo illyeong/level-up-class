@@ -68,9 +68,9 @@ export const CHESTS = [
 
 // ── 스탯 이름 ─────────────────────────────────────────────────
 export const STAT_LABEL = {
-  attack:      { label: '공격력',  icon: '⚔️' },
-  defense:     { label: '방어력',  icon: '🛡️' },
-  hp:          { label: '체력',    icon: '❤️' },
-  crit:        { label: '크리티컬', icon: '💥' },
-  attackSpeed: { label: '공격속도', icon: '💨' },
+  attack:      { label: '공격력',   icon: '⚔️', img: '/images/ItemIcon_Weapon_Sword.png'  },
+  defense:     { label: '방어력',   icon: '🛡️', img: '/images/ItemIcon_Weapon_Shield.png' },
+  hp:          { label: '체력',     icon: '❤️', img: '/images/Icon_Heart02.png'            },
+  crit:        { label: '크리티컬', icon: '💥', img: '/images/Icon_Fire01.png'             },
+  attackSpeed: { label: '공격속도', icon: '💨', img: null                                  },
 };

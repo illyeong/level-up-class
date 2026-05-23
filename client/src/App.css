@@ -38,10 +38,11 @@
 
 /* 5초 강화 게이지 */
 @keyframes enhance-gauge {
-  from { width: 0%; }
-  to   { width: 100%; }
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
 }
 .gauge-bar-5s {
+  transform-origin: left center;
   animation: enhance-gauge 5s linear forwards;
 }
 

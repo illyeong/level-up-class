@@ -24,9 +24,7 @@ const NavigationBar = ({ changeView, currentView }) => {
       subMenus: [
         { title: t('submenu.avatarRoom', '아바타 룸'), id: 'avatarRoom' },
         { title: '⚔️ 장비', id: 'equipment' },
-        { title: '📦 보물상자', id: 'gachaBox' },
-        { title: '🔒 펫 하우스 (업데이트)', id: 'petHouse', isReady: false },
-        { title: t('submenu.shop', '상점'), id: 'shop' }
+        { title: '📦 보물상자', id: 'gachaBox' }
       ]
     },
     {
