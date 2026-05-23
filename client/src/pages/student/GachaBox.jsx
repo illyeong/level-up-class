@@ -44,7 +44,8 @@ export default function GachaBox({ studentCode }) {
   const [studentDocId, setStudentDocId] = useState(null);
   const [loading, setLoading]       = useState(true);
   const [pulling, setPulling]       = useState(false);
-  const [results, setResults]       = useState(null);  // 뽑기 결과 아이템 배열
+  const [results, setResults]       = useState(null);
+  const [lastChest, setLastChest]   = useState(null); // 마지막으로 뽑은 상자
   const [pityMap, setPityMap]       = useState({});    // { chestId: count }
 
   useEffect(() => {
@@ -116,6 +117,7 @@ export default function GachaBox({ studentCode }) {
     setDiamonds(newDiamonds);
     setInventory(newInv);
     setPityMap(newPityMap);
+    setLastChest(chest);
     setResults(drawn.map((item, i) => ({ item, isNew: isNew[i] })));
 
     await updateDoc(doc(db, 'students', studentDocId), {
@@ -149,20 +151,27 @@ export default function GachaBox({ studentCode }) {
           return (
             <div key={chest.id} className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
               {/* 헤더 */}
-              <div className={`px-5 py-4 flex items-center gap-3
-                ${chest.id === 'wood' ? 'bg-amber-50 border-b border-amber-100'
-                : chest.id === 'stone' ? 'bg-slate-100 border-b border-slate-200'
-                : 'bg-gradient-to-r from-cyan-900 to-indigo-900 border-b border-cyan-800'}`}>
-                <span className="text-3xl">{chest.icon}</span>
-                <div className="flex-1">
-                  <div className={`font-extrabold text-base ${chest.id === 'diamond' ? 'text-white' : 'text-slate-800'}`}>
+              <div className={`px-5 py-4 flex items-center gap-3 border-b
+                ${['premium','special'].includes(chest.id)
+                  ? 'bg-gradient-to-r from-slate-800 to-slate-900 border-slate-700'
+                  : chest.id === 'gold' ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-100'
+                  : chest.id === 'silver' ? 'bg-gradient-to-r from-slate-100 to-blue-50 border-slate-200'
+                  : chest.id === 'luck' ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-100'
+                  : 'bg-amber-50 border-amber-100'}`}>
+                {/* 상자 이미지 */}
+                {chest.image
+                  ? <img src={chest.image} alt={chest.name}
+                      className="w-16 h-16 object-contain drop-shadow-lg shrink-0" />
+                  : <span className="text-3xl">📦</span>}
+                <div className="flex-1 min-w-0">
+                  <div className={`font-extrabold text-base ${['premium','special'].includes(chest.id) ? 'text-white' : 'text-slate-800'}`}>
                     {chest.name}
                   </div>
-                  <div className={`text-xs ${chest.id === 'diamond' ? 'text-cyan-300' : 'text-slate-500'}`}>
+                  <div className={`text-xs mt-0.5 ${['premium','special'].includes(chest.id) ? 'text-slate-400' : 'text-slate-500'}`}>
                     전설 {chest.rates.legendary}% · 영웅 {chest.rates.epic}% · 희귀 {chest.rates.rare}%
                   </div>
                 </div>
-                <div className={`text-sm font-extrabold ${chest.id === 'diamond' ? 'text-cyan-300' : 'text-slate-600'}`}>
+                <div className={`text-sm font-extrabold shrink-0 ${['premium','special'].includes(chest.id) ? 'text-cyan-300' : 'text-slate-700'}`}>
                   💎 {chest.cost}
                 </div>
               </div>
@@ -199,20 +208,29 @@ export default function GachaBox({ studentCode }) {
 
       {/* 결과 팝업 */}
       {results && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-3xl w-full max-w-md border border-slate-700 shadow-2xl overflow-hidden">
-            <div className="p-5 border-b border-slate-700 flex items-center justify-between">
-              <h2 className="font-extrabold text-white text-lg">🎉 획득한 장비</h2>
-              <button onClick={() => setResults(null)} className="text-slate-400 hover:text-white text-xl">✕</button>
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-3xl w-full max-w-lg border border-slate-700 shadow-2xl overflow-hidden">
+            {/* 열린 상자 + 제목 */}
+            <div className="flex flex-col items-center pt-6 pb-2 px-5">
+              {lastChest?.openImage && (
+                <img src={lastChest.openImage} alt="열린 상자"
+                  className="w-28 h-28 object-contain drop-shadow-2xl mb-2"
+                  onError={e => { e.target.style.display='none'; }} />
+              )}
+              <h2 className="font-extrabold text-white text-xl mb-0.5">🎉 {lastChest?.name} 오픈!</h2>
+              <p className="text-slate-400 text-xs">{results.length}개 획득</p>
             </div>
-            <div className="p-4 grid grid-cols-3 sm:grid-cols-5 gap-3 max-h-[60vh] overflow-y-auto">
+
+            {/* 아이템 그리드 */}
+            <div className="px-4 pb-2 grid grid-cols-3 sm:grid-cols-5 gap-2.5 max-h-56 overflow-y-auto">
               {results.map(({ item, isNew }, i) => (
                 <ResultCard key={i} item={item} isNew={isNew} />
               ))}
             </div>
-            <div className="p-4 border-t border-slate-700">
-              <button onClick={() => setResults(null)}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-extrabold transition-all">
+
+            <div className="p-4 border-t border-slate-800">
+              <button onClick={() => { setResults(null); setLastChest(null); }}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-extrabold transition-all active:scale-95">
                 확인
               </button>
             </div>
