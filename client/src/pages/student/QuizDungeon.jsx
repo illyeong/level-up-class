@@ -4,6 +4,13 @@ import {
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import SpriteMonster from '../../components/SpriteMonster';
+import { MONSTERS_DB, DIFF_MONSTER, TIER_LABEL } from '../../data/monsterData';
+
+const getRandomMonsterId = () => {
+  const ids = Object.keys(MONSTERS_DB);
+  return ids[Math.floor(Math.random() * ids.length)];
+};
 
 // ── 유틸 ──────────────────────────────────────────────────────
 const getMaxExpForLevel = (lv) =>
@@ -33,9 +40,9 @@ const DAMAGE_RIGHT  = 100;
 const DIFF_TIMER    = { easy: 15, normal: 12, hard: 8 };
 
 const MONSTER = {
-  easy:   { name: '지식의 슬라임', emoji: '🟢', desc: '기본 개념을 확인하세요!' },
-  normal: { name: '수학의 골렘',   emoji: '🗿', desc: '집중력이 필요합니다!'    },
-  hard:   { name: '시험의 드래곤', emoji: '🐉', desc: '최고 난이도! 도전하세요!' },
+  easy:   { name: '지식의 슬라임', emoji: '🟢', desc: '기본 개념을 확인하세요!', monsterId: DIFF_MONSTER.easy   },
+  normal: { name: '수학의 골렘',   emoji: '🗿', desc: '집중력이 필요합니다!',    monsterId: DIFF_MONSTER.normal },
+  hard:   { name: '시험의 드래곤', emoji: '🐉', desc: '최고 난이도! 도전하세요!', monsterId: DIFF_MONSTER.hard  },
 };
 
 const DIFF_BADGE = {
@@ -164,7 +171,9 @@ function DungeonLobby({ dungeons, tickets, bestScores, onPreview, isLoading }) {
 
 // ── 보스 소개 팝업 ────────────────────────────────────────────
 function BossIntroModal({ dungeon, onConfirm, onCancel }) {
-  const m     = MONSTER[dungeon.difficulty] || MONSTER.normal;
+  const m          = MONSTER[dungeon.difficulty] || MONSTER.normal;
+  const monsterId  = dungeon.monsterId && dungeon.monsterId !== 'random' ? dungeon.monsterId : m.monsterId;
+  const monsterDat = MONSTERS_DB[monsterId] || null;
   const timer = DIFF_TIMER[dungeon.difficulty] || 12;
   const INFO  = [
     ['📝 문제 수',   `${dungeon.questionCount}문제`],
@@ -175,7 +184,14 @@ function BossIntroModal({ dungeon, onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-slate-900 rounded-3xl w-full max-w-sm border border-slate-700 shadow-2xl p-6 text-center animate-pop-in">
-        <div className="text-7xl mb-3 select-none">{m.emoji}</div>
+        {/* 몬스터 미리보기 */}
+        {monsterDat ? (
+          <div className="flex justify-center mb-3">
+            <SpriteMonster data={monsterDat} anim="idle" scale={0.22} />
+          </div>
+        ) : (
+          <div className="text-7xl mb-3 select-none">{m.emoji}</div>
+        )}
         <h2 className="text-2xl font-extrabold text-white mb-1">{m.name}</h2>
         <p className="text-slate-400 text-sm mb-2">{dungeon.title}</p>
         <p className="text-slate-500 text-xs mb-5">{m.desc}</p>
@@ -219,8 +235,15 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
   const [maxCombo,     setMaxCombo]     = useState(0);
   const [timeBonus,    setTimeBonus]    = useState(0);
   const [monsterFlash, setMonsterFlash] = useState(false);
+  const [monsterAnim,  setMonsterAnim]  = useState('idle');
   const [playerShake,  setPlayerShake]  = useState(false);
   const [floats,       setFloats]       = useState([]);
+
+  // monster / monsterData는 state보다 먼저 결정 (props 기반이므로 안전)
+  const monster     = MONSTER[dungeon.difficulty] || MONSTER.normal;
+  const monsterId   = dungeon.monsterId && dungeon.monsterId !== 'random'
+    ? dungeon.monsterId : monster.monsterId;
+  const monsterData = MONSTERS_DB[monsterId] || null;
 
   const nextRef    = useRef(null);
   const floatIdRef = useRef(0);
@@ -263,6 +286,8 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
       setMonsterFlash(true);
       setTimeout(() => setMonsterFlash(false), 350);
       addFloat(`-${dmg}${mult > 1 ? ` ×${mult}` : ''}`, false);
+      // 몬스터 사망 시 death 애니메이션
+      if (newMonsterHP <= 0) setMonsterAnim('death');
     } else {
       newPlayerHP = Math.max(0, playerHP - DAMAGE_WRONG);
       newCombo    = 0;
@@ -271,6 +296,9 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
       setPlayerShake(true);
       setTimeout(() => setPlayerShake(false), 500);
       addFloat(`-${DAMAGE_WRONG}`, true);
+      // 오답 → 몬스터 공격 애니메이션
+      setMonsterAnim('attack');
+      setTimeout(() => setMonsterAnim('idle'), 1350);
     }
     setWrongIdxs(newWrong);
 
@@ -310,9 +338,8 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
 
   useEffect(() => () => { if (nextRef.current) clearTimeout(nextRef.current); }, []);
 
-  const q       = dungeon.questions[currentQ];
-  const monster = MONSTER[dungeon.difficulty] || MONSTER.normal;
-  const qTotal  = dungeon.questions.length;
+  const q      = dungeon.questions[currentQ];
+  const qTotal = dungeon.questions.length;
   const mHPpct  = (monsterHP / monsterMaxHP) * 100;
   const pHPpct  = (playerHP  / PLAYER_MAX_HP) * 100;
   const comboLv = getComboLv(combo);
@@ -334,15 +361,25 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
           </div>
         </div>
 
-        {/* 몬스터 이모지 + 이펙트 */}
-        <div className="relative flex items-center justify-center h-24 overflow-visible">
-          <div className="text-8xl select-none transition-all duration-150"
-            style={{
-              filter:    monsterFlash ? 'brightness(4) saturate(0)' : undefined,
-              transform: monsterFlash ? 'scale(1.1) translateX(-4px)' : undefined,
-            }}>
-            {monster.emoji}
-          </div>
+        {/* 몬스터 스프라이트 + 이펙트 */}
+        <div className="relative flex items-center justify-center py-2 overflow-visible">
+          {monsterData ? (
+            <SpriteMonster
+              data={monsterData}
+              anim={monsterAnim}
+              flash={monsterFlash}
+              style={{ transform: monsterFlash ? 'translateX(-4px)' : undefined }}
+            />
+          ) : (
+            <div className="text-8xl select-none transition-all duration-150"
+              style={{
+                filter:    monsterFlash ? 'brightness(4) saturate(0)' : undefined,
+                transform: monsterFlash ? 'scale(1.1) translateX(-4px)' : undefined,
+              }}>
+              {monster.emoji}
+            </div>
+          )}
+        </div>
 
           {/* 데미지 플로팅 (몬스터) */}
           {floats.filter(f => !f.isPlayer).map(f => (
@@ -660,7 +697,11 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
   const enterDungeon = async (dungeon) => {
     if (!onUseTicket) return alert('이용권 시스템에 연결되지 않았습니다.');
     await onUseTicket('dungeon');
-    setSelectedDungeon(dungeon);
+    // 랜덤 몬스터면 입장 시점에 한 번 확정
+    const resolved = (!dungeon.monsterId || dungeon.monsterId === 'random')
+      ? { ...dungeon, monsterId: getRandomMonsterId() }
+      : dungeon;
+    setSelectedDungeon(resolved);
     setBattleRes(null);
     setEarnedRewards(null);
     setLeveledUp(null);
