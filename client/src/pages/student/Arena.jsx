@@ -456,7 +456,7 @@ function CharacterCard({ student, label, isMe, highlight, rank }) {
       </div>
 
       {/* 캐릭터 이미지 */}
-      <div className="w-28 h-28 rounded-2xl bg-slate-800 border border-slate-600 overflow-hidden flex items-center justify-center mb-3 relative">
+      <div className="w-36 h-36 rounded-2xl bg-slate-800 border border-slate-600 overflow-hidden flex items-center justify-center mb-3 relative">
         {student?.characterImage ? (
           <img src={student.characterImage} alt="" className="w-full h-full object-contain scale-[2.5]" />
         ) : (
@@ -492,7 +492,7 @@ function CharacterCard({ student, label, isMe, highlight, rank }) {
       <div className="w-full space-y-2.5 mt-1">
         {STAT_META.map(s => (
           <div key={s.key} className="flex items-center justify-between">
-            <span className="text-slate-400 flex items-center gap-1.5 text-sm font-bold">
+            <span className="text-slate-400 flex items-center gap-1.5 text-base font-bold">
               {s.img
                 ? <img src={s.img} alt="" className="w-5 h-5 object-contain" />
                 : <span className="text-base">{s.icon}</span>}
@@ -1118,9 +1118,9 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             ${hitFlash.me ? (hitDmg.me?.isCrit ? 'border-yellow-400 bg-yellow-950/30 scale-[0.95]' : 'border-rose-500 bg-rose-950/40 scale-[0.98]') : 'border-indigo-700'}`}>
             <div className="text-xs font-extrabold text-indigo-400 tracking-widest">나</div>
             <div className="flex-1 w-full flex items-center justify-center relative">
-              <div className="w-32 h-32 rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-600">
+              <div className="w-44 h-44 rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-600">
                 {me?.characterImage
-                  ? <img src={me.characterImage} alt="" className="w-full h-full object-contain scale-[2.5]" />
+                  ? <img src={me.characterImage} alt="" className="w-full h-full object-contain scale-[3]" />
                   : <span className="text-5xl">🧑‍🎓</span>}
               </div>
               {hitDmg.me && (
@@ -1156,9 +1156,9 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'border-yellow-400 bg-yellow-950/30 scale-[0.95]' : 'border-rose-400 bg-rose-950/60 scale-[0.98]') : 'border-rose-800'}`}>
             <div className="text-xs font-extrabold text-rose-400 tracking-widest">상대</div>
             <div className="flex-1 w-full flex items-center justify-center relative">
-              <div className="w-32 h-32 rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-600">
+              <div className="w-44 h-44 rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-600">
                 {opponent?.characterImage
-                  ? <img src={opponent.characterImage} alt="" className="w-full h-full object-contain scale-[2.5]" />
+                  ? <img src={opponent.characterImage} alt="" className="w-full h-full object-contain scale-[3]" />
                   : <span className="text-5xl">🧑‍🎓</span>}
               </div>
               {hitDmg.opp && (

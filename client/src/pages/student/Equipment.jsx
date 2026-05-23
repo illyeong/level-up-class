@@ -780,38 +780,44 @@ export default function Equipment({ studentCode }) {
                               : 'border-dashed border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50'}`}>
                         {item ? (
                           <>
-                            <div className="w-24 h-24 flex items-center justify-center">
-                              {item.image
-                                ? <img src={item.image} alt="" className="w-full h-full object-contain drop-shadow-sm" />
-                                : <span className="text-5xl">{slot.icon}</span>}
+                            {/* 상단: 이미지(좌) + 이름/등급/별(우) */}
+                            <div className="flex items-start gap-2 w-full">
+                              <div className="w-16 h-16 shrink-0 flex items-center justify-center bg-white/50 rounded-xl">
+                                {item.image
+                                  ? <img src={item.image} alt="" className="w-full h-full object-contain drop-shadow-sm" />
+                                  : <span className="text-4xl">{slot.icon}</span>}
+                              </div>
+                              <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 pt-0.5">
+                                <div className="text-xs font-extrabold text-slate-700 leading-tight line-clamp-2">{item.name}</div>
+                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full w-fit ${g.badge}`}>{g.label}</span>
+                                <div className="flex gap-px">
+                                  {Array.from({ length: 5 }, (_, i) => (
+                                    <img key={i} src={STAR_IMG} alt="★"
+                                      className={`w-4 h-4 object-contain ${i < (invItem?.stars || 0) ? 'opacity-100' : 'opacity-10 grayscale'}`} />
+                                  ))}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-[9px] font-extrabold text-slate-700 truncate w-full text-center mt-1 leading-tight">{item.name}</div>
-                            <div className="flex gap-px mt-1">
-                              {Array.from({ length: 5 }, (_, i) => (
-                                <img key={i} src={STAR_IMG} alt="★"
-                                  className={`w-9 h-9 object-contain ${i < (invItem?.stars || 0) ? 'opacity-100' : 'opacity-10 grayscale'}`} />
-                              ))}
-                            </div>
-                            <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full mt-1 ${g.badge}`}>{g.label}</span>
+                            {/* 하단: 능력치 */}
                             {(() => {
                               const enh = (invItem?.stars || 0) * 5;
                               const sEntries = Object.entries(STAT_LABEL).filter(([k]) => (item.stats?.[k] || 0) > 0);
                               if (!sEntries.length) return null;
                               return (
-                                <div className="w-full mt-1.5 space-y-0.5 border-t border-white/40 pt-1.5">
+                                <div className="w-full mt-2 space-y-1 border-t border-white/50 pt-2">
                                   {sEntries.map(([k, meta]) => {
                                     const base = item.stats[k];
                                     return (
-                                      <div key={k} className="flex items-center justify-between px-1">
-                                        <div className="flex items-center gap-0.5">
+                                      <div key={k} className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1">
                                           {meta.img
-                                            ? <img src={meta.img} alt="" className="w-3 h-3 object-contain" />
-                                            : <span className="text-[8px]">{meta.icon}</span>}
-                                          <span className="text-[8px] text-slate-600">{meta.label}</span>
+                                            ? <img src={meta.img} alt="" className="w-4 h-4 object-contain" />
+                                            : <span className="text-xs">{meta.icon}</span>}
+                                          <span className="text-xs text-slate-600 font-medium">{meta.label}</span>
                                         </div>
                                         <div className="flex items-center gap-0.5">
-                                          <span className="text-[9px] font-extrabold text-indigo-700">+{base + enh}</span>
-                                          {enh > 0 && <span className="text-[7px] text-amber-600 font-bold">(★+{enh})</span>}
+                                          <span className="text-sm font-extrabold text-indigo-700">+{base + enh}</span>
+                                          {enh > 0 && <span className="text-[10px] text-amber-600 font-bold">(★+{enh})</span>}
                                         </div>
                                       </div>
                                     );

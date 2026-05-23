@@ -977,15 +977,141 @@ function ContentTab() {
   );
 }
 
+// ── 배틀씬 레이아웃 에디터 ────────────────────────────────────
+const QUIZ_DEFAULTS = {
+  sceneHeightVh:      55,
+  playerLeftPct:       8,
+  playerBottomPx:      4,
+  playerCharHeightPx: 130,
+  playerScale:        2.6,
+  monsterRightPct:     8,
+  monsterBottomPx:     4,
+  monsterCharHeightPx:230,
+  monsterScaleMult:   1.7,
+};
+
+function BattleLayoutTab() {
+  const [cfg, setCfg]       = useState(QUIZ_DEFAULTS);
+  const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+
+  useEffect(() => {
+    getDoc(doc(db, 'siteConfig', 'battleLayout')).then(snap => {
+      if (snap.exists()) setCfg({ ...QUIZ_DEFAULTS, ...snap.data().quiz });
+    }).catch(() => {});
+  }, []);
+
+  const Slider = ({ label, field, min, max, step = 1 }) => (
+    <div className="flex items-center gap-3">
+      <span className="text-slate-400 text-xs w-44 shrink-0">{label}</span>
+      <input type="range" min={min} max={max} step={step}
+        value={cfg[field]}
+        onChange={e => setCfg(p => ({ ...p, [field]: parseFloat(e.target.value) }))}
+        className="flex-1 accent-indigo-500" />
+      <span className="text-white font-extrabold text-sm w-12 text-right">{cfg[field]}</span>
+    </div>
+  );
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'siteConfig', 'battleLayout'), { quiz: cfg }, { merge: true });
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } catch (e) { alert('저장 실패: ' + e.message); }
+    finally { setSaving(false); }
+  };
+
+  const reset = () => setCfg(QUIZ_DEFAULTS);
+
+  /* ── 미니 프리뷰 ── */
+  const previewScale = 0.35;
+  const previewW = 390 * previewScale;
+  const previewH = (cfg.sceneHeightVh / 100 * 700) * previewScale;
+
+  return (
+    <div className="p-6 space-y-6 max-w-2xl">
+      <div>
+        <h2 className="font-extrabold text-slate-800 text-lg mb-1">🎮 퀴즈던전 배틀씬 레이아웃</h2>
+        <p className="text-slate-500 text-sm">슬라이더로 조정하고 저장하면 바로 반영됩니다.</p>
+      </div>
+
+      {/* 미니 프리뷰 */}
+      <div className="bg-slate-800 rounded-2xl p-4">
+        <div className="text-xs text-slate-400 mb-2 font-bold">미리보기 (35% 축소)</div>
+        <div className="relative bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800 rounded-xl overflow-hidden"
+          style={{ width: previewW, height: previewH }}>
+          {/* 바닥 라인 */}
+          <div className="absolute inset-x-0 h-px bg-indigo-500/30"
+            style={{ bottom: (14 + cfg.playerCharHeightPx + 30) * previewScale }} />
+          {/* 플레이어 */}
+          <div className="absolute bg-indigo-500/60 rounded"
+            style={{
+              left:   `${cfg.playerLeftPct}%`,
+              bottom: cfg.playerBottomPx * previewScale,
+              width:  cfg.playerCharHeightPx * previewScale,
+              height: cfg.playerCharHeightPx * previewScale,
+            }} />
+          {/* 몬스터 */}
+          <div className="absolute bg-rose-500/60 rounded"
+            style={{
+              right:  `${cfg.monsterRightPct}%`,
+              bottom: cfg.monsterBottomPx * previewScale,
+              width:  cfg.monsterCharHeightPx * 0.8 * previewScale,
+              height: cfg.monsterCharHeightPx * previewScale,
+            }} />
+          {/* VS */}
+          <div className="absolute left-1/2 -translate-x-1/2 text-slate-500/60 font-extrabold"
+            style={{ bottom: previewH * 0.45, fontSize: 8 }}>VS</div>
+        </div>
+      </div>
+
+      {/* 슬라이더 그룹 */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+        <div className="font-bold text-slate-700 text-sm border-b border-slate-100 pb-2">씬 전체</div>
+        <Slider label="씬 높이 (vh)"              field="sceneHeightVh"      min={40} max={80} />
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+        <div className="font-bold text-indigo-600 text-sm border-b border-slate-100 pb-2">🟦 플레이어 (좌)</div>
+        <Slider label="좌측 위치 (%)"              field="playerLeftPct"       min={0}  max={40} />
+        <Slider label="하단 여백 (px)"             field="playerBottomPx"      min={0}  max={60} />
+        <Slider label="캐릭터 컨테이너 높이 (px)"  field="playerCharHeightPx"  min={60} max={250} step={5} />
+        <Slider label="캐릭터 scale 배율"          field="playerScale"          min={1}  max={5}  step={0.1} />
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+        <div className="font-bold text-rose-600 text-sm border-b border-slate-100 pb-2">🟥 몬스터 (우)</div>
+        <Slider label="우측 위치 (%)"              field="monsterRightPct"      min={0}  max={40} />
+        <Slider label="하단 여백 (px)"             field="monsterBottomPx"      min={0}  max={60} />
+        <Slider label="몬스터 컨테이너 높이 (px)"  field="monsterCharHeightPx"  min={80} max={350} step={5} />
+        <Slider label="몬스터 scale 배율"          field="monsterScaleMult"     min={0.5} max={4} step={0.1} />
+      </div>
+
+      <div className="flex gap-3">
+        <button onClick={reset}
+          className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-500 border border-slate-300 hover:bg-slate-50 transition-colors">
+          기본값으로
+        </button>
+        <button onClick={save} disabled={saving}
+          className={`flex-1 py-2.5 rounded-xl font-extrabold text-sm text-white transition-all
+            ${saved ? 'bg-emerald-500' : 'bg-indigo-600 hover:bg-indigo-500'} disabled:opacity-50`}>
+          {saved ? '✅ 저장됨!' : saving ? '저장 중...' : '💾 저장 (즉시 반영)'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── 메인 ─────────────────────────────────────────────────────
 const TABS = [
-  { id: 'dashboard', icon: '📊', label: '대시보드' },
-  { id: 'teachers',  icon: '👨‍🏫', label: '교사 관리' },
-  { id: 'notices',   icon: '📢', label: '공지사항' },
-  { id: 'feedbacks', icon: '💬', label: '건의/문의' },
-  { id: 'settings',  icon: '⚙️', label: '시스템 설정' },
-  { id: 'content',   icon: '🎮', label: '콘텐츠 관리' },
-  { id: 'equipment', icon: '⚔️', label: '장비 관리' },
+  { id: 'dashboard',    icon: '📊', label: '대시보드' },
+  { id: 'teachers',     icon: '👨‍🏫', label: '교사 관리' },
+  { id: 'notices',      icon: '📢', label: '공지사항' },
+  { id: 'feedbacks',    icon: '💬', label: '건의/문의' },
+  { id: 'settings',     icon: '⚙️', label: '시스템 설정' },
+  { id: 'content',      icon: '🎮', label: '콘텐츠 관리' },
+  { id: 'equipment',    icon: '⚔️', label: '장비 관리' },
+  { id: 'battleLayout', icon: '🖼️', label: '배틀씬 에디터' },
 ];
 
 export default function AdminPage({ adminUser, onLogout }) {
@@ -1053,8 +1179,9 @@ export default function AdminPage({ adminUser, onLogout }) {
         {tab === 'notices'   && <NoticesTab />}
         {tab === 'feedbacks' && <FeedbacksTab />}
         {tab === 'settings'  && <SettingsTab />}
-        {tab === 'content'   && <ContentTab />}
-        {tab === 'equipment' && <EquipmentManage />}
+        {tab === 'content'      && <ContentTab />}
+        {tab === 'equipment'    && <EquipmentManage />}
+        {tab === 'battleLayout' && <BattleLayoutTab />}
       </main>
     </div>
   );

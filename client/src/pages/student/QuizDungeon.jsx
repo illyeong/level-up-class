@@ -239,7 +239,7 @@ function BossIntroModal({ dungeon, onConfirm, onCancel }) {
 }
 
 // ── 퀴즈 배틀 ──────────────────────────────────────────────────
-function QuizBattle({ dungeon, playerData, onBattleEnd }) {
+function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOUT_DEFAULTS }) {
   const hasTimeLimit = dungeon.timeLimit !== 0;
   const maxTime = hasTimeLimit
     ? (dungeon.timeLimit != null ? dungeon.timeLimit : (DIFF_TIMER[dungeon.difficulty] || 12))
@@ -438,7 +438,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
 
       {/* ── 전투 씬 ── */}
       <div className="relative shrink-0 overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800"
-           style={{ height: '55vh', minHeight: '300px' }}>
+           style={{ height: `${layoutCfg.sceneHeightVh}vh`, minHeight: '300px' }}>
 
         {/* 배경 파티클 효과 */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -458,7 +458,8 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
         <div className="absolute inset-x-0 bottom-14 h-px bg-indigo-500/20" />
 
         {/* ── 플레이어 (좌 절대위치) ── */}
-        <div className={`absolute left-[8%] bottom-4 flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}>
+        <div className={`absolute flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}
+          style={{ left: `${layoutCfg.playerLeftPct}%`, bottom: layoutCfg.playerBottomPx }}>
           {/* HP 바 */}
           <div style={{ width: 120 }} className="mb-2">
             <div className="flex justify-between text-[10px] mb-1">
@@ -471,10 +472,17 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
             </div>
           </div>
           {/* 캐릭터 */}
-          <div style={{ height: 130, width: 130 }} className="flex items-end justify-center">
+          <div style={{ height: layoutCfg.playerCharHeightPx, width: layoutCfg.playerCharHeightPx }}
+            className="flex items-end justify-center">
             {playerData?.characterImage
               ? <img src={playerData.characterImage} alt=""
-                  style={{ height: 130, width: 130, objectFit: 'contain', imageRendering: 'pixelated', transform: 'scale(2.6)', transformOrigin: 'bottom center' }} />
+                  style={{
+                    height: layoutCfg.playerCharHeightPx,
+                    width:  layoutCfg.playerCharHeightPx,
+                    objectFit: 'contain', imageRendering: 'pixelated',
+                    transform: `scale(${layoutCfg.playerScale})`,
+                    transformOrigin: 'bottom center',
+                  }} />
               : <span className="text-8xl leading-none">🧙‍♂️</span>}
           </div>
         </div>
@@ -485,7 +493,8 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
         </div>
 
         {/* ── 몬스터 (우 절대위치) ── */}
-        <div className="absolute right-[8%] bottom-4 flex flex-col items-center">
+        <div className="absolute flex flex-col items-center"
+          style={{ right: `${layoutCfg.monsterRightPct}%`, bottom: layoutCfg.monsterBottomPx }}>
           {/* HP 바 */}
           <div style={{ width: 140 }} className="mb-2">
             <div className="flex justify-between text-[10px] mb-1">
@@ -498,13 +507,17 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
             </div>
           </div>
           {/* 몬스터 */}
-          <div style={{ height: 230, width: 180 }} className="flex items-end justify-center">
+          <div style={{ height: layoutCfg.monsterCharHeightPx, width: layoutCfg.monsterCharHeightPx * 0.85 }}
+            className="flex items-end justify-center">
             {monsterData ? (
               <SpriteMonster
                 data={monsterData}
                 anim={monsterAnim}
                 flash={monsterFlash}
-                scale={Math.min(monsterData.scale * 1.7, 230 / monsterData.frameHeight)}
+                scale={Math.min(
+                  monsterData.scale * layoutCfg.monsterScaleMult,
+                  layoutCfg.monsterCharHeightPx / monsterData.frameHeight
+                )}
               />
             ) : (
               <span className="text-8xl leading-none"
@@ -764,6 +777,18 @@ function ResultScreen({
 }
 
 // ── Main ──────────────────────────────────────────────────────
+const BATTLE_LAYOUT_DEFAULTS = {
+  sceneHeightVh:       55,
+  playerLeftPct:        8,
+  playerBottomPx:       4,
+  playerCharHeightPx:  130,
+  playerScale:         2.6,
+  monsterRightPct:      8,
+  monsterBottomPx:      4,
+  monsterCharHeightPx: 230,
+  monsterScaleMult:    1.7,
+};
+
 function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
   const [screen,          setScreen]         = useState('lobby');
   const [dungeons,        setDungeons]       = useState([]);
@@ -776,6 +801,15 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
   const [earnedRewards,   setEarnedRewards]  = useState(null);
   const [leveledUp,       setLeveledUp]      = useState(null);
   const [isSaving,        setIsSaving]       = useState(false);
+  const [layoutCfg,       setLayoutCfg]      = useState(BATTLE_LAYOUT_DEFAULTS);
+
+  useEffect(() => {
+    getDoc(doc(db, 'siteConfig', 'battleLayout')).then(snap => {
+      if (snap.exists() && snap.data().quiz) {
+        setLayoutCfg({ ...BATTLE_LAYOUT_DEFAULTS, ...snap.data().quiz });
+      }
+    }).catch(() => {});
+  }, []);
 
   // 던전 목록 + 베스트 기록 로드
   useEffect(() => {
@@ -921,6 +955,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
       dungeon={selectedDungeon}
       playerData={studentData}
       onBattleEnd={handleBattleEnd}
+      layoutCfg={layoutCfg}
     />
   );
 

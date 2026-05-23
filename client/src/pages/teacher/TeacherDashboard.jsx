@@ -52,12 +52,11 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
     const teacherUid = selectedClass?.teacherUid;
     if (!teacherUid) return;
     try {
-      const questsSnap = await getDocs(
-        query(collection(db, 'quests'), where('teacherUid', '==', teacherUid))
-      );
+      // QuestManage와 동일한 방식: 전체 조회 후 메모리 필터 (where 인덱스 문제 회피)
+      const questsSnap = await getDocs(collection(db, 'quests'));
       const activeQuests = questsSnap.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        .filter(q => q.active)
+        .filter(q => q.teacherUid === teacherUid && q.active !== false)
         .sort((a, b) => {
           if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
           return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
