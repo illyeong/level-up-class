@@ -54,9 +54,14 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
     try {
       // QuestManage와 동일한 방식: 전체 조회 후 메모리 필터 (where 인덱스 문제 회피)
       const questsSnap = await getDocs(collection(db, 'quests'));
-      const activeQuests = questsSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(q => q.teacherUid === teacherUid && q.active !== false)
+      const allQuests = questsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      console.log('[Quest Debug] teacherUid:', teacherUid, '/ 전체 퀘스트 수:', allQuests.length);
+      console.log('[Quest Debug] 샘플:', allQuests.slice(0,3).map(q => ({ id: q.id, teacherUid: q.teacherUid, active: q.active, title: q.title })));
+      const activeQuests = allQuests
+        .filter(q =>
+          (q.teacherUid === teacherUid || (!q.teacherUid && teacherUid === 'admin_master_001'))
+          && q.active !== false
+        )
         .sort((a, b) => {
           if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
           return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
@@ -87,6 +92,7 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
         })
       );
 
+      console.log('[Quest Debug] 활성 퀘스트:', activeQuests.length, activeQuests.map(q => q.title));
       setQuestStats(stats);
       setStudentQuestMap(sqMap);
     } catch (err) {
@@ -222,14 +228,18 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
       </div>
 
       {/* 퀘스트 현황 섹션 */}
-      {questStats.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <img src={iconQuest} alt="퀘스트" className="w-6 h-6 object-contain" />
-            <h2 className="font-extrabold text-slate-700 text-base">오늘의 퀘스트 현황</h2>
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <img src={iconQuest} alt="퀘스트" className="w-6 h-6 object-contain" />
+          <h2 className="font-extrabold text-slate-700 text-base">오늘의 퀘스트 현황</h2>
+        </div>
+        {questStats.length === 0 ? (
+          <div className="text-slate-400 text-sm py-3 px-4 bg-white rounded-2xl border border-slate-200">
+            활성 퀘스트가 없습니다. 퀘스트 관리소에서 퀘스트를 만들어보세요!
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {questStats.map(quest => {
+        ) : (
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {questStats.map(quest => {
               const total = students.length || 1;
               const pct = Math.round((quest.checkedCount / total) * 100);
               const isDaily = quest.type === 'daily';
@@ -269,8 +279,8 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {students.map((student) => (
