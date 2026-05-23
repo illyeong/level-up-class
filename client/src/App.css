@@ -1,3 +1,41 @@
+/* ── 강화 애니메이션 ─────────────────────────────────────────── */
+@keyframes shake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  15%  { transform: translateX(-7px) rotate(-1.5deg); }
+  30%  { transform: translateX(7px)  rotate(1.5deg); }
+  45%  { transform: translateX(-5px); }
+  60%  { transform: translateX(5px); }
+  75%  { transform: translateX(-3px); }
+  90%  { transform: translateX(3px); }
+}
+.animate-shake { animation: shake 0.6s ease-in-out; }
+
+@keyframes glow-success {
+  0%   { box-shadow: 0 0 0 0 rgba(251,191,36,0);   transform: scale(1); }
+  35%  { box-shadow: 0 0 28px 12px rgba(251,191,36,0.55); transform: scale(1.08); }
+  65%  { box-shadow: 0 0 18px 6px rgba(251,191,36,0.3);  transform: scale(1.03); }
+  100% { box-shadow: 0 0 0 0 rgba(251,191,36,0);   transform: scale(1); }
+}
+.animate-enhance-success { animation: glow-success 0.8s ease-in-out; }
+
+@keyframes flash-fail {
+  0%   { filter: brightness(1); transform: translateX(0); }
+  20%  { filter: brightness(0.4) sepia(1) hue-rotate(-20deg); transform: translateX(-7px); }
+  40%  { filter: brightness(0.4) sepia(1) hue-rotate(-20deg); transform: translateX(7px); }
+  60%  { filter: brightness(0.7); transform: translateX(-4px); }
+  80%  { filter: brightness(0.9); transform: translateX(3px); }
+  100% { filter: brightness(1); transform: translateX(0); }
+}
+.animate-enhance-fail { animation: flash-fail 0.7s ease-in-out; }
+
+@keyframes star-pop {
+  0%   { transform: scale(1);    opacity: 1; }
+  40%  { transform: scale(1.6);  opacity: 1; }
+  70%  { transform: scale(1.3);  opacity: 0.9; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+.animate-star-pop { animation: star-pop 0.5s ease-out; }
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;
