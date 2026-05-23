@@ -142,63 +142,82 @@ export default function GachaBox({ studentCode }) {
         </div>
       </div>
 
-      {/* 상자 목록 */}
-      <div className="space-y-4 mb-6">
+      {/* 상자 카드 그리드 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
         {CHESTS.map(chest => {
-          const pity  = pityMap[chest.id] || 0;
+          const pity      = pityMap[chest.id] || 0;
           const canPull1  = diamonds >= chest.cost;
           const canPull10 = diamonds >= chest.cost * 10;
+          const isDark    = ['premium','special'].includes(chest.id);
+          const bgMap = {
+            wood:    'from-amber-100 to-yellow-50',
+            luck:    'from-emerald-100 to-teal-50',
+            silver:  'from-slate-200 to-blue-50',
+            gold:    'from-amber-200 to-yellow-100',
+            premium: 'from-slate-800 to-slate-900',
+            special: 'from-purple-900 to-indigo-900',
+          };
           return (
-            <div key={chest.id} className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-              {/* 헤더 */}
-              <div className={`px-5 py-4 flex items-center gap-3 border-b
-                ${['premium','special'].includes(chest.id)
-                  ? 'bg-gradient-to-r from-slate-800 to-slate-900 border-slate-700'
-                  : chest.id === 'gold' ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-100'
-                  : chest.id === 'silver' ? 'bg-gradient-to-r from-slate-100 to-blue-50 border-slate-200'
-                  : chest.id === 'luck' ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-100'
-                  : 'bg-amber-50 border-amber-100'}`}>
+            <div key={chest.id}
+              className={`rounded-3xl overflow-hidden shadow-md border flex flex-col
+                ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+
+              {/* 상단: 이미지 배경 */}
+              <div className={`bg-gradient-to-b ${bgMap[chest.id]} flex flex-col items-center pt-4 pb-3 px-3`}>
+                {/* 상자 이름 */}
+                <div className={`text-[11px] font-extrabold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                  {chest.name}
+                </div>
                 {/* 상자 이미지 */}
                 {chest.image
                   ? <img src={chest.image} alt={chest.name}
-                      className="w-16 h-16 object-contain drop-shadow-lg shrink-0" />
-                  : <span className="text-3xl">📦</span>}
-                <div className="flex-1 min-w-0">
-                  <div className={`font-extrabold text-base ${['premium','special'].includes(chest.id) ? 'text-white' : 'text-slate-800'}`}>
-                    {chest.name}
-                  </div>
-                  <div className={`text-xs mt-0.5 ${['premium','special'].includes(chest.id) ? 'text-slate-400' : 'text-slate-500'}`}>
-                    전설 {chest.rates.legendary}% · 영웅 {chest.rates.epic}% · 희귀 {chest.rates.rare}%
-                  </div>
-                </div>
-                <div className={`text-sm font-extrabold shrink-0 ${['premium','special'].includes(chest.id) ? 'text-cyan-300' : 'text-slate-700'}`}>
+                      className="w-20 h-20 object-contain drop-shadow-xl" />
+                  : <span className="text-5xl">📦</span>}
+                {/* 가격 */}
+                <div className={`mt-2 text-sm font-extrabold ${isDark ? 'text-cyan-300' : 'text-slate-700'}`}>
                   💎 {chest.cost}
                 </div>
               </div>
 
-              {/* 천장 게이지 */}
-              <div className="px-5 py-2 bg-slate-50 border-b border-slate-100">
-                <div className="flex justify-between text-[10px] text-slate-400 mb-1">
-                  <span>천장 ({pity}/10 · 10번에 희귀 이상 확정)</span>
-                  <span className={pity >= 8 ? 'text-amber-500 font-bold' : ''}>{pity}/10</span>
+              {/* 중단: 확률 + 천장 */}
+              <div className={`px-3 py-2 ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+                <div className={`text-[9px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <span className="text-amber-500 font-bold">전설 {chest.rates.legendary}%</span>
+                  {' · '}
+                  <span className="text-violet-500 font-bold">영웅 {chest.rates.epic}%</span>
+                  {' · '}
+                  <span className="text-emerald-500 font-bold">희귀 {chest.rates.rare}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${pity >= 8 ? 'bg-amber-500' : 'bg-indigo-500'}`}
-                    style={{ width: `${(pity / 10) * 100}%` }} />
+                {/* 천장 게이지 */}
+                <div className="mt-1.5">
+                  <div className="flex justify-between text-[9px] mb-0.5">
+                    <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>천장</span>
+                    <span className={pity >= 8 ? 'text-amber-400 font-bold' : isDark ? 'text-slate-500' : 'text-slate-400'}>
+                      {pity}/10
+                    </span>
+                  </div>
+                  <div className={`w-full h-1 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
+                    <div className={`h-full rounded-full transition-all ${pity >= 8 ? 'bg-amber-400' : 'bg-indigo-400'}`}
+                      style={{ width: `${(pity / 10) * 100}%` }} />
+                  </div>
                 </div>
               </div>
 
-              {/* 버튼 */}
-              <div className="px-5 py-4 flex gap-3">
+              {/* 하단: 버튼 */}
+              <div className={`flex flex-col gap-1.5 px-3 pb-3 pt-1.5 ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
                 <button onClick={() => pull(chest, 1)} disabled={!canPull1 || pulling}
-                  className={`flex-1 py-3 rounded-2xl font-extrabold text-sm transition-all active:scale-95
-                    ${canPull1 && !pulling ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
-                  1회 뽑기<br/><span className="text-xs font-bold opacity-70">💎 {chest.cost}</span>
+                  className={`w-full py-2 rounded-xl font-extrabold text-xs transition-all active:scale-95
+                    ${canPull1 && !pulling
+                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
+                  1회 · 💎{chest.cost}
                 </button>
                 <button onClick={() => pull(chest, 10)} disabled={!canPull10 || pulling}
-                  className={`flex-1 py-3 rounded-2xl font-extrabold text-sm transition-all active:scale-95
-                    ${canPull10 && !pulling ? 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 text-white shadow-sm' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
-                  10회 뽑기<br/><span className="text-xs font-bold opacity-70">💎 {chest.cost * 10}</span>
+                  className={`w-full py-2 rounded-xl font-extrabold text-xs transition-all active:scale-95
+                    ${canPull10 && !pulling
+                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
+                  10회 · 💎{chest.cost * 10}
                 </button>
               </div>
             </div>
