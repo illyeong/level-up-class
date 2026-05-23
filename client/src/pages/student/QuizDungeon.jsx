@@ -77,109 +77,194 @@ function CircleTimer({ timeLeft, maxTime }) {
   );
 }
 
+// 난이도별 테마
+const DIFF_THEME = {
+  easy:   {
+    grad:   'from-emerald-950 via-emerald-900 to-slate-900',
+    border: 'border-emerald-700/50',
+    badge:  'bg-emerald-500/20 text-emerald-300 border border-emerald-600/50',
+    btn:    'from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-900/40',
+    label:  '쉬움',
+    dot:    'bg-emerald-400',
+  },
+  normal: {
+    grad:   'from-sky-950 via-sky-900 to-slate-900',
+    border: 'border-sky-700/50',
+    badge:  'bg-sky-500/20 text-sky-300 border border-sky-600/50',
+    btn:    'from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 shadow-sky-900/40',
+    label:  '보통',
+    dot:    'bg-sky-400',
+  },
+  hard:   {
+    grad:   'from-rose-950 via-rose-900 to-slate-900',
+    border: 'border-rose-700/50',
+    badge:  'bg-rose-500/20 text-rose-300 border border-rose-600/50',
+    btn:    'from-rose-600 to-orange-600 hover:from-rose-500 hover:to-orange-500 shadow-rose-900/40',
+    label:  '어려움',
+    dot:    'bg-rose-400',
+  },
+};
+
 // ── 던전 로비 ─────────────────────────────────────────────────
 function DungeonLobby({ dungeons, bestScores, onPreview, isLoading }) {
   if (isLoading) return (
-    <div className="flex items-center justify-center h-64 text-slate-400 font-bold animate-pulse">
-      던전 목록 불러오는 중...
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-5xl mb-4 opacity-60 animate-pulse">⚔️</div>
+        <p className="text-slate-400 font-bold animate-pulse">던전 목록 불러오는 중...</p>
+      </div>
     </div>
   );
 
   if (!dungeons.length) return (
-    <div className="text-center py-20 text-slate-400">
-      <div className="text-6xl mb-4">⚔️</div>
-      <p className="font-bold text-lg text-slate-600">열린 퀴즈 던전이 없습니다</p>
-      <p className="text-sm mt-1">선생님이 퀴즈를 만들면 여기 표시됩니다</p>
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex items-center justify-center">
+      <div className="text-center p-8">
+        <div className="text-7xl mb-5 opacity-20">⚔️</div>
+        <p className="font-extrabold text-xl text-slate-400 mb-2">열린 퀴즈 던전이 없습니다</p>
+        <p className="text-slate-600 text-sm">선생님이 퀴즈를 만들면 여기 표시됩니다</p>
+      </div>
     </div>
   );
 
   return (
-    <div className="p-5 space-y-3">
-      {dungeons.map(d => {
-        const best    = bestScores[d.id];
-        const isFirst = !best?.cleared;
-        // 출현 몬스터 스프라이트 (정적 썸네일)
-        const isMulti  = Array.isArray(d.monsterIds) && d.monsterIds.length > 0;
-        const isRandom = !isMulti && (!d.monsterId || d.monsterId === 'random');
-        const resolvedMonsterId = isMulti
-          ? d.monsterIds[d.monsterIds.length - 1]
-          : (d.monsterId && d.monsterId !== 'random' ? d.monsterId : DIFF_MONSTER[d.difficulty]);
-        const mDat = MONSTERS_DB[resolvedMonsterId] || null;
-        const mScale = mDat ? Math.min(0.45, 72 / Math.max(mDat.frameWidth, mDat.frameHeight)) : 0;
-        const mDw = mDat ? Math.round(mDat.frameWidth  * mScale) : 0;
-        const mDh = mDat ? Math.round(mDat.frameHeight * mScale) : 0;
-        const mRow = mDat?.animations?.idle?.row ?? 0;
-        const totalQ = d.questions?.length || d.questionCount || 5;
-        const waveCount = isMulti ? d.monsterIds.length
-          : mDat ? Math.max(1, Math.floor(totalQ / (TIER_COST[mDat.tier] || 1)) + (totalQ % (TIER_COST[mDat.tier] || 1) > 0 ? 1 : 0)) : 1;
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-indigo-950/20 to-slate-950">
+      {/* 타이틀 헤더 */}
+      <div className="sticky top-0 z-10 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/70 px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xl">⚔️</span>
+          <h1 className="text-base font-extrabold text-white tracking-wide">퀴즈 던전</h1>
+          <span className="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
+            {dungeons.length}개
+          </span>
+        </div>
+      </div>
 
-        return (
-          <div key={d.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-            {/* 헤더 띠: 몬스터 이미지 + 던전 제목 */}
-            <div className={`${DIFF_BADGE[d.difficulty] || 'bg-sky-500'} px-4 pt-3 pb-2 flex items-end gap-3`}>
-              {/* 몬스터 스프라이트 + 마릿수 뱃지 */}
-              <div className="shrink-0 flex flex-col items-center justify-end" style={{ height: 76 }}>
-                {mDat ? (
-                  <div style={{
-                    width: mDw, height: mDh,
-                    backgroundImage:    `url('${mDat.src}')`,
-                    backgroundPosition: `0px ${-(mRow * mDh)}px`,
-                    backgroundRepeat:   'no-repeat',
-                    backgroundSize:     `${mDat.sheetCols * mDw}px ${mDat.sheetRows * mDh}px`,
-                    imageRendering:     'pixelated',
-                    transform:          mDat.flip ? 'scaleX(-1)' : undefined,
-                  }} />
-                ) : (
-                  <span className="text-5xl leading-none pb-1">
-                    {MONSTER[d.difficulty]?.emoji || '⚔️'}
-                  </span>
-                )}
-                <div className="mt-0.5 text-[9px] font-extrabold bg-black/40 text-white px-1.5 py-0.5 rounded-full leading-none">
-                  {isRandom ? '랜덤' : `×${waveCount}`}
-                </div>
-              </div>
-              {/* 제목 + 난이도 */}
-              <div className="flex-1 pb-1.5 min-w-0">
-                <div className="text-white font-extrabold text-base leading-tight truncate">{d.title}</div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] font-bold bg-white/25 text-white px-2 py-0.5 rounded-full">
-                    {d.difficulty === 'easy' ? '쉬움' : d.difficulty === 'hard' ? '어려움' : '보통'}
-                  </span>
-                  <span className="text-[10px] text-white/80">
-                    {d.timeLimit === 0 ? '∞ 무제한' : `${d.timeLimit ?? DIFF_TIMER[d.difficulty] ?? 12}초/문제`}
-                  </span>
-                  <span className="text-[10px] text-white/80">{d.questionCount}문제</span>
-                </div>
-              </div>
-              {/* 별점 */}
-              {best && (
-                <div className="shrink-0 text-right pb-1.5">
-                  <div className="flex gap-0.5 justify-end">
-                    {[0,1,2].map(i => (
-                      <span key={i} className={`text-base ${i < best.stars ? 'text-amber-300' : 'text-white/20'}`}>⭐</span>
-                    ))}
+      <div className="p-4 space-y-3 pb-10">
+        {dungeons.map(d => {
+          const best    = bestScores[d.id];
+          const isFirst = !best?.cleared;
+          const theme   = DIFF_THEME[d.difficulty] || DIFF_THEME.normal;
+          const totalQ  = d.questions?.length || d.questionCount || 5;
+
+          const isMulti  = Array.isArray(d.monsterIds) && d.monsterIds.length > 0;
+          const isRandom = !isMulti && (!d.monsterId || d.monsterId === 'random');
+          const resolvedMonsterId = isMulti
+            ? d.monsterIds[d.monsterIds.length - 1]
+            : (d.monsterId && d.monsterId !== 'random' ? d.monsterId : DIFF_MONSTER[d.difficulty]);
+          const mDat = MONSTERS_DB[resolvedMonsterId] || null;
+          const mScale = mDat
+            ? Math.min(100 / mDat.frameHeight, 100 / mDat.frameWidth) * 0.92
+            : 0;
+
+          const timer = d.timeLimit !== 0
+            ? (d.timeLimit != null ? d.timeLimit : (DIFF_TIMER[d.difficulty] ?? 12))
+            : null;
+
+          const waveCount = isMulti ? d.monsterIds.length
+            : mDat ? Math.max(1, Math.floor(totalQ / (TIER_COST[mDat.tier] || 1)) + (totalQ % (TIER_COST[mDat.tier] || 1) > 0 ? 1 : 0)) : 1;
+
+          return (
+            <div key={d.id}
+              className={`rounded-3xl overflow-hidden border shadow-2xl ${theme.border} bg-slate-900`}>
+
+              {/* ── 카드 상단: 몬스터 + 정보 ── */}
+              <div className={`bg-gradient-to-br ${theme.grad} px-4 pt-4 pb-3`}>
+                <div className="flex items-center gap-4">
+
+                  {/* 몬스터 스프라이트 박스 */}
+                  <div className="shrink-0 relative flex items-center justify-center rounded-2xl bg-black/30 border border-white/10"
+                    style={{ width: 88, height: 96 }}>
+                    {mDat ? (
+                      <SpriteMonster data={mDat} anim="idle" scale={mScale} />
+                    ) : (
+                      <div className="text-5xl opacity-70">{MONSTER[d.difficulty]?.emoji || '⚔️'}</div>
+                    )}
+                    {/* 웨이브 뱃지 */}
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-extrabold bg-slate-950 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-full whitespace-nowrap shadow">
+                      {isRandom ? '랜덤' : `${waveCount}웨이브`}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-white/70">최고 {best.accuracy}%</div>
-                </div>
-              )}
-            </div>
 
-            {/* 보상 + 입장 버튼 */}
-            <div className="px-4 py-3 flex items-center gap-3">
-              <div className="flex flex-wrap gap-2 text-xs text-slate-500 flex-1">
-                {d.rewards?.gold    > 0 && <span>🪙 {d.rewards.gold}G</span>}
-                {d.rewards?.exp     > 0 && <span>⭐ {d.rewards.exp} EXP</span>}
-                {d.rewards?.diamond > 0 && <span>💎 {d.rewards.diamond}</span>}
-                {isFirst && <span className="text-amber-500 font-bold">🌟 첫 클리어 ×1.5</span>}
+                  {/* 텍스트 영역 */}
+                  <div className="flex-1 min-w-0 pt-1">
+                    {/* 난이도 + 클리어 여부 */}
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${theme.badge}`}>
+                        {theme.label}
+                      </span>
+                      {best?.cleared && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/40">
+                          클리어 ✓
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 던전 제목 */}
+                    <h3 className="text-white font-extrabold text-base leading-snug mb-2 line-clamp-2">
+                      {d.title}
+                    </h3>
+
+                    {/* 스탯 칩 */}
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-slate-300">
+                        📝 {totalQ}문제
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-slate-300">
+                        ⏱ {timer !== null ? `${timer}초` : '무제한'}
+                      </span>
+                      {d.playCount > 0 && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-slate-400">
+                          👥 {d.playCount}회
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 별점 (클리어 이력 있을 때) */}
+                {best && (
+                  <div className="flex items-center gap-1 mt-3">
+                    {[0,1,2].map(i => (
+                      <span key={i} className={`text-lg transition-all ${i < best.stars ? 'text-amber-400 drop-shadow' : 'text-slate-700'}`}>⭐</span>
+                    ))}
+                    <span className="text-slate-400 text-[10px] ml-1">최고 {best.accuracy}%</span>
+                  </div>
+                )}
               </div>
-              <button onClick={() => onPreview(d)}
-                className="shrink-0 px-5 py-2 rounded-xl font-extrabold text-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all active:scale-95">
-                ⚔️ 입장
-              </button>
+
+              {/* ── 카드 하단: 보상 + 입장 버튼 ── */}
+              <div className="px-4 py-3 bg-slate-900/80 flex items-center justify-between gap-3 border-t border-slate-800/80">
+                <div className="flex gap-1.5 flex-wrap">
+                  {(d.rewards?.gold    || 0) > 0 && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-900/60 text-amber-300 border border-amber-800/60">
+                      🪙 {d.rewards.gold}G
+                    </span>
+                  )}
+                  {(d.rewards?.exp     || 0) > 0 && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-900/60 text-indigo-300 border border-indigo-800/60">
+                      ⭐ {d.rewards.exp}
+                    </span>
+                  )}
+                  {(d.rewards?.diamond || 0) > 0 && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-900/60 text-sky-300 border border-sky-800/60">
+                      💎 {d.rewards.diamond}
+                    </span>
+                  )}
+                  {isFirst && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-600/40">
+                      🌟 첫클리어 ×1.5
+                    </span>
+                  )}
+                </div>
+                <button onClick={() => onPreview(d)}
+                  className={`shrink-0 px-5 py-2 rounded-2xl font-extrabold text-sm bg-gradient-to-r ${theme.btn} text-white shadow-lg transition-all active:scale-95`}>
+                  ⚔️ 입장
+                </button>
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -187,49 +272,88 @@ function DungeonLobby({ dungeons, bestScores, onPreview, isLoading }) {
 // ── 보스 소개 팝업 ────────────────────────────────────────────
 function BossIntroModal({ dungeon, onConfirm, onCancel }) {
   const m          = MONSTER[dungeon.difficulty] || MONSTER.normal;
-  const monsterId  = dungeon.monsterId && dungeon.monsterId !== 'random' ? dungeon.monsterId : m.monsterId;
+  const theme      = DIFF_THEME[dungeon.difficulty] || DIFF_THEME.normal;
+
+  // 첫 번째 웨이브 몬스터 (또는 기본 몬스터)
+  const isMulti   = Array.isArray(dungeon.monsterIds) && dungeon.monsterIds.length > 0;
+  const monsterId = isMulti
+    ? dungeon.monsterIds[0]
+    : (dungeon.monsterId && dungeon.monsterId !== 'random' ? dungeon.monsterId : m.monsterId);
   const monsterDat = MONSTERS_DB[monsterId] || null;
-  const hasTimeLimitModal = dungeon.timeLimit !== 0;
-  const timer = hasTimeLimitModal
+  const mScale     = monsterDat
+    ? Math.min(130 / monsterDat.frameHeight, 130 / monsterDat.frameWidth) * 0.9
+    : 0;
+
+  const hasTimeLimit = dungeon.timeLimit !== 0;
+  const timer = hasTimeLimit
     ? (dungeon.timeLimit != null ? dungeon.timeLimit : (DIFF_TIMER[dungeon.difficulty] || 12))
     : null;
   const totalQ      = dungeon.questions?.length || dungeon.questionCount || 5;
   const playerMaxHP = totalQ * DAMAGE_WRONG;
-  const INFO  = [
-    ['📝 문제 수',   `${totalQ}문제`],
-    ['⏱️ 제한 시간', timer !== null ? `${timer}초/문제` : '∞ 무제한'],
-    ['❤️ 내 HP',    `${playerMaxHP}`],
-    ['💥 오답 피해', `-${DAMAGE_WRONG} HP`],
+
+  const INFO = [
+    { icon: '📝', label: '문제 수',   value: `${totalQ}문제` },
+    { icon: '⏱',  label: '제한 시간', value: timer !== null ? `${timer}초/문제` : '무제한' },
+    { icon: '❤️', label: '내 HP',    value: `${playerMaxHP}` },
+    { icon: '💥', label: '오답 피해', value: `-${DAMAGE_WRONG}` },
   ];
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 rounded-3xl w-full max-w-sm border border-slate-700 shadow-2xl p-6 text-center animate-pop-in">
-        {/* 몬스터 미리보기 */}
-        {monsterDat ? (
-          <div className="flex justify-center mb-3">
-            <SpriteMonster data={monsterDat} anim="idle" scale={0.22} />
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className={`bg-slate-950 w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl border-t border-slate-800 sm:border overflow-hidden shadow-2xl`}>
+
+        {/* 상단 몬스터 배너 */}
+        <div className={`bg-gradient-to-b ${theme.grad} px-6 pt-6 pb-5 text-center relative`}>
+          {/* 몬스터 */}
+          <div className="flex justify-center items-end mb-3" style={{ height: 130 }}>
+            {monsterDat
+              ? <SpriteMonster data={monsterDat} anim="idle" scale={mScale} />
+              : <div className="text-8xl opacity-80 select-none">{m.emoji}</div>
+            }
           </div>
-        ) : (
-          <div className="text-7xl mb-3 select-none">{m.emoji}</div>
-        )}
-        <h2 className="text-2xl font-extrabold text-white mb-1">{m.name}</h2>
-        <p className="text-slate-400 text-sm mb-2">{dungeon.title}</p>
-        <p className="text-slate-500 text-xs mb-5">{m.desc}</p>
-        <div className="grid grid-cols-2 gap-2 mb-5">
-          {INFO.map(([l, v]) => (
-            <div key={l} className="bg-slate-800 rounded-xl px-3 py-2.5 border border-slate-700">
-              <div className="text-slate-400 text-[10px] mb-0.5">{l}</div>
-              <div className="text-white font-extrabold text-sm">{v}</div>
+
+          {/* 난이도 뱃지 */}
+          <div className="flex justify-center mb-2">
+            <span className={`text-[11px] font-extrabold px-3 py-0.5 rounded-full ${theme.badge}`}>
+              {theme.label}
+            </span>
+          </div>
+
+          {/* 몬스터 이름 + 던전 제목 */}
+          <h2 className="text-xl font-extrabold text-white leading-tight">
+            {m.name}
+          </h2>
+          <p className="text-slate-400 text-xs mt-1 line-clamp-1">{dungeon.title}</p>
+          <p className="text-slate-500 text-xs mt-0.5">{m.desc}</p>
+        </div>
+
+        {/* 정보 그리드 */}
+        <div className="grid grid-cols-2 gap-2 px-5 pt-4 pb-2">
+          {INFO.map(({ icon, label, value }) => (
+            <div key={label} className="bg-slate-900 rounded-2xl px-3 py-2.5 border border-slate-800">
+              <div className="text-slate-500 text-[10px] mb-0.5">{icon} {label}</div>
+              <div className="text-white font-extrabold text-sm">{value}</div>
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-2 gap-3">
+
+        {/* 보상 */}
+        {(dungeon.rewards?.gold || dungeon.rewards?.exp || dungeon.rewards?.diamond) && (
+          <div className="mx-5 mb-2 px-4 py-2.5 bg-amber-900/20 rounded-2xl border border-amber-800/30 flex gap-3 justify-center">
+            {dungeon.rewards?.gold    > 0 && <span className="text-xs font-bold text-amber-300">🪙 {dungeon.rewards.gold}G</span>}
+            {dungeon.rewards?.exp     > 0 && <span className="text-xs font-bold text-indigo-300">⭐ {dungeon.rewards.exp}</span>}
+            {dungeon.rewards?.diamond > 0 && <span className="text-xs font-bold text-sky-300">💎 {dungeon.rewards.diamond}</span>}
+          </div>
+        )}
+
+        {/* 버튼 */}
+        <div className="grid grid-cols-2 gap-3 px-5 pt-2 pb-6">
           <button onClick={onCancel}
-            className="py-3 rounded-2xl bg-slate-800 text-slate-300 font-bold border border-slate-700 hover:bg-slate-700 transition-colors active:scale-95">
+            className="py-3.5 rounded-2xl bg-slate-800 text-slate-300 font-bold border border-slate-700 hover:bg-slate-700 transition-colors active:scale-95">
             취소
           </button>
           <button onClick={onConfirm}
-            className="py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-extrabold shadow-lg hover:from-indigo-500 transition-all active:scale-95">
+            className={`py-3.5 rounded-2xl bg-gradient-to-r ${theme.btn} text-white font-extrabold shadow-lg transition-all active:scale-95`}>
             ⚔️ 전투 시작!
           </button>
         </div>
