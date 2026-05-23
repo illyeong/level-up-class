@@ -83,9 +83,7 @@ function CircleTimer({ timeLeft, maxTime }) {
 }
 
 // ── 던전 로비 ─────────────────────────────────────────────────
-function DungeonLobby({ dungeons, tickets, bestScores, onPreview, isLoading }) {
-  const tk = tickets?.dungeon ?? 0;
-
+function DungeonLobby({ dungeons, bestScores, onPreview, isLoading }) {
   if (isLoading) return (
     <div className="flex items-center justify-center h-64 text-slate-400 font-bold animate-pulse">
       던전 목록 불러오는 중...
@@ -101,70 +99,81 @@ function DungeonLobby({ dungeons, tickets, bestScores, onPreview, isLoading }) {
   );
 
   return (
-    <div className="p-5 space-y-4">
-      {/* 이용권 현황 */}
-      <div className={`flex items-center gap-3 rounded-2xl px-4 py-3 font-bold
-        ${tk > 0 ? 'bg-indigo-50 border border-indigo-200 text-indigo-700' : 'bg-amber-50 border border-amber-200 text-amber-700'}`}>
-        <span className="text-lg">🎫</span>
-        <span className="text-sm">던전 이용권</span>
-        <span className={`ml-auto text-2xl font-extrabold ${tk > 0 ? 'text-indigo-600' : 'text-amber-500'}`}>{tk}개</span>
-        {tk <= 0 && <span className="text-xs font-normal">매주 월요일 3개 지급</span>}
-      </div>
+    <div className="p-5 space-y-3">
+      {dungeons.map(d => {
+        const best    = bestScores[d.id];
+        const isFirst = !best?.cleared;
+        // 출현 몬스터 스프라이트 (정적 썸네일)
+        const resolvedMonsterId = d.monsterId && d.monsterId !== 'random'
+          ? d.monsterId : DIFF_MONSTER[d.difficulty];
+        const mDat = MONSTERS_DB[resolvedMonsterId] || null;
+        const mScale = mDat ? Math.min(0.45, 72 / Math.max(mDat.frameWidth, mDat.frameHeight)) : 0;
+        const mDw = mDat ? Math.round(mDat.frameWidth  * mScale) : 0;
+        const mDh = mDat ? Math.round(mDat.frameHeight * mScale) : 0;
+        const mRow = mDat?.animations?.idle?.row ?? 0;
 
-      {/* 던전 목록 */}
-      <div className="space-y-3">
-        {dungeons.map(d => {
-          const m    = MONSTER[d.difficulty] || MONSTER.normal;
-          const best = bestScores[d.id];
-          const isFirst = !best?.cleared;
-          return (
-            <div key={d.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-              <div className={`${DIFF_BADGE[d.difficulty] || 'bg-sky-500'} px-4 py-2.5 flex items-center justify-between text-white`}>
-                <span className="font-extrabold flex items-center gap-2 text-base">
-                  <span className="text-xl">{m.emoji}</span>{m.name}
-                </span>
-                <span className="text-xs font-bold opacity-90">
-                  {d.difficulty === 'easy' ? '쉬움' : d.difficulty === 'hard' ? '어려움' : '보통'}
-                  &nbsp;·&nbsp;{DIFF_TIMER[d.difficulty] || 12}초/문제
-                </span>
+        return (
+          <div key={d.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+            {/* 헤더 띠: 몬스터 이미지 + 던전 제목 */}
+            <div className={`${DIFF_BADGE[d.difficulty] || 'bg-sky-500'} px-4 pt-3 pb-2 flex items-end gap-3`}>
+              {/* 몬스터 스프라이트 */}
+              <div className="shrink-0 flex items-end" style={{ height: 76 }}>
+                {mDat ? (
+                  <div style={{
+                    width: mDw, height: mDh,
+                    backgroundImage:    `url('${mDat.src}')`,
+                    backgroundPosition: `0px ${-(mRow * mDh)}px`,
+                    backgroundRepeat:   'no-repeat',
+                    backgroundSize:     `${mDat.sheetCols * mDw}px ${mDat.sheetRows * mDh}px`,
+                    imageRendering:     'pixelated',
+                    transform:          mDat.flip ? 'scaleX(-1)' : undefined,
+                  }} />
+                ) : (
+                  <span className="text-5xl leading-none pb-1">
+                    {MONSTER[d.difficulty]?.emoji || '⚔️'}
+                  </span>
+                )}
               </div>
-              <div className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h3 className="font-extrabold text-slate-800 text-base">{d.title}</h3>
-                    <span className="text-xs text-slate-400">{d.questionCount}문제</span>
+              {/* 제목 + 난이도 */}
+              <div className="flex-1 pb-1.5 min-w-0">
+                <div className="text-white font-extrabold text-base leading-tight truncate">{d.title}</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] font-bold bg-white/25 text-white px-2 py-0.5 rounded-full">
+                    {d.difficulty === 'easy' ? '쉬움' : d.difficulty === 'hard' ? '어려움' : '보통'}
+                  </span>
+                  <span className="text-[10px] text-white/80">{DIFF_TIMER[d.difficulty] || 12}초/문제</span>
+                  <span className="text-[10px] text-white/80">{d.questionCount}문제</span>
+                </div>
+              </div>
+              {/* 별점 */}
+              {best && (
+                <div className="shrink-0 text-right pb-1.5">
+                  <div className="flex gap-0.5 justify-end">
+                    {[0,1,2].map(i => (
+                      <span key={i} className={`text-base ${i < best.stars ? 'text-amber-300' : 'text-white/20'}`}>⭐</span>
+                    ))}
                   </div>
-                  {best ? (
-                    <div className="text-right shrink-0 ml-2">
-                      <div className="flex gap-0.5 justify-end text-lg">
-                        {[0,1,2].map(i => (
-                          <span key={i} className={i < best.stars ? 'text-amber-400' : 'text-slate-200'}>⭐</span>
-                        ))}
-                      </div>
-                      <div className="text-[10px] text-slate-400">최고 {best.accuracy}%</div>
-                    </div>
-                  ) : null}
+                  <div className="text-[10px] text-white/70">최고 {best.accuracy}%</div>
                 </div>
-                <div className="flex flex-wrap gap-2 text-xs text-slate-500 mb-3">
-                  {d.rewards?.gold    > 0 && <span>🪙 {d.rewards.gold}G</span>}
-                  {d.rewards?.exp     > 0 && <span>⭐ {d.rewards.exp} EXP</span>}
-                  {d.rewards?.diamond > 0 && <span>💎 {d.rewards.diamond}</span>}
-                  {isFirst && (
-                    <span className="text-amber-500 font-bold">🌟 첫 클리어 보너스 ×1.5</span>
-                  )}
-                </div>
-                <button onClick={() => onPreview(d)} disabled={tk <= 0}
-                  className={`w-full py-2.5 rounded-xl font-extrabold text-sm transition-all active:scale-95
-                    ${tk > 0
-                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
-                      : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
-                  {tk > 0 ? '⚔️ 입장하기 (이용권 1개)' : '이용권 없음'}
-                </button>
-              </div>
+              )}
             </div>
-          );
-        })}
-      </div>
+
+            {/* 보상 + 입장 버튼 */}
+            <div className="px-4 py-3 flex items-center gap-3">
+              <div className="flex flex-wrap gap-2 text-xs text-slate-500 flex-1">
+                {d.rewards?.gold    > 0 && <span>🪙 {d.rewards.gold}G</span>}
+                {d.rewards?.exp     > 0 && <span>⭐ {d.rewards.exp} EXP</span>}
+                {d.rewards?.diamond > 0 && <span>💎 {d.rewards.diamond}</span>}
+                {isFirst && <span className="text-amber-500 font-bold">🌟 첫 클리어 ×1.5</span>}
+              </div>
+              <button onClick={() => onPreview(d)}
+                className="shrink-0 px-5 py-2 rounded-xl font-extrabold text-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all active:scale-95">
+                ⚔️ 입장
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -345,114 +354,122 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
   const comboLv = getComboLv(combo);
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 select-none">
+    <div className="flex flex-col h-full bg-slate-900 select-none overflow-hidden">
 
-      {/* ── 몬스터 영역 ── */}
-      <div className="relative bg-gradient-to-b from-slate-800 to-slate-900 px-4 pt-3 pb-2 shrink-0">
-        {/* HP 바 */}
-        <div className="mb-2">
-          <div className="flex justify-between text-xs font-bold mb-1 text-slate-300">
-            <span>{monster.emoji} {monster.name}</span>
-            <span className="text-white">{monsterHP} / {monsterMaxHP}</span>
-          </div>
-          <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(mHPpct)}`}
-              style={{ width: `${mHPpct}%` }} />
-          </div>
-        </div>
-
-        {/* 몬스터 스프라이트 + 이펙트 */}
-        <div className="relative flex items-center justify-center py-2 overflow-visible">
-          {monsterData ? (
-            <SpriteMonster
-              data={monsterData}
-              anim={monsterAnim}
-              flash={monsterFlash}
-              style={{ transform: monsterFlash ? 'translateX(-4px)' : undefined }}
-            />
-          ) : (
-            <div className="text-8xl select-none transition-all duration-150"
-              style={{
-                filter:    monsterFlash ? 'brightness(4) saturate(0)' : undefined,
-                transform: monsterFlash ? 'scale(1.1) translateX(-4px)' : undefined,
-              }}>
-              {monster.emoji}
-            </div>
-          )}
-        </div>
-
-          {/* 데미지 플로팅 (몬스터) */}
-          {floats.filter(f => !f.isPlayer).map(f => (
-            <div key={f.id}
-              className="absolute top-0 right-6 font-extrabold text-xl text-yellow-300 pointer-events-none animate-float-up z-10"
-              style={{ textShadow: '0 0 8px rgba(251,191,36,0.8)' }}>
-              {f.text}
-            </div>
-          ))}
-
-          {/* 적중/빗나감 텍스트 */}
-          {answered === 'correct' && (
-            <div className="absolute top-1 right-4 text-yellow-300 font-extrabold text-base animate-bounce">💥 HIT!</div>
-          )}
-          {answered === 'wrong' && (
-            <div className="absolute top-1 left-4 text-rose-400 font-extrabold text-sm animate-bounce">😵 빗나감!</div>
-          )}
-          {answered === 'timeout' && (
-            <div className="absolute top-1 left-4 text-rose-400 font-extrabold text-sm animate-bounce">⏰ 시간 초과!</div>
-          )}
-        </div>
-
-        {/* 콤보 배너 */}
-        {comboLv && (
-          <div className={`absolute top-2 right-3 ${comboLv.cls} text-xs font-extrabold px-3 py-1 rounded-full shadow-lg z-10 animate-pop-in`}>
-            {comboLv.label} {combo}연속
-          </div>
-        )}
-
-      {/* ── 플레이어 영역 ── */}
-      <div className="bg-slate-800 px-4 py-2.5 flex items-center gap-3 shrink-0 border-t border-slate-700">
-        <div className={`w-11 h-11 rounded-xl overflow-hidden bg-indigo-900/60 border border-indigo-700
-          flex items-center justify-center shrink-0 ${playerShake ? 'animate-shake' : ''}`}>
-          {playerData?.characterImage
-            ? <img src={playerData.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
-            : <span className="text-2xl">🧙‍♂️</span>}
-        </div>
+      {/* ── 상단 상태바 ── */}
+      <div className="bg-slate-950 px-4 py-2 flex items-center gap-3 shrink-0">
         <div className="flex-1">
-          <div className="flex justify-between text-xs font-bold mb-1">
-            <span className="text-slate-300">{playerData?.name || '나'}</span>
-            <span className="text-white">{playerHP} / {PLAYER_MAX_HP}</span>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="font-extrabold text-white">
+              Q{currentQ + 1}<span className="text-slate-500 font-normal"> / {qTotal}</span>
+            </span>
+            <span className="text-slate-400 text-[10px]">정답 {score}개</span>
           </div>
-          <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(pHPpct)}`}
-              style={{ width: `${pHPpct}%` }} />
+          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+              style={{ width: `${(currentQ / qTotal) * 100}%` }} />
           </div>
         </div>
-        {/* 플레이어 피해 플로팅 */}
+        {comboLv && (
+          <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full shrink-0 animate-pop-in ${comboLv.cls}`}>
+            {comboLv.label} {combo}×
+          </span>
+        )}
+        <CircleTimer timeLeft={timeLeft} maxTime={maxTime} />
+      </div>
+
+      {/* ── 전투 씬 ── */}
+      <div className="relative shrink-0 overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800"
+           style={{ height: '220px' }}>
+
+        {/* 바닥 그라데이션 */}
+        <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-slate-800/70 to-transparent pointer-events-none" />
+
+        {/* ── 플레이어 (좌측) ── */}
+        <div className={`absolute left-3 bottom-3 flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}>
+          <div className="w-24 mb-1.5">
+            <div className="flex justify-between text-[9px] mb-0.5">
+              <span className="text-slate-300 font-bold truncate max-w-[52px]">{playerData?.name || '나'}</span>
+              <span className="text-emerald-400 font-bold">{playerHP}</span>
+            </div>
+            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(pHPpct)}`}
+                style={{ width: `${pHPpct}%` }} />
+            </div>
+          </div>
+          <div className="flex items-end justify-center" style={{ height: 72 }}>
+            {playerData?.characterImage
+              ? <img src={playerData.characterImage} alt=""
+                  style={{ height: 72, width: 72, objectFit: 'contain', imageRendering: 'pixelated', transform: 'scale(1.6)', transformOrigin: 'bottom center' }} />
+              : <span className="text-5xl leading-none">🧙‍♂️</span>}
+          </div>
+        </div>
+
+        {/* ── 중앙 VS ── */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="text-2xl text-slate-600/80 font-extrabold select-none">⚔️</span>
+        </div>
+
+        {/* ── 몬스터 (우측) ── */}
+        <div className="absolute right-3 bottom-3 flex flex-col items-center">
+          <div className="w-28 mb-1.5">
+            <div className="flex justify-between text-[9px] mb-0.5">
+              <span className="text-slate-300 font-bold truncate max-w-[72px]">{monster.name}</span>
+              <span className="text-rose-400 font-bold">{monsterHP}</span>
+            </div>
+            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(mHPpct)}`}
+                style={{ width: `${mHPpct}%` }} />
+            </div>
+          </div>
+          <div className="flex items-end justify-center" style={{ height: 130 }}>
+            {monsterData ? (
+              <SpriteMonster
+                data={monsterData}
+                anim={monsterAnim}
+                flash={monsterFlash}
+                scale={Math.min(monsterData.scale, 130 / monsterData.frameHeight)}
+              />
+            ) : (
+              <span className="text-7xl leading-none"
+                style={{ filter: monsterFlash ? 'brightness(4) saturate(0)' : undefined }}>
+                {monster.emoji}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* ── 플로팅 데미지 ── */}
         {floats.filter(f => f.isPlayer).map(f => (
-          <div key={f.id} className="text-rose-400 font-extrabold text-base animate-float-up pointer-events-none">
+          <div key={f.id}
+            className="absolute font-extrabold text-xl text-rose-400 pointer-events-none animate-float-up z-20"
+            style={{ left: 56, bottom: 90, textShadow: '0 0 8px rgba(248,113,113,0.9)' }}>
             {f.text}
           </div>
         ))}
+        {floats.filter(f => !f.isPlayer).map(f => (
+          <div key={f.id}
+            className="absolute font-extrabold text-xl text-yellow-300 pointer-events-none animate-float-up z-20"
+            style={{ right: 56, bottom: 90, textShadow: '0 0 8px rgba(251,191,36,0.9)' }}>
+            {f.text}
+          </div>
+        ))}
+
+        {/* HIT / 빗나감 */}
+        {answered === 'correct' && (
+          <div className="absolute top-3 right-6 text-yellow-300 font-extrabold text-lg animate-bounce">💥 HIT!</div>
+        )}
+        {answered === 'wrong' && (
+          <div className="absolute top-3 left-6 text-rose-400 font-extrabold text-sm animate-bounce">😵 빗나감!</div>
+        )}
+        {answered === 'timeout' && (
+          <div className="absolute top-3 left-6 text-rose-400 font-extrabold text-sm animate-bounce">⏰ 시간 초과!</div>
+        )}
       </div>
 
       {/* ── 퀴즈 영역 ── */}
       <div className="flex-1 bg-slate-100 overflow-y-auto">
-        <div className="p-4 space-y-3">
-
-          {/* 타이머 + 진행 */}
-          <div className="flex items-center gap-3">
-            <CircleTimer timeLeft={timeLeft} maxTime={maxTime} />
-            <div className="flex-1">
-              <div className="flex justify-between text-xs font-medium mb-1">
-                <span className="font-bold text-slate-700">Q {currentQ + 1} / {qTotal}</span>
-                <span className="text-slate-400">정답 {score}개</span>
-              </div>
-              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div className="h-full bg-indigo-500 rounded-full transition-all duration-500"
-                  style={{ width: `${(currentQ / qTotal) * 100}%` }} />
-              </div>
-            </div>
-          </div>
+        <div className="p-3 space-y-2.5">
 
           {/* 문제 */}
           <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
@@ -460,7 +477,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
           </div>
 
           {/* 보기 */}
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-2">
             {q.options.map((opt, oi) => {
               let cls = 'bg-white border-2 border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50';
               if (answered !== null) {
@@ -573,14 +590,8 @@ function ResultScreen({
             <div className="space-y-1.5">
               {earnedRewards.goldEarned    > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">기본 보상</span>
-                  <span className="font-extrabold text-amber-600">🪙 +{earnedRewards.goldEarned}G</span>
-                </div>
-              )}
-              {earnedRewards.timeBonusGold > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">⏱️ 타임 보너스</span>
-                  <span className="font-extrabold text-sky-600">🪙 +{earnedRewards.timeBonusGold}G</span>
+                  <span className="text-slate-500">🪙 골드</span>
+                  <span className="font-extrabold text-amber-600">+{earnedRewards.goldEarned}G</span>
                 </div>
               )}
               {earnedRewards.expEarned     > 0 && (
@@ -694,8 +705,6 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
   }, [studentDocId]);
 
   const enterDungeon = async (dungeon) => {
-    if (!onUseTicket) return alert('이용권 시스템에 연결되지 않았습니다.');
-    await onUseTicket('dungeon');
     // 랜덤 몬스터면 입장 시점에 한 번 확정
     const resolved = (!dungeon.monsterId || dungeon.monsterId === 'random')
       ? { ...dungeon, monsterId: getRandomMonsterId() }
@@ -723,17 +732,13 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
     const accuracy = Math.round(score / totalQ * 100);
     const isFirst  = !bestScores[dungeon.id]?.cleared;
 
-    const baseGold  = cleared ? Math.floor((dungeon.rewards?.gold || 0) * score / totalQ) : 0;
-    const tbGold    = cleared ? Math.min(timeBonus, (dungeon.rewards?.gold || 0) * 2) : 0;
-    const rawGold   = baseGold + tbGold;
-    const goldEarned    = isFirst && cleared ? Math.round(rawGold  * 1.5) : rawGold;
-    const baseExp       = cleared ? Math.floor((dungeon.rewards?.exp || 0) * score / totalQ) : 0;
-    const expEarned     = isFirst && cleared ? Math.round(baseExp  * 1.5) : baseExp;
-    const diamondEarned = (cleared && score === totalQ) ? (dungeon.rewards?.diamond || 0) : 0;
+    const mult          = (isFirst && cleared) ? 1.5 : 1;
+    const goldEarned    = cleared ? Math.round((dungeon.rewards?.gold    || 0) * mult) : 0;
+    const expEarned     = cleared ? Math.round((dungeon.rewards?.exp     || 0) * mult) : 0;
+    const diamondEarned = cleared ? (dungeon.rewards?.diamond || 0) : 0;
 
     setEarnedRewards({
       goldEarned, expEarned, diamondEarned,
-      timeBonusGold: tbGold,
       firstClear: isFirst && cleared,
     });
 
@@ -787,7 +792,6 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
     <>
       <DungeonLobby
         dungeons={dungeons}
-        tickets={tickets}
         bestScores={bestScores}
         onPreview={setPreviewDungeon}
         isLoading={isLoading}
@@ -821,7 +825,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
       leveledUp={leveledUp}
       isSaving={isSaving}
       maxCombo={battleRes.maxCombo}
-      canRetry={(tickets?.dungeon ?? 0) > 0}
+      canRetry={true}
       onRetry={() => enterDungeon(selectedDungeon)}
       onReturnLobby={() => {
         setScreen('lobby');

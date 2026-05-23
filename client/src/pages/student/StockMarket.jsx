@@ -366,7 +366,8 @@ function StockMarket({ studentCode }) {
           const data = await res.json();
 
           if (data.prices?.length > 0) {
-            // 4. 실제 데이터일 때만 Firestore에 저장 (실패 시 저장 안 함 → 다음 방문자가 재시도)
+            // 4. 실제 데이터일 때만 Firestore에 저장 & etfList 교체
+            // API 실패(success:false)면 Firestore 캐시 유지 (0% 덮어쓰기 방지)
             if (data.success !== false) {
               const batch = writeBatch(db);
               data.prices.forEach(price => {
@@ -374,11 +375,11 @@ function StockMarket({ studentCode }) {
               });
               await batch.commit();
               setLastUpdated(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }));
+              etfList = data.prices;
+              // teacher_soul은 API에 없으므로 다시 추가
+              if (prevSoul) etfList = [...etfList, prevSoul];
             }
-            etfList = data.prices;
-
-            // teacher_soul은 API에 없으므로 다시 추가
-            if (prevSoul) etfList = [...etfList, prevSoul];
+            // else: API 실패 → 기존 Firestore etfList 그대로 사용
           }
         } else {
           setLastUpdated(etfList[0]?.updatedAt
@@ -636,7 +637,7 @@ function StockMarket({ studentCode }) {
         etf = {
           id: 'teacher_soul', symbol: 'SOUL', name: '선생님의 영혼',
           theme: '특별', currentPrice: h.avgBuyPrice || 100,
-          changePercent: 0.8, dividendRate: 0,
+          changePercent: 0, dividendRate: 0,
         };
       }
       if (!etf) return null;
@@ -952,6 +953,10 @@ function StockMarket({ studentCode }) {
                       <div className="font-extrabold text-slate-800">🪙 {currentValue.toLocaleString()}</div>
                       <div className={`text-sm font-bold ${pnl >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                         {pnl >= 0 ? '+' : ''}{pnl.toLocaleString()} ({pnlPct}%)
+                      </div>
+                      <div className={`text-xs font-bold mt-0.5 ${etf.changePercent > 0 ? 'text-emerald-500' : etf.changePercent < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                        전일대비 {etf.changePercent > 0 ? '+' : ''}{(etf.changePercent || 0).toFixed(2)}%
+                        {etf.changePercent > 0 ? ' ▲' : etf.changePercent < 0 ? ' ▼' : ''}
                       </div>
                     </div>
                   </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, serverTimestamp, query, where,
+  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc,
+  serverTimestamp, query, where, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import iconQuest from '../../assets/images/icon-quest.png';
@@ -92,7 +93,7 @@ const DEFAULT_FORM = {
 };
 
 // ─────────────────────── ActiveQuestCard ─────────────────────
-function ActiveQuestCard({ quest, studentCount, onDetail, onEdit, onDuplicate, onEnd }) {
+function ActiveQuestCard({ quest, studentCount, onDetail, onEdit, onDuplicate, onEnd, onBulkApprove }) {
   const diff = DIFF[quest.difficulty] || DIFF.easy;
   const isDaily = quest.type === 'daily';
   const checked = quest.checkedCount || 0;
@@ -157,23 +158,31 @@ function ActiveQuestCard({ quest, studentCount, onDetail, onEdit, onDuplicate, o
       </div>
 
       {/* 버튼 */}
-      <div className="px-4 pb-4 flex gap-1.5">
-        <button onClick={onDetail}
-          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg font-bold text-[11px] transition-colors">
-          상세보기
-        </button>
-        <button onClick={onEdit}
-          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-bold text-[11px] transition-colors">
-          수정
-        </button>
-        <button onClick={onDuplicate}
-          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-bold text-[11px] transition-colors">
-          복제
-        </button>
-        <button onClick={onEnd}
-          className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg font-bold text-[11px] transition-colors border border-rose-200">
-          종료
-        </button>
+      <div className="px-4 pb-4 space-y-1.5">
+        {!quest.selfCheck && (
+          <button onClick={onBulkApprove}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded-lg font-bold text-[11px] transition-colors">
+            ✅ 일괄 승인 (전체 보상 지급)
+          </button>
+        )}
+        <div className="flex gap-1.5">
+          <button onClick={onDetail}
+            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg font-bold text-[11px] transition-colors">
+            상세보기
+          </button>
+          <button onClick={onEdit}
+            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-bold text-[11px] transition-colors">
+            수정
+          </button>
+          <button onClick={onDuplicate}
+            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-bold text-[11px] transition-colors">
+            복제
+          </button>
+          <button onClick={onEnd}
+            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg font-bold text-[11px] transition-colors border border-rose-200">
+            종료
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -590,6 +599,46 @@ function QuestManage({ selectedClass }) {
     }
   };
 
+  // 일괄 승인: 교사 승인 퀘스트(selfCheck=false)의 미보상 학생 전체에게 즉시 보상 지급
+  const bulkApproveQuest = async (quest) => {
+    if (!window.confirm(`"${quest.title}"\n보상을 아직 받지 못한 학생 전체에게 지급할까요?`)) return;
+    try {
+      const [studentsSnap, completionsSnap] = await Promise.all([
+        getDocs(collection(db, 'students')),
+        getDocs(collection(db, 'quests', quest.id, 'completions')),
+      ]);
+      const students = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const rewardedIds = new Set(
+        completionsSnap.docs.filter(d => d.data().rewarded).map(d => d.id)
+      );
+      const targets = students.filter(s => !rewardedIds.has(s.id));
+
+      if (targets.length === 0) return alert('이미 모든 학생에게 보상을 지급했습니다.');
+
+      const batch = writeBatch(db);
+      targets.forEach(student => {
+        batch.update(doc(db, 'students', student.id), {
+          gold:     (student.gold     || 0) + (quest.rewards?.gold    || 0),
+          diamonds: (student.diamonds || 0) + (quest.rewards?.diamond || 0),
+          exp:      (student.exp      || 0) + (quest.rewards?.exp     || 0),
+        });
+        batch.set(doc(db, 'quests', quest.id, 'completions', student.id), {
+          checked:    true,
+          checkedAt:  serverTimestamp(),
+          rewarded:   true,
+          rewardedAt: serverTimestamp(),
+          rewardedBy: 'teacher_bulk',
+        }, { merge: true });
+      });
+      await batch.commit();
+      alert(`✅ ${targets.length}명에게 보상 지급 완료!`);
+      fetchData();
+    } catch (err) {
+      console.error('일괄 승인 에러:', err);
+      alert('일괄 승인 중 오류가 발생했습니다.');
+    }
+  };
+
   const toggleSkill = (skill) => {
     setForm(prev => ({
       ...prev,
@@ -678,6 +727,7 @@ function QuestManage({ selectedClass }) {
                     onEdit={() => openEdit(quest)}
                     onDuplicate={() => duplicateQuest(quest)}
                     onEnd={() => endQuest(quest.id)}
+                    onBulkApprove={() => bulkApproveQuest(quest)}
                   />
                 ))}
               </div>

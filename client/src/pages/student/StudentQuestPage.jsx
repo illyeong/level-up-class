@@ -255,6 +255,25 @@ function StudentQuestPage({ studentCode }) {
                 if (cd.exists()) compMap[quest.id] = cd.data();
               })
             );
+
+            // 일일퀘스트 자정 초기화: repeatDaily=true이고 오늘 이전에 체크된 미보상 completion 삭제
+            const todayMidnight = new Date();
+            todayMidnight.setHours(0, 0, 0, 0);
+            await Promise.all(
+              allQuests
+                .filter(q => q.type === 'daily' && q.repeatDaily && q.active !== false)
+                .map(async quest => {
+                  const comp = compMap[quest.id];
+                  if (!comp || comp.rewarded) return;
+                  const ts = comp.checkedAt;
+                  const checkedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
+                  if (checkedAt && checkedAt < todayMidnight) {
+                    await deleteDoc(doc(db, 'quests', quest.id, 'completions', sDoc.id));
+                    delete compMap[quest.id];
+                  }
+                })
+            );
+
             setCompletions(compMap);
           }
         }
