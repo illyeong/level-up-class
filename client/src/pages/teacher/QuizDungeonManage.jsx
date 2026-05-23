@@ -230,23 +230,29 @@ function MonsterPicker({ mode, selectedMonsters, questionCount, onModeChange, on
       ) : (
         <>
           {/* 예산 바 */}
-          <div className="bg-slate-100 rounded-xl p-3 flex items-center gap-3">
-            <div className="flex-1">
-              <div className="flex justify-between text-xs mb-1">
-                <span className="font-bold text-slate-600">문제 예산</span>
-                <span className={`font-bold ${remainingQ === 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
-                  {usedQ} / {questionCount} 문제 배정
-                </span>
-              </div>
-              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div className="h-full bg-indigo-500 rounded-full transition-all"
-                  style={{ width: `${Math.min(100, (usedQ / questionCount) * 100)}%` }} />
-              </div>
+          {questionCount === 0 ? (
+            <div className="bg-slate-100 rounded-xl p-3 text-xs text-slate-400 text-center">
+              문제를 먼저 추가하면 몬스터 예산이 생성됩니다.
             </div>
-            <span className={`text-sm font-extrabold shrink-0 ${remainingQ === 0 ? 'text-emerald-600' : 'text-amber-500'}`}>
-              {remainingQ === 0 ? '✅ 완료' : `${remainingQ}Q 남음`}
-            </span>
-          </div>
+          ) : (
+            <div className="bg-slate-100 rounded-xl p-3 flex items-center gap-3">
+              <div className="flex-1">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="font-bold text-slate-600">문제 예산</span>
+                  <span className={`font-bold ${usedQ > 0 && remainingQ === 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
+                    {usedQ} / {questionCount} 문제 배정
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-500 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, (usedQ / questionCount) * 100)}%` }} />
+                </div>
+              </div>
+              <span className={`text-sm font-extrabold shrink-0 ${usedQ > 0 && remainingQ === 0 ? 'text-emerald-600' : 'text-amber-500'}`}>
+                {usedQ > 0 && remainingQ === 0 ? '✅ 완료' : `${remainingQ}Q 남음`}
+              </span>
+            </div>
+          )}
 
           {/* 선택된 웨이브 목록 */}
           {selectedMonsters.length > 0 && (
@@ -414,6 +420,8 @@ function QuizDungeonManage() {
   const [newShortAnswer, setNewShortAnswer]       = useState('');
   const [newExplanation, setNewExplanation]       = useState('');
   const [isManualPublishing, setIsManualPublishing] = useState(false);
+  const [manualMonsterMode, setManualMonsterMode]       = useState('random');
+  const [manualSelectedMonsters, setManualSelectedMonsters] = useState([]);
 
   // 폼 상태
   const [grade, setGrade]       = useState('');
@@ -748,8 +756,8 @@ function QuizDungeonManage() {
         subject:       subject || '',
         publisher:     '',
         difficulty,
-        monsterId:     'random',
-        monsterIds:    null,
+        monsterId:     manualMonsterMode === 'random' ? 'random' : null,
+        monsterIds:    manualMonsterMode === 'manual' ? manualSelectedMonsters : null,
         timeLimit:     null,
         rewards:       DIFF_REWARDS[difficulty] || DIFF_REWARDS.normal,
         questions:     manualQuestions,
@@ -768,6 +776,8 @@ function QuizDungeonManage() {
       setNewAnswer(0);
       setNewShortAnswer('');
       setNewExplanation('');
+      setManualMonsterMode('random');
+      setManualSelectedMonsters([]);
       setTab('dungeons');
       fetchDungeons();
     } catch (err) {
@@ -1212,6 +1222,18 @@ function QuizDungeonManage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* 출현 몬스터 — 직접출제 탭 */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+              <h2 className="font-bold text-slate-700 text-sm mb-4">👾 출현 몬스터 구성</h2>
+              <MonsterPicker
+                mode={manualMonsterMode}
+                selectedMonsters={manualSelectedMonsters}
+                questionCount={manualQuestions.length}
+                onModeChange={setManualMonsterMode}
+                onMonstersChange={setManualSelectedMonsters}
+              />
             </div>
 
             {/* 문제 추가 카드 */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DungeonMapEditor from './DungeonMapEditor';
 import EquipmentManage from './EquipmentManage';
 import {
@@ -991,15 +991,56 @@ const QUIZ_DEFAULTS = {
 };
 
 function BattleLayoutTab() {
-  const [cfg, setCfg]       = useState(QUIZ_DEFAULTS);
-  const [saving, setSaving] = useState(false);
-  const [saved,  setSaved]  = useState(false);
+  const [cfg, setCfg]         = useState(QUIZ_DEFAULTS);
+  const [saving, setSaving]   = useState(false);
+  const [saved,  setSaved]    = useState(false);
+  const [dragActive, setDragActive] = useState(null);
+  const previewRef = useRef(null);
 
   useEffect(() => {
     getDoc(doc(db, 'siteConfig', 'battleLayout')).then(snap => {
       if (snap.exists()) setCfg({ ...QUIZ_DEFAULTS, ...snap.data().quiz });
     }).catch(() => {});
   }, []);
+
+  /* ── 드래그 핸들러 ── */
+  useEffect(() => {
+    if (!dragActive) return;
+    const pw = previewRef.current?.getBoundingClientRect().width || 390;
+    const ph = previewRef.current?.getBoundingClientRect().height || 300;
+    const move = (e) => {
+      const dx = e.clientX - dragActive.startX;
+      const dy = e.clientY - dragActive.startY;
+      if (dragActive.element === 'player') {
+        setCfg(p => ({ ...p,
+          playerLeftPct:  Math.max(0, Math.min(45, dragActive.startCfg.playerLeftPct  + dx / pw * 100)),
+          playerBottomPx: Math.max(0, Math.min(120, dragActive.startCfg.playerBottomPx - dy)),
+        }));
+      } else if (dragActive.element === 'monster') {
+        setCfg(p => ({ ...p,
+          monsterRightPct:  Math.max(0, Math.min(45, dragActive.startCfg.monsterRightPct  - dx / pw * 100)),
+          monsterBottomPx:  Math.max(0, Math.min(120, dragActive.startCfg.monsterBottomPx - dy)),
+        }));
+      } else if (dragActive.element === 'playerHP') {
+        setCfg(p => ({ ...p,
+          playerBottomPx: Math.max(0, Math.min(120, dragActive.startCfg.playerBottomPx - dy)),
+        }));
+      } else if (dragActive.element === 'monsterHP') {
+        setCfg(p => ({ ...p,
+          monsterBottomPx: Math.max(0, Math.min(120, dragActive.startCfg.monsterBottomPx - dy)),
+        }));
+      }
+    };
+    const up = () => setDragActive(null);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+  }, [dragActive]);
+
+  const startDrag = (element, e) => {
+    e.preventDefault();
+    setDragActive({ element, startX: e.clientX, startY: e.clientY, startCfg: { ...cfg } });
+  };
 
   const Slider = ({ label, field, min, max, step = 1 }) => (
     <div className="flex items-center gap-3">
@@ -1023,45 +1064,79 @@ function BattleLayoutTab() {
 
   const reset = () => setCfg(QUIZ_DEFAULTS);
 
-  /* ── 미니 프리뷰 ── */
-  const previewScale = 0.35;
-  const previewW = 390 * previewScale;
-  const previewH = (cfg.sceneHeightVh / 100 * 700) * previewScale;
+  /* ── 실제 비율 프리뷰 (390px 고정폭) ── */
+  const PW = 390;
+  const PH = Math.round(cfg.sceneHeightVh / 100 * 700);
 
   return (
-    <div className="p-6 space-y-6 max-w-2xl">
+    <div className="p-6 space-y-6 max-w-3xl">
       <div>
         <h2 className="font-extrabold text-slate-800 text-lg mb-1">🎮 퀴즈던전 배틀씬 레이아웃</h2>
-        <p className="text-slate-500 text-sm">슬라이더로 조정하고 저장하면 바로 반영됩니다.</p>
+        <p className="text-slate-500 text-sm">프리뷰에서 캐릭터/몬스터를 드래그하거나 슬라이더로 조정 후 저장.</p>
       </div>
 
-      {/* 미니 프리뷰 */}
-      <div className="bg-slate-800 rounded-2xl p-4">
-        <div className="text-xs text-slate-400 mb-2 font-bold">미리보기 (35% 축소)</div>
-        <div className="relative bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800 rounded-xl overflow-hidden"
-          style={{ width: previewW, height: previewH }}>
+      {/* 실제 비율 프리뷰 */}
+      <div className="bg-slate-800 rounded-2xl p-4 overflow-x-auto">
+        <div className="text-xs text-slate-400 mb-2 font-bold flex items-center gap-2">
+          실제 비율 미리보기 (390×{PH}px)
+          <span className="text-slate-500">— 파란/빨간 박스를 드래그하세요</span>
+        </div>
+        <div
+          ref={previewRef}
+          className="relative bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800 rounded-xl overflow-hidden select-none"
+          style={{ width: PW, height: PH }}
+        >
           {/* 바닥 라인 */}
-          <div className="absolute inset-x-0 h-px bg-indigo-500/30"
-            style={{ bottom: (14 + cfg.playerCharHeightPx + 30) * previewScale }} />
-          {/* 플레이어 */}
-          <div className="absolute bg-indigo-500/60 rounded"
-            style={{
-              left:   `${cfg.playerLeftPct}%`,
-              bottom: cfg.playerBottomPx * previewScale,
-              width:  cfg.playerCharHeightPx * previewScale,
-              height: cfg.playerCharHeightPx * previewScale,
-            }} />
-          {/* 몬스터 */}
-          <div className="absolute bg-rose-500/60 rounded"
-            style={{
-              right:  `${cfg.monsterRightPct}%`,
-              bottom: cfg.monsterBottomPx * previewScale,
-              width:  cfg.monsterCharHeightPx * 0.8 * previewScale,
-              height: cfg.monsterCharHeightPx * previewScale,
-            }} />
+          <div className="absolute inset-x-0 h-px bg-indigo-400/20"
+            style={{ bottom: cfg.playerBottomPx + cfg.playerCharHeightPx + 8 }} />
+
+          {/* 플레이어 그룹 */}
+          <div
+            className="absolute cursor-grab active:cursor-grabbing"
+            style={{ left: `${cfg.playerLeftPct}%`, bottom: cfg.playerBottomPx }}
+            onMouseDown={e => startDrag('player', e)}
+          >
+            {/* HP 바 */}
+            <div className="mb-1 flex flex-col items-center" style={{ width: cfg.playerCharHeightPx }}>
+              <div className="text-[9px] text-indigo-300 font-bold mb-0.5">HP 바</div>
+              <div className="w-full h-2 rounded-full bg-slate-700 overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full" style={{ width: '75%' }} />
+              </div>
+            </div>
+            {/* 캐릭터 박스 */}
+            <div
+              className="rounded-lg bg-indigo-500/50 border-2 border-indigo-400/80 flex items-center justify-center text-[10px] font-extrabold text-indigo-200"
+              style={{ width: cfg.playerCharHeightPx, height: cfg.playerCharHeightPx }}
+            >
+              캐릭터
+            </div>
+          </div>
+
+          {/* 몬스터 그룹 */}
+          <div
+            className="absolute cursor-grab active:cursor-grabbing"
+            style={{ right: `${cfg.monsterRightPct}%`, bottom: cfg.monsterBottomPx }}
+            onMouseDown={e => startDrag('monster', e)}
+          >
+            {/* HP 바 */}
+            <div className="mb-1 flex flex-col items-center" style={{ width: cfg.monsterCharHeightPx * 0.75 }}>
+              <div className="text-[9px] text-rose-300 font-bold mb-0.5">HP 바</div>
+              <div className="w-full h-2 rounded-full bg-slate-700 overflow-hidden">
+                <div className="h-full bg-rose-500 rounded-full" style={{ width: '60%' }} />
+              </div>
+            </div>
+            {/* 몬스터 박스 */}
+            <div
+              className="rounded-lg bg-rose-500/50 border-2 border-rose-400/80 flex items-center justify-center text-[10px] font-extrabold text-rose-200"
+              style={{ width: cfg.monsterCharHeightPx * 0.75, height: cfg.monsterCharHeightPx }}
+            >
+              몬스터
+            </div>
+          </div>
+
           {/* VS */}
-          <div className="absolute left-1/2 -translate-x-1/2 text-slate-500/60 font-extrabold"
-            style={{ bottom: previewH * 0.45, fontSize: 8 }}>VS</div>
+          <div className="absolute left-1/2 -translate-x-1/2 text-slate-400/50 font-extrabold text-2xl pointer-events-none"
+            style={{ bottom: PH * 0.4 }}>VS</div>
         </div>
       </div>
 
@@ -1073,16 +1148,16 @@ function BattleLayoutTab() {
 
       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
         <div className="font-bold text-indigo-600 text-sm border-b border-slate-100 pb-2">🟦 플레이어 (좌)</div>
-        <Slider label="좌측 위치 (%)"              field="playerLeftPct"       min={0}  max={40} />
-        <Slider label="하단 여백 (px)"             field="playerBottomPx"      min={0}  max={60} />
+        <Slider label="좌측 위치 (%)"              field="playerLeftPct"       min={0}  max={45} />
+        <Slider label="하단 여백 (px)"             field="playerBottomPx"      min={0}  max={120} />
         <Slider label="캐릭터 컨테이너 높이 (px)"  field="playerCharHeightPx"  min={60} max={250} step={5} />
         <Slider label="캐릭터 scale 배율"          field="playerScale"          min={1}  max={5}  step={0.1} />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
         <div className="font-bold text-rose-600 text-sm border-b border-slate-100 pb-2">🟥 몬스터 (우)</div>
-        <Slider label="우측 위치 (%)"              field="monsterRightPct"      min={0}  max={40} />
-        <Slider label="하단 여백 (px)"             field="monsterBottomPx"      min={0}  max={60} />
+        <Slider label="우측 위치 (%)"              field="monsterRightPct"      min={0}  max={45} />
+        <Slider label="하단 여백 (px)"             field="monsterBottomPx"      min={0}  max={120} />
         <Slider label="몬스터 컨테이너 높이 (px)"  field="monsterCharHeightPx"  min={80} max={350} step={5} />
         <Slider label="몬스터 scale 배율"          field="monsterScaleMult"     min={0.5} max={4} step={0.1} />
       </div>

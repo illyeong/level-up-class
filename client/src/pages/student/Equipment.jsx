@@ -772,7 +772,7 @@ export default function Equipment({ studentCode }) {
                     <div key={slot.key} className="flex flex-col gap-1.5">
                       <button
                         onClick={() => setSelectedSlot(prev => prev === slot.key ? null : slot.key)}
-                        className={`rounded-2xl border-2 flex flex-col items-center justify-center p-3 transition-all active:scale-95 min-h-[190px]
+                        className={`rounded-2xl border-2 flex flex-col p-3 transition-all active:scale-95 min-h-[190px]
                           ${isSel
                             ? 'border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-100'
                             : item
