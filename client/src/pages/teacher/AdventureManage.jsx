@@ -20,12 +20,20 @@ function AdventureManage({ selectedClass }) {
   const [students, setStudents]     = useState([]);
   const [isLoading, setIsLoading]   = useState(true);
   const [isBusy, setIsBusy]         = useState(false);
-  const [selected, setSelected]     = useState([]); // 선택된 학생 ID
+  const [selected, setSelected]     = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [grantModal, setGrantModal] = useState(null); // { studentId, studentName } or 'all'
+  const [grantModal, setGrantModal] = useState(null);
+  const [toast, setToast]           = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
 
   // 부여 입력값
   const [grantAmounts, setGrantAmounts] = useState({ dungeon: 0, bossRaid: 0, arena: 0 });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+  const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
 
   useEffect(() => {
     const load = async () => {
@@ -60,9 +68,9 @@ function AdventureManage({ selectedClass }) {
     setSelected(prev => prev.length === filteredStudents.length ? [] : filteredStudents.map(s => s.id));
 
   // ── 이용권 부여 ───────────────────────────────────────────────
-  const doGrant = async () => {
+  const doGrant = () => {
     const totalGrant = Object.values(grantAmounts).reduce((s, v) => s + v, 0);
-    if (totalGrant === 0) return alert('부여할 이용권 수량을 입력해주세요.');
+    if (totalGrant === 0) return showToast('부여할 이용권 수량을 입력해주세요.', 'error');
 
     const targetIds = grantModal === 'all'
       ? students.map(s => s.id)
@@ -70,64 +78,65 @@ function AdventureManage({ selectedClass }) {
         ? selected
         : [grantModal.studentId];
 
-    if (targetIds.length === 0) return alert('대상 학생이 없습니다.');
+    if (targetIds.length === 0) return showToast('대상 학생이 없습니다.', 'error');
 
     const targetNames = grantModal === 'all' ? `전체 ${targetIds.length}명`
       : grantModal === 'selected' ? `선택 ${targetIds.length}명`
       : grantModal.studentName;
 
-    if (!window.confirm(`${targetNames}에게 이용권을 부여할까요?\n` +
-      Object.entries(grantAmounts)
-        .filter(([, v]) => v > 0)
-        .map(([k, v]) => `${TICKET_CONFIG[k].icon} ${TICKET_CONFIG[k].label} +${v}`)
-        .join(', ')
-    )) return;
+    showConfirm(
+      `${targetNames}에게 이용권을 부여할까요?\n` +
+        Object.entries(grantAmounts)
+          .filter(([, v]) => v > 0)
+          .map(([k, v]) => `${TICKET_CONFIG[k].icon} ${TICKET_CONFIG[k].label} +${v}`)
+          .join(', '),
+      async () => {
+        setIsBusy(true);
+        try {
+          const batch = writeBatch(db);
 
-    setIsBusy(true);
-    try {
-      const batch = writeBatch(db);
+          for (const id of targetIds) {
+            const student = students.find(s => s.id === id);
+            if (!student) continue;
+            const curTickets = student.tickets || {};
+            const updates = {};
 
-      for (const id of targetIds) {
-        const student = students.find(s => s.id === id);
-        if (!student) continue;
-        const curTickets = student.tickets || {};
-        const updates = {};
+            for (const [key, amount] of Object.entries(grantAmounts)) {
+              if (amount <= 0) continue;
+              const cur = curTickets[key] || 0;
+              const max = TICKET_CONFIG[key].max;
+              updates[`tickets.${key}`] = Math.min(max, cur + amount);
+            }
+            if (Object.keys(updates).length > 0) {
+              batch.update(doc(db, 'students', id), updates);
+            }
+          }
 
-        for (const [key, amount] of Object.entries(grantAmounts)) {
-          if (amount <= 0) continue;
-          const cur = curTickets[key] || 0;
-          const max = TICKET_CONFIG[key].max;
-          updates[`tickets.${key}`] = Math.min(max, cur + amount);
-        }
-        if (Object.keys(updates).length > 0) {
-          batch.update(doc(db, 'students', id), updates);
+          await batch.commit();
+
+          setStudents(prev => prev.map(s => {
+            if (!targetIds.includes(s.id)) return s;
+            const cur = s.tickets || {};
+            const newTickets = { ...cur };
+            for (const [key, amount] of Object.entries(grantAmounts)) {
+              if (amount <= 0) continue;
+              newTickets[key] = Math.min(TICKET_CONFIG[key].max, (cur[key] || 0) + amount);
+            }
+            return { ...s, tickets: newTickets };
+          }));
+
+          showToast('이용권 부여 완료!');
+          setGrantModal(null);
+          setGrantAmounts({ dungeon: 0, bossRaid: 0, arena: 0 });
+          setSelected([]);
+        } catch (err) {
+          console.error(err);
+          showToast('오류가 발생했습니다.', 'error');
+        } finally {
+          setIsBusy(false);
         }
       }
-
-      await batch.commit();
-
-      // 로컬 상태 업데이트
-      setStudents(prev => prev.map(s => {
-        if (!targetIds.includes(s.id)) return s;
-        const cur = s.tickets || {};
-        const newTickets = { ...cur };
-        for (const [key, amount] of Object.entries(grantAmounts)) {
-          if (amount <= 0) continue;
-          newTickets[key] = Math.min(TICKET_CONFIG[key].max, (cur[key] || 0) + amount);
-        }
-        return { ...s, tickets: newTickets };
-      }));
-
-      alert('✅ 이용권 부여 완료!');
-      setGrantModal(null);
-      setGrantAmounts({ dungeon: 0, bossRaid: 0, arena: 0 });
-      setSelected([]);
-    } catch (err) {
-      console.error(err);
-      alert('오류가 발생했습니다.');
-    } finally {
-      setIsBusy(false);
-    }
+    );
   };
 
   // ── 빠른 1개 부여 (개별) ────────────────────────────────────
@@ -152,31 +161,32 @@ function AdventureManage({ selectedClass }) {
   };
 
   // ── 전체 초기화 (최대치로 리셋) ────────────────────────────
-  const resetAll = async () => {
-    if (!window.confirm('전체 학생 이용권을 최대치로 초기화하시겠습니까?')) return;
-    setIsBusy(true);
-    try {
-      const batch = writeBatch(db);
-      students.forEach(s => {
-        batch.update(doc(db, 'students', s.id), {
-          'tickets.dungeon':  TICKET_CONFIG.dungeon.max,
-          'tickets.bossRaid': TICKET_CONFIG.bossRaid.max,
-          'tickets.arena':    TICKET_CONFIG.arena.max,
-          lastTicketRefreshDate: new Date().toISOString().split('T')[0],
+  const resetAll = () => {
+    showConfirm('전체 학생 이용권을 최대치로 초기화하시겠습니까?', async () => {
+      setIsBusy(true);
+      try {
+        const batch = writeBatch(db);
+        students.forEach(s => {
+          batch.update(doc(db, 'students', s.id), {
+            'tickets.dungeon':  TICKET_CONFIG.dungeon.max,
+            'tickets.bossRaid': TICKET_CONFIG.bossRaid.max,
+            'tickets.arena':    TICKET_CONFIG.arena.max,
+            lastTicketRefreshDate: new Date().toISOString().split('T')[0],
+          });
         });
-      });
-      await batch.commit();
-      setStudents(prev => prev.map(s => ({
-        ...s,
-        tickets: {
-          dungeon:  TICKET_CONFIG.dungeon.max,
-          bossRaid: TICKET_CONFIG.bossRaid.max,
-          arena:    TICKET_CONFIG.arena.max,
-        },
-      })));
-      alert('✅ 전체 이용권이 최대치로 초기화되었습니다!');
-    } catch (err) { console.error(err); }
-    finally { setIsBusy(false); }
+        await batch.commit();
+        setStudents(prev => prev.map(s => ({
+          ...s,
+          tickets: {
+            dungeon:  TICKET_CONFIG.dungeon.max,
+            bossRaid: TICKET_CONFIG.bossRaid.max,
+            arena:    TICKET_CONFIG.arena.max,
+          },
+        })));
+        showToast('전체 이용권이 최대치로 초기화되었습니다!');
+      } catch (err) { console.error(err); }
+      finally { setIsBusy(false); }
+    });
   };
 
   // ── 이용권 통계 ─────────────────────────────────────────────
@@ -271,7 +281,10 @@ function AdventureManage({ selectedClass }) {
 
           {/* 학생 행 */}
           {isLoading ? (
-            <div className="text-center py-12 text-slate-400 font-bold">불러오는 중...</div>
+            <div className="flex items-center justify-center gap-2.5 py-12">
+              <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+              <span className="text-sm text-slate-400 font-medium">불러오는 중...</span>
+            </div>
           ) : filteredStudents.length === 0 ? (
             <div className="text-center py-12 text-slate-400">학생이 없습니다</div>
           ) : (
@@ -407,6 +420,28 @@ function AdventureManage({ selectedClass }) {
                 className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-50">
                 {isBusy ? '처리 중...' : '부여하기'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
+      )}
+      {confirmState && (
+        <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmState(null)}
+                className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+              <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">확인</button>
             </div>
           </div>
         </div>

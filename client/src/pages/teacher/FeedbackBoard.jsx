@@ -40,6 +40,11 @@ export default function FeedbackBoard({ selectedClass }) {
   const [category, setCategory]     = useState('bug');
   const [isSaving, setIsSaving]     = useState(false);
   const [filterTab, setFilterTab]   = useState('all');
+  const [toast, setToast] = useState(null);
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const teacherUid = selectedClass?.teacherUid;
 
@@ -75,7 +80,7 @@ export default function FeedbackBoard({ selectedClass }) {
       setContent('');
       setCategory('bug');
       setShowWrite(false);
-    } catch (e) { alert('전송 실패'); }
+    } catch (e) { showToast('전송에 실패했습니다.', 'error'); }
     finally { setIsSaving(false); }
   };
 
@@ -199,7 +204,10 @@ export default function FeedbackBoard({ selectedClass }) {
 
         {/* ── 목록 ── */}
         {isLoading ? (
-          <div className="text-center py-20 text-slate-400 font-bold animate-pulse">불러오는 중...</div>
+          <div className="flex items-center justify-center gap-2.5 py-20">
+            <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+            <span className="text-sm text-slate-400 font-medium">불러오는 중...</span>
+          </div>
         ) : feedbacks.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-200 py-20 text-center shadow-sm">
             <div className="text-6xl mb-4">💬</div>
@@ -277,6 +285,14 @@ export default function FeedbackBoard({ selectedClass }) {
           </div>
         )}
       </div>
+
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }

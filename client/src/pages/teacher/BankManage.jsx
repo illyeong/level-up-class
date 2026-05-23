@@ -18,6 +18,14 @@ function BankManage() {
   const [isLoading, setIsLoading]       = useState(true);
   const [isSaving, setIsSaving]         = useState(false);
   const [isApplying, setIsApplying]     = useState(false);
+  const [toast, setToast]               = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+  const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
 
   const fetchAll = async () => {
     setIsLoading(true);
@@ -56,88 +64,88 @@ function BankManage() {
         weeklyGoldRate:    settings.weeklyGoldRate    / 100,
         updatedAt: serverTimestamp(),
       }, { merge: true });
-      alert('이율 설정이 저장되었습니다!');
+      showToast('이율 설정이 저장되었습니다!');
     } catch (err) {
       console.error(err);
-      alert('저장 실패');
+      showToast('저장 실패', 'error');
     } finally {
       setIsSaving(false);
     }
   };
 
   // ── 이자 일괄 지급 (복리) ──────────────────────────────────
-  const applyInterest = async () => {
-    if (!window.confirm(
-      `현재 이율로 모든 학생에게 이자를 지급하시겠습니까?\n💎 ${settings.weeklyDiamondRate}% / 🪙 ${settings.weeklyGoldRate}%`
-    )) return;
+  const applyInterest = () => {
+    showConfirm(
+      `현재 이율로 모든 학생에게 이자를 지급하시겠습니까?\n💎 ${settings.weeklyDiamondRate}% / 🪙 ${settings.weeklyGoldRate}%`,
+      async () => {
+        setIsApplying(true);
+        try {
+          const snap = await getDocs(collection(db, 'students'));
+          const depositors = snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(s => (s.bankDiamond || 0) > 0 || (s.bankGold || 0) > 0);
 
-    setIsApplying(true);
-    try {
-      const snap = await getDocs(collection(db, 'students'));
-      const depositors = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(s => (s.bankDiamond || 0) > 0 || (s.bankGold || 0) > 0);
+          if (depositors.length === 0) {
+            showToast('예치금이 있는 학생이 없습니다.', 'error');
+            return;
+          }
 
-      if (depositors.length === 0) {
-        alert('예치금이 있는 학생이 없습니다.');
-        return;
+          const diaRate  = settings.weeklyDiamondRate / 100;
+          const goldRate = settings.weeklyGoldRate    / 100;
+          const now      = serverTimestamp();
+
+          const batch = writeBatch(db);
+          let totalDiaInt = 0, totalGoldInt = 0;
+
+          for (const s of depositors) {
+            const dDep   = s.bankDiamond || 0;
+            const gDep   = s.bankGold    || 0;
+            const dInt   = Math.floor(dDep * diaRate);
+            const gInt   = Math.floor(gDep * goldRate);
+
+            const updates = { bankLastInterestAt: now };
+            if (dInt > 0) {
+              updates.bankDiamond        = dDep + dInt;
+              updates.bankDiamondInterest = (s.bankDiamondInterest || 0) + dInt;
+              totalDiaInt += dInt;
+            }
+            if (gInt > 0) {
+              updates.bankGold        = gDep + gInt;
+              updates.bankGoldInterest = (s.bankGoldInterest || 0) + gInt;
+              totalGoldInt += gInt;
+            }
+
+            batch.update(doc(db, 'students', s.id), updates);
+
+            if (dInt > 0) {
+              batch.set(doc(collection(db, 'bankLogs')), {
+                studentId: s.id, studentCode: s.studentCode, studentName: s.name || s.studentCode,
+                type: 'interest', currency: 'diamond',
+                amount: dInt, rate: diaRate, newDeposit: dDep + dInt, createdAt: now,
+              });
+            }
+            if (gInt > 0) {
+              batch.set(doc(collection(db, 'bankLogs')), {
+                studentId: s.id, studentCode: s.studentCode, studentName: s.name || s.studentCode,
+                type: 'interest', currency: 'gold',
+                amount: gInt, rate: goldRate, newDeposit: gDep + gInt, createdAt: now,
+              });
+            }
+          }
+
+          batch.set(doc(db, 'bankSettings', 'config'), { lastInterestApplied: now }, { merge: true });
+          await batch.commit();
+
+          showToast(`이자 지급 완료! 💎+${totalDiaInt.toLocaleString()} 🪙+${totalGoldInt.toLocaleString()}`);
+          fetchAll();
+        } catch (err) {
+          console.error('이자 지급 에러:', err);
+          showToast('이자 지급 중 오류가 발생했습니다.', 'error');
+        } finally {
+          setIsApplying(false);
+        }
       }
-
-      const diaRate  = settings.weeklyDiamondRate / 100;
-      const goldRate = settings.weeklyGoldRate    / 100;
-      const now      = serverTimestamp();
-
-      // Firebase batch 한계: 500 ops. 30명 × 최대 3ops = 90 → 안전
-      const batch = writeBatch(db);
-      let totalDiaInt = 0, totalGoldInt = 0;
-
-      for (const s of depositors) {
-        const dDep   = s.bankDiamond || 0;
-        const gDep   = s.bankGold    || 0;
-        const dInt   = Math.floor(dDep * diaRate);
-        const gInt   = Math.floor(gDep * goldRate);
-
-        const updates = { bankLastInterestAt: now };
-        if (dInt > 0) {
-          updates.bankDiamond        = dDep + dInt;
-          updates.bankDiamondInterest = (s.bankDiamondInterest || 0) + dInt;
-          totalDiaInt += dInt;
-        }
-        if (gInt > 0) {
-          updates.bankGold        = gDep + gInt;
-          updates.bankGoldInterest = (s.bankGoldInterest || 0) + gInt;
-          totalGoldInt += gInt;
-        }
-
-        batch.update(doc(db, 'students', s.id), updates);
-
-        if (dInt > 0) {
-          batch.set(doc(collection(db, 'bankLogs')), {
-            studentId: s.id, studentCode: s.studentCode, studentName: s.name || s.studentCode,
-            type: 'interest', currency: 'diamond',
-            amount: dInt, rate: diaRate, newDeposit: dDep + dInt, createdAt: now,
-          });
-        }
-        if (gInt > 0) {
-          batch.set(doc(collection(db, 'bankLogs')), {
-            studentId: s.id, studentCode: s.studentCode, studentName: s.name || s.studentCode,
-            type: 'interest', currency: 'gold',
-            amount: gInt, rate: goldRate, newDeposit: gDep + gInt, createdAt: now,
-          });
-        }
-      }
-
-      batch.set(doc(db, 'bankSettings', 'config'), { lastInterestApplied: now }, { merge: true });
-      await batch.commit();
-
-      alert(`이자 지급 완료!\n💎 총 ${totalDiaInt.toLocaleString()} 다이아\n🪙 총 ${totalGoldInt.toLocaleString()} 골드`);
-      fetchAll();
-    } catch (err) {
-      console.error('이자 지급 에러:', err);
-      alert('이자 지급 중 오류가 발생했습니다.');
-    } finally {
-      setIsApplying(false);
-    }
+    );
   };
 
   const totalDiaDep  = students.reduce((s, stu) => s + (stu.bankDiamond || 0), 0);
@@ -209,7 +217,10 @@ function BankManage() {
           </div>
 
           {isLoading ? (
-            <div className="text-center py-10 text-slate-400">불러오는 중...</div>
+            <div className="flex items-center justify-center gap-2.5 py-10">
+              <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+              <span className="text-sm text-slate-400 font-medium">불러오는 중...</span>
+            </div>
           ) : students.length === 0 ? (
             <div className="text-center py-14 text-slate-400">
               <div className="text-4xl mb-2">🏦</div>
@@ -265,6 +276,28 @@ function BankManage() {
         </div>
       </div>
     </div>
+
+    {toast && (
+      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+        ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+        style={{ whiteSpace: 'nowrap' }}>
+        {toast.message}
+      </div>
+    )}
+    {confirmState && (
+      <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
+        onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
+        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+          <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+          <div className="flex gap-3">
+            <button onClick={() => setConfirmState(null)}
+              className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+            <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
+              className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">확인</button>
+          </div>
+        </div>
+      </div>
+    )}
   );
 }
 

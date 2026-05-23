@@ -90,7 +90,10 @@ export default function TeacherCharacter({ selectedClass }) {
   );
 
   if (isLoading) return (
-    <div className="flex items-center justify-center h-full text-slate-400 font-bold animate-pulse">불러오는 중...</div>
+    <div className="flex items-center justify-center gap-2.5 h-full">
+      <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+      <span className="text-slate-400 font-bold">불러오는 중...</span>
+    </div>
   );
 
   // ── 아바타샵 모드 ────────────────────────────────────────────

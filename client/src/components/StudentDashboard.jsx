@@ -92,9 +92,12 @@ function TodayQuestWidget({ studentId, teacherUid }) {
   const visible = quests.filter(q => !completions[q.id]?.rewarded || !completions[q.id]?.acknowledgedAt);
 
   if (isLoading) return (
-    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 flex-1">
+    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 flex-1 flex flex-col">
       <h3 className="text-xl font-bold mb-3 text-slate-800">📜 오늘의 퀘스트</h3>
-      <p className="text-sm text-slate-400">불러오는 중...</p>
+      <div className="flex items-center gap-2.5 py-4">
+        <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin shrink-0" />
+        <span className="text-sm text-slate-400">불러오는 중...</span>
+      </div>
     </div>
   );
 
@@ -223,8 +226,9 @@ const StudentDashboard = ({ studentCode }) => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-slate-400 font-bold">불러오는 중...</div>
+      <div className="flex flex-col items-center justify-center h-full min-h-64 gap-3">
+        <div className="w-10 h-10 border-4 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+        <div className="text-slate-400 font-bold text-sm">불러오는 중...</div>
       </div>
     );
   }

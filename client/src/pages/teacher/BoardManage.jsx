@@ -25,6 +25,14 @@ export default function BoardManage({ selectedClass, user }) {
   const textRef = useRef(null);
   const fileRef = useRef(null);
 
+  const [toast, setToast] = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+  const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
+
   const compressImage = (file) => new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -72,7 +80,7 @@ export default function BoardManage({ selectedClass, user }) {
       setTitle(''); setDesc('');
       setShowCreate(false);
       fetchBoards();
-    } catch (e) { alert('생성 실패'); }
+    } catch (e) { showToast('게시판 생성에 실패했습니다.', 'error'); }
     finally { setIsCreating(false); }
   };
 
@@ -81,11 +89,12 @@ export default function BoardManage({ selectedClass, user }) {
     setBoards(prev => prev.map(b => b.id === board.id ? { ...b, active: !b.active } : b));
   };
 
-  const deleteBoard = async (board) => {
-    if (!window.confirm(`"${board.title}" 게시판을 삭제할까요?\n모든 게시물이 삭제됩니다.`)) return;
-    await deleteDoc(doc(db, 'boards', board.id));
-    setBoards(prev => prev.filter(b => b.id !== board.id));
-    if (selectedBoard?.id === board.id) setSelectedBoard(null);
+  const deleteBoard = (board) => {
+    showConfirm(`"${board.title}" 게시판을 삭제할까요?\n모든 게시물이 삭제됩니다.`, async () => {
+      await deleteDoc(doc(db, 'boards', board.id));
+      setBoards(prev => prev.filter(b => b.id !== board.id));
+      if (selectedBoard?.id === board.id) setSelectedBoard(null);
+    });
   };
 
   const openBoard = async (board) => {
@@ -125,14 +134,15 @@ export default function BoardManage({ selectedClass, user }) {
       setWriteContent('');
       setWriteImage('');
       setShowWrite(false);
-    } catch (e) { alert('게시 실패'); }
+    } catch (e) { showToast('게시에 실패했습니다.', 'error'); }
     finally { setIsPosting(false); }
   };
 
-  const deletePost = async (postId) => {
-    if (!window.confirm('이 게시물을 삭제할까요?')) return;
-    await deleteDoc(doc(db, 'boards', selectedBoard.id, 'posts', postId));
-    setPosts(prev => prev.filter(p => p.id !== postId));
+  const deletePost = (postId) => {
+    showConfirm('이 게시물을 삭제할까요?', async () => {
+      await deleteDoc(doc(db, 'boards', selectedBoard.id, 'posts', postId));
+      setPosts(prev => prev.filter(p => p.id !== postId));
+    });
   };
 
   const COLORS = [
@@ -164,7 +174,10 @@ export default function BoardManage({ selectedClass, user }) {
           </div>
 
           {loadingPosts ? (
-            <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
+            <div className="flex items-center justify-center gap-2.5 py-20">
+              <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+              <span className="text-sm text-slate-400 font-medium">불러오는 중...</span>
+            </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-24">
               {posts.map((post, i) => (
@@ -251,7 +264,7 @@ export default function BoardManage({ selectedClass, user }) {
                       if (!file) return;
                       setIsCompressing(true);
                       try { setWriteImage(await compressImage(file)); }
-                      catch { alert('이미지 처리 실패'); }
+                      catch { showToast('이미지 처리에 실패했습니다.', 'error'); }
                       finally { setIsCompressing(false); e.target.value = ''; }
                     }} />
                   <button onClick={() => fileRef.current?.click()} disabled={isCompressing}
@@ -273,7 +286,29 @@ export default function BoardManage({ selectedClass, user }) {
             </div>
           )}
         </div>
-      </div>
+
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
+      )}
+      {confirmState && (
+        <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmState(null)}
+                className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+              <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">확인</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
     );
   }
 
@@ -294,7 +329,10 @@ export default function BoardManage({ selectedClass, user }) {
         </div>
 
         {isLoading ? (
-          <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
+          <div className="flex items-center justify-center gap-2.5 py-20">
+            <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+            <span className="text-sm text-slate-400 font-medium">불러오는 중...</span>
+          </div>
         ) : boards.length === 0 ? (
           <div className="text-center py-20 text-slate-400">
             <div className="text-6xl mb-4">📋</div>
@@ -368,6 +406,28 @@ export default function BoardManage({ selectedClass, user }) {
                 className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40">
                 {isCreating ? '생성 중...' : '만들기'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
+      )}
+      {confirmState && (
+        <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmState(null)}
+                className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+              <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">확인</button>
             </div>
           </div>
         </div>

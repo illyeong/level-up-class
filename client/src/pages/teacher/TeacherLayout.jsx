@@ -90,7 +90,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'classShopManage' && <ClassShopManage />}
         {currentView === 'stockManage'        && <StockManage />}
         {currentView === 'quizDungeonManage' && <QuizDungeonManage />}
-        {currentView === 'bossRaidManage'    && <BossRaidManage />}
+        {currentView === 'bossRaidManage'    && <BossRaidManage onViewLobby={() => setCurrentView('bossRaid')} />}
         {currentView === 'bossRaid'          && <BossRaid isTeacher={true} />}
 
         {/* 임시 준비 중 화면들 */}

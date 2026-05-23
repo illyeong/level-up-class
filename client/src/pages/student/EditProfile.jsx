@@ -149,7 +149,10 @@ function EditProfile({ studentCode, onNameSaved }) {
 
           {/* 학생 코드 자동 로딩 중 */}
           {studentCode && isLoading && (
-            <div className="text-center py-8 text-slate-400 font-bold">불러오는 중...</div>
+            <div className="flex flex-col items-center py-8 gap-3">
+              <div className="w-8 h-8 border-4 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+              <div className="text-slate-400 font-bold text-sm">불러오는 중...</div>
+            </div>
           )}
 
           {/* 이름 설정 폼 */}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, doc, updateDoc, onSnapshot,
-  increment, serverTimestamp, getDoc,
+  increment, serverTimestamp, getDoc, deleteField,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { MONSTERS_DB } from '../../data/monsterData';
@@ -207,8 +207,11 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
                     ? 'border-emerald-500 bg-emerald-900/30'
                     : 'border-slate-700 bg-slate-800/60'}`}>
                 {p.characterImage
-                  ? <img src={p.characterImage} alt=""
-                      className="w-[168px] h-[168px] rounded-2xl object-contain bg-slate-700" />
+                  ? <div className="w-[168px] h-[168px] rounded-2xl bg-slate-700 overflow-hidden flex items-center justify-center">
+                      <img src={p.characterImage} alt=""
+                        className="w-full h-full object-contain"
+                        style={{ transform: 'scale(2.2)', transformOrigin: 'center 65%', imageRendering: 'pixelated' }} />
+                    </div>
                   : <div className="w-[168px] h-[168px] rounded-2xl bg-slate-700 flex items-center justify-center text-7xl">🧑</div>
                 }
                 <span className="text-sm font-bold text-slate-200 text-center truncate w-full leading-tight">
@@ -444,6 +447,7 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
   const prevHpRef    = useRef(null);
   const advancedRef  = useRef(-1);
   const timerRef     = useRef(null);
+  const raidRef      = useRef(null);
 
   // 학생 데이터 로드
   useEffect(() => {
@@ -452,6 +456,20 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
       if (snap.exists()) setStudentData({ id: snap.id, ...snap.data() });
     });
   }, [studentDocId]);
+
+  // raidRef 최신 raid 추적 (언마운트 시 사용)
+  useEffect(() => { raidRef.current = raid; }, [raid]);
+
+  // 페이지 이탈 시 대기실에서 자동 제거
+  useEffect(() => {
+    return () => {
+      const r = raidRef.current;
+      if (isTeacher || !r || r.status !== 'waiting' || !studentDocId) return;
+      updateDoc(doc(db, 'worldBossRaids', r.id), {
+        [`participants.${studentDocId}`]: deleteField(),
+      }).catch(() => {});
+    };
+  }, []);
 
   // 레이드 실시간 리스닝 (컬렉션 전체 — 소규모)
   useEffect(() => {

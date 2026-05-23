@@ -96,13 +96,21 @@ function StockManage() {
   const [soulPrice, setSoulPrice]       = useState('');
   const [isSoulSaving, setIsSoulSaving] = useState(false);
   const [isSoulToggling, setIsSoulToggling] = useState(false);
-  const [portfolioMap, setPortfolioMap] = useState({}); // { studentId: holdings{} }
+  const [portfolioMap, setPortfolioMap] = useState({});
   const [dividendLogs, setDividendLogs] = useState([]);
   const [tab, setTab]               = useState('etfs');
   const [isLoading, setIsLoading]   = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPaying, setIsPaying]     = useState(false);
   const [editingEtf, setEditingEtf] = useState(null);
+  const [toast, setToast]           = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+  const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
 
   const fetchAll = async () => {
     setIsLoading(true);
@@ -162,11 +170,11 @@ function StockManage() {
         data.prices.forEach(p => batch.set(doc(db, 'etfs', p.id), p, { merge: true }));
         await batch.commit();
         setEtfs(data.prices.sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0)));
-        alert(`✅ ${data.prices.length}개 ETF 가격 업데이트 완료!\n기준: 미국 전일 종가`);
+        showToast(`${data.prices.length}개 ETF 가격 업데이트 완료! (미국 전일 종가 기준)`);
       }
     } catch (err) {
       console.error(err);
-      alert('가격 업데이트 실패. 인터넷 연결을 확인해주세요.');
+      showToast('가격 업데이트 실패. 인터넷 연결을 확인해주세요.', 'error');
     } finally {
       setIsRefreshing(false);
     }
@@ -176,7 +184,7 @@ function StockManage() {
   const initSoulEtf = async () => {
     const soulRef = doc(db, 'etfs', 'teacher_soul');
     const snap    = await getDoc(soulRef);
-    if (snap.exists()) { alert('이미 생성되어 있습니다!'); return; }
+    if (snap.exists()) { showToast('이미 생성되어 있습니다!', 'error'); return; }
 
     await setDoc(soulRef, {
       id: 'teacher_soul', symbol: 'SOUL', name: '선생님의 영혼',
@@ -191,28 +199,27 @@ function StockManage() {
       updatedAt: new Date().toISOString(),
       updatedDate: '',
     });
-    alert('✅ 선생님의 영혼 ETF가 생성되었습니다!\n학생들이 주식 페이지에 접속하면 자동으로 50주가 지급됩니다.');
+    showToast('선생님의 영혼 ETF가 생성되었습니다!');
     fetchAll();
   };
 
   // ── 선생님의 영혼 배당 지급 (가격 초기화 + 학생 수령 대기) ─────
-  const paySoulDividend = async () => {
+  const paySoulDividend = () => {
     const soul = etfs.find(e => e.id === 'teacher_soul');
-    if (!soul) return alert('선생님의 영혼 ETF가 없습니다.');
+    if (!soul) return showToast('선생님의 영혼 ETF가 없습니다.', 'error');
 
     const dividendPerShare = Math.floor(soul.currentPrice - 100);
     if (dividendPerShare <= 0) {
-      return alert('현재 가격이 100골드 이하입니다.\n1일 이상 지나야 배당금이 발생합니다.');
+      return showToast('현재 가격이 100골드 이하입니다. 1일 이상 지나야 배당금이 발생합니다.', 'error');
     }
 
-    if (!window.confirm(
+    showConfirm(
       `선생님의 영혼 배당금을 지급하시겠습니까?\n\n` +
       `현재 가격: 🪙${soul.currentPrice}\n` +
       `주당 배당금: 🪙${dividendPerShare}\n` +
       `가격 100G로 초기화됩니다.\n\n` +
-      `학생들은 "보상 수령하기" 버튼을 눌러 수령합니다.`
-    )) return;
-
+      `학생들은 "보상 수령하기" 버튼을 눌러 수령합니다.`,
+      async () => {
     setIsSoulSaving(true);
     try {
       // 모든 학생 보유 현황 로드
@@ -257,42 +264,47 @@ function StockManage() {
         : e
       ));
 
-      alert(`✅ 배당금 지급 완료!\n${count}명에게 총 🪙${totalPaid.toLocaleString()} 골드 지급 대기\n가격 100G로 초기화됨\n\n학생들이 "보상 수령하기"를 누르면 수령됩니다.`);
+      showToast(`배당금 지급 완료! ${count}명 · 🪙${totalPaid.toLocaleString()} 지급 대기`);
     } catch (err) {
       console.error('영혼 배당 에러:', err);
-      alert('배당 지급 중 오류가 발생했습니다.');
+      showToast('배당 지급 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsSoulSaving(false);
     }
+      }
+    );
   };
 
   // ── 선생님의 영혼 활성화/비활성화 ──────────────────────────
-  const toggleSoulActive = async () => {
+  const toggleSoulActive = () => {
     const soul = etfs.find(e => e.id === 'teacher_soul');
     if (!soul) return;
     const newActive = soul.active === false;
-    if (!window.confirm(newActive
-      ? '선생님의 영혼 ETF를 활성화하시겠습니까?\n학생 시장 탭에 다시 표시됩니다.'
-      : '선생님의 영혼 ETF를 비활성화하시겠습니까?\n학생 시장 탭에서 숨겨집니다. (보유 주식은 유지됩니다)'
-    )) return;
-    setIsSoulToggling(true);
-    try {
-      await updateDoc(doc(db, 'etfs', 'teacher_soul'), { active: newActive });
-      setEtfs(prev => prev.map(e => e.id === 'teacher_soul' ? { ...e, active: newActive } : e));
-      alert(newActive ? '✅ 활성화되었습니다.' : '🔴 비활성화되었습니다.');
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSoulToggling(false);
-    }
+    showConfirm(
+      newActive
+        ? '선생님의 영혼 ETF를 활성화하시겠습니까?\n학생 시장 탭에 다시 표시됩니다.'
+        : '선생님의 영혼 ETF를 비활성화하시겠습니까?\n학생 시장 탭에서 숨겨집니다. (보유 주식은 유지됩니다)',
+      async () => {
+        setIsSoulToggling(true);
+        try {
+          await updateDoc(doc(db, 'etfs', 'teacher_soul'), { active: newActive });
+          setEtfs(prev => prev.map(e => e.id === 'teacher_soul' ? { ...e, active: newActive } : e));
+          showToast(newActive ? '활성화되었습니다.' : '비활성화되었습니다.');
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setIsSoulToggling(false);
+        }
+      }
+    );
   };
 
   // ── 선생님의 영혼 가격 수동 설정 ───────────────────────────
   const setSoulPriceManual = async () => {
     const price = parseFloat(soulPrice);
-    if (!price || price <= 0) return alert('올바른 가격을 입력해주세요.');
+    if (!price || price <= 0) return showToast('올바른 가격을 입력해주세요.', 'error');
     const soulEtf = etfs.find(e => e.id === 'teacher_soul');
-    if (!soulEtf) return alert('먼저 ETF를 초기 생성해주세요.');
+    if (!soulEtf) return showToast('먼저 ETF를 초기 생성해주세요.', 'error');
 
     const prevPrice   = soulEtf.currentPrice || 100;
     const changePct   = parseFloat(((price - prevPrice) / prevPrice * 100).toFixed(2));
@@ -313,10 +325,10 @@ function StockManage() {
         : e
       ));
       setSoulPrice('');
-      alert(`✅ 선생님의 영혼 가격이 🪙${price.toLocaleString()}으로 설정되었습니다!\n(오늘 자동 0.8% 상승은 적용되지 않습니다)`);
+      showToast(`가격 🪙${price.toLocaleString()}으로 설정됨 (오늘 자동 상승 미적용)`);
     } catch (err) {
       console.error(err);
-      alert('가격 설정 실패');
+      showToast('가격 설정 실패', 'error');
     } finally {
       setIsSoulSaving(false);
     }
@@ -333,13 +345,11 @@ function StockManage() {
   };
 
   // ── 배당금 일괄 지급 ─────────────────────────────────────────
-  const payDividends = async () => {
+  const payDividends = () => {
     const thisMonday = getMostRecentMonday();
-    if (!window.confirm(
-      `이번 주(${thisMonday}) 배당금을 모든 학생에게 지급하시겠습니까?\n` +
-      `배당 ETF 보유 학생에게만 지급됩니다.`
-    )) return;
-
+    showConfirm(
+      `이번 주(${thisMonday}) 배당금을 모든 학생에게 지급하시겠습니까?\n배당 ETF 보유 학생에게만 지급됩니다.`,
+      async () => {
     setIsPaying(true);
     try {
       // 모든 학생 포트폴리오 로드
@@ -393,14 +403,16 @@ function StockManage() {
       }
 
       await batch.commit();
-      alert(`✅ 배당 지급 완료!\n${studentsCount}명 · 총 🪙${totalGoldPaid.toLocaleString()} 골드 지급`);
+      showToast(`배당 지급 완료! ${studentsCount}명 · 🪙${totalGoldPaid.toLocaleString()} 골드`);
       fetchAll();
     } catch (err) {
       console.error('배당 지급 에러:', err);
-      alert('배당 지급 중 오류가 발생했습니다.');
+      showToast('배당 지급 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsPaying(false);
     }
+      }
+    );
   };
 
   // ── 파생 데이터 ──────────────────────────────────────────────
@@ -555,7 +567,10 @@ function StockManage() {
         {/* ── ETF 목록 탭 ── */}
         {tab === 'etfs' && (
           isLoading ? (
-            <div className="text-center py-16 text-slate-400 font-bold">불러오는 중...</div>
+            <div className="flex items-center justify-center gap-2.5 py-16">
+              <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+              <span className="text-sm text-slate-400 font-medium">불러오는 중...</span>
+            </div>
           ) : (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
               <table className="w-full text-left">
@@ -734,6 +749,28 @@ function StockManage() {
           onSave={saveEtfEdit}
           onClose={() => setEditingEtf(null)}
         />
+      )}
+
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
+      )}
+      {confirmState && (
+        <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmState(null)}
+                className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+              <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">확인</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

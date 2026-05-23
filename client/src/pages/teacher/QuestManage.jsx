@@ -430,12 +430,20 @@ function QuestManage({ selectedClass }) {
   const [studentCount, setStudentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [mainTab, setMainTab]     = useState('active');
-  const [recommended, setRecommended] = useState(RECOMMENDED); // Firebase 우선, 없으면 기본값
+  const [recommended, setRecommended] = useState(RECOMMENDED);
   const [filter, setFilter]       = useState('all');
   const [selectedQuestId, setSelectedQuestId] = useState(null);
   const [isFormOpen, setIsFormOpen]   = useState(false);
   const [editingQuestId, setEditingQuestId] = useState(null);
   const [form, setForm]           = useState(DEFAULT_FORM);
+  const [toast, setToast]         = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+  const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -550,7 +558,7 @@ function QuestManage({ selectedClass }) {
 
   // ── CRUD ──
   const submitForm = async () => {
-    if (!form.title.trim()) return alert('퀘스트 이름을 입력해주세요.');
+    if (!form.title.trim()) return showToast('퀘스트 이름을 입력해주세요.', 'error');
     setIsLoading(true);
     try {
       if (editingQuestId) {
@@ -567,20 +575,21 @@ function QuestManage({ selectedClass }) {
       fetchData();
     } catch (err) {
       console.error('저장 에러:', err);
-      alert('저장 중 오류가 발생했습니다.');
+      showToast('저장 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const endQuest = async (questId) => {
-    if (!window.confirm('이 퀘스트를 종료할까요?\n종료된 퀘스트는 "종료된 퀘스트 보기"에서 다시 활성화할 수 있습니다.')) return;
-    try {
-      await updateDoc(doc(db, 'quests', questId), { active: false, endedAt: serverTimestamp() });
-      setQuests(prev => prev.map(q => q.id === questId ? { ...q, active: false } : q));
-    } catch (err) {
-      console.error('종료 에러:', err);
-    }
+  const endQuest = (questId) => {
+    showConfirm('이 퀘스트를 종료할까요?\n종료된 퀘스트는 "종료된 퀘스트 보기"에서 다시 활성화할 수 있습니다.', async () => {
+      try {
+        await updateDoc(doc(db, 'quests', questId), { active: false, endedAt: serverTimestamp() });
+        setQuests(prev => prev.map(q => q.id === questId ? { ...q, active: false } : q));
+      } catch (err) {
+        console.error('종료 에러:', err);
+      }
+    });
   };
 
   const duplicateQuest = async (quest) => {
@@ -598,56 +607,58 @@ function QuestManage({ selectedClass }) {
     }
   };
 
-  const deleteQuest = async (questId) => {
-    if (!window.confirm('이 퀘스트를 완전히 삭제할까요? 복구할 수 없습니다.')) return;
-    try {
-      await deleteDoc(doc(db, 'quests', questId));
-      setQuests(prev => prev.filter(q => q.id !== questId));
-    } catch (err) {
-      console.error('삭제 에러:', err);
-    }
+  const deleteQuest = (questId) => {
+    showConfirm('이 퀘스트를 완전히 삭제할까요? 복구할 수 없습니다.', async () => {
+      try {
+        await deleteDoc(doc(db, 'quests', questId));
+        setQuests(prev => prev.filter(q => q.id !== questId));
+      } catch (err) {
+        console.error('삭제 에러:', err);
+      }
+    });
   };
 
   // 일괄 승인: 교사 승인 퀘스트(selfCheck=false)의 미보상 학생 전체에게 즉시 보상 지급
-  const bulkApproveQuest = async (quest) => {
-    if (!window.confirm(`"${quest.title}"\n보상을 아직 받지 못한 학생 전체에게 지급할까요?`)) return;
-    try {
-      const [studentsSnap, completionsSnap] = await Promise.all([
-        getDocs(collection(db, 'students')),
-        getDocs(collection(db, 'quests', quest.id, 'completions')),
-      ]);
-      const allStudents = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const questTid = selectedClass?.teacherUid;
-      const students = questTid ? allStudents.filter(s => s.teacherUid === questTid) : allStudents;
-      const rewardedIds = new Set(
-        completionsSnap.docs.filter(d => d.data().rewarded).map(d => d.id)
-      );
-      const targets = students.filter(s => !rewardedIds.has(s.id));
+  const bulkApproveQuest = (quest) => {
+    showConfirm(`"${quest.title}"\n보상을 아직 받지 못한 학생 전체에게 지급할까요?`, async () => {
+      try {
+        const [studentsSnap, completionsSnap] = await Promise.all([
+          getDocs(collection(db, 'students')),
+          getDocs(collection(db, 'quests', quest.id, 'completions')),
+        ]);
+        const allStudents = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const questTid = selectedClass?.teacherUid;
+        const students = questTid ? allStudents.filter(s => s.teacherUid === questTid) : allStudents;
+        const rewardedIds = new Set(
+          completionsSnap.docs.filter(d => d.data().rewarded).map(d => d.id)
+        );
+        const targets = students.filter(s => !rewardedIds.has(s.id));
 
-      if (targets.length === 0) return alert('이미 모든 학생에게 보상을 지급했습니다.');
+        if (targets.length === 0) return showToast('이미 모든 학생에게 보상을 지급했습니다.', 'error');
 
-      const batch = writeBatch(db);
-      targets.forEach(student => {
-        batch.update(doc(db, 'students', student.id), {
-          gold:     (student.gold     || 0) + (quest.rewards?.gold    || 0),
-          diamonds: (student.diamonds || 0) + (quest.rewards?.diamond || 0),
-          exp:      (student.exp      || 0) + (quest.rewards?.exp     || 0),
+        const batch = writeBatch(db);
+        targets.forEach(student => {
+          batch.update(doc(db, 'students', student.id), {
+            gold:     (student.gold     || 0) + (quest.rewards?.gold    || 0),
+            diamonds: (student.diamonds || 0) + (quest.rewards?.diamond || 0),
+            exp:      (student.exp      || 0) + (quest.rewards?.exp     || 0),
+          });
+          batch.set(doc(db, 'quests', quest.id, 'completions', student.id), {
+            checked:    true,
+            checkedAt:  serverTimestamp(),
+            rewarded:   true,
+            rewardedAt: serverTimestamp(),
+            rewardedBy: 'teacher_bulk',
+          }, { merge: true });
         });
-        batch.set(doc(db, 'quests', quest.id, 'completions', student.id), {
-          checked:    true,
-          checkedAt:  serverTimestamp(),
-          rewarded:   true,
-          rewardedAt: serverTimestamp(),
-          rewardedBy: 'teacher_bulk',
-        }, { merge: true });
-      });
-      await batch.commit();
-      alert(`✅ ${targets.length}명에게 보상 지급 완료!`);
-      fetchData();
-    } catch (err) {
-      console.error('일괄 승인 에러:', err);
-      alert('일괄 승인 중 오류가 발생했습니다.');
-    }
+        await batch.commit();
+        showToast(`${targets.length}명에게 보상 지급 완료!`);
+        fetchData();
+      } catch (err) {
+        console.error('일괄 승인 에러:', err);
+        showToast('일괄 승인 중 오류가 발생했습니다.', 'error');
+      }
+    });
   };
 
   const toggleSkill = (skill) => {
@@ -720,7 +731,10 @@ function QuestManage({ selectedClass }) {
             </div>
 
             {isLoading ? (
-              <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
+              <div className="flex items-center justify-center gap-2.5 py-20">
+                <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+                <span className="text-sm text-slate-400 font-medium">불러오는 중...</span>
+              </div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-20 text-slate-400">
                 <div className="text-5xl mb-3">⚔️</div>
@@ -751,7 +765,10 @@ function QuestManage({ selectedClass }) {
       {mainTab === 'ended' && (
         <div className="px-6 pb-6">
           {isLoading ? (
-            <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
+            <div className="flex items-center justify-center gap-2.5 py-20">
+              <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+              <span className="text-sm text-slate-400 font-medium">불러오는 중...</span>
+            </div>
           ) : endedQuests.length === 0 ? (
             <div className="text-center py-20 text-slate-400">
               <div className="text-5xl mb-3">🔒</div>
@@ -806,6 +823,28 @@ function QuestManage({ selectedClass }) {
               onBack={() => setSelectedQuestId(null)}
               isModal
             />
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
+      )}
+      {confirmState && (
+        <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmState(null)}
+                className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+              <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">확인</button>
+            </div>
           </div>
         </div>
       )}

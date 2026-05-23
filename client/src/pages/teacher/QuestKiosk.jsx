@@ -35,8 +35,9 @@ function QuestList({ quests, onSelect, onExit, isLoading }) {
       {/* 퀘스트 목록 */}
       <div className="flex-1 p-6">
         {isLoading ? (
-          <div className="flex items-center justify-center h-60 text-slate-400 font-bold text-lg">
-            불러오는 중...
+          <div className="flex items-center justify-center gap-2.5 h-60">
+            <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+            <span className="text-slate-400 font-bold text-lg">불러오는 중...</span>
           </div>
         ) : quests.length === 0 ? (
           <div className="text-center py-20 text-slate-400">

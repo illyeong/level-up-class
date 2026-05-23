@@ -337,6 +337,12 @@ function StockMarket({ studentCode }) {
   const [dividendNotif, setDividendNotif]         = useState(null);
   const [dividendsReceived, setDividendsReceived] = useState(0);
   const [isReceivingSoul, setIsReceivingSoul]     = useState(false);
+  const [toast, setToast]                         = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // ── 데이터 로딩 ──────────────────────────────────────────────
   useEffect(() => {
@@ -515,10 +521,10 @@ function StockMarket({ studentCode }) {
         pendingSoulDividend: 0,
       });
       setStudent(prev => ({ ...prev, gold: (prev.gold || 0) + amount, pendingSoulDividend: 0 }));
-      alert(`🎉 배당금 🪙${amount.toLocaleString()} 골드를 수령했습니다!`);
+      showToast(`🎉 배당금 🪙${amount.toLocaleString()} 골드를 수령했습니다!`);
     } catch (err) {
       console.error(err);
-      alert('수령 중 오류가 발생했습니다.');
+      showToast('수령 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsReceivingSoul(false);
     }
@@ -528,7 +534,7 @@ function StockMarket({ studentCode }) {
   const handleBuy = async (etf, quantity) => {
     if (!studentDocId || !student) return;
     const total = etf.currentPrice * quantity;
-    if ((student.gold || 0) < total) return alert('골드가 부족합니다.');
+    if ((student.gold || 0) < total) return showToast('골드가 부족합니다.', 'error');
 
     setIsBusy(true);
     try {
@@ -560,10 +566,10 @@ function StockMarket({ studentCode }) {
         [etf.id]: { quantity: newQty, avgBuyPrice: newAvgPrc, etfName: etf.name, etfSymbol: etf.symbol },
       }));
       setSelectedEtf(null);
-      alert(`✅ ${etf.name} ${quantity}주 매수 완료!\n🪙 ${total.toLocaleString()} 골드 차감`);
+      showToast(`✅ ${etf.name} ${quantity}주 매수 완료! 🪙 -${total.toLocaleString()}`);
     } catch (err) {
       console.error('매수 에러:', err);
-      alert('매수 중 오류가 발생했습니다.');
+      showToast('매수 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsBusy(false);
     }
@@ -573,16 +579,11 @@ function StockMarket({ studentCode }) {
   const handleSell = async (etf, quantity) => {
     if (!studentDocId || !student) return;
     const holding = holdings[etf.id];
-    if (!holding || holding.quantity < quantity) return alert('보유 수량이 부족합니다.');
+    if (!holding || holding.quantity < quantity) return showToast('보유 수량이 부족합니다.', 'error');
 
     const revenue  = etf.currentPrice * quantity;
     const profit   = (etf.currentPrice - holding.avgBuyPrice) * quantity;
     const profitSign = profit >= 0 ? '+' : '';
-
-    if (!window.confirm(
-      `${etf.name} ${quantity}주 매도하시겠습니까?\n` +
-      `예상 수익: ${profitSign}${profit.toLocaleString()} 골드`
-    )) return;
 
     setIsBusy(true);
     try {
@@ -613,10 +614,10 @@ function StockMarket({ studentCode }) {
         return updated;
       });
       setSelectedEtf(null);
-      alert(`✅ ${etf.name} ${quantity}주 매도 완료!\n🪙 ${revenue.toLocaleString()} 골드 수령\n수익: ${profitSign}${profit.toLocaleString()}`);
+      showToast(`✅ ${etf.name} ${quantity}주 매도 완료! 🪙 +${revenue.toLocaleString()}`);
     } catch (err) {
       console.error('매도 에러:', err);
-      alert('매도 중 오류가 발생했습니다.');
+      showToast('매도 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsBusy(false);
     }
@@ -660,8 +661,9 @@ function StockMarket({ studentCode }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full min-h-64">
-        <div className="text-slate-400 font-bold">실시간 시세 불러오는 중...</div>
+      <div className="flex flex-col items-center justify-center h-full min-h-64 gap-3">
+        <div className="w-10 h-10 border-4 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+        <div className="text-slate-400 font-bold text-sm">실시간 시세 불러오는 중...</div>
       </div>
     );
   }
@@ -978,6 +980,13 @@ function StockMarket({ studentCode }) {
           onClose={() => setSelectedEtf(null)}
           isBusy={isBusy}
         />
+      )}
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
       )}
     </div>
   );

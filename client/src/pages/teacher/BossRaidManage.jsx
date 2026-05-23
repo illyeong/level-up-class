@@ -93,7 +93,7 @@ function HpBar({ current, max, height = 'h-4' }) {
 }
 
 // ── 진행 중 레이드 패널 ──────────────────────────────────────────
-function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, isPaying }) {
+function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, isPaying, onViewLobby }) {
   const bossData = raid.bossId ? MONSTERS_DB[raid.bossId] : null;
   const pMap     = raid.participants || {};
   const pList    = Object.entries(pMap)
@@ -159,10 +159,18 @@ function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, i
       {/* 액션 버튼 */}
       <div className="flex flex-wrap gap-3">
         {isWaiting && (
-          <button onClick={onStart}
-            className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl transition-colors shadow">
-            ⚔️ 레이드 시작 ({pList.length}명 대기 중)
-          </button>
+          <>
+            <button onClick={onStart}
+              className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl transition-colors shadow">
+              ⚔️ 레이드 시작 ({pList.length}명 대기 중)
+            </button>
+            {onViewLobby && (
+              <button onClick={onViewLobby}
+                className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors text-sm">
+                🎮 대기실 보기
+              </button>
+            )}
+          </>
         )}
         {isActive && !raid.autoAdvance && qIdx < totalQ - 1 && (
           <button onClick={onNextQuestion}
@@ -229,13 +237,21 @@ function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, i
 }
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────
-export default function BossRaidManage() {
+export default function BossRaidManage({ onViewLobby }) {
   const [raids, setRaids]         = useState([]);
   const [dungeons, setDungeons]   = useState([]);
   const [tab, setTab]             = useState('active');
   const [isCreating, setIsCreating] = useState(false);
   const [isPaying, setIsPaying]   = useState(false);
   const [showBossPicker, setShowBossPicker] = useState(false);
+  const [toast, setToast]         = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+  const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
 
   // 생성 폼 상태
   const [form, setForm] = useState({
@@ -285,74 +301,77 @@ export default function BossRaidManage() {
     : null;
 
   // ── 레이드 생성 (waiting 상태) ──────────────────────────────
-  const createRaid = async () => {
-    if (!form.dungeonId)  return alert('퀴즈 던전을 선택해주세요.');
-    if (!form.bossId)     return alert('보스 몬스터를 선택해주세요.');
-    if (hasOpenRaid)      return alert('이미 진행 중인 레이드가 있습니다.');
-    if (!window.confirm(`"${form.bossName}" 보스 레이드를 오픈할까요?\n학생들이 대기실에서 입장합니다.`)) return;
+  const createRaid = () => {
+    if (!form.dungeonId)  return showToast('퀴즈 던전을 선택해주세요.', 'error');
+    if (!form.bossId)     return showToast('보스 몬스터를 선택해주세요.', 'error');
+    if (hasOpenRaid)      return showToast('이미 진행 중인 레이드가 있습니다.', 'error');
 
     const dungeon   = dungeons.find(d => d.id === form.dungeonId);
     const questions = (dungeon.questions || []).filter(q => q.type !== 'short');
-    if (questions.length === 0) return alert('선택한 던전에 객관식 문제가 없습니다.');
+    if (questions.length === 0) return showToast('선택한 던전에 객관식 문제가 없습니다.', 'error');
 
-    setIsCreating(true);
-    try {
-      await addDoc(collection(db, 'worldBossRaids'), {
-        title:            `${dungeon.title} 보스 레이드`,
-        bossId:           form.bossId,
-        bossName:         form.bossName || bossData?.name || '보스',
-        dungeonId:        form.dungeonId,
-        maxHP:            form.maxHP,
-        currentHP:        form.maxHP,
-        damagePerHit:     form.damagePerHit,
-        penaltyType:      form.penaltyType,
-        penaltyAmount:    form.penaltyAmount,
-        currentQuestionIdx: -1,
-        questionDuration: form.questionDuration,
-        questionStartedAt: null,
-        autoAdvance:      form.autoAdvance,
-        rewards:          form.rewards,
-        rewardsPaid:      false,
-        status:           'waiting',
-        questions,
-        participants:     {},
-        createdAt:        serverTimestamp(),
-        startedAt:        null,
-        clearedAt:        null,
-      });
-      alert('✅ 대기실이 열렸습니다! 학생들이 입장하면 시작 버튼을 눌러주세요.');
-      setTab('active');
-    } catch (err) {
-      console.error(err);
-      alert('레이드 생성 중 오류가 발생했습니다.');
-    } finally {
-      setIsCreating(false);
-    }
+    showConfirm(`"${form.bossName}" 보스 레이드를 오픈할까요?\n학생들이 대기실에서 입장합니다.`, async () => {
+      setIsCreating(true);
+      try {
+        await addDoc(collection(db, 'worldBossRaids'), {
+          title:            `${dungeon.title} 보스 레이드`,
+          bossId:           form.bossId,
+          bossName:         form.bossName || bossData?.name || '보스',
+          dungeonId:        form.dungeonId,
+          maxHP:            form.maxHP,
+          currentHP:        form.maxHP,
+          damagePerHit:     form.damagePerHit,
+          penaltyType:      form.penaltyType,
+          penaltyAmount:    form.penaltyAmount,
+          currentQuestionIdx: -1,
+          questionDuration: form.questionDuration,
+          questionStartedAt: null,
+          autoAdvance:      form.autoAdvance,
+          rewards:          form.rewards,
+          rewardsPaid:      false,
+          status:           'waiting',
+          questions,
+          participants:     {},
+          createdAt:        serverTimestamp(),
+          startedAt:        null,
+          clearedAt:        null,
+        });
+        showToast('대기실이 열렸습니다! 학생들이 입장하면 시작 버튼을 눌러주세요.');
+        setTab('active');
+      } catch (err) {
+        console.error(err);
+        showToast('레이드 생성 중 오류가 발생했습니다.', 'error');
+      } finally {
+        setIsCreating(false);
+      }
+    });
   };
 
   // ── 레이드 시작 ─────────────────────────────────────────────
-  const startRaid = async (raidId) => {
-    if (!window.confirm('레이드를 시작할까요? 학생들에게 바로 문제가 출제됩니다.')) return;
-    await updateDoc(doc(db, 'worldBossRaids', raidId), {
-      status:             'active',
-      currentQuestionIdx: 0,
-      questionStartedAt:  serverTimestamp(),
-      startedAt:          serverTimestamp(),
+  const startRaid = (raidId) => {
+    showConfirm('레이드를 시작할까요? 학생들에게 바로 문제가 출제됩니다.', async () => {
+      await updateDoc(doc(db, 'worldBossRaids', raidId), {
+        status:             'active',
+        currentQuestionIdx: 0,
+        questionStartedAt:  serverTimestamp(),
+        startedAt:          serverTimestamp(),
+      });
     });
   };
 
   // ── 다음 문제 ────────────────────────────────────────────────
-  const nextQuestion = async (raid) => {
+  const nextQuestion = (raid) => {
     const questions = (raid.questions || []).filter(q => q.type !== 'short');
     const nextIdx   = (raid.currentQuestionIdx ?? 0) + 1;
     if (nextIdx >= questions.length) {
-      if (!window.confirm('마지막 문제입니다. 레이드를 종료할까요?')) return;
-      await updateDoc(doc(db, 'worldBossRaids', raid.id), {
-        status:    raid.currentHP <= 0 ? 'cleared' : 'failed',
-        clearedAt: serverTimestamp(),
+      showConfirm('마지막 문제입니다. 레이드를 종료할까요?', async () => {
+        await updateDoc(doc(db, 'worldBossRaids', raid.id), {
+          status:    raid.currentHP <= 0 ? 'cleared' : 'failed',
+          clearedAt: serverTimestamp(),
+        });
       });
     } else {
-      await updateDoc(doc(db, 'worldBossRaids', raid.id), {
+      updateDoc(doc(db, 'worldBossRaids', raid.id), {
         currentQuestionIdx: nextIdx,
         questionStartedAt:  serverTimestamp(),
       });
@@ -360,49 +379,51 @@ export default function BossRaidManage() {
   };
 
   // ── 강제 종료 ────────────────────────────────────────────────
-  const endRaid = async (raidId) => {
-    if (!window.confirm('레이드를 강제 종료하시겠습니까?')) return;
-    await updateDoc(doc(db, 'worldBossRaids', raidId), {
-      status: 'failed', clearedAt: serverTimestamp(),
+  const endRaid = (raidId) => {
+    showConfirm('레이드를 강제 종료하시겠습니까?', async () => {
+      await updateDoc(doc(db, 'worldBossRaids', raidId), {
+        status: 'failed', clearedAt: serverTimestamp(),
+      });
     });
   };
 
   // ── 보상 지급 ────────────────────────────────────────────────
-  const payRewards = async (raid) => {
+  const payRewards = (raid) => {
     const pIds = Object.keys(raid.participants || {});
-    if (pIds.length === 0) return alert('참가자가 없습니다.');
-    if (raid.rewardsPaid)  return alert('이미 보상이 지급됐습니다.');
-    if (!window.confirm(
-      `${pIds.length}명에게 보상을 지급할까요?\n🪙${raid.rewards?.gold}G · ⭐${raid.rewards?.exp}EXP · 💎${raid.rewards?.diamond}`
-    )) return;
+    if (pIds.length === 0) return showToast('참가자가 없습니다.', 'error');
+    if (raid.rewardsPaid)  return showToast('이미 보상이 지급됐습니다.', 'error');
+    showConfirm(
+      `${pIds.length}명에게 보상을 지급할까요?\n🪙${raid.rewards?.gold}G · ⭐${raid.rewards?.exp}EXP · 💎${raid.rewards?.diamond}`,
+      async () => {
+        setIsPaying(true);
+        try {
+          const snap = await getDocs(collection(db, 'students'));
+          const all  = {};
+          snap.docs.forEach(d => { all[d.id] = d.data(); });
 
-    setIsPaying(true);
-    try {
-      const snap = await getDocs(collection(db, 'students'));
-      const all  = {};
-      snap.docs.forEach(d => { all[d.id] = d.data(); });
-
-      const batch = writeBatch(db);
-      let count = 0;
-      pIds.forEach(sid => {
-        if (!all[sid]) return;
-        const s = all[sid];
-        batch.update(doc(db, 'students', sid), {
-          gold:     (s.gold     || 0) + (raid.rewards?.gold    || 0),
-          diamonds: (s.diamonds || 0) + (raid.rewards?.diamond || 0),
-          exp:      (s.exp      || 0) + (raid.rewards?.exp     || 0),
-        });
-        count++;
-      });
-      batch.update(doc(db, 'worldBossRaids', raid.id), { rewardsPaid: true });
-      await batch.commit();
-      alert(`✅ ${count}명에게 보상 지급 완료!`);
-    } catch (err) {
-      console.error(err);
-      alert('보상 지급 중 오류가 발생했습니다.');
-    } finally {
-      setIsPaying(false);
-    }
+          const batch = writeBatch(db);
+          let count = 0;
+          pIds.forEach(sid => {
+            if (!all[sid]) return;
+            const s = all[sid];
+            batch.update(doc(db, 'students', sid), {
+              gold:     (s.gold     || 0) + (raid.rewards?.gold    || 0),
+              diamonds: (s.diamonds || 0) + (raid.rewards?.diamond || 0),
+              exp:      (s.exp      || 0) + (raid.rewards?.exp     || 0),
+            });
+            count++;
+          });
+          batch.update(doc(db, 'worldBossRaids', raid.id), { rewardsPaid: true });
+          await batch.commit();
+          showToast(`${count}명에게 보상 지급 완료!`);
+        } catch (err) {
+          console.error(err);
+          showToast('보상 지급 중 오류가 발생했습니다.', 'error');
+        } finally {
+          setIsPaying(false);
+        }
+      }
+    );
   };
 
   const activeRaids  = raids.filter(r => r.status === 'waiting' || r.status === 'active');
@@ -446,6 +467,7 @@ export default function BossRaidManage() {
                   onEnd={() => endRaid(raid.id)}
                   onPayRewards={() => payRewards(raid)}
                   isPaying={isPaying}
+                  onViewLobby={onViewLobby}
                 />
               ))}
             </div>

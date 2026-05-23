@@ -246,15 +246,23 @@ function ClassShopManage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId]   = useState(null);
   const [form, setForm]         = useState(DEFAULT_FORM);
+  const [toast, setToast]         = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+  const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
 
   const saveTicketPrices = async () => {
     setIsSavingTicket(true);
     try {
       await setDoc(doc(db, 'ticketShopSettings', 'config'), ticketPrices);
-      alert('✅ 이용권 가격이 저장되었습니다.');
+      showToast('이용권 가격이 저장되었습니다.');
     } catch (err) {
       console.error(err);
-      alert('저장 실패');
+      showToast('저장 실패', 'error');
     } finally {
       setIsSavingTicket(false);
     }
@@ -315,10 +323,10 @@ function ClassShopManage() {
   };
 
   const submitForm = async () => {
-    if (!form.name.trim())             return alert('물품 이름을 입력해주세요.');
-    if (!form.price || form.price <= 0) return alert('가격을 입력해주세요.');
+    if (!form.name.trim())             return showToast('물품 이름을 입력해주세요.', 'error');
+    if (!form.price || form.price <= 0) return showToast('가격을 입력해주세요.', 'error');
     if (!form.unlimited && (!form.quantity || Number(form.quantity) <= 0))
-      return alert('수량을 입력하거나 무제한을 선택해주세요.');
+      return showToast('수량을 입력하거나 무제한을 선택해주세요.', 'error');
 
     const data = {
       name:        form.name.trim(),
@@ -339,7 +347,7 @@ function ClassShopManage() {
       fetchItems();
     } catch (err) {
       console.error(err);
-      alert('저장 중 오류가 발생했습니다.');
+      showToast('저장 중 오류가 발생했습니다.', 'error');
     }
   };
 
@@ -348,10 +356,11 @@ function ClassShopManage() {
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, active: !i.active } : i));
   };
 
-  const deleteItem = async (id) => {
-    if (!window.confirm('이 물품을 삭제할까요?')) return;
-    await deleteDoc(doc(db, 'shopItems', id));
-    setItems(prev => prev.filter(i => i.id !== id));
+  const deleteItem = (id) => {
+    showConfirm('이 물품을 삭제할까요?', async () => {
+      await deleteDoc(doc(db, 'shopItems', id));
+      setItems(prev => prev.filter(i => i.id !== id));
+    });
   };
 
   const totalRevenue = purchases.reduce((s, p) => s + (p.totalPrice || 0), 0);
@@ -424,7 +433,10 @@ function ClassShopManage() {
         {/* 물품 목록 */}
         {tab === 'items' && (
           isLoading ? (
-            <div className="text-center py-16 text-slate-400 font-bold">불러오는 중...</div>
+            <div className="flex items-center justify-center gap-2.5 py-16">
+              <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+              <span className="text-sm text-slate-400 font-medium">불러오는 중...</span>
+            </div>
           ) : items.length === 0 ? (
             <div className="text-center py-16 text-slate-400">
               <div className="text-5xl mb-3">🛍️</div>
@@ -574,6 +586,28 @@ function ClassShopManage() {
           />
         )}
       </div>
+
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
+      )}
+      {confirmState && (
+        <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmState(null)}
+                className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+              <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">확인</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

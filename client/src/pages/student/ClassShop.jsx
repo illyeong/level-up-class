@@ -238,6 +238,12 @@ function ClassShop({ studentCode }) {
   const [isLoading, setIsLoading]     = useState(true);
   const [ticketPrices, setTicketPrices] = useState({ dungeon: 200, bossRaid: 200, arena: 200 });
   const [isBuyingTicket, setIsBuyingTicket] = useState(false);
+  const [toast, setToast]       = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // 구매 관련
   const [buyTarget, setBuyTarget]     = useState(null);
@@ -301,8 +307,8 @@ function ClassShop({ studentCode }) {
     const meta    = TICKET_META[ticketKey];
     const curDia  = student.diamonds || 0;
     const curCnt  = student.tickets?.[ticketKey] ?? 0;
-    if (curDia < price)        return alert(`다이아 부족! (필요: 💎${price} / 보유: 💎${curDia})`);
-    if (curCnt >= meta.max)    return alert(`이미 최대 보유 수(${meta.max}개)입니다.`);
+    if (curDia < price)        return showToast(`다이아 부족! (필요: 💎${price} / 보유: 💎${curDia})`, 'error');
+    if (curCnt >= meta.max)    return showToast(`이미 최대 보유 수(${meta.max}개)입니다.`, 'error');
 
     setIsBuyingTicket(true);
     try {
@@ -317,10 +323,10 @@ function ClassShop({ studentCode }) {
         diamonds: curDia - price,
         tickets: { ...prev.tickets, [ticketKey]: Math.min(meta.max, curCnt + 1) },
       }));
-      alert(`✅ ${meta.label} 1개 구매 완료!`);
+      showToast(`✅ ${meta.label} 1개 구매 완료!`);
     } catch (err) {
       console.error('이용권 구매 에러:', err);
-      alert('구매 중 오류가 발생했습니다.');
+      showToast('구매 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsBuyingTicket(false);
     }
@@ -331,9 +337,9 @@ function ClassShop({ studentCode }) {
     if (!buyTarget) return;
     const total   = buyTarget.price * buyQty;
     const curGold = student?.gold || 0;
-    if (total > curGold) return alert(`골드 부족!\n필요: 🪙${total.toLocaleString()} / 보유: 🪙${curGold.toLocaleString()}`);
+    if (total > curGold) return showToast(`골드 부족! (필요: 🪙${total.toLocaleString()} / 보유: 🪙${curGold.toLocaleString()})`, 'error');
     if (buyTarget.quantity !== -1 && buyQty > buyTarget.quantity)
-      return alert('재고 부족!');
+      return showToast('재고 부족!', 'error');
 
     setIsBuying(true);
     try {
@@ -407,7 +413,7 @@ function ClassShop({ studentCode }) {
       setImmediateUsePrompt({ item: buyTarget, invId, qty: buyQty });
     } catch (err) {
       console.error('구매 에러:', err);
-      alert('구매 중 오류가 발생했습니다.');
+      showToast('구매 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsBuying(false);
     }
@@ -445,9 +451,11 @@ function ClassShop({ studentCode }) {
         quantity: qty,
         usedAt: { seconds: Date.now() / 1000 },
       }, ...prev]);
+      return true;
     } catch (err) {
       console.error('사용 에러:', err);
-      alert('사용 중 오류가 발생했습니다.');
+      showToast('사용 중 오류가 발생했습니다.', 'error');
+      return false;
     } finally {
       setIsUsing(false);
     }
@@ -457,16 +465,16 @@ function ClassShop({ studentCode }) {
   const handleImmediateUse = async () => {
     const { item, invId, qty } = immediateUsePrompt;
     setImmediateUsePrompt(null);
-    await doUseItem(invId, item, qty);
-    alert(`✅ ${item.name} ${qty}개를 사용했습니다!`);
+    const ok = await doUseItem(invId, item, qty);
+    if (ok) showToast(`✅ ${item.name} ${qty}개를 사용했습니다!`);
   };
 
   // 인벤토리에서 사용
   const confirmUse = async () => {
     if (!useTarget) return;
-    await doUseItem(useTarget.id, useTarget, useQty);
+    const ok = await doUseItem(useTarget.id, useTarget, useQty);
     setUseTarget(null);
-    alert(`✅ ${useTarget.itemName} ${useQty}개를 사용했습니다!`);
+    if (ok) showToast(`✅ ${useTarget.itemName} ${useQty}개를 사용했습니다!`);
   };
 
   // ── 파생 데이터 ──────────────────────────────────────────────
@@ -477,8 +485,9 @@ function ClassShop({ studentCode }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full min-h-64">
-        <div className="text-slate-400 font-bold">불러오는 중...</div>
+      <div className="flex flex-col items-center justify-center h-full min-h-64 gap-3">
+        <div className="w-10 h-10 border-4 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+        <div className="text-slate-400 font-bold text-sm">불러오는 중...</div>
       </div>
     );
   }
@@ -724,6 +733,13 @@ function ClassShop({ studentCode }) {
           inv={useTarget} qty={useQty} onQtyChange={setUseQty}
           onConfirm={confirmUse} onCancel={() => setUseTarget(null)} isUsing={isUsing}
         />
+      )}
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
       )}
     </div>
   );

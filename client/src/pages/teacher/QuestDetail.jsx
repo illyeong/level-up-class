@@ -34,6 +34,14 @@ function QuestDetail({ questId, onBack, isModal = false }) {
   const [activeTab, setActiveTab] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+  const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
 
   useEffect(() => {
     const load = async () => {
@@ -121,51 +129,52 @@ function QuestDetail({ questId, onBack, isModal = false }) {
   };
 
   // 지정된 학생 ID 목록에 보상 지급
-  const giveRewards = async (targetIds, label) => {
-    if (targetIds.length === 0) return alert('보상을 지급할 학생이 없습니다.');
-    if (!window.confirm(`${targetIds.length}명(${label})에게 보상을 지급할까요?`)) return;
-    setIsBusy(true);
-    try {
-      const batch = writeBatch(db);
-      targetIds.forEach(sid => {
-        const student = students.find(s => s.id === sid);
-        if (!student) return;
-        batch.update(doc(db, 'students', sid), {
-          gold:     (student.gold     || 0) + (quest.rewards?.gold    || 0),
-          diamonds: (student.diamonds || 0) + (quest.rewards?.diamond || 0),
-          exp:      (student.exp      || 0) + (quest.rewards?.exp     || 0),
+  const giveRewards = (targetIds, label) => {
+    if (targetIds.length === 0) return showToast('보상을 지급할 학생이 없습니다.', 'error');
+    showConfirm(`${targetIds.length}명(${label})에게 보상을 지급할까요?`, async () => {
+      setIsBusy(true);
+      try {
+        const batch = writeBatch(db);
+        targetIds.forEach(sid => {
+          const student = students.find(s => s.id === sid);
+          if (!student) return;
+          batch.update(doc(db, 'students', sid), {
+            gold:     (student.gold     || 0) + (quest.rewards?.gold    || 0),
+            diamonds: (student.diamonds || 0) + (quest.rewards?.diamond || 0),
+            exp:      (student.exp      || 0) + (quest.rewards?.exp     || 0),
+          });
+          batch.set(doc(db, 'quests', questId, 'completions', sid), {
+            checked:     true,
+            checkedAt:   completions[sid]?.checkedAt || serverTimestamp(),
+            rewarded:    true,
+            rewardedAt:  serverTimestamp(),
+            rewardedBy:  'teacher',
+          }, { merge: true });
         });
-        batch.set(doc(db, 'quests', questId, 'completions', sid), {
-          checked:     true,
-          checkedAt:   completions[sid]?.checkedAt || serverTimestamp(),
-          rewarded:    true,
-          rewardedAt:  serverTimestamp(),
-          rewardedBy:  'teacher',
-        }, { merge: true });
-      });
-      await batch.commit();
+        await batch.commit();
 
-      setStudents(prev => prev.map(s => {
-        if (!targetIds.includes(s.id)) return s;
-        return {
-          ...s,
-          gold:     (s.gold     || 0) + (quest.rewards?.gold    || 0),
-          diamonds: (s.diamonds || 0) + (quest.rewards?.diamond || 0),
-          exp:      (s.exp      || 0) + (quest.rewards?.exp     || 0),
-        };
-      }));
-      setCompletions(prev => {
-        const n = { ...prev };
-        targetIds.forEach(sid => { n[sid] = { ...n[sid], checked: true, rewarded: true, rewardedBy: 'teacher' }; });
-        return n;
-      });
-      alert('보상 지급 완료!');
-    } catch (err) {
-      console.error('보상 지급 에러:', err);
-      alert('보상 지급 중 오류가 발생했습니다.');
-    } finally {
-      setIsBusy(false);
-    }
+        setStudents(prev => prev.map(s => {
+          if (!targetIds.includes(s.id)) return s;
+          return {
+            ...s,
+            gold:     (s.gold     || 0) + (quest.rewards?.gold    || 0),
+            diamonds: (s.diamonds || 0) + (quest.rewards?.diamond || 0),
+            exp:      (s.exp      || 0) + (quest.rewards?.exp     || 0),
+          };
+        }));
+        setCompletions(prev => {
+          const n = { ...prev };
+          targetIds.forEach(sid => { n[sid] = { ...n[sid], checked: true, rewarded: true, rewardedBy: 'teacher' }; });
+          return n;
+        });
+        showToast('보상 지급 완료!');
+      } catch (err) {
+        console.error('보상 지급 에러:', err);
+        showToast('보상 지급 중 오류가 발생했습니다.', 'error');
+      } finally {
+        setIsBusy(false);
+      }
+    });
   };
 
   const rewardChecked = () => {
@@ -179,43 +188,44 @@ function QuestDetail({ questId, onBack, isModal = false }) {
   };
 
   // 개별 취소 (보상 회수 포함)
-  const cancelStudent = async (studentId) => {
+  const cancelStudent = (studentId) => {
     const student   = students.find(s => s.id === studentId);
     const wasRewarded = isRewarded(studentId);
     const name = student?.name || student?.studentCode || '학생';
     const msg = wasRewarded
       ? `${name}의 체크를 취소하고 보상(골드 ${quest.rewards?.gold || 0}, EXP ${quest.rewards?.exp || 0})을 회수할까요?`
       : `${name}의 체크를 취소할까요?`;
-    if (!window.confirm(msg)) return;
 
-    setIsBusy(true);
-    try {
-      const batch = writeBatch(db);
-      if (wasRewarded && student) {
-        batch.update(doc(db, 'students', studentId), {
-          gold:     Math.max(0, (student.gold     || 0) - (quest.rewards?.gold    || 0)),
-          diamonds: Math.max(0, (student.diamonds || 0) - (quest.rewards?.diamond || 0)),
-          exp:      Math.max(0, (student.exp      || 0) - (quest.rewards?.exp     || 0)),
-        });
-      }
-      batch.delete(doc(db, 'quests', questId, 'completions', studentId));
-      await batch.commit();
+    showConfirm(msg, async () => {
+      setIsBusy(true);
+      try {
+        const batch = writeBatch(db);
+        if (wasRewarded && student) {
+          batch.update(doc(db, 'students', studentId), {
+            gold:     Math.max(0, (student.gold     || 0) - (quest.rewards?.gold    || 0)),
+            diamonds: Math.max(0, (student.diamonds || 0) - (quest.rewards?.diamond || 0)),
+            exp:      Math.max(0, (student.exp      || 0) - (quest.rewards?.exp     || 0)),
+          });
+        }
+        batch.delete(doc(db, 'quests', questId, 'completions', studentId));
+        await batch.commit();
 
-      if (wasRewarded) {
-        setStudents(prev => prev.map(s => s.id !== studentId ? s : {
-          ...s,
-          gold:     Math.max(0, (s.gold     || 0) - (quest.rewards?.gold    || 0)),
-          diamonds: Math.max(0, (s.diamonds || 0) - (quest.rewards?.diamond || 0)),
-          exp:      Math.max(0, (s.exp      || 0) - (quest.rewards?.exp     || 0)),
-        }));
+        if (wasRewarded) {
+          setStudents(prev => prev.map(s => s.id !== studentId ? s : {
+            ...s,
+            gold:     Math.max(0, (s.gold     || 0) - (quest.rewards?.gold    || 0)),
+            diamonds: Math.max(0, (s.diamonds || 0) - (quest.rewards?.diamond || 0)),
+            exp:      Math.max(0, (s.exp      || 0) - (quest.rewards?.exp     || 0)),
+          }));
+        }
+        setCompletions(prev => { const n = { ...prev }; delete n[studentId]; return n; });
+      } catch (err) {
+        console.error('취소 에러:', err);
+        showToast('취소 중 오류가 발생했습니다.', 'error');
+      } finally {
+        setIsBusy(false);
       }
-      setCompletions(prev => { const n = { ...prev }; delete n[studentId]; return n; });
-    } catch (err) {
-      console.error('취소 에러:', err);
-      alert('취소 중 오류가 발생했습니다.');
-    } finally {
-      setIsBusy(false);
-    }
+    });
   };
 
   const displayedStudents = (() => {
@@ -227,7 +237,8 @@ function QuestDetail({ questId, onBack, isModal = false }) {
   // ── Loading ──
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center gap-3">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
         <div className="text-slate-400 font-bold text-lg">불러오는 중...</div>
       </div>
     );
@@ -440,6 +451,28 @@ function QuestDetail({ questId, onBack, isModal = false }) {
       {displayedStudents.length === 0 && (
         <div className="text-center py-16 text-slate-400">
           <p className="font-bold">해당 학생이 없습니다.</p>
+        </div>
+      )}
+
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
+      )}
+      {confirmState && (
+        <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmState(null)}
+                className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+              <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">확인</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

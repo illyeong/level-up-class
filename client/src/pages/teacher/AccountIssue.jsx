@@ -31,6 +31,14 @@ function AccountIssue({ user, selectedClass }) {
   const [addSeatNum, setAddSeatNum]     = useState('');
   const [addName, setAddName]           = useState('');
   const [isAdding, setIsAdding]         = useState(false);
+  const [toast, setToast]               = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+  const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
 
   const fetchStudents = async () => {
     if (!selectedClass?.id && !selectedClass?.teacherUid) { setStudents([]); return; }
@@ -70,7 +78,7 @@ function AccountIssue({ user, selectedClass }) {
       // seatNum은 studentCode가 ID이므로 표시만 (실제 변경 불가)
     } catch (err) {
       console.error('저장 에러:', err);
-      alert('저장 중 오류가 발생했습니다.');
+      showToast('저장 중 오류가 발생했습니다.', 'error');
     } finally {
       setEditingId(null);
     }
@@ -82,42 +90,43 @@ function AccountIssue({ user, selectedClass }) {
   };
 
   // 일괄 계정 생성
-  const generateStudentAccounts = async () => {
-    if (!window.confirm(
-      `정말 ${studentCount}명의 학생 계정을 새로 생성하시겠습니까?\n기존 데이터가 있다면 덮어쓸 수 있으니 주의하세요!`
-    )) return;
+  const generateStudentAccounts = () => {
+    showConfirm(
+      `정말 ${studentCount}명의 학생 계정을 새로 생성하시겠습니까?\n기존 데이터가 있다면 덮어쓸 수 있으니 주의하세요!`,
+      async () => {
+        setIsLoading(true);
+        try {
+          const batch = writeBatch(db);
+          for (let i = 1; i <= studentCount; i++) {
+            const num         = String(i).padStart(2, '0');
+            const studentCode = `SINSEOK-5-${num}`;
+            const pin         = Math.floor(1000 + Math.random() * 9000).toString();
+            const studentRef  = doc(db, 'students', studentCode);
 
-    setIsLoading(true);
-    try {
-      const batch = writeBatch(db);
-      for (let i = 1; i <= studentCount; i++) {
-        const num         = String(i).padStart(2, '0');
-        const studentCode = `SINSEOK-5-${num}`;
-        const pin         = Math.floor(1000 + Math.random() * 9000).toString();
-        const studentRef  = doc(db, 'students', studentCode);
-
-        batch.set(studentRef, {
-          studentCode,
-          pin,
-          name:       '',
-          diamonds:   1000,
-          gold:       0,
-          level:      1,
-          exp:        0,
-          maxExp:     1000,
-          parts:      '',
-          teacherUid: user.uid,
-        });
+            batch.set(studentRef, {
+              studentCode,
+              pin,
+              name:       '',
+              diamonds:   1000,
+              gold:       0,
+              level:      1,
+              exp:        0,
+              maxExp:     1000,
+              parts:      '',
+              teacherUid: user.uid,
+            });
+          }
+          await batch.commit();
+          showToast('학생 계정이 발급되었습니다!');
+          fetchStudents();
+        } catch (err) {
+          console.error('계정 생성 에러:', err);
+          showToast('계정 생성에 실패했습니다.', 'error');
+        } finally {
+          setIsLoading(false);
+        }
       }
-      await batch.commit();
-      alert('학생 계정이 발급되었습니다!');
-      fetchStudents();
-    } catch (err) {
-      console.error('계정 생성 에러:', err);
-      alert('계정 생성에 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
+    );
   };
 
   // 개별 PIN 초기화
@@ -127,39 +136,40 @@ function AccountIssue({ user, selectedClass }) {
       await updateDoc(doc(db, 'students', student.id), { pin });
       setStudents(prev => prev.map(s => s.id === student.id ? { ...s, pin } : s));
     } catch (err) {
-      alert('PIN 초기화 실패');
+      showToast('PIN 초기화 실패', 'error');
     }
   };
 
   // 전체 PIN 재생성
-  const resetAllPins = async () => {
-    if (!window.confirm('전체 학생 PIN을 새로 생성할까요?')) return;
-    setIsLoading(true);
-    try {
-      const batch = writeBatch(db);
-      const updated = students.map(s => {
-        const pin = newPin();
-        batch.update(doc(db, 'students', s.id), { pin });
-        return { ...s, pin };
-      });
-      await batch.commit();
-      setStudents(updated);
-      alert('전체 PIN이 재생성되었습니다.');
-    } catch (err) {
-      alert('PIN 재생성 실패');
-    } finally {
-      setIsLoading(false);
-    }
+  const resetAllPins = () => {
+    showConfirm('전체 학생 PIN을 새로 생성할까요?', async () => {
+      setIsLoading(true);
+      try {
+        const batch = writeBatch(db);
+        const updated = students.map(s => {
+          const pin = newPin();
+          batch.update(doc(db, 'students', s.id), { pin });
+          return { ...s, pin };
+        });
+        await batch.commit();
+        setStudents(updated);
+        showToast('전체 PIN이 재생성되었습니다.');
+      } catch (err) {
+        showToast('PIN 재생성 실패', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    });
   };
 
   // 학생 1명 추가
   const addStudent = async () => {
     const num = parseInt(addSeatNum);
-    if (!num || num < 1 || num > 99) return alert('1~99 사이의 번호를 입력해주세요.');
+    if (!num || num < 1 || num > 99) return showToast('1~99 사이의 번호를 입력해주세요.', 'error');
     const prefix      = getPrefix(students);
     const studentCode = `${prefix}-${String(num).padStart(2, '0')}`;
     if (students.some(s => s.studentCode === studentCode)) {
-      return alert(`${studentCode} 코드가 이미 존재합니다.`);
+      return showToast(`${studentCode} 코드가 이미 존재합니다.`, 'error');
     }
     setIsAdding(true);
     try {
@@ -186,45 +196,49 @@ function AccountIssue({ user, selectedClass }) {
       setAddName('');
     } catch (err) {
       console.error('학생 추가 에러:', err);
-      alert('학생 추가에 실패했습니다.');
+      showToast('학생 추가에 실패했습니다.', 'error');
     } finally {
       setIsAdding(false);
     }
   };
 
   // 학생 데이터 초기화 (재화·캐릭터 → 초기값)
-  const resetStudentData = async (student) => {
-    if (!window.confirm(
-      `[${student.studentCode}] ${student.name || '(이름없음)'} 학생의\n경험치·골드·다이아·캐릭터를 초기화할까요?\n\n💎 1,000 다이아 / 🪙 0 골드 / Lv.1 / 캐릭터 없음`
-    )) return;
-    try {
-      await updateDoc(doc(db, 'students', student.id), {
-        gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 1000,
-        parts: {}, characterImage: '',
-      });
-      setStudents(prev => prev.map(s => s.id === student.id
-        ? { ...s, gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 1000, parts: {}, characterImage: '' }
-        : s
-      ));
-      alert(`✅ ${student.name || student.studentCode} 초기화 완료!`);
-    } catch (err) {
-      console.error(err);
-      alert('초기화에 실패했습니다.');
-    }
+  const resetStudentData = (student) => {
+    showConfirm(
+      `[${student.studentCode}] ${student.name || '(이름없음)'} 학생의\n경험치·골드·다이아·캐릭터를 초기화할까요?\n\n💎 1,000 다이아 / 🪙 0 골드 / Lv.1 / 캐릭터 없음`,
+      async () => {
+        try {
+          await updateDoc(doc(db, 'students', student.id), {
+            gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 1000,
+            parts: {}, characterImage: '',
+          });
+          setStudents(prev => prev.map(s => s.id === student.id
+            ? { ...s, gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 1000, parts: {}, characterImage: '' }
+            : s
+          ));
+          showToast(`${student.name || student.studentCode} 초기화 완료!`);
+        } catch (err) {
+          console.error(err);
+          showToast('초기화에 실패했습니다.', 'error');
+        }
+      }
+    );
   };
 
   // 학생 1명 삭제
-  const deleteStudent = async (student) => {
-    if (!window.confirm(
-      `정말 [${student.studentCode}] ${student.name || '(이름없음)'} 계정을 삭제하시겠습니까?\n\n보유 재화, 퀘스트 기록 등 모든 데이터가 사라집니다.`
-    )) return;
-    try {
-      await deleteDoc(doc(db, 'students', student.id));
-      setStudents(prev => prev.filter(s => s.id !== student.id));
-    } catch (err) {
-      console.error('삭제 에러:', err);
-      alert('삭제에 실패했습니다.');
-    }
+  const deleteStudent = (student) => {
+    showConfirm(
+      `정말 [${student.studentCode}] ${student.name || '(이름없음)'} 계정을 삭제하시겠습니까?\n\n보유 재화, 퀘스트 기록 등 모든 데이터가 사라집니다.`,
+      async () => {
+        try {
+          await deleteDoc(doc(db, 'students', student.id));
+          setStudents(prev => prev.filter(s => s.id !== student.id));
+        } catch (err) {
+          console.error('삭제 에러:', err);
+          showToast('삭제에 실패했습니다.', 'error');
+        }
+      }
+    );
   };
 
   // 이름 일괄 저장 (여러 명을 한 번에 편집한 경우 대비)
@@ -522,6 +536,27 @@ function AccountIssue({ user, selectedClass }) {
         </div>
       )}
 
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
+      )}
+      {confirmState && (
+        <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmState(null)}
+                className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+              <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">확인</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

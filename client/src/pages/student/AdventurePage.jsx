@@ -321,8 +321,9 @@ function AdventurePage({ currentView, studentCode }) {
         <TicketBar tickets={isLoading ? null : tickets} isRefreshing={isRefreshed} studentInfo={isLoading ? null : studentInfo} />
       </div>
       {isLoading ? (
-        <div className="flex items-center justify-center py-20 text-slate-400 font-bold">
-          불러오는 중...
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
+          <div className="w-10 h-10 border-4 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+          <div className="text-slate-400 font-bold text-sm">불러오는 중...</div>
         </div>
       ) : currentView === 'quizDungeon' ? (
         <QuizDungeon

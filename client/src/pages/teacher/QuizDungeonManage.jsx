@@ -464,6 +464,14 @@ function QuizDungeonManage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
 
+  const [toast, setToast] = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+  const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
+
   // 파생 데이터
   const gradeData    = grade ? CURRICULUM[parseInt(grade)] : null;
   const subjectData  = gradeData?.subjects.find(s => s.name === subject);
@@ -514,8 +522,8 @@ function QuizDungeonManage() {
   const handlePdfUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type !== 'application/pdf') return alert('PDF 파일만 업로드 가능합니다.');
-    if (file.size > 20 * 1024 * 1024) return alert('파일 크기는 20MB 이하여야 합니다.');
+    if (file.type !== 'application/pdf') { showToast('PDF 파일만 업로드 가능합니다.', 'error'); return; }
+    if (file.size > 20 * 1024 * 1024) { showToast('파일 크기는 20MB 이하여야 합니다.', 'error'); return; }
     const reader = new FileReader();
     reader.onload = (ev) => {
       const base64 = ev.target.result.split(',')[1]; // data: 부분 제거
@@ -530,18 +538,18 @@ function QuizDungeonManage() {
     const file = e.target.files?.[0];
     if (!file) return;
     const ext = file.name.split('.').pop().toLowerCase();
-    if (!['ppt', 'pptx'].includes(ext)) return alert('PPT 또는 PPTX 파일만 업로드 가능합니다.');
-    if (file.size > 200 * 1024 * 1024) return alert('파일 크기는 200MB 이하여야 합니다.');
+    if (!['ppt', 'pptx'].includes(ext)) { showToast('PPT 또는 PPTX 파일만 업로드 가능합니다.', 'error'); return; }
+    if (file.size > 200 * 1024 * 1024) { showToast('파일 크기는 200MB 이하여야 합니다.', 'error'); return; }
 
     setIsPptxLoading(true);
     try {
       const text = await extractPptxText(file);
       if (!text) throw new Error('텍스트를 추출할 수 없습니다.');
       setSourceText(text);
-      alert(`✅ "${file.name}" 텍스트 추출 완료!\n${text.split('\n\n').length}개 슬라이드에서 내용을 가져왔습니다.\n아래 텍스트를 확인 후 퀴즈를 생성하세요.`);
+      showToast(`✅ "${file.name}" 텍스트 추출 완료! ${text.split('\n\n').length}개 슬라이드`);
     } catch (err) {
       console.error(err);
-      alert(`PPT 텍스트 추출 실패: ${err.message}\n파일이 손상되었거나 텍스트가 없는 경우입니다.`);
+      showToast(`PPT 텍스트 추출 실패: ${err.message}`, 'error');
     } finally {
       setIsPptxLoading(false);
       e.target.value = ''; // 같은 파일 재업로드 허용
@@ -549,8 +557,8 @@ function QuizDungeonManage() {
   };
 
   // ── 테스트 던전 (인구 분포) 직접 삽입 ───────────────────────
-  const insertTestDungeon = async () => {
-    if (!window.confirm('테스트용 퀴즈 던전 "우리나라의 인구 분포"를 추가할까요?')) return;
+  const insertTestDungeon = () => {
+    showConfirm('테스트용 퀴즈 던전 "우리나라의 인구 분포"를 추가할까요?', async () => {
     const TEST = {
       title: '5학년 사회 - 우리나라의 인구 분포',
       grade: 5, semester: 1, subject: '사회', publisher: null, part: null,
@@ -594,19 +602,20 @@ function QuizDungeonManage() {
     };
     try {
       await addDoc(collection(db, 'quizDungeons'), TEST);
-      alert('✅ 테스트 던전이 추가됐습니다!\n"발행된 던전" 탭에서 확인하세요.');
+      showToast('✅ 테스트 던전이 추가됐습니다! "발행된 던전" 탭에서 확인하세요.');
       fetchDungeons();
       setTab('dungeons');
     } catch (err) {
       console.error(err);
-      alert('오류가 발생했습니다: ' + err.message);
+      showToast('오류가 발생했습니다: ' + err.message, 'error');
     }
+  });
   };
 
   // ── AI 퀴즈 생성 ─────────────────────────────────────────────
   const handleGenerate = async () => {
-    if (!sourceText.trim() && !pdfBase64) return alert('수업 자료를 입력하거나 PDF를 업로드해주세요.');
-    if (!grade || !subject) return alert('학년과 과목을 선택해주세요.');
+    if (!sourceText.trim() && !pdfBase64) { showToast('수업 자료를 입력하거나 PDF를 업로드해주세요.', 'error'); return; }
+    if (!grade || !subject) { showToast('학년과 과목을 선택해주세요.', 'error'); return; }
 
     setIsGenerating(true);
     setGenError('');
@@ -658,41 +667,41 @@ function QuizDungeonManage() {
   };
 
   // ── 발행 ──────────────────────────────────────────────────────
-  const handlePublish = async () => {
-    if (questions.length === 0) return alert('문제가 없습니다.');
+  const handlePublish = () => {
+    if (questions.length === 0) { showToast('문제가 없습니다.', 'error'); return; }
     const finalTitle = customTitle.trim() || autoTitle || '퀴즈 던전';
-    if (!window.confirm(`"${finalTitle}"을 발행하시겠습니까?\n학생들이 바로 접근할 수 있습니다.`)) return;
-
-    setIsPublishing(true);
-    try {
-      await addDoc(collection(db, 'quizDungeons'), {
-        title:         finalTitle,
-        grade:         parseInt(grade),
-        semester:      parseInt(semester) || null,
-        subject,
-        publisher:     publisher || null,
-        part:          part || null,
-        unit:          unit || null,
-        difficulty,
-        monsterId:     monsterMode === 'random' ? 'random' : null,
-        monsterIds:    monsterMode === 'manual' ? selectedMonsters : null,
-        timeLimit:     timeLimit,
-        rewards,
-        questions,
-        questionCount: questions.length,
-        active:        true,
-        playCount:     0,
-        createdAt:     serverTimestamp(),
-      });
-      alert('✅ 퀴즈 던전이 발행되었습니다!');
-      resetForm();
-      setTab('dungeons');
-    } catch (err) {
-      console.error(err);
-      alert('발행 중 오류가 발생했습니다.');
-    } finally {
-      setIsPublishing(false);
-    }
+    showConfirm(`"${finalTitle}"을 발행하시겠습니까?\n학생들이 바로 접근할 수 있습니다.`, async () => {
+      setIsPublishing(true);
+      try {
+        await addDoc(collection(db, 'quizDungeons'), {
+          title:         finalTitle,
+          grade:         parseInt(grade),
+          semester:      parseInt(semester) || null,
+          subject,
+          publisher:     publisher || null,
+          part:          part || null,
+          unit:          unit || null,
+          difficulty,
+          monsterId:     monsterMode === 'random' ? 'random' : null,
+          monsterIds:    monsterMode === 'manual' ? selectedMonsters : null,
+          timeLimit:     timeLimit,
+          rewards,
+          questions,
+          questionCount: questions.length,
+          active:        true,
+          playCount:     0,
+          createdAt:     serverTimestamp(),
+        });
+        showToast('✅ 퀴즈 던전이 발행되었습니다!');
+        resetForm();
+        setTab('dungeons');
+      } catch (err) {
+        console.error(err);
+        showToast('발행 중 오류가 발생했습니다.', 'error');
+      } finally {
+        setIsPublishing(false);
+      }
+    });
   };
 
   const toggleDungeonActive = async (dungeon) => {
@@ -700,18 +709,19 @@ function QuizDungeonManage() {
     setDungeons(prev => prev.map(d => d.id === dungeon.id ? { ...d, active: !d.active } : d));
   };
 
-  const deleteDungeon = async (id) => {
-    if (!window.confirm('이 퀴즈 던전을 삭제할까요?')) return;
-    await deleteDoc(doc(db, 'quizDungeons', id));
-    setDungeons(prev => prev.filter(d => d.id !== id));
+  const deleteDungeon = (id) => {
+    showConfirm('이 퀴즈 던전을 삭제할까요?', async () => {
+      await deleteDoc(doc(db, 'quizDungeons', id));
+      setDungeons(prev => prev.filter(d => d.id !== id));
+    });
   };
 
   // ── 직접 출제: 문제 추가 ─────────────────────────────────────
   const handleAddManualQuestion = () => {
-    if (!newQText.trim()) return alert('문제 내용을 입력해주세요.');
+    if (!newQText.trim()) { showToast('문제 내용을 입력해주세요.', 'error'); return; }
     if (newQType === 'choice') {
       const filledOptions = newOptions.filter(o => o.trim());
-      if (filledOptions.length < 2) return alert('선택지를 2개 이상 입력해주세요.');
+      if (filledOptions.length < 2) { showToast('선택지를 2개 이상 입력해주세요.', 'error'); return; }
       setManualQuestions(prev => [...prev, {
         type: 'choice',
         question: newQText.trim(),
@@ -720,7 +730,7 @@ function QuizDungeonManage() {
         explanation: newExplanation.trim(),
       }]);
     } else {
-      if (!newShortAnswer.trim()) return alert('정답을 입력해주세요.');
+      if (!newShortAnswer.trim()) { showToast('정답을 입력해주세요.', 'error'); return; }
       setManualQuestions(prev => [...prev, {
         type: 'short',
         question: newQText.trim(),
@@ -742,58 +752,58 @@ function QuizDungeonManage() {
   };
 
   // ── 직접 출제: 발행 ──────────────────────────────────────────
-  const handleManualPublish = async () => {
-    if (!manualTitle.trim()) return alert('던전 제목을 입력해주세요.');
-    if (manualQuestions.length === 0) return alert('문제가 없습니다.');
-    if (!window.confirm(`"${manualTitle.trim()}"을 발행하시겠습니까?\n학생들이 바로 접근할 수 있습니다.`)) return;
-
-    setIsManualPublishing(true);
-    try {
-      await addDoc(collection(db, 'quizDungeons'), {
-        title:         manualTitle.trim(),
-        grade:         grade ? parseInt(grade) : null,
-        semester:      semester ? parseInt(semester) : null,
-        subject:       subject || '',
-        publisher:     publisher || '',
-        part:          part || '',
-        unit:          unit || '',
-        difficulty,
-        monsterId:     manualMonsterMode === 'random' ? 'random' : null,
-        monsterIds:    manualMonsterMode === 'manual' ? manualSelectedMonsters : null,
-        timeLimit:     null,
-        rewards:       DIFF_REWARDS[difficulty] || DIFF_REWARDS.normal,
-        questions:     manualQuestions,
-        questionCount: manualQuestions.length,
-        active:        true,
-        playCount:     0,
-        teacherUid:    null,
-        createdAt:     serverTimestamp(),
-      });
-      alert('✅ 퀴즈 던전이 발행되었습니다!');
-      // 초기화
-      setManualTitle('');
-      setManualQuestions([]);
-      setNewQText('');
-      setNewOptions(['', '', '', '']);
-      setNewAnswer(0);
-      setNewShortAnswer('');
-      setNewExplanation('');
-      setManualMonsterMode('random');
-      setManualSelectedMonsters([]);
-      setTab('dungeons');
-      fetchDungeons();
-    } catch (err) {
-      console.error(err);
-      alert('발행 중 오류가 발생했습니다.');
-    } finally {
-      setIsManualPublishing(false);
-    }
+  const handleManualPublish = () => {
+    if (!manualTitle.trim()) { showToast('던전 제목을 입력해주세요.', 'error'); return; }
+    if (manualQuestions.length === 0) { showToast('문제가 없습니다.', 'error'); return; }
+    showConfirm(`"${manualTitle.trim()}"을 발행하시겠습니까?\n학생들이 바로 접근할 수 있습니다.`, async () => {
+      setIsManualPublishing(true);
+      try {
+        await addDoc(collection(db, 'quizDungeons'), {
+          title:         manualTitle.trim(),
+          grade:         grade ? parseInt(grade) : null,
+          semester:      semester ? parseInt(semester) : null,
+          subject:       subject || '',
+          publisher:     publisher || '',
+          part:          part || '',
+          unit:          unit || '',
+          difficulty,
+          monsterId:     manualMonsterMode === 'random' ? 'random' : null,
+          monsterIds:    manualMonsterMode === 'manual' ? manualSelectedMonsters : null,
+          timeLimit:     null,
+          rewards:       DIFF_REWARDS[difficulty] || DIFF_REWARDS.normal,
+          questions:     manualQuestions,
+          questionCount: manualQuestions.length,
+          active:        true,
+          playCount:     0,
+          teacherUid:    null,
+          createdAt:     serverTimestamp(),
+        });
+        showToast('✅ 퀴즈 던전이 발행되었습니다!');
+        setManualTitle('');
+        setManualQuestions([]);
+        setNewQText('');
+        setNewOptions(['', '', '', '']);
+        setNewAnswer(0);
+        setNewShortAnswer('');
+        setNewExplanation('');
+        setManualMonsterMode('random');
+        setManualSelectedMonsters([]);
+        setTab('dungeons');
+        fetchDungeons();
+      } catch (err) {
+        console.error(err);
+        showToast('발행 중 오류가 발생했습니다.', 'error');
+      } finally {
+        setIsManualPublishing(false);
+      }
+    });
   };
 
   const DIFF_COLOR = { easy: 'text-emerald-600 bg-emerald-50', normal: 'text-amber-600 bg-amber-50', hard: 'text-rose-600 bg-rose-50' };
   const DIFF_LABEL = { easy: '쉬움', normal: '보통', hard: '어려움' };
 
   return (
+    <>
     <div className="min-h-screen bg-slate-100 p-8">
       <div className="max-w-5xl mx-auto">
 
@@ -1430,7 +1440,10 @@ function QuizDungeonManage() {
             )}
 
             {isLoading ? (
-              <div className="text-center py-20 text-slate-400 font-bold">불러오는 중...</div>
+              <div className="flex items-center justify-center gap-2.5 py-20">
+                <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+                <span className="text-sm text-slate-400 font-medium">불러오는 중...</span>
+              </div>
             ) : dungeons.length === 0 ? (
               <div className="text-center py-20 text-slate-400">
                 <div className="text-5xl mb-3">⚔️</div>
@@ -1491,6 +1504,29 @@ function QuizDungeonManage() {
         )}
       </div>
     </div>
+
+    {toast && (
+      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+        ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+        style={{ whiteSpace: 'nowrap' }}>
+        {toast.message}
+      </div>
+    )}
+    {confirmState && (
+      <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
+        onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
+        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+          <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+          <div className="flex gap-3">
+            <button onClick={() => setConfirmState(null)}
+              className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+            <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
+              className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">확인</button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

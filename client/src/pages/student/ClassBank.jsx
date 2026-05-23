@@ -27,6 +27,12 @@ function ClassBank({ studentCode }) {
   const [tab, setTab]           = useState('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy]     = useState(false);
+  const [toast, setToast]       = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // 입력 폼
   const [diaDeposit, setDiaDeposit]   = useState('');
@@ -80,10 +86,9 @@ function ClassBank({ studentCode }) {
   // ── 예치 ──────────────────────────────────────────────────
   const doDeposit = async (currency) => {
     const amount = currency === 'diamond' ? Number(diaDeposit) : Number(goldDeposit);
-    if (!amount || amount <= 0) return alert('금액을 입력해주세요.');
+    if (!amount || amount <= 0) return showToast('금액을 입력해주세요.', 'error');
     const avail = currency === 'diamond' ? (student?.diamonds || 0) : (student?.gold || 0);
-    if (amount > avail) return alert(`보유 ${currency === 'diamond' ? '다이아' : '골드'}가 부족합니다.\n보유: ${avail.toLocaleString()}`);
-    if (!window.confirm(`${amount.toLocaleString()} ${currency === 'diamond' ? '💎 다이아' : '🪙 골드'}를 예치하시겠습니까?`)) return;
+    if (amount > avail) return showToast(`보유 ${currency === 'diamond' ? '다이아' : '골드'}가 부족합니다. (보유: ${avail.toLocaleString()})`, 'error');
 
     setIsBusy(true);
     try {
@@ -114,10 +119,10 @@ function ClassBank({ studentCode }) {
         newDeposit: curDep + amount, createdAt: { seconds: Date.now() / 1000 },
       }, ...prev]);
       if (currency === 'diamond') setDiaDeposit(''); else setGoldDeposit('');
-      alert('예치 완료! 💰');
+      showToast('예치 완료! 💰');
     } catch (err) {
       console.error(err);
-      alert('예치 중 오류가 발생했습니다.');
+      showToast('예치 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsBusy(false);
     }
@@ -127,9 +132,8 @@ function ClassBank({ studentCode }) {
   const doWithdraw = async (currency, all = false) => {
     const curDep = currency === 'diamond' ? bankDia : bankGold;
     const amount = all ? curDep : (currency === 'diamond' ? Number(diaWithdraw) : Number(goldWithdraw));
-    if (!amount || amount <= 0) return alert('출금할 금액이 없습니다.');
-    if (amount > curDep) return alert('예치금보다 많은 금액은 출금할 수 없습니다.');
-    if (!window.confirm(`${amount.toLocaleString()} ${currency === 'diamond' ? '💎 다이아' : '🪙 골드'}를 출금하시겠습니까?`)) return;
+    if (!amount || amount <= 0) return showToast('출금할 금액이 없습니다.', 'error');
+    if (amount > curDep) return showToast('예치금보다 많은 금액은 출금할 수 없습니다.', 'error');
 
     setIsBusy(true);
     try {
@@ -159,10 +163,10 @@ function ClassBank({ studentCode }) {
         newDeposit: curDep - amount, createdAt: { seconds: Date.now() / 1000 },
       }, ...prev]);
       if (currency === 'diamond') setDiaWithdraw(''); else setGoldWithdraw('');
-      alert('출금 완료!');
+      showToast('출금 완료!');
     } catch (err) {
       console.error(err);
-      alert('출금 중 오류가 발생했습니다.');
+      showToast('출금 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsBusy(false);
     }
@@ -170,8 +174,9 @@ function ClassBank({ studentCode }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full min-h-64">
-        <div className="text-slate-400 font-bold">불러오는 중...</div>
+      <div className="flex flex-col items-center justify-center h-full min-h-64 gap-3">
+        <div className="w-10 h-10 border-4 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+        <div className="text-slate-400 font-bold text-sm">불러오는 중...</div>
       </div>
     );
   }
@@ -319,6 +324,13 @@ function ClassBank({ studentCode }) {
               ))}
             </div>
           )}
+        </div>
+      )}
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
         </div>
       )}
     </div>

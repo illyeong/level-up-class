@@ -12,6 +12,12 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [questStats, setQuestStats] = useState([]);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' | 'sub'
@@ -150,10 +156,10 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
   };
 
   const submitTransaction = async () => {
-    if (selectedIds.length === 0) return alert("학생을 최소 1명 이상 선택해주세요.");
+    if (selectedIds.length === 0) return showToast("학생을 최소 1명 이상 선택해주세요.", 'error');
     const diaAmt  = Number(diaAmount)  || 0;
     const goldAmt = Number(goldAmount) || 0;
-    if (diaAmt === 0 && goldAmt === 0) return alert("다이아 또는 골드 금액을 입력해주세요.");
+    if (diaAmt === 0 && goldAmt === 0) return showToast("다이아 또는 골드 금액을 입력해주세요.", 'error');
 
     const isAdd = modalMode === 'add';
     setIsLoading(true);
@@ -185,12 +191,12 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
       const parts = [];
       if (diaAmt  > 0) parts.push(`💎 ${diaAmt.toLocaleString()} 다이아`);
       if (goldAmt > 0) parts.push(`🪙 ${goldAmt.toLocaleString()} 골드`);
-      alert(`${parts.join(', ')} ${isAdd ? '지급' : '차감'} 완료!`);
+      showToast(`${parts.join(', ')} ${isAdd ? '지급' : '차감'} 완료!`);
       setIsModalOpen(false);
       fetchStudents();
     } catch (error) {
       console.error("트랜잭션 에러:", error);
-      alert("처리 중 오류가 발생했습니다.");
+      showToast("처리 중 오류가 발생했습니다.", 'error');
     } finally {
       setIsLoading(false);
     }
@@ -312,13 +318,11 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
                 <div className={`px-2.5 py-1.5 flex items-center justify-between gap-1
                   ${done === qs.length ? 'bg-emerald-50 border-b border-emerald-100' : 'bg-slate-50 border-b border-slate-100'}`}>
                   <div className="flex gap-1 flex-wrap">
-                    {qs.map((q, i) => (
+                    {qs.filter(q => q.checked).map((q, i) => (
                       <span key={i} title={q.title}
                         className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full truncate max-w-[80px]
-                          ${q.rewarded ? 'bg-amber-100 text-amber-700'
-                          : q.checked  ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-slate-200 text-slate-400'}`}>
-                        {q.checked ? '✓' : '○'} {q.title.length > 6 ? q.title.slice(0, 6) + '…' : q.title}
+                          ${q.rewarded ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        ✓ {q.title.length > 6 ? q.title.slice(0, 6) + '…' : q.title}
                       </span>
                     ))}
                   </div>
@@ -542,6 +546,14 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
               </table>
             </div>
           </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
         </div>
       )}
     </div>

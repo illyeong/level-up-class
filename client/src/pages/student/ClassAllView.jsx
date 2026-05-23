@@ -31,8 +31,9 @@ export default function ClassAllView({ studentCode }) {
   }, [studentCode]);
 
   if (isLoading) return (
-    <div className="flex items-center justify-center h-full text-slate-400 font-bold">
-      불러오는 중...
+    <div className="flex flex-col items-center justify-center h-full min-h-64 gap-3">
+      <div className="w-10 h-10 border-4 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+      <div className="text-slate-400 font-bold text-sm">불러오는 중...</div>
     </div>
   );
 

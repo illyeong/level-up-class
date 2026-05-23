@@ -122,6 +122,11 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
   const [studentCount,   setStudentCount]   = useState('25');
   const [isCreating,     setIsCreating]     = useState(false);
   const [step,           setStep]           = useState(1); // 1:학교선택 2:정보입력 3:생성중
+  const [toast, setToast] = useState(null);
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const selectSchool = (school) => {
     setSelectedSchool(school);
@@ -132,7 +137,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
   const handleCreate = async () => {
     if (!selectedSchool || !grade || !classNum || !studentCount) return;
     const count = parseInt(studentCount);
-    if (count < 1 || count > 32) return alert('학생 수는 1~32명으로 입력해주세요.');
+    if (count < 1 || count > 32) { showToast('학생 수는 1~32명으로 입력해주세요.', 'error'); return; }
 
     setIsCreating(true);
     setStep(3);
@@ -183,7 +188,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
       });
     } catch (err) {
       console.error('학급 생성 에러:', err);
-      alert('학급 생성에 실패했습니다: ' + err.message);
+      showToast('학급 생성에 실패했습니다: ' + err.message, 'error');
       setIsCreating(false);
       setStep(2);
     }
@@ -307,6 +312,14 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
           </div>
         )}
       </div>
+
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[400] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }
@@ -381,7 +394,10 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
         <p className="text-white/50 text-sm mb-10">입장할 학급을 선택하거나 새 학급을 만드세요</p>
 
         {isLoading ? (
-          <div className="text-white/50 font-bold animate-pulse">불러오는 중...</div>
+          <div className="flex items-center gap-2.5">
+            <div className="w-5 h-5 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
+            <span className="text-white/50 font-bold text-sm">불러오는 중...</span>
+          </div>
         ) : (
           <div className="w-full max-w-2xl">
             {/* 학급 카드 목록 */}
