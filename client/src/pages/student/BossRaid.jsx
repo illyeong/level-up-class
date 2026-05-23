@@ -199,23 +199,23 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
         {pList.length === 0 ? (
           <div className="text-slate-500 text-sm text-center py-4">아직 참가자가 없습니다</div>
         ) : (
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[600px] overflow-y-auto">
             {pList.map(p => (
               <div key={p.id}
-                className={`flex flex-col items-center gap-1 p-2 rounded-2xl border transition-all
+                className={`flex flex-col items-center gap-2 p-3 rounded-3xl border transition-all
                   ${!isTeacher && p.id === myId
                     ? 'border-emerald-500 bg-emerald-900/30'
                     : 'border-slate-700 bg-slate-800/60'}`}>
                 {p.characterImage
                   ? <img src={p.characterImage} alt=""
-                      className="w-14 h-14 rounded-xl object-contain bg-slate-700" />
-                  : <div className="w-14 h-14 rounded-xl bg-slate-700 flex items-center justify-center text-3xl">🧑</div>
+                      className="w-[168px] h-[168px] rounded-2xl object-contain bg-slate-700" />
+                  : <div className="w-[168px] h-[168px] rounded-2xl bg-slate-700 flex items-center justify-center text-7xl">🧑</div>
                 }
-                <span className="text-[11px] font-bold text-slate-200 text-center truncate w-full leading-tight">
+                <span className="text-sm font-bold text-slate-200 text-center truncate w-full leading-tight">
                   {p.name || '학생'}
                 </span>
                 {!isTeacher && p.id === myId && (
-                  <span className="text-[9px] text-emerald-400 font-bold">나</span>
+                  <span className="text-xs text-emerald-400 font-bold">나</span>
                 )}
               </div>
             ))}

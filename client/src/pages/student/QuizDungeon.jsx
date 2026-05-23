@@ -564,18 +564,6 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       <div className="relative shrink-0 overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800"
            style={{ height: `${layoutCfg.sceneHeightVh}vh`, minHeight: '300px' }}>
 
-        {/* 배경 파티클 효과 */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="absolute rounded-full bg-indigo-500/10 animate-pulse"
-              style={{
-                width: `${40 + i * 20}px`, height: `${40 + i * 20}px`,
-                left: `${10 + i * 14}%`, bottom: `${20 + (i % 3) * 10}%`,
-                animationDelay: `${i * 0.4}s`, animationDuration: `${2 + i * 0.5}s`,
-              }} />
-          ))}
-        </div>
-
         {/* 바닥 그라데이션 */}
         <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none" />
         {/* 바닥 라인 */}
@@ -904,9 +892,9 @@ function ResultScreen({
 const BATTLE_LAYOUT_DEFAULTS = {
   sceneHeightVh:       55,
   playerLeftPct:        8,
-  playerBottomPx:       4,
+  playerBottomPx:       28,
   playerCharHeightPx:  130,
-  playerScale:         2.6,
+  playerScale:         1.0,
   monsterRightPct:      8,
   monsterBottomPx:      4,
   monsterCharHeightPx: 230,
