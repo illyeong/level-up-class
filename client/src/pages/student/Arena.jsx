@@ -877,7 +877,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   if (phase === 'lobby') {
     return (
       <>
-      <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center justify-center p-6">
         <div className="text-6xl mb-4">🏟️</div>
         <h1 className="text-3xl font-extrabold text-white mb-2">투기장</h1>
         <p className="text-slate-400 text-sm mb-8 text-center">

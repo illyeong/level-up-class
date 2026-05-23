@@ -1064,22 +1064,25 @@ function BattleLayoutTab() {
 
   const reset = () => setCfg(QUIZ_DEFAULTS);
 
-  /* ── 실제 비율 프리뷰 (390px 고정폭) ── */
-  const PW = 390;
-  const PH = Math.round(cfg.sceneHeightVh / 100 * 700);
+  /* ── 실제 데스크탑 비율 프리뷰 (1920:1080 landscape) ── */
+  const SIM_W = 1920, SIM_H = 1080;
+  const PW = 700;
+  const PH = Math.round(PW / SIM_W * SIM_H * cfg.sceneHeightVh / 100);
+  const S  = PH / (SIM_H * cfg.sceneHeightVh / 100); // px 스케일 인수
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
+    <div className="p-6 space-y-6 max-w-4xl">
       <div>
         <h2 className="font-extrabold text-slate-800 text-lg mb-1">🎮 퀴즈던전 배틀씬 레이아웃</h2>
-        <p className="text-slate-500 text-sm">프리뷰에서 캐릭터/몬스터를 드래그하거나 슬라이더로 조정 후 저장.</p>
+        <p className="text-slate-500 text-sm">
+          1920×1080 데스크탑 기준 비율 미리보기. 파란/빨간 박스를 드래그하세요.
+        </p>
       </div>
 
-      {/* 실제 비율 프리뷰 */}
+      {/* 데스크탑 비율 프리뷰 */}
       <div className="bg-slate-800 rounded-2xl p-4 overflow-x-auto">
-        <div className="text-xs text-slate-400 mb-2 font-bold flex items-center gap-2">
-          실제 비율 미리보기 (390×{PH}px)
-          <span className="text-slate-500">— 파란/빨간 박스를 드래그하세요</span>
+        <div className="text-xs text-slate-400 mb-2 font-bold">
+          {PW}×{PH}px 프리뷰 (실제 {SIM_W}×{Math.round(SIM_H * cfg.sceneHeightVh / 100)}px 기준)
         </div>
         <div
           ref={previewRef}
@@ -1088,25 +1091,23 @@ function BattleLayoutTab() {
         >
           {/* 바닥 라인 */}
           <div className="absolute inset-x-0 h-px bg-indigo-400/20"
-            style={{ bottom: cfg.playerBottomPx + cfg.playerCharHeightPx + 8 }} />
+            style={{ bottom: (cfg.playerBottomPx + cfg.playerCharHeightPx + 8) * S }} />
 
           {/* 플레이어 그룹 */}
           <div
             className="absolute cursor-grab active:cursor-grabbing"
-            style={{ left: `${cfg.playerLeftPct}%`, bottom: cfg.playerBottomPx }}
+            style={{ left: `${cfg.playerLeftPct}%`, bottom: cfg.playerBottomPx * S }}
             onMouseDown={e => startDrag('player', e)}
           >
-            {/* HP 바 */}
-            <div className="mb-1 flex flex-col items-center" style={{ width: cfg.playerCharHeightPx }}>
-              <div className="text-[9px] text-indigo-300 font-bold mb-0.5">HP 바</div>
-              <div className="w-full h-2 rounded-full bg-slate-700 overflow-hidden">
+            <div className="mb-0.5 flex flex-col items-center" style={{ width: cfg.playerCharHeightPx * S }}>
+              <div className="text-[8px] text-indigo-300 font-bold mb-0.5">HP</div>
+              <div className="w-full h-1.5 rounded-full bg-slate-700 overflow-hidden">
                 <div className="h-full bg-emerald-500 rounded-full" style={{ width: '75%' }} />
               </div>
             </div>
-            {/* 캐릭터 박스 */}
             <div
-              className="rounded-lg bg-indigo-500/50 border-2 border-indigo-400/80 flex items-center justify-center text-[10px] font-extrabold text-indigo-200"
-              style={{ width: cfg.playerCharHeightPx, height: cfg.playerCharHeightPx }}
+              className="rounded bg-indigo-500/50 border border-indigo-400/80 flex items-center justify-center font-extrabold text-indigo-200"
+              style={{ width: cfg.playerCharHeightPx * S, height: cfg.playerCharHeightPx * S, fontSize: Math.max(8, 10 * S) }}
             >
               캐릭터
             </div>
@@ -1115,28 +1116,26 @@ function BattleLayoutTab() {
           {/* 몬스터 그룹 */}
           <div
             className="absolute cursor-grab active:cursor-grabbing"
-            style={{ right: `${cfg.monsterRightPct}%`, bottom: cfg.monsterBottomPx }}
+            style={{ right: `${cfg.monsterRightPct}%`, bottom: cfg.monsterBottomPx * S }}
             onMouseDown={e => startDrag('monster', e)}
           >
-            {/* HP 바 */}
-            <div className="mb-1 flex flex-col items-center" style={{ width: cfg.monsterCharHeightPx * 0.75 }}>
-              <div className="text-[9px] text-rose-300 font-bold mb-0.5">HP 바</div>
-              <div className="w-full h-2 rounded-full bg-slate-700 overflow-hidden">
+            <div className="mb-0.5 flex flex-col items-center" style={{ width: cfg.monsterCharHeightPx * 0.75 * S }}>
+              <div className="text-[8px] text-rose-300 font-bold mb-0.5">HP</div>
+              <div className="w-full h-1.5 rounded-full bg-slate-700 overflow-hidden">
                 <div className="h-full bg-rose-500 rounded-full" style={{ width: '60%' }} />
               </div>
             </div>
-            {/* 몬스터 박스 */}
             <div
-              className="rounded-lg bg-rose-500/50 border-2 border-rose-400/80 flex items-center justify-center text-[10px] font-extrabold text-rose-200"
-              style={{ width: cfg.monsterCharHeightPx * 0.75, height: cfg.monsterCharHeightPx }}
+              className="rounded bg-rose-500/50 border border-rose-400/80 flex items-center justify-center font-extrabold text-rose-200"
+              style={{ width: cfg.monsterCharHeightPx * 0.75 * S, height: cfg.monsterCharHeightPx * S, fontSize: Math.max(8, 10 * S) }}
             >
               몬스터
             </div>
           </div>
 
           {/* VS */}
-          <div className="absolute left-1/2 -translate-x-1/2 text-slate-400/50 font-extrabold text-2xl pointer-events-none"
-            style={{ bottom: PH * 0.4 }}>VS</div>
+          <div className="absolute left-1/2 -translate-x-1/2 text-slate-400/50 font-extrabold pointer-events-none"
+            style={{ bottom: PH * 0.4, fontSize: Math.max(12, 24 * S) }}>VS</div>
         </div>
       </div>
 

@@ -754,7 +754,9 @@ function QuizDungeonManage() {
         grade:         grade ? parseInt(grade) : null,
         semester:      semester ? parseInt(semester) : null,
         subject:       subject || '',
-        publisher:     '',
+        publisher:     publisher || '',
+        part:          part || '',
+        unit:          unit || '',
         difficulty,
         monsterId:     manualMonsterMode === 'random' ? 'random' : null,
         monsterIds:    manualMonsterMode === 'manual' ? manualSelectedMonsters : null,
@@ -1171,69 +1173,96 @@ function QuizDungeonManage() {
         {tab === 'manual' && (
           <div className="space-y-5">
 
-            {/* 설정 카드 */}
+            {/* 교육과정 선택 (AI탭과 동일 구성) */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-              <h2 className="font-bold text-slate-700 text-sm mb-4">📌 던전 설정</h2>
-              <div className="space-y-3">
-                {/* 던전 제목 */}
+              <h2 className="font-bold text-slate-700 text-sm mb-4">📌 교육과정 선택</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {/* 학년 */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">던전 제목 *</label>
-                  <input
-                    value={manualTitle}
-                    onChange={e => setManualTitle(e.target.value)}
-                    placeholder="던전 제목을 입력하세요"
-                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500"
-                  />
+                  <label className="block text-xs font-bold text-slate-500 mb-1">학년</label>
+                  <select value={grade} onChange={e => { setGrade(e.target.value); setSubject(''); setPublisher(''); setPart(''); setUnit(''); }}
+                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                    <option value="">선택</option>
+                    {[1,2,3,4,5,6].map(g => <option key={g} value={g}>{g}학년</option>)}
+                  </select>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {/* 학년 */}
+                {/* 학기 */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">학기</label>
+                  <select value={semester} onChange={e => { setSemester(e.target.value); setUnit(''); }}
+                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                    <option value="">전체</option>
+                    <option value="1">1학기</option>
+                    <option value="2">2학기</option>
+                  </select>
+                </div>
+                {/* 과목 */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">과목</label>
+                  <select value={subject} onChange={e => { setSubject(e.target.value); setPublisher(''); setPart(''); setUnit(''); }}
+                    disabled={!grade}
+                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-50">
+                    <option value="">선택</option>
+                    {(gradeData?.subjects || []).map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
+                  </select>
+                </div>
+                {/* 출판사 */}
+                {publishers.length > 1 && (
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">학년</label>
-                    <select value={grade} onChange={e => { setGrade(e.target.value); setSubject(''); }}
+                    <label className="block text-xs font-bold text-slate-500 mb-1">출판사</label>
+                    <select value={publisher} onChange={e => setPublisher(e.target.value)}
                       className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
                       <option value="">선택</option>
-                      {[1,2,3,4,5,6].map(g => <option key={g} value={g}>{g}학년</option>)}
+                      {publishers.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
-                  {/* 과목 */}
+                )}
+                {/* 권 */}
+                {parts.length > 0 && (
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">과목</label>
-                    <select value={subject} onChange={e => setSubject(e.target.value)}
-                      disabled={!grade}
-                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-50">
+                    <label className="block text-xs font-bold text-slate-500 mb-1">권</label>
+                    <select value={part} onChange={e => setPart(e.target.value)}
+                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
                       <option value="">선택</option>
-                      {(grade ? CURRICULUM[parseInt(grade)]?.subjects || [] : []).map(s => (
-                        <option key={s.name} value={s.name}>{s.name}</option>
-                      ))}
+                      {parts.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
-                  {/* 난이도 */}
+                )}
+                {/* 단원 */}
+                {unitList.length > 0 && (
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">난이도</label>
-                    <div className="flex rounded-xl border-2 border-slate-200 overflow-hidden">
-                      {DIFF_OPTIONS.map(d => (
-                        <button key={d.value} onClick={() => handleDifficultyChange(d.value)}
-                          className={`flex-1 py-2 text-xs font-bold transition-colors
-                            ${difficulty === d.value ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
-                          {d.label}
-                        </button>
-                      ))}
-                    </div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">단원</label>
+                    <select value={unit} onChange={e => setUnit(e.target.value)}
+                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                      <option value="">전체</option>
+                      {unitList.map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+                )}
+                {/* 난이도 */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">난이도</label>
+                  <div className="flex rounded-xl border-2 border-slate-200 overflow-hidden">
+                    {DIFF_OPTIONS.map(d => (
+                      <button key={d.value} onClick={() => handleDifficultyChange(d.value)}
+                        className={`flex-1 py-2 text-xs font-bold transition-colors
+                          ${difficulty === d.value ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        {d.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* 출현 몬스터 — 직접출제 탭 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-              <h2 className="font-bold text-slate-700 text-sm mb-4">👾 출현 몬스터 구성</h2>
-              <MonsterPicker
-                mode={manualMonsterMode}
-                selectedMonsters={manualSelectedMonsters}
-                questionCount={manualQuestions.length}
-                onModeChange={setManualMonsterMode}
-                onMonstersChange={setManualSelectedMonsters}
-              />
+              {/* 던전 제목 */}
+              <div className="mt-3">
+                <label className="block text-xs font-bold text-slate-500 mb-1">던전 제목 *</label>
+                <input
+                  value={manualTitle}
+                  onChange={e => setManualTitle(e.target.value)}
+                  placeholder="던전 제목을 입력하세요"
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500"
+                />
+              </div>
             </div>
 
             {/* 문제 추가 카드 */}
@@ -1354,6 +1383,18 @@ function QuizDungeonManage() {
                 </div>
               </div>
             )}
+
+            {/* 출현 몬스터 — 직접출제 탭 */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+              <h2 className="font-bold text-slate-700 text-sm mb-4">👾 출현 몬스터 구성</h2>
+              <MonsterPicker
+                mode={manualMonsterMode}
+                selectedMonsters={manualSelectedMonsters}
+                questionCount={manualQuestions.length}
+                onModeChange={setManualMonsterMode}
+                onMonstersChange={setManualSelectedMonsters}
+              />
+            </div>
 
             {/* 발행 버튼 */}
             <button

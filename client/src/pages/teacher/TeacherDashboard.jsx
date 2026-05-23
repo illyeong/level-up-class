@@ -70,6 +70,9 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
       const sqMap = {};
       const studentIdSet = new Set(classStudentIds);
 
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+
       const stats = await Promise.all(
         activeQuests.map(async q => {
           const snap = await getDocs(collection(db, 'quests', q.id, 'completions'));
@@ -78,12 +81,21 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
             const sid = d.id;
             if (!studentIdSet.has(sid)) return;
             const data = d.data();
-            if (data.checked) checkedCount++;
+
+            // 일일 반복 퀘스트는 오늘 체크한 것만 카운트 (QuestManage와 동일)
+            let validCheck = data.checked === true;
+            if (validCheck && q.repeatDaily) {
+              const ts = data.checkedAt;
+              const checkedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
+              validCheck = checkedAt != null && checkedAt >= todayMidnight;
+            }
+
+            if (validCheck) checkedCount++;
             if (q.type === 'daily') {
               if (!sqMap[sid]) sqMap[sid] = [];
               sqMap[sid].push({
                 title:    q.title,
-                checked:  data.checked  || false,
+                checked:  validCheck,
                 rewarded: data.rewarded || false,
               });
             }
