@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build *)",
+      "Bash(npm run build)",
+      "Bash(npm install *)",
+      "Bash(npm install)",
+      "Bash(grep -n *)",
+      "Bash(grep -rn *)",
+      "Bash(grep -oh *)",
+      "Bash(grep -c *)",
+      "Bash(find * -name *)",
+      "Bash(find * -type *)",
+      "Bash(mkdir -p *)",
+      "Bash(powershell -command *)",
+      "Bash(Get-ChildItem *)"
+    ]
+  }
+}

@@ -13,7 +13,7 @@ export const SLOTS = [
   { key: 'helmet',    icon: '⛑️',  label: '투구',    stat: 'hp' },
   { key: 'ring',      icon: '💍',  label: '반지',    stat: 'crit' },
   { key: 'necklace',  icon: '📿',  label: '목걸이',  stat: 'hp' },
-  { key: 'accessory', icon: '✨',  label: '액세서리', stat: 'attackSpeed' },
+  { key: 'earring',   icon: '💎',  label: '귀걸이',   stat: 'crit' },
 ];
 
 // ── 강화 설정 ─────────────────────────────────────────────────

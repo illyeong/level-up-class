@@ -6,6 +6,11 @@ import {
 import { db } from '../../firebase';
 import { GRADE, SLOTS, STAT_LABEL } from '../../constants/equipment';
 import { HELMET_SEED } from '../../data/helmetSeed';
+import { ARMOR_SEED }  from '../../data/armorSeed';
+import { EARRING_SEED } from '../../data/earringSeed';
+import { NECKLACE_SEED } from '../../data/necklaceSeed';
+import { RING_SEED }   from '../../data/ringSeed';
+import { WEAPON_SEED } from '../../data/weaponSeed';
 
 const GRADE_KEYS = ['common','rare','epic','legendary'];
 
@@ -260,26 +265,27 @@ export default function EquipmentManage() {
             <h1 className="text-2xl font-extrabold text-slate-800">⚔️ 장비 관리</h1>
             <p className="text-slate-400 text-sm mt-0.5">장비 추가 · 수정 · 삭제 및 활성화 관리</p>
           </div>
-          <div className="flex gap-2">
-            <button onClick={async () => {
-              if (!window.confirm(`투구 장비를 전체 삭제 후 재등록할까요?`)) return;
-              // Firebase에서 직접 투구 전체 조회 후 삭제
-              const snap = await getDocs(query(collection(db, 'equipmentItems'), where('type', '==', 'helmet')));
-              let deleted = 0;
-              for (const d of snap.docs) {
-                await deleteDoc(doc(db, 'equipmentItems', d.id));
-                deleted++;
-              }
-              // 재등록
-              for (const item of HELMET_SEED) {
-                await addDoc(collection(db, 'equipmentItems'), { ...item, createdAt: serverTimestamp() });
-              }
-              alert(`✅ 기존 ${deleted}개 삭제 → 투구 ${HELMET_SEED.length}개 재등록 완료!`);
-              fetchItems();
-            }}
-              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
-              🪖 투구 재등록
-            </button>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label:'⛑️ 투구',   type:'helmet',   seed: HELMET_SEED },
+              { label:'🛡️ 갑옷',   type:'armor',    seed: ARMOR_SEED },
+              { label:'⚔️ 무기',   type:'weapon',   seed: WEAPON_SEED },
+              { label:'💎 귀걸이', type:'earring',  seed: EARRING_SEED },
+              { label:'📿 목걸이', type:'necklace', seed: NECKLACE_SEED },
+              { label:'💍 반지',   type:'ring',     seed: RING_SEED },
+            ].map(({ label, type, seed }) => (
+              <button key={type} onClick={async () => {
+                if (!window.confirm(`${label} 장비를 전체 삭제 후 재등록할까요?\n(${seed.length}개)`)) return;
+                const snap = await getDocs(query(collection(db, 'equipmentItems'), where('type', '==', type)));
+                for (const d of snap.docs) await deleteDoc(doc(db, 'equipmentItems', d.id));
+                for (const item of seed) await addDoc(collection(db, 'equipmentItems'), { ...item, createdAt: serverTimestamp() });
+                alert(`✅ ${label} ${seed.length}개 재등록 완료!`);
+                fetchItems();
+              }}
+                className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl font-bold text-xs shadow-sm transition-colors">
+                {label} 재등록
+              </button>
+            ))}
             <button onClick={openCreate}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
               ➕ 장비 추가

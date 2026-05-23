@@ -1,0 +1,95 @@
+// 갑옷(armor) 장비 시드 데이터
+const BASE = '/images/Equipment/Armors';
+
+const mk = (grade, file, name, stats) => ({
+  name,
+  type: 'armor',
+  grade,
+  active: true,
+  image: `${BASE}/${grade.charAt(0).toUpperCase() + grade.slice(1)}/${file}.png`,
+  stats,
+});
+
+const S = {
+  common:    { hp: 8,  defense: 5,  attack: 0, crit: 0, attackSpeed: 0 },
+  rare:      { hp: 15, defense: 10, attack: 0, crit: 0, attackSpeed: 0 },
+  epic:      { hp: 25, defense: 18, attack: 0, crit: 0, attackSpeed: 0 },
+  legendary: { hp: 40, defense: 30, attack: 0, crit: 0, attackSpeed: 0 },
+};
+
+export const ARMOR_SEED = [
+  // ── Common ───────────────────────────────────────────────────
+  mk('common','CasualBoy1 [ShowEars]',              '캐주얼 소년 의상 I',    S.common),
+  mk('common','CasualBoy2 [ShowEars]',              '캐주얼 소년 의상 II',   S.common),
+  mk('common','CasualBoy3 [ShowEars]',              '캐주얼 소년 의상 III',  S.common),
+  mk('common','Cossack [ShowEars]',                 '코사크 갑옷',           S.common),
+  mk('common','CultistRobe',                        '사교도 로브',           S.common),
+  mk('common','ExecutionerArmorTypeA',              '처형자 갑옷 A',         S.common),
+  mk('common','ExecutionerArmorTypeB',              '처형자 갑옷 B',         S.common),
+  mk('common','FemaleUnderwearType3',               '기본 복장',             S.common),
+  mk('common','LeatherJacket [ShowEars]',           '가죽 재킷',             S.common),
+  mk('common','Luchnik [ShowEars]',                 '궁수 복장',             S.common),
+  mk('common','Robe',                               '일반 로브',             S.common),
+  mk('common','SkeletonMiner',                      '해골 광부 복장',        S.common),
+  mk('common','Swat',                               '특공대 복장',           S.common),
+  mk('common','TankmanTypeA',                       '전차병 복장 A',         S.common),
+
+  // ── Rare ─────────────────────────────────────────────────────
+  mk('rare','CasualGirl1 [ShowEars] [FullHair]',    '캐주얼 소녀 의상 I',   S.rare),
+  mk('rare','CasualGirl2 [ShowEars] [FullHair]',    '캐주얼 소녀 의상 II',  S.rare),
+  mk('rare','CasualGirl3 [ShowEars] [FullHair]',    '캐주얼 소녀 의상 III', S.rare),
+  mk('rare','GrimReaperCostume',                    '저승사자 의상',        S.rare),
+  mk('rare','GuardArmorTypeA',                      '경비병 갑옷 A',        S.rare),
+  mk('rare','HeavyScarabArmor',                     '스카라브 중갑옷',      S.rare),
+  mk('rare','HeavyWolfArmor',                       '무거운 늑대 갑옷',     S.rare),
+  mk('rare','KnightArmorTypeB',                     '기사 갑옷 B',          S.rare),
+  mk('rare','Knyaz',                                '크냐즈 갑옷',          S.rare),
+  mk('rare','Kopeynik [ShowEars]',                  '코페이닉 갑옷',        S.rare),
+  mk('rare','MonsterHunterArmor',                   '몬스터 사냥꾼 갑옷',   S.rare),
+  mk('rare','PersianArcherArmor',                   '페르시아 궁수 갑옷',   S.rare),
+  mk('rare','Ratnik',                               '라트닉 전투복',        S.rare),
+  mk('rare','SantaCostume [ShowEars]',              '산타 의상',            S.rare),
+  mk('rare','SantaDeerCostume [ShowEars] [FullHair]','산타 순록 의상',      S.rare),
+  mk('rare','SantaHelperCostume [ShowEars]',        '산타 도우미 의상',     S.rare),
+  mk('rare','ScavengerArmor',                       '약탈자 갑옷',          S.rare),
+  mk('rare','Strelets [ShowEars]',                  '스트렐렛 갑옷',        S.rare),
+  mk('rare','TankmanTypeB [ShowEars]',              '전차병 복장 B',        S.rare),
+  mk('rare','Vityaz',                               '비탸즈 갑옷',          S.rare),
+  mk('rare','WargArmor',                            '와르그 갑옷',          S.rare),
+  mk('rare','WorkerOutfit [ShowEars]',              '작업복',               S.rare),
+
+  // ── Epic ─────────────────────────────────────────────────────
+  mk('epic','BlackBoarArmor',                       '흑멧돼지 갑옷',        S.epic),
+  mk('epic','ClericMantle [ShowEars]',              '성직자 망토',          S.epic),
+  mk('epic','DarkLordArmor',                        '암흑 군주 갑옷',       S.epic),
+  mk('epic','DarkSteelArmor',                       '흑강철 갑옷',          S.epic),
+  mk('epic','GhostSamuraiArmor',                    '유령 사무라이 갑옷',   S.epic),
+  mk('epic','HazardArmor',                          '위험물 방호복',        S.epic),
+  mk('epic','ImperialGuardArmor',                   '황제 근위대 갑옷',     S.epic),
+  mk('epic','ImperialGuardian',                     '황제 수호자 갑옷',     S.epic),
+  mk('epic','LushKnight',                           '풍요의 기사 갑옷',     S.epic),
+  mk('epic','MarauderOutfit',                       '마로더 의상',          S.epic),
+  mk('epic','MobileTrooper',                        '기동 병사 갑옷',       S.epic),
+  mk('epic','MouseArmor',                           '쥐 갑옷',              S.epic),
+  mk('epic','NightmareArmor',                       '악몽의 갑옷',          S.epic),
+  mk('epic','NordicHunterArmorLight',               '북방 사냥꾼 경갑옷',   S.epic),
+  mk('epic','NutcrackerCostume [ShowEars]',         '호두까기 의상',        S.epic),
+  mk('epic','PersianLancerArmor',                   '페르시아 창기병 갑옷', S.epic),
+  mk('epic','PersianWarriorArmor',                  '페르시아 전사 갑옷',   S.epic),
+  mk('epic','Sailor [ShowEars]',                    '선원 복장',            S.epic),
+  mk('epic','SkeletonKingArmor',                    '해골 왕 갑옷',         S.epic),
+  mk('epic','StalkerTunic',                         '스토커 튜닉',          S.epic),
+
+  // ── Legendary ────────────────────────────────────────────────
+  mk('legendary','BulletproofVest [ShowEars]',      '방탄 조끼',            S.legendary),
+  mk('legendary','DivineArmor',                     '신성한 갑옷',          S.legendary),
+  mk('legendary','GloryArmor [ShowEars]',           '영광의 갑옷',          S.legendary),
+  mk('legendary','GoldenKnightArmor',               '황금 기사 갑옷',       S.legendary),
+  mk('legendary','IncorruptibleKnight',             '불굴의 기사 갑옷',     S.legendary),
+  mk('legendary','NordicHunterArmorHeavy',          '북방 사냥꾼 중갑옷',   S.legendary),
+  mk('legendary','PersianDuelistArmor',             '페르시아 결투사 갑옷', S.legendary),
+  mk('legendary','PontifexMantle [ShowEars]',       '교황의 망토',          S.legendary),
+  mk('legendary','ShadowHunterOutfit [ShowEars]',   '그림자 사냥꾼 의상',   S.legendary),
+  mk('legendary','TournamentArmor',                 '토너먼트 갑옷',        S.legendary),
+  mk('legendary','Voivode',                         '보이보드 갑옷',        S.legendary),
+];
