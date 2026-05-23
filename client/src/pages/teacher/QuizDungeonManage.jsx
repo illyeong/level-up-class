@@ -10,30 +10,42 @@ const extractPptxText = async (file) => {
   const zip = new JSZip();
   const content = await zip.loadAsync(file);
 
-  // 슬라이드 파일 찾기 (ppt/slides/slide1.xml, slide2.xml ...)
   const slideFiles = Object.keys(content.files)
     .filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name))
-    .sort((a, b) => {
-      const na = parseInt(a.match(/\d+/)?.[0] || 0);
-      const nb = parseInt(b.match(/\d+/)?.[0] || 0);
-      return na - nb;
-    });
+    .sort((a, b) => parseInt(a.match(/\d+/)?.[0]||0) - parseInt(b.match(/\d+/)?.[0]||0));
 
   if (slideFiles.length === 0) throw new Error('슬라이드를 찾을 수 없습니다.');
+
+  const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
 
   const slideTexts = [];
   for (let i = 0; i < slideFiles.length; i++) {
     const xml = await content.files[slideFiles[i]].async('text');
-    // <a:t>태그 안의 텍스트 추출
-    const matches = [...xml.matchAll(/<a:t[^>]*>([\s\S]*?)<\/a:t>/g)];
-    const text = matches
-      .map(m => m[1]
-        .replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>').replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'").trim()
-      )
-      .filter(Boolean)
-      .join(' ');
+    let text = '';
+
+    // 1차: DOMParser로 정확한 XML 파싱 (텍스트 노드만 추출)
+    try {
+      const doc = new DOMParser().parseFromString(xml, 'text/xml');
+      if (!doc.querySelector('parsererror')) {
+        text = Array.from(doc.getElementsByTagNameNS(NS_A, 't'))
+          .map(n => n.textContent?.trim())
+          .filter(Boolean)
+          .join(' ');
+      }
+    } catch (_) {}
+
+    // 2차 fallback: XML 태그 미포함 정규식 ([^<]* 사용)
+    if (!text) {
+      text = [...xml.matchAll(/<a:t[^>]*>([^<]*)<\/a:t>/g)]
+        .map(m => m[1]
+          .replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'").trim()
+        )
+        .filter(Boolean)
+        .join(' ');
+    }
+
     if (text) slideTexts.push(`[슬라이드 ${i + 1}]\n${text}`);
   }
   return slideTexts.join('\n\n');
@@ -318,6 +330,7 @@ function QuizDungeonManage() {
   const [difficulty, setDifficulty] = useState('normal');
   const [monsterId, setMonsterId]   = useState('random');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [customTitle, setCustomTitle] = useState('');
   const [rewards, setRewards]   = useState({ gold: 150, exp: 75, diamond: 75 });
 
   const DIFF_REWARDS = {
@@ -379,7 +392,7 @@ function QuizDungeonManage() {
 
   const resetForm = () => {
     setGrade(''); setSemester(''); setSubject(''); setPublisher('');
-    setPart(''); setUnit(''); setSourceText('');
+    setPart(''); setUnit(''); setSourceText(''); setCustomTitle('');
     setPdfBase64(''); setPdfName(''); setIsPptxLoading(false);
     setCount(5); setDifficulty('normal'); setMonsterId('random'); setPickerOpen(false);
     setRewards({ gold: 100, exp: 50, diamond: 0 });
@@ -523,12 +536,13 @@ function QuizDungeonManage() {
   // ── 발행 ──────────────────────────────────────────────────────
   const handlePublish = async () => {
     if (questions.length === 0) return alert('문제가 없습니다.');
-    if (!window.confirm(`"${autoTitle || '퀴즈 던전'}"을 발행하시겠습니까?\n학생들이 바로 접근할 수 있습니다.`)) return;
+    const finalTitle = customTitle.trim() || autoTitle || '퀴즈 던전';
+    if (!window.confirm(`"${finalTitle}"을 발행하시겠습니까?\n학생들이 바로 접근할 수 있습니다.`)) return;
 
     setIsPublishing(true);
     try {
       await addDoc(collection(db, 'quizDungeons'), {
-        title:         autoTitle || '퀴즈 던전',
+        title:         finalTitle,
         grade:         parseInt(grade),
         semester:      parseInt(semester) || null,
         subject,
@@ -670,12 +684,21 @@ function QuizDungeonManage() {
                     )}
                   </div>
 
-                  {/* 자동 생성 제목 미리보기 */}
-                  {autoTitle && (
-                    <div className="mt-3 p-3 bg-indigo-50 rounded-xl text-sm text-indigo-700 font-bold">
-                      📁 {autoTitle}
-                    </div>
-                  )}
+                  {/* 던전 제목 입력 */}
+                  <div className="mt-3">
+                    <label className="block text-xs font-bold text-slate-500 mb-1">던전 제목</label>
+                    <input
+                      value={customTitle}
+                      onChange={e => setCustomTitle(e.target.value)}
+                      placeholder={autoTitle || '던전 제목을 입력하세요'}
+                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500"
+                    />
+                    {autoTitle && !customTitle && (
+                      <div className="mt-1 text-[10px] text-slate-400">
+                        비워두면 자동 제목 사용: <span className="text-indigo-500">{autoTitle}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* 수업 자료 입력 */}
@@ -859,7 +882,7 @@ function QuizDungeonManage() {
                 <div className="flex items-center justify-between mb-2">
                   <div>
                     <h2 className="font-extrabold text-slate-800 text-lg">생성된 퀴즈 검토</h2>
-                    <p className="text-sm text-slate-500">{autoTitle} · {questions.length}문제 · 초록 동그라미를 클릭해 정답 변경</p>
+                    <p className="text-sm text-slate-500">{customTitle.trim() || autoTitle || '퀴즈 던전'} · {questions.length}문제 · 초록 동그라미를 클릭해 정답 변경</p>
                   </div>
                   <button onClick={() => setStep('form')}
                     className="px-4 py-2 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50">
@@ -876,7 +899,7 @@ function QuizDungeonManage() {
 
                 <button onClick={handlePublish} disabled={isPublishing || questions.length === 0}
                   className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-lg rounded-2xl shadow-md transition-all disabled:opacity-40">
-                  {isPublishing ? '발행 중...' : `✅ "${autoTitle || '퀴즈 던전'}" 발행하기`}
+                  {isPublishing ? '발행 중...' : `✅ "${customTitle.trim() || autoTitle || '퀴즈 던전'}" 발행하기`}
                 </button>
               </>
             )}

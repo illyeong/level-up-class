@@ -721,3 +721,45 @@ export const DIFF_MONSTER = {
 };
 
 export const TIER_LABEL = { tiny: '극소', small: '소형', medium: '중형', large: '대형', boss: '보스' };
+
+/** 티어별 문제 소비량 (1마리당 몇 문제짜리 HP) */
+export const TIER_COST = { tiny: 1, small: 1, medium: 3, large: 5, boss: 5 };
+
+/**
+ * 총 문제 수 + 선택 몬스터 ID → 웨이브 배열 생성
+ * @returns {Array<{monsterId:string, questionCount:number}>}
+ */
+export function generateWaves(totalQ, fixedMonsterId) {
+  const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const allIds = Object.keys(MONSTERS_DB);
+  const byTier = {};
+  ['tiny', 'small', 'medium', 'large', 'boss'].forEach(t => {
+    byTier[t] = allIds.filter(id => MONSTERS_DB[id].tier === t);
+  });
+
+  // 교사가 특정 몬스터 선택 → 같은 종류로 N마리
+  if (fixedMonsterId && fixedMonsterId !== 'random') {
+    const m = MONSTERS_DB[fixedMonsterId];
+    if (!m) return [{ monsterId: fixedMonsterId, questionCount: totalQ }];
+    const cost = TIER_COST[m.tier] || 1;
+    const full = Math.floor(totalQ / cost);
+    const rem  = totalQ % cost;
+    const waves = Array.from({ length: full }, () => ({ monsterId: fixedMonsterId, questionCount: cost }));
+    if (rem > 0) waves.push({ monsterId: fixedMonsterId, questionCount: rem });
+    return waves.length ? waves : [{ monsterId: fixedMonsterId, questionCount: totalQ }];
+  }
+
+  // 랜덤: 문제 수를 소진할 때까지 무작위 티어 선택
+  let rem = totalQ;
+  const waves = [];
+  while (rem > 0) {
+    const candidates = rem >= 5 ? ['boss', 'large', 'medium', 'small', 'tiny']
+      : rem >= 3              ? ['medium', 'small', 'tiny']
+      :                         ['small', 'tiny'];
+    const tier = candidates[Math.floor(Math.random() * candidates.length)];
+    const cost = Math.min(TIER_COST[tier], rem);
+    waves.push({ monsterId: rand(byTier[tier]), questionCount: cost });
+    rem -= cost;
+  }
+  return waves;
+}
