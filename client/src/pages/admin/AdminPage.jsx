@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import DungeonMapEditor from './DungeonMapEditor';
+import EquipmentManage from './EquipmentManage';
 import {
   collection, getDocs, doc, addDoc, updateDoc, deleteDoc,
   setDoc, getDoc, query, orderBy, serverTimestamp, writeBatch,
@@ -885,6 +886,7 @@ const TABS = [
   { id: 'feedbacks', label: '💬 건의/문의' },
   { id: 'settings',  label: '⚙️ 시스템 설정' },
   { id: 'content',   label: '🎮 콘텐츠 관리' },
+  { id: 'equipment', label: '⚔️ 장비 관리' },
 ];
 
 export default function AdminPage({ adminUser, onLogout }) {
@@ -925,6 +927,7 @@ export default function AdminPage({ adminUser, onLogout }) {
         {tab === 'feedbacks' && <FeedbacksTab />}
         {tab === 'settings'  && <SettingsTab />}
         {tab === 'content'   && <ContentTab />}
+        {tab === 'equipment' && <EquipmentManage />}
       </main>
     </div>
   );

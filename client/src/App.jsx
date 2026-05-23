@@ -22,6 +22,8 @@ import AdventurePage    from './pages/student/AdventurePage.jsx';
 import StockMarket      from './pages/student/StockMarket.jsx';
 import LearningBoard    from './pages/student/LearningBoard.jsx';
 import PetHouse        from './pages/student/PetHouse.jsx';
+import Equipment      from './pages/student/Equipment.jsx';
+import GachaBox       from './pages/student/GachaBox.jsx';
 import Arena          from './pages/student/Arena.jsx';
 
 const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','miniGame'];
@@ -191,7 +193,9 @@ function App() {
           <AdventurePage currentView={currentView} studentCode={activeStudentCode} />
         )}
         {currentView === 'board'    && <LearningBoard studentCode={activeStudentCode} />}
-        {currentView === 'petHouse' && <PetHouse />}
+        {currentView === 'petHouse'  && <PetHouse />}
+        {currentView === 'equipment' && <Equipment studentCode={activeStudentCode} />}
+        {currentView === 'gachaBox'  && <GachaBox  studentCode={activeStudentCode} />}
         {currentView === 'academy' && (
           <div className="p-8 text-2xl font-bold text-slate-800">아카데미 화면 (준비 중 📚)</div>
         )}
