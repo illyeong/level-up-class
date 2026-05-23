@@ -33,7 +33,7 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
         ${isEquipped ? 'ring-2 ring-indigo-500 ring-offset-2 shadow-lg' : 'hover:shadow-md hover:-translate-y-0.5'}
         ${item.grade === 'legendary' ? 'shadow-amber-100 shadow-md' : ''}
         ${item.grade === 'epic'      ? 'shadow-violet-100 shadow-md' : ''}`}>
-      <span className={`absolute top-1 right-1 text-[8px] font-extrabold px-1.5 py-0.5 rounded-full ${g.badge}`}>
+      <span className={`absolute top-1 right-1 text-xs font-extrabold px-2 py-0.5 rounded-full ${g.badge}`}>
         {g.label}
       </span>
       {isEquipped && (
@@ -213,7 +213,7 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
 
               <div className="flex-1 min-w-0">
                 <div className="font-extrabold text-slate-800 text-sm truncate">{item?.name}</div>
-                <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${g.badge} mt-0.5`}>
+                <span className={`inline-block text-sm font-bold px-2 py-1 rounded-full ${g.badge} mt-0.5`}>
                   {g.label}
                 </span>
                 <div className="mt-2">
@@ -617,7 +617,7 @@ export default function Equipment({ studentCode }) {
                                   className={`w-9 h-9 object-contain ${i < (invItem?.stars || 0) ? 'opacity-100' : 'opacity-10 grayscale'}`} />
                               ))}
                             </div>
-                            <span className={`text-[7px] font-extrabold px-1.5 py-0.5 rounded-full mt-1 ${g.badge}`}>{g.label}</span>
+                            <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full mt-1 ${g.badge}`}>{g.label}</span>
                           </>
                         ) : (
                           <>
