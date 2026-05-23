@@ -36,6 +36,22 @@
 }
 .animate-star-pop { animation: star-pop 0.5s ease-out; }
 
+/* 5초 강화 게이지 */
+@keyframes enhance-gauge {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+.gauge-bar-5s {
+  animation: enhance-gauge 5s linear forwards;
+}
+
+/* 로딩 중 아이템 글로우 */
+@keyframes item-glow {
+  0%, 100% { box-shadow: 0 0 8px 2px rgba(251,191,36,0.2); }
+  50%       { box-shadow: 0 0 24px 8px rgba(251,191,36,0.55); }
+}
+.animate-item-glow { animation: item-glow 1.2s ease-in-out infinite; }
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;

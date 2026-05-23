@@ -1,9 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   collection, getDocs, doc, updateDoc, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { GRADE, SLOTS, ENHANCE, PITY_LIMIT, STAT_LABEL } from '../../constants/equipment';
+
+const STAR_IMG = '/images/Icon_Resources_Star01_Gold.png';
+
+// ── 별 표시 컴포넌트 ──────────────────────────────────────────
+function Stars({ count, total = 5, size = 'md' }) {
+  const cls = size === 'lg' ? 'w-8 h-8' : size === 'sm' ? 'w-3.5 h-3.5' : 'w-5 h-5';
+  return (
+    <div className="flex gap-0.5">
+      {Array.from({ length: total }, (_, i) => (
+        <img key={i} src={STAR_IMG} alt="★"
+          className={`${cls} object-contain transition-all duration-300
+            ${i < count ? 'opacity-100' : 'opacity-15 grayscale'}`} />
+      ))}
+    </div>
+  );
+}
 
 // ── 장비 카드 ─────────────────────────────────────────────────
 export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = false }) {
@@ -32,144 +48,337 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
         ${compact ? 'text-[9px]' : 'text-[11px]'}`}>
         {item.name}
       </div>
-      <div className="flex gap-px">
-        {Array.from({ length: 5 }, (_, i) => (
-          <span key={i} className={`${compact ? 'text-[8px]' : 'text-[10px]'} ${i < stars ? 'text-amber-400' : 'text-slate-200'}`}>★</span>
-        ))}
-      </div>
+      <Stars count={stars} size="sm" />
     </button>
   );
 }
 
 // ── 강화 모달 ─────────────────────────────────────────────────
 function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
-  const [busy, setBusy]         = useState(false);
-  const [result, setResult]     = useState(null);   // null | 'success' | 'fail'
-  const [animKey, setAnimKey]   = useState(0);
+  // stage: 'idle' | 'confirm' | 'loading' | 'result'
+  const [stage, setStage]               = useState('idle');
+  const [result, setResult]             = useState(null);   // 'success' | 'fail'
   const [currentStars, setCurrentStars] = useState(invItem?.stars || 0);
-  const stars = currentStars;
-  const cfg   = ENHANCE[stars];
+  const canvasRef  = useRef(null);
+  const itemImgRef = useRef(null);   // item image element for particle origin
+  const starImgRef = useRef(null);   // preloaded star PNG
+
+  const cfg        = ENHANCE[currentStars];
   const canEnhance = cfg && stones >= cfg.stones;
-  const g = GRADE[item?.grade] || GRADE.common;
+  const g          = GRADE[item?.grade] || GRADE.common;
 
-  const doEnhance = async () => {
-    if (!canEnhance || busy) return;
-    setBusy(true);
-    setResult(null);
+  // star 이미지 프리로드
+  useEffect(() => {
+    const img = new Image();
+    img.src = STAR_IMG;
+    starImgRef.current = img;
+  }, []);
 
-    // 강화 연출 딜레이
-    await new Promise(r => setTimeout(r, 700));
+  // ── 강화 결과 계산 ──
+  const doEnhanceResult = useCallback(() => {
+    const stars     = currentStars;           // 호출 시점의 별 수 (클로저 안전)
+    const cfg2      = ENHANCE[stars];
+    if (!cfg2) return;
 
     const pityKey    = `pity_${invItem.id}`;
     const pityCount  = parseInt(localStorage.getItem(pityKey) || '0');
     const guaranteed = stars === 4 && pityCount >= PITY_LIMIT;
-    const success    = guaranteed || Math.random() < cfg.rate;
+    const success    = guaranteed || Math.random() < cfg2.rate;
     localStorage.setItem(pityKey, success ? '0' : String(pityCount + 1));
 
-    setResult(success ? 'success' : 'fail');
-    setAnimKey(k => k + 1);
     if (success) setCurrentStars(s => s + 1);
-    setBusy(false);
+    setResult(success ? 'success' : 'fail');
+    setStage('result');
     onEnhance(success);
+
+    if (success) setTimeout(() => spawnParticles(), 80);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStars, invItem?.id]);
+
+  // ── 파티클 ──
+  const spawnParticles = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext('2d');
+
+    // 아이템 이미지 위치에서 파티클 출발
+    const itemEl = itemImgRef.current;
+    const rect   = itemEl?.getBoundingClientRect();
+    const cx     = rect ? rect.left + rect.width  / 2 : window.innerWidth  / 2;
+    const cy     = rect ? rect.top  + rect.height / 2 : window.innerHeight / 3;
+
+    const particles = Array.from({ length: 55 }, () => {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2 + Math.random() * 9;
+      return {
+        x:  cx + (Math.random() - 0.5) * 20,
+        y:  cy + (Math.random() - 0.5) * 20,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 3.5,
+        size:  12 + Math.random() * 20,
+        rot:   Math.random() * Math.PI * 2,
+        rotV:  (Math.random() - 0.5) * 0.3,
+        life:  1,
+        decay: 0.010 + Math.random() * 0.008,
+      };
+    });
+
+    const si = starImgRef.current;
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let anyAlive = false;
+      for (const p of particles) {
+        if (p.life <= 0) continue;
+        anyAlive = true;
+        p.x   += p.vx;
+        p.y   += p.vy;
+        p.vy  += 0.2;
+        p.vx  *= 0.98;
+        p.rot += p.rotV;
+        p.life -= p.decay;
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        if (si?.complete && si.naturalWidth > 0) {
+          ctx.drawImage(si, -p.size / 2, -p.size / 2, p.size, p.size);
+        } else {
+          ctx.fillStyle = `hsl(${40 + Math.random() * 25}, 100%, 60%)`;
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      if (anyAlive) requestAnimationFrame(animate);
+      else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+    animate();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-      <div className="bg-slate-900 rounded-3xl w-full max-w-sm border border-slate-700 shadow-2xl overflow-hidden">
+    <>
+      {/* 파티클 캔버스 - 전체 화면, 클릭 통과 */}
+      <canvas ref={canvasRef}
+        className="fixed inset-0 pointer-events-none z-[60]"
+        style={{ width: '100vw', height: '100vh' }} />
 
-        {/* 헤더 */}
-        <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-slate-800">
-          <h2 className="font-extrabold text-white text-lg">⚒️ 장비 강화</h2>
-          <button onClick={onClose}
-            className="text-slate-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-800 transition-colors">✕</button>
-        </div>
+      <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+        <div className="bg-slate-900 rounded-3xl w-full max-w-sm border border-slate-700 shadow-2xl overflow-hidden">
 
-        <div className="p-5 space-y-4">
-          {/* 아이템 미리보기 - 애니메이션 적용 */}
-          <div key={animKey}
-            className={`relative flex items-center gap-4 rounded-2xl p-4 border ${g.border} ${g.bg} overflow-hidden
-              ${result === 'success' ? 'animate-enhance-success' : ''}
-              ${result === 'fail'    ? 'animate-enhance-fail'    : ''}`}>
-            {result === 'success' && (
-              <div className="absolute inset-0 bg-gradient-to-r from-amber-300/25 to-orange-300/25 pointer-events-none" />
+          {/* 헤더 */}
+          <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-slate-800">
+            <h2 className="font-extrabold text-white text-lg flex items-center gap-2">
+              <img src={STAR_IMG} className="w-6 h-6" alt="" />
+              장비 강화
+            </h2>
+            {stage !== 'loading' && (
+              <button onClick={onClose}
+                className="text-slate-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-800 transition-colors">✕</button>
             )}
-            {result === 'fail' && (
-              <div className="absolute inset-0 bg-red-900/25 pointer-events-none" />
-            )}
-            <div className="w-16 h-16 rounded-xl bg-white/60 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
-              {item?.image
-                ? <img src={item.image} alt="" className="w-full h-full object-contain" />
-                : <span className="text-3xl">{SLOTS.find(s => s.key === item?.type)?.icon || '🗡️'}</span>}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-extrabold text-slate-800 text-sm truncate">{item?.name}</div>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${g.badge}`}>{g.label}</span>
-              <div className="flex gap-0.5 mt-2">
-                {Array.from({ length: 5 }, (_, i) => (
-                  <span key={i}
-                    className={`text-xl transition-colors duration-300
-                      ${i < stars ? 'text-amber-400' : 'text-slate-300'}
-                      ${result === 'success' && i === stars - 1 ? 'animate-star-pop inline-block' : ''}`}>
-                    ★
-                  </span>
-                ))}
-              </div>
-            </div>
           </div>
 
-          {cfg ? (
-            <>
-              {/* 성공 확률 + 필요 강화석 */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-800 rounded-2xl p-3.5 text-center border border-slate-700">
-                  <div className="text-[10px] text-slate-400 mb-1">성공 확률</div>
-                  <div className={`text-3xl font-extrabold
-                    ${cfg.rate >= 0.6 ? 'text-emerald-400' : cfg.rate >= 0.3 ? 'text-amber-400' : 'text-rose-400'}`}>
-                    {(cfg.rate * 100).toFixed(0)}%
-                  </div>
-                </div>
-                <div className="bg-slate-800 rounded-2xl p-3.5 text-center border border-slate-700">
-                  <div className="text-[10px] text-slate-400 mb-1">필요 강화석</div>
-                  <div className={`text-3xl font-extrabold ${stones >= cfg.stones ? 'text-sky-400' : 'text-rose-400'}`}>
-                    {cfg.stones}
-                  </div>
-                </div>
-              </div>
+          <div className="p-5 space-y-4">
 
-              {/* 보유 강화석 */}
-              <div className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm
-                ${stones >= cfg.stones ? 'bg-sky-950/50 border border-sky-800' : 'bg-rose-950/50 border border-rose-900'}`}>
-                <span className="text-slate-400 font-medium">보유 강화석</span>
-                <span className={`font-extrabold text-base ${stones >= cfg.stones ? 'text-sky-400' : 'text-rose-400'}`}>
-                  🔮 {stones}개
-                </span>
-              </div>
+            {/* 아이템 미리보기 - 항상 표시 */}
+            <div className={`relative flex items-center gap-4 rounded-2xl p-4 border overflow-hidden
+              ${g.border} ${g.bg}
+              ${stage === 'loading'      ? 'animate-item-glow' : ''}
+              ${result === 'success'     ? 'animate-enhance-success' : ''}
+              ${result === 'fail'        ? 'animate-enhance-fail'    : ''}`}>
 
-              {/* 결과 표시 */}
-              {result && (
-                <div className={`text-center py-3.5 rounded-2xl font-extrabold text-lg
-                  ${result === 'success'
-                    ? 'bg-emerald-900/60 text-emerald-400 border border-emerald-700'
-                    : 'bg-rose-900/60 text-rose-400 border border-rose-800'}`}>
-                  {result === 'success' ? '✨ 강화 성공!' : '💔 강화 실패...'}
-                </div>
+              {result === 'success' && (
+                <div className="absolute inset-0 bg-gradient-to-r from-amber-300/30 to-yellow-300/30 pointer-events-none" />
+              )}
+              {result === 'fail' && (
+                <div className="absolute inset-0 bg-red-900/25 pointer-events-none" />
               )}
 
-              <button onClick={doEnhance} disabled={!canEnhance || busy}
-                className={`w-full py-4 rounded-2xl font-extrabold text-base transition-all active:scale-95
-                  ${busy ? 'bg-amber-800/60 text-amber-300 cursor-wait' :
-                    canEnhance
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 text-white shadow-lg shadow-amber-900/30'
-                      : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>
-                {busy ? '⚒️ 강화 중...' : canEnhance ? `⚒️ ★${stars} → ★${stars + 1} 강화` : '강화석 부족'}
-              </button>
-            </>
-          ) : (
-            <div className="text-center py-8 text-amber-400 font-extrabold text-xl">🌟 최고 강화 달성!</div>
-          )}
+              <div ref={itemImgRef}
+                className="w-16 h-16 rounded-xl bg-white/60 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                {item?.image
+                  ? <img src={item.image} alt="" className="w-full h-full object-contain" />
+                  : <span className="text-3xl">{SLOTS.find(s => s.key === item?.type)?.icon || '🗡️'}</span>}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="font-extrabold text-slate-800 text-sm truncate">{item?.name}</div>
+                <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${g.badge} mt-0.5`}>
+                  {g.label}
+                </span>
+                <div className="mt-2">
+                  <Stars count={currentStars} />
+                </div>
+              </div>
+            </div>
+
+            {/* ─── IDLE: 정보 표시 ─── */}
+            {stage === 'idle' && (
+              <>
+                {cfg ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-slate-800 rounded-2xl p-3.5 text-center border border-slate-700">
+                        <div className="text-[10px] text-slate-400 mb-1">성공 확률</div>
+                        <div className={`text-3xl font-extrabold
+                          ${cfg.rate >= 0.6 ? 'text-emerald-400' : cfg.rate >= 0.3 ? 'text-amber-400' : 'text-rose-400'}`}>
+                          {(cfg.rate * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                      <div className="bg-slate-800 rounded-2xl p-3.5 text-center border border-slate-700">
+                        <div className="text-[10px] text-slate-400 mb-1">필요 강화석</div>
+                        <div className={`text-3xl font-extrabold ${stones >= cfg.stones ? 'text-sky-400' : 'text-rose-400'}`}>
+                          {cfg.stones}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={`flex items-center justify-between rounded-xl px-4 py-3
+                      ${stones >= cfg.stones ? 'bg-sky-950/50 border border-sky-800' : 'bg-rose-950/50 border border-rose-900'}`}>
+                      <span className="text-slate-400 text-sm font-medium">보유 강화석</span>
+                      <span className={`font-extrabold text-base ${stones >= cfg.stones ? 'text-sky-400' : 'text-rose-400'}`}>
+                        🔮 {stones}개
+                      </span>
+                    </div>
+
+                    <button onClick={() => canEnhance && setStage('confirm')} disabled={!canEnhance}
+                      className={`w-full py-4 rounded-2xl font-extrabold text-base transition-all active:scale-95 flex items-center justify-center gap-2
+                        ${canEnhance
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 text-white shadow-lg shadow-amber-900/40'
+                          : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>
+                      <img src={STAR_IMG} className={`w-5 h-5 ${!canEnhance && 'grayscale opacity-30'}`} alt="" />
+                      {canEnhance ? `★${currentStars} → ★${currentStars + 1} 강화하기` : '강화석 부족'}
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-center py-8 flex flex-col items-center gap-3">
+                    <Stars count={5} size="lg" />
+                    <div className="text-amber-400 font-extrabold text-xl">🌟 최고 강화 달성!</div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ─── CONFIRM: 강화하시겠습니까? ─── */}
+            {stage === 'confirm' && cfg && (
+              <div className="space-y-4">
+                <div className="bg-slate-800 rounded-2xl p-5 border border-amber-600/40 text-center">
+                  <div className="text-amber-400 font-extrabold text-base mb-4">⚠️ 강화하시겠습니까?</div>
+                  <div className="flex items-center justify-center gap-4 mb-4">
+                    <div className="text-center">
+                      <div className="text-xs text-slate-400 mb-2">현재</div>
+                      <Stars count={currentStars} size="lg" />
+                    </div>
+                    <div className="text-slate-300 text-2xl font-bold">→</div>
+                    <div className="text-center">
+                      <div className="text-xs text-amber-400 mb-2 font-bold">강화 후</div>
+                      <Stars count={currentStars + 1} size="lg" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 text-sm">
+                    <div className="text-slate-400">
+                      강화석 <span className="text-sky-400 font-extrabold">{cfg.stones}개</span> 소모
+                    </div>
+                    <div className="text-slate-400">
+                      성공 확률
+                      <span className={`font-extrabold ml-1
+                        ${cfg.rate >= 0.6 ? 'text-emerald-400' : cfg.rate >= 0.3 ? 'text-amber-400' : 'text-rose-400'}`}>
+                        {(cfg.rate * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="text-rose-400 text-xs mt-2">실패 시 강화석만 소모됩니다</div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={() => setStage('idle')}
+                    className="py-3.5 rounded-2xl font-extrabold text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors active:scale-95">
+                    취소
+                  </button>
+                  <button onClick={() => setStage('loading')}
+                    className="py-3.5 rounded-2xl font-extrabold text-sm bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 text-white shadow-lg active:scale-95 transition-all">
+                    ⚒️ 강화 시작
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ─── LOADING: 5초 게이지 ─── */}
+            {stage === 'loading' && (
+              <div className="space-y-5 py-2">
+                <div className="text-center space-y-1">
+                  <div className="text-white font-extrabold text-xl animate-pulse">⚒️ 강화 중...</div>
+                  <div className="text-slate-500 text-xs">잠시 기다려주세요</div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="relative h-7 bg-slate-800 rounded-full overflow-hidden border border-slate-700 shadow-inner">
+                    <div className="gauge-bar-5s h-full rounded-full bg-gradient-to-r from-sky-500 via-amber-400 to-orange-500 shadow-lg"
+                      onAnimationEnd={doEnhanceResult} />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xs font-extrabold text-white drop-shadow">강화 중...</span>
+                    </div>
+                    {/* 빛 흐르는 효과 */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent
+                      animate-pulse rounded-full pointer-events-none" />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-slate-500">
+                    <span>★{currentStars}</span>
+                    <span>★{currentStars + 1}</span>
+                  </div>
+                </div>
+
+                <div className="flex justify-center gap-1">
+                  {[0,1,2].map(i => (
+                    <div key={i} className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce"
+                      style={{ animationDelay: `${i * 0.15}s` }} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ─── RESULT ─── */}
+            {stage === 'result' && (
+              <div className="space-y-4">
+                {result === 'success' ? (
+                  <div className="bg-amber-900/40 border border-amber-600/50 rounded-2xl p-5 text-center">
+                    <div className="text-4xl mb-2">✨</div>
+                    <div className="text-amber-400 font-extrabold text-2xl mb-1">강화 성공!</div>
+                    <div className="text-amber-300 text-sm mb-4">★{currentStars - 1} → ★{currentStars} 달성!</div>
+                    <div className="flex justify-center">
+                      <Stars count={currentStars} size="lg" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-rose-900/40 border border-rose-700/50 rounded-2xl p-5 text-center">
+                    <div className="text-4xl mb-2">💔</div>
+                    <div className="text-rose-400 font-extrabold text-2xl mb-1">강화 실패</div>
+                    <div className="text-rose-300 text-sm">강화석이 사라졌습니다...</div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  {result === 'fail' && (
+                    <button onClick={() => { setStage('idle'); setResult(null); }}
+                      className="py-3.5 rounded-2xl font-extrabold text-sm bg-amber-600 hover:bg-amber-500 text-white transition-colors active:scale-95">
+                      다시 시도
+                    </button>
+                  )}
+                  <button onClick={onClose}
+                    className={`py-3.5 rounded-2xl font-extrabold text-sm bg-slate-700 hover:bg-slate-600 text-white transition-colors active:scale-95
+                      ${result === 'success' ? 'col-span-2' : ''}`}>
+                    {result === 'success' ? '✅ 확인' : '닫기'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -192,7 +401,6 @@ function BuyStoneModal({ diamonds, onBuy, onClose }) {
             <div className="text-xs text-slate-400">강화석 1개 = 💎 100 다이아</div>
           </div>
 
-          {/* 수량 조절 */}
           <div>
             <label className="text-xs text-slate-400 block mb-2">구매 수량</label>
             <div className="flex items-center gap-3">
@@ -214,7 +422,6 @@ function BuyStoneModal({ diamonds, onBuy, onClose }) {
             </div>
           </div>
 
-          {/* 비용 */}
           <div className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 flex justify-between items-center">
             <span className="text-slate-400 text-sm">합계</span>
             <span className={`font-extrabold text-lg ${canBuy ? 'text-cyan-400' : 'text-rose-400'}`}>
@@ -306,8 +513,7 @@ export default function Equipment({ studentCode }) {
 
   const buyStones = async (qty) => {
     if (!studentDocId) return;
-    const cost       = qty * 100;
-    const newDiamonds = diamonds - cost;
+    const newDiamonds = diamonds - qty * 100;
     const newStones   = stones + qty;
     setDiamonds(newDiamonds);
     setStones(newStones);
@@ -315,7 +521,6 @@ export default function Equipment({ studentCode }) {
     await updateDoc(doc(db, 'students', studentDocId), { diamonds: newDiamonds, enhancementStones: newStones });
   };
 
-  // 장비 보너스 합산
   const equipBonus = Object.keys(STAT_LABEL).reduce((acc, key) => {
     acc[key] = Object.values(equipped).reduce((sum, invId) => {
       const inv  = getInvItem(invId);
@@ -339,7 +544,7 @@ export default function Equipment({ studentCode }) {
   return (
     <div className="min-h-full bg-slate-100">
 
-      {/* ── 헤더 ── */}
+      {/* 헤더 */}
       <div className="bg-gradient-to-b from-slate-800 to-slate-900 px-5 py-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-extrabold text-white tracking-wide">⚔️ 장비</h1>
@@ -370,11 +575,10 @@ export default function Equipment({ studentCode }) {
         {tab === 'equip' && (
           <div className="space-y-3">
 
-            {/* 장착 슬롯 */}
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-extrabold text-slate-700 text-sm">장착 슬롯</h3>
-                <span className="text-[10px] text-slate-400">슬롯 탭 → 변경 · ⚒️ → 강화</span>
+                <span className="text-[10px] text-slate-400">탭 → 변경  ·  ⚒️ → 강화</span>
               </div>
               <div className="grid grid-cols-3 gap-2.5">
                 {SLOTS.map(slot => {
@@ -382,13 +586,13 @@ export default function Equipment({ studentCode }) {
                   const invItem = invId ? getInvItem(invId) : null;
                   const item    = invItem ? getItem(invItem.itemId) : null;
                   const g       = item ? (GRADE[item.grade] || GRADE.common) : null;
-                  const isSelected = selectedSlot === slot.key;
+                  const isSel   = selectedSlot === slot.key;
                   return (
-                    <div key={slot.key} className="flex flex-col gap-1">
+                    <div key={slot.key} className="flex flex-col gap-1.5">
                       <button
                         onClick={() => setSelectedSlot(prev => prev === slot.key ? null : slot.key)}
-                        className={`rounded-2xl border-2 flex flex-col items-center justify-center p-3 transition-all active:scale-95 min-h-[108px]
-                          ${isSelected
+                        className={`rounded-2xl border-2 flex flex-col items-center justify-center p-3 transition-all active:scale-95 min-h-[112px]
+                          ${isSel
                             ? 'border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-100'
                             : item
                               ? `${g.border} ${g.bg} hover:shadow-md`
@@ -401,9 +605,10 @@ export default function Equipment({ studentCode }) {
                                 : <span className="text-2xl">{slot.icon}</span>}
                             </div>
                             <div className="text-[9px] font-extrabold text-slate-700 truncate w-full text-center mt-1 leading-tight">{item.name}</div>
-                            <div className="flex gap-px mt-0.5">
+                            <div className="flex gap-px mt-1">
                               {Array.from({ length: 5 }, (_, i) => (
-                                <span key={i} className={`text-[8px] ${i < (invItem?.stars || 0) ? 'text-amber-400' : 'text-slate-200'}`}>★</span>
+                                <img key={i} src={STAR_IMG} alt="★"
+                                  className={`w-3 h-3 object-contain ${i < (invItem?.stars || 0) ? 'opacity-100' : 'opacity-10 grayscale'}`} />
                               ))}
                             </div>
                             <span className={`text-[7px] font-extrabold px-1.5 py-0.5 rounded-full mt-1 ${g.badge}`}>{g.label}</span>
@@ -416,11 +621,12 @@ export default function Equipment({ studentCode }) {
                           </>
                         )}
                       </button>
-                      {/* 강화 버튼 (장착 중일 때만) */}
+                      {/* 강화 버튼 - 더 크게 */}
                       {item && invItem && (
                         <button onClick={() => setEnhanceTarget(invItem)}
-                          className="w-full py-1.5 rounded-xl text-[9px] font-extrabold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition-colors active:scale-95">
-                          ⚒️ 강화하기 ★{invItem.stars || 0}
+                          className="w-full py-2.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 text-white shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1">
+                          <img src={STAR_IMG} className="w-3.5 h-3.5" alt="" />
+                          강화하기 ★{invItem.stars || 0}
                         </button>
                       )}
                     </div>
@@ -429,7 +635,6 @@ export default function Equipment({ studentCode }) {
               </div>
             </div>
 
-            {/* 슬롯 선택 → 교체 아이템 목록 */}
             {selectedSlot && (
               <div className="bg-white rounded-3xl shadow-sm border border-indigo-200 p-4">
                 <div className="flex items-center justify-between mb-3">
@@ -462,7 +667,6 @@ export default function Equipment({ studentCode }) {
               </div>
             )}
 
-            {/* 장비 보너스 스탯 */}
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-4">
               <h3 className="font-extrabold text-slate-700 text-sm mb-3">⚡ 장비 보너스</h3>
               <div className="grid grid-cols-2 gap-2">
@@ -519,9 +723,10 @@ export default function Equipment({ studentCode }) {
                     <div key={inv.id} className="flex flex-col gap-1.5">
                       <EquipCard item={item} stars={inv.stars} isEquipped={isEq} onClick={() => toggleEquip(inv)} />
                       <button onClick={() => setEnhanceTarget(inv)}
-                        className="w-full py-1.5 rounded-xl text-[10px] font-extrabold transition-colors border
-                          bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 active:scale-95">
-                        ⚒️ 강화 ({inv.stars || 0}/5)
+                        className="w-full py-2.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 flex items-center justify-center gap-1
+                          bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 text-white shadow-sm">
+                        <img src={STAR_IMG} className="w-3.5 h-3.5" alt="" />
+                        강화 ({inv.stars || 0}/5)
                       </button>
                     </div>
                   );
@@ -532,7 +737,6 @@ export default function Equipment({ studentCode }) {
         )}
       </div>
 
-      {/* 강화 모달 */}
       {enhanceTarget && (
         <EnhanceModal
           invItem={enhanceTarget}
@@ -543,7 +747,6 @@ export default function Equipment({ studentCode }) {
         />
       )}
 
-      {/* 강화석 구매 모달 */}
       {showBuyStone && (
         <BuyStoneModal
           diamonds={diamonds}
