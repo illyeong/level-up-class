@@ -52,14 +52,12 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
     const teacherUid = selectedClass?.teacherUid;
     if (!teacherUid) return;
     try {
-      const q = query(
-        collection(db, 'quests'),
-        where('teacherUid', '==', teacherUid),
-        where('active', '==', true)
+      const questsSnap = await getDocs(
+        query(collection(db, 'quests'), where('teacherUid', '==', teacherUid))
       );
-      const questsSnap = await getDocs(q);
       const activeQuests = questsSnap.docs
         .map(d => ({ id: d.id, ...d.data() }))
+        .filter(q => q.active)
         .sort((a, b) => {
           if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
           return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
@@ -210,13 +208,6 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
         </div>
         
         <div className="flex flex-wrap gap-2">
-          {onStudentTestLogin && (
-            <button
-              onClick={() => onStudentTestLogin('SINSEOK-5-15')}
-              className="flex items-center gap-1.5 bg-amber-400 hover:bg-amber-500 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm mr-1">
-              🧪 SINSEOK-5-15 학생 테스트
-            </button>
-          )}
           <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors mr-2 text-sm">
             📋 지급/차감 내역 보기
           </button>

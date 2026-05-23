@@ -401,8 +401,19 @@ function QuestionCard({ q, idx, onChange, onDelete, onTypeChange }) {
 
 // ─────────────────────── Main ─────────────────────────────────
 function QuizDungeonManage() {
-  const [tab, setTab]           = useState('create'); // 'create' | 'dungeons'
+  const [tab, setTab]           = useState('create'); // 'create' | 'manual' | 'dungeons'
   const [step, setStep]         = useState('form');   // 'form' | 'preview'
+
+  // ── 직접 출제 탭 state ──────────────────────────────────────
+  const [manualTitle, setManualTitle]             = useState('');
+  const [manualQuestions, setManualQuestions]     = useState([]);
+  const [newQType, setNewQType]                   = useState('choice'); // 'choice' | 'short'
+  const [newQText, setNewQText]                   = useState('');
+  const [newOptions, setNewOptions]               = useState(['', '', '', '']);
+  const [newAnswer, setNewAnswer]                 = useState(0);
+  const [newShortAnswer, setNewShortAnswer]       = useState('');
+  const [newExplanation, setNewExplanation]       = useState('');
+  const [isManualPublishing, setIsManualPublishing] = useState(false);
 
   // 폼 상태
   const [grade, setGrade]       = useState('');
@@ -687,6 +698,86 @@ function QuizDungeonManage() {
     setDungeons(prev => prev.filter(d => d.id !== id));
   };
 
+  // ── 직접 출제: 문제 추가 ─────────────────────────────────────
+  const handleAddManualQuestion = () => {
+    if (!newQText.trim()) return alert('문제 내용을 입력해주세요.');
+    if (newQType === 'choice') {
+      const filledOptions = newOptions.filter(o => o.trim());
+      if (filledOptions.length < 2) return alert('선택지를 2개 이상 입력해주세요.');
+      setManualQuestions(prev => [...prev, {
+        type: 'choice',
+        question: newQText.trim(),
+        options: newOptions.map(o => o.trim()),
+        answer: newAnswer,
+        explanation: newExplanation.trim(),
+      }]);
+    } else {
+      if (!newShortAnswer.trim()) return alert('정답을 입력해주세요.');
+      setManualQuestions(prev => [...prev, {
+        type: 'short',
+        question: newQText.trim(),
+        options: [],
+        answer: newShortAnswer.trim(),
+        explanation: newExplanation.trim(),
+      }]);
+    }
+    // 폼 초기화
+    setNewQText('');
+    setNewOptions(['', '', '', '']);
+    setNewAnswer(0);
+    setNewShortAnswer('');
+    setNewExplanation('');
+  };
+
+  const handleDeleteManualQuestion = (idx) => {
+    setManualQuestions(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // ── 직접 출제: 발행 ──────────────────────────────────────────
+  const handleManualPublish = async () => {
+    if (!manualTitle.trim()) return alert('던전 제목을 입력해주세요.');
+    if (manualQuestions.length === 0) return alert('문제가 없습니다.');
+    if (!window.confirm(`"${manualTitle.trim()}"을 발행하시겠습니까?\n학생들이 바로 접근할 수 있습니다.`)) return;
+
+    setIsManualPublishing(true);
+    try {
+      await addDoc(collection(db, 'quizDungeons'), {
+        title:         manualTitle.trim(),
+        grade:         grade ? parseInt(grade) : null,
+        semester:      semester ? parseInt(semester) : null,
+        subject:       subject || '',
+        publisher:     '',
+        difficulty,
+        monsterId:     'random',
+        monsterIds:    null,
+        timeLimit:     null,
+        rewards:       DIFF_REWARDS[difficulty] || DIFF_REWARDS.normal,
+        questions:     manualQuestions,
+        questionCount: manualQuestions.length,
+        active:        true,
+        playCount:     0,
+        teacherUid:    null,
+        createdAt:     serverTimestamp(),
+      });
+      alert('✅ 퀴즈 던전이 발행되었습니다!');
+      // 초기화
+      setManualTitle('');
+      setManualQuestions([]);
+      setNewQText('');
+      setNewOptions(['', '', '', '']);
+      setNewAnswer(0);
+      setNewShortAnswer('');
+      setNewExplanation('');
+      setTab('dungeons');
+      fetchDungeons();
+    } catch (err) {
+      console.error(err);
+      alert('발행 중 오류가 발생했습니다.');
+    } finally {
+      setIsManualPublishing(false);
+    }
+  };
+
   const DIFF_COLOR = { easy: 'text-emerald-600 bg-emerald-50', normal: 'text-amber-600 bg-amber-50', hard: 'text-rose-600 bg-rose-50' };
   const DIFF_LABEL = { easy: '쉬움', normal: '보통', hard: '어려움' };
 
@@ -701,11 +792,11 @@ function QuizDungeonManage() {
             <p className="text-slate-500 text-sm mt-0.5">AI가 수업 자료를 퀴즈로 자동 변환합니다.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {['create', 'dungeons'].map((t, i) => (
+            {['create', 'manual', 'dungeons'].map((t, i) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors
                   ${tab === t ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200'}`}>
-                {['🤖 AI 퀴즈 생성', `📚 발행된 던전 (${dungeons.length})`][i]}
+                {['🤖 AI 퀴즈 생성', '✏️ 직접 출제', `📚 발행된 던전 (${dungeons.length})`][i]}
               </button>
             ))}
           </div>
@@ -1063,6 +1154,192 @@ function QuizDungeonManage() {
                 </button>
               </>
             )}
+          </div>
+        )}
+
+        {/* ── 직접 출제 탭 ── */}
+        {tab === 'manual' && (
+          <div className="space-y-5">
+
+            {/* 설정 카드 */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+              <h2 className="font-bold text-slate-700 text-sm mb-4">📌 던전 설정</h2>
+              <div className="space-y-3">
+                {/* 던전 제목 */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">던전 제목 *</label>
+                  <input
+                    value={manualTitle}
+                    onChange={e => setManualTitle(e.target.value)}
+                    placeholder="던전 제목을 입력하세요"
+                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {/* 학년 */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">학년</label>
+                    <select value={grade} onChange={e => { setGrade(e.target.value); setSubject(''); }}
+                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+                      <option value="">선택</option>
+                      {[1,2,3,4,5,6].map(g => <option key={g} value={g}>{g}학년</option>)}
+                    </select>
+                  </div>
+                  {/* 과목 */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">과목</label>
+                    <select value={subject} onChange={e => setSubject(e.target.value)}
+                      disabled={!grade}
+                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-50">
+                      <option value="">선택</option>
+                      {(grade ? CURRICULUM[parseInt(grade)]?.subjects || [] : []).map(s => (
+                        <option key={s.name} value={s.name}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* 난이도 */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">난이도</label>
+                    <div className="flex rounded-xl border-2 border-slate-200 overflow-hidden">
+                      {DIFF_OPTIONS.map(d => (
+                        <button key={d.value} onClick={() => handleDifficultyChange(d.value)}
+                          className={`flex-1 py-2 text-xs font-bold transition-colors
+                            ${difficulty === d.value ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+                          {d.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 문제 추가 카드 */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+              <h2 className="font-bold text-slate-700 text-sm mb-4">➕ 문제 추가</h2>
+
+              {/* 타입 토글 */}
+              <div className="flex rounded-xl border-2 border-slate-200 overflow-hidden mb-4 w-fit">
+                <button
+                  onClick={() => setNewQType('choice')}
+                  className={`px-5 py-2 text-sm font-bold transition-colors
+                    ${newQType === 'choice' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+                  객관식
+                </button>
+                <button
+                  onClick={() => setNewQType('short')}
+                  className={`px-5 py-2 text-sm font-bold transition-colors
+                    ${newQType === 'short' ? 'bg-amber-500 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+                  주관식
+                </button>
+              </div>
+
+              {/* 문제 텍스트 */}
+              <div className="mb-3">
+                <label className="block text-xs font-bold text-slate-500 mb-1">문제 내용 *</label>
+                <textarea
+                  value={newQText}
+                  onChange={e => setNewQText(e.target.value)}
+                  placeholder="문제 내용을 입력하세요"
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:border-indigo-400"
+                />
+              </div>
+
+              {/* 객관식: 선택지 + 정답 라디오 */}
+              {newQType === 'choice' && (
+                <div className="mb-3">
+                  <label className="block text-xs font-bold text-slate-500 mb-2">선택지 (정답 라디오 클릭)</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {newOptions.map((opt, oi) => (
+                      <div key={oi} className={`flex items-center gap-2 rounded-xl border px-3 py-2
+                        ${newAnswer === oi ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200'}`}>
+                        <button
+                          onClick={() => setNewAnswer(oi)}
+                          className={`w-4 h-4 rounded-full border-2 shrink-0 transition-colors
+                            ${newAnswer === oi ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'}`}
+                        />
+                        <input
+                          value={opt}
+                          onChange={e => {
+                            const updated = [...newOptions];
+                            updated[oi] = e.target.value;
+                            setNewOptions(updated);
+                          }}
+                          className="flex-1 text-sm bg-transparent focus:outline-none"
+                          placeholder={`보기 ${oi + 1}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-1">초록 라디오 = 정답 선택</div>
+                </div>
+              )}
+
+              {/* 주관식: 정답 입력 */}
+              {newQType === 'short' && (
+                <div className="mb-3">
+                  <label className="block text-xs font-bold text-slate-500 mb-1">정답 *</label>
+                  <input
+                    value={newShortAnswer}
+                    onChange={e => setNewShortAnswer(e.target.value)}
+                    placeholder="정답 텍스트 (짧은 단어/구문)"
+                    className="w-full border-2 border-amber-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400"
+                  />
+                  <div className="text-[10px] text-slate-400 mt-0.5">학생 답변과 대소문자 구분 없이 비교됩니다</div>
+                </div>
+              )}
+
+              {/* 해설 */}
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-slate-500 mb-1">해설 (선택)</label>
+                <input
+                  value={newExplanation}
+                  onChange={e => setNewExplanation(e.target.value)}
+                  placeholder="해설을 입력하세요 (생략 가능)"
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+                />
+              </div>
+
+              <button
+                onClick={handleAddManualQuestion}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-2xl transition-colors active:scale-[0.99]">
+                + 문제 추가하기
+              </button>
+            </div>
+
+            {/* 추가된 문제 목록 */}
+            {manualQuestions.length > 0 && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <h2 className="font-bold text-slate-700 text-sm mb-4">
+                  📋 추가된 문제 ({manualQuestions.length}개)
+                </h2>
+                <div className="space-y-2">
+                  {manualQuestions.map((q, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                      <span className="text-xs font-extrabold text-slate-400 mt-0.5 shrink-0">Q{idx + 1}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 mt-0.5
+                        ${q.type === 'choice' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {q.type === 'choice' ? '객관식' : '주관식'}
+                      </span>
+                      <span className="flex-1 text-sm text-slate-700 leading-snug line-clamp-2">{q.question}</span>
+                      <button
+                        onClick={() => handleDeleteManualQuestion(idx)}
+                        className="text-xs text-rose-400 hover:text-rose-600 font-bold transition-colors shrink-0">
+                        삭제
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 발행 버튼 */}
+            <button
+              onClick={handleManualPublish}
+              disabled={isManualPublishing || manualQuestions.length === 0 || !manualTitle.trim()}
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-lg rounded-2xl shadow-md transition-all active:scale-[0.99] disabled:opacity-40">
+              {isManualPublishing ? '발행 중...' : `✅ "${manualTitle.trim() || '퀴즈 던전'}" 발행하기`}
+            </button>
           </div>
         )}
 

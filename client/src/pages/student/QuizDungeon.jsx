@@ -438,93 +438,108 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
 
       {/* ── 전투 씬 ── */}
       <div className="relative shrink-0 overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800"
-           style={{ height: '45vh', minHeight: '240px' }}>
+           style={{ height: '55vh', minHeight: '300px' }}>
+
+        {/* 배경 파티클 효과 */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="absolute rounded-full bg-indigo-500/10 animate-pulse"
+              style={{
+                width: `${40 + i * 20}px`, height: `${40 + i * 20}px`,
+                left: `${10 + i * 14}%`, bottom: `${20 + (i % 3) * 10}%`,
+                animationDelay: `${i * 0.4}s`, animationDuration: `${2 + i * 0.5}s`,
+              }} />
+          ))}
+        </div>
 
         {/* 바닥 그라데이션 */}
-        <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-slate-800/70 to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none" />
+        {/* 바닥 라인 */}
+        <div className="absolute inset-x-0 bottom-14 h-px bg-indigo-500/20" />
 
-        {/* ── 캐릭터 배치 (중앙 flex) ── */}
-        <div className="absolute inset-0 flex items-end justify-center pb-3 gap-6">
-
-          {/* 플레이어 (좌) */}
-          <div className={`flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}>
-            <div style={{ width: 96 }} className="mb-1.5">
-              <div className="flex justify-between text-[9px] mb-0.5">
-                <span className="text-slate-300 font-bold truncate max-w-[52px]">{playerData?.name || '나'}</span>
-                <span className="text-emerald-400 font-bold">{playerHP}</span>
-              </div>
-              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(pHPpct)}`}
-                  style={{ width: `${pHPpct}%` }} />
-              </div>
+        {/* ── 플레이어 (좌 절대위치) ── */}
+        <div className={`absolute left-[8%] bottom-4 flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}>
+          {/* HP 바 */}
+          <div style={{ width: 120 }} className="mb-2">
+            <div className="flex justify-between text-[10px] mb-1">
+              <span className="text-sky-300 font-bold truncate max-w-[72px]">{playerData?.name || '나'}</span>
+              <span className="text-emerald-400 font-extrabold">{playerHP}</span>
             </div>
-            <div className="flex items-end justify-center" style={{ height: 100 }}>
-              {playerData?.characterImage
-                ? <img src={playerData.characterImage} alt=""
-                    style={{ height: 100, width: 100, objectFit: 'contain', imageRendering: 'pixelated', transform: 'scale(2.2)', transformOrigin: 'bottom center' }} />
-                : <span className="text-6xl leading-none">🧙‍♂️</span>}
+            <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+              <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(pHPpct)}`}
+                style={{ width: `${pHPpct}%` }} />
             </div>
           </div>
+          {/* 캐릭터 */}
+          <div style={{ height: 130, width: 130 }} className="flex items-end justify-center">
+            {playerData?.characterImage
+              ? <img src={playerData.characterImage} alt=""
+                  style={{ height: 130, width: 130, objectFit: 'contain', imageRendering: 'pixelated', transform: 'scale(2.6)', transformOrigin: 'bottom center' }} />
+              : <span className="text-8xl leading-none">🧙‍♂️</span>}
+          </div>
+        </div>
 
-          {/* 중앙 ⚔️ */}
-          <div className="pb-8 shrink-0 select-none text-2xl text-slate-600/80 font-extrabold">⚔️</div>
+        {/* 중앙 VS */}
+        <div className="absolute left-1/2 bottom-[45%] -translate-x-1/2 select-none">
+          <span className="text-slate-500/60 font-extrabold text-3xl tracking-widest">VS</span>
+        </div>
 
-          {/* 몬스터 (우) */}
-          <div className="flex flex-col items-center">
-            <div style={{ width: 112 }} className="mb-1.5">
-              <div className="flex justify-between text-[9px] mb-0.5">
-                <span className="text-slate-300 font-bold truncate max-w-[72px]">{monsterData?.name || monsterMeta.name}</span>
-                <span className="text-rose-400 font-bold">{waveMonsterHP}</span>
-              </div>
-              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(mHPpct)}`}
-                  style={{ width: `${mHPpct}%` }} />
-              </div>
+        {/* ── 몬스터 (우 절대위치) ── */}
+        <div className="absolute right-[8%] bottom-4 flex flex-col items-center">
+          {/* HP 바 */}
+          <div style={{ width: 140 }} className="mb-2">
+            <div className="flex justify-between text-[10px] mb-1">
+              <span className="text-rose-300 font-bold truncate max-w-[90px]">{monsterData?.name || monsterMeta.name}</span>
+              <span className="text-rose-400 font-extrabold">{waveMonsterHP}</span>
             </div>
-            <div className="flex items-end justify-center" style={{ height: 190 }}>
-              {monsterData ? (
-                <SpriteMonster
-                  data={monsterData}
-                  anim={monsterAnim}
-                  flash={monsterFlash}
-                  scale={Math.min(monsterData.scale * 1.3, 190 / monsterData.frameHeight)}
-                />
-              ) : (
-                <span className="text-7xl leading-none"
-                  style={{ filter: monsterFlash ? 'brightness(4) saturate(0)' : undefined }}>
-                  {monsterMeta.emoji}
-                </span>
-              )}
+            <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+              <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(mHPpct)}`}
+                style={{ width: `${mHPpct}%` }} />
             </div>
           </div>
-
+          {/* 몬스터 */}
+          <div style={{ height: 230, width: 180 }} className="flex items-end justify-center">
+            {monsterData ? (
+              <SpriteMonster
+                data={monsterData}
+                anim={monsterAnim}
+                flash={monsterFlash}
+                scale={Math.min(monsterData.scale * 1.7, 230 / monsterData.frameHeight)}
+              />
+            ) : (
+              <span className="text-8xl leading-none"
+                style={{ filter: monsterFlash ? 'brightness(4) saturate(0)' : undefined }}>
+                {monsterMeta.emoji}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* ── 플로팅 데미지 ── */}
         {floats.filter(f => f.isPlayer).map(f => (
           <div key={f.id}
-            className="absolute font-extrabold text-xl text-rose-400 pointer-events-none animate-float-up z-20"
-            style={{ left: '28%', bottom: 90, textShadow: '0 0 8px rgba(248,113,113,0.9)' }}>
+            className="absolute font-extrabold text-2xl text-rose-400 pointer-events-none animate-float-up z-20"
+            style={{ left: '20%', bottom: 120, textShadow: '0 0 10px rgba(248,113,113,0.9)' }}>
             {f.text}
           </div>
         ))}
         {floats.filter(f => !f.isPlayer).map(f => (
           <div key={f.id}
-            className="absolute font-extrabold text-xl text-yellow-300 pointer-events-none animate-float-up z-20"
-            style={{ right: '28%', bottom: 90, textShadow: '0 0 8px rgba(251,191,36,0.9)' }}>
+            className="absolute font-extrabold text-2xl text-yellow-300 pointer-events-none animate-float-up z-20"
+            style={{ right: '18%', bottom: 140, textShadow: '0 0 10px rgba(251,191,36,0.9)' }}>
             {f.text}
           </div>
         ))}
 
         {/* HIT / 빗나감 */}
         {answered === 'correct' && (
-          <div className="absolute top-3 right-[30%] text-yellow-300 font-extrabold text-lg animate-bounce">💥 HIT!</div>
+          <div className="absolute top-4 right-[25%] text-yellow-300 font-extrabold text-2xl animate-bounce drop-shadow-lg">💥 HIT!</div>
         )}
         {answered === 'wrong' && (
-          <div className="absolute top-3 left-[25%] text-rose-400 font-extrabold text-sm animate-bounce">😵 빗나감!</div>
+          <div className="absolute top-4 left-[18%] text-rose-400 font-extrabold text-lg animate-bounce">😵 빗나감!</div>
         )}
         {answered === 'timeout' && (
-          <div className="absolute top-3 left-[25%] text-rose-400 font-extrabold text-sm animate-bounce">⏰ 시간 초과!</div>
+          <div className="absolute top-4 left-[18%] text-rose-400 font-extrabold text-lg animate-bounce">⏰ 시간 초과!</div>
         )}
       </div>
 

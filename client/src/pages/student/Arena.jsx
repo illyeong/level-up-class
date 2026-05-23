@@ -489,16 +489,16 @@ function CharacterCard({ student, label, isMe, highlight, rank }) {
       </div>
 
       {/* 스탯 */}
-      <div className="w-full space-y-1.5">
+      <div className="w-full space-y-2.5 mt-1">
         {STAT_META.map(s => (
-          <div key={s.key} className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 flex items-center gap-1">
+          <div key={s.key} className="flex items-center justify-between">
+            <span className="text-slate-400 flex items-center gap-1.5 text-sm font-bold">
               {s.img
-                ? <img src={s.img} alt="" className="w-4 h-4 object-contain" />
-                : <span>{s.icon}</span>}
+                ? <img src={s.img} alt="" className="w-5 h-5 object-contain" />
+                : <span className="text-base">{s.icon}</span>}
               {s.label}
             </span>
-            <span className="font-extrabold text-white">{stats[s.key]}</span>
+            <span className="font-extrabold text-white text-2xl">{stats[s.key]}</span>
           </div>
         ))}
       </div>
@@ -508,9 +508,79 @@ function CharacterCard({ student, label, isMe, highlight, rank }) {
 
 // ── 결과 화면 ─────────────────────────────────────────────────
 function ResultScreen({ isWin, opponent, reward, onClose }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!isWin) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext('2d');
+
+    const COLORS = ['#FFD700','#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#FF9F43'];
+    const SHAPES = ['circle','star','rect'];
+    const particles = Array.from({ length: 120 }, () => ({
+      x: Math.random() * canvas.width,
+      y: -20 - Math.random() * 200,
+      vx: (Math.random() - 0.5) * 4,
+      vy: 1.5 + Math.random() * 4,
+      size: 6 + Math.random() * 10,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      shape: SHAPES[Math.floor(Math.random() * SHAPES.length)],
+      rot: Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 0.2,
+      opacity: 1,
+    }));
+
+    let raf;
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let alive = false;
+      particles.forEach(p => {
+        p.x  += p.vx;
+        p.y  += p.vy;
+        p.vy += 0.08;
+        p.rot += p.rotV;
+        if (p.y < canvas.height + 20) { alive = true; p.opacity = Math.max(0, 1 - p.y / canvas.height); }
+        ctx.save();
+        ctx.globalAlpha = p.opacity;
+        ctx.fillStyle   = p.color;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        if (p.shape === 'circle') {
+          ctx.beginPath(); ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2); ctx.fill();
+        } else if (p.shape === 'rect') {
+          ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        } else {
+          // star
+          ctx.beginPath();
+          for (let i = 0; i < 5; i++) {
+            const a = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+            const b = (i * 4 * Math.PI) / 5 + Math.PI / 5 - Math.PI / 2;
+            if (i === 0) ctx.moveTo(Math.cos(a) * p.size / 2, Math.sin(a) * p.size / 2);
+            else ctx.lineTo(Math.cos(a) * p.size / 2, Math.sin(a) * p.size / 2);
+            ctx.lineTo(Math.cos(b) * p.size / 4, Math.sin(b) * p.size / 4);
+          }
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+      });
+      if (alive) raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [isWin]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-slate-900 rounded-3xl p-8 w-full max-w-sm text-center border border-slate-700 shadow-2xl">
+      {isWin && (
+        <canvas ref={canvasRef}
+          className="absolute inset-0 pointer-events-none"
+          style={{ width: '100%', height: '100%' }} />
+      )}
+      <div className={`relative bg-slate-900 rounded-3xl p-8 w-full max-w-sm text-center border shadow-2xl
+        ${isWin ? 'border-yellow-600/60 shadow-yellow-900/40' : 'border-slate-700'}`}>
         <div className="text-6xl mb-4">{isWin ? '🏆' : '💀'}</div>
         <h2 className={`text-3xl font-extrabold mb-2 ${isWin ? 'text-yellow-400' : 'text-slate-400'}`}>
           {isWin ? '승리!' : '패배'}

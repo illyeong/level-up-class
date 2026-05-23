@@ -27,11 +27,70 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
   if (!item) return null;
   const statEntries = Object.entries(STAT_LABEL).filter(([key]) => (item.stats?.[key] || 0) > 0);
   const enhBonus = (stars || 0) * 5;
+
+  // ── compact=false : 가로(이미지 왼쪽 + 정보 오른쪽) 레이아웃 ──
+  if (!compact) {
+    return (
+      <button onClick={onClick}
+        className={`relative flex flex-row items-stretch rounded-2xl border-2 transition-all active:scale-95 text-left
+          ${g.border} ${g.bg} p-3 gap-3
+          ${isEquipped ? 'ring-2 ring-indigo-500 ring-offset-2 shadow-lg' : 'hover:shadow-md hover:-translate-y-0.5'}
+          ${item.grade === 'legendary' ? 'shadow-amber-100 shadow-md' : ''}
+          ${item.grade === 'epic'      ? 'shadow-violet-100 shadow-md' : ''}`}>
+
+        {/* 등급 뱃지 - 우측 상단 */}
+        <span className={`absolute top-1 right-1 text-xs font-extrabold px-2 py-0.5 rounded-full ${g.badge}`}>
+          {g.label}
+        </span>
+        {isEquipped && (
+          <span className="absolute top-1 left-1 text-[8px] bg-indigo-600 text-white px-1.5 py-0.5 rounded-full font-bold">착용</span>
+        )}
+
+        {/* 왼쪽: 이미지 */}
+        <div className="w-20 h-20 shrink-0 flex items-center justify-center bg-white/40 rounded-xl overflow-hidden shadow-sm">
+          {item.image
+            ? <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-sm" />
+            : <span className="text-4xl">{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>}
+        </div>
+
+        {/* 오른쪽: 이름 / 별 / 스탯 */}
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 pr-1 pt-4">
+          <div className="font-extrabold text-slate-800 text-sm leading-tight truncate">{item.name}</div>
+          <Stars count={stars} size="sm" />
+          {statEntries.length > 0 && (
+            <div className="space-y-0.5 mt-0.5">
+              {statEntries.map(([key, meta]) => {
+                const base  = item.stats[key];
+                const total = base + enhBonus;
+                return (
+                  <div key={key} className="flex items-center justify-between">
+                    <div className="flex items-center gap-0.5">
+                      {meta.img
+                        ? <img src={meta.img} alt="" className="w-3.5 h-3.5 object-contain" />
+                        : <span className="text-xs">{meta.icon}</span>}
+                      <span className="text-slate-500 text-sm">{meta.label}</span>
+                    </div>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <span className="font-extrabold text-indigo-600 text-sm">+{total}</span>
+                      {enhBonus > 0 && (
+                        <span className="text-amber-500 font-bold text-xs">(★+{enhBonus})</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </button>
+    );
+  }
+
+  // ── compact=true : 기존 세로 레이아웃 유지 ──
   return (
     <button onClick={onClick}
       className={`relative flex flex-col items-center rounded-2xl border-2 transition-all active:scale-95
-        ${g.border} ${g.bg}
-        ${compact ? 'p-2 gap-1' : 'p-3 gap-2'}
+        ${g.border} ${g.bg} p-2 gap-1
         ${isEquipped ? 'ring-2 ring-indigo-500 ring-offset-2 shadow-lg' : 'hover:shadow-md hover:-translate-y-0.5'}
         ${item.grade === 'legendary' ? 'shadow-amber-100 shadow-md' : ''}
         ${item.grade === 'epic'      ? 'shadow-violet-100 shadow-md' : ''}`}>
@@ -41,20 +100,19 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
       {isEquipped && (
         <span className="absolute top-1 left-1 text-[8px] bg-indigo-600 text-white px-1.5 py-0.5 rounded-full font-bold">착용</span>
       )}
-      <div className={`${compact ? 'w-20 h-20' : 'w-28 h-28'} flex items-center justify-center`}>
+      <div className="w-20 h-20 flex items-center justify-center">
         {item.image
           ? <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-sm" />
-          : <span className={compact ? 'text-4xl' : 'text-5xl'}>{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>}
+          : <span className="text-4xl">{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>}
       </div>
-      <div className={`font-extrabold text-slate-800 truncate w-full text-center leading-tight
-        ${compact ? 'text-[11px]' : 'text-sm'}`}>
+      <div className="font-extrabold text-slate-800 truncate w-full text-center leading-tight text-[11px]">
         {item.name}
       </div>
       <Stars count={stars} size="sm" />
       {statEntries.length > 0 && (
         <div className="w-full space-y-0.5 border-t border-slate-200/70 pt-1 mt-0.5">
           {statEntries.map(([key, meta]) => {
-            const base = item.stats[key];
+            const base  = item.stats[key];
             const total = base + enhBonus;
             return (
               <div key={key} className="flex items-center justify-between px-0.5">
@@ -62,12 +120,12 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
                   {meta.img
                     ? <img src={meta.img} alt="" className="w-3 h-3 object-contain" />
                     : <span className="text-[9px]">{meta.icon}</span>}
-                  <span className={`text-slate-500 ${compact ? 'text-[7px]' : 'text-[9px]'}`}>{meta.label}</span>
+                  <span className="text-slate-500 text-[7px]">{meta.label}</span>
                 </div>
                 <div className="flex items-center gap-0.5">
-                  <span className={`font-extrabold text-indigo-600 ${compact ? 'text-[8px]' : 'text-[9px]'}`}>+{total}</span>
+                  <span className="font-extrabold text-indigo-600 text-[10px]">+{total}</span>
                   {enhBonus > 0 && (
-                    <span className={`text-amber-500 font-bold ${compact ? 'text-[7px]' : 'text-[8px]'}`}>(★+{enhBonus})</span>
+                    <span className="text-amber-500 font-bold text-[7px]">(★+{enhBonus})</span>
                   )}
                 </div>
               </div>
@@ -127,6 +185,96 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
     const t = setTimeout(doEnhanceResult, 5000);
     return () => clearTimeout(t);
   }, [stage, doEnhanceResult]);
+
+  // ── loading 중 지속 파티클 (별/스파크 위로 떠오르기) ──
+  useEffect(() => {
+    if (stage !== 'loading') return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext('2d');
+
+    const COLORS = ['#f59e0b', '#fbbf24', '#fcd34d', '#fb923c', '#fed7aa', '#fde68a'];
+    const particles = [];
+    let rafId = null;
+    let stopped = false;
+
+    const spawnBatch = () => {
+      if (stopped) return;
+      const itemEl = itemImgRef.current;
+      const rect   = itemEl?.getBoundingClientRect();
+      const cx     = rect ? rect.left + rect.width  / 2 : window.innerWidth  / 2;
+      const cy     = rect ? rect.top  + rect.height / 2 : window.innerHeight / 3;
+
+      for (let i = 0; i < 4; i++) {
+        particles.push({
+          x:     cx + (Math.random() - 0.5) * rect?.width * 0.8 ?? 30,
+          y:     cy + (Math.random() - 0.5) * 10,
+          vx:    (Math.random() - 0.5) * 1.2,
+          vy:    -(1.5 + Math.random() * 2.5),
+          size:  4 + Math.random() * 8,
+          rot:   Math.random() * Math.PI * 2,
+          rotV:  (Math.random() - 0.5) * 0.18,
+          life:  1,
+          decay: 0.012 + Math.random() * 0.010,
+          color: COLORS[Math.floor(Math.random() * COLORS.length)],
+          isStar: Math.random() < 0.5,
+        });
+      }
+    };
+
+    const spawnInterval = setInterval(spawnBatch, 120);
+
+    const si = starImgRef.current;
+    const animate = () => {
+      if (stopped) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x   += p.vx;
+        p.y   += p.vy;
+        p.vx  *= 0.99;
+        p.rot += p.rotV;
+        p.life -= p.decay;
+
+        if (p.life <= 0) { particles.splice(i, 1); continue; }
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+
+        if (p.isStar && si?.complete && si.naturalWidth > 0) {
+          ctx.drawImage(si, -p.size / 2, -p.size / 2, p.size, p.size);
+        } else {
+          // 다이아몬드 점 형태
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.moveTo(0, -p.size / 2);
+          ctx.lineTo(p.size / 3, 0);
+          ctx.lineTo(0, p.size / 2);
+          ctx.lineTo(-p.size / 3, 0);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      rafId = requestAnimationFrame(animate);
+    };
+    animate();
+
+    return () => {
+      stopped = true;
+      clearInterval(spawnInterval);
+      if (rafId) cancelAnimationFrame(rafId);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
 
   // ── 파티클 ──
   const spawnParticles = () => {
@@ -341,6 +489,7 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
             {/* ─── LOADING: 5초 게이지 ─── */}
             {stage === 'loading' && (
               <div className="space-y-5 py-2">
+
                 <div className="text-center space-y-1">
                   <div className="text-white font-extrabold text-xl animate-pulse">⚒️ 강화 중...</div>
                   <div className="text-slate-500 text-xs">잠시 기다려주세요</div>
