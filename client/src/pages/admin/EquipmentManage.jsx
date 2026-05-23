@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
-  doc, serverTimestamp,
+  doc, serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { GRADE, SLOTS, STAT_LABEL } from '../../constants/equipment';
@@ -256,17 +256,19 @@ export default function EquipmentManage() {
           </div>
           <div className="flex gap-2">
             <button onClick={async () => {
-              if (!window.confirm(`투구 장비 이미지 경로를 모두 재설정할까요?\n(기존 투구 삭제 후 재등록)`)) return;
-              // 기존 투구 삭제
-              const helmetItems = items.filter(i => i.type === 'helmet');
-              for (const item of helmetItems) {
-                await deleteDoc(doc(db, 'equipmentItems', item.id));
+              if (!window.confirm(`투구 장비를 전체 삭제 후 재등록할까요?`)) return;
+              // Firebase에서 직접 투구 전체 조회 후 삭제
+              const snap = await getDocs(query(collection(db, 'equipmentItems'), where('type', '==', 'helmet')));
+              let deleted = 0;
+              for (const d of snap.docs) {
+                await deleteDoc(doc(db, 'equipmentItems', d.id));
+                deleted++;
               }
               // 재등록
               for (const item of HELMET_SEED) {
                 await addDoc(collection(db, 'equipmentItems'), { ...item, createdAt: serverTimestamp() });
               }
-              alert(`✅ 투구 ${HELMET_SEED.length}개 재등록 완료!`);
+              alert(`✅ 기존 ${deleted}개 삭제 → 투구 ${HELMET_SEED.length}개 재등록 완료!`);
               fetchItems();
             }}
               className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">

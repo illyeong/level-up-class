@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, doc, updateDoc, query, where,
 } from 'firebase/firestore';
@@ -15,6 +15,86 @@ const weightedRandom = (rates) => {
   }
   return 'common';
 };
+
+// ── 파티클 이펙트 ────────────────────────────────────────────
+const PARTICLE_COLORS = {
+  legendary: ['#fbbf24','#f59e0b','#fde68a','#fcd34d','#fff','#fb923c'],
+  epic:      ['#a78bfa','#8b5cf6','#c4b5fd','#ddd6fe','#fff','#e879f9'],
+  rare:      ['#34d399','#10b981','#6ee7b7','#a7f3d0','#fff','#38bdf8'],
+  common:    ['#94a3b8','#cbd5e1','#e2e8f0','#fff','#f1f5f9','#64748b'],
+};
+
+function GachaParticles({ grade }) {
+  const canvasRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const colors  = PARTICLE_COLORS[grade] || PARTICLE_COLORS.common;
+    const count   = grade === 'legendary' ? 120 : grade === 'epic' ? 90 : 60;
+    const cx      = canvas.width / 2;
+    const cy      = canvas.height / 2;
+
+    const particles = Array.from({ length: count }, () => {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = (grade === 'legendary' ? 8 : 5) + Math.random() * 6;
+      return {
+        x: cx, y: cy,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - Math.random() * 4,
+        size: 4 + Math.random() * 8,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        life: 1,
+        decay: 0.012 + Math.random() * 0.015,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.2,
+        shape: Math.random() > 0.5 ? 'rect' : 'circle',
+      };
+    });
+
+    let raf;
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let alive = false;
+      particles.forEach(p => {
+        if (p.life <= 0) return;
+        alive = true;
+        p.x  += p.vx;
+        p.y  += p.vy;
+        p.vy += 0.25; // gravity
+        p.life -= p.decay;
+        p.rotation += p.rotSpeed;
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle   = p.color;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        if (p.shape === 'rect') {
+          ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        } else {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      });
+      ctx.globalAlpha = 1;
+      if (alive) raf = requestAnimationFrame(animate);
+    };
+    raf = requestAnimationFrame(animate);
+    return () => { cancelAnimationFrame(raf); };
+  }, [grade]);
+
+  return (
+    <canvas ref={canvasRef}
+      className="fixed inset-0 pointer-events-none z-[60]"
+      style={{ width: '100vw', height: '100vh' }} />
+  );
+}
 
 // ── 결과 아이템 카드 ──────────────────────────────────────────
 function ResultCard({ item, isNew, delay = 0 }) {
@@ -36,10 +116,14 @@ function ResultCard({ item, isNew, delay = 0 }) {
         <span className="absolute -top-2 -right-2 text-[8px] bg-rose-500 text-white font-extrabold px-1.5 py-0.5 rounded-full shadow-sm z-10">NEW</span>
       )}
       <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded-full mb-1.5 ${g.badge}`}>{g.label}</span>
-      <div className="w-12 h-12 flex items-center justify-center">
-        {item.image
-          ? <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-sm" />
-          : <span className="text-2xl">🗡️</span>}
+      <div className="w-12 h-12 flex items-center justify-center relative">
+        {item.image ? (
+          <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-sm"
+            onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
+        ) : null}
+        <span className="text-2xl absolute inset-0 flex items-center justify-center" style={{ display: item.image ? 'none' : 'flex' }}>
+          ⛑️
+        </span>
       </div>
       {item.grade === 'legendary' && (
         <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-amber-400/10 to-transparent pointer-events-none" />
@@ -273,6 +357,8 @@ export default function GachaBox({ studentCode }) {
       )}
 
       {/* 결과 팝업 */}
+      {results && lastChest && <GachaParticles grade={topGrade} />}
+
       {results && lastChest && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
           {/* 배경 빛 효과 */}
