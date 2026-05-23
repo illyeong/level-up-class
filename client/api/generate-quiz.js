@@ -32,12 +32,17 @@ export default async function handler(req, res) {
   const {
     sourceText, pdfBase64, grade, semester,
     subject, publisher, unit, count = 5, difficulty = 'normal',
+    saCount: bodySaCount,
   } = req.body || {};
 
   if (!sourceText?.trim() && !pdfBase64)
     return res.status(400).json({ error: '수업 자료를 입력하거나 PDF를 업로드해주세요.' });
   if (!grade || !subject)
     return res.status(400).json({ error: '학년과 과목을 선택해주세요.' });
+
+  const saCount = Math.max(0, parseInt(bodySaCount) || 0);
+  const mcCount = Math.max(0, count - saCount);
+  const hasSA   = saCount > 0;
 
   const contextParts = [
     `초등학교 ${grade}학년`,
@@ -47,23 +52,35 @@ export default async function handler(req, res) {
     unit || '',
   ].filter(Boolean).join(' ');
 
+  const typeRules = hasSA
+    ? `- 객관식 ${mcCount}개: 4지 선다형, 보기 4개, 보기는 비슷한 길이
+- 주관식 ${saCount}개: 단답형, 정답은 짧은 단어/구문 (최대 10자)`
+    : `- 4지 선다형 객관식 (보기 4개), 보기는 모두 비슷한 길이와 형식`;
+
+  const jsonExample = hasSA
+    ? `객관식 예시: {"type":"mc","question":"문제","options":["①보기1","②보기2","③보기3","④보기4"],"answer":0,"explanation":"해설"}
+주관식 예시: {"type":"sa","question":"문제","answer":"정답단어","explanation":"해설"}
+
+answer(객관식): 0~3 사이 정수 (0=①, 1=②, 2=③, 3=④)
+answer(주관식): 정답 문자열 (짧은 단어/구문)
+배열 순서: 객관식 ${mcCount}개 먼저, 주관식 ${saCount}개 나중에`
+    : `[{"question":"문제","options":["①보기1","②보기2","③보기3","④보기4"],"answer":0,"explanation":"해설"}]
+answer 값은 0~3 사이 정수 (0=①, 1=②, 2=③, 3=④)`;
+
   const prompt = `당신은 초등학교 교사의 퀴즈 생성 도우미입니다.
 
-다음 수업 자료를 바탕으로 ${contextParts} 수준의 객관식 퀴즈 ${count}개를 만들어주세요.
+다음 수업 자료를 바탕으로 ${contextParts} 수준의 퀴즈 ${count}개를 만들어주세요.${hasSA ? ` (객관식 ${mcCount}개 + 주관식 ${saCount}개)` : ''}
 
 【난이도】: ${DIFFICULTY_MAP[difficulty] || DIFFICULTY_MAP.normal}
 
 【규칙】
-- 4지 선다형 객관식 (보기 4개)
+${typeRules}
 - ${grade}학년 학생이 이해할 수 있는 쉬운 언어 사용
 - 각 문제마다 정답은 반드시 하나만 존재
-- 보기는 모두 비슷한 길이와 형식으로 작성
 - 정답과 해설은 수업 자료 내용에 근거
 
 【반드시 JSON 배열 형식으로만 응답】 (설명 없이 JSON만)
-[{"question":"문제","options":["①보기1","②보기2","③보기3","④보기4"],"answer":0,"explanation":"해설"}]
-
-answer 값은 0~3 사이 정수 (0=①, 1=②, 2=③, 3=④)
+${jsonExample}
 
 【수업 자료】
 ${sourceText?.trim() || '(PDF 파일에서 자료 참고)'}`;
@@ -115,11 +132,14 @@ ${sourceText?.trim() || '(PDF 파일에서 자료 참고)'}`;
 
     const questions = JSON.parse(jsonMatch[0]);
 
-    // 유효성 검사
-    const valid = questions.every(q =>
-      q.question && Array.isArray(q.options) && q.options.length === 4
-      && typeof q.answer === 'number' && q.answer >= 0 && q.answer <= 3
-    );
+    // 유효성 검사 (객관식/주관식 모두 지원)
+    const valid = questions.every(q => {
+      if (q.type === 'sa') {
+        return q.question && typeof q.answer === 'string' && q.answer.trim();
+      }
+      return q.question && Array.isArray(q.options) && q.options.length === 4
+        && typeof q.answer === 'number' && q.answer >= 0 && q.answer <= 3;
+    });
     if (!valid) return res.status(500).json({ error: '생성된 퀴즈 형식이 올바르지 않습니다.' });
 
     return res.status(200).json({ questions, context: contextParts });

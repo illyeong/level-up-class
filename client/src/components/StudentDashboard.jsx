@@ -46,6 +46,25 @@ function TodayQuestWidget({ studentId, teacherUid }) {
           const mine  = cSnap.docs.find(d => d.id === studentId);
           if (mine) cMap[q.id] = mine.data();
         }));
+
+        // 매일반복 퀘스트: 어제 미보상 completion 삭제 (대시보드 자정 초기화)
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        await Promise.all(
+          list
+            .filter(q => q.type === 'daily' && q.repeatDaily && q.active !== false)
+            .map(async q => {
+              const comp = cMap[q.id];
+              if (!comp || comp.rewarded) return; // 보상된 건 유지
+              const ts = comp.checkedAt;
+              const checkedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
+              if (checkedAt && checkedAt < todayMidnight) {
+                await deleteDoc(doc(db, 'quests', q.id, 'completions', studentId));
+                delete cMap[q.id];
+              }
+            })
+        );
+
         setCompletions(cMap);
       } catch (e) { console.error(e); }
       finally { setIsLoading(false); }

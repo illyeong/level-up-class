@@ -257,6 +257,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
   const [currentQ,     setCurrentQ]     = useState(0);
   const [answered,     setAnswered]     = useState(null);
   const [selectedOpt,  setSelectedOpt]  = useState(null);
+  const [saInput,      setSaInput]      = useState('');
   const [playerHP,     setPlayerHP]     = useState(playerMaxHP);
   const [score,        setScore]        = useState(0);
   const [wrongIdxs,    setWrongIdxs]    = useState([]);
@@ -278,12 +279,17 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
     setTimeout(() => setFloats(p => p.filter(f => f.id !== id)), 1100);
   };
 
-  const handleAnswer = useCallback((optIdx, timeout = false) => {
+  const handleAnswer = useCallback((value, timeout = false) => {
     if (answered !== null) return;
-    const q  = dungeon.questions[currentQ];
-    const ok = !timeout && optIdx === q.answer;
+    const q    = dungeon.questions[currentQ];
+    const isSA = q.type === 'sa';
+    const ok   = !timeout && (
+      isSA
+        ? String(value || '').trim().toLowerCase() === String(q.answer || '').trim().toLowerCase()
+        : value === q.answer
+    );
 
-    setSelectedOpt(timeout ? null : optIdx);
+    setSelectedOpt(isSA ? null : (timeout ? null : value));
     setAnswered(ok ? 'correct' : timeout ? 'timeout' : 'wrong');
 
     const newScore = ok ? score + 1 : score;
@@ -350,11 +356,13 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
         setCurrentQ(nextQ);
         setAnswered(null);
         setSelectedOpt(null);
+        setSaInput('');
         setTimeLeft(maxTime);
       } else {
         setCurrentQ(nextQ);
         setAnswered(null);
         setSelectedOpt(null);
+        setSaInput('');
         setTimeLeft(maxTime);
       }
     }, 1400);
@@ -449,7 +457,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
             <div style={{ width: 112 }} className="mb-1.5">
               <div className="flex justify-between text-[9px] mb-0.5">
                 <span className="text-slate-300 font-bold truncate max-w-[72px]">{monsterData?.name || monsterMeta.name}</span>
-                <span className="text-rose-400 font-bold">{monsterHP}</span>
+                <span className="text-rose-400 font-bold">{waveMonsterHP}</span>
               </div>
               <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
                 <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(mHPpct)}`}
@@ -512,36 +520,64 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
             <p className="font-bold text-slate-800 text-base leading-relaxed">{q.question}</p>
           </div>
 
-          {/* 보기 */}
-          <div className="grid grid-cols-2 gap-2">
-            {q.options.map((opt, oi) => {
-              let cls = 'bg-white border-2 border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50';
-              if (answered !== null) {
-                if (oi === q.answer)         cls = 'bg-emerald-100 border-2 border-emerald-500 text-emerald-800';
-                else if (oi === selectedOpt) cls = 'bg-rose-100 border-2 border-rose-400 text-rose-700';
-                else                         cls = 'bg-slate-50 border-2 border-slate-100 text-slate-400 opacity-40';
-              }
-              return (
-                <button key={oi}
-                  onClick={() => handleAnswer(oi)}
-                  disabled={answered !== null}
-                  className={`py-3.5 px-3 rounded-2xl font-bold text-sm text-left transition-all active:scale-95 ${cls}`}>
-                  <span className="text-slate-400 mr-1.5">{['①','②','③','④'][oi]}</span>{opt}
+          {/* 보기 (객관식) / 입력창 (주관식) */}
+          {q.type === 'sa' ? (
+            <div className="space-y-2">
+              <input
+                value={saInput}
+                onChange={e => setSaInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && answered === null && saInput.trim()) handleAnswer(saInput); }}
+                disabled={answered !== null}
+                autoFocus
+                placeholder="정답을 입력하세요"
+                className={`w-full border-2 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none transition-colors
+                  ${answered === null
+                    ? 'border-slate-200 focus:border-amber-400 bg-white'
+                    : answered === 'correct'
+                      ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
+                      : 'border-rose-400 bg-rose-50 text-rose-700'
+                  } disabled:opacity-70`}
+              />
+              {answered === null && (
+                <button
+                  onClick={() => saInput.trim() && handleAnswer(saInput)}
+                  disabled={!saInput.trim()}
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-white font-extrabold rounded-2xl disabled:opacity-40 active:scale-95 transition-all">
+                  확인 ✓
                 </button>
-              );
-            })}
-          </div>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {(q.options || []).map((opt, oi) => {
+                let cls = 'bg-white border-2 border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50';
+                if (answered !== null) {
+                  if (oi === q.answer)         cls = 'bg-emerald-100 border-2 border-emerald-500 text-emerald-800';
+                  else if (oi === selectedOpt) cls = 'bg-rose-100 border-2 border-rose-400 text-rose-700';
+                  else                         cls = 'bg-slate-50 border-2 border-slate-100 text-slate-400 opacity-40';
+                }
+                return (
+                  <button key={oi}
+                    onClick={() => handleAnswer(oi)}
+                    disabled={answered !== null}
+                    className={`py-3.5 px-3 rounded-2xl font-bold text-sm text-left transition-all active:scale-95 ${cls}`}>
+                    <span className="text-slate-400 mr-1.5">{['①','②','③','④'][oi]}</span>{opt}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* 해설 */}
-          {answered !== null && q.explanation && (
+          {answered !== null && (q.explanation || q.type === 'sa') && (
             <div className={`rounded-xl p-3 text-xs font-medium leading-relaxed
               ${answered === 'correct'
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
               {answered === 'correct'
                 ? '✅ 정답! '
-                : `❌ 정답: ${q.options[q.answer]} — `}
-              {q.explanation}
+                : `❌ 정답: ${q.type === 'sa' ? q.answer : (q.options?.[q.answer] || '')} — `}
+              {q.explanation || ''}
             </div>
           )}
 
@@ -657,15 +693,24 @@ function ResultScreen({
         <div className="bg-white border border-rose-200 rounded-2xl p-4 w-full max-w-sm mb-4 text-left">
           <div className="text-xs font-bold text-rose-600 mb-2">❌ 오답 복습</div>
           <div className="space-y-2 max-h-40 overflow-y-auto">
-            {wrongIdxs.map(i => (
-              <div key={i} className="text-xs bg-rose-50 rounded-lg p-2.5">
-                <div className="font-bold text-slate-700 mb-0.5">Q{i+1}. {dungeon.questions[i].question}</div>
-                <div className="text-emerald-600">정답: {dungeon.questions[i].options[dungeon.questions[i].answer]}</div>
-                {dungeon.questions[i].explanation && (
-                  <div className="text-slate-400 mt-0.5">{dungeon.questions[i].explanation}</div>
-                )}
-              </div>
-            ))}
+            {wrongIdxs.map(i => {
+              const wq = dungeon.questions[i];
+              const correctAnswer = wq.type === 'sa'
+                ? wq.answer
+                : (wq.options?.[wq.answer] || '');
+              return (
+                <div key={i} className="text-xs bg-rose-50 rounded-lg p-2.5">
+                  <div className="font-bold text-slate-700 mb-0.5">
+                    Q{i+1}. {wq.question}
+                    {wq.type === 'sa' && <span className="ml-1 text-amber-500 font-normal">[주관식]</span>}
+                  </div>
+                  <div className="text-emerald-600">정답: {correctAnswer}</div>
+                  {wq.explanation && (
+                    <div className="text-slate-400 mt-0.5">{wq.explanation}</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

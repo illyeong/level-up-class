@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   collection, getDocs, getDoc, doc, setDoc, deleteDoc, updateDoc,
-  serverTimestamp, query, where,
+  writeBatch, increment, serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import iconQuest from '../../assets/images/icon-quest.png';
@@ -256,23 +256,69 @@ function StudentQuestPage({ studentCode }) {
               })
             );
 
-            // 일일퀘스트 자정 초기화: repeatDaily=true이고 오늘 이전에 체크된 미보상 completion 삭제
+            // 매일반복 퀘스트 자정 초기화 + 자체체크 자동 보상
             const todayMidnight = new Date();
             todayMidnight.setHours(0, 0, 0, 0);
-            await Promise.all(
-              allQuests
-                .filter(q => q.type === 'daily' && q.repeatDaily && q.active !== false)
-                .map(async quest => {
-                  const comp = compMap[quest.id];
-                  if (!comp || comp.rewarded) return;
-                  const ts = comp.checkedAt;
-                  const checkedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
-                  if (checkedAt && checkedAt < todayMidnight) {
-                    await deleteDoc(doc(db, 'quests', quest.id, 'completions', sDoc.id));
-                    delete compMap[quest.id];
-                  }
-                })
-            );
+
+            const dailyRepeat = allQuests.filter(q => q.type === 'daily' && q.repeatDaily && q.active !== false);
+            const autoReward  = { gold: 0, exp: 0, diamond: 0, questIds: [] };
+            const deleteIds   = []; // 삭제할 completion quest IDs
+
+            for (const quest of dailyRepeat) {
+              const comp = compMap[quest.id];
+              if (!comp) continue;
+
+              const relevantTs = comp.checkedAt || comp.rewardedAt;
+              const compDate   = relevantTs?.toDate?.() ?? (relevantTs?.seconds ? new Date(relevantTs.seconds * 1000) : null);
+              if (!compDate || compDate >= todayMidnight) continue; // 오늘 completion
+
+              if (comp.checked && !comp.rewarded) {
+                if (quest.selfCheck) {
+                  // 자체체크 퀘스트: 자동 보상 지급
+                  autoReward.gold    += quest.rewards?.gold    || 0;
+                  autoReward.exp     += quest.rewards?.exp     || 0;
+                  autoReward.diamond += quest.rewards?.diamond || 0;
+                  autoReward.questIds.push(quest.id);
+                } else {
+                  // 교사 체크 퀘스트: 교사가 승인 안 했으면 그냥 삭제
+                  deleteIds.push(quest.id);
+                  delete compMap[quest.id];
+                }
+              } else if (comp.rewarded && comp.acknowledgedAt) {
+                // 보상받고 확인까지 완료 → 다음 날 새로 시작
+                deleteIds.push(quest.id);
+                delete compMap[quest.id];
+              }
+              // rewarded && !acknowledgedAt: 학생이 아직 보상 알림 못 봤으면 유지
+            }
+
+            // 자체체크 자동 보상 처리
+            if (autoReward.questIds.length > 0) {
+              const batch = writeBatch(db);
+              if (autoReward.gold || autoReward.exp || autoReward.diamond) {
+                batch.update(doc(db, 'students', sDoc.id), {
+                  gold:     increment(autoReward.gold),
+                  exp:      increment(autoReward.exp),
+                  diamonds: increment(autoReward.diamond),
+                });
+              }
+              autoReward.questIds.forEach(qid => {
+                batch.update(doc(db, 'quests', qid, 'completions', sDoc.id), {
+                  rewarded:   true,
+                  rewardedAt: serverTimestamp(),
+                  rewardedBy: 'auto_midnight',
+                });
+                compMap[qid] = { ...compMap[qid], rewarded: true, rewardedBy: 'auto_midnight' };
+              });
+              await batch.commit();
+            }
+
+            // 오래된 completion 삭제 (내일부터 새로 시작)
+            if (deleteIds.length > 0) {
+              await Promise.all(
+                deleteIds.map(qid => deleteDoc(doc(db, 'quests', qid, 'completions', sDoc.id)))
+              );
+            }
 
             setCompletions(compMap);
           }

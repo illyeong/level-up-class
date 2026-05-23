@@ -445,10 +445,11 @@ function QuestManage({ selectedClass }) {
         getDocs(collection(db, 'quests')),
       ]);
 
-      setStudentCount(studentsSnap.size);
-
       // teacherUid로 필터링 (없으면 전체, admin_master_001은 null 퀘스트 포함)
       const tid = selectedClass?.teacherUid;
+      const allStudentDocs = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const classStudents  = tid ? allStudentDocs.filter(s => s.teacherUid === tid) : allStudentDocs;
+      setStudentCount(classStudents.length);
       let list = questsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       if (tid) {
         list = list.filter(q => q.teacherUid === tid || (!q.teacherUid && tid === 'admin_master_001'));
@@ -459,7 +460,15 @@ function QuestManage({ selectedClass }) {
         list.map(async quest => {
           try {
             const snap = await getDocs(collection(db, 'quests', quest.id, 'completions'));
-            const checkedCount = snap.docs.filter(d => d.data().checked === true).length;
+            const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+            const checkedCount = snap.docs.filter(d => {
+              const data = d.data();
+              if (data.checked !== true) return false;
+              if (!quest.repeatDaily) return true; // 반복 아닌 퀘스트는 날짜 무관
+              const ts = data.checkedAt;
+              const checkedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
+              return !checkedAt || checkedAt >= todayMidnight; // 오늘 체크한 것만 카운트
+            }).length;
             return { ...quest, checkedCount };
           } catch {
             return { ...quest, checkedCount: 0 };
@@ -607,7 +616,9 @@ function QuestManage({ selectedClass }) {
         getDocs(collection(db, 'students')),
         getDocs(collection(db, 'quests', quest.id, 'completions')),
       ]);
-      const students = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const allStudents = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const questTid = selectedClass?.teacherUid;
+      const students = questTid ? allStudents.filter(s => s.teacherUid === questTid) : allStudents;
       const rewardedIds = new Set(
         completionsSnap.docs.filter(d => d.data().rewarded).map(d => d.id)
       );

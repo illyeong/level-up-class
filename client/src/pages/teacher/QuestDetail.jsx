@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   doc, getDoc, getDocs, collection,
-  writeBatch, setDoc, deleteDoc, serverTimestamp, increment,
+  writeBatch, setDoc, deleteDoc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -46,9 +46,13 @@ function QuestDetail({ questId, onBack, isModal = false }) {
         ]);
 
         if (!questDoc.exists()) { onBack(); return; }
-        setQuest({ id: questDoc.id, ...questDoc.data() });
+        const questData = questDoc.data();
+        setQuest({ id: questDoc.id, ...questData });
 
-        const studentList = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // 같은 학급 학생만 표시 (teacherUid 필터)
+        const tid = questData.teacherUid;
+        let studentList = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (tid) studentList = studentList.filter(s => s.teacherUid === tid);
         studentList.sort((a, b) => {
           const na = parseInt(getStudentNum(a.studentCode)) || 0;
           const nb = parseInt(getStudentNum(b.studentCode)) || 0;
@@ -58,6 +62,28 @@ function QuestDetail({ questId, onBack, isModal = false }) {
 
         const map = {};
         completionsSnap.docs.forEach(d => { map[d.id] = d.data(); });
+
+        // 매일반복 퀘스트: 어제 이전의 미보상 completion 삭제 (교사가 상세 열 때 초기화)
+        if (questData.repeatDaily) {
+          const todayMidnight = new Date();
+          todayMidnight.setHours(0, 0, 0, 0);
+          const staleDocs = completionsSnap.docs.filter(d => {
+            const data = d.data();
+            if (data.rewarded) return false; // 보상된 건 유지
+            const ts = data.checkedAt;
+            const checkedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
+            return checkedAt && checkedAt < todayMidnight;
+          });
+          if (staleDocs.length > 0) {
+            const batch = writeBatch(db);
+            staleDocs.forEach(d => {
+              batch.delete(doc(db, 'quests', questId, 'completions', d.id));
+              delete map[d.id];
+            });
+            await batch.commit();
+          }
+        }
+
         setCompletions(map);
       } catch (err) {
         console.error('퀘스트 상세 로딩 에러:', err);

@@ -261,11 +261,26 @@ function MonsterPicker({ selected, onChange }) {
 }
 
 // ─────────────────────── 문제 편집 카드 ──────────────────────
-function QuestionCard({ q, idx, onChange, onDelete }) {
+function QuestionCard({ q, idx, onChange, onDelete, onTypeChange }) {
+  const isSA = q.type === 'sa';
   return (
     <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-slate-400">Q{idx + 1}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-400">Q{idx + 1}</span>
+          <div className="flex rounded-lg overflow-hidden border border-slate-200 text-[10px] font-bold">
+            <button
+              onClick={() => onTypeChange(idx, 'mc')}
+              className={`px-2 py-0.5 transition-colors ${!isSA ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+              객관식
+            </button>
+            <button
+              onClick={() => onTypeChange(idx, 'sa')}
+              className={`px-2 py-0.5 transition-colors ${isSA ? 'bg-amber-500 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+              주관식
+            </button>
+          </div>
+        </div>
         <button onClick={() => onDelete(idx)}
           className="text-xs text-rose-400 hover:text-rose-600 font-bold transition-colors">
           삭제
@@ -277,29 +292,44 @@ function QuestionCard({ q, idx, onChange, onDelete }) {
         className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 resize-none h-16 focus:outline-none focus:border-indigo-400"
         placeholder="문제 내용"
       />
-      <div className="grid grid-cols-2 gap-2">
-        {q.options.map((opt, oi) => (
-          <div key={oi} className={`flex items-center gap-2 rounded-xl border px-3 py-2
-            ${q.answer === oi ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200'}`}>
-            <button
-              onClick={() => onChange(idx, 'answer', oi)}
-              className={`w-4 h-4 rounded-full border-2 shrink-0 transition-colors
-                ${q.answer === oi ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'}`}
-            />
-            <input
-              value={opt}
-              onChange={e => {
-                const newOpts = [...q.options];
-                newOpts[oi] = e.target.value;
-                onChange(idx, 'options', newOpts);
-              }}
-              className="flex-1 text-xs bg-transparent focus:outline-none"
-              placeholder={`보기 ${oi + 1}`}
-            />
+      {isSA ? (
+        <div>
+          <label className="text-[10px] text-slate-400 mb-1 block">정답 (단답형)</label>
+          <input
+            value={q.answer || ''}
+            onChange={e => onChange(idx, 'answer', e.target.value)}
+            className="w-full text-sm border border-amber-200 rounded-xl px-3 py-2 focus:outline-none focus:border-amber-400"
+            placeholder="정답 텍스트 입력 (짧은 단어/구문)"
+          />
+          <div className="text-[10px] text-slate-400 mt-0.5">학생 답변과 대소문자 구분 없이 비교됩니다</div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            {(q.options || ['', '', '', '']).map((opt, oi) => (
+              <div key={oi} className={`flex items-center gap-2 rounded-xl border px-3 py-2
+                ${q.answer === oi ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200'}`}>
+                <button
+                  onClick={() => onChange(idx, 'answer', oi)}
+                  className={`w-4 h-4 rounded-full border-2 shrink-0 transition-colors
+                    ${q.answer === oi ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'}`}
+                />
+                <input
+                  value={opt}
+                  onChange={e => {
+                    const newOpts = [...(q.options || ['', '', '', ''])];
+                    newOpts[oi] = e.target.value;
+                    onChange(idx, 'options', newOpts);
+                  }}
+                  className="flex-1 text-xs bg-transparent focus:outline-none"
+                  placeholder={`보기 ${oi + 1}`}
+                />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <div className="text-[10px] text-slate-400">초록 동그라미 = 정답 선택</div>
+          <div className="text-[10px] text-slate-400">초록 동그라미 = 정답 선택</div>
+        </>
+      )}
       <input
         value={q.explanation || ''}
         onChange={e => onChange(idx, 'explanation', e.target.value)}
@@ -327,6 +357,7 @@ function QuizDungeonManage() {
   const [pdfName, setPdfName]       = useState('');
   const [isPptxLoading, setIsPptxLoading] = useState(false);
   const [count, setCount]       = useState(5);
+  const [saCount, setSaCount]   = useState(0);
   const [difficulty, setDifficulty] = useState('normal');
   const [monsterId, setMonsterId]   = useState('random');
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -394,7 +425,7 @@ function QuizDungeonManage() {
     setGrade(''); setSemester(''); setSubject(''); setPublisher('');
     setPart(''); setUnit(''); setSourceText(''); setCustomTitle('');
     setPdfBase64(''); setPdfName(''); setIsPptxLoading(false);
-    setCount(5); setDifficulty('normal'); setMonsterId('random'); setPickerOpen(false);
+    setCount(5); setSaCount(0); setDifficulty('normal'); setMonsterId('random'); setPickerOpen(false);
     setRewards({ gold: 100, exp: 50, diamond: 0 });
     setQuestions([]); setStep('form'); setGenError('');
   };
@@ -508,7 +539,7 @@ function QuizDungeonManage() {
           pdfBase64:  pdfBase64  || undefined,
           grade: parseInt(grade), semester: parseInt(semester) || null,
           subject, publisher, unit: [part, unit].filter(Boolean).join(' '),
-          count, difficulty,
+          count, difficulty, saCount,
         }),
       });
       const data = await res.json();
@@ -531,6 +562,19 @@ function QuizDungeonManage() {
   };
   const handleQuestionDelete = (idx) => {
     setQuestions(prev => prev.filter((_, i) => i !== idx));
+  };
+  const handleQuestionTypeChange = (idx, newType) => {
+    setQuestions(prev => prev.map((q, i) => {
+      if (i !== idx) return q;
+      if (newType === 'sa') return { ...q, type: 'sa', answer: '', options: q.options || ['', '', '', ''] };
+      return { ...q, type: 'mc', answer: 0, options: q.options?.length ? q.options : ['', '', '', ''] };
+    }));
+  };
+  const handleAddQuestion = (type = 'mc') => {
+    const newQ = type === 'sa'
+      ? { type: 'sa', question: '', answer: '', explanation: '' }
+      : { type: 'mc', question: '', options: ['', '', '', ''], answer: 0, explanation: '' };
+    setQuestions(prev => [...prev, newQ]);
   };
 
   // ── 발행 ──────────────────────────────────────────────────────
@@ -788,7 +832,7 @@ function QuizDungeonManage() {
                       <label className="block text-xs font-bold text-slate-500 mb-2">문제 수</label>
                       <div className="flex rounded-xl border-2 border-slate-200 overflow-hidden mb-2">
                         {[5, 8, 10].map(n => (
-                          <button key={n} onClick={() => setCount(n)}
+                          <button key={n} onClick={() => { setCount(n); if (saCount > n) setSaCount(n); }}
                             className={`flex-1 py-2 text-sm font-bold transition-colors
                               ${count === n ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
                             {n}개
@@ -797,11 +841,36 @@ function QuizDungeonManage() {
                       </div>
                       <input
                         type="number" min="1" max="20" value={count}
-                        onChange={e => setCount(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
+                        onChange={e => {
+                          const v = Math.min(20, Math.max(1, parseInt(e.target.value) || 1));
+                          setCount(v);
+                          if (saCount > v) setSaCount(v);
+                        }}
                         className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-center font-bold focus:outline-none focus:border-indigo-500"
                         placeholder="직접 입력 (최대 20개)"
                       />
                       <div className="text-[10px] text-slate-400 mt-1 text-center">최대 20개</div>
+                      {/* 유형 구성 */}
+                      <div className="mt-2 pt-2 border-t border-slate-100">
+                        <div className="text-[10px] text-slate-500 font-bold mb-1.5">문제 유형 구성</div>
+                        <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                          <span className="text-slate-500">객관식</span>
+                          <span className="font-extrabold text-indigo-600 min-w-[2rem] text-center">{count - saCount}개</span>
+                          <span className="text-slate-300">+</span>
+                          <span className="text-slate-500">주관식</span>
+                          <input
+                            type="number" min="0" max={count} value={saCount}
+                            onChange={e => setSaCount(Math.min(count, Math.max(0, parseInt(e.target.value) || 0)))}
+                            className="w-14 border-2 border-slate-200 rounded-lg px-2 py-0.5 text-xs text-center font-bold focus:outline-none focus:border-amber-400"
+                          />
+                          <span className="font-extrabold text-amber-600">개</span>
+                        </div>
+                        {saCount > 0 && (
+                          <div className="text-[10px] text-amber-600 mt-1">
+                            AI가 객관식 {count - saCount}개 + 주관식 {saCount}개를 생성합니다
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* 난이도 */}
@@ -893,8 +962,23 @@ function QuizDungeonManage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {questions.map((q, idx) => (
                     <QuestionCard key={idx} q={q} idx={idx}
-                      onChange={handleQuestionChange} onDelete={handleQuestionDelete} />
+                      onChange={handleQuestionChange}
+                      onDelete={handleQuestionDelete}
+                      onTypeChange={handleQuestionTypeChange}
+                    />
                   ))}
+                </div>
+
+                {/* 문제 추가 버튼 */}
+                <div className="flex gap-3">
+                  <button onClick={() => handleAddQuestion('mc')}
+                    className="flex-1 py-3 border-2 border-dashed border-indigo-300 text-indigo-600 font-bold text-sm rounded-2xl hover:bg-indigo-50 transition-colors active:scale-95">
+                    + 객관식 문제 추가
+                  </button>
+                  <button onClick={() => handleAddQuestion('sa')}
+                    className="flex-1 py-3 border-2 border-dashed border-amber-300 text-amber-600 font-bold text-sm rounded-2xl hover:bg-amber-50 transition-colors active:scale-95">
+                    + 주관식 문제 추가
+                  </button>
                 </div>
 
                 <button onClick={handlePublish} disabled={isPublishing || questions.length === 0}
