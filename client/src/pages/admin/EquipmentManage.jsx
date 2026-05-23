@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { GRADE, SLOTS, STAT_LABEL } from '../../constants/equipment';
+import { HELMET_SEED } from '../../data/helmetSeed';
 
 const GRADE_KEYS = ['common','rare','epic','legendary'];
 
@@ -253,10 +254,27 @@ export default function EquipmentManage() {
             <h1 className="text-2xl font-extrabold text-slate-800">⚔️ 장비 관리</h1>
             <p className="text-slate-400 text-sm mt-0.5">장비 추가 · 수정 · 삭제 및 활성화 관리</p>
           </div>
-          <button onClick={openCreate}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
-            ➕ 장비 추가
-          </button>
+          <div className="flex gap-2">
+            <button onClick={async () => {
+              if (!window.confirm(`투구 장비 ${HELMET_SEED.length}개를 일괄 추가할까요?\n(이미 존재하는 이름은 건너뜁니다)`)) return;
+              let added = 0;
+              const existing = items.map(i => i.name);
+              for (const item of HELMET_SEED) {
+                if (existing.includes(item.name)) continue;
+                await addDoc(collection(db, 'equipmentItems'), { ...item, createdAt: serverTimestamp() });
+                added++;
+              }
+              alert(`✅ 투구 ${added}개 추가 완료!`);
+              fetchItems();
+            }}
+              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
+              🪖 투구 일괄 추가
+            </button>
+            <button onClick={openCreate}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
+              ➕ 장비 추가
+            </button>
+          </div>
         </div>
 
         {/* 필터 */}
