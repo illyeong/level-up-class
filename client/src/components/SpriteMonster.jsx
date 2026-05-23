@@ -64,7 +64,7 @@ export default function SpriteMonster({
       style={{
         width:              dw,
         height:             dh,
-        backgroundImage:    `url(${data.src})`,
+        backgroundImage:    `url('${data.src}')`,
         backgroundPosition: `${bgX}px ${bgY}px`,
         backgroundRepeat:   'no-repeat',
         backgroundSize:     `${bgW}px ${bgH}px`,

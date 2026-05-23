@@ -145,7 +145,7 @@ function MonsterThumb({ data }) {
   return (
     <div style={{
       width: dw, height: dh,
-      backgroundImage:    `url(${data.src})`,
+      backgroundImage:    `url('${data.src}')`,
       backgroundPosition: `0px ${-(row * dh)}px`,
       backgroundRepeat:   'no-repeat',
       backgroundSize:     `${data.sheetCols * dw}px ${data.sheetRows * dh}px`,
@@ -312,7 +312,18 @@ function QuizDungeonManage() {
   const [count, setCount]       = useState(5);
   const [difficulty, setDifficulty] = useState('normal');
   const [monsterId, setMonsterId]   = useState('random');
-  const [rewards, setRewards]   = useState({ gold: 100, exp: 50, diamond: 0 });
+  const [rewards, setRewards]   = useState({ gold: 150, exp: 75, diamond: 75 });
+
+  const DIFF_REWARDS = {
+    easy:   { gold: 100, exp: 50,  diamond: 50  },
+    normal: { gold: 150, exp: 75,  diamond: 75  },
+    hard:   { gold: 200, exp: 100, diamond: 100 },
+  };
+
+  const handleDifficultyChange = (d) => {
+    setDifficulty(d);
+    setRewards(DIFF_REWARDS[d]);
+  };
 
   // 생성 상태
   const [questions, setQuestions] = useState([]);
@@ -751,7 +762,7 @@ function QuizDungeonManage() {
                     {/* 문제 수 */}
                     <div>
                       <label className="block text-xs font-bold text-slate-500 mb-2">문제 수</label>
-                      <div className="flex rounded-xl border-2 border-slate-200 overflow-hidden">
+                      <div className="flex rounded-xl border-2 border-slate-200 overflow-hidden mb-2">
                         {[5, 8, 10].map(n => (
                           <button key={n} onClick={() => setCount(n)}
                             className={`flex-1 py-2 text-sm font-bold transition-colors
@@ -760,6 +771,13 @@ function QuizDungeonManage() {
                           </button>
                         ))}
                       </div>
+                      <input
+                        type="number" min="1" max="20" value={count}
+                        onChange={e => setCount(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
+                        className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-center font-bold focus:outline-none focus:border-indigo-500"
+                        placeholder="직접 입력 (최대 20개)"
+                      />
+                      <div className="text-[10px] text-slate-400 mt-1 text-center">최대 20개</div>
                     </div>
 
                     {/* 난이도 */}
@@ -767,7 +785,7 @@ function QuizDungeonManage() {
                       <label className="block text-xs font-bold text-slate-500 mb-2">난이도</label>
                       <div className="flex gap-2">
                         {DIFF_OPTIONS.map(d => (
-                          <button key={d.value} onClick={() => setDifficulty(d.value)}
+                          <button key={d.value} onClick={() => handleDifficultyChange(d.value)}
                             className={`flex-1 py-2 rounded-xl text-xs font-bold border-2 transition-colors
                               ${difficulty === d.value ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500'}`}>
                             {d.label}<br/>
