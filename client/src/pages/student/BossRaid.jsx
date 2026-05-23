@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, doc, updateDoc, onSnapshot,
   increment, serverTimestamp, getDoc,
@@ -85,19 +85,19 @@ function ParticipantRoster({ participants, currentQuestionIdx }) {
         {list.map(p => {
           const st = getStatus(p);
           return (
-            <div key={p.id} className="flex flex-col items-center gap-0.5 shrink-0 w-14">
+            <div key={p.id} className="flex flex-col items-center gap-0.5 shrink-0 w-16">
               <div className="relative">
                 {p.characterImage
                   ? <img src={p.characterImage} alt=""
-                      className="w-10 h-10 rounded-xl object-contain bg-slate-800 border border-slate-600" />
-                  : <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl">🧑</div>
+                      className="w-12 h-12 rounded-xl object-contain bg-slate-800 border border-slate-600" />
+                  : <div className="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center text-2xl">🧑</div>
                 }
-                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900 flex items-center justify-center text-[8px] font-bold
+                <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-slate-900 flex items-center justify-center text-[9px] font-bold
                   ${st === 'correct' ? 'bg-emerald-500' : st === 'wrong' ? 'bg-rose-500' : 'bg-slate-600'}`}>
                   {st === 'correct' ? '✓' : st === 'wrong' ? '✗' : '○'}
                 </div>
               </div>
-              <div className="text-[9px] text-slate-400 font-bold truncate w-full text-center">
+              <div className="text-[10px] text-slate-400 font-bold truncate w-full text-center mt-0.5">
                 {(p.name || '학생').slice(0, 4)}
               </div>
             </div>
@@ -119,8 +119,18 @@ function NoBossScreen() {
   );
 }
 
+// 교사용 레이드 시작 함수
+const teacherStartRaid = async (raidId) => {
+  await updateDoc(doc(db, 'worldBossRaids', raidId), {
+    status:             'active',
+    currentQuestionIdx: 0,
+    questionStartedAt:  serverTimestamp(),
+    startedAt:          serverTimestamp(),
+  });
+};
+
 // ── 대기실 (Lobby) ────────────────────────────────────────────────
-function LobbyPhase({ raid, bossData, myId }) {
+function LobbyPhase({ raid, bossData, myId, isTeacher }) {
   const participants  = raid.participants || {};
   const pList = Object.entries(participants)
     .map(([id, p]) => ({ id, ...p }))
@@ -166,32 +176,47 @@ function LobbyPhase({ raid, bossData, myId }) {
           {(raid.rewards?.diamond || 0) > 0 && <span className="text-blue-300">💎 {raid.rewards.diamond}</span>}
         </div>
 
-        <div className="flex items-center gap-2 text-slate-400 text-sm animate-pulse">
-          <span className="text-lg">⏳</span>
-          <span className="font-bold">선생님이 시작 버튼을 누르면 배틀이 시작됩니다!</span>
-        </div>
+        {isTeacher ? (
+          <button
+            onClick={() => teacherStartRaid(raid.id)}
+            className="px-10 py-4 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold text-lg rounded-2xl shadow-lg shadow-rose-900/40 transition-all">
+            ⚔️ 레이드 시작 ({pList.length}명 대기 중)
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 text-slate-400 text-sm animate-pulse">
+            <span className="text-lg">⏳</span>
+            <span className="font-bold">선생님이 시작 버튼을 누르면 배틀이 시작됩니다!</span>
+          </div>
+        )}
       </div>
 
       {/* 참가자 목록 */}
       <div className="bg-slate-900/80 backdrop-blur border-t border-slate-700 p-4">
-        <div className="text-xs font-bold text-slate-400 mb-3">
+        <div className="text-sm font-bold text-slate-300 mb-3">
           접속 중 {pList.length}명
-          {participants[myId] && <span className="text-emerald-400 ml-2">✓ 입장 완료</span>}
+          {!isTeacher && participants[myId] && <span className="text-emerald-400 ml-2">✓ 입장 완료</span>}
         </div>
         {pList.length === 0 ? (
-          <div className="text-slate-500 text-xs text-center py-2">아직 참가자가 없습니다</div>
+          <div className="text-slate-500 text-sm text-center py-4">아직 참가자가 없습니다</div>
         ) : (
-          <div className="flex gap-2 flex-wrap">
+          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
             {pList.map(p => (
               <div key={p.id}
-                className={`flex items-center gap-1.5 bg-slate-800 rounded-xl px-2 py-1.5 border
-                  ${p.id === myId ? 'border-emerald-500' : 'border-slate-700'}`}>
+                className={`flex flex-col items-center gap-1 p-2 rounded-2xl border transition-all
+                  ${!isTeacher && p.id === myId
+                    ? 'border-emerald-500 bg-emerald-900/30'
+                    : 'border-slate-700 bg-slate-800/60'}`}>
                 {p.characterImage
-                  ? <img src={p.characterImage} alt="" className="w-7 h-7 rounded-lg object-contain bg-slate-700" />
-                  : <div className="w-7 h-7 rounded-lg bg-slate-700 flex items-center justify-center text-sm">🧑</div>
+                  ? <img src={p.characterImage} alt=""
+                      className="w-14 h-14 rounded-xl object-contain bg-slate-700" />
+                  : <div className="w-14 h-14 rounded-xl bg-slate-700 flex items-center justify-center text-3xl">🧑</div>
                 }
-                <span className="text-xs font-bold text-slate-200">{p.name || '학생'}</span>
-                {p.id === myId && <span className="text-[9px] text-emerald-400 font-bold">나</span>}
+                <span className="text-[11px] font-bold text-slate-200 text-center truncate w-full leading-tight">
+                  {p.name || '학생'}
+                </span>
+                {!isTeacher && p.id === myId && (
+                  <span className="text-[9px] text-emerald-400 font-bold">나</span>
+                )}
               </div>
             ))}
           </div>
@@ -406,7 +431,7 @@ function ResultPhase({ raid, myId, bossData }) {
 }
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────
-export default function BossRaid({ studentCode, studentDocId }) {
+export default function BossRaid({ studentCode, studentDocId, isTeacher = false }) {
   const [raid, setRaid]           = useState(undefined); // undefined=로딩, null=없음
   const [studentData, setStudentData] = useState(null);
 
@@ -448,8 +473,9 @@ export default function BossRaid({ studentCode, studentDocId }) {
     return () => unsub();
   }, [studentDocId]);
 
-  // 대기실 자동 입장
+  // 대기실 자동 입장 (교사 모드에서는 참가자로 등록 안 함)
   useEffect(() => {
+    if (isTeacher) return;
     if (!raid || raid.status !== 'waiting' || !studentDocId || !studentData) return;
     if (raid.participants?.[studentDocId]) return;
     updateDoc(doc(db, 'worldBossRaids', raid.id), {
@@ -464,7 +490,7 @@ export default function BossRaid({ studentCode, studentDocId }) {
         lastAnsweredCorrect: false,
       },
     }).catch(() => {});
-  }, [raid?.id, raid?.status, studentDocId, studentData]);
+  }, [raid?.id, raid?.status, studentDocId, studentData, isTeacher]);
 
   // 문제 바뀌면 내 답변 초기화
   useEffect(() => {
@@ -580,8 +606,8 @@ export default function BossRaid({ studentCode, studentDocId }) {
 
   const bossData = raid.bossId ? MONSTERS_DB[raid.bossId] : null;
 
-  // 레이드가 active인데 내가 참가자가 아닌 경우 (늦은 접속)
-  if (raid.status === 'active' && !raid.participants?.[studentDocId]) {
+  // 레이드가 active인데 내가 참가자가 아닌 경우 (늦은 접속, 학생 전용)
+  if (!isTeacher && raid.status === 'active' && !raid.participants?.[studentDocId]) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center">
         <div className="flex items-end justify-center mb-4" style={{ height: 100 }}>
@@ -595,7 +621,7 @@ export default function BossRaid({ studentCode, studentDocId }) {
   }
 
   if (raid.status === 'waiting') {
-    return <LobbyPhase raid={raid} bossData={bossData} myId={studentDocId} />;
+    return <LobbyPhase raid={raid} bossData={bossData} myId={studentDocId} isTeacher={isTeacher} />;
   }
 
   if (raid.status === 'active') {

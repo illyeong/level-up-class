@@ -18,10 +18,12 @@ import BoardManage from './BoardManage';
 import TeacherCharacter from './TeacherCharacter';
 import FeedbackBoard from './FeedbackBoard';
 import DataReset from './DataReset';
+import BossRaid from '../student/BossRaid';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
-  const [currentView, setCurrentView] = useState('dashboard');
-  const [notices, setNotices]         = useState([]);
+  const [currentView, setCurrentView]   = useState('dashboard');
+  const [dashboardKey, setDashboardKey] = useState(0);
+  const [notices, setNotices]           = useState([]);
   const [dismissedIds, setDismissedIds] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('dismissedNotices') || '[]'); } catch { return []; }
   });
@@ -79,7 +81,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
           </div>
         )}
 
-        {currentView === 'dashboard' && <TeacherDashboard onStudentTestLogin={onStudentTestLogin} selectedClass={selectedClass} />}
+        {currentView === 'dashboard' && <TeacherDashboard key={dashboardKey} onStudentTestLogin={onStudentTestLogin} selectedClass={selectedClass} />}
 
         {/* 학생 계정 발급 화면 */}
         {currentView === 'accountIssue'    && <AccountIssue user={user} selectedClass={selectedClass} />}
@@ -89,6 +91,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'stockManage'        && <StockManage />}
         {currentView === 'quizDungeonManage' && <QuizDungeonManage />}
         {currentView === 'bossRaidManage'    && <BossRaidManage />}
+        {currentView === 'bossRaid'          && <BossRaid isTeacher={true} />}
 
         {/* 임시 준비 중 화면들 */}
         {currentView === 'myCharacter'     && <TeacherCharacter selectedClass={selectedClass} />}
@@ -102,7 +105,10 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
       {/* 학생 체크인 키오스크 모드 - 전체 화면 오버레이 (nav 포함 모두 덮음) */}
       {currentView === 'questKiosk' && (
         <div className="fixed inset-0 z-[100] overflow-y-auto">
-          <QuestKiosk onExit={() => setCurrentView('dashboard')} />
+          <QuestKiosk onExit={() => {
+            setCurrentView('dashboard');
+            setDashboardKey(k => k + 1); // 대시보드 강제 재마운트 → 퀘스트 현황 최신화
+          }} />
         </div>
       )}
     </div>

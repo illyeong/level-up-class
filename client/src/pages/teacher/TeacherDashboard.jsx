@@ -225,7 +225,13 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
         </div>
         
         <div className="flex flex-wrap gap-2">
-          <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors mr-2 text-sm">
+          <button onClick={async () => {
+            const list = await fetchStudents();
+            await fetchQuestStats(list.map(s => s.id));
+          }} className="bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
+            🔄 새로고침
+          </button>
+          <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
             📋 지급/차감 내역 보기
           </button>
           <button onClick={() => openModal('add')}

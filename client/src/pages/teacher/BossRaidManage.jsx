@@ -24,6 +24,10 @@ const fmtDate = (ts) => {
 const hpColor = (pct) =>
   pct > 60 ? 'bg-emerald-500' : pct > 30 ? 'bg-amber-500' : 'bg-rose-500';
 
+// 컨테이너 크기에 맞게 스케일 계산
+const fitScale = (data, maxW, maxH) =>
+  Math.min(maxH / data.frameHeight, maxW / data.frameWidth) * 0.88;
+
 // ── 보스 몬스터 피커 ─────────────────────────────────────────────
 function BossMonsterPicker({ selectedId, onSelect, onClose }) {
   const [filter, setFilter] = useState('all');
@@ -56,8 +60,8 @@ function BossMonsterPicker({ selectedId, onSelect, onClose }) {
                 ${selectedId === m.id
                   ? 'border-rose-500 bg-rose-50 shadow-md'
                   : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
-              <div className="flex items-end justify-center" style={{ height: 56 }}>
-                <SpriteMonster data={m} anim="idle" scale={m.scale * 1.1} />
+              <div className="flex items-center justify-center overflow-hidden" style={{ width: 72, height: 72 }}>
+                <SpriteMonster data={m} anim="idle" scale={fitScale(m, 72, 72)} />
               </div>
               <div className="text-xs font-bold text-slate-700 text-center leading-tight">{m.name}</div>
               <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${TIER_COLOR[m.tier]}`}>
@@ -114,9 +118,9 @@ function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, i
       <div className="bg-slate-900 rounded-2xl p-5 text-white shadow-xl">
         <div className="flex items-start gap-4 mb-4">
           {/* 보스 스프라이트 */}
-          <div className="flex items-end justify-center shrink-0" style={{ width: 80, height: 80 }}>
+          <div className="flex items-center justify-center shrink-0 overflow-hidden" style={{ width: 80, height: 80 }}>
             {bossData
-              ? <SpriteMonster data={bossData} anim={isEnded ? 'death' : 'idle'} scale={bossData.scale * 1.2} />
+              ? <SpriteMonster data={bossData} anim={isEnded ? 'death' : 'idle'} scale={fitScale(bossData, 80, 80)} />
               : <div className="text-5xl">👾</div>
             }
           </div>
@@ -461,10 +465,10 @@ export default function BossRaidManage() {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
               <h2 className="font-bold text-slate-700 text-sm mb-4">👾 보스 선택</h2>
               <div className="flex items-center gap-4">
-                <div className="flex items-end justify-center shrink-0 bg-slate-900 rounded-2xl"
+                <div className="flex items-center justify-center shrink-0 bg-slate-900 rounded-2xl overflow-hidden"
                   style={{ width: 100, height: 100 }}>
                   {bossData
-                    ? <SpriteMonster data={bossData} anim="idle" scale={bossData.scale * 1.5} />
+                    ? <SpriteMonster data={bossData} anim="idle" scale={fitScale(bossData, 100, 100)} />
                     : <div className="text-4xl">👾</div>
                   }
                 </div>
@@ -633,9 +637,9 @@ export default function BossRaidManage() {
                   const bossData = MONSTERS_DB[raid.bossId];
                   return (
                     <div key={raid.id} className="flex items-center gap-4 px-5 py-4">
-                      <div className="flex items-end justify-center shrink-0" style={{ width: 48, height: 48 }}>
+                      <div className="flex items-center justify-center shrink-0 overflow-hidden" style={{ width: 48, height: 48 }}>
                         {bossData
-                          ? <SpriteMonster data={bossData} anim="death" scale={bossData.scale * 0.8} />
+                          ? <SpriteMonster data={bossData} anim="death" scale={fitScale(bossData, 48, 48)} />
                           : <div className="text-3xl">👾</div>
                         }
                       </div>
