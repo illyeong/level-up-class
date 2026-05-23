@@ -1,77 +1,91 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   collection, getDocs, getDoc, doc, writeBatch,
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
-// ── 레벨별 다음 레벨까지 필요 EXP ────────────────────────────
+// ── 유틸 ──────────────────────────────────────────────────────
 const getMaxExpForLevel = (lv) =>
   lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
 
-// ── 경험치 + 레벨업 계산 ──────────────────────────────────────
 const calcLevelUp = (currentLevel, currentExp, currentMaxExp, gainedExp) => {
-  let level  = currentLevel || 1;
-  let exp    = (currentExp  || 0) + gainedExp;
+  let level = currentLevel || 1;
+  let exp   = (currentExp || 0) + gainedExp;
   let maxExp = currentMaxExp || getMaxExpForLevel(level);
   let leveled = false;
-
   while (exp >= maxExp && level < 99) {
-    exp    -= maxExp;
-    level++;
-    maxExp  = getMaxExpForLevel(level);
-    leveled = true;
+    exp -= maxExp; level++; maxExp = getMaxExpForLevel(level); leveled = true;
   }
   return { level, exp, maxExp, leveled };
 };
 
-// ─────────────────────── 상수 ─────────────────────────────────
-const PLAYER_MAX_HP = 500;
-const DAMAGE_WRONG  = 150;  // 오답 시 플레이어 피해
-const DAMAGE_RIGHT  = 100;  // 정답 시 몬스터 피해 (문제당)
+const toStars = (acc) => acc >= 90 ? 3 : acc >= 70 ? 2 : acc >= 50 ? 1 : 0;
+const hpGrad  = (pct) =>
+  pct > 60 ? 'from-emerald-400 to-emerald-500'
+  : pct > 30 ? 'from-amber-400 to-amber-500'
+  : 'from-rose-400 to-rose-500';
 
-const MONSTER_BY_DIFF = {
-  easy:   { name: '지식의 슬라임', emoji: '🟢', color: 'emerald', desc: '기본 개념을 확인하세요!' },
-  normal: { name: '수학의 골렘',   emoji: '🗿', color: 'sky',     desc: '집중력이 필요합니다!' },
-  hard:   { name: '시험의 드래곤', emoji: '🐉', color: 'rose',    desc: '최고 난이도! 도전하세요!' },
+// ── 상수 ──────────────────────────────────────────────────────
+const PLAYER_MAX_HP = 500;
+const DAMAGE_WRONG  = 150;
+const DAMAGE_RIGHT  = 100;
+const DIFF_TIMER    = { easy: 15, normal: 12, hard: 8 };
+
+const MONSTER = {
+  easy:   { name: '지식의 슬라임', emoji: '🟢', desc: '기본 개념을 확인하세요!' },
+  normal: { name: '수학의 골렘',   emoji: '🗿', desc: '집중력이 필요합니다!'    },
+  hard:   { name: '시험의 드래곤', emoji: '🐉', desc: '최고 난이도! 도전하세요!' },
 };
 
-const DIFF_LABEL = { easy: '🟢 쉬움', normal: '🟡 보통', hard: '🔴 어려움' };
-const DIFF_COLOR = { easy: 'bg-emerald-100 text-emerald-700', normal: 'bg-amber-100 text-amber-700', hard: 'bg-rose-100 text-rose-700' };
+const DIFF_BADGE = {
+  easy:   'bg-emerald-500',
+  normal: 'bg-sky-500',
+  hard:   'bg-rose-500',
+};
 
-const hpColor = (pct) =>
-  pct > 60 ? 'from-emerald-400 to-emerald-600'
-  : pct > 30 ? 'from-amber-400 to-amber-600'
-  : 'from-rose-400 to-rose-600';
+const COMBO_CFG = [
+  { min: 5, label: '⚡ MAX COMBO!', mult: 2.0, cls: 'bg-yellow-500 text-yellow-900' },
+  { min: 3, label: '🔥 FEVER!',     mult: 1.5, cls: 'bg-orange-500 text-white'      },
+  { min: 2, label: '🎯 COMBO',      mult: 1.0, cls: 'bg-sky-500 text-white'         },
+];
 
-// ─────────────────────── HP 바 ─────────────────────────────────
-function HpBar({ current, max, label, color }) {
-  const pct = max > 0 ? Math.max(0, Math.round(current / max * 100)) : 0;
+const getComboLv = (n) => COMBO_CFG.find(c => n >= c.min) || null;
+
+// ── SVG 원형 타이머 ────────────────────────────────────────────
+function CircleTimer({ timeLeft, maxTime }) {
+  const R    = 20;
+  const circ = 2 * Math.PI * R;
+  const pct  = Math.max(0, timeLeft / maxTime);
+  const color = timeLeft <= 3 ? '#ef4444' : timeLeft <= Math.ceil(maxTime / 2) ? '#f59e0b' : '#22c55e';
   return (
-    <div>
-      <div className="flex justify-between text-[11px] font-bold mb-1">
-        <span className="text-slate-200">{label}</span>
-        <span className="text-white">{current}/{max}</span>
-      </div>
-      <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${color}`}
-          style={{ width: `${pct}%` }} />
-      </div>
+    <div className="relative flex items-center justify-center w-14 h-14 shrink-0">
+      <svg width="56" height="56" style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx="28" cy="28" r={R} fill="none" stroke="#1e293b" strokeWidth="5" />
+        <circle cx="28" cy="28" r={R} fill="none" stroke={color} strokeWidth="5"
+          strokeDasharray={circ}
+          strokeDashoffset={circ * (1 - pct)}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.3s' }} />
+      </svg>
+      <span className={`absolute text-sm font-extrabold ${timeLeft <= 3 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
+        {timeLeft}
+      </span>
     </div>
   );
 }
 
-// ─────────────────────── 던전 로비 ────────────────────────────
-function DungeonLobby({ dungeons, tickets, onEnter, isLoading }) {
-  const dungeonTickets = tickets?.dungeon ?? 0;
+// ── 던전 로비 ─────────────────────────────────────────────────
+function DungeonLobby({ dungeons, tickets, bestScores, onPreview, isLoading }) {
+  const tk = tickets?.dungeon ?? 0;
 
   if (isLoading) return (
-    <div className="flex items-center justify-center h-60 text-slate-400 font-bold">
+    <div className="flex items-center justify-center h-64 text-slate-400 font-bold animate-pulse">
       던전 목록 불러오는 중...
     </div>
   );
 
-  if (dungeons.length === 0) return (
+  if (!dungeons.length) return (
     <div className="text-center py-20 text-slate-400">
       <div className="text-6xl mb-4">⚔️</div>
       <p className="font-bold text-lg text-slate-600">열린 퀴즈 던전이 없습니다</p>
@@ -80,45 +94,64 @@ function DungeonLobby({ dungeons, tickets, onEnter, isLoading }) {
   );
 
   return (
-    <div className="p-5">
-      {dungeonTickets <= 0 && (
-        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-sm text-amber-700 font-medium">
-          ⏰ 던전 이용권이 없습니다. 매주 월요일 3개가 자동 지급됩니다.
-        </div>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="p-5 space-y-4">
+      {/* 이용권 현황 */}
+      <div className={`flex items-center gap-3 rounded-2xl px-4 py-3 font-bold
+        ${tk > 0 ? 'bg-indigo-50 border border-indigo-200 text-indigo-700' : 'bg-amber-50 border border-amber-200 text-amber-700'}`}>
+        <span className="text-lg">🎫</span>
+        <span className="text-sm">던전 이용권</span>
+        <span className={`ml-auto text-2xl font-extrabold ${tk > 0 ? 'text-indigo-600' : 'text-amber-500'}`}>{tk}개</span>
+        {tk <= 0 && <span className="text-xs font-normal">매주 월요일 3개 지급</span>}
+      </div>
+
+      {/* 던전 목록 */}
+      <div className="space-y-3">
         {dungeons.map(d => {
-          const monster = MONSTER_BY_DIFF[d.difficulty] || MONSTER_BY_DIFF.normal;
+          const m    = MONSTER[d.difficulty] || MONSTER.normal;
+          const best = bestScores[d.id];
+          const isFirst = !best?.cleared;
           return (
-            <div key={d.id}
-              className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-all">
-              {/* 상단 색 띠 */}
-              <div className={`px-4 py-2 text-white text-xs font-bold
-                ${d.difficulty === 'easy' ? 'bg-emerald-500'
-                  : d.difficulty === 'hard' ? 'bg-rose-500' : 'bg-sky-500'}`}>
-                {monster.emoji} {monster.name}
+            <div key={d.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+              <div className={`${DIFF_BADGE[d.difficulty] || 'bg-sky-500'} px-4 py-2.5 flex items-center justify-between text-white`}>
+                <span className="font-extrabold flex items-center gap-2 text-base">
+                  <span className="text-xl">{m.emoji}</span>{m.name}
+                </span>
+                <span className="text-xs font-bold opacity-90">
+                  {d.difficulty === 'easy' ? '쉬움' : d.difficulty === 'hard' ? '어려움' : '보통'}
+                  &nbsp;·&nbsp;{DIFF_TIMER[d.difficulty] || 12}초/문제
+                </span>
               </div>
               <div className="p-4">
-                <h3 className="font-extrabold text-slate-800 mb-1">{d.title}</h3>
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${DIFF_COLOR[d.difficulty]}`}>
-                    {DIFF_LABEL[d.difficulty]}
-                  </span>
-                  <span className="text-[10px] text-slate-500">{d.questionCount}문제</span>
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <h3 className="font-extrabold text-slate-800 text-base">{d.title}</h3>
+                    <span className="text-xs text-slate-400">{d.questionCount}문제</span>
+                  </div>
+                  {best ? (
+                    <div className="text-right shrink-0 ml-2">
+                      <div className="flex gap-0.5 justify-end text-lg">
+                        {[0,1,2].map(i => (
+                          <span key={i} className={i < best.stars ? 'text-amber-400' : 'text-slate-200'}>⭐</span>
+                        ))}
+                      </div>
+                      <div className="text-[10px] text-slate-400">최고 {best.accuracy}%</div>
+                    </div>
+                  ) : null}
                 </div>
-                <div className="flex gap-3 text-xs text-slate-500 mb-4">
+                <div className="flex flex-wrap gap-2 text-xs text-slate-500 mb-3">
                   {d.rewards?.gold    > 0 && <span>🪙 {d.rewards.gold}G</span>}
                   {d.rewards?.exp     > 0 && <span>⭐ {d.rewards.exp} EXP</span>}
                   {d.rewards?.diamond > 0 && <span>💎 {d.rewards.diamond}</span>}
+                  {isFirst && (
+                    <span className="text-amber-500 font-bold">🌟 첫 클리어 보너스 ×1.5</span>
+                  )}
                 </div>
-                <button
-                  onClick={() => onEnter(d)}
-                  disabled={dungeonTickets <= 0}
+                <button onClick={() => onPreview(d)} disabled={tk <= 0}
                   className={`w-full py-2.5 rounded-xl font-extrabold text-sm transition-all active:scale-95
-                    ${dungeonTickets > 0
+                    ${tk > 0
                       ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
                       : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
-                  {dungeonTickets > 0 ? '⚔️ 입장하기 (이용권 1개)' : '이용권 없음'}
+                  {tk > 0 ? '⚔️ 입장하기 (이용권 1개)' : '이용권 없음'}
                 </button>
               </div>
             </div>
@@ -129,174 +162,420 @@ function DungeonLobby({ dungeons, tickets, onEnter, isLoading }) {
   );
 }
 
-// ─────────────────────── 퀴즈 배틀 ───────────────────────────
-function QuizBattle({ dungeon, playerHP, monsterHP, monsterMaxHP, currentQ,
-  onAnswer, answered, selectedOption, monsterShake, playerShake }) {
-  const q         = dungeon.questions[currentQ];
-  const qTotal    = dungeon.questions.length;
-  const monster   = MONSTER_BY_DIFF[dungeon.difficulty] || MONSTER_BY_DIFF.normal;
-  const mHPpct    = Math.max(0, Math.round(monsterHP / monsterMaxHP * 100));
-  const pHPpct    = Math.max(0, Math.round(playerHP  / PLAYER_MAX_HP * 100));
-
+// ── 보스 소개 팝업 ────────────────────────────────────────────
+function BossIntroModal({ dungeon, onConfirm, onCancel }) {
+  const m     = MONSTER[dungeon.difficulty] || MONSTER.normal;
+  const timer = DIFF_TIMER[dungeon.difficulty] || 12;
+  const INFO  = [
+    ['📝 문제 수',   `${dungeon.questionCount}문제`],
+    ['⏱️ 제한 시간', `${timer}초/문제`],
+    ['❤️ 내 HP',    `${PLAYER_MAX_HP}`],
+    ['💥 오답 피해', `-${DAMAGE_WRONG} HP`],
+  ];
   return (
-    <div className="flex flex-col h-full">
-      {/* 전투 헤더 */}
-      <div className="bg-slate-900 px-4 pt-4 pb-5 space-y-2.5">
-        <HpBar current={monsterHP} max={monsterMaxHP} label={`👾 ${monster.name}`}
-          color={hpColor(mHPpct)} />
-        <HpBar current={playerHP}  max={PLAYER_MAX_HP} label="🧙‍♂️ 나"
-          color={hpColor(pHPpct)} />
-      </div>
-
-      {/* 몬스터 */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center py-6 relative overflow-hidden">
-        {/* 배경 별 */}
-        <div className="absolute inset-0 opacity-20 text-white text-xs select-none pointer-events-none">
-          {['✦','✧','⋆','✦','✧'].map((s,i) => (
-            <span key={i} className="absolute animate-pulse" style={{ top: `${20+i*15}%`, left: `${10+i*20}%`, animationDelay: `${i*0.5}s` }}>{s}</span>
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-slate-900 rounded-3xl w-full max-w-sm border border-slate-700 shadow-2xl p-6 text-center animate-pop-in">
+        <div className="text-7xl mb-3 select-none">{m.emoji}</div>
+        <h2 className="text-2xl font-extrabold text-white mb-1">{m.name}</h2>
+        <p className="text-slate-400 text-sm mb-2">{dungeon.title}</p>
+        <p className="text-slate-500 text-xs mb-5">{m.desc}</p>
+        <div className="grid grid-cols-2 gap-2 mb-5">
+          {INFO.map(([l, v]) => (
+            <div key={l} className="bg-slate-800 rounded-xl px-3 py-2.5 border border-slate-700">
+              <div className="text-slate-400 text-[10px] mb-0.5">{l}</div>
+              <div className="text-white font-extrabold text-sm">{v}</div>
+            </div>
           ))}
         </div>
-        <div className={`text-8xl transition-transform duration-100 select-none
-          ${monsterShake ? '-translate-x-3 rotate-6' : 'translate-x-0'}`}>
-          {monster.emoji}
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={onCancel}
+            className="py-3 rounded-2xl bg-slate-800 text-slate-300 font-bold border border-slate-700 hover:bg-slate-700 transition-colors active:scale-95">
+            취소
+          </button>
+          <button onClick={onConfirm}
+            className="py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-extrabold shadow-lg hover:from-indigo-500 transition-all active:scale-95">
+            ⚔️ 전투 시작!
+          </button>
         </div>
-        {/* 피격 이펙트 */}
-        {answered === 'correct' && (
-          <div className="absolute top-4 right-8 text-yellow-300 font-extrabold text-xl animate-bounce">
-            💥 크리티컬!
-          </div>
-        )}
-        {answered === 'wrong' && (
-          <div className="absolute top-4 left-8 text-rose-400 font-extrabold text-lg animate-bounce">
-            😵 빗나감!
-          </div>
-        )}
-      </div>
-
-      {/* 퀴즈 영역 */}
-      <div className="flex-1 bg-slate-50 p-4 space-y-4 overflow-y-auto">
-        {/* 진행 바 */}
-        <div>
-          <div className="flex justify-between text-xs text-slate-400 font-medium mb-1">
-            <span>Q {currentQ + 1} / {qTotal}</span>
-            <span>{Math.round((currentQ / qTotal) * 100)}% 완료</span>
-          </div>
-          <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-            <div className="h-full bg-indigo-500 rounded-full transition-all"
-              style={{ width: `${(currentQ / qTotal) * 100}%` }} />
-          </div>
-        </div>
-
-        {/* 문제 */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-          <p className="font-bold text-slate-800 text-base leading-relaxed">{q.question}</p>
-        </div>
-
-        {/* 보기 */}
-        <div className="grid grid-cols-2 gap-2.5">
-          {q.options.map((opt, oi) => {
-            let cls = 'bg-white border-2 border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50';
-            if (answered !== null) {
-              if (oi === q.answer)          cls = 'bg-emerald-100 border-2 border-emerald-500 text-emerald-800';
-              else if (oi === selectedOption) cls = 'bg-rose-100 border-2 border-rose-400 text-rose-700';
-              else                           cls = 'bg-slate-50 border-2 border-slate-100 text-slate-400 opacity-60';
-            }
-            return (
-              <button key={oi}
-                onClick={() => onAnswer(oi)}
-                disabled={answered !== null}
-                className={`py-3 px-3 rounded-2xl font-bold text-sm text-left transition-all active:scale-95 ${cls}`}>
-                {opt}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 해설 */}
-        {answered !== null && q.explanation && (
-          <div className={`rounded-xl p-3 text-xs font-medium leading-relaxed
-            ${answered === 'correct' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-              : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
-            {answered === 'correct' ? '✅ 정답! ' : `❌ 오답 · 정답: ${q.options[q.answer]}\n`}
-            {q.explanation}
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-// ─────────────────────── 결과 화면 ───────────────────────────
-function ResultScreen({ dungeon, score, totalQ, wrongIndexes, playerAlive,
-  earnedRewards, leveledUp, isSaving, onReturnLobby }) {
-  const accuracy = Math.round(score / totalQ * 100);
-  const stars    = accuracy >= 90 ? 3 : accuracy >= 70 ? 2 : accuracy >= 50 ? 1 : 0;
+// ── 퀴즈 배틀 ──────────────────────────────────────────────────
+function QuizBattle({ dungeon, playerData, onBattleEnd }) {
+  const maxTime      = DIFF_TIMER[dungeon.difficulty] || 12;
+  const monsterMaxHP = dungeon.questions.length * DAMAGE_RIGHT;
+
+  const [timeLeft,     setTimeLeft]     = useState(maxTime);
+  const [currentQ,     setCurrentQ]     = useState(0);
+  const [answered,     setAnswered]     = useState(null); // null | 'correct' | 'wrong' | 'timeout'
+  const [selectedOpt,  setSelectedOpt]  = useState(null);
+  const [playerHP,     setPlayerHP]     = useState(PLAYER_MAX_HP);
+  const [monsterHP,    setMonsterHP]    = useState(monsterMaxHP);
+  const [score,        setScore]        = useState(0);
+  const [wrongIdxs,    setWrongIdxs]    = useState([]);
+  const [combo,        setCombo]        = useState(0);
+  const [maxCombo,     setMaxCombo]     = useState(0);
+  const [timeBonus,    setTimeBonus]    = useState(0);
+  const [monsterFlash, setMonsterFlash] = useState(false);
+  const [playerShake,  setPlayerShake]  = useState(false);
+  const [floats,       setFloats]       = useState([]);
+
+  const nextRef    = useRef(null);
+  const floatIdRef = useRef(0);
+  const handlerRef = useRef(null); // latest handleAnswer ref (timer safe)
+
+  const addFloat = (text, isPlayer) => {
+    const id = floatIdRef.current++;
+    setFloats(p => [...p, { id, text, isPlayer }]);
+    setTimeout(() => setFloats(p => p.filter(f => f.id !== id)), 1100);
+  };
+
+  const handleAnswer = useCallback((optIdx, timeout = false) => {
+    if (answered !== null) return;
+    const q  = dungeon.questions[currentQ];
+    const ok = !timeout && optIdx === q.answer;
+
+    setSelectedOpt(timeout ? null : optIdx);
+    setAnswered(ok ? 'correct' : timeout ? 'timeout' : 'wrong');
+
+    const newScore = ok ? score + 1 : score;
+    const newWrong = ok ? wrongIdxs : [...wrongIdxs, currentQ];
+    let newMonsterHP = monsterHP;
+    let newPlayerHP  = playerHP;
+    let newCombo     = combo;
+    let newTimeBonus = timeBonus;
+
+    if (ok) {
+      newCombo = combo + 1;
+      const cf   = getComboLv(newCombo);
+      const mult = cf ? cf.mult : 1.0;
+      const dmg  = Math.round(DAMAGE_RIGHT * mult);
+      newMonsterHP = Math.max(0, monsterHP - dmg);
+      newTimeBonus = timeBonus + timeLeft * 2;
+
+      setMonsterHP(newMonsterHP);
+      setScore(newScore);
+      setCombo(newCombo);
+      setMaxCombo(m => Math.max(m, newCombo));
+      setTimeBonus(newTimeBonus);
+      setMonsterFlash(true);
+      setTimeout(() => setMonsterFlash(false), 350);
+      addFloat(`-${dmg}${mult > 1 ? ` ×${mult}` : ''}`, false);
+    } else {
+      newPlayerHP = Math.max(0, playerHP - DAMAGE_WRONG);
+      newCombo    = 0;
+      setPlayerHP(newPlayerHP);
+      setCombo(0);
+      setPlayerShake(true);
+      setTimeout(() => setPlayerShake(false), 500);
+      addFloat(`-${DAMAGE_WRONG}`, true);
+    }
+    setWrongIdxs(newWrong);
+
+    const nextQ  = currentQ + 1;
+    const isOver = newMonsterHP <= 0 || newPlayerHP <= 0
+                || nextQ >= dungeon.questions.length;
+
+    nextRef.current = setTimeout(() => {
+      if (isOver) {
+        onBattleEnd({
+          score: newScore,
+          playerHP: newPlayerHP,
+          wrongIdxs: newWrong,
+          maxCombo: Math.max(maxCombo, newCombo),
+          timeBonus: newTimeBonus,
+        });
+      } else {
+        setCurrentQ(nextQ);
+        setAnswered(null);
+        setSelectedOpt(null);
+        setTimeLeft(maxTime);
+      }
+    }, 1400);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answered, currentQ, score, wrongIdxs, monsterHP, playerHP,
+      combo, timeBonus, timeLeft, maxCombo, maxTime, dungeon]);
+
+  handlerRef.current = handleAnswer;
+
+  // 타이머
+  useEffect(() => {
+    if (answered !== null) return;
+    if (timeLeft <= 0) { handlerRef.current(null, true); return; }
+    const t = setTimeout(() => setTimeLeft(tl => tl - 1), 1000);
+    return () => clearTimeout(t);
+  }, [timeLeft, answered]);
+
+  useEffect(() => () => { if (nextRef.current) clearTimeout(nextRef.current); }, []);
+
+  const q       = dungeon.questions[currentQ];
+  const monster = MONSTER[dungeon.difficulty] || MONSTER.normal;
+  const qTotal  = dungeon.questions.length;
+  const mHPpct  = (monsterHP / monsterMaxHP) * 100;
+  const pHPpct  = (playerHP  / PLAYER_MAX_HP) * 100;
+  const comboLv = getComboLv(combo);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-full p-6 bg-slate-50 text-center">
-      <div className="text-6xl mb-3">{playerAlive ? '🏆' : '💀'}</div>
+    <div className="flex flex-col h-full bg-slate-900 select-none">
+
+      {/* ── 몬스터 영역 ── */}
+      <div className="relative bg-gradient-to-b from-slate-800 to-slate-900 px-4 pt-3 pb-2 shrink-0">
+        {/* HP 바 */}
+        <div className="mb-2">
+          <div className="flex justify-between text-xs font-bold mb-1 text-slate-300">
+            <span>{monster.emoji} {monster.name}</span>
+            <span className="text-white">{monsterHP} / {monsterMaxHP}</span>
+          </div>
+          <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(mHPpct)}`}
+              style={{ width: `${mHPpct}%` }} />
+          </div>
+        </div>
+
+        {/* 몬스터 이모지 + 이펙트 */}
+        <div className="relative flex items-center justify-center h-24 overflow-visible">
+          <div className="text-8xl select-none transition-all duration-150"
+            style={{
+              filter:    monsterFlash ? 'brightness(4) saturate(0)' : undefined,
+              transform: monsterFlash ? 'scale(1.1) translateX(-4px)' : undefined,
+            }}>
+            {monster.emoji}
+          </div>
+
+          {/* 데미지 플로팅 (몬스터) */}
+          {floats.filter(f => !f.isPlayer).map(f => (
+            <div key={f.id}
+              className="absolute top-0 right-6 font-extrabold text-xl text-yellow-300 pointer-events-none animate-float-up z-10"
+              style={{ textShadow: '0 0 8px rgba(251,191,36,0.8)' }}>
+              {f.text}
+            </div>
+          ))}
+
+          {/* 적중/빗나감 텍스트 */}
+          {answered === 'correct' && (
+            <div className="absolute top-1 right-4 text-yellow-300 font-extrabold text-base animate-bounce">💥 HIT!</div>
+          )}
+          {answered === 'wrong' && (
+            <div className="absolute top-1 left-4 text-rose-400 font-extrabold text-sm animate-bounce">😵 빗나감!</div>
+          )}
+          {answered === 'timeout' && (
+            <div className="absolute top-1 left-4 text-rose-400 font-extrabold text-sm animate-bounce">⏰ 시간 초과!</div>
+          )}
+        </div>
+
+        {/* 콤보 배너 */}
+        {comboLv && (
+          <div className={`absolute top-2 right-3 ${comboLv.cls} text-xs font-extrabold px-3 py-1 rounded-full shadow-lg z-10 animate-pop-in`}>
+            {comboLv.label} {combo}연속
+          </div>
+        )}
+      </div>
+
+      {/* ── 플레이어 영역 ── */}
+      <div className="bg-slate-800 px-4 py-2.5 flex items-center gap-3 shrink-0 border-t border-slate-700">
+        <div className={`w-11 h-11 rounded-xl overflow-hidden bg-indigo-900/60 border border-indigo-700
+          flex items-center justify-center shrink-0 ${playerShake ? 'animate-shake' : ''}`}>
+          {playerData?.characterImage
+            ? <img src={playerData.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
+            : <span className="text-2xl">🧙‍♂️</span>}
+        </div>
+        <div className="flex-1">
+          <div className="flex justify-between text-xs font-bold mb-1">
+            <span className="text-slate-300">{playerData?.name || '나'}</span>
+            <span className="text-white">{playerHP} / {PLAYER_MAX_HP}</span>
+          </div>
+          <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(pHPpct)}`}
+              style={{ width: `${pHPpct}%` }} />
+          </div>
+        </div>
+        {/* 플레이어 피해 플로팅 */}
+        {floats.filter(f => f.isPlayer).map(f => (
+          <div key={f.id} className="text-rose-400 font-extrabold text-base animate-float-up pointer-events-none">
+            {f.text}
+          </div>
+        ))}
+      </div>
+
+      {/* ── 퀴즈 영역 ── */}
+      <div className="flex-1 bg-slate-100 overflow-y-auto">
+        <div className="p-4 space-y-3">
+
+          {/* 타이머 + 진행 */}
+          <div className="flex items-center gap-3">
+            <CircleTimer timeLeft={timeLeft} maxTime={maxTime} />
+            <div className="flex-1">
+              <div className="flex justify-between text-xs font-medium mb-1">
+                <span className="font-bold text-slate-700">Q {currentQ + 1} / {qTotal}</span>
+                <span className="text-slate-400">정답 {score}개</span>
+              </div>
+              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                  style={{ width: `${(currentQ / qTotal) * 100}%` }} />
+              </div>
+            </div>
+          </div>
+
+          {/* 문제 */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <p className="font-bold text-slate-800 text-base leading-relaxed">{q.question}</p>
+          </div>
+
+          {/* 보기 */}
+          <div className="grid grid-cols-2 gap-2.5">
+            {q.options.map((opt, oi) => {
+              let cls = 'bg-white border-2 border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50';
+              if (answered !== null) {
+                if (oi === q.answer)         cls = 'bg-emerald-100 border-2 border-emerald-500 text-emerald-800';
+                else if (oi === selectedOpt) cls = 'bg-rose-100 border-2 border-rose-400 text-rose-700';
+                else                         cls = 'bg-slate-50 border-2 border-slate-100 text-slate-400 opacity-40';
+              }
+              return (
+                <button key={oi}
+                  onClick={() => handleAnswer(oi)}
+                  disabled={answered !== null}
+                  className={`py-3.5 px-3 rounded-2xl font-bold text-sm text-left transition-all active:scale-95 ${cls}`}>
+                  <span className="text-slate-400 mr-1.5">{['①','②','③','④'][oi]}</span>{opt}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 해설 */}
+          {answered !== null && q.explanation && (
+            <div className={`rounded-xl p-3 text-xs font-medium leading-relaxed
+              ${answered === 'correct'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+              {answered === 'correct'
+                ? '✅ 정답! '
+                : `❌ 정답: ${q.options[q.answer]} — `}
+              {q.explanation}
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 결과 화면 ──────────────────────────────────────────────────
+function ResultScreen({
+  dungeon, score, totalQ, wrongIdxs, playerAlive,
+  earnedRewards, leveledUp, isSaving, maxCombo,
+  canRetry, onRetry, onReturnLobby,
+}) {
+  const accuracy  = Math.round(score / totalQ * 100);
+  const stars     = toStars(accuracy);
+  const [visStars, setVisStars] = useState(0);
+
+  useEffect(() => {
+    if (!playerAlive || stars === 0) return;
+    let n = 0;
+    const t = setInterval(() => {
+      n++;
+      setVisStars(n);
+      if (n >= stars) clearInterval(t);
+    }, 420);
+    return () => clearInterval(t);
+  }, [playerAlive, stars]);
+
+  const STATS = [
+    ['정답 수',   `${score} / ${totalQ}`,                null],
+    ['정확도',    `${accuracy}%`,                         accuracy >= 70 ? 'text-emerald-600' : 'text-rose-500'],
+    ['최고 콤보', `🔥 ${maxCombo}연속`,                   'text-orange-500'],
+    ...(wrongIdxs.length ? [['오답 수', `${wrongIdxs.length}개`, 'text-rose-500']] : []),
+  ];
+
+  return (
+    <div className="flex flex-col items-center min-h-full p-5 bg-slate-50">
+      <div className="text-6xl mt-4 mb-2">{playerAlive ? '🏆' : '💀'}</div>
       <h2 className="text-2xl font-extrabold text-slate-800 mb-1">
         {playerAlive ? '던전 클리어!' : '던전 실패'}
       </h2>
       <p className="text-slate-500 text-sm mb-4">{dungeon.title}</p>
 
-      {/* 레벨업 알림 */}
       {leveledUp && (
-        <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-2xl px-6 py-3 mb-4 font-extrabold text-lg shadow-lg animate-bounce">
+        <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-2xl px-6 py-3 mb-4 font-extrabold text-lg shadow-lg animate-bounce w-full max-w-xs text-center">
           🎉 레벨 업! Lv.{leveledUp} 달성!
         </div>
       )}
 
       {/* 별 */}
-      <div className="flex gap-1 text-4xl mb-4">
-        {[0,1,2].map(i => <span key={i}>{i < stars ? '⭐' : '☆'}</span>)}
+      <div className="flex gap-3 mb-5">
+        {[0,1,2].map(i => (
+          <span key={i}
+            className={`text-5xl transition-all duration-300 ${i < visStars ? 'scale-125 drop-shadow-lg' : 'opacity-20 scale-90'}`}>
+            ⭐
+          </span>
+        ))}
       </div>
 
-      {/* 점수 */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 w-full max-w-xs mb-4 space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-slate-500">정답 수</span>
-          <span className="font-extrabold text-slate-800">{score} / {totalQ}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-slate-500">정확도</span>
-          <span className={`font-extrabold ${accuracy >= 70 ? 'text-emerald-600' : 'text-rose-500'}`}>{accuracy}%</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-slate-500">오답 수</span>
-          <span className="font-extrabold text-rose-500">{wrongIndexes.length}개</span>
-        </div>
+      {/* 스탯 */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 w-full max-w-xs mb-4 space-y-2.5">
+        {STATS.map(([label, val, cls]) => (
+          <div key={label} className="flex justify-between text-sm">
+            <span className="text-slate-500">{label}</span>
+            <span className={`font-extrabold ${cls || 'text-slate-800'}`}>{val}</span>
+          </div>
+        ))}
       </div>
 
-      {/* 실제 보상 지급 현황 */}
+      {/* 보상 */}
       {isSaving ? (
-        <div className="text-sm text-slate-400 font-medium mb-4 animate-pulse">💾 결과 저장 중...</div>
+        <div className="text-sm text-slate-400 mb-4 animate-pulse">💾 결과 저장 중...</div>
       ) : earnedRewards ? (
-        <div className={`border rounded-2xl p-4 w-full max-w-xs mb-4 text-sm
+        <div className={`border rounded-2xl p-4 w-full max-w-xs mb-4
           ${playerAlive ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
-          <div className={`font-bold mb-2 ${playerAlive ? 'text-emerald-700' : 'text-slate-500'}`}>
-            {playerAlive ? '🎁 획득한 보상' : '😢 실패 - 보상 없음'}
+          <div className={`font-bold mb-2 text-sm ${playerAlive ? 'text-emerald-700' : 'text-slate-500'}`}>
+            {playerAlive ? '🎁 획득 보상' : '😢 실패 — 보상 없음'}
           </div>
           {playerAlive && (
-            <div className="flex justify-center gap-4 text-sm font-extrabold">
-              {earnedRewards.goldEarned    > 0 && <span className="text-amber-600">🪙 +{earnedRewards.goldEarned}G</span>}
-              {earnedRewards.expEarned     > 0 && <span className="text-indigo-600">⭐ +{earnedRewards.expEarned} EXP</span>}
-              {earnedRewards.diamondEarned > 0 && <span className="text-blue-600">💎 +{earnedRewards.diamondEarned}</span>}
-              {earnedRewards.goldEarned === 0 && earnedRewards.expEarned === 0 && earnedRewards.diamondEarned === 0 && (
-                <span className="text-slate-400 font-normal">정답이 없어 보상이 지급되지 않습니다</span>
+            <div className="space-y-1.5">
+              {earnedRewards.goldEarned    > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">기본 보상</span>
+                  <span className="font-extrabold text-amber-600">🪙 +{earnedRewards.goldEarned}G</span>
+                </div>
+              )}
+              {earnedRewards.timeBonusGold > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">⏱️ 타임 보너스</span>
+                  <span className="font-extrabold text-sky-600">🪙 +{earnedRewards.timeBonusGold}G</span>
+                </div>
+              )}
+              {earnedRewards.expEarned     > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">경험치</span>
+                  <span className="font-extrabold text-indigo-600">⭐ +{earnedRewards.expEarned}</span>
+                </div>
+              )}
+              {earnedRewards.diamondEarned > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">다이아</span>
+                  <span className="font-extrabold text-blue-600">💎 +{earnedRewards.diamondEarned}</span>
+                </div>
+              )}
+              {earnedRewards.firstClear && (
+                <div className="text-center text-amber-600 font-bold text-xs pt-1.5 border-t border-amber-200">
+                  🌟 첫 클리어 보너스 ×1.5 적용!
+                </div>
               )}
             </div>
           )}
         </div>
       ) : null}
 
-      {/* 오답 목록 */}
-      {wrongIndexes.length > 0 && (
-        <div className="bg-white border border-rose-200 rounded-2xl p-4 w-full max-w-sm mb-5 text-left">
-          <div className="text-xs font-bold text-rose-600 mb-2">❌ 틀린 문제 복습</div>
+      {/* 오답 복습 */}
+      {wrongIdxs.length > 0 && (
+        <div className="bg-white border border-rose-200 rounded-2xl p-4 w-full max-w-sm mb-4 text-left">
+          <div className="text-xs font-bold text-rose-600 mb-2">❌ 오답 복습</div>
           <div className="space-y-2 max-h-40 overflow-y-auto">
-            {wrongIndexes.map(i => (
-              <div key={i} className="text-xs text-slate-600 bg-rose-50 rounded-lg p-2">
+            {wrongIdxs.map(i => (
+              <div key={i} className="text-xs bg-rose-50 rounded-lg p-2.5">
                 <div className="font-bold text-slate-700 mb-0.5">Q{i+1}. {dungeon.questions[i].question}</div>
                 <div className="text-emerald-600">정답: {dungeon.questions[i].options[dungeon.questions[i].answer]}</div>
                 {dungeon.questions[i].explanation && (
@@ -308,56 +587,69 @@ function ResultScreen({ dungeon, score, totalQ, wrongIndexes, playerAlive,
         </div>
       )}
 
-      <button onClick={onReturnLobby}
-        className="w-full max-w-xs py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl transition-all active:scale-95">
-        던전 목록으로
-      </button>
+      <div className={`grid gap-3 w-full max-w-xs ${canRetry ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {canRetry && (
+          <button onClick={onRetry}
+            className="py-3.5 bg-amber-500 hover:bg-amber-400 text-white font-extrabold rounded-2xl active:scale-95 transition-all">
+            🔄 재도전
+          </button>
+        )}
+        <button onClick={onReturnLobby}
+          className="py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl active:scale-95 transition-all">
+          목록으로
+        </button>
+      </div>
     </div>
   );
 }
 
-// ─────────────────────── Main ─────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────
 function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
-  const [screen, setScreen] = useState('lobby');
-  const [dungeons, setDungeons] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [screen,          setScreen]         = useState('lobby');
+  const [dungeons,        setDungeons]       = useState([]);
+  const [isLoading,       setIsLoading]      = useState(true);
+  const [previewDungeon,  setPreviewDungeon] = useState(null);
   const [selectedDungeon, setSelectedDungeon] = useState(null);
-  const [studentData, setStudentData] = useState(null); // 보상 지급용
+  const [studentData,     setStudentData]    = useState(null);
+  const [bestScores,      setBestScores]     = useState({});
+  const [battleRes,       setBattleRes]      = useState(null);
+  const [earnedRewards,   setEarnedRewards]  = useState(null);
+  const [leveledUp,       setLeveledUp]      = useState(null);
+  const [isSaving,        setIsSaving]       = useState(false);
 
-  // 배틀 상태
-  const [currentQ, setCurrentQ]     = useState(0);
-  const [playerHP, setPlayerHP]     = useState(PLAYER_MAX_HP);
-  const [monsterHP, setMonsterHP]   = useState(0);
-  const [monsterMaxHP, setMonsterMaxHP] = useState(0);
-  const [score, setScore]           = useState(0);
-  const [wrongIndexes, setWrongIndexes] = useState([]);
-  const [answered, setAnswered]     = useState(null);
-  const [selectedOption, setSelectedOption] = useState(null);
-  const [monsterShake, setMonsterShake] = useState(false);
-  const [playerShake, setPlayerShake]   = useState(false);
-  const timerRef = useRef(null);
-
-  // 결과 상태
-  const [earnedRewards, setEarnedRewards] = useState(null);
-  const [leveledUp, setLeveledUp]         = useState(null);
-  const [isSaving, setIsSaving]           = useState(false);
-
+  // 던전 목록 + 베스트 기록 로드
   useEffect(() => {
     const load = async () => {
       try {
-        const [dungeonSnap] = await Promise.all([
+        const [dungSnap, resSnap] = await Promise.all([
           getDocs(query(collection(db, 'quizDungeons'), where('active', '==', true))),
+          studentDocId
+            ? getDocs(query(collection(db, 'quizResults'), where('studentId', '==', studentDocId)))
+            : Promise.resolve({ docs: [] }),
         ]);
-        setDungeons(dungeonSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+
+        setDungeons(
+          dungSnap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+        );
+
+        const best = {};
+        resSnap.docs.forEach(d => {
+          const r = d.data();
+          if (!best[r.dungeonId] || r.accuracy > best[r.dungeonId].accuracy) {
+            best[r.dungeonId] = { accuracy: r.accuracy, stars: toStars(r.accuracy) };
+          }
+          if (r.cleared) best[r.dungeonId] = { ...best[r.dungeonId], cleared: true };
+        });
+        setBestScores(best);
       } catch (err) { console.error(err); }
       finally { setIsLoading(false); }
     };
     load();
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, []);
+  }, [studentDocId]);
 
-  // 학생 데이터 로드 (보상 지급용)
+  // 학생 데이터 로드
   useEffect(() => {
     if (!studentDocId) return;
     getDoc(doc(db, 'students', studentDocId)).then(snap => {
@@ -365,186 +657,140 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
     });
   }, [studentDocId]);
 
-  // ── 결과 저장 + 보상 지급 ─────────────────────────────────
-  const doSaveResult = async (finalScore, finalPlayerHP, finalWrong, dungeon) => {
+  const enterDungeon = async (dungeon) => {
+    if (!onUseTicket) return alert('이용권 시스템에 연결되지 않았습니다.');
+    await onUseTicket('dungeon');
+    setSelectedDungeon(dungeon);
+    setBattleRes(null);
+    setEarnedRewards(null);
+    setLeveledUp(null);
+    setPreviewDungeon(null);
+    setScreen('battle');
+  };
+
+  const handleBattleEnd = async (result) => {
+    setBattleRes(result);
+    setScreen('result');
+    await doSaveResult(result);
+  };
+
+  const doSaveResult = async ({ score, playerHP, wrongIdxs, timeBonus }) => {
+    if (!selectedDungeon) return;
     setIsSaving(true);
+    const dungeon  = selectedDungeon;
     const totalQ   = dungeon.questionCount;
-    const cleared  = finalPlayerHP > 0;
-    const accuracy = Math.round(finalScore / totalQ * 100);
+    const cleared  = playerHP > 0;
+    const accuracy = Math.round(score / totalQ * 100);
+    const isFirst  = !bestScores[dungeon.id]?.cleared;
 
-    // 보상 계산 (정확도 비례, 퍼펙트 시 다이아 추가)
-    const goldEarned    = cleared ? Math.floor((dungeon.rewards?.gold    || 0) * finalScore / totalQ) : 0;
-    const expEarned     = cleared ? Math.floor((dungeon.rewards?.exp     || 0) * finalScore / totalQ) : 0;
-    const diamondEarned = (cleared && finalScore === totalQ) ? (dungeon.rewards?.diamond || 0) : 0;
+    const baseGold  = cleared ? Math.floor((dungeon.rewards?.gold || 0) * score / totalQ) : 0;
+    const tbGold    = cleared ? Math.min(timeBonus, (dungeon.rewards?.gold || 0) * 2) : 0;
+    const rawGold   = baseGold + tbGold;
+    const goldEarned    = isFirst && cleared ? Math.round(rawGold  * 1.5) : rawGold;
+    const baseExp       = cleared ? Math.floor((dungeon.rewards?.exp || 0) * score / totalQ) : 0;
+    const expEarned     = isFirst && cleared ? Math.round(baseExp  * 1.5) : baseExp;
+    const diamondEarned = (cleared && score === totalQ) ? (dungeon.rewards?.diamond || 0) : 0;
 
-    setEarnedRewards({ goldEarned, expEarned, diamondEarned });
+    setEarnedRewards({
+      goldEarned, expEarned, diamondEarned,
+      timeBonusGold: tbGold,
+      firstClear: isFirst && cleared,
+    });
 
     if (!studentDocId || !studentData) { setIsSaving(false); return; }
 
     try {
-      // 레벨업 계산
       const { level, exp, maxExp, leveled } = calcLevelUp(
         studentData.level, studentData.exp, studentData.maxExp, expEarned
       );
       if (leveled) setLeveledUp(level);
 
       const batch = writeBatch(db);
-
-      // 학생 재화/경험치 업데이트
       batch.update(doc(db, 'students', studentDocId), {
         gold:     (studentData.gold     || 0) + goldEarned,
         diamonds: (studentData.diamonds || 0) + diamondEarned,
         exp, level, maxExp,
       });
-
-      // 결과 기록
       batch.set(doc(collection(db, 'quizResults')), {
-        studentId:     studentDocId,
-        studentCode:   studentData.studentCode,
-        studentName:   studentData.name || studentData.studentCode,
-        dungeonId:     dungeon.id,
-        dungeonTitle:  dungeon.title,
-        score:         finalScore,
-        totalQuestions: totalQ,
-        accuracy,
-        cleared,
-        wrongIndexes:  finalWrong,
+        studentId: studentDocId,
+        studentCode: studentData.studentCode,
+        studentName: studentData.name || studentData.studentCode,
+        dungeonId: dungeon.id,
+        dungeonTitle: dungeon.title,
+        score, totalQuestions: totalQ, accuracy,
+        cleared, wrongIndexes: wrongIdxs,
         goldEarned, expEarned, diamondEarned,
-        completedAt:   serverTimestamp(),
+        completedAt: serverTimestamp(),
       });
-
-      // 던전 플레이 카운트 증가
       batch.update(doc(db, 'quizDungeons', dungeon.id), {
         playCount: (dungeon.playCount || 0) + 1,
       });
-
       await batch.commit();
 
-      // 로컬 학생 데이터 갱신
       setStudentData(prev => ({
         ...prev,
         gold:     (prev?.gold     || 0) + goldEarned,
         diamonds: (prev?.diamonds || 0) + diamondEarned,
         exp, level, maxExp,
       }));
-    } catch (err) {
-      console.error('결과 저장 에러:', err);
-    } finally {
-      setIsSaving(false);
-    }
+      setBestScores(prev => {
+        const cur = prev[dungeon.id];
+        const updated = cur && cur.accuracy >= accuracy ? cur : { accuracy, stars: toStars(accuracy) };
+        if (cleared) updated.cleared = true;
+        return { ...prev, [dungeon.id]: updated };
+      });
+    } catch (err) { console.error('결과 저장 에러:', err); }
+    finally { setIsSaving(false); }
   };
 
-  const enterDungeon = async (dungeon) => {
-    if (!onUseTicket) return alert('이용권 시스템에 연결되지 않았습니다.');
-    await onUseTicket('dungeon');
-
-    const mHP = dungeon.questionCount * DAMAGE_RIGHT;
-    setSelectedDungeon(dungeon);
-    setCurrentQ(0);
-    setPlayerHP(PLAYER_MAX_HP);
-    setMonsterHP(mHP);
-    setMonsterMaxHP(mHP);
-    setScore(0);
-    setWrongIndexes([]);
-    setAnswered(null);
-    setSelectedOption(null);
-    setEarnedRewards(null);
-    setLeveledUp(null);
-    setScreen('battle');
-  };
-
-  const handleAnswer = (optionIdx) => {
-    if (answered !== null) return;
-    const q         = selectedDungeon.questions[currentQ];
-    const isCorrect = optionIdx === q.answer;
-
-    setSelectedOption(optionIdx);
-    setAnswered(isCorrect ? 'correct' : 'wrong');
-
-    // 최종값 계산 (stale state 방지)
-    const newScore     = isCorrect ? score + 1 : score;
-    const newMonsterHP = isCorrect ? Math.max(0, monsterHP - DAMAGE_RIGHT) : monsterHP;
-    const newPlayerHP  = isCorrect ? playerHP : Math.max(0, playerHP - DAMAGE_WRONG);
-    const newWrong     = isCorrect ? wrongIndexes : [...wrongIndexes, currentQ];
-
-    if (isCorrect) {
-      setMonsterHP(newMonsterHP);
-      setScore(newScore);
-      setMonsterShake(true);
-      setTimeout(() => setMonsterShake(false), 300);
-    } else {
-      setPlayerHP(newPlayerHP);
-      setWrongIndexes(newWrong);
-      setPlayerShake(true);
-      setTimeout(() => setPlayerShake(false), 300);
-    }
-
-    const nextQ       = currentQ + 1;
-    const isOver      = newMonsterHP <= 0 || newPlayerHP <= 0
-                     || nextQ >= selectedDungeon.questions.length;
-
-    timerRef.current = setTimeout(() => {
-      setAnswered(null);
-      setSelectedOption(null);
-      if (isOver) {
-        setEarnedRewards(null);
-        setLeveledUp(null);
-        doSaveResult(newScore, newPlayerHP, newWrong, selectedDungeon);
-        setScreen('result');
-      } else {
-        setCurrentQ(nextQ);
-      }
-    }, 1500);
-  };
-
-  // ── 렌더 ──
-  if (screen === 'lobby') {
-    return (
+  if (screen === 'lobby') return (
+    <>
       <DungeonLobby
         dungeons={dungeons}
         tickets={tickets}
-        onEnter={enterDungeon}
+        bestScores={bestScores}
+        onPreview={setPreviewDungeon}
         isLoading={isLoading}
       />
-    );
-  }
+      {previewDungeon && (
+        <BossIntroModal
+          dungeon={previewDungeon}
+          onConfirm={() => enterDungeon(previewDungeon)}
+          onCancel={() => setPreviewDungeon(null)}
+        />
+      )}
+    </>
+  );
 
-  if (screen === 'battle' && selectedDungeon) {
-    return (
-      <QuizBattle
-        dungeon={selectedDungeon}
-        playerHP={playerHP}
-        monsterHP={monsterHP}
-        monsterMaxHP={monsterMaxHP}
-        currentQ={currentQ}
-        onAnswer={handleAnswer}
-        answered={answered}
-        selectedOption={selectedOption}
-        monsterShake={monsterShake}
-        playerShake={playerShake}
-      />
-    );
-  }
+  if (screen === 'battle' && selectedDungeon) return (
+    <QuizBattle
+      dungeon={selectedDungeon}
+      playerData={studentData}
+      onBattleEnd={handleBattleEnd}
+    />
+  );
 
-  if (screen === 'result' && selectedDungeon) {
-    return (
-      <ResultScreen
-        dungeon={selectedDungeon}
-        score={score}
-        totalQ={selectedDungeon.questionCount}
-        wrongIndexes={wrongIndexes}
-        playerAlive={playerHP > 0}
-        earnedRewards={earnedRewards}
-        leveledUp={leveledUp}
-        isSaving={isSaving}
-        onReturnLobby={() => {
-          setScreen('lobby');
-          setEarnedRewards(null);
-          setLeveledUp(null);
-        }}
-      />
-    );
-  }
+  if (screen === 'result' && selectedDungeon && battleRes) return (
+    <ResultScreen
+      dungeon={selectedDungeon}
+      score={battleRes.score}
+      totalQ={selectedDungeon.questionCount}
+      wrongIdxs={battleRes.wrongIdxs}
+      playerAlive={battleRes.playerHP > 0}
+      earnedRewards={earnedRewards}
+      leveledUp={leveledUp}
+      isSaving={isSaving}
+      maxCombo={battleRes.maxCombo}
+      canRetry={(tickets?.dungeon ?? 0) > 0}
+      onRetry={() => enterDungeon(selectedDungeon)}
+      onReturnLobby={() => {
+        setScreen('lobby');
+        setBattleRes(null);
+        setEarnedRewards(null);
+        setLeveledUp(null);
+      }}
+    />
+  );
 
   return null;
 }
