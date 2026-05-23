@@ -25,6 +25,8 @@ function Stars({ count, total = 5, size = 'md' }) {
 export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = false }) {
   const g = GRADE[item?.grade] || GRADE.common;
   if (!item) return null;
+  const statEntries = Object.entries(STAT_LABEL).filter(([key]) => (item.stats?.[key] || 0) > 0);
+  const enhBonus = (stars || 0) * 5;
   return (
     <button onClick={onClick}
       className={`relative flex flex-col items-center rounded-2xl border-2 transition-all active:scale-95
@@ -49,6 +51,30 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
         {item.name}
       </div>
       <Stars count={stars} size="sm" />
+      {statEntries.length > 0 && (
+        <div className="w-full space-y-0.5 border-t border-slate-200/70 pt-1 mt-0.5">
+          {statEntries.map(([key, meta]) => {
+            const base = item.stats[key];
+            const total = base + enhBonus;
+            return (
+              <div key={key} className="flex items-center justify-between px-0.5">
+                <div className="flex items-center gap-0.5">
+                  {meta.img
+                    ? <img src={meta.img} alt="" className="w-3 h-3 object-contain" />
+                    : <span className="text-[9px]">{meta.icon}</span>}
+                  <span className={`text-slate-500 ${compact ? 'text-[7px]' : 'text-[9px]'}`}>{meta.label}</span>
+                </div>
+                <div className="flex items-center gap-0.5">
+                  <span className={`font-extrabold text-indigo-600 ${compact ? 'text-[8px]' : 'text-[9px]'}`}>+{total}</span>
+                  {enhBonus > 0 && (
+                    <span className={`text-amber-500 font-bold ${compact ? 'text-[7px]' : 'text-[8px]'}`}>(★+{enhBonus})</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </button>
   );
 }
@@ -618,6 +644,32 @@ export default function Equipment({ studentCode }) {
                               ))}
                             </div>
                             <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full mt-1 ${g.badge}`}>{g.label}</span>
+                            {(() => {
+                              const enh = (invItem?.stars || 0) * 5;
+                              const sEntries = Object.entries(STAT_LABEL).filter(([k]) => (item.stats?.[k] || 0) > 0);
+                              if (!sEntries.length) return null;
+                              return (
+                                <div className="w-full mt-1.5 space-y-0.5 border-t border-white/40 pt-1.5">
+                                  {sEntries.map(([k, meta]) => {
+                                    const base = item.stats[k];
+                                    return (
+                                      <div key={k} className="flex items-center justify-between px-1">
+                                        <div className="flex items-center gap-0.5">
+                                          {meta.img
+                                            ? <img src={meta.img} alt="" className="w-3 h-3 object-contain" />
+                                            : <span className="text-[8px]">{meta.icon}</span>}
+                                          <span className="text-[8px] text-slate-600">{meta.label}</span>
+                                        </div>
+                                        <div className="flex items-center gap-0.5">
+                                          <span className="text-[9px] font-extrabold text-indigo-700">+{base + enh}</span>
+                                          {enh > 0 && <span className="text-[7px] text-amber-600 font-bold">(★+{enh})</span>}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
                           </>
                         ) : (
                           <>

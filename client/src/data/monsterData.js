@@ -729,7 +729,7 @@ export const TIER_COST = { tiny: 1, small: 1, medium: 3, large: 5, boss: 5 };
  * 총 문제 수 + 선택 몬스터 ID → 웨이브 배열 생성
  * @returns {Array<{monsterId:string, questionCount:number}>}
  */
-export function generateWaves(totalQ, fixedMonsterId) {
+export function generateWaves(totalQ, fixedMonsterIdOrIds) {
   const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const allIds = Object.keys(MONSTERS_DB);
   const byTier = {};
@@ -737,7 +737,21 @@ export function generateWaves(totalQ, fixedMonsterId) {
     byTier[t] = allIds.filter(id => MONSTERS_DB[id].tier === t);
   });
 
-  // 교사가 특정 몬스터 선택 → 같은 종류로 N마리
+  // 교사가 여러 몬스터 직접 선택 → 각 1마리씩, 크기에 따라 문제 수 배정
+  if (Array.isArray(fixedMonsterIdOrIds) && fixedMonsterIdOrIds.length > 0) {
+    const waves = fixedMonsterIdOrIds.map(id => {
+      const m = MONSTERS_DB[id];
+      return { monsterId: id, questionCount: m ? (TIER_COST[m.tier] || 1) : 1 };
+    });
+    const totalCost = waves.reduce((s, w) => s + w.questionCount, 0);
+    const diff = totalQ - totalCost;
+    if (diff > 0 && waves.length > 0) waves[waves.length - 1].questionCount += diff;
+    return waves;
+  }
+
+  const fixedMonsterId = typeof fixedMonsterIdOrIds === 'string' ? fixedMonsterIdOrIds : null;
+
+  // 교사가 특정 몬스터 선택 → 같은 종류로 N마리 (레거시 지원)
   if (fixedMonsterId && fixedMonsterId !== 'random') {
     const m = MONSTERS_DB[fixedMonsterId];
     if (!m) return [{ monsterId: fixedMonsterId, questionCount: totalQ }];

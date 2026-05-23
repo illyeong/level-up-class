@@ -99,18 +99,19 @@ function DungeonLobby({ dungeons, bestScores, onPreview, isLoading }) {
         const best    = bestScores[d.id];
         const isFirst = !best?.cleared;
         // 출현 몬스터 스프라이트 (정적 썸네일)
-        const resolvedMonsterId = d.monsterId && d.monsterId !== 'random'
-          ? d.monsterId : DIFF_MONSTER[d.difficulty];
+        const isMulti  = Array.isArray(d.monsterIds) && d.monsterIds.length > 0;
+        const isRandom = !isMulti && (!d.monsterId || d.monsterId === 'random');
+        const resolvedMonsterId = isMulti
+          ? d.monsterIds[d.monsterIds.length - 1]
+          : (d.monsterId && d.monsterId !== 'random' ? d.monsterId : DIFF_MONSTER[d.difficulty]);
         const mDat = MONSTERS_DB[resolvedMonsterId] || null;
         const mScale = mDat ? Math.min(0.45, 72 / Math.max(mDat.frameWidth, mDat.frameHeight)) : 0;
         const mDw = mDat ? Math.round(mDat.frameWidth  * mScale) : 0;
         const mDh = mDat ? Math.round(mDat.frameHeight * mScale) : 0;
         const mRow = mDat?.animations?.idle?.row ?? 0;
         const totalQ = d.questions?.length || d.questionCount || 5;
-        const waveCount = mDat
-          ? Math.max(1, Math.floor(totalQ / (TIER_COST[mDat.tier] || 1)) + (totalQ % (TIER_COST[mDat.tier] || 1) > 0 ? 1 : 0))
-          : 1;
-        const isRandom = !d.monsterId || d.monsterId === 'random';
+        const waveCount = isMulti ? d.monsterIds.length
+          : mDat ? Math.max(1, Math.floor(totalQ / (TIER_COST[mDat.tier] || 1)) + (totalQ % (TIER_COST[mDat.tier] || 1) > 0 ? 1 : 0)) : 1;
 
         return (
           <div key={d.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
@@ -144,7 +145,9 @@ function DungeonLobby({ dungeons, bestScores, onPreview, isLoading }) {
                   <span className="text-[10px] font-bold bg-white/25 text-white px-2 py-0.5 rounded-full">
                     {d.difficulty === 'easy' ? '쉬움' : d.difficulty === 'hard' ? '어려움' : '보통'}
                   </span>
-                  <span className="text-[10px] text-white/80">{DIFF_TIMER[d.difficulty] || 12}초/문제</span>
+                  <span className="text-[10px] text-white/80">
+                    {d.timeLimit === 0 ? '∞ 무제한' : `${d.timeLimit ?? DIFF_TIMER[d.difficulty] ?? 12}초/문제`}
+                  </span>
                   <span className="text-[10px] text-white/80">{d.questionCount}문제</span>
                 </div>
               </div>
@@ -186,12 +189,15 @@ function BossIntroModal({ dungeon, onConfirm, onCancel }) {
   const m          = MONSTER[dungeon.difficulty] || MONSTER.normal;
   const monsterId  = dungeon.monsterId && dungeon.monsterId !== 'random' ? dungeon.monsterId : m.monsterId;
   const monsterDat = MONSTERS_DB[monsterId] || null;
-  const timer       = DIFF_TIMER[dungeon.difficulty] || 12;
+  const hasTimeLimitModal = dungeon.timeLimit !== 0;
+  const timer = hasTimeLimitModal
+    ? (dungeon.timeLimit != null ? dungeon.timeLimit : (DIFF_TIMER[dungeon.difficulty] || 12))
+    : null;
   const totalQ      = dungeon.questions?.length || dungeon.questionCount || 5;
   const playerMaxHP = totalQ * DAMAGE_WRONG;
   const INFO  = [
     ['📝 문제 수',   `${totalQ}문제`],
-    ['⏱️ 제한 시간', `${timer}초/문제`],
+    ['⏱️ 제한 시간', timer !== null ? `${timer}초/문제` : '∞ 무제한'],
     ['❤️ 내 HP',    `${playerMaxHP}`],
     ['💥 오답 피해', `-${DAMAGE_WRONG} HP`],
   ];
@@ -234,7 +240,10 @@ function BossIntroModal({ dungeon, onConfirm, onCancel }) {
 
 // ── 퀴즈 배틀 ──────────────────────────────────────────────────
 function QuizBattle({ dungeon, playerData, onBattleEnd }) {
-  const maxTime = DIFF_TIMER[dungeon.difficulty] || 12;
+  const hasTimeLimit = dungeon.timeLimit !== 0;
+  const maxTime = hasTimeLimit
+    ? (dungeon.timeLimit != null ? dungeon.timeLimit : (DIFF_TIMER[dungeon.difficulty] || 12))
+    : null;
   const totalQ  = dungeon.questions.length;
 
   // 웨이브 배열 (dungeon.waves는 enterDungeon에서 미리 생성됨)
@@ -253,7 +262,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
   const monsterData  = MONSTERS_DB[monsterId] || null;
   const monsterMeta  = MONSTER[dungeon.difficulty] || MONSTER.normal;
 
-  const [timeLeft,     setTimeLeft]     = useState(maxTime);
+  const [timeLeft,     setTimeLeft]     = useState(maxTime ?? 0);
   const [currentQ,     setCurrentQ]     = useState(0);
   const [answered,     setAnswered]     = useState(null);
   const [selectedOpt,  setSelectedOpt]  = useState(null);
@@ -357,13 +366,13 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
         setAnswered(null);
         setSelectedOpt(null);
         setSaInput('');
-        setTimeLeft(maxTime);
+        if (maxTime !== null) setTimeLeft(maxTime);
       } else {
         setCurrentQ(nextQ);
         setAnswered(null);
         setSelectedOpt(null);
         setSaInput('');
-        setTimeLeft(maxTime);
+        if (maxTime !== null) setTimeLeft(maxTime);
       }
     }, 1400);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -374,7 +383,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
   handlerRef.current = handleAnswer;
 
   useEffect(() => {
-    if (answered !== null) return;
+    if (!hasTimeLimit || answered !== null) return;
     if (timeLeft <= 0) { handlerRef.current(null, true); return; }
     const t = setTimeout(() => setTimeLeft(tl => tl - 1), 1000);
     return () => clearTimeout(t);
@@ -416,12 +425,20 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
             {comboLv.label} {combo}×
           </span>
         )}
-        <CircleTimer timeLeft={timeLeft} maxTime={maxTime} />
+        {hasTimeLimit
+          ? <CircleTimer timeLeft={timeLeft} maxTime={maxTime} />
+          : <div className="relative flex items-center justify-center w-14 h-14 shrink-0">
+              <svg width="56" height="56">
+                <circle cx="28" cy="28" r="20" fill="none" stroke="#1e293b" strokeWidth="5" />
+              </svg>
+              <span className="absolute text-xl font-extrabold text-slate-400">∞</span>
+            </div>
+        }
       </div>
 
       {/* ── 전투 씬 ── */}
       <div className="relative shrink-0 overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800"
-           style={{ height: '220px' }}>
+           style={{ height: '45vh', minHeight: '240px' }}>
 
         {/* 바닥 그라데이션 */}
         <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-slate-800/70 to-transparent pointer-events-none" />
@@ -441,11 +458,11 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
                   style={{ width: `${pHPpct}%` }} />
               </div>
             </div>
-            <div className="flex items-end justify-center" style={{ height: 72 }}>
+            <div className="flex items-end justify-center" style={{ height: 100 }}>
               {playerData?.characterImage
                 ? <img src={playerData.characterImage} alt=""
-                    style={{ height: 72, width: 72, objectFit: 'contain', imageRendering: 'pixelated', transform: 'scale(1.8)', transformOrigin: 'bottom center' }} />
-                : <span className="text-5xl leading-none">🧙‍♂️</span>}
+                    style={{ height: 100, width: 100, objectFit: 'contain', imageRendering: 'pixelated', transform: 'scale(2.2)', transformOrigin: 'bottom center' }} />
+                : <span className="text-6xl leading-none">🧙‍♂️</span>}
             </div>
           </div>
 
@@ -464,13 +481,13 @@ function QuizBattle({ dungeon, playerData, onBattleEnd }) {
                   style={{ width: `${mHPpct}%` }} />
               </div>
             </div>
-            <div className="flex items-end justify-center" style={{ height: 130 }}>
+            <div className="flex items-end justify-center" style={{ height: 190 }}>
               {monsterData ? (
                 <SpriteMonster
                   data={monsterData}
                   anim={monsterAnim}
                   flash={monsterFlash}
-                  scale={Math.min(monsterData.scale, 130 / monsterData.frameHeight)}
+                  scale={Math.min(monsterData.scale * 1.3, 190 / monsterData.frameHeight)}
                 />
               ) : (
                 <span className="text-7xl leading-none"
@@ -787,7 +804,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
 
   const enterDungeon = (dungeon) => {
     const totalQ = dungeon.questions.length;
-    const waves  = generateWaves(totalQ, dungeon.monsterId);
+    const waves  = generateWaves(totalQ, dungeon.monsterIds || dungeon.monsterId);
     setSelectedDungeon({ ...dungeon, waves });
     setBattleRes(null);
     setEarnedRewards(null);

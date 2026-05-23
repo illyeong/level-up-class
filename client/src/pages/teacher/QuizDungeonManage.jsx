@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import JSZip from 'jszip';
-import { MONSTERS_DB, TIER_LABEL } from '../../data/monsterData';
+import { MONSTERS_DB, TIER_LABEL, TIER_COST } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 
 // PPTX에서 텍스트 추출 (슬라이드별 XML 파싱)
@@ -180,82 +180,141 @@ const TIER_FILTERS = [
 const ALL_MONSTERS = Object.values(MONSTERS_DB)
   .sort((a, b) => a.sizeOrder - b.sizeOrder || a.name.localeCompare(b.name));
 
-function MonsterPicker({ selected, onChange }) {
+function MonsterPicker({ mode, selectedMonsters, questionCount, onModeChange, onMonstersChange }) {
   const [filter, setFilter] = useState('all');
   const filtered = filter === 'all' ? ALL_MONSTERS : ALL_MONSTERS.filter(m => m.tier === filter);
-  const selData  = selected && selected !== 'random' ? MONSTERS_DB[selected] : null;
 
-  // 미리보기용 스케일: 최대 120px 높이로 제한
-  const previewScale = selData
-    ? Math.min(selData.scale * 1.5, 120 / selData.frameHeight)
-    : undefined;
+  const usedQ = selectedMonsters.reduce((sum, id) => {
+    const m = MONSTERS_DB[id];
+    return sum + (m ? (TIER_COST[m.tier] || 1) : 1);
+  }, 0);
+  const remainingQ = questionCount - usedQ;
+
+  const handleAdd = (monsterId) => {
+    const cost = TIER_COST[MONSTERS_DB[monsterId]?.tier] || 1;
+    if (remainingQ < cost) return;
+    onMonstersChange([...selectedMonsters, monsterId]);
+  };
+
+  const handleRemove = (idx) => {
+    onMonstersChange(selectedMonsters.filter((_, i) => i !== idx));
+  };
 
   return (
-    <div className="flex gap-4">
-      {/* 그리드 */}
-      <div className="flex-1 min-w-0">
-        {/* 필터 + 랜덤 버튼 */}
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          <button onClick={() => { onChange('random'); }}
-            className={`px-3 py-1 rounded-lg text-xs font-bold border-2 transition-colors
-              ${selected === 'random'
-                ? 'bg-purple-600 text-white border-purple-600'
-                : 'border-purple-300 text-purple-600 hover:bg-purple-50'}`}>
-            🎲 랜덤
-          </button>
-          {TIER_FILTERS.map(f => (
-            <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors
-                ${filter === f.key
-                  ? 'bg-slate-700 text-white border-slate-700'
-                  : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-              {f.label}
-            </button>
-          ))}
-        </div>
-
-        {/* 몬스터 그리드 */}
-        <div className="grid grid-cols-5 sm:grid-cols-7 md:grid-cols-8 gap-1.5 max-h-80 overflow-y-auto
-                        border border-slate-200 rounded-xl p-2 bg-slate-50">
-          {filtered.map(m => (
-            <button key={m.id} onClick={() => onChange(m.id)}
-              title={`${m.name} (${TIER_LABEL[m.tier]})`}
-              className={`flex flex-col items-center justify-end p-1.5 rounded-lg border-2 transition-all
-                ${selected === m.id
-                  ? 'border-indigo-500 bg-indigo-100'
-                  : 'border-transparent hover:border-slate-300 hover:bg-white'}`}>
-              <div className="flex items-end justify-center" style={{ height: 62 }}>
-                <MonsterThumb data={m} />
-              </div>
-              <span className="text-[9px] text-slate-500 leading-tight text-center w-full truncate mt-0.5">
-                {m.name}
-              </span>
-            </button>
-          ))}
-        </div>
+    <div className="space-y-3">
+      {/* 모드 토글 */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={() => { onModeChange('random'); onMonstersChange([]); }}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition-colors
+            ${mode === 'random' ? 'bg-purple-600 text-white border-purple-600' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+          🎲 랜덤
+        </button>
+        <button onClick={() => onModeChange('manual')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition-colors
+            ${mode === 'manual' ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+          ✋ 직접 선택
+        </button>
+        <span className="text-[10px] text-slate-400">극소·소형=1Q · 중형=3Q · 대형·보스=5Q</span>
       </div>
 
-      {/* 선택된 몬스터 미리보기 */}
-      <div className="w-44 shrink-0 flex flex-col items-center justify-center
-                      bg-slate-800 rounded-xl p-4 min-h-[160px]">
-        {selected === 'random' ? (
-          <>
-            <div className="text-4xl mb-2">🎲</div>
-            <div className="text-sm text-white font-bold text-center">랜덤</div>
-            <div className="text-[10px] text-slate-400 text-center mt-1">입장 시 결정</div>
-          </>
-        ) : selData ? (
-          <>
-            <SpriteMonster data={selData} anim="idle" scale={previewScale} />
-            <div className="text-sm text-white font-bold text-center mt-2 leading-tight">
-              {selData.name}
+      {mode === 'random' ? (
+        <div className="bg-slate-800 rounded-xl p-4 flex items-center gap-4">
+          <div className="text-4xl">🎲</div>
+          <div>
+            <div className="text-sm text-white font-bold">입장 시 자동 결정</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              문제 수에 맞게 다양한 크기의 몬스터가 랜덤 배정됩니다
             </div>
-            <div className="text-[10px] text-slate-400 mt-0.5">{TIER_LABEL[selData.tier]}</div>
-          </>
-        ) : (
-          <div className="text-slate-500 text-sm text-center">몬스터<br/>선택</div>
-        )}
-      </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* 예산 바 */}
+          <div className="bg-slate-100 rounded-xl p-3 flex items-center gap-3">
+            <div className="flex-1">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-bold text-slate-600">문제 예산</span>
+                <span className={`font-bold ${remainingQ === 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
+                  {usedQ} / {questionCount} 문제 배정
+                </span>
+              </div>
+              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-500 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, (usedQ / questionCount) * 100)}%` }} />
+              </div>
+            </div>
+            <span className={`text-sm font-extrabold shrink-0 ${remainingQ === 0 ? 'text-emerald-600' : 'text-amber-500'}`}>
+              {remainingQ === 0 ? '✅ 완료' : `${remainingQ}Q 남음`}
+            </span>
+          </div>
+
+          {/* 선택된 웨이브 목록 */}
+          {selectedMonsters.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-xs font-bold text-slate-500">선택된 웨이브 순서 ({selectedMonsters.length}마리)</div>
+              {selectedMonsters.map((id, idx) => {
+                const m = MONSTERS_DB[id];
+                const cost = m ? (TIER_COST[m.tier] || 1) : 1;
+                return (
+                  <div key={idx} className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                    <span className="text-[10px] text-slate-400 font-bold w-5">#{idx + 1}</span>
+                    <div className="flex items-end justify-center shrink-0" style={{ width: 36, height: 36 }}>
+                      {m && <MonsterThumb data={m} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold text-slate-700">{m?.name || id}</div>
+                      <div className="text-[10px] text-slate-400">
+                        {m ? TIER_LABEL[m.tier] : ''} · {cost}문제
+                      </div>
+                    </div>
+                    <button onClick={() => handleRemove(idx)}
+                      className="text-rose-400 hover:text-rose-600 text-lg leading-none font-bold transition-colors">×</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 몬스터 추가 그리드 */}
+          {remainingQ > 0 ? (
+            <div>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {TIER_FILTERS.map(f => (
+                  <button key={f.key} onClick={() => setFilter(f.key)}
+                    className={`px-2.5 py-0.5 rounded-lg text-xs font-bold border transition-colors
+                      ${filter === f.key ? 'bg-slate-700 text-white border-slate-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                    {f.label}{f.key !== 'all' && ` (${TIER_COST[f.key]}Q)`}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-5 sm:grid-cols-7 md:grid-cols-8 gap-1.5 max-h-64 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50">
+                {filtered.map(m => {
+                  const cost = TIER_COST[m.tier] || 1;
+                  const canAdd = remainingQ >= cost;
+                  return (
+                    <button key={m.id} onClick={() => handleAdd(m.id)}
+                      title={`${m.name} (${TIER_LABEL[m.tier]}, ${cost}Q)`}
+                      disabled={!canAdd}
+                      className={`flex flex-col items-center justify-end p-1.5 rounded-lg border-2 transition-all
+                        ${canAdd ? 'border-transparent hover:border-indigo-400 hover:bg-white' : 'border-transparent opacity-25 cursor-not-allowed'}`}>
+                      <div className="flex items-end justify-center" style={{ height: 42 }}>
+                        <MonsterThumb data={m} />
+                      </div>
+                      <span className="text-[8px] text-slate-500 leading-tight text-center w-full truncate">{m.name}</span>
+                      <span className="text-[8px] text-indigo-500 font-bold">{cost}Q</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1 text-center">클릭해서 추가 · 남은 예산: {remainingQ}문제</div>
+            </div>
+          ) : (
+            <div className="text-center py-3 text-emerald-600 font-bold text-sm bg-emerald-50 rounded-xl border border-emerald-200">
+              ✅ 모든 문제가 몬스터에 배정되었습니다!
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -359,8 +418,9 @@ function QuizDungeonManage() {
   const [count, setCount]       = useState(5);
   const [saCount, setSaCount]   = useState(0);
   const [difficulty, setDifficulty] = useState('normal');
-  const [monsterId, setMonsterId]   = useState('random');
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [monsterMode, setMonsterMode]         = useState('random'); // 'random' | 'manual'
+  const [selectedMonsters, setSelectedMonsters] = useState([]);     // string[] of monster IDs
+  const [timeLimit, setTimeLimit]             = useState(null);     // null=난이도별, 0=무제한, N=초
   const [customTitle, setCustomTitle] = useState('');
   const [rewards, setRewards]   = useState({ gold: 150, exp: 75, diamond: 75 });
 
@@ -425,8 +485,9 @@ function QuizDungeonManage() {
     setGrade(''); setSemester(''); setSubject(''); setPublisher('');
     setPart(''); setUnit(''); setSourceText(''); setCustomTitle('');
     setPdfBase64(''); setPdfName(''); setIsPptxLoading(false);
-    setCount(5); setSaCount(0); setDifficulty('normal'); setMonsterId('random'); setPickerOpen(false);
-    setRewards({ gold: 100, exp: 50, diamond: 0 });
+    setCount(5); setSaCount(0); setDifficulty('normal');
+    setMonsterMode('random'); setSelectedMonsters([]); setTimeLimit(null);
+    setRewards({ gold: 150, exp: 75, diamond: 75 });
     setQuestions([]); setStep('form'); setGenError('');
   };
 
@@ -594,7 +655,9 @@ function QuizDungeonManage() {
         part:          part || null,
         unit:          unit || null,
         difficulty,
-        monsterId:     monsterId || 'random',
+        monsterId:     monsterMode === 'random' ? 'random' : null,
+        monsterIds:    monsterMode === 'manual' ? selectedMonsters : null,
+        timeLimit:     timeLimit,
         rewards,
         questions,
         questionCount: questions.length,
@@ -888,6 +951,32 @@ function QuizDungeonManage() {
                       </div>
                     </div>
 
+                    {/* 제한 시간 */}
+                    <div className="md:col-span-3">
+                      <label className="block text-xs font-bold text-slate-500 mb-2">⏱️ 제한 시간</label>
+                      <div className="flex flex-wrap gap-1.5 mb-1">
+                        <button onClick={() => setTimeLimit(null)}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold border-2 transition-colors
+                            ${timeLimit === null ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                          난이도별
+                        </button>
+                        <button onClick={() => setTimeLimit(0)}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold border-2 transition-colors
+                            ${timeLimit === 0 ? 'bg-slate-700 text-white border-slate-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                          ∞ 무제한
+                        </button>
+                        {[5, 8, 10, 15, 20, 30].map(s => (
+                          <button key={s} onClick={() => setTimeLimit(s)}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold border-2 transition-colors
+                              ${timeLimit === s ? 'bg-sky-600 text-white border-sky-600' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                            {s}초
+                          </button>
+                        ))}
+                      </div>
+                      {timeLimit === null && <div className="text-[10px] text-slate-400">쉬움 15초 · 보통 12초 · 어려움 8초</div>}
+                      {timeLimit === 0    && <div className="text-[10px] text-amber-600">시간 제한 없음 — 학생이 원하는 만큼 생각 가능</div>}
+                    </div>
+
                     {/* 보상 설정 */}
                     <div className="md:col-span-3">
                       <label className="block text-xs font-bold text-slate-500 mb-2">클리어 보상</label>
@@ -907,27 +996,14 @@ function QuizDungeonManage() {
 
                 {/* 출현 몬스터 */}
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-bold text-slate-700 text-sm">👾 출현 몬스터</h2>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-slate-600 font-bold">
-                        {monsterId === 'random'
-                          ? '🎲 랜덤'
-                          : (MONSTERS_DB[monsterId]?.name ?? monsterId)}
-                      </span>
-                      <button
-                        onClick={() => setPickerOpen(p => !p)}
-                        className="px-3 py-1 text-xs font-bold border-2 border-indigo-300 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors">
-                        {pickerOpen ? '▲ 접기' : '▼ 변경'}
-                      </button>
-                    </div>
-                  </div>
-                  {pickerOpen && (
-                    <MonsterPicker
-                      selected={monsterId}
-                      onChange={(id) => { setMonsterId(id); }}
-                    />
-                  )}
+                  <h2 className="font-bold text-slate-700 text-sm mb-4">👾 출현 몬스터 구성</h2>
+                  <MonsterPicker
+                    mode={monsterMode}
+                    selectedMonsters={selectedMonsters}
+                    questionCount={count}
+                    onModeChange={setMonsterMode}
+                    onMonstersChange={setSelectedMonsters}
+                  />
                 </div>
 
                 {/* 에러 메시지 */}
@@ -1031,15 +1107,20 @@ function QuizDungeonManage() {
                     <div className={`px-4 py-2 text-white text-[10px] font-bold flex justify-between
                       ${d.difficulty === 'easy' ? 'bg-emerald-500' : d.difficulty === 'hard' ? 'bg-rose-500' : 'bg-sky-500'}`}>
                       <span>{DIFF_LABEL[d.difficulty]}</span>
-                      <span>{d.questionCount}문제</span>
+                      <span>
+                        {d.questionCount}문제 ·{' '}
+                        {d.timeLimit === 0 ? '∞무제한' : d.timeLimit != null ? `${d.timeLimit}초` : '난이도별'}
+                      </span>
                     </div>
                     <div className="p-4">
                       <h3 className="font-extrabold text-slate-800 mb-1 leading-tight">{d.title}</h3>
                       <div className="flex items-center gap-2 text-xs text-slate-400 mb-2">
                         <span>{fmtDate(d.createdAt)}</span>
-                        {d.monsterId && (
+                        {(d.monsterId || d.monsterIds?.length > 0) && (
                           <span className="text-indigo-500 font-bold">
-                            👾 {d.monsterId === 'random' ? '랜덤' : (MONSTERS_DB[d.monsterId]?.name || d.monsterId)}
+                            👾 {d.monsterIds?.length > 0
+                              ? `${d.monsterIds.length}마리`
+                              : d.monsterId === 'random' ? '랜덤' : (MONSTERS_DB[d.monsterId]?.name || d.monsterId)}
                           </span>
                         )}
                       </div>
