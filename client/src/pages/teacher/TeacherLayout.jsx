@@ -17,6 +17,7 @@ import AdventureManage from './AdventureManage';
 import BoardManage from './BoardManage';
 import TeacherCharacter from './TeacherCharacter';
 import FeedbackBoard from './FeedbackBoard';
+import DataReset from './DataReset';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -94,6 +95,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'adventureManage' && <AdventureManage selectedClass={selectedClass} />}
         {currentView === 'boardManage'     && <BoardManage selectedClass={selectedClass} user={user} />}
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
+        {currentView === 'dataReset'       && <DataReset selectedClass={selectedClass} />}
         
       </main>
 

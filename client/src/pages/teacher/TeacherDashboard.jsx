@@ -27,7 +27,7 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
 
   const fetchStudents = async () => {
     setIsLoading(true);
-    if (!selectedClass?.id && !selectedClass?.teacherUid) { setStudents([]); setIsLoading(false); return; }
+    if (!selectedClass?.id && !selectedClass?.teacherUid) { setStudents([]); setIsLoading(false); return []; }
     try {
       const q = selectedClass.id
         ? query(collection(db, 'students'), where('classId',    '==', selectedClass.id))
@@ -39,36 +39,45 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
       });
       studentList.sort((a, b) => getSeatNum(a.studentCode) - getSeatNum(b.studentCode));
       setStudents(studentList);
+      return studentList;
     } catch (error) {
       console.error("학생 목록 에러:", error);
+      return [];
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchQuestStats = async () => {
+  const fetchQuestStats = async (classStudentIds = []) => {
+    const teacherUid = selectedClass?.teacherUid;
+    if (!teacherUid) return;
     try {
-      const questsSnap = await getDocs(collection(db, 'quests'));
+      const q = query(
+        collection(db, 'quests'),
+        where('teacherUid', '==', teacherUid),
+        where('active', '==', true)
+      );
+      const questsSnap = await getDocs(q);
       const activeQuests = questsSnap.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        .filter(q => q.active)
         .sort((a, b) => {
           if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
           return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
         });
 
-      const sqMap = {}; // { studentId: [{title, checked, rewarded}] }
+      const sqMap = {};
+      const studentIdSet = new Set(classStudentIds);
 
       const stats = await Promise.all(
         activeQuests.map(async q => {
           const snap = await getDocs(collection(db, 'quests', q.id, 'completions'));
           let checkedCount = 0;
           snap.docs.forEach(d => {
+            const sid = d.id;
+            if (!studentIdSet.has(sid)) return;
             const data = d.data();
             if (data.checked) checkedCount++;
-            // 학생별 맵 구성 (일일퀘스트만)
             if (q.type === 'daily') {
-              const sid = d.id;
               if (!sqMap[sid]) sqMap[sid] = [];
               sqMap[sid].push({
                 title:    q.title,
@@ -89,9 +98,12 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
   };
 
   useEffect(() => {
-    fetchStudents();
-    fetchQuestStats();
-  }, []);
+    const load = async () => {
+      const studentList = await fetchStudents();
+      await fetchQuestStats(studentList.map(s => s.id));
+    };
+    load();
+  }, [selectedClass]);
 
   const openModal = (mode) => {
     setModalMode(mode);

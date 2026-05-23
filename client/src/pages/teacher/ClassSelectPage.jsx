@@ -191,7 +191,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
 
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[calc(100vh-4rem)] overflow-hidden">
 
         {/* 헤더 */}
         <div className="p-5 bg-indigo-600 text-white flex justify-between items-center">
@@ -206,7 +206,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
             <p className="text-slate-400 text-sm">{studentCount}명의 계정을 만들고 있습니다</p>
           </div>
         ) : (
-          <div className="p-6 space-y-5">
+          <div className="p-6 space-y-5 overflow-y-auto flex-1">
             {/* 학교 검색 */}
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5">
@@ -225,7 +225,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
                 )}
                 {/* 검색 결과 드롭다운 */}
                 {results.length > 0 && !selectedSchool && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg z-10 max-h-52 overflow-y-auto mt-1">
+                  <div className="w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto mt-1">
                     {results.map((s, i) => (
                       <button
                         key={i}

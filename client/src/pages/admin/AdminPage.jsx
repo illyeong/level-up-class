@@ -297,10 +297,19 @@ function NoticesTab() {
 }
 
 // ── 4. 건의/문의 탭 ───────────────────────────────────────────
+const CATEGORY_LABEL = {
+  bug:         '🐛 버그',
+  feature:     '✨ 기능요청',
+  improvement: '💡 개선',
+  other:       '💬 기타',
+};
+
 function FeedbacksTab() {
-  const [feedbacks, setFeedbacks] = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [filter, setFilter]       = useState('all'); // all | new | done
+  const [feedbacks, setFeedbacks]   = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [filter, setFilter]         = useState('all');
+  const [replyInputs, setReplyInputs] = useState({});
+  const [replying, setReplying]     = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -317,6 +326,24 @@ function FeedbacksTab() {
     setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, status } : f));
   };
 
+  const sendReply = async (id) => {
+    const replyText = replyInputs[id]?.trim();
+    if (!replyText) return;
+    setReplying(id);
+    try {
+      await updateDoc(doc(db, 'feedbacks', id), {
+        reply: replyText,
+        repliedAt: serverTimestamp(),
+        status: 'done',
+      });
+      setFeedbacks(prev => prev.map(f =>
+        f.id === id ? { ...f, reply: replyText, status: 'done', repliedAt: { toDate: () => new Date() } } : f
+      ));
+      setReplyInputs(prev => ({ ...prev, [id]: '' }));
+    } catch (e) { alert('답변 저장 실패'); }
+    finally { setReplying(null); }
+  };
+
   const fmtDate = (ts) => {
     if (!ts) return '';
     const d = ts.toDate ? ts.toDate() : new Date();
@@ -327,54 +354,126 @@ function FeedbacksTab() {
   const newCount = feedbacks.filter(f => f.status === 'new').length;
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-extrabold text-slate-800">
+    <div className="p-6 space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
           💬 건의/문의
-          {newCount > 0 && <span className="ml-2 bg-rose-500 text-white text-xs font-extrabold px-2 py-0.5 rounded-full">{newCount}개 신규</span>}
+          {newCount > 0 && (
+            <span className="bg-rose-500 text-white text-xs font-extrabold px-2.5 py-1 rounded-full">
+              {newCount}개 미답변
+            </span>
+          )}
         </h2>
-        <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs">
-          {[['all','전체'],['new','신규'],['read','확인'],['done','완료']].map(([val,label]) => (
+        <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-bold">
+          {[['all','전체'],['new','신규'],['read','확인'],['done','완료']].map(([val, label]) => (
             <button key={val} onClick={() => setFilter(val)}
-              className={`px-3 py-1.5 font-bold transition-colors
+              className={`px-3 py-2 transition-colors
                 ${filter === val ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
               {label}
+              {val === 'new' && newCount > 0 && <span className="ml-1 text-rose-400">({newCount})</span>}
             </button>
           ))}
         </div>
       </div>
 
-      {loading ? <div className="text-slate-400 font-bold text-center py-10 animate-pulse">불러오는 중...</div>
-      : filtered.length === 0 ? <div className="text-center py-10 text-slate-400">건의/문의가 없습니다</div>
-      : (
-        <div className="space-y-3">
+      {loading ? (
+        <div className="text-slate-400 font-bold text-center py-10 animate-pulse">불러오는 중...</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-10 text-slate-400">건의/문의가 없습니다</div>
+      ) : (
+        <div className="space-y-4">
           {filtered.map(f => (
-            <div key={f.id} className={`bg-white rounded-2xl border-2 p-4
-              ${f.status === 'new' ? 'border-rose-200' : f.status === 'done' ? 'border-slate-100 opacity-60' : 'border-slate-200'}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full
-                      ${f.status === 'new' ? 'bg-rose-100 text-rose-700'
-                      : f.status === 'read' ? 'bg-amber-100 text-amber-700'
-                      : 'bg-slate-100 text-slate-500'}`}>
-                      {f.status === 'new' ? '🔴 신규' : f.status === 'read' ? '🟡 확인중' : '✅ 완료'}
+            <div key={f.id} className={`bg-white rounded-2xl border-2 overflow-hidden
+              ${f.status === 'new' ? 'border-rose-300 shadow-sm' : f.status === 'done' ? 'border-slate-200 opacity-80' : 'border-amber-200'}`}>
+
+              {/* 메타 헤더 */}
+              <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full
+                    ${f.status === 'new' ? 'bg-rose-100 text-rose-700'
+                    : f.status === 'read' ? 'bg-amber-100 text-amber-700'
+                    : 'bg-emerald-100 text-emerald-700'}`}>
+                    {f.status === 'new' ? '🔴 미답변' : f.status === 'read' ? '🟡 확인중' : '✅ 완료'}
+                  </span>
+                  {f.category && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
+                      {CATEGORY_LABEL[f.category] || '💬 기타'}
                     </span>
-                    <span className="text-xs text-slate-500">{f.teacherEmail || f.teacherUid}</span>
-                    <span className="text-xs text-slate-400 ml-auto">{fmtDate(f.createdAt)}</span>
-                  </div>
-                  <p className="text-sm text-slate-700 leading-relaxed">{f.message}</p>
+                  )}
+                  <span className="text-xs font-bold text-slate-700">{f.teacherEmail || f.teacherUid}</span>
                 </div>
-                <div className="flex flex-col gap-1 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] text-slate-400">{fmtDate(f.createdAt)}</span>
                   {f.status === 'new' && (
                     <button onClick={() => setStatus(f.id, 'read')}
-                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">확인</button>
-                  )}
-                  {f.status !== 'done' && (
-                    <button onClick={() => setStatus(f.id, 'done')}
-                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">완료</button>
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors">
+                      확인 표시
+                    </button>
                   )}
                 </div>
+              </div>
+
+              {/* 본문 */}
+              <div className="p-5 space-y-4">
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{f.message}</p>
+
+                {/* 기존 답변 표시 */}
+                {f.reply && (
+                  <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-100">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className="text-xs font-extrabold text-indigo-700">🛡️ 관리자 답변</span>
+                      {f.repliedAt && <span className="text-[10px] text-indigo-400 ml-auto">{fmtDate(f.repliedAt)}</span>}
+                    </div>
+                    <p className="text-sm text-indigo-900 leading-relaxed whitespace-pre-wrap">{f.reply}</p>
+                    {/* 답변 수정 */}
+                    <button
+                      onClick={() => setReplyInputs(prev => ({ ...prev, [f.id]: f.reply }))}
+                      className="mt-2 text-[11px] text-indigo-500 hover:text-indigo-700 font-bold underline">
+                      답변 수정
+                    </button>
+                  </div>
+                )}
+
+                {/* 답변 입력 폼 */}
+                {(f.status !== 'done' || replyInputs[f.id] !== undefined) && (
+                  <div className="space-y-2 border-t border-slate-100 pt-4">
+                    <label className="text-xs font-bold text-slate-500">
+                      {f.reply ? '✏️ 답변 수정' : '✏️ 답변 작성'}
+                    </label>
+                    <textarea
+                      value={replyInputs[f.id] ?? ''}
+                      onChange={e => setReplyInputs(prev => ({ ...prev, [f.id]: e.target.value }))}
+                      placeholder="답변 내용을 입력하세요..."
+                      className="w-full border-2 border-slate-200 focus:border-indigo-400 rounded-xl px-4 py-2.5 text-sm resize-none h-24 focus:outline-none transition-colors"
+                    />
+                    <div className="flex justify-end gap-2">
+                      {replyInputs[f.id] !== undefined && (
+                        <button
+                          onClick={() => setReplyInputs(prev => { const n = {...prev}; delete n[f.id]; return n; })}
+                          className="px-4 py-2 rounded-xl border-2 border-slate-200 text-slate-500 font-bold text-sm hover:bg-slate-50">
+                          취소
+                        </button>
+                      )}
+                      <button
+                        onClick={() => sendReply(f.id)}
+                        disabled={replying === f.id || !(replyInputs[f.id]?.trim())}
+                        className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm disabled:opacity-40 transition-colors shadow-sm">
+                        {replying === f.id ? '전송 중...' : '답변 전송 →'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {f.status === 'done' && !f.reply && replyInputs[f.id] === undefined && (
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                    <span className="text-xs text-emerald-600 font-bold">✅ 처리 완료</span>
+                    <button
+                      onClick={() => setReplyInputs(prev => ({ ...prev, [f.id]: '' }))}
+                      className="text-[11px] text-slate-400 hover:text-indigo-500 font-bold ml-auto underline">
+                      답변 남기기
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -880,47 +979,75 @@ function ContentTab() {
 
 // ── 메인 ─────────────────────────────────────────────────────
 const TABS = [
-  { id: 'dashboard', label: '📊 대시보드' },
-  { id: 'teachers',  label: '👨‍🏫 교사 관리' },
-  { id: 'notices',   label: '📢 공지사항' },
-  { id: 'feedbacks', label: '💬 건의/문의' },
-  { id: 'settings',  label: '⚙️ 시스템 설정' },
-  { id: 'content',   label: '🎮 콘텐츠 관리' },
-  { id: 'equipment', label: '⚔️ 장비 관리' },
+  { id: 'dashboard', icon: '📊', label: '대시보드' },
+  { id: 'teachers',  icon: '👨‍🏫', label: '교사 관리' },
+  { id: 'notices',   icon: '📢', label: '공지사항' },
+  { id: 'feedbacks', icon: '💬', label: '건의/문의' },
+  { id: 'settings',  icon: '⚙️', label: '시스템 설정' },
+  { id: 'content',   icon: '🎮', label: '콘텐츠 관리' },
+  { id: 'equipment', icon: '⚔️', label: '장비 관리' },
 ];
 
 export default function AdminPage({ adminUser, onLogout }) {
-  const [tab, setTab] = useState('dashboard');
+  const [tab, setTab]           = useState('dashboard');
+  const [newFeedbackCount, setNewFeedbackCount] = useState(0);
+
+  useEffect(() => {
+    getDocs(collection(db, 'feedbacks')).then(snap => {
+      setNewFeedbackCount(snap.docs.filter(d => d.data().status === 'new').length);
+    }).catch(() => {});
+  }, []);
 
   return (
-    <div className="flex h-screen bg-slate-900">
+    <div className="flex h-screen bg-slate-950">
       {/* 사이드바 */}
-      <div className="w-52 bg-slate-800 flex flex-col shrink-0">
-        <div className="p-5 border-b border-slate-700">
-          <div className="font-extrabold text-white text-sm">🛡️ 관리자</div>
-          <div className="text-slate-400 text-[11px] mt-0.5 truncate">{adminUser?.email}</div>
+      <div className="w-56 bg-slate-900 flex flex-col shrink-0 border-r border-slate-800">
+        {/* 로고/프로필 */}
+        <div className="p-5 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-extrabold text-sm shrink-0">
+              🛡️
+            </div>
+            <div className="min-w-0">
+              <div className="font-extrabold text-white text-sm">관리자</div>
+              <div className="text-slate-500 text-[11px] truncate">{adminUser?.email}</div>
+            </div>
+          </div>
         </div>
 
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-0.5">
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`w-full text-left px-4 py-2.5 rounded-xl font-bold text-sm transition-colors
-                ${tab === t.id ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`}>
-              {t.label}
+              className={`w-full text-left px-3 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-3
+                ${tab === t.id
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+              <span className="text-base shrink-0">{t.icon}</span>
+              <span className="flex-1">{t.label}</span>
+              {t.id === 'feedbacks' && newFeedbackCount > 0 && (
+                <span className="bg-rose-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full shrink-0">
+                  {newFeedbackCount}
+                </span>
+              )}
             </button>
           ))}
         </nav>
 
-        <div className="p-3 border-t border-slate-700">
+        <div className="p-3 border-t border-slate-800">
           <button onClick={onLogout}
-            className="w-full py-2 text-slate-400 hover:text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition-colors">
-            🚪 로그아웃
+            className="w-full py-2.5 text-slate-500 hover:text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center gap-2">
+            <span>🚪</span> 로그아웃
           </button>
         </div>
       </div>
 
       {/* 본문 */}
       <main className="flex-1 overflow-auto bg-slate-100">
+        {/* 탭 상단 헤더 바 */}
+        <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3 sticky top-0 z-10">
+          <span className="text-xl">{TABS.find(t => t.id === tab)?.icon}</span>
+          <h1 className="font-extrabold text-slate-800 text-base">{TABS.find(t => t.id === tab)?.label}</h1>
+        </div>
         {tab === 'dashboard' && <DashboardTab />}
         {tab === 'teachers'  && <TeachersTab />}
         {tab === 'notices'   && <NoticesTab />}
