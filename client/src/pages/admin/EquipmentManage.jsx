@@ -256,19 +256,21 @@ export default function EquipmentManage() {
           </div>
           <div className="flex gap-2">
             <button onClick={async () => {
-              if (!window.confirm(`투구 장비 ${HELMET_SEED.length}개를 일괄 추가할까요?\n(이미 존재하는 이름은 건너뜁니다)`)) return;
-              let added = 0;
-              const existing = items.map(i => i.name);
-              for (const item of HELMET_SEED) {
-                if (existing.includes(item.name)) continue;
-                await addDoc(collection(db, 'equipmentItems'), { ...item, createdAt: serverTimestamp() });
-                added++;
+              if (!window.confirm(`투구 장비 이미지 경로를 모두 재설정할까요?\n(기존 투구 삭제 후 재등록)`)) return;
+              // 기존 투구 삭제
+              const helmetItems = items.filter(i => i.type === 'helmet');
+              for (const item of helmetItems) {
+                await deleteDoc(doc(db, 'equipmentItems', item.id));
               }
-              alert(`✅ 투구 ${added}개 추가 완료!`);
+              // 재등록
+              for (const item of HELMET_SEED) {
+                await addDoc(collection(db, 'equipmentItems'), { ...item, createdAt: serverTimestamp() });
+              }
+              alert(`✅ 투구 ${HELMET_SEED.length}개 재등록 완료!`);
               fetchItems();
             }}
               className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
-              🪖 투구 일괄 추가
+              🪖 투구 재등록
             </button>
             <button onClick={openCreate}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">

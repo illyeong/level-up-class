@@ -1,14 +1,12 @@
 // 투구(helmet) 장비 시드 데이터
 const BASE = '/images/equipment/helmets';
 
-const enc = (s) => s.replace(/ /g, '%20').replace(/\[/g, '%5B').replace(/\]/g, '%5D');
-
 const mk = (grade, file, name, stats) => ({
   name,
   type: 'helmet',
   grade,
   active: true,
-  image: `${BASE}/${grade.charAt(0).toUpperCase() + grade.slice(1)}/${enc(file)}.png`,
+  image: `${BASE}/${grade.charAt(0).toUpperCase() + grade.slice(1)}/${file}.png`,
   stats,
 });
 
