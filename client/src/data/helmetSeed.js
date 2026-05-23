@@ -1,5 +1,5 @@
 // 투구(helmet) 장비 시드 데이터
-const BASE = '/images/equipment/helmets';
+const BASE = '/images/Equipment/Helmets';
 
 const mk = (grade, file, name, stats) => ({
   name,

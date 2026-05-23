@@ -41,9 +41,15 @@ function ItemCard({ item, onEdit, onDelete, onToggle }) {
       ${!item.active ? 'opacity-50' : ''}`}>
       {/* 이미지 */}
       <div className="aspect-square flex items-center justify-center p-3 border-b border-black/5">
-        {item.image
-          ? <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
-          : <span className="text-4xl opacity-30">{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>}
+        {item.image ? (
+          <>
+            <img src={item.image} alt={item.name} className="w-full h-full object-contain"
+              onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; console.log('❌ 이미지 경로 오류:', item.image); }} />
+            <span className="text-4xl opacity-30" style={{display:'none'}}>{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>
+          </>
+        ) : (
+          <span className="text-4xl opacity-30">{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>
+        )}
       </div>
       {/* 정보 */}
       <div className="p-3">
