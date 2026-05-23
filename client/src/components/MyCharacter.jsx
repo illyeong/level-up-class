@@ -185,7 +185,7 @@ export default function MyCharacter({ studentCode }) {
               🛡️ 장착 장비
               <span className="text-xs font-normal text-slate-400">{equippedCount} / {SLOTS.length}</span>
             </h3>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
               {SLOTS.map(slot => {
                 const invId   = equipped[slot.key];
                 const invItem = invId ? getInvItem(invId) : null;
@@ -193,24 +193,24 @@ export default function MyCharacter({ studentCode }) {
                 const g       = item ? (GRADE[item.grade] || GRADE.common) : null;
                 return (
                   <div key={slot.key}
-                    className={`flex flex-col items-center rounded-2xl border-2 p-2 gap-1
+                    className={`flex flex-col items-center rounded-2xl border-2 p-3 gap-1.5
                       ${item ? `${g.border} ${g.bg}` : 'border-dashed border-slate-200 bg-slate-50'}`}>
-                    <div className="w-10 h-10 flex items-center justify-center">
+                    <div className="w-16 h-16 flex items-center justify-center">
                       {item?.image
                         ? <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-sm" />
-                        : <span className="text-xl opacity-20">{slot.icon}</span>}
+                        : <span className="text-2xl opacity-20">{slot.icon}</span>}
                     </div>
-                    <div className="text-[8px] font-bold text-slate-600 text-center leading-tight w-full truncate">
+                    <div className="text-xs font-bold text-slate-600 text-center leading-tight w-full truncate">
                       {item ? item.name : <span className="text-slate-300">{slot.label}</span>}
                     </div>
                     {item ? (
-                      <div className="flex gap-px">
+                      <div className="flex flex-wrap justify-center gap-px">
                         {Array.from({ length: 5 }, (_, i) => (
-                          <span key={i} className={`text-[7px] ${i < (invItem?.stars || 0) ? 'text-amber-400' : 'text-slate-200'}`}>★</span>
+                          <span key={i} className={`text-[10px] ${i < (invItem?.stars || 0) ? 'text-amber-400' : 'text-slate-200'}`}>★</span>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-[7px] text-slate-300">비어있음</div>
+                      <div className="text-[10px] text-slate-300">비어있음</div>
                     )}
                   </div>
                 );

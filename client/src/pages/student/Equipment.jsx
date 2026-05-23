@@ -39,13 +39,13 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
       {isEquipped && (
         <span className="absolute top-1 left-1 text-[8px] bg-indigo-600 text-white px-1.5 py-0.5 rounded-full font-bold">착용</span>
       )}
-      <div className={`${compact ? 'w-10 h-10' : 'w-14 h-14'} flex items-center justify-center`}>
+      <div className={`${compact ? 'w-20 h-20' : 'w-28 h-28'} flex items-center justify-center`}>
         {item.image
           ? <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-sm" />
-          : <span className={compact ? 'text-2xl' : 'text-3xl'}>{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>}
+          : <span className={compact ? 'text-4xl' : 'text-5xl'}>{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>}
       </div>
       <div className={`font-extrabold text-slate-800 truncate w-full text-center leading-tight
-        ${compact ? 'text-[9px]' : 'text-[11px]'}`}>
+        ${compact ? 'text-[11px]' : 'text-sm'}`}>
         {item.name}
       </div>
       <Stars count={stars} size="sm" />
@@ -74,14 +74,7 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
     starImgRef.current = img;
   }, []);
 
-  // 5초 후 강화 결과 처리 (onAnimationEnd 대신 타이머 사용)
-  useEffect(() => {
-    if (stage !== 'loading') return;
-    const t = setTimeout(doEnhanceResult, 5000);
-    return () => clearTimeout(t);
-  }, [stage, doEnhanceResult]);
-
-  // ── 강화 결과 계산 ──
+  // ── 강화 결과 계산 ── (useEffect보다 먼저 선언)
   const doEnhanceResult = useCallback(() => {
     const stars     = currentStars;           // 호출 시점의 별 수 (클로저 안전)
     const cfg2      = ENHANCE[stars];
@@ -101,6 +94,13 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
     if (success) setTimeout(() => spawnParticles(), 80);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStars, invItem?.id]);
+
+  // 5초 후 강화 결과 처리
+  useEffect(() => {
+    if (stage !== 'loading') return;
+    const t = setTimeout(doEnhanceResult, 5000);
+    return () => clearTimeout(t);
+  }, [stage, doEnhanceResult]);
 
   // ── 파티클 ──
   const spawnParticles = () => {
@@ -597,7 +597,7 @@ export default function Equipment({ studentCode }) {
                     <div key={slot.key} className="flex flex-col gap-1.5">
                       <button
                         onClick={() => setSelectedSlot(prev => prev === slot.key ? null : slot.key)}
-                        className={`rounded-2xl border-2 flex flex-col items-center justify-center p-3 transition-all active:scale-95 min-h-[112px]
+                        className={`rounded-2xl border-2 flex flex-col items-center justify-center p-3 transition-all active:scale-95 min-h-[190px]
                           ${isSel
                             ? 'border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-100'
                             : item
@@ -605,10 +605,10 @@ export default function Equipment({ studentCode }) {
                               : 'border-dashed border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50'}`}>
                         {item ? (
                           <>
-                            <div className="w-12 h-12 flex items-center justify-center">
+                            <div className="w-24 h-24 flex items-center justify-center">
                               {item.image
                                 ? <img src={item.image} alt="" className="w-full h-full object-contain drop-shadow-sm" />
-                                : <span className="text-2xl">{slot.icon}</span>}
+                                : <span className="text-5xl">{slot.icon}</span>}
                             </div>
                             <div className="text-[9px] font-extrabold text-slate-700 truncate w-full text-center mt-1 leading-tight">{item.name}</div>
                             <div className="flex gap-px mt-1">
@@ -621,9 +621,9 @@ export default function Equipment({ studentCode }) {
                           </>
                         ) : (
                           <>
-                            <span className="text-2xl opacity-20">{slot.icon}</span>
-                            <span className="text-[9px] text-slate-400 font-bold mt-1">{slot.label}</span>
-                            <span className="text-[8px] text-slate-300 mt-0.5">비어 있음</span>
+                            <span className="text-5xl opacity-20">{slot.icon}</span>
+                            <span className="text-xs text-slate-400 font-bold mt-1">{slot.label}</span>
+                            <span className="text-[10px] text-slate-300 mt-0.5">비어 있음</span>
                           </>
                         )}
                       </button>
