@@ -116,9 +116,7 @@ export default function BoardManage({ selectedClass, user }) {
       const newPost = {
         studentId:      null,
         studentCode:    null,
-        studentName:    selectedClass?.schoolName
-          ? `선생님 (${selectedClass.schoolName})`
-          : (user?.email || '선생님'),
+        studentName:    '선생님',
         characterImage: '',
         isTeacher:      true,
         content:        writeContent.trim(),
@@ -143,6 +141,11 @@ export default function BoardManage({ selectedClass, user }) {
       await deleteDoc(doc(db, 'boards', selectedBoard.id, 'posts', postId));
       setPosts(prev => prev.filter(p => p.id !== postId));
     });
+  };
+
+  const togglePin = async (postId, currentPinned) => {
+    await updateDoc(doc(db, 'boards', selectedBoard.id, 'posts', postId), { pinned: !currentPinned });
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, pinned: !currentPinned } : p));
   };
 
   const COLORS = [
@@ -180,22 +183,37 @@ export default function BoardManage({ selectedClass, user }) {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-24">
-              {posts.map((post, i) => (
+              {[...posts].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map((post, i) => (
                 <div key={post.id}
                   className={`rounded-2xl border-2 p-4 shadow-sm relative group
+                    ${post.pinned ? 'ring-2 ring-amber-400 ring-offset-1' : ''}
                     ${post.isTeacher ? 'bg-indigo-50 border-indigo-200' : COLORS[i % COLORS.length]}`}>
+                  {/* 핀 배지 (고정됐을 때 항상 표시) */}
+                  {post.pinned && (
+                    <button onClick={() => togglePin(post.id, post.pinned)}
+                      className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded-lg flex items-center gap-0.5 hover:bg-amber-500 transition-colors z-10">
+                      📌 고정
+                    </button>
+                  )}
+                  {/* 핀 버튼 (미고정 시 hover로 표시) */}
+                  {!post.pinned && (
+                    <button onClick={() => togglePin(post.id, post.pinned)}
+                      className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-amber-500 text-xs font-bold transition-all">
+                      📌
+                    </button>
+                  )}
                   <button onClick={() => deletePost(post.id)}
                     className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 text-xs font-bold transition-all">
                     ✕
                   </button>
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="w-10 h-10 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+                    <div className="w-14 h-14 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
                       {post.isTeacher ? (
-                        <span className="text-lg">👑</span>
+                        <span className="text-2xl">👑</span>
                       ) : post.characterImage ? (
-                        <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-150" />
+                        <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
                       ) : (
-                        <span className="text-lg">🧑‍🎓</span>
+                        <span className="text-2xl">🧑‍🎓</span>
                       )}
                     </div>
                     <span className={`font-extrabold text-xs truncate ${post.isTeacher ? 'text-indigo-700' : 'text-slate-800'}`}>
@@ -211,6 +229,24 @@ export default function BoardManage({ selectedClass, user }) {
                   <div className="text-[10px] text-slate-400 mt-1">
                     {post.createdAt?.toDate?.()?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || ''}
                   </div>
+                  {(Object.keys(post.reactions || {}).length > 0 || (post.comments || []).length > 0) && (
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                      {Object.entries(post.reactions || {}).map(([emoji, users]) => {
+                        const count = Array.isArray(users) ? users.length : (typeof users === 'number' ? users : 0);
+                        if (!count) return null;
+                        return (
+                          <span key={emoji} className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200">
+                            {emoji} <span className="font-bold text-slate-600">{count}</span>
+                          </span>
+                        );
+                      })}
+                      {(post.comments || []).length > 0 && (
+                        <span className="flex items-center gap-0.5 text-xs text-slate-500 bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200">
+                          💬 <span className="font-bold">{(post.comments || []).length}</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
               {posts.length === 0 && (

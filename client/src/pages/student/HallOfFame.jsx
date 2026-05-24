@@ -4,14 +4,6 @@ import { db } from '../../firebase';
 
 const CATEGORIES = [
   {
-    id: 'arena',
-    label: '⚔️ 투기장 왕',
-    gradient: 'from-rose-500 to-orange-400',
-    bg: 'bg-rose-50',
-    sort: (a, b) => (b.arenaWins || 0) - (a.arenaWins || 0),
-    value: s => `${s.arenaWins || 0}승`,
-  },
-  {
     id: 'level',
     label: '⭐ 레벨 왕',
     gradient: 'from-amber-500 to-yellow-400',
@@ -34,6 +26,14 @@ const CATEGORIES = [
     bg: 'bg-cyan-50',
     sort: (a, b) => (b.diamonds || 0) - (a.diamonds || 0),
     value: s => `${(s.diamonds || 0).toLocaleString()}💎`,
+  },
+  {
+    id: 'arena',
+    label: '⚔️ 투기장 왕',
+    gradient: 'from-rose-500 to-orange-400',
+    bg: 'bg-rose-50',
+    sort: (a, b) => (b.arenaWins || 0) - (a.arenaWins || 0),
+    value: s => `${s.arenaWins || 0}승`,
   },
   {
     id: 'enhance',
@@ -79,7 +79,7 @@ function RankBadge({ rank }) {
 export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading]   = useState(true);
-  const [activeTab, setActiveTab] = useState('arena');
+  const [activeTab, setActiveTab] = useState('level');
   const [resolvedUid, setResolvedUid] = useState(propTeacherUid || null);
   const [arenaWinsMap, setArenaWinsMap] = useState({});
   const [arenaFetched, setArenaFetched] = useState(false);
@@ -146,12 +146,12 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
       <h1 className="text-2xl font-extrabold text-slate-800 mb-6">🏆 명예의 전당</h1>
 
       {/* 카테고리 탭 */}
-      <div className="flex gap-2 mb-6 flex-wrap">
+      <div className="flex mb-6 overflow-x-auto scrollbar-none gap-1.5 pb-0.5">
         {CATEGORIES.map(c => (
           <button
             key={c.id}
             onClick={() => setActiveTab(c.id)}
-            className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors
+            className={`shrink-0 px-3 py-2 rounded-xl font-bold text-xs whitespace-nowrap transition-colors
               ${activeTab === c.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300'}`}
           >
             {c.label}

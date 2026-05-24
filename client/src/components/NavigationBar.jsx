@@ -38,15 +38,6 @@ const NavigationBar = ({ changeView, currentView, classInfo }) => {
       subMenus: []
     },
     {
-      id: 'academy', icon: '📚', title: t('menu.academy', '아카데미'), isReady: false,
-      subMenus: [
-        { title: t('submenu.assignment', '과제 제출'), id: 'assignment' },
-        { title: t('submenu.studyRoom', '자습실'), id: 'studyRoom' },
-        { title: t('submenu.wrongAnswerNote', '오답 노트'), id: 'wrongAnswerNote' },
-        { title: t('submenu.readingBook', '독서록'), id: 'readingBook' }
-      ]
-    },
-    {
       id: 'adventure', icon: iconAdventure, title: t('menu.adventure', '어드벤처'), isReady: true, directNav: true,
       subMenus: [
         { title: '퀴즈던전',  id: 'quizDungeon' },

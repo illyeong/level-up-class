@@ -194,44 +194,41 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
 
   return (
     <div className={`rounded-2xl border-2 ${color.bg} ${color.border} shadow-sm
-      hover:shadow-md transition-all duration-200 overflow-hidden mb-4 break-inside-avoid
+      hover:shadow-md transition-all duration-200 relative group
       ${isPinned ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
 
       {/* 핀 배지 */}
       {isPinned && (
-        <div className="bg-amber-400 text-amber-900 text-[10px] font-extrabold px-3 py-0.5 flex items-center gap-1">
-          📌 선생님이 고정한 글
+        <div className="bg-amber-400 text-amber-900 text-[10px] font-extrabold px-3 py-0.5 flex items-center gap-1 rounded-t-2xl">
+          📌 고정
+        </div>
+      )}
+
+      {/* 본인 게시물 수정/삭제 */}
+      {isMyPost && (
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity z-10">
+          <button onClick={() => setIsEditing(true)}
+            className="text-[9px] text-slate-400 hover:text-indigo-500 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm">수정</button>
+          <button onClick={() => onDelete?.(post.id)}
+            className="text-[9px] text-slate-400 hover:text-rose-500 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm">삭제</button>
         </div>
       )}
 
       <div className="p-4">
-        {/* 작성자 + 수정/삭제 */}
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-14 h-14 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+        {/* 작성자 */}
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-14 h-14 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
             {post.isTeacher ? (
               <span className="text-2xl">👑</span>
             ) : post.characterImage ? (
-              <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-[2.2]" />
+              <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
             ) : (
               <span className="text-2xl">🧑‍🎓</span>
             )}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className={`font-extrabold text-xs truncate ${post.isTeacher ? 'text-indigo-700' : 'text-slate-800'}`}>
-              {post.studentName}
-              {post.isTeacher && <span className="ml-1 text-[9px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full">선생님</span>}
-            </div>
-            <div className="text-[10px] text-slate-400">{fmtDate(post.createdAt)}</div>
-          </div>
-          {/* 본인 게시물만 수정/삭제 */}
-          {isMyPost && (
-            <div className="flex gap-1 shrink-0">
-              <button onClick={() => setIsEditing(true)}
-                className="text-[10px] text-slate-400 hover:text-indigo-500 px-1.5 py-0.5 rounded-lg bg-white/60 hover:bg-white transition-colors font-bold">수정</button>
-              <button onClick={() => onDelete?.(post.id)}
-                className="text-[10px] text-slate-400 hover:text-rose-500 px-1.5 py-0.5 rounded-lg bg-white/60 hover:bg-white transition-colors font-bold">삭제</button>
-            </div>
-          )}
+          <span className={`font-extrabold text-xs truncate ${post.isTeacher ? 'text-indigo-700' : 'text-slate-800'}`}>
+            {post.studentName}
+          </span>
         </div>
 
         {/* 내용 (편집 모드) */}
@@ -248,18 +245,20 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
             </div>
           </div>
         ) : post.content ? (
-          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-3">{post.content}</p>
+          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-2 line-clamp-6">{post.content}</p>
         ) : null}
 
         {/* 이미지 */}
         {post.imageBase64 && (
           <img src={post.imageBase64} alt=""
-            className="w-full rounded-xl object-cover mb-3 border border-slate-200/80 cursor-zoom-in"
+            className="w-full rounded-xl object-cover mb-2 max-h-40 border border-slate-200/80 cursor-zoom-in"
             onClick={() => window.open(post.imageBase64, '_blank')}
           />
         )}
 
-        {/* 반응 */}
+        {/* 날짜 */}
+        <div className="text-[10px] text-slate-400 mb-2">{fmtDate(post.createdAt)}</div>
+
         {/* 반응 */}
         <div className="flex items-center gap-1 flex-wrap pt-2 border-t border-black/5">
           {REACTIONS.map(emoji => {
@@ -267,7 +266,7 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
             const isMe = myReaction === emoji;
             return (
               <button key={emoji} onClick={() => onReact(post.id, emoji, myReaction)}
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold transition-all active:scale-95
+                className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-bold transition-all active:scale-95
                   ${isMe
                     ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
                     : 'bg-white/70 text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>
@@ -276,9 +275,6 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
               </button>
             );
           })}
-          {totalReactions > 0 && (
-            <span className="text-[10px] text-slate-400 ml-1">{totalReactions}개 반응</span>
-          )}
         </div>
 
         {/* 댓글 */}
@@ -493,8 +489,7 @@ export default function LearningBoard({ studentCode }) {
               </p>
             </div>
           ) : (
-            /* Masonry: CSS columns */
-            <div style={{ columns: '2 280px', columnGap: '16px' }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {filteredPosts.map(post => (
                 <PostCard
                   key={post.id}

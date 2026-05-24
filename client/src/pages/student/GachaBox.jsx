@@ -214,13 +214,13 @@ function ResultCard({ item, isNew, delay = 0 }) {
   }, [delay]);
 
   return (
-    <div className={`relative flex flex-col items-center rounded-2xl border-2 p-2.5 transition-all duration-300
+    <div className={`relative flex flex-col items-center rounded-2xl border-2 p-2.5 transition-all duration-300 mt-2
       ${show ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}
       ${g.border} ${g.bg}
       ${item.grade === 'legendary' ? 'shadow-lg shadow-amber-300/40 ring-1 ring-amber-400/50' : ''}
       ${item.grade === 'epic'      ? 'shadow-md shadow-violet-300/40 ring-1 ring-violet-400/50' : ''}`}>
       {isNew && (
-        <span className="absolute -top-2 -right-2 text-[8px] bg-rose-500 text-white font-extrabold px-1.5 py-0.5 rounded-full shadow-sm z-10">NEW</span>
+        <span className="absolute -top-3 -right-2 text-[8px] bg-rose-500 text-white font-extrabold px-1.5 py-0.5 rounded-full shadow-sm z-20 whitespace-nowrap">NEW</span>
       )}
       <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded-full mb-1.5 ${g.badge}`}>{g.label}</span>
       <div className="w-12 h-12 flex items-center justify-center relative">
@@ -521,7 +521,10 @@ export default function GachaBox({ studentCode }) {
             </div>
 
             {/* 아이템 그리드 */}
-            <div className="px-4 pb-2 grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-52 overflow-y-auto">
+            <div className={`px-4 pt-2 pb-2 max-h-56 overflow-y-auto
+              ${results.length === 1
+                ? 'flex justify-center'
+                : 'grid grid-cols-4 sm:grid-cols-5 gap-2'}`}>
               {results.map(({ item, isNew }, i) => (
                 <ResultCard key={i} item={item} isNew={isNew} delay={i * 60} />
               ))}

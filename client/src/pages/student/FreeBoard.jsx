@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
-  doc, query, where, orderBy, arrayUnion, arrayRemove,
+  doc, query, where, arrayUnion, arrayRemove,
   onSnapshot, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -39,18 +39,29 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
   }, [studentCode, propTeacherUid]);
 
   useEffect(() => {
-    if (!myInfo?.teacherUid) return;
+    if (!myInfo) return;                              // myInfo 아직 로딩 중
+    if (!myInfo.teacherUid) { setLoading(false); return; } // teacherUid 없으면 종료
+
     const q = query(
       collection(db, 'boardPosts'),
       where('teacherUid', '==', myInfo.teacherUid),
-      orderBy('createdAt', 'desc')
     );
-    const unsub = onSnapshot(q, snap => {
-      setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    });
+    const unsub = onSnapshot(
+      q,
+      snap => {
+        const list = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        setPosts(list);
+        setLoading(false);
+      },
+      err => {
+        console.error('FreeBoard 로딩 에러:', err);
+        setLoading(false);
+      }
+    );
     return unsub;
-  }, [myInfo?.teacherUid]);
+  }, [myInfo]);
 
   useEffect(() => {
     if (!selectedPost?.id) return;

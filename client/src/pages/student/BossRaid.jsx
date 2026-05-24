@@ -1,5 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fireProjectile } from '../../utils/projectile';
+
+const cleanExplanation = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/슬라이드\s*\d*/gi, '')
+    .replace(/'[^']*용의자[^']*'/g, '')
+    .replace(/"[^"]*용의자[^"]*"/g, '')
+    .replace(/용의자.{0,30}코드/gi, '')
+    .replace(/에서\s+로(\s|$)/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
 import {
   collection, doc, updateDoc, onSnapshot,
   increment, serverTimestamp, getDoc, deleteField,
@@ -543,7 +555,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
               ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700'
               : 'bg-rose-900/30 text-rose-300 border border-rose-800'}`}>
             {displayAnswer?.correct ? '✅ 정답!' : `❌ 정답: ${q.options?.[q.answer]}`}
-            {q.explanation && <span className="ml-1 opacity-80">{q.explanation}</span>}
+            {cleanExplanation(q.explanation) && <span className="ml-1 opacity-80">{cleanExplanation(q.explanation)}</span>}
           </div>
         )}
       </div>

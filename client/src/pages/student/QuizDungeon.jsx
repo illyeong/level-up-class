@@ -31,7 +31,10 @@ const cleanExplanation = (text) => {
   if (!text) return '';
   return text
     .replace(/슬라이드\s*\d*/gi, '')
-    .replace(/용의자\s*코드/gi, '')
+    .replace(/'[^']*용의자[^']*'/g, '')
+    .replace(/"[^"]*용의자[^"]*"/g, '')
+    .replace(/용의자.{0,30}코드/gi, '')
+    .replace(/에서\s+로(\s|$)/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
 };
