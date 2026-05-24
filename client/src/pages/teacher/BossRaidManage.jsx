@@ -96,7 +96,7 @@ function QuizSetPicker({ selectedSetId, onSelect }) {
 
 // large + boss 티어만 보스 레이드에 사용
 const BOSS_MONSTERS = Object.values(MONSTERS_DB)
-  .filter(m => m.tier === 'large' || m.tier === 'boss')
+  .filter(m => m.tier === 'boss')
   .sort((a, b) => a.sizeOrder - b.sizeOrder || a.name.localeCompare(b.name));
 
 const TIER_COLOR = { large: 'text-orange-600 bg-orange-50', boss: 'text-rose-600 bg-rose-50' };
@@ -134,7 +134,7 @@ function BossMonsterPicker({ selectedId, onSelect, onClose }) {
 
         {/* 필터 */}
         <div className="flex gap-2 px-5 py-3 border-b border-slate-100">
-          {[['all', '전체'], ['large', '대형'], ['boss', '보스']].map(([v, l]) => (
+          {[['all', '전체'], ['boss', '보스']].map(([v, l]) => (
             <button key={v} onClick={() => setFilter(v)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition-colors
                 ${filter === v ? 'bg-rose-600 text-white border-rose-600' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>

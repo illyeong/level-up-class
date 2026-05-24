@@ -48,9 +48,10 @@ const TIER_FILTERS = [
   { key: 'small',  label: '소형' },
   { key: 'medium', label: '중형' },
   { key: 'large',  label: '대형' },
-  { key: 'boss',   label: '보스' },
 ];
-const ALL_MONSTERS = Object.values(MONSTERS_DB).sort((a, b) => a.sizeOrder - b.sizeOrder || a.name.localeCompare(b.name));
+const ALL_MONSTERS = Object.values(MONSTERS_DB)
+  .filter(m => m.tier !== 'boss')
+  .sort((a, b) => a.sizeOrder - b.sizeOrder || a.name.localeCompare(b.name));
 
 function MonsterPicker({ mode, selectedMonsters, questionCount, onModeChange, onMonstersChange }) {
   const [filter, setFilter] = useState('all');

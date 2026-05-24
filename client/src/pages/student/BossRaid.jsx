@@ -30,7 +30,7 @@ function BossHpBar({ current, max }) {
 }
 
 // ── 보스 스프라이트 (SpriteMonster 래퍼) ─────────────────────────
-function BossSprite({ bossData, anim, flash, scale = 2 }) {
+function BossSprite({ bossData, anim, flash, scale = 2, onAnimEnd }) {
   if (!bossData) return <div className="text-8xl select-none">🐉</div>;
   return (
     <SpriteMonster
@@ -38,6 +38,7 @@ function BossSprite({ bossData, anim, flash, scale = 2 }) {
       anim={anim}
       scale={bossData.scale * scale}
       flash={flash}
+      onAnimEnd={onAnimEnd}
     />
   );
 }
@@ -225,6 +226,31 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
     .map(([id, p]) => ({ id, ...p }))
     .sort((a, b) => (a.joinedAt?.seconds || 0) - (b.joinedAt?.seconds || 0));
 
+  // 보스 랜덤 애니
+  const [bossLobbyAnim, setBossLobbyAnim] = useState('idle');
+  const lobbyTimerRef = useRef(null);
+
+  const scheduleNext = () => {
+    const delay = 2500 + Math.random() * 2500; // 2.5~5초 후
+    lobbyTimerRef.current = setTimeout(() => {
+      const pick = Math.random();
+      if (pick < 0.45) {
+        setBossLobbyAnim('attack'); // attack은 loop:false → onAnimEnd로 복귀
+      } else if (pick < 0.75) {
+        setBossLobbyAnim('run');
+        setTimeout(() => { setBossLobbyAnim('idle'); scheduleNext(); }, 1400);
+      } else {
+        setBossLobbyAnim('idle');
+        scheduleNext();
+      }
+    }, delay);
+  };
+
+  useEffect(() => {
+    scheduleNext();
+    return () => clearTimeout(lobbyTimerRef.current);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 overflow-y-auto">
       {/* 보스 배너 */}
@@ -234,7 +260,8 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
 
         {/* 보스 스프라이트 */}
         <div className="flex items-end justify-center mb-4 bg-slate-900/60 rounded-3xl px-8 py-4 shadow-2xl border border-slate-700">
-          <BossSprite bossData={bossData} anim="idle" scale={2.0} />
+          <BossSprite bossData={bossData} anim={bossLobbyAnim} scale={2.0}
+            onAnimEnd={() => { setBossLobbyAnim('idle'); scheduleNext(); }} />
         </div>
 
         {/* HP */}
@@ -299,7 +326,7 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
                   ? <div className="w-full rounded-lg bg-slate-700 overflow-hidden flex items-center justify-center" style={{ aspectRatio: '1', minHeight: 26 }}>
                       <img src={p.characterImage} alt=""
                         className="w-full h-full object-contain"
-                        style={{ imageRendering: 'pixelated', transform: 'scale(1.2)', transformOrigin: 'center' }} />
+                        style={{ imageRendering: 'pixelated', transform: 'scale(2.7)', transformOrigin: 'center' }} />
                     </div>
                   : <div className="w-full rounded-lg bg-slate-700 flex items-center justify-center text-xl" style={{ aspectRatio: '1', minHeight: 26 }}>🧑</div>
                 }

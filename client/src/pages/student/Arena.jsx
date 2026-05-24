@@ -910,10 +910,11 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         {/* 내 캐릭터 미리보기 */}
         {me && (
           <div className="bg-slate-900/60 rounded-2xl p-4 mb-6 flex items-center gap-4 border border-slate-700 w-full max-w-xs">
-            <div className="w-16 h-16 rounded-xl bg-slate-800 overflow-hidden flex items-center justify-center">
+            <div className="w-24 h-32 rounded-xl bg-slate-800 flex items-center justify-center shrink-0">
               {me.characterImage
-                ? <img src={me.characterImage} alt="" className="w-full h-full object-contain scale-[2.2]" style={{ transform: 'scale(2.2) scaleX(-1)' }} />
-                : <span className="text-2xl">🧑‍🎓</span>}
+                ? <img src={me.characterImage} alt="" className="w-full h-full object-contain"
+                    style={{ imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
+                : <span className="text-4xl">🧑‍🎓</span>}
             </div>
             <div>
               <div className="font-extrabold text-white text-sm">{me.name || me.studentCode}</div>

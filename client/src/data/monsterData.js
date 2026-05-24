@@ -1031,7 +1031,7 @@ export function generateWaves(totalQ, fixedMonsterIdOrIds, dungeonId = null) {
   const rand = (arr) => arr[Math.floor(rng() * arr.length)];
   const allIds = Object.keys(MONSTERS_DB);
   const byTier = {};
-  ['tiny', 'small', 'medium', 'large', 'boss'].forEach(t => {
+  ['tiny', 'small', 'medium', 'large'].forEach(t => {
     byTier[t] = allIds.filter(id => MONSTERS_DB[id].tier === t);
   });
 
@@ -1065,7 +1065,7 @@ export function generateWaves(totalQ, fixedMonsterIdOrIds, dungeonId = null) {
   let rem = totalQ;
   const waves = [];
   while (rem > 0) {
-    const candidates = rem >= 5 ? ['boss', 'large', 'medium', 'small', 'tiny']
+    const candidates = rem >= 5 ? ['large', 'medium', 'small', 'tiny']
       : rem >= 3              ? ['medium', 'small', 'tiny']
       :                         ['small', 'tiny'];
     const tier = candidates[Math.floor(rng() * candidates.length)];
