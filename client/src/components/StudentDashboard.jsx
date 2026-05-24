@@ -7,7 +7,7 @@ import { db } from '../firebase';
 import AttendanceCheck from '../pages/student/AttendanceCheck';
 
 // ── 오늘의 퀘스트 위젯 ────────────────────────────────────────
-function TodayQuestWidget({ studentId, teacherUid }) {
+function TodayQuestWidget({ studentId, teacherUid, onYesterdayLog }) {
   const [quests, setQuests]           = useState([]);
   const [completions, setCompletions] = useState({});
   const [busyId, setBusyId]           = useState(null);
@@ -50,6 +50,7 @@ function TodayQuestWidget({ studentId, teacherUid }) {
         // 매일반복 퀘스트: 어제 미보상 completion 삭제 (대시보드 자정 초기화)
         const todayMidnight = new Date();
         todayMidnight.setHours(0, 0, 0, 0);
+        const cleanedQuests = [];
         await Promise.all(
           list
             .filter(q => q.type === 'daily' && q.repeatDaily && q.active !== false)
@@ -59,11 +60,17 @@ function TodayQuestWidget({ studentId, teacherUid }) {
               const ts = comp.checkedAt;
               const checkedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
               if (checkedAt && checkedAt < todayMidnight) {
+                if (comp.checked) cleanedQuests.push({ questId: q.id, title: q.title, rewards: q.rewards });
                 await deleteDoc(doc(db, 'quests', q.id, 'completions', studentId));
                 delete cMap[q.id];
               }
             })
         );
+        if (cleanedQuests.length > 0) {
+          const todayStr = new Date().toDateString();
+          localStorage.setItem(`levelup_yesterday_log_${studentId}`, JSON.stringify({ date: todayStr, quests: cleanedQuests }));
+          onYesterdayLog?.(cleanedQuests);
+        }
 
         setCompletions(cMap);
       } catch (e) { console.error(e); }
@@ -191,8 +198,10 @@ function TodayQuestWidget({ studentId, teacherUid }) {
 }
 
 const StudentDashboard = ({ studentCode }) => {
-  const [studentData, setStudentData] = useState(null);
-  const [isLoading, setIsLoading]     = useState(false);
+  const [studentData, setStudentData]       = useState(null);
+  const [isLoading, setIsLoading]           = useState(false);
+  const [yesterdayLog, setYesterdayLog]     = useState(null);
+  const [showYesterdayPopup, setShowYesterdayPopup] = useState(false);
 
   useEffect(() => {
     if (!studentCode) return;
@@ -212,6 +221,36 @@ const StudentDashboard = ({ studentCode }) => {
     };
     load();
   }, [studentCode]);
+
+  // localStorage에서 어제 완료한 퀘스트 로그 확인 (새로고침 시에도 표시)
+  useEffect(() => {
+    if (!studentData?.id) return;
+    const key     = `levelup_yesterday_log_${studentData.id}`;
+    const shownKey = `levelup_yesterday_shown_${studentData.id}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    try {
+      const { date, quests } = JSON.parse(raw);
+      const todayStr  = new Date().toDateString();
+      const shownDate = localStorage.getItem(shownKey);
+      if (date === todayStr && shownDate !== todayStr && quests?.length > 0) {
+        setYesterdayLog(quests);
+        setShowYesterdayPopup(true);
+      }
+    } catch {}
+  }, [studentData?.id]);
+
+  const handleYesterdayLog = (quests) => {
+    setYesterdayLog(quests);
+    setShowYesterdayPopup(true);
+  };
+
+  const handleCloseYesterday = () => {
+    setShowYesterdayPopup(false);
+    if (studentData?.id) {
+      localStorage.setItem(`levelup_yesterday_shown_${studentData.id}`, new Date().toDateString());
+    }
+  };
 
   const name     = studentData?.name     || studentData?.studentCode || '용감한 용사';
   const getMaxExpForLevel = (lv) =>
@@ -235,7 +274,15 @@ const StudentDashboard = ({ studentCode }) => {
 
   return (
     <div className="p-8">
-      <h1 className="text-3xl font-bold mb-8 text-gray-800">🏰 학생 대시보드</h1>
+      <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
+        <h1 className="text-3xl font-bold text-gray-800">🏰 학생 대시보드</h1>
+        {yesterdayLog?.length > 0 && (
+          <button onClick={() => setShowYesterdayPopup(true)}
+            className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm">
+            📋 어제 완료한 퀘스트 목록 보기 <span className="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded-full">{yesterdayLog.length}</span>
+          </button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* 캐릭터 카드 */}
@@ -290,9 +337,41 @@ const StudentDashboard = ({ studentCode }) => {
           <AttendanceCheck studentCode={studentCode} />
 
           {/* 오늘의 퀘스트 */}
-          <TodayQuestWidget studentId={studentData?.id} teacherUid={studentData?.teacherUid} />
+          <TodayQuestWidget studentId={studentData?.id} teacherUid={studentData?.teacherUid} onYesterdayLog={handleYesterdayLog} />
         </div>
       </div>
+
+      {/* 어제 완료한 퀘스트 팝업 */}
+      {showYesterdayPopup && yesterdayLog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-5 text-white">
+              <div className="text-3xl mb-1">🌙</div>
+              <h2 className="text-xl font-extrabold">어제 완료한 퀘스트</h2>
+              <p className="text-indigo-200 text-sm mt-0.5">자체체크로 완료한 퀘스트 내역입니다</p>
+            </div>
+            <div className="p-5 space-y-2 max-h-64 overflow-y-auto">
+              {yesterdayLog.map((q, i) => (
+                <div key={i} className="flex items-center justify-between bg-slate-50 rounded-2xl px-4 py-3 border border-slate-200">
+                  <span className="font-bold text-slate-800 text-sm flex-1 mr-3">{q.title}</span>
+                  <div className="flex gap-2 text-xs font-extrabold shrink-0">
+                    {(q.rewards?.exp     || 0) > 0 && <span className="text-amber-600">⭐+{q.rewards.exp}</span>}
+                    {(q.rewards?.gold    || 0) > 0 && <span className="text-amber-500">🪙+{q.rewards.gold}</span>}
+                    {(q.rewards?.diamond || 0) > 0 && <span className="text-indigo-600">💎+{q.rewards.diamond}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 pb-5">
+              <p className="text-xs text-slate-400 text-center mb-4">보상은 선생님이 별도로 확인 후 지급합니다</p>
+              <button onClick={handleCloseYesterday}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl transition-colors">
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

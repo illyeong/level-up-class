@@ -282,11 +282,11 @@ export default function GachaBox({ studentCode }) {
 
               {/* 천장 게이지 */}
               <div className="px-3 pb-2">
-                <div className="flex justify-between text-[9px] text-slate-400 mb-1">
+                <div className="flex justify-between text-xs text-slate-400 mb-1">
                   <span>천장</span>
                   <span className={pity >= 8 ? 'text-amber-400 font-bold' : ''}>{pity}/10</span>
                 </div>
-                <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                   <div className={`h-full rounded-full transition-all ${pity >= 8 ? 'bg-amber-400' : 'bg-indigo-400'}`}
                     style={{ width: `${(pity/10)*100}%` }} />
                 </div>
@@ -294,27 +294,25 @@ export default function GachaBox({ studentCode }) {
 
               {/* 확률 보기 토글 */}
               <button onClick={() => setOpenRates(isOpen ? null : chest.id)}
-                className="mx-3 mb-2 py-1 rounded-lg text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/10 transition-colors text-center">
+                className="mx-3 mb-2 py-1.5 px-3 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 transition-colors text-center">
                 {isOpen ? '▲ 접기' : '▼ 확률 보기'}
               </button>
 
               {isOpen && (
-                <div className="mx-3 mb-2 bg-black/30 rounded-xl p-2.5 space-y-1">
+                <div className="mx-3 mb-3 bg-black/30 rounded-xl p-3.5 space-y-2.5">
                   {[
                     { g:'legendary', label:'전설', cls:'text-amber-400' },
                     { g:'epic',      label:'영웅', cls:'text-violet-400' },
                     { g:'rare',      label:'희귀', cls:'text-emerald-400' },
                     { g:'common',    label:'일반', cls:'text-slate-400' },
                   ].map(({ g, label, cls }) => (
-                    <div key={g} className="flex justify-between items-center">
-                      <span className={`text-[9px] font-bold ${cls}`}>{label}</span>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-16 h-1 bg-white/10 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${cls.replace('text','bg')}`}
-                            style={{ width: `${chest.rates[g]}%` }} />
-                        </div>
-                        <span className={`text-[9px] font-extrabold w-8 text-right ${cls}`}>{chest.rates[g]}%</span>
+                    <div key={g} className="flex justify-between items-center gap-2">
+                      <span className={`text-sm font-extrabold w-10 shrink-0 ${cls}`}>{label}</span>
+                      <div className="flex-1 h-2.5 bg-white/10 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${cls.replace('text','bg')}`}
+                          style={{ width: `${chest.rates[g]}%` }} />
                       </div>
+                      <span className={`text-sm font-extrabold w-10 text-right shrink-0 ${cls}`}>{chest.rates[g]}%</span>
                     </div>
                   ))}
                 </div>

@@ -28,37 +28,34 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
   const statEntries = Object.entries(STAT_LABEL).filter(([key]) => (item.stats?.[key] || 0) > 0);
   const enhBonus = (stars || 0) * 5;
 
-  // ── compact=false : 가로(이미지 왼쪽 + 정보 오른쪽) 레이아웃 ──
+  // ── compact=false : 제목(상단) + 이미지(좌하) + 스탯(우) + 등급/별(하단) ──
   if (!compact) {
     return (
       <button onClick={onClick}
-        className={`relative flex flex-row items-stretch rounded-2xl border-2 transition-all active:scale-95 text-left
-          ${g.border} ${g.bg} p-3 gap-3
+        className={`relative flex flex-col rounded-2xl border-2 transition-all active:scale-95 text-left w-full
+          ${g.border} ${g.bg} p-3 gap-2
           ${isEquipped ? 'ring-2 ring-indigo-500 ring-offset-2 shadow-lg' : 'hover:shadow-md hover:-translate-y-0.5'}
           ${item.grade === 'legendary' ? 'shadow-amber-100 shadow-md' : ''}
           ${item.grade === 'epic'      ? 'shadow-violet-100 shadow-md' : ''}`}>
 
-        {/* 등급 뱃지 - 우측 상단 */}
-        <span className={`absolute top-1 right-1 text-xs font-extrabold px-2 py-0.5 rounded-full ${g.badge}`}>
-          {g.label}
-        </span>
         {isEquipped && (
           <span className="absolute top-1 left-1 text-[8px] bg-indigo-600 text-white px-1.5 py-0.5 rounded-full font-bold">착용</span>
         )}
 
-        {/* 왼쪽: 이미지 */}
-        <div className="w-20 h-20 shrink-0 flex items-center justify-center bg-white/40 rounded-xl overflow-hidden shadow-sm">
-          {item.image
-            ? <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-sm" />
-            : <span className="text-4xl">{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>}
+        {/* 이름 - 상단 중앙 */}
+        <div className="font-extrabold text-slate-800 text-sm leading-tight text-center w-full mt-1 px-1">
+          {item.name}
         </div>
 
-        {/* 오른쪽: 이름 / 별 / 스탯 */}
-        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 pr-1 pt-4">
-          <div className="font-extrabold text-slate-800 text-sm leading-tight truncate">{item.name}</div>
-          <Stars count={stars} size="sm" />
+        {/* 이미지(좌) + 스탯(우) */}
+        <div className="flex items-start gap-3">
+          <div className="w-24 h-24 shrink-0 flex items-center justify-center bg-white/40 rounded-xl overflow-hidden shadow-sm">
+            {item.image
+              ? <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-sm" />
+              : <span className="text-4xl">{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>}
+          </div>
           {statEntries.length > 0 && (
-            <div className="space-y-0.5 mt-0.5">
+            <div className="flex-1 min-w-0 pt-1 space-y-1.5">
               {statEntries.map(([key, meta]) => {
                 const base  = item.stats[key];
                 const total = base + enhBonus;
@@ -81,6 +78,12 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
               })}
             </div>
           )}
+        </div>
+
+        {/* 등급 뱃지 + 별 - 하단 */}
+        <div className="flex items-center gap-2 pt-0.5">
+          <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full ${g.badge}`}>{g.label}</span>
+          <Stars count={stars} size="sm" />
         </div>
       </button>
     );
@@ -563,67 +566,6 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
   );
 }
 
-// ── 강화석 구매 모달 ──────────────────────────────────────────
-function BuyStoneModal({ diamonds, onBuy, onClose }) {
-  const [qty, setQty] = useState(1);
-  const total  = qty * 100;
-  const canBuy = qty > 0 && diamonds >= total;
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 rounded-3xl w-full max-w-xs border border-slate-700 shadow-2xl overflow-hidden">
-        <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-slate-800">
-          <h2 className="font-extrabold text-white text-base">🔮 강화석 구매</h2>
-          <button onClick={onClose}
-            className="text-slate-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-800 transition-colors">✕</button>
-        </div>
-        <div className="p-5 space-y-4">
-          <div className="bg-slate-800 rounded-2xl p-3 text-center border border-slate-700">
-            <div className="text-xs text-slate-400">강화석 1개 = 💎 100 다이아</div>
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-400 block mb-2">구매 수량</label>
-            <div className="flex items-center gap-3">
-              <button onClick={() => setQty(q => Math.max(1, q - 1))}
-                className="w-10 h-10 rounded-xl bg-slate-800 text-white font-bold text-lg border border-slate-700 hover:border-slate-500 active:scale-95">−</button>
-              <input type="number" min="1" value={qty}
-                onChange={e => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-                className="flex-1 bg-slate-800 border border-slate-700 text-white text-center text-xl font-extrabold rounded-xl py-2 focus:outline-none focus:border-sky-500" />
-              <button onClick={() => setQty(q => q + 1)}
-                className="w-10 h-10 rounded-xl bg-slate-800 text-white font-bold text-lg border border-slate-700 hover:border-slate-500 active:scale-95">+</button>
-            </div>
-            <div className="flex gap-2 mt-2">
-              {[5, 10, 30].map(n => (
-                <button key={n} onClick={() => setQty(n)}
-                  className="flex-1 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700 hover:border-sky-600 hover:text-sky-400 transition-colors active:scale-95">
-                  {n}개
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 flex justify-between items-center">
-            <span className="text-slate-400 text-sm">합계</span>
-            <span className={`font-extrabold text-lg ${canBuy ? 'text-cyan-400' : 'text-rose-400'}`}>
-              💎 {total.toLocaleString()}
-            </span>
-          </div>
-          <div className="text-xs text-slate-500 text-right -mt-2">보유: 💎 {diamonds.toLocaleString()}</div>
-
-          <button onClick={() => canBuy && onBuy(qty)} disabled={!canBuy}
-            className={`w-full py-3.5 rounded-2xl font-extrabold text-sm transition-all active:scale-95
-              ${canBuy
-                ? 'bg-gradient-to-r from-cyan-500 to-sky-600 text-white shadow-lg hover:from-cyan-400'
-                : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>
-            {canBuy ? `🔮 강화석 ${qty}개 구매` : '다이아 부족'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── 메인 ─────────────────────────────────────────────────────
 export default function Equipment({ studentCode }) {
   const [tab, setTab]             = useState('equip');
@@ -637,7 +579,8 @@ export default function Equipment({ studentCode }) {
   const [enhanceTarget, setEnhanceTarget] = useState(null);
   const [selectedSlot, setSelectedSlot]   = useState(null);
   const [gradeFilter, setGradeFilter]     = useState('all');
-  const [showBuyStone, setShowBuyStone]   = useState(false);
+  const [slotFilter, setSlotFilter]       = useState('all');
+  const [buyQty, setBuyQty]               = useState(1);
 
   useEffect(() => {
     if (!studentCode) return;
@@ -693,12 +636,11 @@ export default function Equipment({ studentCode }) {
   };
 
   const buyStones = async (qty) => {
-    if (!studentDocId) return;
+    if (!studentDocId || diamonds < qty * 100) return;
     const newDiamonds = diamonds - qty * 100;
     const newStones   = stones + qty;
     setDiamonds(newDiamonds);
     setStones(newStones);
-    setShowBuyStone(false);
     await updateDoc(doc(db, 'students', studentDocId), { diamonds: newDiamonds, enhancementStones: newStones });
   };
 
@@ -713,13 +655,18 @@ export default function Equipment({ studentCode }) {
   }, {});
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64 text-slate-400 font-bold animate-pulse">불러오는 중...</div>
+    <div className="flex items-center justify-center gap-2.5 h-64">
+      <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+      <span className="text-slate-400 font-bold">불러오는 중...</span>
+    </div>
   );
 
   const slotItems   = selectedSlot ? inventory.filter(inv => getItem(inv.itemId)?.type === selectedSlot) : [];
   const filteredInv = inventory.filter(inv => {
     const item = getItem(inv.itemId);
-    return item && (gradeFilter === 'all' || item.grade === gradeFilter);
+    return item &&
+      (gradeFilter === 'all' || item.grade === gradeFilter) &&
+      (slotFilter  === 'all' || item.type  === slotFilter);
   });
 
   return (
@@ -729,13 +676,27 @@ export default function Equipment({ studentCode }) {
       <div className="bg-gradient-to-b from-slate-800 to-slate-900 px-5 py-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-extrabold text-white tracking-wide">⚔️ 장비</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            {/* 보유 강화석 */}
             <div className="flex items-center gap-1.5 bg-sky-900/50 border border-sky-700/50 text-sky-300 px-3 py-1.5 rounded-xl text-sm font-extrabold">
               🔮 {stones}
             </div>
-            <button onClick={() => setShowBuyStone(true)}
-              className="bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors border border-cyan-500/50">
-              + 구매
+            {/* 인라인 수량 조절 */}
+            <div className="flex items-center bg-slate-800 border border-slate-600 rounded-xl overflow-hidden">
+              <button onClick={() => setBuyQty(q => Math.max(1, q - 1))}
+                className="px-2.5 py-1.5 text-slate-400 hover:text-white font-bold text-sm active:scale-95 transition-colors">−</button>
+              <span className="text-white font-extrabold text-sm w-6 text-center">{buyQty}</span>
+              <button onClick={() => setBuyQty(q => q + 1)}
+                className="px-2.5 py-1.5 text-slate-400 hover:text-white font-bold text-sm active:scale-95 transition-colors">+</button>
+            </div>
+            {/* 즉시 구매 버튼 */}
+            <button onClick={() => buyStones(buyQty)}
+              disabled={diamonds < buyQty * 100}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 whitespace-nowrap
+                ${diamonds >= buyQty * 100
+                  ? 'bg-cyan-600 hover:bg-cyan-500 text-white border border-cyan-500/50'
+                  : 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-600'}`}>
+              💎 {(buyQty * 100).toLocaleString()}
             </button>
           </div>
         </div>
@@ -908,7 +869,8 @@ export default function Equipment({ studentCode }) {
         {/* ── 인벤토리 탭 ── */}
         {tab === 'inventory' && (
           <div>
-            <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
+            {/* 등급 필터 */}
+            <div className="flex gap-1.5 mb-2 overflow-x-auto pb-1">
               {['all', 'legendary', 'epic', 'rare', 'common'].map(g => (
                 <button key={g} onClick={() => setGradeFilter(g)}
                   className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors border
@@ -918,6 +880,21 @@ export default function Equipment({ studentCode }) {
                         : `${(GRADE[g] || GRADE.common).badge} border-transparent`
                       : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}>
                   {g === 'all' ? '전체' : (GRADE[g] || GRADE.common).label}
+                </button>
+              ))}
+            </div>
+            {/* 부위 필터 */}
+            <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
+              <button onClick={() => setSlotFilter('all')}
+                className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors border
+                  ${slotFilter === 'all' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}>
+                전체
+              </button>
+              {SLOTS.map(slot => (
+                <button key={slot.key} onClick={() => setSlotFilter(slot.key)}
+                  className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors border flex items-center gap-1
+                    ${slotFilter === slot.key ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}>
+                  {slot.icon} {slot.label}
                 </button>
               ))}
               <span className="text-[10px] text-slate-400 self-center ml-1 shrink-0">{filteredInv.length}개</span>
@@ -963,13 +940,6 @@ export default function Equipment({ studentCode }) {
         />
       )}
 
-      {showBuyStone && (
-        <BuyStoneModal
-          diamonds={diamonds}
-          onBuy={buyStones}
-          onClose={() => setShowBuyStone(false)}
-        />
-      )}
     </div>
   );
 }

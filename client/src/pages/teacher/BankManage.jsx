@@ -152,6 +152,7 @@ function BankManage() {
   const totalGoldDep = students.reduce((s, stu) => s + (stu.bankGold    || 0), 0);
 
   return (
+    <>
     <div className="min-h-screen bg-slate-100 p-8">
       <div className="max-w-5xl mx-auto">
 
@@ -298,6 +299,7 @@ function BankManage() {
         </div>
       </div>
     )}
+    </>
   );
 }
 

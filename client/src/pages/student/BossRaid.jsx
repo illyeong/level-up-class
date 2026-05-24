@@ -81,23 +81,26 @@ function ParticipantRoster({ participants, currentQuestionIdx }) {
 
   return (
     <div className="bg-slate-900 border-t border-slate-700">
-      <div className="flex gap-2 px-3 py-2 overflow-x-auto scrollbar-none">
+      <div className="flex gap-2.5 px-3 py-2.5 overflow-x-auto scrollbar-none">
         {list.map(p => {
           const st = getStatus(p);
           return (
-            <div key={p.id} className="flex flex-col items-center gap-0.5 shrink-0 w-16">
+            <div key={p.id} className="flex flex-col items-center gap-1 shrink-0 w-20">
               <div className="relative">
                 {p.characterImage
-                  ? <img src={p.characterImage} alt=""
-                      className="w-12 h-12 rounded-xl object-contain bg-slate-800 border border-slate-600" />
-                  : <div className="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center text-2xl">🧑</div>
+                  ? <div className="w-16 h-16 rounded-xl bg-slate-800 border border-slate-600 overflow-hidden flex items-center justify-center">
+                      <img src={p.characterImage} alt=""
+                        className="w-full h-full object-contain"
+                        style={{ transform: 'scale(2.2)', transformOrigin: 'center 65%', imageRendering: 'pixelated' }} />
+                    </div>
+                  : <div className="w-16 h-16 rounded-xl bg-slate-700 flex items-center justify-center text-3xl">🧑</div>
                 }
                 <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-slate-900 flex items-center justify-center text-[9px] font-bold
                   ${st === 'correct' ? 'bg-emerald-500' : st === 'wrong' ? 'bg-rose-500' : 'bg-slate-600'}`}>
                   {st === 'correct' ? '✓' : st === 'wrong' ? '✗' : '○'}
                 </div>
               </div>
-              <div className="text-[10px] text-slate-400 font-bold truncate w-full text-center mt-0.5">
+              <div className="text-xs text-slate-300 font-bold truncate w-full text-center">
                 {(p.name || '학생').slice(0, 4)}
               </div>
             </div>
@@ -137,40 +140,40 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
     .sort((a, b) => (a.joinedAt?.seconds || 0) - (b.joinedAt?.seconds || 0));
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 overflow-y-auto">
       {/* 보스 배너 */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-        <div className="text-xs font-extrabold text-rose-400 tracking-widest mb-2 uppercase">World Boss Raid</div>
-        <h1 className="text-3xl font-extrabold text-white mb-6">{raid.bossName}</h1>
+      <div className="flex flex-col items-center px-6 pt-6 pb-4">
+        <div className="text-xs font-extrabold text-rose-400 tracking-widest mb-1 uppercase">World Boss Raid</div>
+        <h1 className="text-2xl font-extrabold text-white mb-4">{raid.bossName}</h1>
 
         {/* 보스 스프라이트 */}
-        <div className="flex items-end justify-center mb-6 bg-slate-900/60 rounded-3xl px-8 py-5 shadow-2xl border border-slate-700">
-          <BossSprite bossData={bossData} anim="idle" scale={2.2} />
+        <div className="flex items-end justify-center mb-4 bg-slate-900/60 rounded-3xl px-8 py-4 shadow-2xl border border-slate-700">
+          <BossSprite bossData={bossData} anim="idle" scale={2.0} />
         </div>
 
         {/* HP */}
-        <div className="w-full max-w-sm mb-4">
+        <div className="w-full max-w-sm mb-3">
           <BossHpBar current={raid.maxHP} max={raid.maxHP} />
         </div>
 
         {/* 레이드 정보 */}
-        <div className="flex gap-4 text-center text-sm mb-6">
-          <div className="bg-slate-800/80 rounded-2xl px-4 py-2.5 border border-slate-700">
+        <div className="flex gap-3 text-center text-sm mb-4">
+          <div className="bg-slate-800/80 rounded-2xl px-3 py-2 border border-slate-700">
             <div className="font-extrabold text-white">{raid.questionDuration}초</div>
             <div className="text-slate-400 text-xs">문제당 시간</div>
           </div>
-          <div className="bg-slate-800/80 rounded-2xl px-4 py-2.5 border border-slate-700">
+          <div className="bg-slate-800/80 rounded-2xl px-3 py-2 border border-slate-700">
             <div className="font-extrabold text-white">{(raid.questions || []).length}문제</div>
             <div className="text-slate-400 text-xs">총 문제 수</div>
           </div>
-          <div className="bg-slate-800/80 rounded-2xl px-4 py-2.5 border border-slate-700">
+          <div className="bg-slate-800/80 rounded-2xl px-3 py-2 border border-slate-700">
             <div className="font-extrabold text-white">{raid.damagePerHit}</div>
             <div className="text-slate-400 text-xs">정답당 데미지</div>
           </div>
         </div>
 
         {/* 보상 */}
-        <div className="bg-amber-900/40 border border-amber-700/50 rounded-2xl px-5 py-3 mb-6 flex gap-4 text-sm font-extrabold">
+        <div className="bg-amber-900/40 border border-amber-700/50 rounded-2xl px-5 py-2.5 mb-4 flex gap-4 text-sm font-extrabold">
           {(raid.rewards?.gold    || 0) > 0 && <span className="text-amber-400">🪙 {raid.rewards.gold}G</span>}
           {(raid.rewards?.exp     || 0) > 0 && <span className="text-indigo-300">⭐ {raid.rewards.exp} EXP</span>}
           {(raid.rewards?.diamond || 0) > 0 && <span className="text-blue-300">💎 {raid.rewards.diamond}</span>}
@@ -190,8 +193,8 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
         )}
       </div>
 
-      {/* 참가자 목록 */}
-      <div className="bg-slate-900/80 backdrop-blur border-t border-slate-700 p-4">
+      {/* 참가자 목록 - 바로 아래 */}
+      <div className="border-t border-slate-700/60 px-4 py-4">
         <div className="text-sm font-bold text-slate-300 mb-3">
           접속 중 {pList.length}명
           {!isTeacher && participants[myId] && <span className="text-emerald-400 ml-2">✓ 입장 완료</span>}
@@ -199,27 +202,25 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
         {pList.length === 0 ? (
           <div className="text-slate-500 text-sm text-center py-4">아직 참가자가 없습니다</div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[600px] overflow-y-auto">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
             {pList.map(p => (
               <div key={p.id}
-                className={`flex flex-col items-center gap-2 p-3 rounded-3xl border transition-all
+                className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl border transition-all
                   ${!isTeacher && p.id === myId
                     ? 'border-emerald-500 bg-emerald-900/30'
                     : 'border-slate-700 bg-slate-800/60'}`}>
                 {p.characterImage
-                  ? <div className="w-[168px] h-[168px] rounded-2xl bg-slate-700 overflow-hidden flex items-center justify-center">
+                  ? <div className="w-full aspect-square rounded-xl bg-slate-700 overflow-hidden flex items-center justify-center">
                       <img src={p.characterImage} alt=""
                         className="w-full h-full object-contain"
-                        style={{ transform: 'scale(2.2)', transformOrigin: 'center 65%', imageRendering: 'pixelated' }} />
+                        style={{ transform: 'scale(2.5)', transformOrigin: 'center 65%', imageRendering: 'pixelated' }} />
                     </div>
-                  : <div className="w-[168px] h-[168px] rounded-2xl bg-slate-700 flex items-center justify-center text-7xl">🧑</div>
+                  : <div className="w-full aspect-square rounded-xl bg-slate-700 flex items-center justify-center text-5xl">🧑</div>
                 }
-                <span className="text-sm font-bold text-slate-200 text-center truncate w-full leading-tight">
+                <span className={`text-xs font-bold text-center truncate w-full leading-tight
+                  ${!isTeacher && p.id === myId ? 'text-emerald-300' : 'text-slate-200'}`}>
                   {p.name || '학생'}
                 </span>
-                {!isTeacher && p.id === myId && (
-                  <span className="text-xs text-emerald-400 font-bold">나</span>
-                )}
               </div>
             ))}
           </div>
