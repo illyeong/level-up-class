@@ -22,6 +22,30 @@ const SA5 = {
   death:  { row: 4, frames: 16, fps: 8,  loop: false },
 };
 
+// 4행 20프레임 (골렘·웜 계열 보스)
+const SA_20 = {
+  idle:   { row: 0, frames: 20, fps: 8,  loop: true  },
+  run:    { row: 1, frames: 20, fps: 10, loop: true  },
+  attack: { row: 2, frames: 20, fps: 12, loop: false },
+  death:  { row: 3, frames: 20, fps: 8,  loop: false },
+};
+
+// 5행 16프레임 (AttackAlt/Fire 0행 포함 — Lizard03, Demon03, 와이번)
+const SA5_16 = {
+  idle:   { row: 1, frames: 16, fps: 8,  loop: true  },
+  run:    { row: 2, frames: 16, fps: 10, loop: true  },
+  attack: { row: 3, frames: 16, fps: 12, loop: false },
+  death:  { row: 4, frames: 16, fps: 8,  loop: false },
+};
+
+// 5행 20프레임 (Fire/AttackAlt 0행 포함 — 드래곤·대형 보스)
+const SA5_20 = {
+  idle:   { row: 1, frames: 20, fps: 8,  loop: true  },
+  run:    { row: 2, frames: 20, fps: 10, loop: true  },
+  attack: { row: 3, frames: 20, fps: 12, loop: false },
+  death:  { row: 4, frames: 20, fps: 8,  loop: false },
+};
+
 export const MONSTERS_DB = {
 
   /* ═══════════════ TINY 극소 ═══════════════ */
@@ -656,60 +680,320 @@ export const MONSTERS_DB = {
     scale:0.31, flip:false, tier:'large', sizeOrder:4, animations:{...SA},
   },
 
-  /* ═══════════════ BOSS 보스 ═══════════════ */
+  /* ═══════════════ LARGE 대형 (구 보스 등급) ═══════════════ */
   butcher: {
     id:'butcher', name:'도살자',
     src:'/images/Monsters/Butcher 698x574 (Idle Run Attack Death).png',
     frameWidth:698, frameHeight:574, sheetCols:16, sheetRows:4,
-    scale:0.25, flip:false, tier:'boss', sizeOrder:5, animations:{...SA},
+    scale:0.25, flip:false, tier:'large', sizeOrder:4, animations:{...SA},
   },
   cannibal: {
     id:'cannibal', name:'식인귀',
     src:'/images/Monsters/Cannibal 627x522 (Idle Run Attack Death).png',
     frameWidth:627, frameHeight:522, sheetCols:16, sheetRows:4,
-    scale:0.28, flip:false, tier:'boss', sizeOrder:5, animations:{...SA},
+    scale:0.28, flip:false, tier:'large', sizeOrder:4, animations:{...SA},
   },
   dreadnought: {
     id:'dreadnought', name:'드레드노트',
     src:'/images/Monsters/Dreadnought 625x525 (Idle Run Attack Death).png',
     frameWidth:625, frameHeight:525, sheetCols:16, sheetRows:4,
-    scale:0.28, flip:false, tier:'boss', sizeOrder:5, animations:{...SA},
+    scale:0.28, flip:false, tier:'large', sizeOrder:4, animations:{...SA},
   },
   juggernaut: {
     id:'juggernaut', name:'저거넛',
     src:'/images/Monsters/Juggernaut 614x527 (Idle Run Attack Death).png',
     frameWidth:614, frameHeight:527, sheetCols:16, sheetRows:4,
-    scale:0.28, flip:false, tier:'boss', sizeOrder:5, animations:{...SA},
+    scale:0.28, flip:false, tier:'large', sizeOrder:4, animations:{...SA},
   },
   maneater: {
     id:'maneater', name:'식인 괴물',
     src:'/images/Monsters/Maneater 653x528 (Idle Run Attack Death).png',
     frameWidth:653, frameHeight:528, sheetCols:16, sheetRows:4,
-    scale:0.27, flip:false, tier:'boss', sizeOrder:5, animations:{...SA},
+    scale:0.27, flip:false, tier:'large', sizeOrder:4, animations:{...SA},
   },
   ogre: {
     id:'ogre', name:'오거',
     src:'/images/Monsters/Ogre 601x519 (Idle Run Attack Death).png',
     frameWidth:601, frameHeight:519, sheetCols:16, sheetRows:4,
-    scale:0.28, flip:false, tier:'boss', sizeOrder:5, animations:{...SA},
+    scale:0.28, flip:false, tier:'large', sizeOrder:4, animations:{...SA},
   },
   punisher: {
     id:'punisher', name:'응징자',
     src:'/images/Monsters/Punisher 687x567 (Idle Run Attack Death).png',
     frameWidth:687, frameHeight:567, sheetCols:16, sheetRows:4,
-    scale:0.26, flip:false, tier:'boss', sizeOrder:5, animations:{...SA},
+    scale:0.26, flip:false, tier:'large', sizeOrder:4, animations:{...SA},
   },
   troll: {
     id:'troll', name:'트롤',
     src:'/images/Monsters/Troll 624x518 (Idle Run Attack Death).png',
     frameWidth:624, frameHeight:518, sheetCols:16, sheetRows:4,
-    scale:0.28, flip:false, tier:'boss', sizeOrder:5, animations:{...SA},
+    scale:0.28, flip:false, tier:'large', sizeOrder:4, animations:{...SA},
   },
   zombie: {
     id:'zombie', name:'좀비',
     src:'/images/Monsters/Zombie 627x520 (Idle Run Attack Death).png',
     frameWidth:627, frameHeight:520, sheetCols:16, sheetRows:4,
-    scale:0.28, flip:false, tier:'boss', sizeOrder:5, animations:{...SA},
+    scale:0.28, flip:false, tier:'large', sizeOrder:4, animations:{...SA},
+  },
+
+  /* ═══════════════ BOSS 보스 (Bosses/ 폴더) ═══════════════ */
+
+  /* — 와이번 (16프레임 / Fire+Idle+Run+Attack+Death 5행) — */
+  wyvernType1: {
+    id:'wyvernType1', name:'와이번 1호',
+    src:'/images/Monsters/Bosses/WyvernType1 999x782 (Fire Idle Run Attack Death).png',
+    frameWidth:999, frameHeight:782, sheetCols:16, sheetRows:5,
+    scale:0.19, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_16},
+  },
+  wyvernType2: {
+    id:'wyvernType2', name:'와이번 2호',
+    src:'/images/Monsters/Bosses/WyvernType2 1003x823 (Fire Idle Run Attack Death).png',
+    frameWidth:1003, frameHeight:823, sheetCols:16, sheetRows:5,
+    scale:0.18, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_16},
+  },
+  wyvernType3: {
+    id:'wyvernType3', name:'와이번 3호',
+    src:'/images/Monsters/Bosses/WyvernType3 1008x790 (Fire Idle Run Attack Death).png',
+    frameWidth:1008, frameHeight:790, sheetCols:16, sheetRows:5,
+    scale:0.18, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_16},
+  },
+  wyvernType4: {
+    id:'wyvernType4', name:'와이번 4호',
+    src:'/images/Monsters/Bosses/WyvernType4 1024x847 (Fire Idle Run Attack Death).png',
+    frameWidth:1024, frameHeight:847, sheetCols:16, sheetRows:5,
+    scale:0.17, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_16},
+  },
+  wyvernType5: {
+    id:'wyvernType5', name:'와이번 5호',
+    src:'/images/Monsters/Bosses/WyvernType5 1024x843 (Fire Idle Run Attack Death).png',
+    frameWidth:1024, frameHeight:843, sheetCols:16, sheetRows:5,
+    scale:0.17, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_16},
+  },
+  wyvernType6: {
+    id:'wyvernType6', name:'와이번 6호',
+    src:'/images/Monsters/Bosses/WyvernType6 954x808 (Fire Idle Run Attack Death).png',
+    frameWidth:954, frameHeight:808, sheetCols:16, sheetRows:5,
+    scale:0.18, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_16},
+  },
+  wyvernType7: {
+    id:'wyvernType7', name:'와이번 7호',
+    src:'/images/Monsters/Bosses/WyvernType7 971x815 (Fire Idle Run Attack Death).png',
+    frameWidth:971, frameHeight:815, sheetCols:16, sheetRows:5,
+    scale:0.18, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_16},
+  },
+  wyvernType8: {
+    id:'wyvernType8', name:'와이번 8호',
+    src:'/images/Monsters/Bosses/WyvernType8 957x812 (Fire Idle Run Attack Death).png',
+    frameWidth:957, frameHeight:812, sheetCols:16, sheetRows:5,
+    scale:0.18, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_16},
+  },
+  wyvernType9: {
+    id:'wyvernType9', name:'와이번 9호',
+    src:'/images/Monsters/Bosses/WyvernType9 1024x822 (Fire Idle Run Attack Death).png',
+    frameWidth:1024, frameHeight:822, sheetCols:16, sheetRows:5,
+    scale:0.18, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_16},
+  },
+  wyvernType10: {
+    id:'wyvernType10', name:'와이번 10호',
+    src:'/images/Monsters/Bosses/WyvernType10 1024x824 (Fire Idle Run Attack Death).png',
+    frameWidth:1024, frameHeight:824, sheetCols:16, sheetRows:5,
+    scale:0.18, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_16},
+  },
+
+  /* — 드래곤 (20프레임 / Fire+Idle+Run+Attack+Death 5행) — */
+  blackDragon: {
+    id:'blackDragon', name:'흑룡',
+    src:'/images/Monsters/Bosses/BlackDragon 596x469 (Fire Idle Run Attack Death).png',
+    frameWidth:596, frameHeight:469, sheetCols:20, sheetRows:5,
+    scale:0.31, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  emeraldDragon: {
+    id:'emeraldDragon', name:'에메랄드 드래곤',
+    src:'/images/Monsters/Bosses/EmeraldDragon 557x481 (Fire Idle Run Attack Death).png',
+    frameWidth:557, frameHeight:481, sheetCols:20, sheetRows:5,
+    scale:0.30, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  goldenDragon: {
+    id:'goldenDragon', name:'황금 드래곤',
+    src:'/images/Monsters/Bosses/GoldenDragon 583x477 (Fire Idle Run Attack Death).png',
+    frameWidth:583, frameHeight:477, sheetCols:20, sheetRows:5,
+    scale:0.30, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  greenDragon: {
+    id:'greenDragon', name:'녹색 드래곤',
+    src:'/images/Monsters/Bosses/GreenDragon 580x493 (Fire Idle Run Attack Death).png',
+    frameWidth:580, frameHeight:493, sheetCols:20, sheetRows:5,
+    scale:0.29, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  greyDragon: {
+    id:'greyDragon', name:'회색 드래곤',
+    src:'/images/Monsters/Bosses/GreyDragon 563x433 (Fire Idle Run Attack Death).png',
+    frameWidth:563, frameHeight:433, sheetCols:20, sheetRows:5,
+    scale:0.33, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  iceDragon: {
+    id:'iceDragon', name:'얼음 드래곤',
+    src:'/images/Monsters/Bosses/IceDragon 580x493 (Fire Idle Run Attack Death).png',
+    frameWidth:580, frameHeight:493, sheetCols:20, sheetRows:5,
+    scale:0.29, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  mechanicalDragon: {
+    id:'mechanicalDragon', name:'기계 드래곤',
+    src:'/images/Monsters/Bosses/MechanicalDragon 565x466 (Fire Idle Run Attack Death).png',
+    frameWidth:565, frameHeight:466, sheetCols:20, sheetRows:5,
+    scale:0.31, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  purpleDragon: {
+    id:'purpleDragon', name:'보라 드래곤',
+    src:'/images/Monsters/Bosses/PurpleDragon 564x481 (Fire Idle Run Attack Death).png',
+    frameWidth:564, frameHeight:481, sheetCols:20, sheetRows:5,
+    scale:0.30, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  redDragon: {
+    id:'redDragon', name:'붉은 드래곤',
+    src:'/images/Monsters/Bosses/RedDragon 526x468 (Fire Idle Run Attack Death).png',
+    frameWidth:526, frameHeight:468, sheetCols:20, sheetRows:5,
+    scale:0.31, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+
+  /* — 도마뱀·악마 (16프레임 / AttackAlt+Idle+Run+Attack+Death 5행) — */
+  lizard03: {
+    id:'lizard03', name:'거대 도마뱀',
+    src:'/images/Monsters/Bosses/Lizard03 816x729 (AttackAlt Idle Run Attack Death).png',
+    frameWidth:816, frameHeight:729, sheetCols:16, sheetRows:5,
+    scale:0.20, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_16},
+  },
+  demon03: {
+    id:'demon03', name:'고위 악마',
+    src:'/images/Monsters/Bosses/Demon03 817x691 (AttackAlt Idle Run Attack Death).png',
+    frameWidth:817, frameHeight:691, sheetCols:16, sheetRows:5,
+    scale:0.21, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_16},
+  },
+
+  /* — 악어·악마·거대곰·미노타우로스 (20프레임 / AttackAlt+Idle+Run+Attack+Death 5행) — */
+  croc03: {
+    id:'croc03', name:'거대 악어',
+    src:'/images/Monsters/Bosses/Croc03 698x686 (AttackAlt Idle Run Attack Death).png',
+    frameWidth:698, frameHeight:686, sheetCols:20, sheetRows:5,
+    scale:0.21, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  demon02: {
+    id:'demon02', name:'강화 악마',
+    src:'/images/Monsters/Bosses/Demon02 653x578 (AttackAlt Idle Run Attack Death).png',
+    frameWidth:653, frameHeight:578, sheetCols:20, sheetRows:5,
+    scale:0.25, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  megabear01: {
+    id:'megabear01', name:'거대곰 1호',
+    src:'/images/Monsters/Bosses/Megabear01 650x578 (AttackAlt Idle Run Attack Death).png',
+    frameWidth:650, frameHeight:578, sheetCols:20, sheetRows:5,
+    scale:0.25, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  megabear02: {
+    id:'megabear02', name:'거대곰 2호',
+    src:'/images/Monsters/Bosses/Megabear02 689x683 (AttackAlt Idle Run Attack Death).png',
+    frameWidth:689, frameHeight:683, sheetCols:20, sheetRows:5,
+    scale:0.21, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  megabear03: {
+    id:'megabear03', name:'거대곰 3호',
+    src:'/images/Monsters/Bosses/Megabear03 652x588 (AttackAlt Idle Run Attack Death).png',
+    frameWidth:652, frameHeight:588, sheetCols:20, sheetRows:5,
+    scale:0.25, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  minotaur02: {
+    id:'minotaur02', name:'미노타우로스 2호',
+    src:'/images/Monsters/Bosses/Minotaur02 649x578 (AttackAlt Idle Run Attack Death).png',
+    frameWidth:649, frameHeight:578, sheetCols:20, sheetRows:5,
+    scale:0.25, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+  minotaur03: {
+    id:'minotaur03', name:'거대 미노타우로스',
+    src:'/images/Monsters/Bosses/Minotaur03 714x711 (AttackAlt Idle Run Attack Death).png',
+    frameWidth:714, frameHeight:711, sheetCols:20, sheetRows:5,
+    scale:0.20, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+  },
+
+  /* — 골렘 (20프레임 / Idle+Run+Attack+Death 4행) — */
+  iceGolem: {
+    id:'iceGolem', name:'얼음 골렘',
+    src:'/images/Monsters/Bosses/IceGolem 490x453 (Idle Run Attack Death).png',
+    frameWidth:490, frameHeight:453, sheetCols:20, sheetRows:4,
+    scale:0.32, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
+  },
+  mechanicalGolem: {
+    id:'mechanicalGolem', name:'기계 골렘',
+    src:'/images/Monsters/Bosses/MechanicalGolem 490x468 (Idle Run Attack Death).png',
+    frameWidth:490, frameHeight:468, sheetCols:20, sheetRows:4,
+    scale:0.31, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
+  },
+  rockGolem: {
+    id:'rockGolem', name:'바위 골렘',
+    src:'/images/Monsters/Bosses/RockGolem 490x478 (Idle Run Attack Death).png',
+    frameWidth:490, frameHeight:478, sheetCols:20, sheetRows:4,
+    scale:0.30, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
+  },
+  sandGolem: {
+    id:'sandGolem', name:'모래 골렘',
+    src:'/images/Monsters/Bosses/SandGolem 490x477 (Idle Run Attack Death).png',
+    frameWidth:490, frameHeight:477, sheetCols:20, sheetRows:4,
+    scale:0.30, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
+  },
+  stoneGolem: {
+    id:'stoneGolem', name:'석재 골렘',
+    src:'/images/Monsters/Bosses/StoneGolem 490x454 (Idle Run Attack Death).png',
+    frameWidth:490, frameHeight:454, sheetCols:20, sheetRows:4,
+    scale:0.32, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
+  },
+  volcanoGolem: {
+    id:'volcanoGolem', name:'화산 골렘',
+    src:'/images/Monsters/Bosses/VolcanoGolem 490x453 (Idle Run Attack Death).png',
+    frameWidth:490, frameHeight:453, sheetCols:20, sheetRows:4,
+    scale:0.32, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
+  },
+
+  /* — 거대 벌레 (20프레임 / Idle+Run+Attack+Death 4행) — */
+  fancyWorm: {
+    id:'fancyWorm', name:'화려한 거대벌레',
+    src:'/images/Monsters/Bosses/FancyWorm 529x427 (Idle Run Attack Death).png',
+    frameWidth:529, frameHeight:427, sheetCols:20, sheetRows:4,
+    scale:0.34, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
+  },
+  greenWorm: {
+    id:'greenWorm', name:'초록 거대벌레',
+    src:'/images/Monsters/Bosses/GreenWorm 461x337 (Idle Run Attack Death).png',
+    frameWidth:461, frameHeight:337, sheetCols:20, sheetRows:4,
+    scale:0.43, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
+  },
+  iceWorm: {
+    id:'iceWorm', name:'얼음 거대벌레',
+    src:'/images/Monsters/Bosses/IceWorm 464x342 (Idle Run Attack Death).png',
+    frameWidth:464, frameHeight:342, sheetCols:20, sheetRows:4,
+    scale:0.42, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
+  },
+  mechanicalWormA: {
+    id:'mechanicalWormA', name:'기계 벌레 A형',
+    src:'/images/Monsters/Bosses/MechanicalWormTypeA 480x344 (Idle Run Attack Death).png',
+    frameWidth:480, frameHeight:344, sheetCols:20, sheetRows:4,
+    scale:0.42, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
+  },
+  mechanicalWormB: {
+    id:'mechanicalWormB', name:'기계 벌레 B형',
+    src:'/images/Monsters/Bosses/MechanicalWormTypeB 449x324 (Idle Run Attack Death).png',
+    frameWidth:449, frameHeight:324, sheetCols:20, sheetRows:4,
+    scale:0.45, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
+  },
+  mosquitoWorm: {
+    id:'mosquitoWorm', name:'모기 거대벌레',
+    src:'/images/Monsters/Bosses/MosquitoWorm 445x333 (Idle Run Attack Death).png',
+    frameWidth:445, frameHeight:333, sheetCols:20, sheetRows:4,
+    scale:0.44, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
+  },
+  volcanoWorm: {
+    id:'volcanoWorm', name:'화산 거대벌레',
+    src:'/images/Monsters/Bosses/VolcanoWorm 474x368 (Idle Run Attack Death).png',
+    frameWidth:474, frameHeight:368, sheetCols:20, sheetRows:4,
+    scale:0.39, flip:false, tier:'boss', sizeOrder:5, animations:{...SA_20},
   },
 };
 
