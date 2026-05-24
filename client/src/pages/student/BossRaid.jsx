@@ -123,6 +123,74 @@ function NoBossScreen() {
   );
 }
 
+// ── 초기 소개 화면 ─────────────────────────────────────────────────
+function IntroScreen({ raid, bossData, onEnter }) {
+  const bossList = Object.entries(MONSTERS_DB)
+    .filter(([, m]) => m.tier === 'boss')
+    .map(([id, m]) => ({ id, ...m }));
+
+  const isOpen = raid && (raid.status === 'waiting' || raid.status === 'active');
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 overflow-y-auto">
+      {/* 헤더 */}
+      <div className="flex flex-col items-center px-6 pt-8 pb-4 text-center">
+        <div className="text-xs font-extrabold text-rose-400 tracking-widest mb-2 uppercase">World Boss Raid</div>
+        <h1 className="text-3xl font-extrabold text-white mb-3">보스 레이드</h1>
+        <p className="text-slate-400 text-sm max-w-sm leading-relaxed mb-6">
+          학급 전원이 힘을 합쳐 강력한 보스를 쓰러뜨려라!<br/>
+          퀴즈를 맞출수록 보스에게 더 큰 데미지를 입힙니다.
+        </p>
+
+        {/* 레이드 오픈 현황 */}
+        {isOpen ? (
+          <div className="w-full max-w-sm bg-rose-900/40 border border-rose-600/60 rounded-3xl p-5 mb-6">
+            <div className="text-xs font-extrabold text-rose-400 tracking-widest mb-1">🔥 레이드 오픈!</div>
+            <div className="text-xl font-extrabold text-white mb-1">{raid.bossName}</div>
+            <div className="text-sm text-slate-400 mb-4">
+              {raid.status === 'waiting' ? '대기 중 — 지금 입장 가능!' : '⚔️ 전투 진행 중'}
+            </div>
+            {bossData && (
+              <div className="flex justify-center mb-4">
+                <BossSprite bossData={bossData} anim="idle" scale={1.6} />
+              </div>
+            )}
+            <button
+              onClick={onEnter}
+              className="w-full py-3 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold text-base rounded-2xl shadow-lg transition-all">
+              ⚔️ 입장하기
+            </button>
+          </div>
+        ) : (
+          <div className="w-full max-w-sm bg-slate-800/60 border border-slate-700 rounded-3xl p-5 mb-6 text-center">
+            <div className="text-4xl mb-3 opacity-40">🔒</div>
+            <div className="text-slate-400 font-bold">현재 오픈된 레이드가 없습니다</div>
+            <div className="text-slate-500 text-xs mt-1">선생님이 레이드를 열면 여기에 표시됩니다</div>
+          </div>
+        )}
+      </div>
+
+      {/* 보스 도감 */}
+      <div className="px-4 pb-10">
+        <div className="text-sm font-extrabold text-slate-300 mb-3 px-1">등장 보스 도감 ({bossList.length}종)</div>
+        <div className="grid grid-cols-3 gap-2.5">
+          {bossList.map(m => {
+            const sc = Math.min(52 / m.frameHeight, 52 / m.frameWidth) * 0.85;
+            return (
+              <div key={m.id} className="flex flex-col items-center gap-1 bg-slate-900/60 border border-slate-700/60 rounded-2xl px-2 pt-3 pb-2">
+                <div className="flex items-center justify-center" style={{ width: 60, height: 60 }}>
+                  <SpriteMonster data={m} anim="idle" scale={sc} />
+                </div>
+                <span className="text-[9px] font-bold text-slate-400 text-center truncate w-full">{m.id}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // 교사용 레이드 시작 함수
 const teacherStartRaid = async (raidId) => {
   await updateDoc(doc(db, 'worldBossRaids', raidId), {
@@ -203,22 +271,22 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
         {pList.length === 0 ? (
           <div className="text-slate-500 text-sm text-center py-4">아직 참가자가 없습니다</div>
         ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {pList.map(p => (
               <div key={p.id}
-                className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl border transition-all
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all
                   ${!isTeacher && p.id === myId
                     ? 'border-emerald-500 bg-emerald-900/30'
                     : 'border-slate-700 bg-slate-800/60'}`}>
                 {p.characterImage
-                  ? <div className="w-full aspect-square rounded-xl bg-slate-700 overflow-hidden flex items-center justify-center">
+                  ? <div className="w-full rounded-xl bg-slate-700 flex items-center justify-center" style={{ aspectRatio: '1', minHeight: 100 }}>
                       <img src={p.characterImage} alt=""
                         className="w-full h-full object-contain"
-                        style={{ transform: 'scale(2.5)', transformOrigin: 'center 65%', imageRendering: 'pixelated' }} />
+                        style={{ imageRendering: 'pixelated' }} />
                     </div>
-                  : <div className="w-full aspect-square rounded-xl bg-slate-700 flex items-center justify-center text-5xl">🧑</div>
+                  : <div className="w-full rounded-xl bg-slate-700 flex items-center justify-center text-6xl" style={{ aspectRatio: '1', minHeight: 100 }}>🧑</div>
                 }
-                <span className={`text-xs font-bold text-center truncate w-full leading-tight
+                <span className={`text-sm font-bold text-center truncate w-full leading-tight
                   ${!isTeacher && p.id === myId ? 'text-emerald-300' : 'text-slate-200'}`}>
                   {p.name || '학생'}
                 </span>
@@ -245,17 +313,21 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
     ? { idx: -1, correct: myP.lastAnsweredCorrect }
     : null);
 
-  // 정답 시 보스에게 마법 파티클 발사
+  // 정답/오답 시 파티클 발사
   useEffect(() => {
-    if (!myAnswer?.correct) return;
+    if (myAnswer === null) return;
     const el = bossAreaRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    fireProjectile({
-      from: { x: window.innerWidth / 2, y: window.innerHeight - 100 },
-      to:   { x: rect.left + rect.width / 2, y: rect.top + rect.height * 0.4 },
-      type: 'magic',
-    });
+    const bossCX  = rect.left + rect.width / 2;
+    const bossY   = rect.top + rect.height * 0.4;
+    const playerX = window.innerWidth / 2;
+    const playerY = window.innerHeight - 100;
+    if (myAnswer.correct) {
+      fireProjectile({ from: { x: playerX, y: playerY }, to: { x: bossCX, y: bossY }, type: 'magic' });
+    } else {
+      fireProjectile({ from: { x: bossCX, y: bossY },   to: { x: playerX, y: playerY }, type: 'fire' });
+    }
   }, [myAnswer]);
 
   if (!q) return (
@@ -362,7 +434,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
 }
 
 // ── 결과 화면 ─────────────────────────────────────────────────────
-function ResultPhase({ raid, myId, bossData }) {
+function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
   const isCleared = raid.status === 'cleared';
   const myP       = raid.participants?.[myId] || {};
   const sorted    = Object.entries(raid.participants || {})
@@ -418,6 +490,15 @@ function ResultPhase({ raid, myId, bossData }) {
         </div>
       )}
 
+      {/* 초기화면으로 */}
+      {onGoToIntro && (
+        <button
+          onClick={onGoToIntro}
+          className="mt-2 mb-2 px-8 py-3 bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold rounded-2xl transition-all">
+          🏠 초기화면으로
+        </button>
+      )}
+
       {/* 전체 기여도 */}
       {sorted.length > 0 && (
         <div className="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-xs overflow-hidden shadow-lg">
@@ -453,6 +534,7 @@ function ResultPhase({ raid, myId, bossData }) {
 export default function BossRaid({ studentCode, studentDocId, isTeacher = false }) {
   const [raid, setRaid]           = useState(undefined); // undefined=로딩, null=없음
   const [studentData, setStudentData] = useState(null);
+  const [showIntro, setShowIntro] = useState(true);
 
   // 내 답변 상태 (로컬)
   const [myAnswer, setMyAnswer]   = useState(null);  // { idx, correct } | null
@@ -460,10 +542,11 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
   const [bossFlash, setBossFlash] = useState(false);
   const [timeLeft, setTimeLeft]   = useState(null);
 
-  const prevHpRef    = useRef(null);
-  const advancedRef  = useRef(-1);
-  const timerRef     = useRef(null);
-  const raidRef      = useRef(null);
+  const prevHpRef          = useRef(null);
+  const advancedRef        = useRef(-1);
+  const timerRef           = useRef(null);
+  const raidRef            = useRef(null);
+  const prevParticipantsRef = useRef({});
 
   // 학생 데이터 로드
   useEffect(() => {
@@ -519,12 +602,20 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
         joinedAt:           serverTimestamp(),
         totalDamage:        0,
         correctCount:       0,
+        wrongCount:         0,
         answeredCount:      0,
         lastAnsweredIdx:    -1,
         lastAnsweredCorrect: false,
       },
     }).catch(() => {});
   }, [raid?.id, raid?.status, studentDocId, studentData, isTeacher]);
+
+  // 인트로 화면에서 레이드가 active로 전환되면 자동 입장
+  useEffect(() => {
+    if (showIntro && raid?.status === 'active' && raid.participants?.[studentDocId]) {
+      setShowIntro(false);
+    }
+  }, [raid?.status]);
 
   // 문제 바뀌면 내 답변 초기화
   useEffect(() => {
@@ -555,6 +646,34 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
   useEffect(() => {
     if (raid?.status === 'cleared') setBossAnim('death');
   }, [raid?.status]);
+
+  // 다른 참가자 답변 실시간 파티클 공유 (item 6)
+  useEffect(() => {
+    if (!raid?.participants || raid.status !== 'active') return;
+    const prev = prevParticipantsRef.current;
+    const cx = window.innerWidth / 2;
+    const bossY  = window.innerHeight * 0.32;
+    const playerY = window.innerHeight - 100;
+
+    Object.entries(raid.participants).forEach(([id, p]) => {
+      if (id === studentDocId) return; // 자신은 myAnswer로 처리
+      const prevP = prev[id];
+      if (!prevP) return; // 첫 스냅샷은 기준값만 설정
+      if ((p.correctCount || 0) > (prevP.correctCount || 0)) {
+        fireProjectile({ from: { x: cx, y: playerY }, to: { x: cx, y: bossY }, type: 'magic' });
+      }
+      if ((p.wrongCount || 0) > (prevP.wrongCount || 0)) {
+        fireProjectile({ from: { x: cx, y: bossY }, to: { x: cx, y: playerY }, type: 'fire' });
+      }
+    });
+
+    // 이번 스냅샷을 기준값으로 저장
+    const next = {};
+    Object.entries(raid.participants).forEach(([id, p]) => {
+      next[id] = { correctCount: p.correctCount || 0, wrongCount: p.wrongCount || 0 };
+    });
+    prevParticipantsRef.current = next;
+  }, [raid?.participants]);
 
   // 타이머
   useEffect(() => {
@@ -620,14 +739,31 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
       updates.currentHP = increment(-raid.damagePerHit);
       updates[`participants.${studentDocId}.totalDamage`]  = increment(raid.damagePerHit);
       updates[`participants.${studentDocId}.correctCount`] = increment(1);
-    } else if (raid.penaltyType === 'hp_restore' && (raid.penaltyAmount || 0) > 0) {
-      updates.currentHP = increment(raid.penaltyAmount);
+    } else {
+      updates[`participants.${studentDocId}.wrongCount`] = increment(1);
+      if (raid.penaltyType === 'hp_restore' && (raid.penaltyAmount || 0) > 0) {
+        updates.currentHP = increment(raid.penaltyAmount);
+      }
     }
 
     await updateDoc(doc(db, 'worldBossRaids', raid.id), updates).catch(() => {});
   };
 
   // ── 렌더링 ──────────────────────────────────────────────────
+  const bossData = raid?.bossId ? MONSTERS_DB[raid.bossId] : null;
+  const isOpen   = raid && (raid.status === 'waiting' || raid.status === 'active');
+
+  // 초기 소개 화면
+  if (showIntro) {
+    return (
+      <IntroScreen
+        raid={isOpen ? raid : null}
+        bossData={isOpen ? bossData : null}
+        onEnter={() => setShowIntro(false)}
+      />
+    );
+  }
+
   if (raid === undefined) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -636,9 +772,7 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
     );
   }
 
-  if (!raid) return <NoBossScreen />;
-
-  const bossData = raid.bossId ? MONSTERS_DB[raid.bossId] : null;
+  if (!raid) return <IntroScreen raid={null} bossData={null} onEnter={() => {}} />;
 
   // 레이드가 active인데 내가 참가자가 아닌 경우 (늦은 접속, 학생 전용)
   if (!isTeacher && raid.status === 'active' && !raid.participants?.[studentDocId]) {
@@ -650,6 +784,10 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
         <h2 className="text-xl font-extrabold text-white mb-2">레이드 진행 중</h2>
         <p className="text-slate-400 text-sm">이미 시작된 레이드에는 참가할 수 없습니다.</p>
         <p className="text-slate-500 text-xs mt-2">다음 레이드를 기다려주세요!</p>
+        <button onClick={() => setShowIntro(true)}
+          className="mt-5 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-2xl transition-all">
+          🏠 초기화면으로
+        </button>
       </div>
     );
   }
@@ -674,5 +812,5 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
   }
 
   // cleared / failed
-  return <ResultPhase raid={raid} myId={studentDocId} bossData={bossData} />;
+  return <ResultPhase raid={raid} myId={studentDocId} bossData={bossData} onGoToIntro={() => setShowIntro(true)} />;
 }

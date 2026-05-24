@@ -4,6 +4,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { fireProjectile } from '../../utils/projectile';
 
 // ── 레벨 기반 스탯 ───────────────────────────────────────────
 const getStats = (level = 1) => ({
@@ -653,6 +654,8 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   const [ticketUsedMsg, setTicketUsedMsg] = useState(false);
   const [matchAnim, setMatchAnim] = useState(false);
   const studentDocIdRef           = useRef(null);
+  const meBattleRef               = useRef(null);
+  const oppBattleRef              = useRef(null);
   const arenaTickets              = tickets?.arena ?? 0;
 
   // 내 정보 + 우리반 로드
@@ -808,12 +811,32 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
           if (isMe) {
             oppHP = Math.max(0, oppHP - dmg);
             addLog(`${isCrit ? '💥 크리티컬! ' : ''}${name}의 공격 → ${dmg} 데미지`, isCrit ? 'crit' : 'attack');
+            if (oppHP <= 0) {
+              addLog(`⚡ 최후의 일격! ${name}이(가) ${oppName}을(를) 쓰러뜨렸습니다!`, 'result');
+              const meR  = meBattleRef.current?.getBoundingClientRect();
+              const oppR = oppBattleRef.current?.getBoundingClientRect();
+              if (meR && oppR) fireProjectile({
+                from: { x: meR.left + meR.width / 2, y: meR.top + meR.height / 2 },
+                to:   { x: oppR.left + oppR.width / 2, y: oppR.top + oppR.height / 2 },
+                type: 'magic',
+              });
+            }
             setHitFlash(h => ({ ...h, opp: true }));
             setHitDmg(h => ({ ...h, opp: { dmg, isCrit } }));
             setTimeout(() => { setHitFlash(h => ({ ...h, opp: false })); setHitDmg(h => ({ ...h, opp: null })); }, 700);
           } else {
             myHP = Math.max(0, myHP - dmg);
             addLog(`${isCrit ? '💥 크리티컬! ' : ''}${name}의 반격 → ${dmg} 데미지`, isCrit ? 'crit' : 'attack');
+            if (myHP <= 0) {
+              addLog(`⚡ 최후의 일격! ${name}이(가) ${myName}을(를) 쓰러뜨렸습니다!`, 'result');
+              const meR  = meBattleRef.current?.getBoundingClientRect();
+              const oppR = oppBattleRef.current?.getBoundingClientRect();
+              if (meR && oppR) fireProjectile({
+                from: { x: oppR.left + oppR.width / 2, y: oppR.top + oppR.height / 2 },
+                to:   { x: meR.left + meR.width / 2, y: meR.top + meR.height / 2 },
+                type: 'fire',
+              });
+            }
             setHitFlash(h => ({ ...h, me: true }));
             setHitDmg(h => ({ ...h, me: { dmg, isCrit } }));
             setTimeout(() => { setHitFlash(h => ({ ...h, me: false })); setHitDmg(h => ({ ...h, me: null })); }, 700);
@@ -1114,13 +1137,13 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         {/* 캐릭터 + HP */}
         <div className="flex items-stretch gap-4 flex-1 min-h-0" style={{ maxHeight: '55%' }}>
           {/* 나 */}
-          <div className={`flex-1 flex flex-col items-center gap-3 bg-indigo-950/60 rounded-3xl p-5 border-2 transition-all
+          <div ref={meBattleRef} className={`flex-1 flex flex-col items-center gap-3 bg-indigo-950/60 rounded-3xl p-5 border-2 transition-all
             ${hitFlash.me ? (hitDmg.me?.isCrit ? 'border-yellow-400 bg-yellow-950/30 scale-[0.95]' : 'border-rose-500 bg-rose-950/40 scale-[0.98]') : 'border-indigo-700'}`}>
             <div className="text-xs font-extrabold text-indigo-400 tracking-widest">나</div>
             <div className="flex-1 w-full flex items-center justify-center relative">
-              <div className="w-44 h-44 rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-600">
+              <div className="w-44 h-44 rounded-2xl bg-slate-800 flex items-center justify-center border border-slate-600">
                 {me?.characterImage
-                  ? <img src={me.characterImage} alt="" className="w-full h-full object-contain scale-[3]" style={{ transform: 'scale(3) scaleX(-1)' }} />
+                  ? <img src={me.characterImage} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', imageRendering:'pixelated', transform:'scaleX(-1)' }} />
                   : <span className="text-5xl">🧑‍🎓</span>}
               </div>
               {hitDmg.me && (
@@ -1152,13 +1175,13 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
           </div>
 
           {/* 상대 */}
-          <div className={`flex-1 flex flex-col items-center gap-3 bg-rose-950/60 rounded-3xl p-5 border-2 transition-all
+          <div ref={oppBattleRef} className={`flex-1 flex flex-col items-center gap-3 bg-rose-950/60 rounded-3xl p-5 border-2 transition-all
             ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'border-yellow-400 bg-yellow-950/30 scale-[0.95]' : 'border-rose-400 bg-rose-950/60 scale-[0.98]') : 'border-rose-800'}`}>
             <div className="text-xs font-extrabold text-rose-400 tracking-widest">상대</div>
             <div className="flex-1 w-full flex items-center justify-center relative">
-              <div className="w-44 h-44 rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-600">
+              <div className="w-44 h-44 rounded-2xl bg-slate-800 flex items-center justify-center border border-slate-600">
                 {opponent?.characterImage
-                  ? <img src={opponent.characterImage} alt="" className="w-full h-full object-contain scale-[3]" />
+                  ? <img src={opponent.characterImage} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', imageRendering:'pixelated' }} />
                   : <span className="text-5xl">🧑‍🎓</span>}
               </div>
               {hitDmg.opp && (

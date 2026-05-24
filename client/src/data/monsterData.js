@@ -1009,12 +1009,26 @@ export const TIER_LABEL = { tiny: '극소', small: '소형', medium: '중형', l
 /** 티어별 문제 소비량 (1마리당 몇 문제짜리 HP) */
 export const TIER_COST = { tiny: 1, small: 1, medium: 3, large: 5, boss: 5 };
 
+/** 던전 ID를 시드로 하는 간단한 XOR-shift RNG (모든 학생이 같은 랜덤 몬스터를 보도록) */
+function seededRng(seed) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 16777619) >>> 0;
+  }
+  return () => {
+    h ^= h << 13; h ^= h >>> 7; h ^= h << 17; h = h >>> 0;
+    return h / 4294967295;
+  };
+}
+
 /**
  * 총 문제 수 + 선택 몬스터 ID → 웨이브 배열 생성
+ * @param {string|null} dungeonId — 랜덤 던전일 때 시드로 사용 (같은 ID면 항상 동일한 몬스터 배치)
  * @returns {Array<{monsterId:string, questionCount:number}>}
  */
-export function generateWaves(totalQ, fixedMonsterIdOrIds) {
-  const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
+export function generateWaves(totalQ, fixedMonsterIdOrIds, dungeonId = null) {
+  const rng  = dungeonId ? seededRng(dungeonId) : Math.random;
+  const rand = (arr) => arr[Math.floor(rng() * arr.length)];
   const allIds = Object.keys(MONSTERS_DB);
   const byTier = {};
   ['tiny', 'small', 'medium', 'large', 'boss'].forEach(t => {
@@ -1054,7 +1068,7 @@ export function generateWaves(totalQ, fixedMonsterIdOrIds) {
     const candidates = rem >= 5 ? ['boss', 'large', 'medium', 'small', 'tiny']
       : rem >= 3              ? ['medium', 'small', 'tiny']
       :                         ['small', 'tiny'];
-    const tier = candidates[Math.floor(Math.random() * candidates.length)];
+    const tier = candidates[Math.floor(rng() * candidates.length)];
     const cost = Math.min(TIER_COST[tier], rem);
     waves.push({ monsterId: rand(byTier[tier]), questionCount: cost });
     rem -= cost;

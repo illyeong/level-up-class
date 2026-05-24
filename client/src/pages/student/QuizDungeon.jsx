@@ -175,18 +175,37 @@ function DungeonLobby({ dungeons, bestScores, onPreview, isLoading }) {
                 <div className="flex items-center gap-4">
 
                   {/* 몬스터 스프라이트 박스 */}
-                  <div className="shrink-0 relative flex items-center justify-center rounded-2xl bg-black/30 border border-white/10"
-                    style={{ width: 88, height: 96 }}>
-                    {mDat ? (
-                      <SpriteMonster data={mDat} anim="idle" scale={mScale} />
-                    ) : (
-                      <div className="text-5xl opacity-70">{MONSTER[d.difficulty]?.emoji || '⚔️'}</div>
-                    )}
-                    {/* 웨이브 뱃지 */}
-                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-extrabold bg-slate-950 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-full whitespace-nowrap shadow">
-                      {isRandom ? '랜덤' : `${waveCount}웨이브`}
+                  {isMulti ? (
+                    <div className="shrink-0 relative">
+                      <div className="flex items-end gap-1 bg-black/30 rounded-2xl border border-white/10 px-2 pt-2 pb-4"
+                        style={{ minHeight: 68 }}>
+                        {d.monsterIds.map((mid, idx) => {
+                          const md = MONSTERS_DB[mid];
+                          const ms = md ? Math.min(44 / md.frameHeight, 44 / md.frameWidth) * 0.88 : 0;
+                          return md ? (
+                            <div key={idx} className="flex items-center justify-center" style={{ width: 36, height: 44 }}>
+                              <SpriteMonster data={md} anim="idle" scale={ms} />
+                            </div>
+                          ) : null;
+                        })}
+                      </div>
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-extrabold bg-slate-950 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-full whitespace-nowrap shadow">
+                        {waveCount}웨이브
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="shrink-0 relative flex items-center justify-center rounded-2xl bg-black/30 border border-white/10"
+                      style={{ width: 88, height: 96 }}>
+                      {mDat ? (
+                        <SpriteMonster data={mDat} anim="idle" scale={mScale} />
+                      ) : (
+                        <div className="text-5xl opacity-70">{MONSTER[d.difficulty]?.emoji || '⚔️'}</div>
+                      )}
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-extrabold bg-slate-950 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-full whitespace-nowrap shadow">
+                        {isRandom ? '랜덤' : `${waveCount}웨이브`}
+                      </div>
+                    </div>
+                  )}
 
                   {/* 텍스트 영역 */}
                   <div className="flex-1 min-w-0 pt-1">
@@ -1014,7 +1033,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
   const enterDungeon = (dungeon) => {
     const totalQ = dungeon.questions.length;
     // 미리 확정된 웨이브가 있으면 재사용, 없으면 새로 생성 (재도전 등)
-    const waves  = dungeon.waves || generateWaves(totalQ, dungeon.monsterIds || dungeon.monsterId);
+    const waves  = dungeon.waves || generateWaves(totalQ, dungeon.monsterIds || dungeon.monsterId, dungeon.id);
     setSelectedDungeon({ ...dungeon, waves });
     setBattleRes(null);
     setEarnedRewards(null);
@@ -1096,7 +1115,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
   // "입장" 클릭 시 웨이브를 미리 확정해서 모달과 배틀이 같은 몬스터를 사용하게 함
   const handlePreview = (d) => {
     const totalQ = (d.questions || []).length;
-    const waves  = generateWaves(totalQ, d.monsterIds || d.monsterId);
+    const waves  = generateWaves(totalQ, d.monsterIds || d.monsterId, d.id);
     setPreviewDungeon({ ...d, waves });
   };
 
