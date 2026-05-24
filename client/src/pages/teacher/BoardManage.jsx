@@ -12,10 +12,9 @@ const BOARD_TYPES = [
     color: 'text-red-500', border: 'border-red-400', bg: 'bg-red-50',
     icon: (
       <svg viewBox="0 0 44 44" className="w-9 h-9">
-        <rect x="4" y="4" width="36" height="6" rx="2" fill="#ef4444" opacity="0.8"/>
-        <rect x="4" y="14" width="16" height="12" rx="2" fill="#ef4444" opacity="0.5"/>
-        <rect x="24" y="14" width="16" height="12" rx="2" fill="#ef4444" opacity="0.5"/>
-        <rect x="4" y="30" width="36" height="6" rx="2" fill="#ef4444" opacity="0.8"/>
+        <rect x="4" y="4" width="10" height="36" rx="2" fill="#ef4444" opacity="0.7"/>
+        <rect x="17" y="4" width="10" height="36" rx="2" fill="#ef4444" opacity="0.7"/>
+        <rect x="30" y="4" width="10" height="36" rx="2" fill="#ef4444" opacity="0.7"/>
       </svg>
     ),
   },
@@ -25,9 +24,10 @@ const BOARD_TYPES = [
     color: 'text-orange-500', border: 'border-orange-400', bg: 'bg-orange-50',
     icon: (
       <svg viewBox="0 0 44 44" className="w-9 h-9">
-        <rect x="4" y="4" width="10" height="36" rx="2" fill="#f97316" opacity="0.7"/>
-        <rect x="17" y="4" width="10" height="36" rx="2" fill="#f97316" opacity="0.7"/>
-        <rect x="30" y="4" width="10" height="36" rx="2" fill="#f97316" opacity="0.7"/>
+        <rect x="4" y="4" width="36" height="6" rx="2" fill="#f97316" opacity="0.8"/>
+        <rect x="4" y="14" width="16" height="12" rx="2" fill="#f97316" opacity="0.5"/>
+        <rect x="24" y="14" width="16" height="12" rx="2" fill="#f97316" opacity="0.5"/>
+        <rect x="4" y="30" width="36" height="6" rx="2" fill="#f97316" opacity="0.8"/>
       </svg>
     ),
   },
@@ -78,6 +78,15 @@ const POST_COLORS = [
   'bg-emerald-50 border-emerald-200',
   'bg-violet-50 border-violet-200',
   'bg-orange-50 border-orange-200',
+];
+
+const GROUP_COLORS = [
+  { bg: 'bg-rose-50',    border: 'border-rose-300',    header: 'bg-rose-400',    text: 'text-white', btn: 'bg-rose-500 hover:bg-rose-600 text-white',    dot: 'bg-rose-400' },
+  { bg: 'bg-sky-50',     border: 'border-sky-300',     header: 'bg-sky-400',     text: 'text-white', btn: 'bg-sky-500 hover:bg-sky-600 text-white',       dot: 'bg-sky-400' },
+  { bg: 'bg-amber-50',   border: 'border-amber-300',   header: 'bg-amber-400',   text: 'text-white', btn: 'bg-amber-500 hover:bg-amber-600 text-white',   dot: 'bg-amber-400' },
+  { bg: 'bg-emerald-50', border: 'border-emerald-300', header: 'bg-emerald-500', text: 'text-white', btn: 'bg-emerald-500 hover:bg-emerald-600 text-white',dot: 'bg-emerald-400' },
+  { bg: 'bg-violet-50',  border: 'border-violet-300',  header: 'bg-violet-500',  text: 'text-white', btn: 'bg-violet-500 hover:bg-violet-600 text-white', dot: 'bg-violet-400' },
+  { bg: 'bg-orange-50',  border: 'border-orange-300',  header: 'bg-orange-400',  text: 'text-white', btn: 'bg-orange-500 hover:bg-orange-600 text-white', dot: 'bg-orange-400' },
 ];
 
 const compressImage = (file) => new Promise((resolve) => {
@@ -347,19 +356,25 @@ export default function BoardManage({ selectedClass, user }) {
   const renderContent = () => {
     const type = selectedBoard?.boardType || 'wall';
     const bg   = selectedBoard?.bgColor   || '#ffffff';
-    const wrap = { backgroundColor: bg, minHeight: 'calc(100vh - 230px)', borderRadius: '1rem', padding: '1rem' };
+    const wrap = { backgroundColor: bg, minHeight: 'calc(100vh - 230px)', borderRadius: '1rem' };
 
     if (type === 'wall') {
       return (
-        <div style={wrap}>
-          <div style={{ columnCount: 4, columnGap: '1rem' }}>
-            {sorted.map((p, i) => (
-              <div key={p.id} style={{ breakInside: 'avoid', marginBottom: '1rem' }}>
-                <PostCard post={p} idx={i} />
-              </div>
-            ))}
-            {sorted.length === 0 && <p className="text-slate-400 text-sm text-center py-10 col-span-full">게시물이 없습니다.</p>}
-          </div>
+        <div style={{ ...wrap, padding: '1.25rem' }}>
+          {sorted.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-3 opacity-50">
+              <div className="text-6xl">📝</div>
+              <p className="text-slate-500 font-bold text-sm">오른쪽 아래 버튼으로 첫 번째 게시물을 작성해보세요!</p>
+            </div>
+          ) : (
+            <div style={{ columnCount: 4, columnGap: '1rem' }}>
+              {sorted.map((p, i) => (
+                <div key={p.id} style={{ breakInside: 'avoid', marginBottom: '1rem' }}>
+                  <PostCard post={p} idx={i} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       );
     }
@@ -367,35 +382,54 @@ export default function BoardManage({ selectedClass, user }) {
     if (type === 'vertical-group') {
       const ungrouped = sorted.filter(p => !p.pageId);
       return (
-        <div style={wrap} className="space-y-5">
-          {pages.map(page => {
+        <div style={{ ...wrap, padding: '1.25rem' }} className="space-y-4">
+          {pages.map((page, gi) => {
+            const gc = GROUP_COLORS[gi % GROUP_COLORS.length];
             const pagePosts = sorted.filter(p => p.pageId === page.id);
             return (
-              <div key={page.id} className="bg-white/60 rounded-2xl p-4 border border-slate-200">
-                <div className="flex items-center gap-3 mb-4">
-                  <h3 className="font-extrabold text-slate-700 text-sm">{page.title}</h3>
-                  <button onClick={() => { setWritePageId(page.id); setShowWrite(true); setTimeout(() => textRef.current?.focus(), 50); }}
-                    className="ml-auto px-3 py-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold rounded-xl border border-indigo-200">
+              <div key={page.id}
+                className={`rounded-2xl border-2 ${gc.bg} ${gc.border} overflow-hidden shadow-sm`}
+                style={{ borderLeftWidth: '6px' }}>
+                <div className={`${gc.header} px-5 py-3 flex items-center gap-3`}>
+                  <div className="w-2 h-2 rounded-full bg-white/70 shrink-0" />
+                  <span className={`${gc.text} font-extrabold text-sm`}>{page.title}</span>
+                  <span className={`${gc.text} text-xs bg-black/10 px-2 py-0.5 rounded-full opacity-80`}>{pagePosts.length}개</span>
+                  <button
+                    onClick={() => { setWritePageId(page.id); setShowWrite(true); setTimeout(() => textRef.current?.focus(), 50); }}
+                    className={`ml-auto px-3 py-1.5 text-xs font-bold rounded-xl bg-white/20 hover:bg-white/35 ${gc.text} border border-white/30 transition-colors`}
+                  >
                     + 게시물 추가
                   </button>
                 </div>
-                <div className="flex gap-4 flex-wrap">
-                  {pagePosts.map((p, i) => (
+                <div className="p-4 flex gap-4 flex-wrap">
+                  {pagePosts.length === 0 ? (
+                    <div className="w-full flex items-center justify-center gap-2 py-8 text-sm text-slate-400 opacity-60">
+                      <span>📭</span> 게시물이 없습니다.
+                    </div>
+                  ) : pagePosts.map((p, i) => (
                     <div key={p.id} style={{ width: 200, flexShrink: 0 }}><PostCard post={p} idx={i} /></div>
                   ))}
-                  {pagePosts.length === 0 && <p className="text-sm text-slate-400 py-4">게시물이 없습니다.</p>}
                 </div>
               </div>
             );
           })}
           {ungrouped.length > 0 && (
             <div className="bg-white/40 rounded-2xl p-4 border border-dashed border-slate-300">
-              <h3 className="font-bold text-slate-400 text-xs mb-3">그룹 없음</h3>
+              <h3 className="font-bold text-slate-400 text-xs mb-3">📌 그룹 없음</h3>
               <div className="flex gap-4 flex-wrap">
-                {ungrouped.map((p, i) => <div key={p.id} style={{ width: 200, flexShrink: 0 }}><PostCard post={p} idx={i} /></div>)}
+                {ungrouped.map((p, i) => (
+                  <div key={p.id} style={{ width: 200, flexShrink: 0 }}><PostCard post={p} idx={i} /></div>
+                ))}
               </div>
             </div>
           )}
+          <button
+            onClick={addPage}
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-2xl bg-white border-2 border-dashed border-indigo-300 text-indigo-500 hover:bg-indigo-50 hover:border-indigo-400 transition-all shadow-sm"
+          >
+            <span className="text-lg font-black leading-none">+</span>
+            그룹 추가
+          </button>
         </div>
       );
     }
@@ -403,29 +437,50 @@ export default function BoardManage({ selectedClass, user }) {
     if (type === 'horizontal-group') {
       const ungrouped = sorted.filter(p => !p.pageId);
       const cols = [
-        ...pages.map(pg => ({ ...pg, posts: sorted.filter(p => p.pageId === pg.id) })),
-        ...(ungrouped.length > 0 ? [{ id: 'ungrouped', title: '그룹 없음', posts: ungrouped }] : []),
+        ...pages.map((pg, gi) => ({ ...pg, posts: sorted.filter(p => p.pageId === pg.id), colorIdx: gi })),
+        ...(ungrouped.length > 0 ? [{ id: 'ungrouped', title: '그룹 없음', posts: ungrouped, colorIdx: pages.length }] : []),
       ];
       return (
-        <div style={{ ...wrap, overflowX: 'auto', padding: '1rem' }}>
-          <div className="flex gap-4" style={{ minWidth: `${Math.max(cols.length, 1) * 260}px` }}>
-            {cols.map(col => (
-              <div key={col.id} style={{ width: 240, flexShrink: 0 }}
-                className="bg-white/60 rounded-2xl border border-slate-200 flex flex-col">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-white/80 rounded-t-2xl sticky top-0">
-                  <span className="font-extrabold text-slate-700 text-sm flex-1">{col.title}</span>
-                  {col.id !== 'ungrouped' && (
-                    <button onClick={() => { setWritePageId(col.id); setShowWrite(true); setTimeout(() => textRef.current?.focus(), 50); }}
-                      className="text-xl text-slate-400 hover:text-indigo-500 font-bold leading-none">+</button>
-                  )}
+        <div style={{ ...wrap, overflowX: 'auto', padding: '1.25rem' }}>
+          <div className="flex gap-4 items-start pb-4"
+            style={{ minWidth: `${(cols.length + 1) * 268}px` }}>
+            {cols.map(col => {
+              const gc = GROUP_COLORS[col.colorIdx % GROUP_COLORS.length];
+              return (
+                <div key={col.id} style={{ width: 252, flexShrink: 0 }}
+                  className={`rounded-2xl border-2 ${gc.border} ${gc.bg} overflow-hidden shadow-sm flex flex-col`}>
+                  <div className={`${gc.header} px-4 py-3 flex items-center gap-2 shrink-0`}>
+                    <span className={`font-extrabold text-sm ${gc.text} flex-1 truncate`}>{col.title}</span>
+                    <span className={`text-xs ${gc.text} opacity-80 bg-black/10 px-2 py-0.5 rounded-full shrink-0`}>{col.posts.length}</span>
+                    {col.id !== 'ungrouped' && (
+                      <button
+                        onClick={() => { setWritePageId(col.id); setShowWrite(true); setTimeout(() => textRef.current?.focus(), 50); }}
+                        className={`w-7 h-7 rounded-lg bg-white/20 hover:bg-white/35 ${gc.text} font-black text-xl leading-none flex items-center justify-center border border-white/20 transition-colors shrink-0`}
+                      >+</button>
+                    )}
+                  </div>
+                  <div className="p-3 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+                    {col.posts.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 gap-2 text-xs text-slate-400 opacity-60">
+                        <span className="text-2xl">📭</span>
+                        게시물 없음
+                      </div>
+                    ) : col.posts.map((p, i) => <PostCard key={p.id} post={p} idx={i} />)}
+                  </div>
                 </div>
-                <div className="p-3 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
-                  {col.posts.map((p, i) => <PostCard key={p.id} post={p} idx={i} />)}
-                  {col.posts.length === 0 && <p className="text-xs text-slate-400 text-center py-6">게시물이 없습니다.</p>}
-                </div>
+              );
+            })}
+            {/* 그룹 추가 팬텀 컬럼 */}
+            <div
+              style={{ width: 252, flexShrink: 0, minHeight: 140 }}
+              className="rounded-2xl border-2 border-dashed border-slate-300 bg-white/50 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/60 transition-all group self-stretch"
+              onClick={addPage}
+            >
+              <div className="w-12 h-12 rounded-2xl border-2 border-dashed border-slate-300 group-hover:border-indigo-400 flex items-center justify-center transition-colors">
+                <span className="text-3xl font-black text-slate-400 group-hover:text-indigo-500 leading-none">+</span>
               </div>
-            ))}
-            {cols.length === 0 && <p className="text-slate-400 text-sm py-10">그룹을 추가해주세요.</p>}
+              <span className="text-xs font-bold text-slate-400 group-hover:text-indigo-500 transition-colors">그룹 추가</span>
+            </div>
           </div>
         </div>
       );
@@ -435,15 +490,28 @@ export default function BoardManage({ selectedClass, user }) {
       return (
         <div style={{ ...wrap, padding: 0, position: 'relative', overflow: 'hidden' }}>
           <div ref={mapDivRef} style={{ height: 'calc(100vh - 230px)', width: '100%' }} />
-          <div className="absolute bottom-4 left-4 bg-white/90 rounded-xl px-3 py-2 text-xs text-slate-500 shadow pointer-events-none">
+          {/* 나가기 버튼 */}
+          <button
+            onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); }}
+            className="absolute top-3 left-3 z-[1000] bg-white hover:bg-rose-50 shadow-lg rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center gap-2 transition-all"
+          >
+            ← 목록으로
+          </button>
+          {/* 힌트 */}
+          <div className="absolute bottom-4 left-4 bg-white/90 rounded-xl px-3 py-2 text-xs text-slate-500 shadow pointer-events-none z-[1000]">
             📍 지도를 클릭하면 해당 위치에 게시물을 작성합니다
           </div>
+          {posts.length > 0 && (
+            <div className="absolute top-3 right-3 z-[1000] bg-white/90 shadow-lg rounded-xl px-3 py-2 text-xs font-bold text-slate-600 border border-slate-200">
+              📌 게시물 {posts.length}개
+            </div>
+          )}
         </div>
       );
     }
 
     return (
-      <div style={wrap}>
+      <div style={{ ...wrap, padding: '1.25rem' }}>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {sorted.map((p, i) => <PostCard key={p.id} post={p} idx={i} />)}
         </div>
@@ -547,43 +615,54 @@ export default function BoardManage({ selectedClass, user }) {
 
   // ── board view ────────────────────────────────────────────────
   if (selectedBoard) {
-    const isGroupType = selectedBoard.boardType === 'vertical-group' || selectedBoard.boardType === 'horizontal-group';
+    const typeInfo = BOARD_TYPES.find(t => t.id === selectedBoard.boardType);
+    const isMapType = selectedBoard.boardType === 'map';
     return (
-      <div className="min-h-screen bg-slate-100 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-3 mb-4">
+      <div className="min-h-screen bg-slate-100">
+        {/* 헤더 바 (지도형은 제외) */}
+        {!isMapType && (
+          <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3 shadow-sm">
             <button onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); }}
-              className="text-slate-500 hover:text-slate-800 font-bold text-sm px-3 py-1.5 bg-white rounded-xl border border-slate-200">← 목록</button>
-            <div>
-              <h1 className="text-xl font-extrabold text-slate-800">{selectedBoard.title}</h1>
-              {selectedBoard.description && <p className="text-xs text-slate-500 mt-0.5">{selectedBoard.description}</p>}
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              {isGroupType && (
-                <button onClick={addPage}
-                  className="px-3 py-1.5 text-sm bg-white hover:bg-indigo-50 text-indigo-600 font-bold rounded-xl border border-indigo-200 transition-colors">
-                  + 그룹 추가
-                </button>
+              className="text-slate-500 hover:text-slate-800 font-bold text-sm px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors shrink-0">
+              ← 목록
+            </button>
+            <div className="flex items-center gap-2 min-w-0">
+              {typeInfo && (
+                <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border shrink-0 ${typeInfo.color} ${typeInfo.bg} ${typeInfo.border}`}>
+                  {typeInfo.label}
+                </span>
               )}
-              <span className="text-sm text-slate-400 font-medium">{posts.length}개 게시물</span>
+              <h1 className="text-base font-extrabold text-slate-800 truncate">{selectedBoard.title}</h1>
+              {selectedBoard.description && (
+                <span className="text-xs text-slate-400 truncate hidden sm:block">— {selectedBoard.description}</span>
+              )}
+            </div>
+            <div className="ml-auto flex items-center gap-2 shrink-0">
+              <span className="text-xs text-slate-400 font-medium bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200">
+                게시물 {posts.length}개
+              </span>
             </div>
           </div>
+        )}
 
-          {loadingPosts
-            ? <div className="flex items-center justify-center gap-2.5 py-20">
-                <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
-                <span className="text-sm text-slate-400">불러오는 중...</span>
-              </div>
-            : renderContent()
-          }
+        <div className={isMapType ? '' : 'p-6'}>
+          <div className={isMapType ? '' : 'max-w-7xl mx-auto'}>
+            {loadingPosts
+              ? <div className="flex items-center justify-center gap-2.5 py-20">
+                  <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+                  <span className="text-sm text-slate-400">불러오는 중...</span>
+                </div>
+              : renderContent()
+            }
+          </div>
         </div>
 
-        {selectedBoard.boardType !== 'map' && (
+        {!isMapType && (
           <button onClick={() => {
             setWritePageId(pages[0]?.id || null);
             setShowWrite(true);
             setTimeout(() => textRef.current?.focus(), 50);
-          }} className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-xl text-2xl flex items-center justify-center z-10">
+          }} className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-xl text-2xl flex items-center justify-center z-10 transition-colors">
             ✏️
           </button>
         )}
@@ -597,14 +676,14 @@ export default function BoardManage({ selectedClass, user }) {
   // ── board list ────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-100 p-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-800">📋 학습 게시판 관리</h1>
-            <p className="text-slate-500 text-sm mt-0.5">학생들이 학습 결과를 공유하는 패들렛 형식 게시판</p>
+            <h1 className="text-2xl font-extrabold text-slate-800">📋 공유 게시판</h1>
+            <p className="text-slate-500 text-sm mt-0.5">학생들이 학습 결과를 카드 형태로 자유롭게 공유하는 게시판</p>
           </div>
           <button onClick={() => setShowCreate(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm">
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
             + 게시판 만들기
           </button>
         </div>
@@ -615,27 +694,50 @@ export default function BoardManage({ selectedClass, user }) {
               <span className="text-sm text-slate-400">불러오는 중...</span>
             </div>
           : boards.length === 0
-            ? <div className="text-center py-20"><div className="text-6xl mb-4">📋</div><p className="font-bold text-lg text-slate-600">생성된 게시판이 없습니다</p></div>
+            ? (
+              <div className="text-center py-24">
+                <div className="text-7xl mb-4 opacity-30">📋</div>
+                <p className="font-bold text-lg text-slate-500">아직 생성된 게시판이 없습니다</p>
+                <p className="text-sm text-slate-400 mt-1">위의 버튼을 눌러 첫 번째 게시판을 만들어보세요!</p>
+              </div>
+            )
             : <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {boards.map(board => {
                   const typeInfo = BOARD_TYPES.find(t => t.id === board.boardType);
                   return (
                     <div key={board.id}
-                      className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all
-                        ${board.active ? 'border-slate-200 hover:shadow-md' : 'border-slate-100 opacity-60'}`}>
-                      <div className="px-4 py-1.5 text-[11px] font-bold text-slate-500 flex items-center gap-1.5"
+                      className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all cursor-pointer group
+                        ${board.active ? 'border-slate-200 hover:shadow-lg hover:-translate-y-0.5' : 'border-slate-100 opacity-60'}`}
+                      onClick={() => openBoard(board)}>
+                      {/* 배경색 헤더 */}
+                      <div className="px-4 py-3 flex items-center justify-between"
                         style={{ backgroundColor: board.bgColor || '#f8fafc' }}>
-                        {typeInfo?.label || '게시판'}
-                      </div>
-                      <div className={`px-4 py-2 text-white text-xs font-bold ${board.active ? 'bg-indigo-600' : 'bg-slate-400'}`}>
-                        {board.active ? '🟢 공개 중' : '⏸ 비공개'}
+                        <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border ${
+                          typeInfo ? `${typeInfo.color} ${typeInfo.bg} ${typeInfo.border}` : 'text-slate-500 bg-slate-100 border-slate-200'
+                        }`}>
+                          {typeInfo?.icon && <span className="inline-block mr-1">{typeInfo.label.charAt(0)}</span>}
+                          {typeInfo?.label || '기본형'}
+                        </span>
+                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${board.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
+                          {board.active ? '🟢 공개' : '⏸ 비공개'}
+                        </span>
                       </div>
                       <div className="p-4">
-                        <h3 className="font-extrabold text-slate-800 text-base mb-1">{board.title}</h3>
-                        {board.description && <p className="text-xs text-slate-500 mb-2">{board.description}</p>}
-                        <div className="flex gap-2 mt-3">
+                        <h3 className="font-extrabold text-slate-800 text-base mb-1 group-hover:text-indigo-700 transition-colors">{board.title}</h3>
+                        {board.description && <p className="text-xs text-slate-500 mb-2 line-clamp-2">{board.description}</p>}
+                        <div className="text-[11px] text-slate-400 mb-3 flex items-center gap-1">
+                          🗓
+                          {board.createdAt?.toDate
+                            ? board.createdAt.toDate().toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
+                            : board.createdAt?.seconds
+                              ? new Date(board.createdAt.seconds * 1000).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
+                              : '날짜 없음'}
+                        </div>
+                        <div className="flex gap-2 mt-1" onClick={e => e.stopPropagation()}>
                           <button onClick={() => openBoard(board)}
-                            className="flex-1 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl">게시물 보기</button>
+                            className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors">
+                            열기
+                          </button>
                           <button onClick={() => toggleActive(board)}
                             className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl border border-slate-200">
                             {board.active ? '숨기기' : '공개'}

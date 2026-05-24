@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc,
-  doc, query, where, serverTimestamp, getDoc, setDoc,
+  doc, query, where, serverTimestamp, getDoc,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -30,49 +30,124 @@ const toKSTDateString = () => {
   return d.toISOString().slice(0, 10);
 };
 
+const getMinDate = () => {
+  const d = new Date(Date.now() + 9 * 3600000 - 7 * 24 * 3600000);
+  return d.toISOString().slice(0, 10);
+};
+
 const STATUS_BADGE = {
   pending:  { label: '🕐 승인 대기', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
   approved: { label: '✅ 승인 완료', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
   rejected: { label: '❌ 반려',     cls: 'bg-rose-100 text-rose-700 border-rose-200' },
 };
 
-const HEAT_COLORS = [
-  'bg-slate-100',
-  'bg-emerald-200',
-  'bg-emerald-400',
-  'bg-emerald-600',
-];
+// ── 달력 컴포넌트 ──────────────────────────────────────────────
+function CalendarView({ notes, selectedDate, onSelectDate, currentMonth, onPrevMonth, onNextMonth }) {
+  const year  = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const noteDates = new Set(notes.map(n => n.date));
+  const firstDay  = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = toKSTDateString();
 
+  const cells = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dayNotes = notes.filter(n => n.date === dateStr);
+    cells.push({ day: d, dateStr, hasNote: noteDates.has(dateStr), dayNotes });
+  }
+
+  const now = new Date();
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+  const weekLabels = ['일', '월', '화', '수', '목', '금', '토'];
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={onPrevMonth}
+          className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500 font-bold text-lg transition-colors">‹</button>
+        <span className="font-extrabold text-slate-700 text-sm">{year}년 {month + 1}월</span>
+        <button onClick={onNextMonth} disabled={isCurrentMonth}
+          className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500 font-bold text-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed">›</button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {weekLabels.map(d => (
+          <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-0.5">{d}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((cell, i) => (
+          <div key={i} className="aspect-square flex items-center justify-center">
+            {cell ? (
+              <button
+                onClick={() => onSelectDate(cell.dateStr)}
+                className={`w-9 h-9 rounded-xl text-xs font-bold transition-all relative flex items-center justify-center
+                  ${cell.dateStr === selectedDate
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : cell.dateStr === today
+                      ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300'
+                      : cell.hasNote
+                        ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                        : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                {cell.day}
+                {cell.hasNote && cell.dateStr !== selectedDate && (
+                  <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-500" />
+                )}
+              </button>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-50 justify-end text-[10px] text-slate-400 font-bold">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-100 inline-block" /> 노트 있음</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-indigo-100 inline-block ring-1 ring-indigo-300" /> 오늘</span>
+      </div>
+    </div>
+  );
+}
+
+// ── 메인 컴포넌트 ──────────────────────────────────────────────
 export default function LearningNote({ studentCode }) {
   const [myInfo, setMyInfo]     = useState(null);
   const [notes, setNotes]       = useState([]);
-  const [settings, setSettings] = useState({ minCoreLength: 10, minThoughtLength: 20, rewardGold: 30, rewardExp: 30, rewardDiamond: 20 });
+  const [settings, setSettings] = useState({ minCoreLength: 10, minThoughtLength: 20, rewardGold: 10, rewardExp: 30, rewardDiamond: 10 });
   const [loading, setLoading]   = useState(true);
-  const [view, setView]         = useState('list'); // 'list' | 'write' | 'detail'
-  const [selected, setSelected] = useState(null);
+  const [view, setView]         = useState('list'); // 'list' | 'write'
   const [streak, setStreak]     = useState(0);
 
-  // write form
-  const [subjects, setSubjects] = useState([{ subject: '', coreContent: '', myThought: '', imageBase64: '' }]);
+  // 달력
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  // 상세 모달
+  const [detailNote, setDetailNote] = useState(null);
+
+  // 수정 모드
+  const [editingNoteId, setEditingNoteId] = useState(null);
+
+  // 작성 폼
+  const today   = toKSTDateString();
+  const minDate = getMinDate();
+  const [writeDate, setWriteDate]   = useState(today);
+  const [subjects, setSubjects]     = useState([{ subject: '', coreContent: '', myThought: '', imageBase64: '' }]);
   const [isSubmitting, setIsSubmitting]   = useState(false);
   const [compressingIdx, setCompressingIdx] = useState(null);
   const fileRefs = useRef([]);
 
-  const today = toKSTDateString();
-
-  // ── load myInfo ─────────────────────────────────────────────
+  // ── 데이터 로드 ──────────────────────────────────────────────
   useEffect(() => {
     if (!studentCode) return;
     (async () => {
       const snap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)));
       if (!snap.empty) {
         const d = snap.docs[0];
-        setMyInfo({ id: d.id, name: d.data().name, teacherUid: d.data().teacherUid, ...d.data() });
+        setMyInfo({ id: d.id, ...d.data() });
       }
     })();
   }, [studentCode]);
 
-  // ── load notes + settings ────────────────────────────────────
   useEffect(() => {
     if (!myInfo) return;
     (async () => {
@@ -83,11 +158,10 @@ export default function LearningNote({ studentCode }) {
           myInfo.teacherUid ? getDoc(doc(db, 'learningSettings', myInfo.teacherUid)) : Promise.resolve(null),
         ]);
         const list = noteSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+          .sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0) ||
+                          (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         setNotes(list);
-        if (settSnap?.exists()) {
-          setSettings(s => ({ ...s, ...settSnap.data() }));
-        }
+        if (settSnap?.exists()) setSettings(s => ({ ...s, ...settSnap.data() }));
         setStreak(computeStreak(list));
       } finally { setLoading(false); }
     })();
@@ -96,7 +170,7 @@ export default function LearningNote({ studentCode }) {
   const computeStreak = (noteList) => {
     const days = new Set(noteList.map(n => n.date));
     let count = 0;
-    let d = new Date(today);
+    const d = new Date(today);
     while (true) {
       const s = d.toISOString().slice(0, 10);
       if (days.has(s)) { count++; d.setDate(d.getDate() - 1); }
@@ -105,33 +179,13 @@ export default function LearningNote({ studentCode }) {
     return count;
   };
 
-  // ── heatmap data (last 16 weeks = 112 days) ──────────────────
-  const heatmapData = (() => {
-    const countByDate = {};
-    notes.forEach(n => { countByDate[n.date] = (countByDate[n.date] || 0) + (n.subjectCount || 1); });
-    const days = [];
-    for (let i = 111; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const s = d.toISOString().slice(0, 10);
-      days.push({ date: s, count: countByDate[s] || 0 });
-    }
-    return days;
-  })();
-
-  const heatColor = (count) => {
-    if (count === 0) return HEAT_COLORS[0];
-    if (count <= 2)  return HEAT_COLORS[1];
-    if (count <= 4)  return HEAT_COLORS[2];
-    return HEAT_COLORS[3];
-  };
-
-  // ── today's submitted subjects ─────────────────────────────
-  const todaySubjects = new Set(
-    notes.filter(n => n.date === today).flatMap(n => (n.subjects || []).map(s => s.subject))
+  // ── 선택 날짜의 이미 제출한 과목 ─────────────────────────────
+  const dateSubjects = new Set(
+    notes.filter(n => n.date === writeDate && n.id !== editingNoteId)
+         .flatMap(n => (n.subjects || []).map(s => s.subject))
   );
 
-  // ── write form helpers ────────────────────────────────────────
+  // ── 폼 헬퍼 ──────────────────────────────────────────────────
   const updateField = (idx, field, value) => {
     setSubjects(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   };
@@ -150,84 +204,98 @@ export default function LearningNote({ studentCode }) {
     s.subject &&
     s.coreContent.length >= settings.minCoreLength &&
     s.myThought.length >= settings.minThoughtLength &&
-    !todaySubjects.has(s.subject)
+    !dateSubjects.has(s.subject)
   ) && new Set(subjects.map(s => s.subject).filter(Boolean)).size === subjects.filter(s => s.subject).length;
 
   const handleImagePick = async (idx, file) => {
     if (!file) return;
     setCompressingIdx(idx);
-    try {
-      const base64 = await compressImage(file);
-      updateField(idx, 'imageBase64', base64);
-    } finally { setCompressingIdx(null); }
+    try { updateField(idx, 'imageBase64', await compressImage(file)); }
+    finally { setCompressingIdx(null); }
   };
 
-  // ── submit ────────────────────────────────────────────────────
+  // ── 수정 모드 열기 ───────────────────────────────────────────
+  const openEdit = (note) => {
+    setEditingNoteId(note.id);
+    setWriteDate(note.date);
+    setSubjects(note.subjects.map(s => ({ ...s })));
+    setView('write');
+  };
+
+  const resetForm = () => {
+    setEditingNoteId(null);
+    setSubjects([{ subject: '', coreContent: '', myThought: '', imageBase64: '' }]);
+    setWriteDate(today);
+  };
+
+  // ── 제출 (신규 or 수정) ──────────────────────────────────────
   const submit = async () => {
     if (!isFormValid || !myInfo) return;
     setIsSubmitting(true);
     try {
       const payload = {
-        studentId:    myInfo.id,
+        studentId:   myInfo.id,
         studentCode,
-        studentName:  myInfo.name,
-        teacherUid:   myInfo.teacherUid,
-        date:         today,
-        subjects:     subjects.map(s => ({
+        studentName: myInfo.name,
+        teacherUid:  myInfo.teacherUid,
+        date:        writeDate,
+        subjects:    subjects.map(s => ({
           subject:      s.subject,
           coreContent:  s.coreContent.trim(),
           myThought:    s.myThought.trim(),
           imageBase64:  s.imageBase64 || null,
         })),
-        subjectCount: subjects.length,
-        status:       'pending',
+        subjectCount:   subjects.length,
+        status:         'pending',
         teacherComment: '',
-        rewardPaid:   false,
-        studentSeen:  false,
-        createdAt:    serverTimestamp(),
-        approvedAt:   null,
+        rewardPaid:     false,
+        studentSeen:    false,
       };
-      const ref = await addDoc(collection(db, 'learningNotes'), payload);
 
-      // streak update
-      const newStreak = computeStreak([...notes, { date: today }]);
-      const studentRef = doc(db, 'students', myInfo.id);
-      const streakUpdate = { noteStreak: newStreak, noteLastDate: today };
+      if (editingNoteId) {
+        await updateDoc(doc(db, 'learningNotes', editingNoteId), payload);
+        setNotes(prev => prev.map(n => n.id === editingNoteId ? { ...n, ...payload } : n));
+      } else {
+        payload.createdAt = serverTimestamp();
+        payload.approvedAt = null;
+        const ref = await addDoc(collection(db, 'learningNotes'), payload);
 
-      // streak bonus: every 5 days
-      if (newStreak > 0 && newStreak % 5 === 0) {
-        const prevData = (await getDoc(studentRef)).data();
-        const lastBonus = prevData?.noteStreakBonusDate || '';
-        if (lastBonus !== today) {
-          const bonusGold = 50, bonusDia = 50, bonusExp = 50;
-          const curGold = prevData?.gold || 0;
-          const curDia  = prevData?.diamonds || 0;
-          const curExp  = prevData?.exp || 0;
-          const curLv   = prevData?.level || 1;
-          const getMax  = (lv) => lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
-          let newExp = curExp + bonusExp;
-          let newLv  = curLv;
-          while (newExp >= getMax(newLv)) { newExp -= getMax(newLv); newLv++; }
-          streakUpdate.gold     = curGold + bonusGold;
-          streakUpdate.diamonds = curDia  + bonusDia;
-          streakUpdate.exp      = newExp;
-          streakUpdate.level    = newLv;
-          streakUpdate.noteStreakBonusDate = today;
-          alert(`🔥 ${newStreak}일 연속 작성! 보너스 지급: 골드 +${bonusGold} / 다이아 +${bonusDia} / 경험치 +${bonusExp}`);
+        // 오늘 작성한 경우만 스트릭 업데이트
+        if (writeDate === today) {
+          const newStreak = computeStreak([...notes, { date: today }]);
+          const studentRef = doc(db, 'students', myInfo.id);
+          const streakUpdate = { noteStreak: newStreak, noteLastDate: today };
+          if (newStreak > 0 && newStreak % 5 === 0) {
+            const prevData = (await getDoc(studentRef)).data();
+            const lastBonus = prevData?.noteStreakBonusDate || '';
+            if (lastBonus !== today) {
+              const bonusGold = 50, bonusDia = 50, bonusExp = 50;
+              const curGold = prevData?.gold || 0, curDia = prevData?.diamonds || 0;
+              const curExp  = prevData?.exp  || 0, curLv  = prevData?.level   || 1;
+              const getMax  = (lv) => lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
+              let newExp = curExp + bonusExp, newLv = curLv;
+              while (newExp >= getMax(newLv)) { newExp -= getMax(newLv); newLv++; }
+              Object.assign(streakUpdate, {
+                gold: curGold + bonusGold, diamonds: curDia + bonusDia,
+                exp: newExp, level: newLv, noteStreakBonusDate: today,
+              });
+              alert(`🔥 ${newStreak}일 연속 작성! 보너스: 골드 +${bonusGold} / 다이아 +${bonusDia} / 경험치 +${bonusExp}`);
+            }
+          }
+          await updateDoc(studentRef, streakUpdate);
+          setStreak(newStreak);
         }
-      }
-      await updateDoc(studentRef, streakUpdate);
 
-      const newNote = { id: ref.id, ...payload, createdAt: { seconds: Date.now() / 1000 } };
-      setNotes(prev => [newNote, ...prev]);
-      setStreak(newStreak);
-      setSubjects([{ subject: '', coreContent: '', myThought: '', imageBase64: '' }]);
+        setNotes(prev => [{ id: ref.id, ...payload, createdAt: { seconds: Date.now() / 1000 } }, ...prev]);
+      }
+
+      resetForm();
       setView('list');
     } catch (e) { console.error(e); alert('제출에 실패했습니다.'); }
     finally { setIsSubmitting(false); }
   };
 
-  // ── mark approved notes as seen ──────────────────────────────
+  // ── 승인된 노트 읽음 처리 ─────────────────────────────────────
   useEffect(() => {
     if (!myInfo || notes.length === 0) return;
     notes.filter(n => n.status === 'approved' && !n.studentSeen).forEach(n => {
@@ -239,86 +307,77 @@ export default function LearningNote({ studentCode }) {
     <div className="flex items-center justify-center h-full text-slate-400 font-bold">불러오는 중...</div>
   );
 
-  // ── DETAIL view ───────────────────────────────────────────────
-  if (view === 'detail' && selected) {
-    const badge = STATUS_BADGE[selected.status] || STATUS_BADGE.pending;
-    return (
-      <div className="max-w-2xl mx-auto p-6 space-y-4">
-        <button onClick={() => { setView('list'); setSelected(null); }}
-          className="text-slate-500 hover:text-slate-800 text-sm font-bold">← 목록으로</button>
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">{selected.date}</span>
-            <span className={`text-xs font-bold px-3 py-1 rounded-full border ${badge.cls}`}>{badge.label}</span>
-          </div>
-          {selected.teacherComment && (
-            <div className={`rounded-xl px-4 py-3 text-sm ${selected.status === 'rejected' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
-              <span className="font-bold">선생님 코멘트: </span>{selected.teacherComment}
-            </div>
-          )}
-          {(selected.subjects || []).map((s, i) => (
-            <div key={i} className="border border-slate-100 rounded-xl p-4 space-y-2 bg-slate-50">
-              <div className="font-extrabold text-indigo-700 text-sm">{s.subject}</div>
-              <div>
-                <div className="text-[11px] font-bold text-slate-500 mb-0.5">핵심 배움</div>
-                <p className="text-sm text-slate-700 whitespace-pre-wrap">{s.coreContent}</p>
-              </div>
-              <div>
-                <div className="text-[11px] font-bold text-slate-500 mb-0.5">나의 생각</div>
-                <p className="text-sm text-slate-700 whitespace-pre-wrap">{s.myThought}</p>
-              </div>
-              {s.imageBase64 && (
-                <img src={s.imageBase64} alt="" className="w-full rounded-xl max-h-60 object-contain bg-white border border-slate-200" />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ── WRITE view ────────────────────────────────────────────────
+  // ── WRITE view ─────────────────────────────────────────────────
   if (view === 'write') {
     const usedInForm = new Set(subjects.map(s => s.subject).filter(Boolean));
     return (
-      <div className="max-w-2xl mx-auto p-6 space-y-4">
+      <div className="max-w-2xl mx-auto p-6 space-y-4 pb-12">
         <div className="flex items-center gap-3">
-          <button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-800 text-sm font-bold">← 목록</button>
-          <h2 className="text-xl font-extrabold text-slate-800">📝 배움노트 작성</h2>
-          <span className="ml-auto text-xs text-slate-400">{today}</span>
+          <button onClick={() => { setView('list'); resetForm(); }}
+            className="text-slate-500 hover:text-slate-800 text-sm font-bold px-3 py-1.5 bg-white rounded-xl border border-slate-200">
+            ← 목록
+          </button>
+          <h2 className="text-xl font-extrabold text-slate-800">
+            {editingNoteId ? '✏️ 배움노트 수정' : '📝 배움노트 작성'}
+          </h2>
+        </div>
+
+        {/* 날짜 선택 */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <label className="text-xs font-bold text-slate-600 block mb-2">📅 작성 날짜</label>
+          <input
+            type="date" value={writeDate} min={minDate} max={today}
+            onChange={e => setWriteDate(e.target.value)}
+            disabled={!!editingNoteId}
+            className="border-2 border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-400 bg-white disabled:bg-slate-50 disabled:cursor-not-allowed"
+          />
+          {writeDate !== today && !editingNoteId && (
+            <p className="text-xs text-amber-600 mt-1.5 font-bold">⚠️ 오늘 이전 날짜로 작성합니다.</p>
+          )}
+        </div>
+
+        {/* 보상 안내 */}
+        <div className="bg-indigo-50 rounded-2xl border border-indigo-100 px-4 py-3 flex items-center gap-3">
+          <span className="text-xl">🎁</span>
+          <span className="text-xs text-indigo-700 font-bold">
+            과목당 보상: 골드 {settings.rewardGold} · 경험치 {settings.rewardExp} · 다이아 {settings.rewardDiamond}
+          </span>
         </div>
 
         {subjects.map((sub, idx) => {
-          const coreOk = sub.coreContent.length >= settings.minCoreLength;
-          const thoughtOk = sub.myThought.length >= settings.minThoughtLength;
-          const dupSubject = todaySubjects.has(sub.subject);
-          const dupInForm = sub.subject && subjects.filter((s, i) => i !== idx && s.subject === sub.subject).length > 0;
+          const coreOk    = sub.coreContent.length >= settings.minCoreLength;
+          const thoughtOk = sub.myThought.length  >= settings.minThoughtLength;
+          const dupSubject = dateSubjects.has(sub.subject);
+          const dupInForm  = sub.subject && subjects.filter((s, i) => i !== idx && s.subject === sub.subject).length > 0;
           return (
             <div key={idx} className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="font-extrabold text-slate-700 text-sm">과목 {idx + 1}</span>
+                <span className="font-extrabold text-slate-700 text-sm">📖 과목 {idx + 1}</span>
                 {subjects.length > 1 && (
                   <button onClick={() => removeSubjectRow(idx)}
-                    className="text-slate-400 hover:text-rose-500 text-xs font-bold">✕ 삭제</button>
+                    className="text-slate-400 hover:text-rose-500 text-xs font-bold px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors">
+                    ✕ 삭제
+                  </button>
                 )}
               </div>
 
-              {/* 과목 선택 */}
               <select value={sub.subject} onChange={e => updateField(idx, 'subject', e.target.value)}
                 className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-400 bg-white">
                 <option value="">-- 과목 선택 --</option>
                 {SUBJECTS.map(s => (
-                  <option key={s} value={s} disabled={todaySubjects.has(s) || (usedInForm.has(s) && sub.subject !== s)}>
-                    {s}{todaySubjects.has(s) ? ' (오늘 이미 제출)' : ''}
+                  <option key={s} value={s}
+                    disabled={dateSubjects.has(s) || (usedInForm.has(s) && sub.subject !== s)}>
+                    {s}{dateSubjects.has(s) ? ' (이 날짜 이미 제출)' : ''}
                   </option>
                 ))}
               </select>
-              {(dupSubject || dupInForm) && <p className="text-xs text-rose-500 font-bold">이미 오늘 제출했거나 폼에서 중복된 과목입니다.</p>}
+              {(dupSubject || dupInForm) && (
+                <p className="text-xs text-rose-500 font-bold">이미 제출했거나 폼에서 중복된 과목입니다.</p>
+              )}
 
-              {/* 핵심 배움 */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-600">핵심 배움 내용</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-600">📌 핵심 배움 내용</label>
                   <span className={`text-xs font-bold ${coreOk ? 'text-emerald-500' : 'text-slate-400'}`}>
                     {sub.coreContent.length}/{settings.minCoreLength}자
                   </span>
@@ -326,13 +385,13 @@ export default function LearningNote({ studentCode }) {
                 <textarea value={sub.coreContent} onChange={e => updateField(idx, 'coreContent', e.target.value)}
                   placeholder={`오늘 배운 핵심 내용을 적어주세요. (최소 ${settings.minCoreLength}자)`}
                   rows={3}
-                  className={`w-full border-2 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none transition-colors ${coreOk ? 'border-emerald-300 focus:border-emerald-400' : 'border-slate-200 focus:border-indigo-400'}`} />
+                  className={`w-full border-2 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none transition-colors
+                    ${coreOk ? 'border-emerald-300' : 'border-slate-200 focus:border-indigo-400'}`} />
               </div>
 
-              {/* 나의 생각 */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-600">나의 생각 / 더 알고 싶은 점</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-600">💭 나의 생각 / 더 알고 싶은 점</label>
                   <span className={`text-xs font-bold ${thoughtOk ? 'text-emerald-500' : 'text-slate-400'}`}>
                     {sub.myThought.length}/{settings.minThoughtLength}자
                   </span>
@@ -340,10 +399,10 @@ export default function LearningNote({ studentCode }) {
                 <textarea value={sub.myThought} onChange={e => updateField(idx, 'myThought', e.target.value)}
                   placeholder={`나의 생각이나 더 알고 싶은 점을 적어주세요. (최소 ${settings.minThoughtLength}자)`}
                   rows={3}
-                  className={`w-full border-2 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none transition-colors ${thoughtOk ? 'border-emerald-300 focus:border-emerald-400' : 'border-slate-200 focus:border-indigo-400'}`} />
+                  className={`w-full border-2 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none transition-colors
+                    ${thoughtOk ? 'border-emerald-300' : 'border-slate-200 focus:border-indigo-400'}`} />
               </div>
 
-              {/* 사진 첨부 */}
               <input ref={el => fileRefs.current[idx] = el} type="file" accept="image/*" className="hidden"
                 onChange={e => handleImagePick(idx, e.target.files?.[0])} />
               {sub.imageBase64 ? (
@@ -362,125 +421,181 @@ export default function LearningNote({ studentCode }) {
           );
         })}
 
-        {/* + 과목 추가 */}
-        <button
-          onClick={addSubjectRow}
-          disabled={subjects.length >= 6 || (6 - subjects.length - todaySubjects.size) <= 0}
+        <button onClick={addSubjectRow} disabled={subjects.length >= 6}
           className="w-full py-3 rounded-2xl border-2 border-dashed border-indigo-300 text-indigo-500 font-bold text-sm hover:bg-indigo-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
           {subjects.length >= 6 ? '최대 6과목까지 작성 가능합니다' : `+ 과목 추가 (${subjects.length}/6)`}
         </button>
 
         <button onClick={submit} disabled={!isFormValid || isSubmitting}
           className="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold disabled:opacity-50 transition-colors">
-          {isSubmitting ? '제출 중...' : '📤 배움노트 제출'}
+          {isSubmitting ? '제출 중...' : editingNoteId ? '✏️ 수정 완료' : '📤 배움노트 제출'}
         </button>
-        <p className="text-center text-xs text-slate-400">
-          승인 시 과목당 골드 {settings.rewardGold} · 경험치 {settings.rewardExp} · 다이아 {settings.rewardDiamond} 지급
-        </p>
       </div>
     );
   }
 
-  // ── LIST view ─────────────────────────────────────────────────
-  const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
-  const heatWeeks = [];
-  for (let w = 0; w < 16; w++) heatWeeks.push(heatmapData.slice(w * 7, w * 7 + 7));
+  // ── LIST view ──────────────────────────────────────────────────
+  const calendarNotes = selectedDate ? notes.filter(n => n.date === selectedDate) : null;
+  const displayNotes  = selectedDate ? calendarNotes : notes;
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
+    <div className="max-w-2xl mx-auto p-6 space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-800">📚 배움노트</h1>
-        <button onClick={() => setView('write')}
+        <button onClick={() => { setWriteDate(today); setView('write'); }}
           className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors">
-          ✏️ 오늘 작성
+          ✏️ 작성하기
         </button>
       </div>
 
-      {/* 스트릭 + 통계 */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 text-center shadow-sm">
-          <div className="text-2xl font-extrabold text-orange-500">{streak}일</div>
-          <div className="text-xs text-slate-500 mt-0.5 font-bold">🔥 연속 작성</div>
-          {streak > 0 && streak % 5 !== 0 && (
-            <div className="text-[10px] text-slate-400 mt-1">{5 - (streak % 5)}일 후 보너스!</div>
-          )}
+      {/* 보상 + 스트릭 안내 (상단) */}
+      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 px-4 py-3 flex items-center gap-3">
+        <span className="text-2xl">🎁</span>
+        <div>
+          <div className="text-xs font-extrabold text-indigo-700">승인 시 과목당 보상</div>
+          <div className="text-xs text-indigo-600 mt-0.5">
+            골드 {settings.rewardGold} · 경험치 {settings.rewardExp} · 다이아 {settings.rewardDiamond}
+          </div>
         </div>
+        {streak > 0 && (
+          <div className="ml-auto text-right shrink-0">
+            <div className="text-sm font-extrabold text-orange-500">🔥 {streak}일 연속</div>
+            {streak % 5 !== 0 && (
+              <div className="text-[10px] text-slate-400">{5 - (streak % 5)}일 후 보너스</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 통계 */}
+      <div className="grid grid-cols-2 gap-3">
         <div className="bg-white rounded-2xl p-4 border border-slate-100 text-center shadow-sm">
           <div className="text-2xl font-extrabold text-indigo-600">{notes.length}</div>
           <div className="text-xs text-slate-500 mt-0.5 font-bold">📝 총 노트</div>
         </div>
         <div className="bg-white rounded-2xl p-4 border border-slate-100 text-center shadow-sm">
-          <div className="text-2xl font-extrabold text-emerald-600">
-            {notes.filter(n => n.status === 'approved').length}
-          </div>
+          <div className="text-2xl font-extrabold text-emerald-600">{notes.filter(n => n.status === 'approved').length}</div>
           <div className="text-xs text-slate-500 mt-0.5 font-bold">✅ 승인 완료</div>
         </div>
       </div>
 
-      {/* 잔디 heatmap */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-        <div className="text-xs font-bold text-slate-600 mb-3">📅 달성 현황 (최근 16주)</div>
-        <div className="flex gap-1">
-          <div className="flex flex-col gap-1 mr-1 justify-between" style={{ paddingTop: '2px' }}>
-            {weekDays.map(d => <div key={d} className="text-[9px] text-slate-400 font-bold h-3 flex items-center">{d}</div>)}
-          </div>
-          {heatWeeks.map((week, wi) => (
-            <div key={wi} className="flex flex-col gap-1">
-              {week.map((day, di) => (
-                <div key={di}
-                  title={`${day.date}: ${day.count}과목`}
-                  className={`w-3 h-3 rounded-sm ${heatColor(day.count)} ${day.date === today ? 'ring-1 ring-indigo-500' : ''}`} />
-              ))}
-            </div>
-          ))}
+      {/* 달력 */}
+      <CalendarView
+        notes={notes}
+        selectedDate={selectedDate}
+        onSelectDate={d => setSelectedDate(prev => prev === d ? null : d)}
+        currentMonth={currentMonth}
+        onPrevMonth={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+        onNextMonth={() => {
+          const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+          if (next <= new Date()) setCurrentMonth(next);
+        }}
+      />
+
+      {/* 선택 날짜 필터 표시 */}
+      {selectedDate && (
+        <div className="flex items-center justify-between bg-indigo-50 rounded-xl px-4 py-2.5 border border-indigo-100">
+          <span className="text-sm font-bold text-indigo-700">
+            📅 {selectedDate} — {calendarNotes.length > 0 ? `${calendarNotes.length}개 노트` : '노트 없음'}
+          </span>
+          <button onClick={() => setSelectedDate(null)}
+            className="text-xs text-indigo-400 hover:text-indigo-700 font-bold">전체 보기</button>
         </div>
-        <div className="flex items-center gap-2 mt-3 justify-end">
-          <span className="text-[10px] text-slate-400">적음</span>
-          {HEAT_COLORS.map((c, i) => <div key={i} className={`w-3 h-3 rounded-sm ${c}`} />)}
-          <span className="text-[10px] text-slate-400">많음</span>
-        </div>
-      </div>
+      )}
 
       {/* 노트 목록 */}
-      {notes.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">
-          <div className="text-5xl mb-3">📭</div>
-          <div className="font-bold">아직 작성한 노트가 없어요</div>
-          <div className="text-sm mt-1">오늘의 배움을 기록해보세요!</div>
+      {displayNotes.length === 0 ? (
+        <div className="text-center py-12 text-slate-400">
+          <div className="text-5xl mb-3">{selectedDate ? '📭' : '📝'}</div>
+          <div className="font-bold">{selectedDate ? '이 날짜에 작성한 노트가 없습니다' : '아직 작성한 노트가 없어요'}</div>
+          {!selectedDate && <div className="text-sm mt-1">배움을 기록해보세요!</div>}
         </div>
       ) : (
         <div className="space-y-3">
-          {notes.map(note => {
-            const badge = STATUS_BADGE[note.status] || STATUS_BADGE.pending;
+          {displayNotes.map(note => {
+            const badge     = STATUS_BADGE[note.status] || STATUS_BADGE.pending;
+            const isPending = note.status === 'pending';
             return (
               <div key={note.id}
-                onClick={() => { setSelected(note); setView('detail'); }}
-                className="bg-white rounded-2xl p-4 border border-slate-100 hover:border-indigo-200 hover:shadow-sm cursor-pointer transition-all">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-slate-400 font-medium">{note.date}</span>
-                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${badge.cls}`}>{badge.label}</span>
+                className="bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 hover:shadow-sm transition-all overflow-hidden">
+                {/* 클릭 시 상세 모달 */}
+                <div onClick={() => setDetailNote(note)} className="p-4 cursor-pointer">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-slate-400 font-medium">{note.date}</span>
+                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${badge.cls}`}>{badge.label}</span>
+                  </div>
+                  <div className="flex gap-2 flex-wrap mb-2">
+                    {(note.subjects || []).map((s, i) => (
+                      <span key={i} className="text-xs bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-lg">{s.subject}</span>
+                    ))}
+                  </div>
+                  {note.teacherComment && note.status === 'rejected' && (
+                    <p className="text-xs text-rose-600 bg-rose-50 rounded-lg px-3 py-1.5 mt-1">
+                      반려 사유: {note.teacherComment}
+                    </p>
+                  )}
+                  {note.teacherComment && note.status === 'approved' && (
+                    <p className="text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-1.5 mt-1">
+                      선생님: {note.teacherComment}
+                    </p>
+                  )}
+                  <div className="text-[11px] text-slate-400 mt-2">📚 {note.subjectCount}과목</div>
                 </div>
-                <div className="flex gap-2 flex-wrap mb-2">
-                  {(note.subjects || []).map((s, i) => (
-                    <span key={i} className="text-xs bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-lg">{s.subject}</span>
-                  ))}
-                </div>
-                {note.teacherComment && note.status === 'rejected' && (
-                  <p className="text-xs text-rose-600 bg-rose-50 rounded-lg px-3 py-1.5 mt-1">
-                    반려 사유: {note.teacherComment}
-                  </p>
+                {/* 승인 대기 시 수정 버튼 */}
+                {isPending && (
+                  <div className="px-4 py-2 border-t border-slate-50 flex justify-end bg-amber-50/30">
+                    <button
+                      onClick={e => { e.stopPropagation(); openEdit(note); }}
+                      className="text-xs font-bold text-amber-600 hover:text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-xl transition-colors">
+                      ✏️ 수정하기
+                    </button>
+                  </div>
                 )}
-                {note.teacherComment && note.status === 'approved' && (
-                  <p className="text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-1.5 mt-1">
-                    선생님: {note.teacherComment}
-                  </p>
-                )}
-                <div className="text-xs text-slate-400 mt-1">
-                  📚 {note.subjectCount}과목 · 승인 시 골드 {(note.subjectCount || 1) * settings.rewardGold}
-                </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* 상세 모달 */}
+      {detailNote && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setDetailNote(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div>
+                <div className="font-extrabold text-slate-800 text-sm mb-1">{detailNote.date}</div>
+                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${(STATUS_BADGE[detailNote.status] || STATUS_BADGE.pending).cls}`}>
+                  {(STATUS_BADGE[detailNote.status] || STATUS_BADGE.pending).label}
+                </span>
+              </div>
+              <button onClick={() => setDetailNote(null)}
+                className="text-slate-400 hover:text-slate-600 text-xl w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-100">✕</button>
+            </div>
+            <div className="overflow-y-auto p-4 space-y-4 flex-1">
+              {detailNote.teacherComment && (
+                <div className={`rounded-xl px-4 py-3 text-sm ${detailNote.status === 'rejected' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                  <span className="font-bold">선생님 코멘트: </span>{detailNote.teacherComment}
+                </div>
+              )}
+              {(detailNote.subjects || []).map((s, i) => (
+                <div key={i} className="border border-slate-100 rounded-xl p-4 space-y-3 bg-slate-50">
+                  <div className="font-extrabold text-indigo-700 text-sm bg-indigo-50 inline-block px-3 py-1 rounded-lg">{s.subject}</div>
+                  <div>
+                    <div className="text-[11px] font-bold text-slate-500 mb-1">📌 핵심 배움</div>
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{s.coreContent}</p>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-bold text-slate-500 mb-1">💭 나의 생각</div>
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{s.myThought}</p>
+                  </div>
+                  {s.imageBase64 && (
+                    <img src={s.imageBase64} alt="" className="w-full rounded-xl max-h-60 object-contain bg-white border border-slate-200" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

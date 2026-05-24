@@ -42,17 +42,18 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       ]
     },
     {
+      id: 'boardManage', icon: '📋', title: '게시판 및 배움노트', isReady: true,
+      subMenus: [
+        { title: '공유 게시판',      id: 'boardManage' },
+        { title: '📚 배움노트 관리', id: 'learningNoteManage' },
+      ]
+    },
+    {
       id: 'economyManage', icon: '💎', title: '학급 경제 관리', isReady: true,
       subMenus: [
         { title: '학급 상점 관리', id: 'classShopManage' },
         { title: '은행 관리',     id: 'bankManage' },
         { title: '주식etf 관리',  id: 'stockManage' },
-      ]
-    },
-    {
-      id: 'studentManage', icon: '👨‍🎓', title: '학급/학생 관리', isReady: true,
-      subMenus: [
-        { title: '학생 계정 발급', id: 'accountIssue' },
       ]
     },
     {
@@ -64,10 +65,9 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       ]
     },
     {
-      id: 'boardManage', icon: '📋', title: '학습 게시판', isReady: true,
+      id: 'studentManage', icon: '👨‍🎓', title: '학급/학생 관리', isReady: true,
       subMenus: [
-        { title: '게시판 관리', id: 'boardManage' },
-        { title: '📚 배움노트 관리', id: 'learningNoteManage' },
+        { title: '학생 계정 발급', id: 'accountIssue' },
       ]
     },
     {

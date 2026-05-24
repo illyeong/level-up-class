@@ -16,7 +16,6 @@ const NavigationBar = ({ changeView, currentView, classInfo }) => {
       id: 'dashboard', icon: iconDashboard, title: t('menu.dashboard', '대시보드'), isReady: true, directNav: true,
       subMenus: [
         { title: '우리반 전체 보기', id: 'classAll' },
-        { title: t('submenu.notice', '알림장'), id: 'notice' }
       ]
     },
     {
@@ -34,7 +33,7 @@ const NavigationBar = ({ changeView, currentView, classInfo }) => {
       ]
     },
     {
-      id: 'board', icon: '📋', title: '학습 게시판', isReady: true,
+      id: 'board', icon: '📋', title: '공유 게시판', isReady: true,
       subMenus: []
     },
     {

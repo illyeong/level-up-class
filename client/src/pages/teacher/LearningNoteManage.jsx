@@ -13,33 +13,35 @@ const STATUS_BADGE = {
   rejected: { label: '❌ 반려',      cls: 'bg-rose-100 text-rose-700 border-rose-200' },
 };
 
-const DEFAULT_SETTINGS = { minCoreLength: 10, minThoughtLength: 20, rewardGold: 30, rewardExp: 30, rewardDiamond: 20 };
+const DEFAULT_SETTINGS = { minCoreLength: 10, minThoughtLength: 20, rewardGold: 10, rewardExp: 30, rewardDiamond: 10 };
 
 const getMaxExp = (lv) => lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
 
 export default function LearningNoteManage({ selectedClass }) {
   const teacherUid = selectedClass?.teacherUid;
 
-  const [tab, setTab]           = useState('queue'); // 'queue' | 'settings'
-  const [notes, setNotes]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [tab, setTab]             = useState('queue'); // 'queue' | 'students' | 'settings'
+  const [notes, setNotes]         = useState([]);
+  const [students, setStudents]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [settings, setSettings]   = useState(DEFAULT_SETTINGS);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [bulkApproving, setBulkApproving]   = useState(false);
 
   // filters
-  const [filterName, setFilterName]   = useState('');
+  const [filterName, setFilterName]       = useState('');
   const [filterSubject, setFilterSubject] = useState('');
-  const [filterFrom, setFilterFrom]   = useState('');
-  const [filterTo, setFilterTo]       = useState('');
-  const [filterStatus, setFilterStatus] = useState('pending');
+  const [filterFrom, setFilterFrom]       = useState('');
+  const [filterTo, setFilterTo]           = useState('');
+  const [filterStatus, setFilterStatus]   = useState('pending');
 
   // approve/reject modal
-  const [modal, setModal]   = useState(null); // { type: 'approve'|'reject', note }
-  const [comment, setComment] = useState('');
+  const [modal, setModal]       = useState(null); // { type: 'approve'|'reject', note }
+  const [comment, setComment]   = useState('');
   const [processing, setProcessing] = useState(false);
 
-  // detail
-  const [detail, setDetail] = useState(null);
+  // student view
+  const [expandedStudent, setExpandedStudent] = useState(null);
 
   // toast
   const [toast, setToast] = useState(null);
@@ -54,18 +56,29 @@ export default function LearningNoteManage({ selectedClass }) {
     (async () => {
       setLoading(true);
       try {
-        const [noteSnap, settSnap] = await Promise.all([
+        const [noteSnap, settSnap, studentSnap] = await Promise.all([
           getDocs(query(collection(db, 'learningNotes'), where('teacherUid', '==', teacherUid))),
           getDoc(doc(db, 'learningSettings', teacherUid)),
+          getDocs(query(collection(db, 'students'), where('teacherUid', '==', teacherUid))),
         ]);
-        setNotes(noteSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+        setNotes(
+          noteSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+        );
+        setStudents(
+          studentSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => {
+              const an = parseInt(a.studentCode?.split('-').pop() || '0');
+              const bn = parseInt(b.studentCode?.split('-').pop() || '0');
+              return an - bn;
+            })
+        );
         if (settSnap.exists()) setSettings(s => ({ ...s, ...settSnap.data() }));
       } finally { setLoading(false); }
     })();
   }, [teacherUid]);
 
-  // ── filter ────────────────────────────────────────────────────
+  // ── filtered list ─────────────────────────────────────────────
   const filtered = notes.filter(n => {
     if (filterStatus && n.status !== filterStatus) return false;
     if (filterName && !n.studentName?.includes(filterName)) return false;
@@ -75,42 +88,44 @@ export default function LearningNoteManage({ selectedClass }) {
     return true;
   });
 
-  // ── approve ───────────────────────────────────────────────────
+  // ── approve one (reusable) ────────────────────────────────────
+  const approveNote = async (note, teacherComment = '') => {
+    await updateDoc(doc(db, 'learningNotes', note.id), {
+      status:         'approved',
+      teacherComment: teacherComment.trim(),
+      approvedAt:     serverTimestamp(),
+      rewardPaid:     true,
+      studentSeen:    false,
+    });
+    const studentRef  = doc(db, 'students', note.studentId);
+    const studentSnap = await getDoc(studentRef);
+    if (!studentSnap.exists()) return {};
+    const sd = studentSnap.data();
+    const rewardGold = settings.rewardGold    * note.subjectCount;
+    const rewardDia  = settings.rewardDiamond * note.subjectCount;
+    const rewardExp  = settings.rewardExp     * note.subjectCount;
+    let newExp = (sd.exp || 0) + rewardExp;
+    let newLv  = sd.level || 1;
+    while (newExp >= getMaxExp(newLv)) { newExp -= getMaxExp(newLv); newLv++; }
+    await updateDoc(studentRef, {
+      gold:     (sd.gold     || 0) + rewardGold,
+      diamonds: (sd.diamonds || 0) + rewardDia,
+      exp: newExp, level: newLv,
+    });
+    return { rewardGold, rewardDia, rewardExp };
+  };
+
+  // ── approve (modal confirm) ───────────────────────────────────
   const approve = async () => {
     const note = modal.note;
     setProcessing(true);
     try {
-      // 1. update note
-      await updateDoc(doc(db, 'learningNotes', note.id), {
-        status:         'approved',
-        teacherComment: comment.trim(),
-        approvedAt:     serverTimestamp(),
-        rewardPaid:     true,
-        studentSeen:    false,
-      });
-
-      // 2. get student data
-      const studentRef = doc(db, 'students', note.studentId);
-      const studentSnap = await getDoc(studentRef);
-      if (!studentSnap.exists()) throw new Error('학생 없음');
-      const sd = studentSnap.data();
-
-      const rewardGold = settings.rewardGold * note.subjectCount;
-      const rewardDia  = settings.rewardDiamond * note.subjectCount;
-      const rewardExp  = settings.rewardExp * note.subjectCount;
-
-      let newGold = (sd.gold || 0) + rewardGold;
-      let newDia  = (sd.diamonds || 0) + rewardDia;
-      let newExp  = (sd.exp || 0) + rewardExp;
-      let newLv   = sd.level || 1;
-      while (newExp >= getMaxExp(newLv)) { newExp -= getMaxExp(newLv); newLv++; }
-
-      await updateDoc(studentRef, { gold: newGold, diamonds: newDia, exp: newExp, level: newLv });
-
+      const reward = await approveNote(note, comment);
       setNotes(prev => prev.map(n => n.id === note.id
         ? { ...n, status: 'approved', teacherComment: comment.trim(), rewardPaid: true }
-        : n));
-      showToast(`✅ 승인 완료 · 골드 +${rewardGold}, 다이아 +${rewardDia}, 경험치 +${rewardExp}`);
+        : n
+      ));
+      showToast(`✅ 승인 · 골드 +${reward.rewardGold}, 다이아 +${reward.rewardDia}, 경험치 +${reward.rewardExp}`);
       setModal(null); setComment('');
     } catch (e) { showToast('오류가 발생했습니다.', 'error'); console.error(e); }
     finally { setProcessing(false); }
@@ -127,11 +142,34 @@ export default function LearningNoteManage({ selectedClass }) {
       });
       setNotes(prev => prev.map(n => n.id === note.id
         ? { ...n, status: 'rejected', teacherComment: comment.trim() }
-        : n));
+        : n
+      ));
       showToast('반려 처리되었습니다.');
       setModal(null); setComment('');
     } catch { showToast('오류가 발생했습니다.', 'error'); }
     finally { setProcessing(false); }
+  };
+
+  // ── bulk approve ──────────────────────────────────────────────
+  const approveAll = async () => {
+    const pendingList = filtered.filter(n => n.status === 'pending');
+    if (!pendingList.length) return;
+    if (!window.confirm(`승인 대기 ${pendingList.length}건을 모두 승인하시겠습니까?\n보상이 각 학생에게 자동 지급됩니다.`)) return;
+    setBulkApproving(true);
+    let ok = 0;
+    try {
+      for (const note of pendingList) {
+        try {
+          await approveNote(note, '');
+          setNotes(prev => prev.map(n => n.id === note.id
+            ? { ...n, status: 'approved', rewardPaid: true }
+            : n
+          ));
+          ok++;
+        } catch (e) { console.error('bulk approve error:', note.id, e); }
+      }
+      showToast(`✅ ${ok}건 일괄 승인 완료`);
+    } finally { setBulkApproving(false); }
   };
 
   // ── save settings ─────────────────────────────────────────────
@@ -147,90 +185,89 @@ export default function LearningNoteManage({ selectedClass }) {
 
   const pendingCount = notes.filter(n => n.status === 'pending').length;
 
-  // ── detail view ───────────────────────────────────────────────
-  if (detail) {
-    const badge = STATUS_BADGE[detail.status] || STATUS_BADGE.pending;
+  // ── NoteCard (inline render helper) ──────────────────────────
+  const renderNoteCard = (note) => {
+    const badge = STATUS_BADGE[note.status] || STATUS_BADGE.pending;
     return (
-      <div className="min-h-screen bg-slate-100 p-6">
-        <div className="max-w-2xl mx-auto space-y-4">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setDetail(null)}
-              className="text-slate-500 hover:text-slate-800 font-bold text-sm px-3 py-1.5 bg-white rounded-xl border border-slate-200">← 목록</button>
-            <span className={`text-xs font-bold px-3 py-1 rounded-full border ${badge.cls}`}>{badge.label}</span>
-          </div>
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-extrabold text-slate-800 text-lg">{detail.studentName}</div>
-                <div className="text-xs text-slate-400">{detail.date} · {detail.subjectCount}과목</div>
-              </div>
-              {detail.status === 'pending' && (
-                <div className="flex gap-2">
-                  <button onClick={() => { setModal({ type: 'approve', note: detail }); setComment(''); }}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl">승인</button>
-                  <button onClick={() => { setModal({ type: 'reject', note: detail }); setComment(''); }}
-                    className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl">반려</button>
-                </div>
-              )}
+      <div key={note.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* 헤더 */}
+        <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1.5">
+              <span className="font-extrabold text-slate-800">{note.studentName}</span>
+              <span className="text-xs text-slate-400">{note.date}</span>
+              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${badge.cls}`}>{badge.label}</span>
+              <span className="text-xs text-slate-400">📚 {note.subjectCount}과목</span>
             </div>
-            {(detail.subjects || []).map((s, i) => (
-              <div key={i} className="border border-slate-100 rounded-xl p-4 space-y-2 bg-slate-50">
-                <div className="font-extrabold text-indigo-700 text-sm">{s.subject}</div>
-                <div>
-                  <div className="text-[11px] font-bold text-slate-500 mb-0.5">핵심 배움</div>
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{s.coreContent}</p>
-                </div>
-                <div>
-                  <div className="text-[11px] font-bold text-slate-500 mb-0.5">나의 생각</div>
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{s.myThought}</p>
-                </div>
-                {s.imageBase64 && (
-                  <img src={s.imageBase64} alt="" className="w-full rounded-xl max-h-60 object-contain bg-white border border-slate-200" />
-                )}
-              </div>
-            ))}
+            <div className="flex gap-1.5 flex-wrap">
+              {(note.subjects || []).map((s, i) => (
+                <span key={i} className="text-xs bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-lg border border-indigo-100">{s.subject}</span>
+              ))}
+            </div>
+            {note.teacherComment && (
+              <p className="text-xs text-slate-500 mt-2 bg-slate-50 rounded-xl px-3 py-1.5 italic">💬 {note.teacherComment}</p>
+            )}
           </div>
-
-          {modal && (
-            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm space-y-4">
-                <h3 className="font-extrabold text-slate-800">
-                  {modal.type === 'approve' ? '✅ 승인하기' : '❌ 반려하기'}
-                </h3>
-                {modal.type === 'approve' && (
-                  <div className="bg-emerald-50 rounded-xl p-3 text-xs text-emerald-700 font-bold">
-                    지급 예정: 골드 +{settings.rewardGold * modal.note.subjectCount} /
-                    다이아 +{settings.rewardDiamond * modal.note.subjectCount} /
-                    경험치 +{settings.rewardExp * modal.note.subjectCount}
-                  </div>
-                )}
-                <div>
-                  <label className="text-xs font-bold text-slate-600 block mb-1">
-                    {modal.type === 'approve' ? '코멘트 (선택)' : '반려 사유 (필수)'}
-                  </label>
-                  <textarea value={comment} onChange={e => setComment(e.target.value)}
-                    placeholder={modal.type === 'approve' ? '잘했어요! (생략 가능)' : '반려 사유를 입력하세요...'}
-                    rows={3}
-                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-indigo-400" />
-                </div>
-                <div className="flex gap-3">
-                  <button onClick={() => setModal(null)} className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm">취소</button>
-                  <button onClick={modal.type === 'approve' ? approve : reject} disabled={processing}
-                    className={`flex-1 py-2.5 text-white font-bold rounded-xl text-sm disabled:opacity-40 ${modal.type === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-500 hover:bg-rose-600'}`}>
-                    {processing ? '처리 중...' : modal.type === 'approve' ? '승인' : '반려'}
-                  </button>
-                </div>
-              </div>
+          {note.status === 'pending' && (
+            <div className="flex flex-col gap-1.5 shrink-0">
+              <button onClick={() => { setModal({ type: 'approve', note }); setComment(''); }}
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl">
+                승인 ✓
+              </button>
+              <button onClick={() => { setModal({ type: 'reject', note }); setComment(''); }}
+                className="px-4 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl border border-rose-200">
+                반려
+              </button>
             </div>
           )}
         </div>
+
+        {/* 과목별 전체 내용 */}
+        <div className="px-5 pb-4 space-y-2.5">
+          {(note.subjects || []).map((s, i) => (
+            <div key={i} className="bg-slate-50 rounded-xl p-3.5 border border-slate-100 space-y-2">
+              <div className="inline-block bg-indigo-100 text-indigo-700 font-extrabold text-xs px-2.5 py-1 rounded-lg">{s.subject}</div>
+              <div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">📌 핵심 배움</div>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{s.coreContent}</p>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">💭 나의 생각</div>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{s.myThought}</p>
+              </div>
+              {s.imageBase64 && (
+                <img src={s.imageBase64} alt="" className="w-full rounded-xl max-h-52 object-contain bg-white border border-slate-200 mt-1" />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* 보상 정보 */}
+        <div className="px-5 pb-3">
+          <p className="text-[11px] text-slate-400">
+            {note.status === 'approved' ? '✅ 지급 완료' : `승인 시 지급 → 골드 +${settings.rewardGold * note.subjectCount} / 다이아 +${settings.rewardDiamond * note.subjectCount} / 경험치 +${settings.rewardExp * note.subjectCount}`}
+          </p>
+        </div>
       </div>
     );
-  }
+  };
+
+  // ── stats for student view ────────────────────────────────────
+  const submittedIds = new Set(notes.map(n => n.studentId));
+  const submittedCount    = students.filter(s => submittedIds.has(s.id)).length;
+  const notSubmittedCount = students.length - submittedCount;
+
+  // group notes by student
+  const notesByStudent = {};
+  notes.forEach(n => {
+    if (!notesByStudent[n.studentId]) notesByStudent[n.studentId] = [];
+    notesByStudent[n.studentId].push(n);
+  });
 
   return (
     <div className="min-h-screen bg-slate-100 p-6">
       <div className="max-w-5xl mx-auto">
+
         {/* 헤더 */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex justify-between items-center mb-6">
           <div>
@@ -246,19 +283,27 @@ export default function LearningNoteManage({ selectedClass }) {
 
         {/* 탭 */}
         <div className="flex gap-2 mb-5">
-          {[['queue', '📋 승인 관리'], ['settings', '⚙️ 설정']].map(([id, label]) => (
+          {[
+            ['queue',    '📋 승인 관리'],
+            ['students', '👥 학생별 현황'],
+            ['settings', '⚙️ 설정'],
+          ].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
-              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors ${tab === id ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-              {label}{id === 'queue' && pendingCount > 0 && <span className="ml-2 bg-amber-400 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">{pendingCount}</span>}
+              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors
+                ${tab === id ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+              {label}
+              {id === 'queue' && pendingCount > 0 && (
+                <span className="ml-2 bg-amber-400 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">{pendingCount}</span>
+              )}
             </button>
           ))}
         </div>
 
-        {/* ── 승인 관리 탭 ── */}
+        {/* ── 승인 관리 탭 ────────────────────────────────────────── */}
         {tab === 'queue' && (
           <>
-            {/* 필터 */}
-            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm mb-4 flex flex-wrap gap-3 items-end">
+            {/* 필터 + 전체승인 */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm mb-5 flex flex-wrap gap-3 items-end">
               <div>
                 <label className="text-[11px] font-bold text-slate-500 block mb-1">상태</label>
                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
@@ -272,7 +317,8 @@ export default function LearningNoteManage({ selectedClass }) {
               <div>
                 <label className="text-[11px] font-bold text-slate-500 block mb-1">학생 이름</label>
                 <input value={filterName} onChange={e => setFilterName(e.target.value)}
-                  placeholder="이름 검색" className="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm w-28 focus:outline-none focus:border-indigo-400" />
+                  placeholder="이름 검색"
+                  className="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm w-28 focus:outline-none focus:border-indigo-400" />
               </div>
               <div>
                 <label className="text-[11px] font-bold text-slate-500 block mb-1">과목</label>
@@ -292,11 +338,23 @@ export default function LearningNoteManage({ selectedClass }) {
                 <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
                   className="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" />
               </div>
-              <button onClick={() => { setFilterName(''); setFilterSubject(''); setFilterFrom(''); setFilterTo(''); setFilterStatus('pending'); }}
-                className="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 font-bold border border-slate-200 rounded-xl bg-white hover:bg-slate-50">
-                초기화
-              </button>
-              <span className="ml-auto text-sm text-slate-400 self-center">{filtered.length}건</span>
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  onClick={() => { setFilterName(''); setFilterSubject(''); setFilterFrom(''); setFilterTo(''); setFilterStatus('pending'); }}
+                  className="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 font-bold border border-slate-200 rounded-xl bg-white hover:bg-slate-50">
+                  초기화
+                </button>
+                {filtered.filter(n => n.status === 'pending').length > 0 && (
+                  <button onClick={approveAll} disabled={bulkApproving}
+                    className="px-4 py-2 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl disabled:opacity-50 flex items-center gap-1.5 transition-colors">
+                    {bulkApproving
+                      ? <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block" /> 처리 중...</>
+                      : <>✅ 전체 승인 ({filtered.filter(n => n.status === 'pending').length}건)</>
+                    }
+                  </button>
+                )}
+                <span className="text-sm text-slate-400">{filtered.length}건</span>
+              </div>
             </div>
 
             {loading ? (
@@ -310,92 +368,134 @@ export default function LearningNoteManage({ selectedClass }) {
                 <p className="font-bold">조건에 맞는 배움노트가 없습니다</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {filtered.map(note => {
-                  const badge = STATUS_BADGE[note.status] || STATUS_BADGE.pending;
-                  return (
-                    <div key={note.id} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="font-extrabold text-slate-800">{note.studentName}</span>
-                            <span className="text-xs text-slate-400">{note.date}</span>
-                            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${badge.cls}`}>{badge.label}</span>
-                          </div>
-                          <div className="flex gap-2 flex-wrap mb-2">
-                            {(note.subjects || []).map((s, i) => (
-                              <span key={i} className="text-xs bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-lg border border-indigo-100">
-                                {s.subject}
-                              </span>
-                            ))}
-                          </div>
-                          <p className="text-xs text-slate-400">
-                            {note.subjectCount}과목 · 지급 예정: 골드 {settings.rewardGold * note.subjectCount} /
-                            다이아 {settings.rewardDiamond * note.subjectCount} /
-                            경험치 {settings.rewardExp * note.subjectCount}
-                          </p>
-                          {note.teacherComment && (
-                            <p className="text-xs text-slate-500 mt-1 italic">코멘트: {note.teacherComment}</p>
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-2 shrink-0">
-                          <button onClick={() => setDetail(note)}
-                            className="px-4 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl border border-slate-200">
-                            내용 보기
-                          </button>
-                          {note.status === 'pending' && (
-                            <>
-                              <button onClick={() => { setModal({ type: 'approve', note }); setComment(''); }}
-                                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl">
-                                승인 ✓
-                              </button>
-                              <button onClick={() => { setModal({ type: 'reject', note }); setComment(''); }}
-                                className="px-4 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl border border-rose-200">
-                                반려
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="space-y-4">
+                {filtered.map(note => renderNoteCard(note))}
               </div>
             )}
           </>
         )}
 
-        {/* ── 설정 탭 ── */}
+        {/* ── 학생별 현황 탭 ─────────────────────────────────────── */}
+        {tab === 'students' && (
+          loading ? (
+            <div className="flex items-center justify-center py-20 gap-2">
+              <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+              <span className="text-sm text-slate-400">불러오는 중...</span>
+            </div>
+          ) : (
+            <>
+              {/* 통계 바 */}
+              <div className="bg-white rounded-2xl px-5 py-3 border border-slate-200 shadow-sm mb-4 flex flex-wrap gap-5 text-sm font-bold">
+                <span className="text-slate-600">전체 <span className="text-slate-800">{students.length}명</span></span>
+                <span className="text-emerald-600">제출 {submittedCount}명</span>
+                <span className="text-slate-400">미제출 {notSubmittedCount}명</span>
+                <span className="text-amber-600">승인 대기 {pendingCount}건</span>
+              </div>
+
+              {students.length === 0 ? (
+                <div className="text-center py-16 text-slate-400">
+                  <div className="text-5xl mb-3">👥</div>
+                  <p className="font-bold">등록된 학생이 없습니다</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {students.map(student => {
+                    const studentNotes   = (notesByStudent[student.id] || []).sort((a, b) => b.date.localeCompare(a.date));
+                    const hasNotes       = studentNotes.length > 0;
+                    const pendingNotes   = studentNotes.filter(n => n.status === 'pending');
+                    const approvedNotes  = studentNotes.filter(n => n.status === 'approved');
+                    const rejectedNotes  = studentNotes.filter(n => n.status === 'rejected');
+                    const isExpanded     = expandedStudent === student.id;
+
+                    return (
+                      <div key={student.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        {/* 학생 헤더 */}
+                        <div
+                          onClick={() => hasNotes && setExpandedStudent(isExpanded ? null : student.id)}
+                          className={`px-4 py-3.5 flex items-center gap-3 transition-colors
+                            ${hasNotes ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default'}`}
+                        >
+                          <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center border border-slate-200">
+                            {student.characterImage
+                              ? <img src={student.characterImage} alt="" className="w-full h-full object-contain scale-[2]" style={{ imageRendering: 'pixelated' }} />
+                              : <span className="text-lg">🧑‍🎓</span>}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-extrabold text-slate-800 text-sm">{student.name || student.studentCode}</span>
+                              <span className="text-xs text-slate-400">{student.studentCode}</span>
+                              {!hasNotes && (
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 border border-slate-200">미제출</span>
+                              )}
+                              {pendingNotes.length > 0 && (
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                                  대기 {pendingNotes.length}
+                                </span>
+                              )}
+                              {approvedNotes.length > 0 && (
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                  승인 {approvedNotes.length}
+                                </span>
+                              )}
+                              {rejectedNotes.length > 0 && (
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 border border-rose-200">
+                                  반려 {rejectedNotes.length}
+                                </span>
+                              )}
+                            </div>
+                            {hasNotes && (
+                              <div className="text-xs text-slate-400 mt-0.5">총 {studentNotes.length}건 제출</div>
+                            )}
+                          </div>
+
+                          {hasNotes && (
+                            <svg className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          )}
+                        </div>
+
+                        {/* 노트 목록 (펼쳤을 때) */}
+                        {isExpanded && (
+                          <div className="border-t border-slate-100 bg-slate-50 px-4 py-4 space-y-4">
+                            {studentNotes.map(note => renderNoteCard(note))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )
+        )}
+
+        {/* ── 설정 탭 ─────────────────────────────────────────────── */}
         {tab === 'settings' && (
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-6 max-w-lg">
             <h2 className="font-extrabold text-slate-800 text-lg">⚙️ 배움노트 기준 설정</h2>
 
             <div className="space-y-4">
               <p className="text-xs text-slate-500 font-bold border-b border-slate-100 pb-2">📏 최소 글자 수 기준</p>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-bold text-slate-700">핵심 배움 최소 글자 수</div>
-                  <div className="text-xs text-slate-400">학생이 핵심 배움 칸에 입력해야 하는 최소 글자</div>
+              {[
+                { key: 'minCoreLength',    label: '핵심 배움 최소 글자 수',   desc: '핵심 배움 칸에 입력해야 하는 최소 글자' },
+                { key: 'minThoughtLength', label: '나의 생각 최소 글자 수',    desc: '나의 생각 칸 최소 글자' },
+              ].map(({ key, label, desc }) => (
+                <div key={key} className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-bold text-slate-700">{label}</div>
+                    <div className="text-xs text-slate-400">{desc}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min={1} max={200} value={settings[key]}
+                      onChange={e => setSettings(s => ({ ...s, [key]: Number(e.target.value) }))}
+                      className="w-20 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-center focus:outline-none focus:border-indigo-400" />
+                    <span className="text-sm text-slate-500">자</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <input type="number" min={1} max={200} value={settings.minCoreLength}
-                    onChange={e => setSettings(s => ({ ...s, minCoreLength: Number(e.target.value) }))}
-                    className="w-20 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-center focus:outline-none focus:border-indigo-400" />
-                  <span className="text-sm text-slate-500">자</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-bold text-slate-700">나의 생각 최소 글자 수</div>
-                  <div className="text-xs text-slate-400">나의 생각/더 알고 싶은 점 칸 최소 글자</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="number" min={1} max={200} value={settings.minThoughtLength}
-                    onChange={e => setSettings(s => ({ ...s, minThoughtLength: Number(e.target.value) }))}
-                    className="w-20 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm text-center focus:outline-none focus:border-indigo-400" />
-                  <span className="text-sm text-slate-500">자</span>
-                </div>
-              </div>
+              ))}
             </div>
 
             <div className="space-y-4">
@@ -418,26 +518,24 @@ export default function LearningNoteManage({ selectedClass }) {
                   </div>
                 </div>
               ))}
-
-              {/* preview */}
               <div className="bg-indigo-50 rounded-xl p-4 text-xs text-indigo-700 border border-indigo-100 space-y-1">
                 <div className="font-extrabold mb-2">예시 (현재 설정 기준)</div>
                 {[1, 3, 6].map(n => (
-                  <div key={n}>과목 {n}개 승인 → 골드 {settings.rewardGold * n} / 다이아 {settings.rewardDiamond * n} / 경험치 {settings.rewardExp * n}</div>
+                  <div key={n}>과목 {n}개 → 골드 {settings.rewardGold * n} / 다이아 {settings.rewardDiamond * n} / 경험치 {settings.rewardExp * n}</div>
                 ))}
               </div>
             </div>
 
             <button onClick={saveSettings} disabled={savingSettings}
-              className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40">
+              className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40 transition-colors">
               {savingSettings ? '저장 중...' : '💾 설정 저장'}
             </button>
           </div>
         )}
       </div>
 
-      {/* 승인/반려 모달 (목록 화면용) */}
-      {modal && !detail && (
+      {/* 승인/반려 모달 */}
+      {modal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm space-y-4">
             <h3 className="font-extrabold text-slate-800">
@@ -466,7 +564,8 @@ export default function LearningNoteManage({ selectedClass }) {
               <button onClick={() => { setModal(null); setComment(''); }}
                 className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm">취소</button>
               <button onClick={modal.type === 'approve' ? approve : reject} disabled={processing}
-                className={`flex-1 py-2.5 text-white font-bold rounded-xl text-sm disabled:opacity-40 ${modal.type === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-500 hover:bg-rose-600'}`}>
+                className={`flex-1 py-2.5 text-white font-bold rounded-xl text-sm disabled:opacity-40 transition-colors
+                  ${modal.type === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-500 hover:bg-rose-600'}`}>
                 {processing ? '처리 중...' : modal.type === 'approve' ? '승인' : '반려'}
               </button>
             </div>
@@ -474,11 +573,13 @@ export default function LearningNoteManage({ selectedClass }) {
         </div>
       )}
 
-      {/* toast */}
+      {/* Toast */}
       {toast && (
         <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
           ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
-          style={{ whiteSpace: 'nowrap' }}>{toast.msg}</div>
+          style={{ whiteSpace: 'nowrap' }}>
+          {toast.msg}
+        </div>
       )}
     </div>
   );

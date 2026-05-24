@@ -179,14 +179,16 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
               >
                 <RankBadge rank={rank} />
                 {s.characterImage ? (
-                  <img
-                    src={s.characterImage}
-                    alt=""
-                    className="w-14 h-14 rounded-xl object-cover shrink-0 border border-slate-100"
-                    style={{ imageRendering: 'pixelated' }}
-                  />
+                  <div className="w-20 h-20 rounded-xl bg-white border-2 border-slate-100 overflow-hidden shrink-0 flex items-center justify-center shadow-sm">
+                    <img
+                      src={s.characterImage}
+                      alt=""
+                      className="w-full h-full object-contain scale-[2]"
+                      style={{ imageRendering: 'pixelated' }}
+                    />
+                  </div>
                 ) : (
-                  <div className="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-2xl">🧑‍🎓</div>
+                  <div className="w-20 h-20 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-3xl shadow-sm">🧑‍🎓</div>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className={`font-extrabold truncate text-sm ${isMe ? 'text-indigo-700' : isTop3 ? 'text-slate-800' : 'text-slate-600'}`}>
