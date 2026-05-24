@@ -35,18 +35,27 @@ const getMinDate = () => {
   return d.toISOString().slice(0, 10);
 };
 
+// 이번주 월요일 날짜 (매주 월요일 초기화 기준)
+const getWeekStart = () => {
+  const d = new Date(Date.now() + 9 * 3600000);
+  const day = d.getDay(); // 0=일, 1=월 ...
+  const daysToMon = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - daysToMon);
+  return d.toISOString().slice(0, 10);
+};
+
 const STATUS_BADGE = {
   pending:  { label: '🕐 승인 대기', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
   approved: { label: '✅ 승인 완료', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
   rejected: { label: '❌ 반려',     cls: 'bg-rose-100 text-rose-700 border-rose-200' },
 };
 
-// ── 달력 컴포넌트 ──────────────────────────────────────────────
+// ── 달력 컴포넌트 (컴팩트) ───────────────────────────────────────
 function CalendarView({ notes, selectedDate, onSelectDate, currentMonth, onPrevMonth, onNextMonth }) {
   const year  = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
-  const noteDates = new Set(notes.map(n => n.date));
-  const firstDay  = new Date(year, month, 1).getDay();
+  const noteDates   = new Set(notes.map(n => n.date));
+  const firstDay    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = toKSTDateString();
 
@@ -54,55 +63,53 @@ function CalendarView({ notes, selectedDate, onSelectDate, currentMonth, onPrevM
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const dayNotes = notes.filter(n => n.date === dateStr);
-    cells.push({ day: d, dateStr, hasNote: noteDates.has(dateStr), dayNotes });
+    cells.push({ day: d, dateStr, hasNote: noteDates.has(dateStr) });
   }
 
-  const now = new Date();
-  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+  const isCurrentMonth = year === new Date().getFullYear() && month === new Date().getMonth();
   const weekLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-      <div className="flex items-center justify-between mb-3">
+    <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-2.5">
+      <div className="flex items-center justify-between mb-1.5">
         <button onClick={onPrevMonth}
-          className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500 font-bold text-lg transition-colors">‹</button>
-        <span className="font-extrabold text-slate-700 text-sm">{year}년 {month + 1}월</span>
+          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-bold transition-colors text-sm">‹</button>
+        <span className="font-extrabold text-slate-700 text-[11px]">{year}년 {month + 1}월</span>
         <button onClick={onNextMonth} disabled={isCurrentMonth}
-          className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500 font-bold text-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed">›</button>
+          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-bold transition-colors text-sm disabled:opacity-30 disabled:cursor-not-allowed">›</button>
       </div>
-      <div className="grid grid-cols-7 gap-1 mb-1">
+      <div className="grid grid-cols-7 gap-0.5 mb-0.5">
         {weekLabels.map(d => (
-          <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-0.5">{d}</div>
+          <div key={d} className="text-center text-[9px] font-bold text-slate-400">{d}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-0.5">
         {cells.map((cell, i) => (
-          <div key={i} className="aspect-square flex items-center justify-center">
+          <div key={i} className="flex items-center justify-center">
             {cell ? (
               <button
                 onClick={() => onSelectDate(cell.dateStr)}
-                className={`w-9 h-9 rounded-xl text-xs font-bold transition-all relative flex items-center justify-center
+                className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all relative flex items-center justify-center
                   ${cell.dateStr === selectedDate
-                    ? 'bg-indigo-600 text-white shadow-md'
+                    ? 'bg-indigo-600 text-white shadow-sm'
                     : cell.dateStr === today
-                      ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300'
+                      ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-300'
                       : cell.hasNote
                         ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                         : 'text-slate-600 hover:bg-slate-100'}`}
               >
                 {cell.day}
                 {cell.hasNote && cell.dateStr !== selectedDate && (
-                  <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-500" />
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0.5 h-0.5 rounded-full bg-emerald-500" />
                 )}
               </button>
             ) : null}
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-50 justify-end text-[10px] text-slate-400 font-bold">
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-100 inline-block" /> 노트 있음</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-indigo-100 inline-block ring-1 ring-indigo-300" /> 오늘</span>
+      <div className="flex items-center gap-2 mt-1.5 pt-1.5 border-t border-slate-50 text-[9px] text-slate-400 font-bold justify-end">
+        <span className="flex items-center gap-0.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-100 inline-block" /> 노트</span>
+        <span className="flex items-center gap-0.5"><span className="w-2.5 h-2.5 rounded-sm bg-indigo-100 inline-block ring-1 ring-indigo-300" /> 오늘</span>
       </div>
     </div>
   );
@@ -130,9 +137,9 @@ export default function LearningNote({ studentCode }) {
   // 작성 폼
   const today   = toKSTDateString();
   const minDate = getMinDate();
-  const [writeDate, setWriteDate]   = useState(today);
-  const [subjects, setSubjects]     = useState([{ subject: '', coreContent: '', myThought: '', imageBase64: '' }]);
-  const [isSubmitting, setIsSubmitting]   = useState(false);
+  const [writeDate, setWriteDate]       = useState(today);
+  const [subjects, setSubjects]         = useState([{ subject: '', coreContent: '', myThought: '', imageBase64: '' }]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [compressingIdx, setCompressingIdx] = useState(null);
   const fileRefs = useRef([]);
 
@@ -203,7 +210,7 @@ export default function LearningNote({ studentCode }) {
   const isFormValid = subjects.every(s =>
     s.subject &&
     s.coreContent.length >= settings.minCoreLength &&
-    s.myThought.length >= settings.minThoughtLength &&
+    s.myThought.length  >= settings.minThoughtLength &&
     !dateSubjects.has(s.subject)
   ) && new Set(subjects.map(s => s.subject).filter(Boolean)).size === subjects.filter(s => s.subject).length;
 
@@ -240,10 +247,10 @@ export default function LearningNote({ studentCode }) {
         teacherUid:  myInfo.teacherUid,
         date:        writeDate,
         subjects:    subjects.map(s => ({
-          subject:      s.subject,
-          coreContent:  s.coreContent.trim(),
-          myThought:    s.myThought.trim(),
-          imageBase64:  s.imageBase64 || null,
+          subject:     s.subject,
+          coreContent: s.coreContent.trim(),
+          myThought:   s.myThought.trim(),
+          imageBase64: s.imageBase64 || null,
         })),
         subjectCount:   subjects.length,
         status:         'pending',
@@ -256,11 +263,10 @@ export default function LearningNote({ studentCode }) {
         await updateDoc(doc(db, 'learningNotes', editingNoteId), payload);
         setNotes(prev => prev.map(n => n.id === editingNoteId ? { ...n, ...payload } : n));
       } else {
-        payload.createdAt = serverTimestamp();
+        payload.createdAt  = serverTimestamp();
         payload.approvedAt = null;
         const ref = await addDoc(collection(db, 'learningNotes'), payload);
 
-        // 오늘 작성한 경우만 스트릭 업데이트
         if (writeDate === today) {
           const newStreak = computeStreak([...notes, { date: today }]);
           const studentRef = doc(db, 'students', myInfo.id);
@@ -346,7 +352,7 @@ export default function LearningNote({ studentCode }) {
 
         {subjects.map((sub, idx) => {
           const coreOk    = sub.coreContent.length >= settings.minCoreLength;
-          const thoughtOk = sub.myThought.length  >= settings.minThoughtLength;
+          const thoughtOk = sub.myThought.length   >= settings.minThoughtLength;
           const dupSubject = dateSubjects.has(sub.subject);
           const dupInForm  = sub.subject && subjects.filter((s, i) => i !== idx && s.subject === sub.subject).length > 0;
           return (
@@ -435,11 +441,20 @@ export default function LearningNote({ studentCode }) {
   }
 
   // ── LIST view ──────────────────────────────────────────────────
+  const weekStart    = getWeekStart();
+  const weekNotes    = notes.filter(n => n.date >= weekStart);
+  const weekApproved = notes.filter(n => n.status === 'approved' && n.date >= weekStart);
+  const weekGold     = weekApproved.reduce((s, n) => s + (n.subjectCount || 0) * settings.rewardGold,    0);
+  const weekDia      = weekApproved.reduce((s, n) => s + (n.subjectCount || 0) * settings.rewardDiamond, 0);
+  const weekExp      = weekApproved.reduce((s, n) => s + (n.subjectCount || 0) * settings.rewardExp,     0);
+
   const calendarNotes = selectedDate ? notes.filter(n => n.date === selectedDate) : null;
   const displayNotes  = selectedDate ? calendarNotes : notes;
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-5">
+    <div className="max-w-5xl mx-auto p-6 space-y-4">
+
+      {/* 헤더 */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-slate-800">📚 배움노트</h1>
         <button onClick={() => { setWriteDate(today); setView('write'); }}
@@ -448,62 +463,82 @@ export default function LearningNote({ studentCode }) {
         </button>
       </div>
 
-      {/* 보상 + 스트릭 안내 (상단) */}
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 px-4 py-3 flex items-center gap-3">
-        <span className="text-2xl">🎁</span>
-        <div>
-          <div className="text-xs font-extrabold text-indigo-700">승인 시 과목당 보상</div>
-          <div className="text-xs text-indigo-600 mt-0.5">
-            골드 {settings.rewardGold} · 경험치 {settings.rewardExp} · 다이아 {settings.rewardDiamond}
-          </div>
+      {/* 이번주 통계 5칸 (매주 월요일 초기화) */}
+      <div className="grid grid-cols-5 gap-2">
+        <div className="bg-indigo-50 rounded-xl p-3 text-center border border-indigo-100">
+          <div className="text-xl font-extrabold text-indigo-600">{weekNotes.length}</div>
+          <div className="text-[10px] text-slate-500 font-bold mt-0.5">📝 이번주 제출</div>
         </div>
-        {streak > 0 && (
-          <div className="ml-auto text-right shrink-0">
-            <div className="text-sm font-extrabold text-orange-500">🔥 {streak}일 연속</div>
-            {streak % 5 !== 0 && (
-              <div className="text-[10px] text-slate-400">{5 - (streak % 5)}일 후 보너스</div>
-            )}
-          </div>
-        )}
+        <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
+          <div className="text-xl font-extrabold text-emerald-600">{weekApproved.length}</div>
+          <div className="text-[10px] text-slate-500 font-bold mt-0.5">✅ 이번주 승인</div>
+        </div>
+        <div className="bg-amber-50 rounded-xl p-3 text-center border border-amber-100">
+          <div className="text-xl font-extrabold text-amber-600">+{weekGold}</div>
+          <div className="text-[10px] text-slate-500 font-bold mt-0.5">🪙 획득 골드</div>
+        </div>
+        <div className="bg-sky-50 rounded-xl p-3 text-center border border-sky-100">
+          <div className="text-xl font-extrabold text-sky-600">+{weekDia}</div>
+          <div className="text-[10px] text-slate-500 font-bold mt-0.5">💎 획득 다이아</div>
+        </div>
+        <div className="bg-purple-50 rounded-xl p-3 text-center border border-purple-100">
+          <div className="text-xl font-extrabold text-purple-600">+{weekExp}</div>
+          <div className="text-[10px] text-slate-500 font-bold mt-0.5">⭐ 획득 경험치</div>
+        </div>
       </div>
 
-      {/* 통계 */}
+      {/* 달력(1/2 크기) + 스트릭/보상 안내 */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 text-center shadow-sm">
-          <div className="text-2xl font-extrabold text-indigo-600">{notes.length}</div>
-          <div className="text-xs text-slate-500 mt-0.5 font-bold">📝 총 노트</div>
-        </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 text-center shadow-sm">
-          <div className="text-2xl font-extrabold text-emerald-600">{notes.filter(n => n.status === 'approved').length}</div>
-          <div className="text-xs text-slate-500 mt-0.5 font-bold">✅ 승인 완료</div>
+        <CalendarView
+          notes={notes}
+          selectedDate={selectedDate}
+          onSelectDate={d => setSelectedDate(prev => prev === d ? null : d)}
+          currentMonth={currentMonth}
+          onPrevMonth={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+          onNextMonth={() => {
+            const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+            if (next <= new Date()) setCurrentMonth(next);
+          }}
+        />
+        <div className="flex flex-col gap-2">
+          {/* 보상 안내 */}
+          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 px-3 py-3 flex items-center gap-2">
+            <span className="text-lg shrink-0">🎁</span>
+            <div>
+              <div className="text-[11px] font-extrabold text-indigo-700">승인 시 과목당 보상</div>
+              <div className="text-[10px] text-indigo-600 mt-0.5">
+                🪙 {settings.rewardGold} · 💎 {settings.rewardDiamond} · ⭐ {settings.rewardExp} EXP
+              </div>
+            </div>
+          </div>
+          {/* 스트릭 */}
+          {streak > 0 && (
+            <div className="bg-orange-50 rounded-xl border border-orange-100 px-3 py-3">
+              <div className="text-lg font-extrabold text-orange-500">🔥 {streak}일 연속 작성!</div>
+              {streak % 5 !== 0 && (
+                <div className="text-[10px] text-slate-400 mt-0.5">{5 - (streak % 5)}일 후 보너스 (+50🪙💎⭐)</div>
+              )}
+            </div>
+          )}
+          {/* 날짜 필터 표시 */}
+          {selectedDate && (
+            <div className="bg-indigo-50 rounded-xl px-3 py-2.5 border border-indigo-100 flex items-center justify-between">
+              <span className="text-xs font-bold text-indigo-700">
+                📅 {selectedDate} {calendarNotes.length > 0 ? `· ${calendarNotes.length}건` : '· 없음'}
+              </span>
+              <button onClick={() => setSelectedDate(null)}
+                className="text-[10px] text-indigo-400 hover:text-indigo-700 font-bold">전체</button>
+            </div>
+          )}
+          {/* 전체 통계 */}
+          <div className="bg-white rounded-xl border border-slate-100 px-3 py-2.5 flex items-center justify-between">
+            <span className="text-xs text-slate-500 font-bold">전체 노트</span>
+            <span className="text-sm font-extrabold text-slate-700">{notes.length}건</span>
+          </div>
         </div>
       </div>
 
-      {/* 달력 */}
-      <CalendarView
-        notes={notes}
-        selectedDate={selectedDate}
-        onSelectDate={d => setSelectedDate(prev => prev === d ? null : d)}
-        currentMonth={currentMonth}
-        onPrevMonth={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
-        onNextMonth={() => {
-          const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
-          if (next <= new Date()) setCurrentMonth(next);
-        }}
-      />
-
-      {/* 선택 날짜 필터 표시 */}
-      {selectedDate && (
-        <div className="flex items-center justify-between bg-indigo-50 rounded-xl px-4 py-2.5 border border-indigo-100">
-          <span className="text-sm font-bold text-indigo-700">
-            📅 {selectedDate} — {calendarNotes.length > 0 ? `${calendarNotes.length}개 노트` : '노트 없음'}
-          </span>
-          <button onClick={() => setSelectedDate(null)}
-            className="text-xs text-indigo-400 hover:text-indigo-700 font-bold">전체 보기</button>
-        </div>
-      )}
-
-      {/* 노트 목록 */}
+      {/* 노트 목록 (6열 그리드) */}
       {displayNotes.length === 0 ? (
         <div className="text-center py-12 text-slate-400">
           <div className="text-5xl mb-3">{selectedDate ? '📭' : '📝'}</div>
@@ -511,43 +546,46 @@ export default function LearningNote({ studentCode }) {
           {!selectedDate && <div className="text-sm mt-1">배움을 기록해보세요!</div>}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-6 gap-2">
           {displayNotes.map(note => {
             const badge     = STATUS_BADGE[note.status] || STATUS_BADGE.pending;
             const isPending = note.status === 'pending';
+            const stripCls  = note.status === 'approved' ? 'bg-emerald-400'
+                            : note.status === 'rejected'  ? 'bg-rose-400'
+                            : 'bg-amber-300';
             return (
               <div key={note.id}
-                className="bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 hover:shadow-sm transition-all overflow-hidden">
-                {/* 클릭 시 상세 모달 */}
-                <div onClick={() => setDetailNote(note)} className="p-4 cursor-pointer">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-slate-400 font-medium">{note.date}</span>
-                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${badge.cls}`}>{badge.label}</span>
-                  </div>
-                  <div className="flex gap-2 flex-wrap mb-2">
-                    {(note.subjects || []).map((s, i) => (
-                      <span key={i} className="text-xs bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-lg">{s.subject}</span>
+                className="bg-white rounded-xl border border-slate-100 hover:border-indigo-200 hover:shadow-sm transition-all overflow-hidden flex flex-col">
+                <div className={`h-1 ${stripCls}`} />
+                <div className="p-2.5 flex-1 cursor-pointer" onClick={() => setDetailNote(note)}>
+                  <div className="text-[10px] text-slate-400 font-medium mb-1.5">{note.date}</div>
+                  <div className="flex flex-wrap gap-0.5 mb-1.5">
+                    {(note.subjects || []).slice(0, 2).map((s, i) => (
+                      <span key={i} className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded">{s.subject}</span>
                     ))}
+                    {(note.subjects || []).length > 2 && (
+                      <span className="text-[9px] text-slate-400 font-bold">+{note.subjects.length - 2}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-slate-400">📚 {note.subjectCount}과목</span>
+                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full border ${badge.cls}`}>
+                      {note.status === 'approved' ? '✅' : note.status === 'rejected' ? '❌' : '🕐'}
+                    </span>
                   </div>
                   {note.teacherComment && note.status === 'rejected' && (
-                    <p className="text-xs text-rose-600 bg-rose-50 rounded-lg px-3 py-1.5 mt-1">
-                      반려 사유: {note.teacherComment}
-                    </p>
+                    <p className="text-[9px] text-rose-600 bg-rose-50 rounded px-1.5 py-1 mt-1 line-clamp-2">{note.teacherComment}</p>
                   )}
                   {note.teacherComment && note.status === 'approved' && (
-                    <p className="text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-1.5 mt-1">
-                      선생님: {note.teacherComment}
-                    </p>
+                    <p className="text-[9px] text-emerald-600 bg-emerald-50 rounded px-1.5 py-1 mt-1 line-clamp-1">💬 {note.teacherComment}</p>
                   )}
-                  <div className="text-[11px] text-slate-400 mt-2">📚 {note.subjectCount}과목</div>
                 </div>
-                {/* 승인 대기 시 수정 버튼 */}
                 {isPending && (
-                  <div className="px-4 py-2 border-t border-slate-50 flex justify-end bg-amber-50/30">
+                  <div className="px-2 pb-2 pt-1 border-t border-slate-50 bg-amber-50/30">
                     <button
                       onClick={e => { e.stopPropagation(); openEdit(note); }}
-                      className="text-xs font-bold text-amber-600 hover:text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-xl transition-colors">
-                      ✏️ 수정하기
+                      className="w-full text-[9px] font-bold text-amber-600 bg-amber-100 hover:bg-amber-200 py-1 rounded-lg transition-colors">
+                      ✏️ 수정
                     </button>
                   </div>
                 )}
@@ -574,7 +612,10 @@ export default function LearningNote({ studentCode }) {
             </div>
             <div className="overflow-y-auto p-4 space-y-4 flex-1">
               {detailNote.teacherComment && (
-                <div className={`rounded-xl px-4 py-3 text-sm ${detailNote.status === 'rejected' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                <div className={`rounded-xl px-4 py-3 text-sm
+                  ${detailNote.status === 'rejected'
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
                   <span className="font-bold">선생님 코멘트: </span>{detailNote.teacherComment}
                 </div>
               )}

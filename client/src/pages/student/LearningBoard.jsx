@@ -417,6 +417,8 @@ export default function LearningBoard({ studentCode }) {
   };
 
   const handleDeletePost = async (postId) => {
+    const post = posts.find(p => p.id === postId);
+    if (!post || post.studentId !== student?.id) return;
     if (!window.confirm('게시물을 삭제할까요?')) return;
     try {
       await deleteDoc(doc(db, 'boards', selectedBoard.id, 'posts', postId));

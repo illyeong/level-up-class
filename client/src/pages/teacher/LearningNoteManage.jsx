@@ -185,67 +185,75 @@ export default function LearningNoteManage({ selectedClass }) {
 
   const pendingCount = notes.filter(n => n.status === 'pending').length;
 
-  // ── NoteCard (inline render helper) ──────────────────────────
+  // ── NoteCard (컴팩트 5열 카드) ───────────────────────────────
   const renderNoteCard = (note) => {
-    const badge = STATUS_BADGE[note.status] || STATUS_BADGE.pending;
+    const badge    = STATUS_BADGE[note.status] || STATUS_BADGE.pending;
+    const stripCls = note.status === 'approved' ? 'bg-emerald-400'
+                   : note.status === 'rejected'  ? 'bg-rose-400'
+                   : 'bg-amber-400';
     return (
-      <div key={note.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {/* 헤더 */}
-        <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1.5">
-              <span className="font-extrabold text-slate-800">{note.studentName}</span>
-              <span className="text-xs text-slate-400">{note.date}</span>
-              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${badge.cls}`}>{badge.label}</span>
-              <span className="text-xs text-slate-400">📚 {note.subjectCount}과목</span>
-            </div>
-            <div className="flex gap-1.5 flex-wrap">
-              {(note.subjects || []).map((s, i) => (
-                <span key={i} className="text-xs bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-lg border border-indigo-100">{s.subject}</span>
-              ))}
-            </div>
-            {note.teacherComment && (
-              <p className="text-xs text-slate-500 mt-2 bg-slate-50 rounded-xl px-3 py-1.5 italic">💬 {note.teacherComment}</p>
-            )}
-          </div>
-          {note.status === 'pending' && (
-            <div className="flex flex-col gap-1.5 shrink-0">
-              <button onClick={() => { setModal({ type: 'approve', note }); setComment(''); }}
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl">
-                승인 ✓
-              </button>
-              <button onClick={() => { setModal({ type: 'reject', note }); setComment(''); }}
-                className="px-4 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl border border-rose-200">
-                반려
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* 과목별 전체 내용 */}
-        <div className="px-5 pb-4 space-y-2.5">
-          {(note.subjects || []).map((s, i) => (
-            <div key={i} className="bg-slate-50 rounded-xl p-3.5 border border-slate-100 space-y-2">
-              <div className="inline-block bg-indigo-100 text-indigo-700 font-extrabold text-xs px-2.5 py-1 rounded-lg">{s.subject}</div>
-              <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">📌 핵심 배움</div>
-                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{s.coreContent}</p>
-              </div>
-              <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">💭 나의 생각</div>
-                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{s.myThought}</p>
-              </div>
-              {s.imageBase64 && (
-                <img src={s.imageBase64} alt="" className="w-full rounded-xl max-h-52 object-contain bg-white border border-slate-200 mt-1" />
+      <div key={note.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+        <div className={`h-1.5 ${stripCls}`} />
+        <div className="p-3 flex-1 flex flex-col gap-2">
+          {/* 헤더 */}
+          <div>
+            <div className="flex items-start justify-between gap-1 mb-0.5">
+              <span className="font-extrabold text-slate-800 text-xs leading-tight truncate">{note.studentName}</span>
+              {note.status === 'pending' && (
+                <button onClick={() => { setModal({ type: 'approve', note }); setComment(''); }}
+                  className="shrink-0 text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1.5 py-0.5 rounded-lg transition-colors">
+                  ✓ 승인
+                </button>
               )}
             </div>
-          ))}
-        </div>
+            <div className="flex items-center gap-1 flex-wrap">
+              <span className="text-[9px] text-slate-400">{note.date}</span>
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${badge.cls}`}>
+                {note.status === 'approved' ? '✅완료' : note.status === 'rejected' ? '❌반려' : '🕐대기'}
+              </span>
+              <span className="text-[9px] text-slate-400">·{note.subjectCount}과목</span>
+            </div>
+          </div>
 
-        {/* 보상 정보 */}
-        <div className="px-5 pb-3">
-          <p className="text-[11px] text-slate-400">
-            {note.status === 'approved' ? '✅ 지급 완료' : `승인 시 지급 → 골드 +${settings.rewardGold * note.subjectCount} / 다이아 +${settings.rewardDiamond * note.subjectCount} / 경험치 +${settings.rewardExp * note.subjectCount}`}
+          {/* 과목 태그 */}
+          <div className="flex flex-wrap gap-0.5">
+            {(note.subjects || []).map((s, i) => (
+              <span key={i} className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded border border-indigo-100">{s.subject}</span>
+            ))}
+          </div>
+
+          {/* 과목별 내용 (line-clamp) */}
+          <div className="space-y-1.5 flex-1">
+            {(note.subjects || []).map((s, i) => (
+              <div key={i} className="bg-slate-50 rounded-lg p-2 border border-slate-100">
+                <div className="text-[9px] font-extrabold text-indigo-700 mb-0.5">{s.subject}</div>
+                <p className="text-[10px] text-slate-600 line-clamp-2 leading-relaxed">{s.coreContent}</p>
+                <p className="text-[9px] text-slate-400 line-clamp-1 leading-relaxed mt-0.5 italic">{s.myThought}</p>
+                {s.imageBase64 && (
+                  <img src={s.imageBase64} alt="" className="w-full rounded mt-1 max-h-16 object-contain bg-white" />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* 코멘트 */}
+          {note.teacherComment && (
+            <p className="text-[9px] text-slate-500 italic bg-slate-50 rounded px-1.5 py-1 border border-slate-100">💬 {note.teacherComment}</p>
+          )}
+
+          {/* 반려 버튼 */}
+          {note.status === 'pending' && (
+            <button onClick={() => { setModal({ type: 'reject', note }); setComment(''); }}
+              className="w-full py-1 text-[9px] text-rose-600 bg-rose-50 hover:bg-rose-100 font-bold rounded-lg border border-rose-200 transition-colors mt-auto">
+              반려
+            </button>
+          )}
+
+          {/* 보상 안내 */}
+          <p className="text-[9px] text-slate-400">
+            {note.status === 'approved'
+              ? '✅ 지급완료'
+              : `지급예정: 🪙${settings.rewardGold * note.subjectCount} 💎${settings.rewardDiamond * note.subjectCount}`}
           </p>
         </div>
       </div>
@@ -266,7 +274,7 @@ export default function LearningNoteManage({ selectedClass }) {
 
   return (
     <div className="min-h-screen bg-slate-100 p-6">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
 
         {/* 헤더 */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex justify-between items-center mb-6">
@@ -368,7 +376,7 @@ export default function LearningNoteManage({ selectedClass }) {
                 <p className="font-bold">조건에 맞는 배움노트가 없습니다</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid grid-cols-5 gap-3">
                 {filtered.map(note => renderNoteCard(note))}
               </div>
             )}
@@ -459,8 +467,10 @@ export default function LearningNoteManage({ selectedClass }) {
 
                         {/* 노트 목록 (펼쳤을 때) */}
                         {isExpanded && (
-                          <div className="border-t border-slate-100 bg-slate-50 px-4 py-4 space-y-4">
-                            {studentNotes.map(note => renderNoteCard(note))}
+                          <div className="border-t border-slate-100 bg-slate-50 px-4 py-4">
+                            <div className="grid grid-cols-5 gap-3">
+                              {studentNotes.map(note => renderNoteCard(note))}
+                            </div>
                           </div>
                         )}
                       </div>
