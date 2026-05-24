@@ -1008,7 +1008,7 @@ const BATTLE_LAYOUT_DEFAULTS = {
   monsterScaleMult:    1.7,
 };
 
-function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
+function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeacher = false }) {
   const [screen,          setScreen]         = useState('lobby');
   const [dungeons,        setDungeons]       = useState([]);
   const [isLoading,       setIsLoading]      = useState(true);
@@ -1106,7 +1106,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
       firstClear: isFirst && cleared,
     });
 
-    if (!studentDocId || !studentData) { setIsSaving(false); return; }
+    if (isTeacher || !studentDocId || !studentData) { setIsSaving(false); return; }
 
     try {
       const { level, exp, maxExp, leveled } = calcLevelUp(

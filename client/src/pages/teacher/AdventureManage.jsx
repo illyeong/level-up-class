@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, writeBatch, updateDoc, increment, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, updateDoc, increment, query, where, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 const TICKET_CONFIG = {
@@ -26,6 +26,11 @@ function AdventureManage({ selectedClass }) {
   const [toast, setToast]           = useState(null);
   const [confirmState, setConfirmState] = useState(null);
 
+  // 교사 레벨
+  const [teacherLevel, setTeacherLevel]       = useState(50);
+  const [teacherLevelInput, setTeacherLevelInput] = useState('50');
+  const [isSavingLevel, setIsSavingLevel]     = useState(false);
+
   // 부여 입력값
   const [grantAmounts, setGrantAmounts] = useState({ dungeon: 0, bossRaid: 0, arena: 0 });
 
@@ -34,6 +39,31 @@ function AdventureManage({ selectedClass }) {
     setTimeout(() => setToast(null), 3000);
   };
   const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
+
+  // 교사 레벨 로드
+  useEffect(() => {
+    const uid = selectedClass?.teacherUid;
+    if (!uid) return;
+    getDoc(doc(db, 'teacherProfiles', uid)).then(snap => {
+      const lv = snap.exists() ? (snap.data().level ?? 50) : 50;
+      setTeacherLevel(lv);
+      setTeacherLevelInput(String(lv));
+    }).catch(() => {});
+  }, [selectedClass?.teacherUid]);
+
+  const saveTeacherLevel = async () => {
+    const uid = selectedClass?.teacherUid;
+    if (!uid) return showToast('학급을 먼저 선택해주세요.', 'error');
+    const lv = Math.max(1, Math.min(99, parseInt(teacherLevelInput) || 50));
+    setIsSavingLevel(true);
+    try {
+      await setDoc(doc(db, 'teacherProfiles', uid), { level: lv }, { merge: true });
+      setTeacherLevel(lv);
+      setTeacherLevelInput(String(lv));
+      showToast('교사 레벨이 저장되었습니다!');
+    } catch { showToast('저장 중 오류가 발생했습니다.', 'error'); }
+    finally { setIsSavingLevel(false); }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -225,6 +255,36 @@ function AdventureManage({ selectedClass }) {
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm rounded-xl transition-colors border border-slate-200 disabled:opacity-50">
                 🔄 전체 최대치 초기화
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 교사 레벨 설정 */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-6">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-800">🎓 교사 레벨 설정</h2>
+              <p className="text-xs text-slate-400 mt-0.5">교사가 퀴즈던전·탐험던전 플레이 시 사용되는 레벨 (초기값 50)</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-indigo-50 border-2 border-indigo-200 rounded-2xl px-4 py-2">
+                <span className="text-xs font-bold text-indigo-500">현재</span>
+                <span className="text-2xl font-extrabold text-indigo-700">Lv.{teacherLevel}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" min="1" max="99"
+                  value={teacherLevelInput}
+                  onChange={e => setTeacherLevelInput(e.target.value)}
+                  className="w-20 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:outline-none focus:border-indigo-400"
+                  placeholder="1~99"
+                />
+                <button
+                  onClick={saveTeacherLevel} disabled={isSavingLevel}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50 shadow-sm">
+                  {isSavingLevel ? '저장 중...' : '저장'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

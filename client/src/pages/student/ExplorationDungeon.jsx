@@ -40,9 +40,10 @@ const DUNGEONS = [
 
 // ── 순차 해금: 앞 던전 클리어해야 다음 Current.png ────────────
 // allDungeons = 전체 던전 목록 (active 관계없이 전부)
-const getSequentialState = (dungeon, completedMap, allDungeons) => {
+const getSequentialState = (dungeon, completedMap, allDungeons, isTeacher = false) => {
   if (dungeon.active === false) return 'locked';
   if (completedMap[dungeon.id] === 'completed') return 'completed';
+  if (isTeacher) return 'current'; // 교사는 모든 던전 입장 가능
 
   // 이 던전보다 id 작은 active 던전 중 미완료가 하나라도 있으면 locked
   const prevActive = allDungeons
@@ -202,7 +203,7 @@ function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
-export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }) {
+export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, isTeacher = false }) {
   const [phase, setPhase]             = useState('map');
   const [dungeonList, setDungeonList] = useState(DUNGEONS);
   const [isBusy, setIsBusy]           = useState(false);
@@ -214,7 +215,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
   const iframeRef        = useRef(null);
   const characterDataRef = useRef(null);
   const studentDocIdRef  = useRef(null);
-  const dungeonTickets   = tickets?.dungeon ?? 0;
+  const dungeonTickets   = isTeacher ? Infinity : (tickets?.dungeon ?? 0);
 
   // 던전 목록 Firebase 로드 (없으면 기본값 저장)
   useEffect(() => {
@@ -335,10 +336,10 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
   };
 
   const handleEnter = async () => {
-    if (!selectedDungeon || dungeonTickets <= 0 || isBusy) return;
+    if (!selectedDungeon || (!isTeacher && dungeonTickets <= 0) || isBusy) return;
     setIsBusy(true);
     try {
-      await onUseTicket('dungeon');
+      if (!isTeacher) await onUseTicket('dungeon');
       setPhase('playing');
       setSelectedDungeon(null);
       setDungeonReward(null);
@@ -383,12 +384,14 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
       <div className="bg-slate-800 border-b border-slate-700 px-5 py-2.5 flex items-center gap-4 shrink-0">
         <h1 className="font-extrabold text-white text-base">🗺️ 탐험던전</h1>
         <span className="text-slate-400 text-xs">클리어: {completedCount}/{DUNGEONS.length}</span>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-slate-400">🗡️ 이용권</span>
-          <span className={`font-extrabold text-sm ${dungeonTickets > 0 ? 'text-sky-400' : 'text-rose-400'}`}>
-            {dungeonTickets}장
-          </span>
-        </div>
+        {!isTeacher && (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-slate-400">🗡️ 이용권</span>
+            <span className={`font-extrabold text-sm ${dungeonTickets > 0 ? 'text-sky-400' : 'text-rose-400'}`}>
+              {dungeonTickets}장
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 맵 영역 - 남은 공간 전체 채움 */}
@@ -407,7 +410,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
             <DungeonNode
               key={dungeon.id}
               dungeon={dungeon}
-              state={getSequentialState(dungeon, progress, dungeonList)}
+              state={getSequentialState(dungeon, progress, dungeonList, isTeacher)}
               isSelected={selectedDungeon?.id === dungeon.id}
               onClick={d => setSelectedDungeon(prev => prev?.id === d.id ? null : d)}
             />
@@ -422,7 +425,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket }
             return (
             <DungeonPopup
               dungeon={selectedDungeon}
-              state={getSequentialState(selectedDungeon, progress, dungeonList)}
+              state={getSequentialState(selectedDungeon, progress, dungeonList, isTeacher)}
               prevDungeonName={prevDungeon?.name}
               onEnter={handleEnter}
               onClose={() => setSelectedDungeon(null)}

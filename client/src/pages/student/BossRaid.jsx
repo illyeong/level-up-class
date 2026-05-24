@@ -149,6 +149,7 @@ function IntroScreen({ raid, bossData, onEnter }) {
     .filter(([, m]) => m.tier === 'boss')
     .map(([id, m]) => ({ id, ...m }));
 
+  const [popupBoss, setPopupBoss] = useState(null);
   const isOpen = raid && (raid.status === 'waiting' || raid.status === 'active');
 
   return (
@@ -190,17 +191,37 @@ function IntroScreen({ raid, bossData, onEnter }) {
         )}
       </div>
 
-      {/* 보스 도감 — 텍스트 목록만 표시 (대용량 PNG 렉 방지) */}
+      {/* 보스 도감 — 텍스트 카드 (클릭 시 스프라이트 팝업) */}
       <div className="px-4 pb-10">
         <div className="text-sm font-extrabold text-slate-300 mb-3 px-1">등장 보스 도감 ({bossList.length}종)</div>
         <div className="grid grid-cols-3 gap-2">
           {bossList.map(m => (
-            <div key={m.id} className="flex items-center justify-center bg-slate-900/60 border border-slate-700/60 rounded-xl px-2 py-2.5">
+            <button key={m.id}
+              onClick={() => setPopupBoss(m)}
+              className="flex items-center justify-center bg-slate-900/60 border border-slate-700/60 hover:border-rose-500/60 hover:bg-slate-800/80 rounded-xl px-2 py-2.5 transition-colors active:scale-95">
               <span className="text-[10px] font-bold text-slate-400 text-center leading-tight">{m.name || m.id}</span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
+
+      {/* 보스 미리보기 팝업 */}
+      {popupBoss && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setPopupBoss(null)}>
+          <div className="bg-slate-900 rounded-3xl p-8 flex flex-col items-center gap-5 shadow-2xl min-w-[280px]"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-center" style={{ width: 220, height: 220 }}>
+              <SpriteMonster data={popupBoss} anim="idle" scale={Math.min(220 / popupBoss.frameHeight, 220 / popupBoss.frameWidth) * 0.88} />
+            </div>
+            <div className="text-white font-extrabold text-lg">{popupBoss.name}</div>
+            <button onClick={() => setPopupBoss(null)}
+              className="text-slate-400 hover:text-white text-sm font-bold px-4 py-1.5 rounded-lg hover:bg-slate-800 transition-colors">
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -379,15 +400,10 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
     setHitFeed(cur => [...newHits, ...cur].slice(0, 10));
   }, [raid?.participants]);
 
-  // 5초 후 오래된 항목 제거
+  // 문제 바뀌면 킬피드 초기화
   useEffect(() => {
-    if (hitFeed.length === 0) return;
-    const t = setTimeout(() => {
-      const now = Date.now();
-      setHitFeed(cur => cur.filter(h => now - h.ts < 5000));
-    }, 5000);
-    return () => clearTimeout(t);
-  }, [hitFeed]);
+    setHitFeed([]);
+  }, [qIdx]);
 
   // 정답/오답 시 파티클 발사
   useEffect(() => {
@@ -432,10 +448,10 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
           <div className="absolute right-3 top-14 flex flex-col gap-1 items-end pointer-events-none z-10 max-w-[160px]">
             {hitFeed.map((h, i) => (
               <div key={h.uid}
-                className="flex items-center gap-2 bg-slate-900/85 border border-emerald-600/50 text-emerald-300 text-sm font-bold px-3.5 py-1.5 rounded-xl backdrop-blur-sm"
-                style={{ opacity: Math.max(0.35, 1 - i * 0.09) }}>
-                <span className="truncate max-w-[120px]">⚔️ {h.name}</span>
-                <span className="text-rose-400 shrink-0">-{h.damage}</span>
+                className="flex items-center gap-2 bg-slate-900/85 border border-emerald-600/50 text-emerald-300 text-base font-bold px-4 py-2 rounded-xl backdrop-blur-sm"
+                style={{ opacity: Math.max(0.35, 1 - i * 0.07) }}>
+                <span className="truncate max-w-[160px]">⚔️ {h.name}</span>
+                <span className="text-rose-400 shrink-0 text-sm">-{h.damage}</span>
               </div>
             ))}
           </div>
@@ -624,7 +640,7 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
 export default function BossRaid({ studentCode, studentDocId, isTeacher = false }) {
   const [raid, setRaid]           = useState(undefined); // undefined=로딩, null=없음
   const [studentData, setStudentData] = useState(null);
-  const [showIntro, setShowIntro] = useState(true);
+  const [showIntro, setShowIntro] = useState(!isTeacher);
 
   // 내 답변 상태 (로컬)
   const [myAnswer, setMyAnswer]   = useState(null);  // { idx, correct } | null

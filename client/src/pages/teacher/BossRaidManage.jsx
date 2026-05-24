@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  collection, getDocs, addDoc, updateDoc, doc, writeBatch,
+  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch,
   onSnapshot, serverTimestamp, increment, getDoc, query, where,
 } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
@@ -118,20 +118,16 @@ const fitScale = (data, maxW, maxH) =>
 // ── 보스 몬스터 피커 ─────────────────────────────────────────────
 const ANIM_KO = { idle: '대기', run: '이동', attack: '공격', death: '사망' };
 
-// 뷰포트 진입 시에만 스프라이트 로드 (대용량 PNG 렉 방지)
-function LazyPickerSprite({ data, scale, w, h }) {
-  const ref = useRef(null);
-  const [visible, setVisible] = useState(false);
+// 배치 지연 로딩 — PNG 동시 요청 분산 (6개씩 200ms 간격)
+function LazyPickerSprite({ data, scale, w, h, loadDelay = 0 }) {
+  const [visible, setVisible] = useState(loadDelay === 0);
   useEffect(() => {
-    const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } },
-      { threshold: 0.1 }
-    );
-    if (ref.current) obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, []);
+    if (loadDelay === 0) return;
+    const t = setTimeout(() => setVisible(true), loadDelay);
+    return () => clearTimeout(t);
+  }, [loadDelay]);
   return (
-    <div ref={ref} style={{ width: w, height: h }} className="flex items-center justify-center">
+    <div style={{ width: w, height: h }} className="flex items-center justify-center">
       {visible && <SpriteMonster data={data} anim="idle" scale={scale} frozen />}
     </div>
   );
@@ -165,15 +161,15 @@ function BossMonsterPicker({ selectedId, onSelect, onClose }) {
 
         {/* 몬스터 그리드 — frozen으로 렉 방지 */}
         <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 gap-3">
-          {list.map(m => (
+          {list.map((m, idx) => (
             <div key={m.id}
               className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all
                 ${selectedId === m.id
                   ? 'border-rose-500 bg-rose-50 shadow-md'
                   : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
               <button className="w-full flex flex-col items-center gap-1" onClick={() => { onSelect(m.id); onClose(); }}>
-                <div className="flex items-center justify-center overflow-hidden" style={{ width: 96, height: 96 }}>
-                  <LazyPickerSprite data={m} scale={fitScale(m, 96, 96)} w={96} h={96} />
+                <div className="flex items-center justify-center overflow-hidden" style={{ width: 120, height: 120 }}>
+                  <LazyPickerSprite data={m} scale={fitScale(m, 120, 120)} w={120} h={120} loadDelay={Math.floor(idx / 6) * 200} />
                 </div>
                 <div className="text-xs font-bold text-slate-700 text-center leading-tight">{m.name}</div>
                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${TIER_COLOR[m.tier]}`}>
@@ -193,13 +189,13 @@ function BossMonsterPicker({ selectedId, onSelect, onClose }) {
       {previewId && (() => {
         const pm = MONSTERS_DB[previewId];
         if (!pm) return null;
-        const ps = fitScale(pm, 240, 240);
+        const ps = fitScale(pm, 300, 300);
         return (
           <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center"
             onClick={() => setPreviewId(null)}>
             <div className="bg-slate-900 rounded-3xl p-8 flex flex-col items-center gap-5 shadow-2xl min-w-[320px]"
               onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-center" style={{ width: 260, height: 260 }}>
+              <div className="flex items-center justify-center" style={{ width: 320, height: 320 }}>
                 <SpriteMonster data={pm} anim={previewAnim} scale={ps} />
               </div>
               <div className="text-white font-extrabold text-xl">{pm.name}</div>
@@ -557,6 +553,7 @@ export default function BossRaidManage({ onViewLobby }) {
           clearedAt:        null,
         });
         showToast('대기실이 열렸습니다! 학생들이 입장하면 시작 버튼을 눌러주세요.');
+        setTab('active');
       } catch (err) {
         console.error(err);
         showToast('레이드 생성 중 오류가 발생했습니다.', 'error');
@@ -604,6 +601,14 @@ export default function BossRaidManage({ onViewLobby }) {
       await updateDoc(doc(db, 'worldBossRaids', raidId), {
         status: 'failed', clearedAt: serverTimestamp(),
       });
+    });
+  };
+
+  // ── 레이드 기록 삭제 ─────────────────────────────────────────
+  const deleteRaid = (raidId) => {
+    showConfirm('이 레이드 기록을 삭제할까요?', async () => {
+      await deleteDoc(doc(db, 'worldBossRaids', raidId));
+      showToast('삭제됐습니다.');
     });
   };
 
@@ -913,7 +918,7 @@ export default function BossRaidManage({ onViewLobby }) {
                         )}
                       </div>
 
-                      {/* 우측: 상태 + 펼치기 */}
+                      {/* 우측: 상태 + 펼치기 + 삭제 */}
                       <div className="shrink-0 flex flex-col items-end gap-2">
                         <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full
                           ${isCleared ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
@@ -923,6 +928,11 @@ export default function BossRaidManage({ onViewLobby }) {
                           onClick={() => setExpandedRaidId(isExpanded ? null : raid.id)}
                           className="flex items-center gap-1 text-xs font-bold text-indigo-500 hover:text-indigo-700 px-2.5 py-1 rounded-lg hover:bg-indigo-50 transition-colors border border-indigo-200">
                           📊 결과 {isExpanded ? '▲ 접기' : '▼ 펼치기'}
+                        </button>
+                        <button
+                          onClick={() => deleteRaid(raid.id)}
+                          className="text-xs font-bold text-rose-400 hover:text-rose-600 px-2.5 py-1 rounded-lg hover:bg-rose-50 transition-colors border border-rose-200">
+                          🗑 삭제
                         </button>
                       </div>
                     </div>

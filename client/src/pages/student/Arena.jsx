@@ -909,20 +909,16 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
 
         {/* 내 캐릭터 미리보기 */}
         {me && (
-          <div className="bg-slate-900/60 rounded-2xl p-5 mb-6 flex items-center gap-5 border border-slate-700 w-full max-w-sm">
-            <div className="w-48 h-64 flex items-center justify-center shrink-0">
+          <div className="bg-slate-900/60 rounded-2xl px-6 pt-5 pb-4 mb-6 flex flex-col items-center gap-2 border border-slate-700 w-full max-w-xs">
+            <div className="w-full h-56 flex items-center justify-center overflow-hidden">
               {me.characterImage
                 ? <img src={me.characterImage} alt="" className="w-full h-full object-contain"
-                    style={{ imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
-                : <span className="text-6xl">🧑‍🎓</span>}
+                    style={{ imageRendering: 'pixelated', transform: 'scaleX(-1) scale(2.2)', transformOrigin: 'center' }} />
+                : <span className="text-7xl">🧑‍🎓</span>}
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-extrabold text-white text-base truncate">{me.name || me.studentCode}</div>
+            <div className="text-center">
+              <div className="font-extrabold text-white text-base">{me.name || me.studentCode}</div>
               <div className="text-violet-400 font-bold text-sm mt-0.5">Lv.{me.level || 1}</div>
-              <div className="flex gap-3 mt-2 text-sm font-bold">
-                <span className="text-amber-400">🪙 {(me.gold||0).toLocaleString()}</span>
-                <span className="text-cyan-400">💎 {me.diamonds||0}</span>
-              </div>
             </div>
           </div>
         )}

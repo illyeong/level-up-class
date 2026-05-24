@@ -20,6 +20,8 @@ import TeacherCharacter from './TeacherCharacter';
 import FeedbackBoard from './FeedbackBoard';
 import DataReset from './DataReset';
 import BossRaid from '../student/BossRaid';
+import QuizDungeon from '../student/QuizDungeon';
+import ExplorationDungeon from '../student/ExplorationDungeon';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
   const [currentView, setCurrentView]   = useState('dashboard');
@@ -94,6 +96,8 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'quizDungeonManage' && <QuizDungeonManage />}
         {currentView === 'bossRaidManage'    && <BossRaidManage onViewLobby={() => setCurrentView('bossRaid')} />}
         {currentView === 'bossRaid'          && <BossRaid isTeacher={true} />}
+        {currentView === 'quizDungeon'       && <QuizDungeon isTeacher={true} />}
+        {currentView === 'explorationDungeon' && <ExplorationDungeon isTeacher={true} />}
 
         {/* 임시 준비 중 화면들 */}
         {currentView === 'myCharacter'     && <TeacherCharacter selectedClass={selectedClass} />}
