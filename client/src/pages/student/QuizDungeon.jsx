@@ -327,11 +327,22 @@ function BossIntroModal({ dungeon, onConfirm, onCancel }) {
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className={`bg-slate-950 w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl border-t border-slate-800 sm:border overflow-hidden shadow-2xl`}>
 
-        {/* 상단 몬스터 배너 */}
+        {/* 상단 몬스터 배너 — 모든 몬스터를 가로 배열로 표시 */}
         <div className={`bg-gradient-to-b ${theme.grad} px-6 pt-6 pb-5 text-center relative`}>
-          <div className="flex justify-center items-end mb-3" style={{ height: 130 }}>
-            {mainMonsterDat
-              ? <SpriteMonster data={mainMonsterDat} anim="idle" scale={mScale} />
+          <div className="flex justify-center items-end gap-3 mb-3 flex-wrap" style={{ minHeight: 90 }}>
+            {waves.length > 0
+              ? waves.map((wave, i) => {
+                  const wMon   = MONSTERS_DB[wave.monsterId];
+                  if (!wMon) return null;
+                  const wScale = Math.min(80 / wMon.frameHeight, 80 / wMon.frameWidth) * 0.88;
+                  return (
+                    <div key={i} className="flex flex-col items-center gap-1">
+                      <SpriteMonster data={wMon} anim="idle" scale={wScale} />
+                      <span className="text-[10px] text-white/70 font-bold leading-tight">{wMon.name}</span>
+                      <span className="text-[9px] text-white/40">{wave.questionCount}문</span>
+                    </div>
+                  );
+                })
               : <div className="text-8xl opacity-80 select-none">{m.emoji}</div>
             }
           </div>
@@ -346,30 +357,6 @@ function BossIntroModal({ dungeon, onConfirm, onCancel }) {
           <p className="text-slate-400 text-xs mt-1 line-clamp-1">{dungeon.title}</p>
           <p className="text-slate-500 text-xs mt-0.5">{m.desc}</p>
         </div>
-
-        {/* 출현 웨이브 목록 (2웨이브 이상일 때) */}
-        {waves.length > 1 && (
-          <div className="px-5 pt-3 pb-1">
-            <div className="text-[10px] font-bold text-slate-500 mb-2">⚔️ 출현 몬스터 ({waves.length}웨이브)</div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {waves.map((wave, i) => {
-                const wMon  = MONSTERS_DB[wave.monsterId];
-                const wScale = wMon ? Math.min(36 / wMon.frameHeight, 36 / wMon.frameWidth) * 0.85 : 0;
-                return (
-                  <div key={i} className="flex flex-col items-center gap-0.5 shrink-0">
-                    <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden">
-                      {wMon ? <SpriteMonster data={wMon} anim="idle" scale={wScale} /> : <span className="text-base">👾</span>}
-                    </div>
-                    <div className="text-[8px] text-slate-400 font-bold text-center leading-tight" style={{ maxWidth: 42 }}>
-                      {wMon?.name || '?'}
-                    </div>
-                    <div className="text-[8px] text-slate-600">{wave.questionCount}문</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* 정보 그리드 */}
         <div className="grid grid-cols-2 gap-2 px-5 pt-4 pb-2">
@@ -524,6 +511,19 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       addFloat(`-${DAMAGE_WRONG}`, true);
       setMonsterAnim('attack');
       setTimeout(() => setMonsterAnim('idle'), 1350);
+
+      // 파티클 발사: 몬스터 → 플레이어
+      const monEl = monsterRef.current;
+      const plEl  = playerRef.current;
+      if (monEl && plEl) {
+        const mRect = monEl.getBoundingClientRect();
+        const pRect = plEl.getBoundingClientRect();
+        fireProjectile({
+          from: { x: mRect.left + mRect.width * 0.5, y: mRect.top + mRect.height * 0.35 },
+          to:   { x: pRect.left + pRect.width * 0.5, y: pRect.top  + pRect.height * 0.55 },
+          type: 'fire',
+        });
+      }
     }
     setWrongIdxs(newWrong);
 
@@ -634,25 +634,37 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
         {/* 바닥 라인 */}
         <div className="absolute inset-x-0 bottom-14 h-px bg-indigo-500/20" />
 
+        {/* ── HP 바 행 (씬 상단 고정) ── */}
+        <div className="absolute top-0 inset-x-0 z-20 px-4 pt-2 pb-2 flex items-center gap-2 bg-gradient-to-b from-slate-950/90 to-transparent pointer-events-none">
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-center text-xs mb-1">
+              <span className="text-sky-300 font-extrabold truncate">{playerData?.name || '나'}</span>
+              <span className="text-emerald-400 font-extrabold tabular-nums">{playerHP}</span>
+            </div>
+            <div className="w-full h-3 bg-slate-900/80 rounded-full overflow-hidden border border-slate-600/40">
+              <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(pHPpct)}`}
+                style={{ width: `${pHPpct}%` }} />
+            </div>
+          </div>
+          <span className="text-slate-600 font-bold text-sm shrink-0 select-none">⚔️</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-center text-xs mb-1">
+              <span className="text-rose-300 font-extrabold truncate">{monsterData?.name || monsterMeta.name}</span>
+              <span className="text-rose-400 font-extrabold tabular-nums">{waveMonsterHP}</span>
+            </div>
+            <div className="w-full h-3 bg-slate-900/80 rounded-full overflow-hidden border border-slate-600/40">
+              <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(mHPpct)}`}
+                style={{ width: `${mHPpct}%` }} />
+            </div>
+          </div>
+        </div>
+
         {/* ── 플레이어 (좌 절대위치) ── */}
         {(() => {
           const effH = Math.round(layoutCfg.playerCharHeightPx * layoutCfg.playerScale);
           return (
             <div ref={playerRef} className={`absolute flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}
               style={{ left: `${layoutCfg.playerLeftPct}%`, bottom: layoutCfg.playerBottomPx }}>
-              {/* HP 바 */}
-              <div style={{ width: Math.max(160, effH * 0.55) }} className="relative z-10 mb-3">
-                <div className="flex justify-between items-center text-xs mb-1.5">
-                  <span className="text-sky-300 font-extrabold truncate" style={{ maxWidth: Math.max(100, effH * 0.36) }}>
-                    {playerData?.name || '나'}
-                  </span>
-                  <span className="text-emerald-400 font-extrabold tabular-nums">{playerHP}</span>
-                </div>
-                <div className="w-full h-4 bg-slate-900/80 rounded-full overflow-hidden border border-slate-600/50 shadow-inner">
-                  <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(pHPpct)}`}
-                    style={{ width: `${pHPpct}%` }} />
-                </div>
-              </div>
               {/* 캐릭터 - height만 고정, width는 이미지 비율에 맡겨 letterbox 방지 */}
               <div style={{ height: effH }} className="flex items-end justify-center">
                 {playerData?.characterImage
@@ -672,19 +684,6 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
         {/* ── 몬스터 (우 절대위치) ── */}
         <div ref={monsterRef} className="absolute flex flex-col items-center"
           style={{ right: `${layoutCfg.monsterRightPct}%`, bottom: layoutCfg.monsterBottomPx }}>
-          {/* HP 바 */}
-          <div style={{ width: Math.max(160, layoutCfg.monsterCharHeightPx * 0.75) }} className="relative z-10 mb-3">
-            <div className="flex justify-between items-center text-xs mb-1.5">
-              <span className="text-rose-300 font-extrabold truncate" style={{ maxWidth: Math.max(100, layoutCfg.monsterCharHeightPx * 0.5) }}>
-                {monsterData?.name || monsterMeta.name}
-              </span>
-              <span className="text-rose-400 font-extrabold tabular-nums">{waveMonsterHP}</span>
-            </div>
-            <div className="w-full h-4 bg-slate-900/80 rounded-full overflow-hidden border border-slate-600/50 shadow-inner">
-              <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(mHPpct)}`}
-                style={{ width: `${mHPpct}%` }} />
-            </div>
-          </div>
           {/* 몬스터 */}
           <div style={{ height: layoutCfg.monsterCharHeightPx, width: layoutCfg.monsterCharHeightPx * 0.85 }}
             className="flex items-end justify-center">

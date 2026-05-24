@@ -117,7 +117,8 @@ const fitScale = (data, maxW, maxH) =>
 
 // ── 보스 몬스터 피커 ─────────────────────────────────────────────
 function BossMonsterPicker({ selectedId, onSelect, onClose }) {
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter]   = useState('all');
+  const [previewId, setPreviewId] = useState(null);
   const list = filter === 'all' ? BOSS_MONSTERS : BOSS_MONSTERS.filter(m => m.tier === filter);
 
   return (
@@ -137,27 +138,60 @@ function BossMonsterPicker({ selectedId, onSelect, onClose }) {
               {l}
             </button>
           ))}
+          <span className="ml-auto text-[10px] text-slate-400 self-center">목록은 정지 이미지 · 👁 버튼으로 애니 미리보기</span>
         </div>
 
-        {/* 몬스터 그리드 */}
+        {/* 몬스터 그리드 — frozen으로 렉 방지 */}
         <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 gap-3">
           {list.map(m => (
-            <button key={m.id} onClick={() => { onSelect(m.id); onClose(); }}
-              className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all
+            <div key={m.id}
+              className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all
                 ${selectedId === m.id
                   ? 'border-rose-500 bg-rose-50 shadow-md'
                   : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
-              <div className="flex items-center justify-center overflow-hidden" style={{ width: 72, height: 72 }}>
-                <SpriteMonster data={m} anim="idle" scale={fitScale(m, 72, 72)} />
-              </div>
-              <div className="text-xs font-bold text-slate-700 text-center leading-tight">{m.name}</div>
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${TIER_COLOR[m.tier]}`}>
-                {TIER_LABEL[m.tier]}
-              </span>
-            </button>
+              <button className="w-full flex flex-col items-center gap-1" onClick={() => { onSelect(m.id); onClose(); }}>
+                <div className="flex items-center justify-center overflow-hidden" style={{ width: 72, height: 72 }}>
+                  <SpriteMonster data={m} anim="idle" scale={fitScale(m, 72, 72)} frozen />
+                </div>
+                <div className="text-xs font-bold text-slate-700 text-center leading-tight">{m.name}</div>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${TIER_COLOR[m.tier]}`}>
+                  {TIER_LABEL[m.tier]}
+                </span>
+              </button>
+              <button onClick={() => setPreviewId(m.id)}
+                className="text-[10px] text-slate-400 hover:text-rose-500 font-bold px-2 py-0.5 rounded-lg hover:bg-rose-50 transition-colors w-full text-center">
+                👁 미리보기
+              </button>
+            </div>
           ))}
         </div>
       </div>
+
+      {/* 미리보기 팝업 */}
+      {previewId && (() => {
+        const pm = MONSTERS_DB[previewId];
+        if (!pm) return null;
+        const ps = fitScale(pm, 160, 160);
+        return (
+          <div className="fixed inset-0 z-60 bg-black/70 flex items-center justify-center"
+            onClick={() => setPreviewId(null)}>
+            <div className="bg-slate-900 rounded-3xl p-6 flex flex-col items-center gap-4 shadow-2xl"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-center" style={{ width: 180, height: 180 }}>
+                <SpriteMonster data={pm} anim="idle" scale={ps} />
+              </div>
+              <div className="text-white font-extrabold text-base">{pm.name}</div>
+              <div className="flex gap-2">
+                {['idle','run','attack','death'].map(a => pm.animations?.[a] && (
+                  <button key={a} onClick={() => {}} className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg bg-slate-800">{a}</button>
+                ))}
+              </div>
+              <button onClick={() => setPreviewId(null)}
+                className="text-slate-400 hover:text-white text-sm font-bold">닫기</button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -179,8 +213,84 @@ function HpBar({ current, max, height = 'h-4' }) {
   );
 }
 
+// ── 결과 보기 모달 ───────────────────────────────────────────────
+function RaidResultModal({ raid, onClose }) {
+  const questions = (raid.questions || []).filter(q => q.type !== 'short');
+  const pList = Object.entries(raid.participants || {})
+    .map(([id, p]) => ({ id, ...p }))
+    .sort((a, b) => (b.totalDamage || 0) - (a.totalDamage || 0));
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h2 className="font-extrabold text-slate-800 text-lg">📊 레이드 결과 — {raid.bossName}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{pList.length}명 참가 · {questions.length}문제</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl font-bold">×</button>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          {pList.length === 0 ? (
+            <p className="text-center text-slate-400 py-10">참가자 데이터가 없습니다.</p>
+          ) : (
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50">
+                  <th className="text-left px-3 py-2 font-bold text-slate-600 sticky left-0 bg-slate-50 border-b border-slate-200">학생</th>
+                  <th className="px-2 py-2 font-bold text-emerald-600 border-b border-slate-200">정답</th>
+                  <th className="px-2 py-2 font-bold text-rose-500 border-b border-slate-200">오답</th>
+                  <th className="px-2 py-2 font-bold text-rose-600 border-b border-slate-200">데미지</th>
+                  {questions.map((q, qi) => (
+                    <th key={qi} className="px-2 py-2 font-bold text-slate-500 border-b border-slate-200 min-w-[32px]">
+                      Q{qi + 1}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pList.map((p, pi) => (
+                  <tr key={p.id} className={pi % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                    <td className="px-3 py-2 font-bold text-slate-800 sticky left-0 bg-inherit border-b border-slate-100">
+                      {p.name || '학생'}
+                    </td>
+                    <td className="px-2 py-2 text-center text-emerald-600 font-extrabold border-b border-slate-100">
+                      {p.correctCount || 0}
+                    </td>
+                    <td className="px-2 py-2 text-center text-rose-500 font-extrabold border-b border-slate-100">
+                      {p.wrongCount || 0}
+                    </td>
+                    <td className="px-2 py-2 text-center text-rose-600 font-bold border-b border-slate-100">
+                      {(p.totalDamage || 0).toLocaleString()}
+                    </td>
+                    {questions.map((q, qi) => {
+                      const res = p.qResults?.[qi];
+                      return (
+                        <td key={qi} className="px-1 py-2 text-center border-b border-slate-100">
+                          {res === undefined ? (
+                            <span className="text-slate-300">-</span>
+                          ) : res ? (
+                            <span className="text-emerald-500 font-bold">✓</span>
+                          ) : (
+                            <span className="text-rose-500 font-bold">✗</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 진행 중 레이드 패널 ──────────────────────────────────────────
-function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, isPaying, onViewLobby }) {
+function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, isPaying, onViewLobby, onViewResult }) {
   const bossData = raid.bossId ? MONSTERS_DB[raid.bossId] : null;
   const pMap     = raid.participants || {};
   const pList    = Object.entries(pMap)
@@ -205,9 +315,9 @@ function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, i
       <div className="bg-slate-900 rounded-2xl p-5 text-white shadow-xl">
         <div className="flex items-start gap-4 mb-4">
           {/* 보스 스프라이트 */}
-          <div className="flex items-center justify-center shrink-0 overflow-hidden" style={{ width: 80, height: 80 }}>
+          <div className="flex items-center justify-center shrink-0 overflow-hidden" style={{ width: 120, height: 120 }}>
             {bossData
-              ? <SpriteMonster data={bossData} anim={isEnded ? 'death' : 'idle'} scale={fitScale(bossData, 80, 80)} />
+              ? <SpriteMonster data={bossData} anim={isEnded ? 'death' : 'idle'} scale={fitScale(bossData, 120, 120)} />
               : <div className="text-5xl">👾</div>
             }
           </div>
@@ -246,18 +356,16 @@ function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, i
       {/* 액션 버튼 */}
       <div className="flex flex-wrap gap-3">
         {isWaiting && (
-          <>
-            <button onClick={onStart}
-              className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl transition-colors shadow">
-              ⚔️ 레이드 시작 ({pList.length}명 대기 중)
-            </button>
-            {onViewLobby && (
-              <button onClick={onViewLobby}
-                className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors text-sm">
-                🎮 대기실 보기
-              </button>
-            )}
-          </>
+          <button onClick={onStart}
+            className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl transition-colors shadow">
+            ⚔️ 레이드 시작 ({pList.length}명 대기 중)
+          </button>
+        )}
+        {(isWaiting || isActive) && onViewLobby && (
+          <button onClick={onViewLobby}
+            className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors text-sm">
+            🎮 레이드 화면 보기
+          </button>
         )}
         {isActive && !raid.autoAdvance && qIdx < totalQ - 1 && (
           <button onClick={onNextQuestion}
@@ -265,7 +373,7 @@ function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, i
             ▶ 다음 문제 ({qIdx + 1}/{totalQ})
           </button>
         )}
-        {(isActive || isEnded) && !raid.rewardsPaid && (
+        {isEnded && !raid.rewardsPaid && (
           <button onClick={onPayRewards} disabled={isPaying}
             className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-extrabold rounded-xl transition-colors disabled:opacity-50">
             {isPaying ? '지급 중...' : `🎁 보상 지급 (${pList.length}명)`}
@@ -275,6 +383,12 @@ function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, i
           <div className="flex-1 py-3 bg-slate-100 text-slate-400 font-bold rounded-xl text-center text-sm">
             ✅ 보상 지급 완료
           </div>
+        )}
+        {isEnded && onViewResult && (
+          <button onClick={onViewResult}
+            className="px-5 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-colors text-sm">
+            📊 결과 보기
+          </button>
         )}
         {!isEnded && (
           <button onClick={onEnd}
@@ -333,6 +447,7 @@ export default function BossRaidManage({ onViewLobby }) {
   const [showBossPicker, setShowBossPicker] = useState(false);
   const [toast, setToast]           = useState(null);
   const [confirmState, setConfirmState] = useState(null);
+  const [resultRaid, setResultRaid] = useState(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -350,7 +465,7 @@ export default function BossRaidManage({ onViewLobby }) {
     penaltyAmount:    50,
     questionDuration: 20,
     autoAdvance:      true,
-    rewards:          { gold: 200, exp: 100, diamond: 5 },
+    rewards:          { gold: 200, exp: 100, diamond: 100 },
   });
 
   const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -426,7 +541,7 @@ export default function BossRaidManage({ onViewLobby }) {
   };
 
   // ── 레이드 시작 ─────────────────────────────────────────────
-  const startRaid = (raidId) => {
+  const startRaid = (raidId, afterStartCb) => {
     showConfirm('레이드를 시작할까요? 학생들에게 바로 문제가 출제됩니다.', async () => {
       await updateDoc(doc(db, 'worldBossRaids', raidId), {
         status:             'active',
@@ -434,6 +549,7 @@ export default function BossRaidManage({ onViewLobby }) {
         questionStartedAt:  serverTimestamp(),
         startedAt:          serverTimestamp(),
       });
+      afterStartCb?.();
     });
   };
 
@@ -541,12 +657,13 @@ export default function BossRaidManage({ onViewLobby }) {
             <div className="space-y-6">
               {activeRaids.map(raid => (
                 <ActiveRaidPanel key={raid.id} raid={raid}
-                  onStart={() => startRaid(raid.id)}
+                  onStart={() => startRaid(raid.id, onViewLobby)}
                   onNextQuestion={() => nextQuestion(raid)}
                   onEnd={() => endRaid(raid.id)}
                   onPayRewards={() => payRewards(raid)}
                   isPaying={isPaying}
                   onViewLobby={onViewLobby}
+                  onViewResult={() => setResultRaid(raid)}
                 />
               ))}
             </div>
@@ -567,10 +684,10 @@ export default function BossRaidManage({ onViewLobby }) {
               <h2 className="font-bold text-slate-700 text-sm mb-4">👾 보스 선택</h2>
               <div className="flex items-center gap-4">
                 <div className="flex items-center justify-center shrink-0 bg-slate-900 rounded-2xl overflow-hidden"
-                  style={{ width: 100, height: 100 }}>
+                  style={{ width: 150, height: 150 }}>
                   {bossData
-                    ? <SpriteMonster data={bossData} anim="idle" scale={fitScale(bossData, 100, 100)} />
-                    : <div className="text-4xl">👾</div>
+                    ? <SpriteMonster data={bossData} anim="idle" scale={fitScale(bossData, 150, 150)} />
+                    : <div className="text-5xl">👾</div>
                   }
                 </div>
                 <div className="flex-1 min-w-0">
@@ -742,12 +859,16 @@ export default function BossRaidManage({ onViewLobby }) {
                         <div className="font-bold text-slate-800 text-sm truncate">{raid.bossName}</div>
                         <div className="text-[11px] text-slate-400">{fmtDate(raid.clearedAt)}</div>
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
                         <div className={`text-xs font-extrabold px-2 py-0.5 rounded-full
                           ${raid.status === 'cleared' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
                           {raid.status === 'cleared' ? '✅ 클리어' : '💀 실패'}
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">{pCount}명 참가</div>
+                        <div className="text-[10px] text-slate-400">{pCount}명 참가</div>
+                        <button onClick={() => setResultRaid(raid)}
+                          className="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold px-2 py-0.5 rounded-lg hover:bg-indigo-50 transition-colors">
+                          📊 결과 보기
+                        </button>
                       </div>
                     </div>
                   );
@@ -767,6 +888,8 @@ export default function BossRaidManage({ onViewLobby }) {
         />
       )}
     </div>
+
+    {resultRaid && <RaidResultModal raid={resultRaid} onClose={() => setResultRaid(null)} />}
 
     {toast && (
       <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none

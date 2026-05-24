@@ -89,10 +89,10 @@ function ParticipantRoster({ participants, currentQuestionIdx }) {
             <div key={p.id} className="flex flex-col items-center gap-1 shrink-0 w-20">
               <div className="relative">
                 {p.characterImage
-                  ? <div className="w-16 h-16 rounded-xl bg-slate-800 border border-slate-600 overflow-hidden flex items-center justify-center">
+                  ? <div className="w-16 h-16 rounded-xl bg-slate-800 border border-slate-600 flex items-center justify-center">
                       <img src={p.characterImage} alt=""
                         className="w-full h-full object-contain"
-                        style={{ transform: 'scale(2.2)', transformOrigin: 'center 65%', imageRendering: 'pixelated' }} />
+                        style={{ imageRendering: 'pixelated' }} />
                     </div>
                   : <div className="w-16 h-16 rounded-xl bg-slate-700 flex items-center justify-center text-3xl">🧑</div>
                 }
@@ -179,9 +179,9 @@ function IntroScreen({ raid, bossData, onEnter }) {
             return (
               <div key={m.id} className="flex flex-col items-center gap-1 bg-slate-900/60 border border-slate-700/60 rounded-2xl px-2 pt-3 pb-2">
                 <div className="flex items-center justify-center" style={{ width: 60, height: 60 }}>
-                  <SpriteMonster data={m} anim="idle" scale={sc} />
+                  <SpriteMonster data={m} anim="idle" scale={sc} frozen />
                 </div>
-                <span className="text-[9px] font-bold text-slate-400 text-center truncate w-full">{m.id}</span>
+                <span className="text-[9px] font-bold text-slate-400 text-center truncate w-full">{m.name || m.id}</span>
               </div>
             );
           })}
@@ -271,22 +271,22 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
         {pList.length === 0 ? (
           <div className="text-slate-500 text-sm text-center py-4">아직 참가자가 없습니다</div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
             {pList.map(p => (
               <div key={p.id}
-                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all
+                className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all
                   ${!isTeacher && p.id === myId
                     ? 'border-emerald-500 bg-emerald-900/30'
                     : 'border-slate-700 bg-slate-800/60'}`}>
                 {p.characterImage
-                  ? <div className="w-full rounded-xl bg-slate-700 flex items-center justify-center" style={{ aspectRatio: '1', minHeight: 100 }}>
+                  ? <div className="w-full rounded-lg bg-slate-700 overflow-hidden flex items-center justify-center" style={{ aspectRatio: '1', minHeight: 52 }}>
                       <img src={p.characterImage} alt=""
                         className="w-full h-full object-contain"
-                        style={{ imageRendering: 'pixelated' }} />
+                        style={{ imageRendering: 'pixelated', transform: 'scale(1.2)', transformOrigin: 'center' }} />
                     </div>
-                  : <div className="w-full rounded-xl bg-slate-700 flex items-center justify-center text-6xl" style={{ aspectRatio: '1', minHeight: 100 }}>🧑</div>
+                  : <div className="w-full rounded-lg bg-slate-700 flex items-center justify-center text-3xl" style={{ aspectRatio: '1', minHeight: 52 }}>🧑</div>
                 }
-                <span className={`text-sm font-bold text-center truncate w-full leading-tight
+                <span className={`text-xs font-bold text-center truncate w-full leading-tight
                   ${!isTeacher && p.id === myId ? 'text-emerald-300' : 'text-slate-200'}`}>
                   {p.name || '학생'}
                 </span>
@@ -734,6 +734,7 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
       [`participants.${studentDocId}.lastAnsweredIdx`]:    raid.currentQuestionIdx,
       [`participants.${studentDocId}.lastAnsweredCorrect`]: correct,
       [`participants.${studentDocId}.answeredCount`]:      increment(1),
+      [`participants.${studentDocId}.qResults.${raid.currentQuestionIdx}`]: correct ? 1 : 0,
     };
     if (correct) {
       updates.currentHP = increment(-raid.damagePerHit);

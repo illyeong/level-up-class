@@ -14,6 +14,7 @@ export default function SpriteMonster({
   anim      = 'idle',
   scale,
   flash     = false,
+  frozen    = false,
   onAnimEnd,
   className = '',
 }) {
@@ -29,6 +30,8 @@ export default function SpriteMonster({
     frameRef.current = 0;
     setFrame(0);
     clearInterval(timerRef.current);
+
+    if (frozen) return; // 정적 표시: 첫 프레임만
 
     timerRef.current = setInterval(() => {
       frameRef.current += 1;
