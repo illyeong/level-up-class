@@ -202,11 +202,11 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
         </div>
       )}
       {isMyPost && (
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity z-10">
+        <div className="absolute top-2 right-2 flex gap-1 z-10">
           <button onClick={() => setIsEditing(true)}
-            className="text-[9px] text-slate-400 hover:text-indigo-500 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm">수정</button>
+            className="text-[9px] text-slate-500 hover:text-indigo-600 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm border border-slate-200">수정</button>
           <button onClick={() => onDelete?.(post.id)}
-            className="text-[9px] text-slate-400 hover:text-rose-500 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm">삭제</button>
+            className="text-[9px] text-slate-500 hover:text-rose-500 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm border border-slate-200">삭제</button>
         </div>
       )}
       <div className="p-4">
@@ -321,6 +321,8 @@ export default function LearningBoard({ studentCode }) {
   const openBoard = async (board) => {
     setSelectedBoard(board);
     setPages(board.pages || []);
+    setShowWrite(false);
+    setWriteLat(null); setWriteLng(null);
     setLoadingPosts(true);
     try {
       const snap = await getDocs(
@@ -346,7 +348,9 @@ export default function LearningBoard({ studentCode }) {
         if (p.lat && p.lng)
           L.marker([p.lat, p.lng]).addTo(map).bindPopup(`<b>${p.studentName}</b><br>${p.content || ''}`);
       });
+      const initTime = Date.now();
       map.on('click', e => {
+        if (Date.now() - initTime < 800) return;
         setWriteLat(e.latlng.lat); setWriteLng(e.latlng.lng);
         setShowWrite(true); setTimeout(() => textRef.current?.focus(), 50);
       });
@@ -588,7 +592,12 @@ export default function LearningBoard({ studentCode }) {
     if (type === 'map') {
       return (
         <div style={{ ...wrap, padding: 0, position: 'relative', overflow: 'hidden' }}>
-          <div ref={mapDivRef} style={{ height: 'calc(100vh - 230px)', width: '100%' }} />
+          <div ref={mapDivRef} style={{ height: 'calc(100vh - 180px)', width: '100%' }} />
+          <button
+            onClick={() => { setSelectedBoard(null); setPosts([]); setPages([]); setSearchQuery(''); }}
+            className="absolute top-3 left-3 z-[1000] bg-white hover:bg-slate-50 shadow-lg rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:text-indigo-600 border border-slate-200 flex items-center gap-2 transition-all">
+            ← 목록
+          </button>
           <div className="absolute bottom-4 left-4 bg-white/90 rounded-xl px-3 py-2 text-xs text-slate-500 shadow pointer-events-none z-[1000]">
             📍 지도를 클릭하면 해당 위치에 게시물을 작성합니다
           </div>

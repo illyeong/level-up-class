@@ -508,7 +508,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       </div>
 
       {/* 문제 영역 */}
-      <div className="flex-1 bg-slate-950/90 p-4 space-y-3">
+      <div className="flex-1 p-4 space-y-3">
         {/* 문제 헤더 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

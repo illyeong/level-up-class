@@ -312,7 +312,7 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
               <img
                 src={studentData.characterImage}
                 alt="내 캐릭터"
-                className="w-full h-full object-contain scale-[3.5] drop-shadow-md"
+                className="w-full h-full object-contain scale-[2] drop-shadow-md"
                 onError={e => { e.target.style.display = 'none'; }}
               />
             ) : (

@@ -613,6 +613,15 @@ export default function BossRaidManage({ onViewLobby }) {
     });
   };
 
+  const deleteAllRaids = () => {
+    showConfirm(`종료된 레이드 기록 ${pastRaids.length}건을 모두 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`, async () => {
+      const batch = writeBatch(db);
+      pastRaids.forEach(r => batch.delete(doc(db, 'worldBossRaids', r.id)));
+      await batch.commit();
+      showToast(`${pastRaids.length}건 모두 삭제됐습니다.`);
+    });
+  };
+
   // ── 보상 지급 ────────────────────────────────────────────────
   const payRewards = (raid) => {
     const pIds = Object.keys(raid.participants || {});
@@ -667,7 +676,7 @@ export default function BossRaidManage({ onViewLobby }) {
             <p className="text-slate-500 text-sm mt-0.5">학급 전체 협동 이벤트 — 퀴즈를 맞혀 보스를 쓰러뜨려요</p>
           </div>
           <div className="flex gap-2">
-            {[['active', '진행/대기'], ['create', '레이드 생성'], ['history', '이전 기록']].map(([t, l]) => (
+            {[['active', '진행/대기'], ['create', '레이드 생성'], ['history', '결과 확인']].map(([t, l]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-3 py-2 rounded-xl font-bold text-sm transition-colors
                   ${tab === t ? 'bg-rose-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200'}`}>
@@ -876,15 +885,22 @@ export default function BossRaidManage({ onViewLobby }) {
           </div>
         )}
 
-        {/* ── 이전 기록 탭 ── */}
+        {/* ── 결과 확인 탭 ── */}
         {tab === 'history' && (
           pastRaids.length === 0 ? (
             <div className="text-center py-20 text-slate-400">
               <div className="text-5xl mb-3">📜</div>
-              <p className="font-bold text-lg text-slate-600">이전 레이드 기록이 없습니다</p>
+              <p className="font-bold text-lg text-slate-600">레이드 결과 기록이 없습니다</p>
             </div>
           ) : (
             <div className="space-y-3">
+              <div className="flex justify-end">
+                <button
+                  onClick={deleteAllRaids}
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors">
+                  🗑 전체 기록 삭제 ({pastRaids.length}건)
+                </button>
+              </div>
               {pastRaids.map(raid => {
                 const pCount    = Object.keys(raid.participants || {}).length;
                 const bd        = MONSTERS_DB[raid.bossId];

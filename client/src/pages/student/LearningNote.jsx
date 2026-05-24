@@ -178,7 +178,10 @@ export default function LearningNote({ studentCode }) {
     const days = new Set(noteList.map(n => n.date));
     let count = 0;
     const d = new Date(today);
+    // 오늘이 주말이면 가장 최근 평일(금요일)부터 시작
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
     while (true) {
+      if (d.getDay() === 0 || d.getDay() === 6) { d.setDate(d.getDate() - 1); continue; }
       const s = d.toISOString().slice(0, 10);
       if (days.has(s)) { count++; d.setDate(d.getDate() - 1); }
       else break;
@@ -547,10 +550,10 @@ export default function LearningNote({ studentCode }) {
               )}
             </div>
           )}
-          {selectedDate && (
+          {selectedDate && calendarNotes && calendarNotes.length > 0 && (
             <div className="bg-indigo-50 rounded-xl px-3 py-2.5 border border-indigo-100 flex items-center justify-between">
               <span className="text-xs font-bold text-indigo-700">
-                📅 {selectedDate} {calendarNotes.length > 0 ? `· ${calendarNotes.length}건` : '· 없음'}
+                📅 {selectedDate} · {calendarNotes.length}건
               </span>
               <button onClick={() => setSelectedDate(null)}
                 className="text-[10px] text-indigo-400 hover:text-indigo-700 font-bold">전체</button>

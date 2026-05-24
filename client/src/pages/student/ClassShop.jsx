@@ -603,24 +603,25 @@ function ClassShop({ studentCode }) {
             {ownedItems.map(inv => {
               const remaining = inv.totalQuantity - inv.usedQuantity;
               return (
-                <div key={inv.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-all">
-                  <div className="p-5 flex flex-col items-center text-center">
-                    <div className="relative mb-4">
-                      <div className="w-20 h-20 bg-gradient-to-br from-indigo-50 to-violet-50 rounded-2xl flex items-center justify-center text-5xl border border-indigo-100">
+                <div key={inv.id}
+                  className="bg-gradient-to-b from-indigo-600 to-indigo-900 rounded-2xl shadow-lg overflow-hidden hover:shadow-xl hover:-translate-y-0.5 transition-all border border-indigo-500/40">
+                  <div className="p-4 flex flex-col items-center text-center">
+                    <div className="relative mb-3">
+                      <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-4xl border border-white/20 shadow-inner">
                         {inv.itemIcon || '🛍️'}
                       </div>
-                      <div className="absolute -top-1.5 -right-1.5 bg-indigo-600 text-white text-xs font-extrabold w-6 h-6 rounded-full flex items-center justify-center shadow-sm">
+                      <div className="absolute -top-1 -right-1 bg-amber-400 text-amber-900 text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow">
                         {remaining}
                       </div>
                     </div>
-                    <h3 className="font-extrabold text-slate-800 text-sm mb-1 leading-tight">{inv.itemName}</h3>
-                    <div className="text-xs text-slate-400 mb-4">
-                      보유 <span className="font-bold text-indigo-600">{remaining}개</span>
-                      {inv.usedQuantity > 0 && ` (${inv.usedQuantity}개 사용됨)`}
+                    <h3 className="font-extrabold text-white text-sm mb-0.5 leading-tight">{inv.itemName}</h3>
+                    <div className="text-[10px] text-indigo-200 mb-3">
+                      보유 <span className="font-bold text-amber-300">{remaining}개</span>
+                      {inv.usedQuantity > 0 && <span className="text-indigo-300 ml-1">({inv.usedQuantity}개 사용)</span>}
                     </div>
                     <button
                       onClick={() => { setUseTarget(inv); setUseQty(1); }}
-                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm rounded-xl transition-all active:scale-95 shadow-sm">
+                      className="w-full py-2 bg-white/20 hover:bg-white/30 text-white font-extrabold text-xs rounded-xl transition-all active:scale-95 border border-white/20">
                       사용하기 ✓
                     </button>
                   </div>
