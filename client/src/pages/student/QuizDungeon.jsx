@@ -593,34 +593,34 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
         <div className="absolute inset-x-0 bottom-14 h-px bg-indigo-500/20" />
 
         {/* ── 플레이어 (좌 절대위치) ── */}
-        <div ref={playerRef} className={`absolute flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}
-          style={{ left: `${layoutCfg.playerLeftPct}%`, bottom: layoutCfg.playerBottomPx }}>
-          {/* HP 바 */}
-          <div style={{ width: 120 }} className="mb-2">
-            <div className="flex justify-between text-[10px] mb-1">
-              <span className="text-sky-300 font-bold truncate max-w-[72px]">{playerData?.name || '나'}</span>
-              <span className="text-emerald-400 font-extrabold">{playerHP}</span>
+        {(() => {
+          const effH = Math.round(layoutCfg.playerCharHeightPx * layoutCfg.playerScale);
+          return (
+            <div ref={playerRef} className={`absolute flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}
+              style={{ left: `${layoutCfg.playerLeftPct}%`, bottom: layoutCfg.playerBottomPx }}>
+              {/* HP 바 */}
+              <div style={{ width: Math.max(160, effH * 0.55) }} className="relative z-10 mb-3">
+                <div className="flex justify-between items-center text-xs mb-1.5">
+                  <span className="text-sky-300 font-extrabold truncate" style={{ maxWidth: Math.max(100, effH * 0.36) }}>
+                    {playerData?.name || '나'}
+                  </span>
+                  <span className="text-emerald-400 font-extrabold tabular-nums">{playerHP}</span>
+                </div>
+                <div className="w-full h-4 bg-slate-900/80 rounded-full overflow-hidden border border-slate-600/50 shadow-inner">
+                  <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(pHPpct)}`}
+                    style={{ width: `${pHPpct}%` }} />
+                </div>
+              </div>
+              {/* 캐릭터 - scale 제거, 실제 픽셀 크기로 렌더링 */}
+              <div style={{ height: effH, width: effH }} className="flex items-end justify-center">
+                {playerData?.characterImage
+                  ? <img src={playerData.characterImage} alt=""
+                      style={{ height: effH, width: effH, objectFit: 'contain', imageRendering: 'pixelated' }} />
+                  : <span style={{ fontSize: effH * 0.6, lineHeight: 1 }}>🧙‍♂️</span>}
+              </div>
             </div>
-            <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
-              <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(pHPpct)}`}
-                style={{ width: `${pHPpct}%` }} />
-            </div>
-          </div>
-          {/* 캐릭터 */}
-          <div style={{ height: layoutCfg.playerCharHeightPx, width: layoutCfg.playerCharHeightPx }}
-            className="flex items-end justify-center">
-            {playerData?.characterImage
-              ? <img src={playerData.characterImage} alt=""
-                  style={{
-                    height: layoutCfg.playerCharHeightPx,
-                    width:  layoutCfg.playerCharHeightPx,
-                    objectFit: 'contain', imageRendering: 'pixelated',
-                    transform: `scale(${layoutCfg.playerScale})`,
-                    transformOrigin: 'bottom center',
-                  }} />
-              : <span className="text-8xl leading-none">🧙‍♂️</span>}
-          </div>
-        </div>
+          );
+        })()}
 
         {/* 중앙 VS */}
         <div className="absolute left-1/2 bottom-[45%] -translate-x-1/2 select-none">
@@ -631,12 +631,14 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
         <div ref={monsterRef} className="absolute flex flex-col items-center"
           style={{ right: `${layoutCfg.monsterRightPct}%`, bottom: layoutCfg.monsterBottomPx }}>
           {/* HP 바 */}
-          <div style={{ width: 140 }} className="mb-2">
-            <div className="flex justify-between text-[10px] mb-1">
-              <span className="text-rose-300 font-bold truncate max-w-[90px]">{monsterData?.name || monsterMeta.name}</span>
-              <span className="text-rose-400 font-extrabold">{waveMonsterHP}</span>
+          <div style={{ width: Math.max(160, layoutCfg.monsterCharHeightPx * 0.75) }} className="relative z-10 mb-3">
+            <div className="flex justify-between items-center text-xs mb-1.5">
+              <span className="text-rose-300 font-extrabold truncate" style={{ maxWidth: Math.max(100, layoutCfg.monsterCharHeightPx * 0.5) }}>
+                {monsterData?.name || monsterMeta.name}
+              </span>
+              <span className="text-rose-400 font-extrabold tabular-nums">{waveMonsterHP}</span>
             </div>
-            <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+            <div className="w-full h-4 bg-slate-900/80 rounded-full overflow-hidden border border-slate-600/50 shadow-inner">
               <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hpGrad(mHPpct)}`}
                 style={{ width: `${mHPpct}%` }} />
             </div>
@@ -915,9 +917,9 @@ function ResultScreen({
 const BATTLE_LAYOUT_DEFAULTS = {
   sceneHeightVh:       55,
   playerLeftPct:        8,
-  playerBottomPx:       28,
+  playerBottomPx:       4,
   playerCharHeightPx:  130,
-  playerScale:         1.0,
+  playerScale:         2.6,
   monsterRightPct:      8,
   monsterBottomPx:      4,
   monsterCharHeightPx: 230,

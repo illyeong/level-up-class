@@ -430,6 +430,7 @@ export default function BossRaidManage({ onViewLobby }) {
   const pastRaids    = raids.filter(r => r.status === 'cleared' || r.status === 'failed');
 
   return (
+    <>
     <div className="min-h-screen bg-slate-100 p-6">
       <div className="max-w-4xl mx-auto space-y-5">
 
@@ -694,5 +695,28 @@ export default function BossRaidManage({ onViewLobby }) {
         />
       )}
     </div>
+
+    {toast && (
+      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+        ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
+        style={{ whiteSpace: 'nowrap' }}>
+        {toast.message}
+      </div>
+    )}
+    {confirmState && (
+      <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
+        onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
+        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+          <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+          <div className="flex gap-3">
+            <button onClick={() => setConfirmState(null)}
+              className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+            <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
+              className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-sm">확인</button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
