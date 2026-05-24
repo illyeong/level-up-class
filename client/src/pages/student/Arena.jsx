@@ -889,7 +889,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
           <div className="bg-slate-900/60 rounded-2xl p-4 mb-6 flex items-center gap-4 border border-slate-700 w-full max-w-xs">
             <div className="w-16 h-16 rounded-xl bg-slate-800 overflow-hidden flex items-center justify-center">
               {me.characterImage
-                ? <img src={me.characterImage} alt="" className="w-full h-full object-contain scale-[2.2]" />
+                ? <img src={me.characterImage} alt="" className="w-full h-full object-contain scale-[2.2]" style={{ transform: 'scale(2.2) scaleX(-1)' }} />
                 : <span className="text-2xl">🧑‍🎓</span>}
             </div>
             <div>
@@ -1120,7 +1120,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             <div className="flex-1 w-full flex items-center justify-center relative">
               <div className="w-44 h-44 rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center border border-slate-600">
                 {me?.characterImage
-                  ? <img src={me.characterImage} alt="" className="w-full h-full object-contain scale-[3]" />
+                  ? <img src={me.characterImage} alt="" className="w-full h-full object-contain scale-[3]" style={{ transform: 'scale(3) scaleX(-1)' }} />
                   : <span className="text-5xl">🧑‍🎓</span>}
               </div>
               {hitDmg.me && (

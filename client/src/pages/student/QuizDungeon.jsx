@@ -622,7 +622,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
               <div style={{ height: effH, width: effH }} className="flex items-end justify-center">
                 {playerData?.characterImage
                   ? <img src={playerData.characterImage} alt=""
-                      style={{ height: effH, width: effH, objectFit: 'contain', imageRendering: 'pixelated' }} />
+                      style={{ height: effH, width: effH, objectFit: 'contain', imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
                   : <span style={{ fontSize: effH * 0.6, lineHeight: 1 }}>🧙‍♂️</span>}
               </div>
             </div>
