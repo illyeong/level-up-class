@@ -71,7 +71,7 @@ function HistoryScreen({ studentDocId, studentCode, onBack }) {
   const loses = logs.filter(l => l.perspective === 'me' ? !l.isWin : l.isWin).length;
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-5">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-5">
       {/* 헤더 */}
       <div className="flex items-center gap-3 mb-5">
         <button onClick={onBack} className="text-slate-400 hover:text-white text-sm font-bold px-3 py-1.5 bg-slate-800 rounded-xl">← 뒤로</button>
@@ -227,7 +227,7 @@ function RankingScreen({ classmates, studentDocId, onBack }) {
   const MEDALS = ['🥇','🥈','🥉'];
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-5">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-5">
       <div className="flex items-center gap-3 mb-5">
         <button onClick={onBack} className="text-slate-400 hover:text-white text-sm font-bold px-3 py-1.5 bg-slate-800 rounded-xl">← 뒤로</button>
         <h2 className="font-extrabold text-white text-lg">🏆 투기장 랭킹</h2>
@@ -1027,7 +1027,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
 
     return (
       <>
-      <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950 p-4 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 p-4 flex flex-col">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4">
           <div />
@@ -1134,8 +1134,12 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         {/* 캐릭터 + HP */}
         <div className="flex items-stretch gap-4 flex-1 min-h-0" style={{ maxHeight: '55%' }}>
           {/* 나 */}
-          <div ref={meBattleRef} className={`flex-1 flex flex-col items-center gap-3 bg-indigo-950/60 rounded-3xl p-5 border-2 transition-all
-            ${hitFlash.me ? (hitDmg.me?.isCrit ? 'border-yellow-400 bg-yellow-950/30 scale-[0.95]' : 'border-rose-500 bg-rose-950/40 scale-[0.98]') : 'border-indigo-700'}`}>
+          <div ref={meBattleRef} className={`flex-1 flex flex-col items-center gap-3 bg-indigo-950/60 rounded-3xl p-5 border-2
+            ${hitFlash.me
+              ? (hitDmg.me?.isCrit
+                  ? 'border-yellow-400 bg-yellow-950/30 animate-arena-crit'
+                  : 'border-rose-500 bg-rose-950/40 animate-arena-hit')
+              : 'border-indigo-700 transition-colors'}`}>
             <div className="text-xs font-extrabold text-indigo-400 tracking-widest">나</div>
             <div className="flex-1 w-full flex items-center justify-center relative">
               <div className="w-64 h-64 flex items-center justify-center overflow-hidden">
@@ -1172,8 +1176,12 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
           </div>
 
           {/* 상대 */}
-          <div ref={oppBattleRef} className={`flex-1 flex flex-col items-center gap-3 bg-rose-950/60 rounded-3xl p-5 border-2 transition-all
-            ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'border-yellow-400 bg-yellow-950/30 scale-[0.95]' : 'border-rose-400 bg-rose-950/60 scale-[0.98]') : 'border-rose-800'}`}>
+          <div ref={oppBattleRef} className={`flex-1 flex flex-col items-center gap-3 bg-rose-950/60 rounded-3xl p-5 border-2
+            ${hitFlash.opp
+              ? (hitDmg.opp?.isCrit
+                  ? 'border-yellow-400 bg-yellow-950/30 animate-arena-crit'
+                  : 'border-rose-400 bg-rose-950/60 animate-arena-hit')
+              : 'border-rose-800 transition-colors'}`}>
             <div className="text-xs font-extrabold text-rose-400 tracking-widest">상대</div>
             <div className="flex-1 w-full flex items-center justify-center relative">
               <div className="w-64 h-64 flex items-center justify-center overflow-hidden">
@@ -1225,7 +1233,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   // ── 결과 ────────────────────────────────────────────────────
   if (phase === 'result' && result) {
     return (
-      <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950">
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950">
         <ResultScreen
           isWin={result.isWin}
           opponent={opponent}

@@ -133,7 +133,6 @@ export default function LearningNoteManage({ selectedClass }) {
 
   // ── reject ────────────────────────────────────────────────────
   const reject = async () => {
-    if (!comment.trim()) { showToast('반려 사유를 입력해주세요.', 'error'); return; }
     const note = modal.note;
     setProcessing(true);
     try {
@@ -226,9 +225,9 @@ export default function LearningNoteManage({ selectedClass }) {
           <div className="space-y-1.5 flex-1">
             {(note.subjects || []).map((s, i) => (
               <div key={i} className="bg-slate-50 rounded-lg p-2 border border-slate-100">
-                <div className="text-[9px] font-extrabold text-indigo-700 mb-0.5">{s.subject}</div>
-                <p className="text-[10px] text-slate-600 line-clamp-2 leading-relaxed">{s.coreContent}</p>
-                <p className="text-[9px] text-slate-400 line-clamp-1 leading-relaxed mt-0.5 italic">{s.myThought}</p>
+                <div className="text-xs font-extrabold text-indigo-700 mb-1">{s.subject}</div>
+                <p className="text-xs text-slate-700 line-clamp-3 leading-relaxed">{s.coreContent}</p>
+                <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mt-1 italic">{s.myThought}</p>
                 {s.imageBase64 && (
                   <img src={s.imageBase64} alt="" className="w-full rounded mt-1 max-h-16 object-contain bg-white" />
                 )}
@@ -376,7 +375,7 @@ export default function LearningNoteManage({ selectedClass }) {
                 <p className="font-bold">조건에 맞는 배움노트가 없습니다</p>
               </div>
             ) : (
-              <div className="grid grid-cols-5 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 {filtered.map(note => renderNoteCard(note))}
               </div>
             )}
@@ -406,7 +405,7 @@ export default function LearningNoteManage({ selectedClass }) {
                   <p className="font-bold">등록된 학생이 없습니다</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3">
                   {students.map(student => {
                     const studentNotes   = (notesByStudent[student.id] || []).sort((a, b) => b.date.localeCompare(a.date));
                     const hasNotes       = studentNotes.length > 0;
@@ -416,7 +415,7 @@ export default function LearningNoteManage({ selectedClass }) {
                     const isExpanded     = expandedStudent === student.id;
 
                     return (
-                      <div key={student.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                      <div key={student.id} className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden ${isExpanded ? 'col-span-2' : 'col-span-1'}`}>
                         {/* 학생 헤더 */}
                         <div
                           onClick={() => hasNotes && setExpandedStudent(isExpanded ? null : student.id)}
@@ -468,7 +467,7 @@ export default function LearningNoteManage({ selectedClass }) {
                         {/* 노트 목록 (펼쳤을 때) */}
                         {isExpanded && (
                           <div className="border-t border-slate-100 bg-slate-50 px-4 py-4">
-                            <div className="grid grid-cols-5 gap-3">
+                            <div className="grid grid-cols-4 gap-3">
                               {studentNotes.map(note => renderNoteCard(note))}
                             </div>
                           </div>
@@ -563,10 +562,10 @@ export default function LearningNoteManage({ selectedClass }) {
             )}
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">
-                {modal.type === 'approve' ? '코멘트 (선택)' : '반려 사유 (필수)'}
+                {modal.type === 'approve' ? '코멘트 (선택)' : '반려 사유 (선택)'}
               </label>
               <textarea value={comment} onChange={e => setComment(e.target.value)}
-                placeholder={modal.type === 'approve' ? '잘했어요! (생략 가능)' : '반려 사유를 입력하세요...'}
+                placeholder={modal.type === 'approve' ? '잘했어요! (생략 가능)' : '반려 사유 (생략 가능)'}
                 rows={3}
                 className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-indigo-400" />
             </div>

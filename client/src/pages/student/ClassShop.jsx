@@ -602,10 +602,12 @@ function ClassShop({ studentCode }) {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {ownedItems.map(inv => {
               const remaining = inv.totalQuantity - inv.usedQuantity;
+              const itemData  = items.find(i => i.id === inv.itemId);
               return (
                 <div key={inv.id}
                   className="bg-gradient-to-b from-indigo-600 to-indigo-900 rounded-2xl shadow-lg overflow-hidden hover:shadow-xl hover:-translate-y-0.5 transition-all border border-indigo-500/40">
                   <div className="p-4 flex flex-col items-center text-center">
+                    {/* 장비 이미지 */}
                     <div className="relative mb-3">
                       <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-4xl border border-white/20 shadow-inner">
                         {inv.itemIcon || '🛍️'}
@@ -614,11 +616,37 @@ function ClassShop({ studentCode }) {
                         {remaining}
                       </div>
                     </div>
-                    <h3 className="font-extrabold text-white text-sm mb-0.5 leading-tight">{inv.itemName}</h3>
-                    <div className="text-[10px] text-indigo-200 mb-3">
-                      보유 <span className="font-bold text-amber-300">{remaining}개</span>
-                      {inv.usedQuantity > 0 && <span className="text-indigo-300 ml-1">({inv.usedQuantity}개 사용)</span>}
+
+                    {/* 스탯창 */}
+                    <div className="w-full bg-black/25 rounded-xl p-2.5 mb-3 border border-white/10">
+                      {itemData?.description && (
+                        <p className="text-[10px] text-indigo-200 leading-relaxed mb-2 text-center">
+                          {itemData.description}
+                        </p>
+                      )}
+                      <div className="grid grid-cols-3 gap-1 text-center">
+                        <div>
+                          <div className="text-[8px] text-indigo-400 font-bold mb-0.5">단가</div>
+                          <div className="text-[10px] text-amber-300 font-extrabold leading-none">
+                            🪙{(inv.itemPrice || 0).toLocaleString()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[8px] text-indigo-400 font-bold mb-0.5">보유</div>
+                          <div className="text-[10px] text-emerald-300 font-extrabold leading-none">
+                            {remaining}개
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[8px] text-indigo-400 font-bold mb-0.5">사용</div>
+                          <div className="text-[10px] text-slate-300 font-extrabold leading-none">
+                            {inv.usedQuantity}개
+                          </div>
+                        </div>
+                      </div>
                     </div>
+
+                    <h3 className="font-extrabold text-white text-sm mb-3 leading-tight">{inv.itemName}</h3>
                     <button
                       onClick={() => { setUseTarget(inv); setUseQty(1); }}
                       className="w-full py-2 bg-white/20 hover:bg-white/30 text-white font-extrabold text-xs rounded-xl transition-all active:scale-95 border border-white/20">

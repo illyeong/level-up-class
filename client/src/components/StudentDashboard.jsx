@@ -6,6 +6,7 @@ import {
 import { db } from '../firebase';
 import AttendanceCheck from '../pages/student/AttendanceCheck';
 import HallOfFame from '../pages/student/HallOfFame';
+import LevelUpEffect from './LevelUpEffect';
 
 // ── 오늘의 퀘스트 위젯 ────────────────────────────────────────
 function TodayQuestWidget({ studentId, teacherUid, onYesterdayLog }) {
@@ -204,6 +205,7 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
   const [yesterdayLog, setYesterdayLog]     = useState(null);
   const [showYesterdayPopup, setShowYesterdayPopup] = useState(false);
   const [newApprovedCount, setNewApprovedCount] = useState(0);
+  const [levelUpData, setLevelUpData]       = useState(null); // { prevLevel, newLevel }
 
   useEffect(() => {
     if (!studentCode) return;
@@ -223,6 +225,18 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
     };
     load();
   }, [studentCode]);
+
+  // 레벨업 감지 — studentData 로드 후 이전 레벨과 비교
+  useEffect(() => {
+    if (!studentData?.id || !studentData?.level) return;
+    const key      = `student_level_${studentData.id}`;
+    const stored   = parseInt(localStorage.getItem(key) || '0', 10);
+    const current  = studentData.level;
+    if (stored > 0 && current > stored) {
+      setLevelUpData({ prevLevel: stored, newLevel: current });
+    }
+    localStorage.setItem(key, String(current));
+  }, [studentData?.id, studentData?.level]);
 
   // 배움노트 신규 승인 뱃지
   useEffect(() => {
@@ -285,6 +299,15 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
   }
 
   return (
+    <>
+    {levelUpData && (
+      <LevelUpEffect
+        prevLevel={levelUpData.prevLevel}
+        newLevel={levelUpData.newLevel}
+        characterImage={studentData?.characterImage || null}
+        onClose={() => setLevelUpData(null)}
+      />
+    )}
     <div className="p-8">
       <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
         <h1 className="text-3xl font-bold text-gray-800">🏰 학생 대시보드</h1>
@@ -398,6 +421,7 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
         </div>
       )}
     </div>
+    </>
   );
 };
 

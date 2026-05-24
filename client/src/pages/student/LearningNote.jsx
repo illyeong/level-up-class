@@ -50,7 +50,7 @@ const STATUS_BADGE = {
   rejected: { label: '❌ 반려',     cls: 'bg-rose-100 text-rose-700 border-rose-200' },
 };
 
-// ── 달력 컴포넌트 (컴팩트) ───────────────────────────────────────
+// ── 달력 컴포넌트 ───────────────────────────────────────────────
 function CalendarView({ notes, selectedDate, onSelectDate, currentMonth, onPrevMonth, onNextMonth }) {
   const year  = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -70,17 +70,17 @@ function CalendarView({ notes, selectedDate, onSelectDate, currentMonth, onPrevM
   const weekLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
   return (
-    <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-2.5">
-      <div className="flex items-center justify-between mb-1.5">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3">
+      <div className="flex items-center justify-between mb-2">
         <button onClick={onPrevMonth}
-          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-bold transition-colors text-sm">‹</button>
-        <span className="font-extrabold text-slate-700 text-[11px]">{year}년 {month + 1}월</span>
+          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-bold transition-colors">‹</button>
+        <span className="font-extrabold text-slate-700 text-xs">{year}년 {month + 1}월</span>
         <button onClick={onNextMonth} disabled={isCurrentMonth}
-          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-bold transition-colors text-sm disabled:opacity-30 disabled:cursor-not-allowed">›</button>
+          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed">›</button>
       </div>
-      <div className="grid grid-cols-7 gap-0.5 mb-0.5">
-        {weekLabels.map(d => (
-          <div key={d} className="text-center text-[9px] font-bold text-slate-400">{d}</div>
+      <div className="grid grid-cols-7 gap-0.5 mb-1">
+        {weekLabels.map((d, i) => (
+          <div key={d} className={`text-center text-[9px] font-bold ${i === 0 ? 'text-rose-400' : i === 6 ? 'text-blue-400' : 'text-slate-400'}`}>{d}</div>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-0.5">
@@ -89,27 +89,27 @@ function CalendarView({ notes, selectedDate, onSelectDate, currentMonth, onPrevM
             {cell ? (
               <button
                 onClick={() => onSelectDate(cell.dateStr)}
-                className={`w-6 h-6 rounded-lg text-[10px] font-bold transition-all relative flex items-center justify-center
+                className={`w-7 h-7 rounded-lg text-[10px] font-bold transition-all relative flex items-center justify-center
                   ${cell.dateStr === selectedDate
-                    ? 'bg-indigo-600 text-white shadow-sm'
+                    ? 'bg-indigo-600 text-white shadow-md'
                     : cell.dateStr === today
-                      ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-300'
+                      ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300'
                       : cell.hasNote
-                        ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                        : 'text-slate-600 hover:bg-slate-100'}`}
+                        ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-extrabold'
+                        : 'text-slate-500 hover:bg-slate-100'}`}
               >
                 {cell.day}
                 {cell.hasNote && cell.dateStr !== selectedDate && (
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0.5 h-0.5 rounded-full bg-emerald-500" />
+                  <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-400" />
                 )}
               </button>
             ) : null}
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-2 mt-1.5 pt-1.5 border-t border-slate-50 text-[9px] text-slate-400 font-bold justify-end">
-        <span className="flex items-center gap-0.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-100 inline-block" /> 노트</span>
-        <span className="flex items-center gap-0.5"><span className="w-2.5 h-2.5 rounded-sm bg-indigo-100 inline-block ring-1 ring-indigo-300" /> 오늘</span>
+      <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-50 text-[9px] text-slate-400 font-bold">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 inline-block border border-emerald-200" /> 노트 있음</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-indigo-600 inline-block" /> 선택됨</span>
       </div>
     </div>
   );
@@ -320,125 +320,161 @@ export default function LearningNote({ studentCode }) {
   if (view === 'write') {
     const usedInForm = new Set(subjects.map(s => s.subject).filter(Boolean));
     return (
-      <div className="max-w-2xl mx-auto p-6 space-y-4 pb-12">
-        <div className="flex items-center gap-3">
-          <button onClick={() => { setView('list'); resetForm(); }}
-            className="text-slate-500 hover:text-slate-800 text-sm font-bold px-3 py-1.5 bg-white rounded-xl border border-slate-200">
-            ← 목록
-          </button>
-          <h2 className="text-xl font-extrabold text-slate-800">
-            {editingNoteId ? '✏️ 배움노트 수정' : '📝 배움노트 작성'}
-          </h2>
+      <div className="max-w-2xl mx-auto pb-12">
+        {/* 헤더 */}
+        <div className="bg-gradient-to-br from-indigo-600 to-violet-700 px-6 py-5 mb-6 rounded-2xl shadow-lg">
+          <div className="flex items-center gap-3 mb-1">
+            <button onClick={() => { setView('list'); resetForm(); }}
+              className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold transition-colors text-sm">
+              ←
+            </button>
+            <h2 className="text-xl font-extrabold text-white">
+              {editingNoteId ? '✏️ 배움노트 수정' : '📝 배움노트 작성'}
+            </h2>
+          </div>
+          <p className="text-indigo-200 text-xs ml-11">배운 내용을 정리하고 선생님께 제출해요</p>
         </div>
 
-        {/* 날짜 선택 */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-          <label className="text-xs font-bold text-slate-600 block mb-2">📅 작성 날짜</label>
-          <input
-            type="date" value={writeDate} min={minDate} max={today}
-            onChange={e => setWriteDate(e.target.value)}
-            disabled={!!editingNoteId}
-            className="border-2 border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-400 bg-white disabled:bg-slate-50 disabled:cursor-not-allowed"
-          />
-          {writeDate !== today && !editingNoteId && (
-            <p className="text-xs text-amber-600 mt-1.5 font-bold">⚠️ 오늘 이전 날짜로 작성합니다.</p>
-          )}
-        </div>
-
-        {/* 보상 안내 */}
-        <div className="bg-indigo-50 rounded-2xl border border-indigo-100 px-4 py-3 flex items-center gap-3">
-          <span className="text-xl">🎁</span>
-          <span className="text-xs text-indigo-700 font-bold">
-            과목당 보상: 골드 {settings.rewardGold} · 경험치 {settings.rewardExp} · 다이아 {settings.rewardDiamond}
-          </span>
-        </div>
-
-        {subjects.map((sub, idx) => {
-          const coreOk    = sub.coreContent.length >= settings.minCoreLength;
-          const thoughtOk = sub.myThought.length   >= settings.minThoughtLength;
-          const dupSubject = dateSubjects.has(sub.subject);
-          const dupInForm  = sub.subject && subjects.filter((s, i) => i !== idx && s.subject === sub.subject).length > 0;
-          return (
-            <div key={idx} className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="font-extrabold text-slate-700 text-sm">📖 과목 {idx + 1}</span>
-                {subjects.length > 1 && (
-                  <button onClick={() => removeSubjectRow(idx)}
-                    className="text-slate-400 hover:text-rose-500 text-xs font-bold px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors">
-                    ✕ 삭제
-                  </button>
-                )}
-              </div>
-
-              <select value={sub.subject} onChange={e => updateField(idx, 'subject', e.target.value)}
-                className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-400 bg-white">
-                <option value="">-- 과목 선택 --</option>
-                {SUBJECTS.map(s => (
-                  <option key={s} value={s}
-                    disabled={dateSubjects.has(s) || (usedInForm.has(s) && sub.subject !== s)}>
-                    {s}{dateSubjects.has(s) ? ' (이 날짜 이미 제출)' : ''}
-                  </option>
-                ))}
-              </select>
-              {(dupSubject || dupInForm) && (
-                <p className="text-xs text-rose-500 font-bold">이미 제출했거나 폼에서 중복된 과목입니다.</p>
-              )}
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-slate-600">📌 핵심 배움 내용</label>
-                  <span className={`text-xs font-bold ${coreOk ? 'text-emerald-500' : 'text-slate-400'}`}>
-                    {sub.coreContent.length}/{settings.minCoreLength}자
-                  </span>
-                </div>
-                <textarea value={sub.coreContent} onChange={e => updateField(idx, 'coreContent', e.target.value)}
-                  placeholder={`오늘 배운 핵심 내용을 적어주세요. (최소 ${settings.minCoreLength}자)`}
-                  rows={3}
-                  className={`w-full border-2 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none transition-colors
-                    ${coreOk ? 'border-emerald-300' : 'border-slate-200 focus:border-indigo-400'}`} />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-slate-600">💭 나의 생각 / 더 알고 싶은 점</label>
-                  <span className={`text-xs font-bold ${thoughtOk ? 'text-emerald-500' : 'text-slate-400'}`}>
-                    {sub.myThought.length}/{settings.minThoughtLength}자
-                  </span>
-                </div>
-                <textarea value={sub.myThought} onChange={e => updateField(idx, 'myThought', e.target.value)}
-                  placeholder={`나의 생각이나 더 알고 싶은 점을 적어주세요. (최소 ${settings.minThoughtLength}자)`}
-                  rows={3}
-                  className={`w-full border-2 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none transition-colors
-                    ${thoughtOk ? 'border-emerald-300' : 'border-slate-200 focus:border-indigo-400'}`} />
-              </div>
-
-              <input ref={el => fileRefs.current[idx] = el} type="file" accept="image/*" className="hidden"
-                onChange={e => handleImagePick(idx, e.target.files?.[0])} />
-              {sub.imageBase64 ? (
-                <div className="relative inline-block">
-                  <img src={sub.imageBase64} alt="" className="max-h-40 rounded-xl border border-slate-200" />
-                  <button onClick={() => updateField(idx, 'imageBase64', '')}
-                    className="absolute top-1.5 right-1.5 bg-black/50 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">✕</button>
-                </div>
-              ) : (
-                <button onClick={() => fileRefs.current[idx]?.click()} disabled={compressingIdx === idx}
-                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-500 border border-dashed border-slate-300 hover:border-indigo-400 rounded-xl px-3 py-2 transition-colors">
-                  {compressingIdx === idx ? '⏳ 처리 중...' : '📷 사진 첨부 (선택)'}
-                </button>
+        <div className="px-1 space-y-4">
+          {/* 날짜 + 보상 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+              <label className="text-[11px] font-bold text-slate-400 block mb-2">📅 작성 날짜</label>
+              <input
+                type="date" value={writeDate} min={minDate} max={today}
+                onChange={e => setWriteDate(e.target.value)}
+                disabled={!!editingNoteId}
+                className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-400 bg-white disabled:bg-slate-50 disabled:cursor-not-allowed"
+              />
+              {writeDate !== today && !editingNoteId && (
+                <p className="text-[10px] text-amber-600 mt-1.5 font-bold">⚠️ 오늘 이전 날짜</p>
               )}
             </div>
-          );
-        })}
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-100 p-4 shadow-sm flex flex-col justify-center">
+              <div className="text-[11px] font-bold text-amber-600 mb-1.5">🎁 과목당 보상</div>
+              <div className="space-y-0.5">
+                <div className="text-xs text-amber-700 font-bold">🪙 {settings.rewardGold} 골드</div>
+                <div className="text-xs text-blue-600 font-bold">💎 {settings.rewardDiamond} 다이아</div>
+                <div className="text-xs text-purple-600 font-bold">⭐ {settings.rewardExp} EXP</div>
+              </div>
+            </div>
+          </div>
 
-        <button onClick={addSubjectRow} disabled={subjects.length >= 6}
-          className="w-full py-3 rounded-2xl border-2 border-dashed border-indigo-300 text-indigo-500 font-bold text-sm hover:bg-indigo-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-          {subjects.length >= 6 ? '최대 6과목까지 작성 가능합니다' : `+ 과목 추가 (${subjects.length}/6)`}
-        </button>
+          {subjects.map((sub, idx) => {
+            const coreOk    = sub.coreContent.length >= settings.minCoreLength;
+            const thoughtOk = sub.myThought.length   >= settings.minThoughtLength;
+            const dupSubject = dateSubjects.has(sub.subject);
+            const dupInForm  = sub.subject && subjects.filter((s, i) => i !== idx && s.subject === sub.subject).length > 0;
+            const isComplete = coreOk && thoughtOk && sub.subject && !dupSubject && !dupInForm;
+            return (
+              <div key={idx} className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all
+                ${isComplete ? 'border-emerald-300' : 'border-slate-100'}`}>
+                <div className={`px-5 py-3 flex items-center justify-between
+                  ${isComplete ? 'bg-emerald-50' : 'bg-slate-50'}`}>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold
+                      ${isComplete ? 'bg-emerald-500 text-white' : 'bg-slate-300 text-white'}`}>
+                      {isComplete ? '✓' : idx + 1}
+                    </div>
+                    <span className={`font-extrabold text-sm ${isComplete ? 'text-emerald-700' : 'text-slate-700'}`}>
+                      과목 {idx + 1}
+                    </span>
+                  </div>
+                  {subjects.length > 1 && (
+                    <button onClick={() => removeSubjectRow(idx)}
+                      className="text-slate-400 hover:text-rose-500 text-xs font-bold px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors">
+                      ✕
+                    </button>
+                  )}
+                </div>
 
-        <button onClick={submit} disabled={!isFormValid || isSubmitting}
-          className="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold disabled:opacity-50 transition-colors">
-          {isSubmitting ? '제출 중...' : editingNoteId ? '✏️ 수정 완료' : '📤 배움노트 제출'}
-        </button>
+                <div className="p-5 space-y-4">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 block mb-1.5">📖 과목 선택</label>
+                    <select value={sub.subject} onChange={e => updateField(idx, 'subject', e.target.value)}
+                      className="w-full border-2 border-slate-100 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-indigo-400 bg-white">
+                      <option value="">-- 과목 선택 --</option>
+                      {SUBJECTS.map(s => (
+                        <option key={s} value={s}
+                          disabled={dateSubjects.has(s) || (usedInForm.has(s) && sub.subject !== s)}>
+                          {s}{dateSubjects.has(s) ? ' (이미 제출)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {(dupSubject || dupInForm) && (
+                      <p className="text-xs text-rose-500 font-bold mt-1">이미 제출했거나 중복된 과목입니다.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-bold text-slate-500">📌 핵심 배움 내용</label>
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-1 w-16 bg-slate-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${coreOk ? 'bg-emerald-400' : 'bg-indigo-300'}`}
+                            style={{ width: `${Math.min(100, sub.coreContent.length / settings.minCoreLength * 100)}%` }} />
+                        </div>
+                        <span className={`text-[10px] font-bold ${coreOk ? 'text-emerald-500' : 'text-slate-400'}`}>
+                          {sub.coreContent.length}/{settings.minCoreLength}
+                        </span>
+                      </div>
+                    </div>
+                    <textarea value={sub.coreContent} onChange={e => updateField(idx, 'coreContent', e.target.value)}
+                      placeholder={`오늘 배운 핵심 내용을 적어주세요. (최소 ${settings.minCoreLength}자)`}
+                      rows={3}
+                      className={`w-full border-2 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none transition-colors
+                        ${coreOk ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-100 focus:border-indigo-400'}`} />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-bold text-slate-500">💭 나의 생각 / 더 알고 싶은 점</label>
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-1 w-16 bg-slate-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${thoughtOk ? 'bg-emerald-400' : 'bg-indigo-300'}`}
+                            style={{ width: `${Math.min(100, sub.myThought.length / settings.minThoughtLength * 100)}%` }} />
+                        </div>
+                        <span className={`text-[10px] font-bold ${thoughtOk ? 'text-emerald-500' : 'text-slate-400'}`}>
+                          {sub.myThought.length}/{settings.minThoughtLength}
+                        </span>
+                      </div>
+                    </div>
+                    <textarea value={sub.myThought} onChange={e => updateField(idx, 'myThought', e.target.value)}
+                      placeholder={`나의 생각이나 더 알고 싶은 점을 적어주세요. (최소 ${settings.minThoughtLength}자)`}
+                      rows={3}
+                      className={`w-full border-2 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none transition-colors
+                        ${thoughtOk ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-100 focus:border-indigo-400'}`} />
+                  </div>
+
+                  <input ref={el => fileRefs.current[idx] = el} type="file" accept="image/*" className="hidden"
+                    onChange={e => handleImagePick(idx, e.target.files?.[0])} />
+                  {sub.imageBase64 ? (
+                    <div className="relative inline-block">
+                      <img src={sub.imageBase64} alt="" className="max-h-40 rounded-xl border border-slate-200" />
+                      <button onClick={() => updateField(idx, 'imageBase64', '')}
+                        className="absolute top-1.5 right-1.5 bg-black/50 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">✕</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => fileRefs.current[idx]?.click()} disabled={compressingIdx === idx}
+                      className="flex items-center gap-2 text-xs text-slate-400 hover:text-indigo-500 border border-dashed border-slate-200 hover:border-indigo-300 rounded-xl px-4 py-2.5 transition-colors w-full justify-center">
+                      {compressingIdx === idx ? '⏳ 처리 중...' : '📷 사진 첨부 (선택)'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          <button onClick={addSubjectRow} disabled={subjects.length >= 6}
+            className="w-full py-3 rounded-2xl border-2 border-dashed border-indigo-200 text-indigo-400 hover:text-indigo-600 hover:border-indigo-400 font-bold text-sm hover:bg-indigo-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            {subjects.length >= 6 ? '최대 6과목' : `+ 과목 추가 (${subjects.length}/6)`}
+          </button>
+
+          <button onClick={submit} disabled={!isFormValid || isSubmitting}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold text-base disabled:opacity-50 transition-all shadow-lg shadow-indigo-200 disabled:shadow-none active:scale-[0.98]">
+            {isSubmitting ? '제출 중...' : editingNoteId ? '✏️ 수정 완료' : '📤 배움노트 제출'}
+          </button>
+        </div>
       </div>
     );
   }
@@ -455,69 +491,118 @@ export default function LearningNote({ studentCode }) {
   const displayNotes  = selectedDate ? calendarNotes : notes;
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-4">
+    <div className="w-full pb-12 space-y-4 px-4">
 
-      {/* 헤더 — 전체 노트 수 포함 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-extrabold text-slate-800">📚 배움노트</h1>
-          <span className="text-sm font-bold text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
-            전체 {notes.length}건
-          </span>
+      {/* 히어로 헤더 */}
+      <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 rounded-2xl shadow-lg px-6 py-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-extrabold text-white mb-1">📚 배움노트</h1>
+            <p className="text-indigo-200 text-xs">배운 내용을 기록하고 선생님께 승인을 받아 보상을 획득해요</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="text-2xl font-extrabold text-white">{notes.length}</div>
+              <div className="text-indigo-200 text-[10px] font-bold">전체 노트</div>
+            </div>
+            <button onClick={() => { setWriteDate(today); setView('write'); }}
+              className="px-4 py-2.5 rounded-xl bg-white text-indigo-700 font-extrabold text-sm hover:bg-indigo-50 transition-colors shadow-md">
+              ✏️ 작성하기
+            </button>
+          </div>
         </div>
-        <button onClick={() => { setWriteDate(today); setView('write'); }}
-          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors">
-          ✏️ 작성하기
+      </div>
+
+      {/* 이번주 통계 */}
+      <div className="grid grid-cols-5 gap-3">
+        {[
+          { value: weekNotes.length,    label: '이번주 제출', icon: '📝', from: 'from-indigo-500', to: 'to-indigo-600' },
+          { value: weekApproved.length, label: '이번주 승인', icon: '✅', from: 'from-emerald-500', to: 'to-emerald-600' },
+          { value: `+${weekGold}`,      label: '획득 골드',   icon: '🪙', from: 'from-amber-400',  to: 'to-amber-500' },
+          { value: `+${weekDia}`,       label: '획득 다이아', icon: '💎', from: 'from-sky-500',    to: 'to-sky-600' },
+          { value: `+${weekExp}`,       label: '획득 경험치', icon: '⭐', from: 'from-violet-500', to: 'to-violet-600' },
+        ].map(({ value, label, icon, from, to }) => (
+          <div key={label} className={`bg-gradient-to-br ${from} ${to} rounded-2xl p-4 text-center shadow-md`}>
+            <div className="text-xl font-extrabold text-white">{value}</div>
+            <div className="text-[10px] text-white/80 font-bold mt-0.5">{icon} {label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 보상 카드 + 스트릭 카드 (필터 버튼 위) */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-gradient-to-br from-indigo-50 to-violet-50 rounded-2xl border border-indigo-100 p-4">
+          <div className="text-sm font-extrabold text-indigo-700 mb-3">🎁 과목당 보상 (승인 시)</div>
+          <div className="space-y-2.5">
+            {[
+              { label: '🪙 골드',   value: settings.rewardGold,    textCls: 'text-amber-600',  barCls: 'bg-amber-400',  trackCls: 'bg-amber-100' },
+              { label: '💎 다이아', value: settings.rewardDiamond, textCls: 'text-sky-600',    barCls: 'bg-sky-400',   trackCls: 'bg-sky-100' },
+              { label: '⭐ EXP',   value: settings.rewardExp,     textCls: 'text-violet-600', barCls: 'bg-violet-400', trackCls: 'bg-violet-100' },
+            ].map(({ label, value, textCls, barCls, trackCls }) => (
+              <div key={label} className="flex items-center gap-3">
+                <span className={`w-20 text-xs font-bold ${textCls}`}>{label}</span>
+                <div className={`flex-1 h-2 ${trackCls} rounded-full overflow-hidden`}>
+                  <div className={`h-full ${barCls} rounded-full`} style={{ width: '60%' }} />
+                </div>
+                <span className={`text-sm font-extrabold ${textCls} w-8 text-right`}>{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {streak > 0 ? (
+          <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl border border-orange-100 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-2xl">🔥</span>
+              <div>
+                <div className="font-extrabold text-orange-600 text-base">{streak}일 연속 작성!</div>
+                <div className="text-xs text-orange-400">주말 제외 연속 기록</div>
+              </div>
+            </div>
+            {streak % 5 !== 0 && (
+              <>
+                <div className="h-2 bg-orange-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-orange-400 to-amber-500 rounded-full transition-all"
+                    style={{ width: `${(streak % 5) / 5 * 100}%` }} />
+                </div>
+                <div className="text-xs text-orange-400 mt-1.5 font-bold">
+                  {5 - (streak % 5)}일 후 보너스 (+50🪙💎⭐)
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="bg-slate-50 rounded-2xl border border-slate-100 p-4 flex flex-col items-center justify-center text-center">
+            <div className="text-3xl mb-2">✍️</div>
+            <div className="text-sm font-bold text-slate-500">오늘 배움노트를 작성해보세요!</div>
+            <div className="text-xs text-slate-400 mt-1">5일 연속 작성하면 보너스 보상!</div>
+          </div>
+        )}
+      </div>
+
+      {/* 필터 버튼 */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setSelectedDate(null)}
+          className={`flex-1 py-2 rounded-xl text-sm font-bold transition-colors
+            ${!selectedDate
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+          📋 전체보기
+        </button>
+        <button
+          onClick={() => setSelectedDate(today)}
+          className={`flex-1 py-2 rounded-xl text-sm font-bold transition-colors
+            ${selectedDate === today
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+          📅 오늘 노트
         </button>
       </div>
 
-      {/* 이번주 통계 5칸 (매주 월요일 초기화) */}
-      <div className="grid grid-cols-5 gap-2">
-        <div className="bg-indigo-50 rounded-xl p-3 text-center border border-indigo-100">
-          <div className="text-xl font-extrabold text-indigo-600">{weekNotes.length}</div>
-          <div className="text-[10px] text-slate-500 font-bold mt-0.5">📝 이번주 제출</div>
-        </div>
-        <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
-          <div className="text-xl font-extrabold text-emerald-600">{weekApproved.length}</div>
-          <div className="text-[10px] text-slate-500 font-bold mt-0.5">✅ 이번주 승인</div>
-        </div>
-        <div className="bg-amber-50 rounded-xl p-3 text-center border border-amber-100">
-          <div className="text-xl font-extrabold text-amber-600">+{weekGold}</div>
-          <div className="text-[10px] text-slate-500 font-bold mt-0.5">🪙 획득 골드</div>
-        </div>
-        <div className="bg-sky-50 rounded-xl p-3 text-center border border-sky-100">
-          <div className="text-xl font-extrabold text-sky-600">+{weekDia}</div>
-          <div className="text-[10px] text-slate-500 font-bold mt-0.5">💎 획득 다이아</div>
-        </div>
-        <div className="bg-purple-50 rounded-xl p-3 text-center border border-purple-100">
-          <div className="text-xl font-extrabold text-purple-600">+{weekExp}</div>
-          <div className="text-[10px] text-slate-500 font-bold mt-0.5">⭐ 획득 경험치</div>
-        </div>
-      </div>
-
-      {/* 달력(1/2 크기) + 오른쪽 패널 */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* 왼쪽: 버튼 + 달력 */}
-        <div className="space-y-2">
-          {/* 달력 위 필터 버튼 */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSelectedDate(null)}
-              className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors
-                ${!selectedDate
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-              📋 날짜 전체보기
-            </button>
-            <button
-              onClick={() => setSelectedDate(today)}
-              className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors
-                ${selectedDate === today
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-              📅 오늘 배움노트
-            </button>
-          </div>
+      {/* 달력 (가운데 정렬) */}
+      <div className="flex justify-center">
+        <div className="w-full max-w-sm">
           <CalendarView
             notes={notes}
             selectedDate={selectedDate}
@@ -530,99 +615,94 @@ export default function LearningNote({ studentCode }) {
             }}
           />
         </div>
-
-        {/* 오른쪽: 보상 안내 + 스트릭 + 날짜 필터 표시 */}
-        <div className="flex flex-col gap-2">
-          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 px-3 py-3 flex items-center gap-2">
-            <span className="text-lg shrink-0">🎁</span>
-            <div>
-              <div className="text-[11px] font-extrabold text-indigo-700">승인 시 과목당 보상</div>
-              <div className="text-[10px] text-indigo-600 mt-0.5">
-                🪙 {settings.rewardGold} · 💎 {settings.rewardDiamond} · ⭐ {settings.rewardExp} EXP
-              </div>
-            </div>
-          </div>
-          {streak > 0 && (
-            <div className="bg-orange-50 rounded-xl border border-orange-100 px-3 py-3">
-              <div className="text-lg font-extrabold text-orange-500">🔥 {streak}일 연속 작성!</div>
-              {streak % 5 !== 0 && (
-                <div className="text-[10px] text-slate-400 mt-0.5">{5 - (streak % 5)}일 후 보너스 (+50🪙💎⭐)</div>
-              )}
-            </div>
-          )}
-          {selectedDate && calendarNotes && calendarNotes.length > 0 && (
-            <div className="bg-indigo-50 rounded-xl px-3 py-2.5 border border-indigo-100 flex items-center justify-between">
-              <span className="text-xs font-bold text-indigo-700">
-                📅 {selectedDate} · {calendarNotes.length}건
-              </span>
-              <button onClick={() => setSelectedDate(null)}
-                className="text-[10px] text-indigo-400 hover:text-indigo-700 font-bold">전체</button>
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* 노트 목록 (6열 그리드) */}
+      {/* 날짜 필터 표시 (달력 아래) */}
+      {selectedDate && calendarNotes && calendarNotes.length > 0 && (
+        <div className="bg-indigo-50 rounded-2xl px-4 py-3 border border-indigo-100 flex items-center justify-between">
+          <span className="text-sm font-bold text-indigo-700">
+            📅 {selectedDate} · {calendarNotes.length}건
+          </span>
+          <button onClick={() => setSelectedDate(null)}
+            className="text-xs text-indigo-500 hover:text-indigo-700 font-bold bg-white px-3 py-1 rounded-lg border border-indigo-200 transition-colors">
+            전체보기
+          </button>
+        </div>
+      )}
+
+      {/* 노트 목록 */}
       {displayNotes.length === 0 ? (
-        <div className="text-center py-12 text-slate-400">
-          <div className="text-5xl mb-3">{selectedDate ? '📭' : '📝'}</div>
-          <div className="font-bold">{selectedDate ? '이 날짜에 작성한 노트가 없습니다' : '아직 작성한 노트가 없어요'}</div>
-          {!selectedDate && <div className="text-sm mt-1">배움을 기록해보세요!</div>}
+        <div className="text-center py-16 bg-white rounded-2xl border border-slate-100 shadow-sm">
+          <div className="text-6xl mb-4">{selectedDate ? '📭' : '📖'}</div>
+          <div className="font-extrabold text-slate-700 text-lg mb-1">
+            {selectedDate ? '이 날짜에 작성한 노트가 없어요' : '아직 작성한 배움노트가 없어요'}
+          </div>
+          <div className="text-sm text-slate-400 mb-5">
+            {selectedDate ? '다른 날짜를 선택하거나 새로 작성해 보세요' : '오늘 배운 내용을 기록해보세요!'}
+          </div>
+          {!selectedDate && (
+            <button onClick={() => { setWriteDate(today); setView('write'); }}
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-extrabold text-sm hover:from-indigo-500 hover:to-violet-500 transition-all shadow-md">
+              ✏️ 첫 번째 배움노트 작성하기
+            </button>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-6 gap-2">
+        <div className="grid grid-cols-4 gap-3">
           {displayNotes.map(note => {
             const badge     = STATUS_BADGE[note.status] || STATUS_BADGE.pending;
             const isPending = note.status === 'pending';
-            const stripCls  = note.status === 'approved' ? 'bg-emerald-400'
-                            : note.status === 'rejected'  ? 'bg-rose-400'
-                            : 'bg-amber-300';
+            const accentCls = note.status === 'approved' ? 'border-l-emerald-400'
+                            : note.status === 'rejected'  ? 'border-l-rose-400'
+                            : 'border-l-amber-300';
             return (
               <div key={note.id}
-                className="bg-white rounded-xl border border-slate-100 hover:border-indigo-200 hover:shadow-sm transition-all overflow-hidden flex flex-col">
-                <div className={`h-1 ${stripCls}`} />
-                <div className="p-2.5 flex-1">
+                className={`bg-white rounded-2xl border border-slate-100 border-l-4 ${accentCls} hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col`}>
+                <div className="p-3 flex-1">
                   {/* 날짜 + 상태 */}
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] text-slate-400 font-medium">{note.date}</span>
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full border ${badge.cls}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] text-slate-500 font-bold bg-slate-50 px-2 py-0.5 rounded-lg">{note.date}</span>
+                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border ${badge.cls}`}>
                       {note.status === 'approved' ? '✅' : note.status === 'rejected' ? '❌' : '🕐'}
                     </span>
                   </div>
                   {/* 과목 태그 */}
-                  <div className="flex flex-wrap gap-0.5 mb-1.5">
+                  <div className="flex flex-wrap gap-1 mb-2">
                     {(note.subjects || []).map((s, i) => (
-                      <span key={i} className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded">{s.subject}</span>
+                      <span key={i} className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded-lg border border-indigo-100">
+                        {s.subject}
+                      </span>
                     ))}
                   </div>
-                  {/* 핵심 배움 내용 (클릭 없이 바로 표시) */}
-                  {(note.subjects || []).map((s, i) => s.coreContent && (
-                    <div key={i} className="mb-1">
-                      <p className="text-[10px] text-slate-600 line-clamp-3 leading-relaxed">{s.coreContent}</p>
-                    </div>
-                  ))}
+                  {/* 핵심 내용 미리보기 */}
+                  {note.subjects?.[0]?.coreContent && (
+                    <p className="text-[10px] text-slate-600 line-clamp-2 leading-relaxed mb-1.5">
+                      {note.subjects[0].coreContent}
+                    </p>
+                  )}
                   {/* 선생님 코멘트 */}
                   {note.teacherComment && (
-                    <p className={`text-[9px] rounded px-1.5 py-1 mt-1 line-clamp-1
-                      ${note.status === 'rejected' ? 'text-rose-600 bg-rose-50' : 'text-emerald-600 bg-emerald-50'}`}>
+                    <p className={`text-[9px] rounded-lg px-2 py-1 mt-1 line-clamp-1
+                      ${note.status === 'rejected'
+                        ? 'text-rose-600 bg-rose-50 border border-rose-100'
+                        : 'text-emerald-600 bg-emerald-50 border border-emerald-100'}`}>
                       💬 {note.teacherComment}
                     </p>
                   )}
-                  {/* 자세히 보기 */}
-                  <button onClick={() => setDetailNote(note)}
-                    className="text-[9px] text-indigo-400 hover:text-indigo-600 font-bold mt-1.5">
-                    자세히 →
-                  </button>
                 </div>
-                {isPending && (
-                  <div className="px-2 pb-2 pt-1 border-t border-slate-50 bg-amber-50/30">
+                <div className="px-3 pb-3 flex gap-1.5">
+                  <button onClick={() => setDetailNote(note)}
+                    className="flex-1 py-1.5 rounded-xl text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 transition-colors">
+                    자세히 보기
+                  </button>
+                  {isPending && (
                     <button
                       onClick={e => { e.stopPropagation(); openEdit(note); }}
-                      className="w-full text-[9px] font-bold text-amber-600 bg-amber-100 hover:bg-amber-200 py-1 rounded-lg transition-colors">
+                      className="flex-1 py-1.5 rounded-xl text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-100 transition-colors">
                       ✏️ 수정
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             );
           })}
@@ -634,15 +714,18 @@ export default function LearningNote({ studentCode }) {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={e => e.target === e.currentTarget && setDetailNote(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+            <div className={`p-4 border-b flex items-center justify-between shrink-0
+              ${detailNote.status === 'approved' ? 'bg-emerald-50 border-emerald-100'
+              : detailNote.status === 'rejected'  ? 'bg-rose-50 border-rose-100'
+              : 'bg-amber-50 border-amber-100'}`}>
               <div>
-                <div className="font-extrabold text-slate-800 text-sm mb-1">{detailNote.date}</div>
+                <div className="font-extrabold text-slate-800 text-sm mb-1">📅 {detailNote.date}</div>
                 <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${(STATUS_BADGE[detailNote.status] || STATUS_BADGE.pending).cls}`}>
                   {(STATUS_BADGE[detailNote.status] || STATUS_BADGE.pending).label}
                 </span>
               </div>
               <button onClick={() => setDetailNote(null)}
-                className="text-slate-400 hover:text-slate-600 text-xl w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-100">✕</button>
+                className="text-slate-400 hover:text-slate-600 text-xl w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/60 transition-colors">✕</button>
             </div>
             <div className="overflow-y-auto p-4 space-y-4 flex-1">
               {detailNote.teacherComment && (
@@ -655,7 +738,7 @@ export default function LearningNote({ studentCode }) {
               )}
               {(detailNote.subjects || []).map((s, i) => (
                 <div key={i} className="border border-slate-100 rounded-xl p-4 space-y-3 bg-slate-50">
-                  <div className="font-extrabold text-indigo-700 text-sm bg-indigo-50 inline-block px-3 py-1 rounded-lg">{s.subject}</div>
+                  <div className="font-extrabold text-indigo-700 text-sm bg-indigo-50 inline-block px-3 py-1 rounded-lg border border-indigo-100">{s.subject}</div>
                   <div>
                     <div className="text-[11px] font-bold text-slate-500 mb-1">📌 핵심 배움</div>
                     <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{s.coreContent}</p>

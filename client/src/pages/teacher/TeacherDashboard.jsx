@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
+import LevelUpEffect from '../../components/LevelUpEffect';
 
 import iconGold from '../../assets/images/icon-gold.png';
 import iconDiamond from '../../assets/images/icon-diamond.png';
-import iconQuest from '../../assets/images/icon-quest.png'; 
+import iconQuest from '../../assets/images/icon-quest.png';
 
 const getSeatNum = (code) => parseInt(code?.slice(-2)) || 0;
 
@@ -13,6 +14,8 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
   const [isLoading, setIsLoading] = useState(true);
   const [questStats, setQuestStats] = useState([]);
   const [toast, setToast] = useState(null);
+  const [showLevelUpPreview, setShowLevelUpPreview] = useState(false);
+  const [previewLevel, setPreviewLevel] = useState(9);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -231,6 +234,17 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
         </div>
         
         <div className="flex flex-wrap gap-2">
+          {selectedClass?.teacherUid === 'admin_master_001' && (
+            <button
+              onClick={() => {
+                setPreviewLevel(prev => prev + 1);
+                setShowLevelUpPreview(true);
+              }}
+              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-amber-900 px-4 py-2 rounded-lg font-extrabold text-sm shadow-sm transition-all border border-amber-300"
+            >
+              ⬆️ 레벨업 효과 보기
+            </button>
+          )}
           <button onClick={async () => {
             const list = await fetchStudents();
             await fetchQuestStats(list.map(s => s.id));
@@ -544,6 +558,15 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
             </div>
           </div>
         </div>
+      )}
+
+      {showLevelUpPreview && (
+        <LevelUpEffect
+          prevLevel={previewLevel - 1}
+          newLevel={previewLevel}
+          characterImage={null}
+          onClose={() => setShowLevelUpPreview(false)}
+        />
       )}
 
       {toast && (
