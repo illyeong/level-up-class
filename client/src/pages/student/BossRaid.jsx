@@ -86,17 +86,17 @@ function ParticipantRoster({ participants, currentQuestionIdx }) {
         {list.map(p => {
           const st = getStatus(p);
           return (
-            <div key={p.id} className="flex flex-col items-center gap-1 shrink-0 w-20">
+            <div key={p.id} className="flex flex-col items-center gap-1 shrink-0 w-28">
               <div className="relative">
                 {p.characterImage
-                  ? <div className="w-16 h-16 rounded-xl bg-slate-800 border border-slate-600 flex items-center justify-center">
+                  ? <div className="w-24 h-24 rounded-xl bg-slate-800 border border-slate-600 flex items-center justify-center">
                       <img src={p.characterImage} alt=""
                         className="w-full h-full object-contain"
                         style={{ imageRendering: 'pixelated' }} />
                     </div>
-                  : <div className="w-16 h-16 rounded-xl bg-slate-700 flex items-center justify-center text-3xl">🧑</div>
+                  : <div className="w-24 h-24 rounded-xl bg-slate-700 flex items-center justify-center text-4xl">🧑</div>
                 }
-                <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-slate-900 flex items-center justify-center text-[9px] font-bold
+                <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold
                   ${st === 'correct' ? 'bg-emerald-500' : st === 'wrong' ? 'bg-rose-500' : 'bg-slate-600'}`}>
                   {st === 'correct' ? '✓' : st === 'wrong' ? '✗' : '○'}
                 </div>
@@ -119,6 +119,25 @@ function NoBossScreen() {
       <div className="text-7xl mb-5 opacity-40 animate-pulse">🐉</div>
       <p className="font-extrabold text-xl text-slate-400 mb-2">활성화된 보스 레이드가 없습니다</p>
       <p className="text-slate-500 text-sm">선생님이 레이드를 열면 여기에 표시됩니다</p>
+    </div>
+  );
+}
+
+// ── 뷰포트 진입 시에만 스프라이트 로드 (대용량 PNG 렉 방지) ────────
+function LazySprite({ data, scale, w = 60, h = 60 }) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold: 0.1 }
+    );
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={ref} style={{ width: w, height: h }} className="flex items-center justify-center">
+      {visible && <SpriteMonster data={data} anim="idle" scale={scale} frozen />}
     </div>
   );
 }
@@ -178,9 +197,7 @@ function IntroScreen({ raid, bossData, onEnter }) {
             const sc = Math.min(52 / m.frameHeight, 52 / m.frameWidth) * 0.85;
             return (
               <div key={m.id} className="flex flex-col items-center gap-1 bg-slate-900/60 border border-slate-700/60 rounded-2xl px-2 pt-3 pb-2">
-                <div className="flex items-center justify-center" style={{ width: 60, height: 60 }}>
-                  <SpriteMonster data={m} anim="idle" scale={sc} frozen />
-                </div>
+                <LazySprite data={m} scale={sc} w={60} h={60} />
                 <span className="text-[9px] font-bold text-slate-400 text-center truncate w-full">{m.name || m.id}</span>
               </div>
             );
@@ -271,22 +288,22 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
         {pList.length === 0 ? (
           <div className="text-slate-500 text-sm text-center py-4">아직 참가자가 없습니다</div>
         ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5">
             {pList.map(p => (
               <div key={p.id}
-                className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all
+                className={`flex flex-col items-center gap-1 p-1 rounded-xl border transition-all
                   ${!isTeacher && p.id === myId
                     ? 'border-emerald-500 bg-emerald-900/30'
                     : 'border-slate-700 bg-slate-800/60'}`}>
                 {p.characterImage
-                  ? <div className="w-full rounded-lg bg-slate-700 overflow-hidden flex items-center justify-center" style={{ aspectRatio: '1', minHeight: 52 }}>
+                  ? <div className="w-full rounded-lg bg-slate-700 overflow-hidden flex items-center justify-center" style={{ aspectRatio: '1', minHeight: 26 }}>
                       <img src={p.characterImage} alt=""
                         className="w-full h-full object-contain"
                         style={{ imageRendering: 'pixelated', transform: 'scale(1.2)', transformOrigin: 'center' }} />
                     </div>
-                  : <div className="w-full rounded-lg bg-slate-700 flex items-center justify-center text-3xl" style={{ aspectRatio: '1', minHeight: 52 }}>🧑</div>
+                  : <div className="w-full rounded-lg bg-slate-700 flex items-center justify-center text-xl" style={{ aspectRatio: '1', minHeight: 26 }}>🧑</div>
                 }
-                <span className={`text-xs font-bold text-center truncate w-full leading-tight
+                <span className={`text-[9px] font-bold text-center truncate w-full leading-tight
                   ${!isTeacher && p.id === myId ? 'text-emerald-300' : 'text-slate-200'}`}>
                   {p.name || '학생'}
                 </span>
@@ -348,8 +365,8 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       </div>
 
       {/* 보스 스프라이트 영역 */}
-      <div ref={bossAreaRef} className="bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center relative py-6 min-h-[200px]">
-        <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={2.0} />
+      <div ref={bossAreaRef} className="bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center relative py-6 min-h-[260px]">
+        <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={3.0} />
 
         {/* 데미지 이펙트 */}
         {myAnswer?.correct && (

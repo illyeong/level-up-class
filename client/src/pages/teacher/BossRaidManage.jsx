@@ -116,9 +116,12 @@ const fitScale = (data, maxW, maxH) =>
   Math.min(maxH / data.frameHeight, maxW / data.frameWidth) * 0.88;
 
 // ── 보스 몬스터 피커 ─────────────────────────────────────────────
+const ANIM_KO = { idle: '대기', run: '이동', attack: '공격', death: '사망' };
+
 function BossMonsterPicker({ selectedId, onSelect, onClose }) {
   const [filter, setFilter]   = useState('all');
   const [previewId, setPreviewId] = useState(null);
+  const [previewAnim, setPreviewAnim] = useState('idle');
   const list = filter === 'all' ? BOSS_MONSTERS : BOSS_MONSTERS.filter(m => m.tier === filter);
 
   return (
@@ -150,15 +153,15 @@ function BossMonsterPicker({ selectedId, onSelect, onClose }) {
                   ? 'border-rose-500 bg-rose-50 shadow-md'
                   : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
               <button className="w-full flex flex-col items-center gap-1" onClick={() => { onSelect(m.id); onClose(); }}>
-                <div className="flex items-center justify-center overflow-hidden" style={{ width: 72, height: 72 }}>
-                  <SpriteMonster data={m} anim="idle" scale={fitScale(m, 72, 72)} frozen />
+                <div className="flex items-center justify-center overflow-hidden" style={{ width: 96, height: 96 }}>
+                  <SpriteMonster data={m} anim="idle" scale={fitScale(m, 96, 96)} frozen />
                 </div>
                 <div className="text-xs font-bold text-slate-700 text-center leading-tight">{m.name}</div>
                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${TIER_COLOR[m.tier]}`}>
                   {TIER_LABEL[m.tier]}
                 </span>
               </button>
-              <button onClick={() => setPreviewId(m.id)}
+              <button onClick={() => { setPreviewId(m.id); setPreviewAnim('idle'); }}
                 className="text-[10px] text-slate-400 hover:text-rose-500 font-bold px-2 py-0.5 rounded-lg hover:bg-rose-50 transition-colors w-full text-center">
                 👁 미리보기
               </button>
@@ -171,19 +174,23 @@ function BossMonsterPicker({ selectedId, onSelect, onClose }) {
       {previewId && (() => {
         const pm = MONSTERS_DB[previewId];
         if (!pm) return null;
-        const ps = fitScale(pm, 160, 160);
+        const ps = fitScale(pm, 240, 240);
         return (
-          <div className="fixed inset-0 z-60 bg-black/70 flex items-center justify-center"
+          <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center"
             onClick={() => setPreviewId(null)}>
-            <div className="bg-slate-900 rounded-3xl p-6 flex flex-col items-center gap-4 shadow-2xl"
+            <div className="bg-slate-900 rounded-3xl p-8 flex flex-col items-center gap-5 shadow-2xl min-w-[320px]"
               onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-center" style={{ width: 180, height: 180 }}>
-                <SpriteMonster data={pm} anim="idle" scale={ps} />
+              <div className="flex items-center justify-center" style={{ width: 260, height: 260 }}>
+                <SpriteMonster data={pm} anim={previewAnim} scale={ps} />
               </div>
-              <div className="text-white font-extrabold text-base">{pm.name}</div>
-              <div className="flex gap-2">
+              <div className="text-white font-extrabold text-xl">{pm.name}</div>
+              <div className="flex gap-2 flex-wrap justify-center">
                 {['idle','run','attack','death'].map(a => pm.animations?.[a] && (
-                  <button key={a} onClick={() => {}} className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg bg-slate-800">{a}</button>
+                  <button key={a} onClick={() => setPreviewAnim(a)}
+                    className={`text-sm font-bold px-4 py-1.5 rounded-lg transition-colors
+                      ${previewAnim === a ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+                    {ANIM_KO[a]}
+                  </button>
                 ))}
               </div>
               <button onClick={() => setPreviewId(null)}

@@ -407,6 +407,30 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
     questionCount: totalQ,
   }];
 
+  // 첫 몬스터 이미지 로드 확인 (대형 PNG 디코딩 렉 방지)
+  const [imgReady, setImgReady] = useState(() => {
+    const firstId = waves[0]?.monsterId;
+    const m = firstId ? MONSTERS_DB[firstId] : null;
+    if (!m?.src) return true;
+    const img = new Image();
+    img.src = m.src;
+    return img.complete; // 캐시된 경우 즉시 true
+  });
+
+  useEffect(() => {
+    if (imgReady) return;
+    const ids = [...new Set(waves.map(w => w.monsterId))];
+    const promises = ids.map(id => {
+      const m = MONSTERS_DB[id];
+      if (!m?.src) return Promise.resolve();
+      const img = new Image();
+      img.src = m.src;
+      const p = img.decode ? img.decode().catch(() => {}) : new Promise(r => { img.onload = r; img.onerror = r; });
+      return Promise.race([p, new Promise(r => setTimeout(r, 4000))]); // 최대 4초 대기
+    });
+    Promise.all(promises).then(() => setImgReady(true));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [currentWaveIdx, setCurrentWaveIdx] = useState(0);
   const [waveMonsterHP,  setWaveMonsterHP]  = useState(waves[0].questionCount * DAMAGE_RIGHT);
 
@@ -584,6 +608,23 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
   const mHPpct  = (waveMonsterHP / waveMaxHP) * 100;
   const pHPpct  = (playerHP / playerMaxHP) * 100;
   const comboLv = getComboLv(combo);
+
+  // 대형 몬스터 이미지 디코딩 대기 (최대 4초)
+  if (!imgReady) {
+    return (
+      <div className="flex flex-col h-full bg-slate-900 items-center justify-center gap-5 select-none">
+        <div className="text-5xl animate-bounce">⚔️</div>
+        <div className="text-white font-extrabold text-lg">전투 준비 중...</div>
+        <div className="text-slate-400 text-sm">몬스터 소환 중</div>
+        <div className="flex gap-1 mt-2">
+          {[0,1,2].map(i => (
+            <div key={i} className="w-2 h-2 bg-rose-500 rounded-full animate-bounce"
+              style={{ animationDelay: `${i * 0.15}s` }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-slate-900 select-none overflow-hidden">
@@ -1111,10 +1152,23 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
     finally { setIsSaving(false); }
   };
 
+  // 몬스터 이미지 미리 디코딩 (큰 보스 PNG 로드 렉 방지)
+  const preloadWaveImages = (waves) => {
+    const ids = [...new Set(waves.map(w => w.monsterId))];
+    ids.forEach(id => {
+      const m = MONSTERS_DB[id];
+      if (!m?.src) return;
+      const img = new Image();
+      img.src = m.src;
+      img.decode?.().catch(() => {});
+    });
+  };
+
   // "입장" 클릭 시 웨이브를 미리 확정해서 모달과 배틀이 같은 몬스터를 사용하게 함
   const handlePreview = (d) => {
     const totalQ = (d.questions || []).length;
     const waves  = generateWaves(totalQ, d.monsterIds || d.monsterId, d.id);
+    preloadWaveImages(waves); // 팝업 보는 동안 백그라운드 로드
     setPreviewDungeon({ ...d, waves });
   };
 
