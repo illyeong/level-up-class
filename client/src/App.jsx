@@ -25,6 +25,9 @@ import PetHouse        from './pages/student/PetHouse.jsx';
 import Equipment      from './pages/student/Equipment.jsx';
 import GachaBox       from './pages/student/GachaBox.jsx';
 import Arena          from './pages/student/Arena.jsx';
+import FreeBoard      from './pages/student/FreeBoard.jsx';
+import HallOfFame     from './pages/student/HallOfFame.jsx';
+import ClassVote      from './pages/student/ClassVote.jsx';
 
 const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','miniGame'];
 
@@ -192,7 +195,10 @@ function App() {
         {ADVENTURE_VIEWS.includes(currentView) && (
           <AdventurePage currentView={currentView} studentCode={activeStudentCode} />
         )}
-        {currentView === 'board'    && <LearningBoard studentCode={activeStudentCode} />}
+        {currentView === 'board'      && <LearningBoard studentCode={activeStudentCode} />}
+        {currentView === 'freeBoard'  && <FreeBoard    studentCode={activeStudentCode} />}
+        {currentView === 'hallOfFame' && <HallOfFame   studentCode={activeStudentCode} />}
+        {currentView === 'classVote'  && <ClassVote    studentCode={activeStudentCode} />}
         {currentView === 'petHouse'  && <PetHouse />}
         {currentView === 'equipment' && <Equipment studentCode={activeStudentCode} />}
         {currentView === 'gachaBox'  && <GachaBox  studentCode={activeStudentCode} />}

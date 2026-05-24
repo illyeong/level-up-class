@@ -13,14 +13,14 @@ const NavigationBar = ({ changeView, currentView }) => {
 
   const menuData = [
     {
-      id: 'dashboard', icon: iconDashboard, title: t('menu.dashboard', '대시보드'), isReady: true,
+      id: 'dashboard', icon: iconDashboard, title: t('menu.dashboard', '대시보드'), isReady: true, directNav: true,
       subMenus: [
         { title: '우리반 전체 보기', id: 'classAll' },
         { title: t('submenu.notice', '알림장'), id: 'notice' }
       ]
     },
     {
-      id: 'myCharacter', icon: '🦸‍♂️', title: t('menu.character', '내 캐릭터'), isReady: true,
+      id: 'myCharacter', icon: '🦸‍♂️', title: t('menu.character', '내 캐릭터'), isReady: true, directNav: true,
       subMenus: [
         { title: t('submenu.avatarRoom', '아바타 룸'), id: 'avatarRoom' },
         { title: '⚔️ 장비', id: 'equipment' },
@@ -28,7 +28,7 @@ const NavigationBar = ({ changeView, currentView }) => {
       ]
     },
     {
-      id: 'quest', icon: iconQuest, title: t('menu.quest', '퀘스트'), isReady: true,
+      id: 'quest', icon: iconQuest, title: t('menu.quest', '퀘스트'), isReady: true, directNav: true,
       subMenus: [
         { title: '업적', id: 'achievement' }
       ]
@@ -47,7 +47,7 @@ const NavigationBar = ({ changeView, currentView }) => {
       ]
     },
     {
-      id: 'adventure', icon: iconAdventure, title: t('menu.adventure', '어드벤처'), isReady: true,
+      id: 'adventure', icon: iconAdventure, title: t('menu.adventure', '어드벤처'), isReady: true, directNav: true,
       subMenus: [
         { title: '퀴즈던전',  id: 'quizDungeon' },
         { title: '탐험던전',  id: 'explorationDungeon' },
@@ -67,9 +67,9 @@ const NavigationBar = ({ changeView, currentView }) => {
     {
       id: 'town', icon: '📢', title: t('menu.town', '마을 광장'), isReady: true,
       subMenus: [
-        { title: t('submenu.freeBoard', '자유 게시판'), id: 'freeBoard' },
-        { title: t('submenu.complimentMailbox', '칭찬 우체통'), id: 'complimentMailbox' },
-        { title: t('submenu.suggestionBox', '건의함'), id: 'suggestionBox' }
+        { title: '자유 게시판', id: 'freeBoard' },
+        { title: '🏆 명예의 전당', id: 'hallOfFame' },
+        { title: '📊 학급 투표', id: 'classVote' },
       ]
     },
     {
@@ -82,7 +82,11 @@ const NavigationBar = ({ changeView, currentView }) => {
   ];
 
   const handleMenuClick = (menuId) => {
-    if (changeView) changeView(menuId);
+    const menu = menuData.find(m => m.id === menuId);
+    // 서브메뉴가 없거나 directNav 플래그가 있는 메뉴만 직접 이동
+    if (changeView && (menu?.subMenus.length === 0 || menu?.directNav)) {
+      changeView(menuId);
+    }
     if (!isSidebarOpen) {
       setSidebarOpen(true);
       setExpandedMenu(menuId);

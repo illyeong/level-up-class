@@ -549,15 +549,15 @@ export default function QuizBank() {
   // ── 퀴즈은행: 내 퀴즈로 가져오기 ─────────────────────────────────
   const importFromBank = async (set) => {
     showConfirm(`"${set.title}"을 내 퀴즈로 가져올까요?`, async () => {
+      const { id: _omit, ...setData } = set; // id 필드 제거 (Firestore는 undefined 거부)
       await addDoc(collection(db, 'quizSets'), {
-        ...set,
-        id:          undefined,
-        ownerId:     currentUid,
-        ownerName:   auth.currentUser?.email || '선생님',
-        isShared:    false,
-        sharedAt:    null,
-        sourceId:    set.id,
-        createdAt:   serverTimestamp(),
+        ...setData,
+        ownerId:   currentUid,
+        ownerName: auth.currentUser?.email || '선생님',
+        isShared:  false,
+        sharedAt:  null,
+        sourceId:  set.id,
+        createdAt: serverTimestamp(),
       });
       await updateDoc(doc(db, 'quizSets', set.id), { importCount: (set.importCount || 0) + 1 });
       showToast('✅ 내 퀴즈로 가져왔습니다!');

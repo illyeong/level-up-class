@@ -1138,9 +1138,9 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             ${hitFlash.me ? (hitDmg.me?.isCrit ? 'border-yellow-400 bg-yellow-950/30 scale-[0.95]' : 'border-rose-500 bg-rose-950/40 scale-[0.98]') : 'border-indigo-700'}`}>
             <div className="text-xs font-extrabold text-indigo-400 tracking-widest">나</div>
             <div className="flex-1 w-full flex items-center justify-center relative">
-              <div className="w-64 h-64 flex items-center justify-center">
+              <div className="w-64 h-64 flex items-center justify-center overflow-hidden">
                 {me?.characterImage
-                  ? <img src={me.characterImage} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', imageRendering:'pixelated', transform:'scaleX(-1)' }} />
+                  ? <img src={me.characterImage} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', imageRendering:'pixelated', transform:'scaleX(-1) scale(3)', transformOrigin:'center' }} />
                   : <span className="text-5xl">🧑‍🎓</span>}
               </div>
               {hitDmg.me && (
@@ -1176,9 +1176,9 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'border-yellow-400 bg-yellow-950/30 scale-[0.95]' : 'border-rose-400 bg-rose-950/60 scale-[0.98]') : 'border-rose-800'}`}>
             <div className="text-xs font-extrabold text-rose-400 tracking-widest">상대</div>
             <div className="flex-1 w-full flex items-center justify-center relative">
-              <div className="w-64 h-64 flex items-center justify-center">
+              <div className="w-64 h-64 flex items-center justify-center overflow-hidden">
                 {opponent?.characterImage
-                  ? <img src={opponent.characterImage} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', imageRendering:'pixelated' }} />
+                  ? <img src={opponent.characterImage} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', imageRendering:'pixelated', transform:'scale(3)', transformOrigin:'center' }} />
                   : <span className="text-5xl">🧑‍🎓</span>}
               </div>
               {hitDmg.opp && (

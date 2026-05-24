@@ -1008,7 +1008,7 @@ const BATTLE_LAYOUT_DEFAULTS = {
   monsterScaleMult:    1.7,
 };
 
-function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeacher = false }) {
+function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeacher = false, teacherUid = null }) {
   const [screen,          setScreen]         = useState('lobby');
   const [dungeons,        setDungeons]       = useState([]);
   const [isLoading,       setIsLoading]      = useState(true);
@@ -1034,8 +1034,19 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
   useEffect(() => {
     const load = async () => {
       try {
+        // teacherUid 결정: 교사 모드는 prop, 학생 모드는 학생 문서에서 추출
+        let filterUid = teacherUid;
+        if (!filterUid && studentDocId) {
+          const sSnap = await getDoc(doc(db, 'students', studentDocId));
+          filterUid = sSnap.data()?.teacherUid || null;
+        }
+
+        const dungeonQuery = filterUid
+          ? query(collection(db, 'quizDungeons'), where('active', '==', true), where('teacherUid', '==', filterUid))
+          : query(collection(db, 'quizDungeons'), where('active', '==', true));
+
         const [dungSnap, resSnap] = await Promise.all([
-          getDocs(query(collection(db, 'quizDungeons'), where('active', '==', true))),
+          getDocs(dungeonQuery),
           studentDocId
             ? getDocs(query(collection(db, 'quizResults'), where('studentId', '==', studentDocId)))
             : Promise.resolve({ docs: [] }),
@@ -1060,7 +1071,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
       finally { setIsLoading(false); }
     };
     load();
-  }, [studentDocId]);
+  }, [studentDocId, teacherUid]);
 
   // 학생 데이터 로드
   useEffect(() => {
@@ -1069,6 +1080,27 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
       if (snap.exists()) setStudentData({ id: snap.id, ...snap.data() });
     });
   }, [studentDocId]);
+
+  // 교사 캐릭터 데이터 로드 (isTeacher 모드)
+  useEffect(() => {
+    if (!isTeacher || !teacherUid) return;
+    getDoc(doc(db, 'teacherProfiles', teacherUid)).then(snap => {
+      if (snap.exists()) {
+        const d = snap.data();
+        const lv = d.level ?? 50;
+        setStudentData({
+          id:             teacherUid,
+          characterImage: d.characterImage ?? '',
+          parts:          d.parts ?? {},
+          level:          lv,
+          exp:            0,
+          maxExp:         800,
+          gold:           0,
+          diamonds:       0,
+        });
+      }
+    }).catch(() => {});
+  }, [isTeacher, teacherUid]);
 
   const enterDungeon = (dungeon) => {
     const totalQ = dungeon.questions.length;

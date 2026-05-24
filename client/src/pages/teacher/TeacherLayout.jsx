@@ -22,6 +22,7 @@ import DataReset from './DataReset';
 import BossRaid from '../student/BossRaid';
 import QuizDungeon from '../student/QuizDungeon';
 import ExplorationDungeon from '../student/ExplorationDungeon';
+import ClassVoteManage from './ClassVoteManage';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
   const [currentView, setCurrentView]   = useState('dashboard');
@@ -93,11 +94,11 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'classShopManage' && <ClassShopManage />}
         {currentView === 'stockManage'        && <StockManage />}
         {currentView === 'quizBank'           && <QuizBank />}
-        {currentView === 'quizDungeonManage' && <QuizDungeonManage />}
+        {currentView === 'quizDungeonManage' && <QuizDungeonManage selectedClass={selectedClass} />}
         {currentView === 'bossRaidManage'    && <BossRaidManage onViewLobby={() => setCurrentView('bossRaid')} />}
         {currentView === 'bossRaid'          && <BossRaid isTeacher={true} />}
-        {currentView === 'quizDungeon'       && <QuizDungeon isTeacher={true} />}
-        {currentView === 'explorationDungeon' && <ExplorationDungeon isTeacher={true} />}
+        {currentView === 'quizDungeon'       && <QuizDungeon isTeacher={true} teacherUid={selectedClass?.teacherUid} />}
+        {currentView === 'explorationDungeon' && <ExplorationDungeon isTeacher={true} teacherUid={selectedClass?.teacherUid} />}
 
         {/* 임시 준비 중 화면들 */}
         {currentView === 'myCharacter'     && <TeacherCharacter selectedClass={selectedClass} />}
@@ -105,13 +106,14 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'boardManage'     && <BoardManage selectedClass={selectedClass} user={user} />}
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
         {currentView === 'dataReset'       && <DataReset selectedClass={selectedClass} />}
+        {currentView === 'classVoteManage' && <ClassVoteManage selectedClass={selectedClass} />}
         
       </main>
 
       {/* 학생 체크인 키오스크 모드 - 전체 화면 오버레이 (nav 포함 모두 덮음) */}
       {currentView === 'questKiosk' && (
         <div className="fixed inset-0 z-[100] overflow-y-auto">
-          <QuestKiosk onExit={() => {
+          <QuestKiosk selectedClass={selectedClass} onExit={() => {
             setCurrentView('dashboard');
             setDashboardKey(k => k + 1); // 대시보드 강제 재마운트 → 퀘스트 현황 최신화
           }} />

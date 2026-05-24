@@ -281,7 +281,8 @@ function QuizSetPicker({ selectedSetId, onSelect }) {
 }
 
 // ── 메인 ──────────────────────────────────────────────────────────
-function QuizDungeonManage() {
+function QuizDungeonManage({ selectedClass }) {
+  const teacherUid = selectedClass?.teacherUid || auth.currentUser?.uid || 'admin_master_001';
   const [tab, setTab] = useState('create'); // 'create' | 'dungeons'
 
   // 던전 설정 상태
@@ -313,7 +314,7 @@ function QuizDungeonManage() {
   const fetchDungeons = async () => {
     setIsLoading(true);
     try {
-      const snap = await getDocs(collection(db, 'quizDungeons'));
+      const snap = await getDocs(query(collection(db, 'quizDungeons'), where('teacherUid', '==', teacherUid)));
       setDungeons(
         snap.docs.map(d => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
@@ -348,6 +349,7 @@ function QuizDungeonManage() {
           questions:     selectedSet.questions || [],
           questionCount: selectedSet.questionCount || selectedSet.questions?.length || 0,
           quizSetId:     selectedSet.id,
+          teacherUid,
           active:        true,
           playCount:     0,
           createdAt:     serverTimestamp(),

@@ -43,7 +43,7 @@ const DUNGEONS = [
 const getSequentialState = (dungeon, completedMap, allDungeons, isTeacher = false) => {
   if (dungeon.active === false) return 'locked';
   if (completedMap[dungeon.id] === 'completed') return 'completed';
-  if (isTeacher) return 'current'; // 교사는 모든 던전 입장 가능
+  if (isTeacher) return 'current'; // 교사는 관리자가 활성화한(active) 던전 모두 입장 가능
 
   // 이 던전보다 id 작은 active 던전 중 미완료가 하나라도 있으면 locked
   const prevActive = allDungeons
@@ -203,7 +203,7 @@ function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
-export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, isTeacher = false }) {
+export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, isTeacher = false, teacherUid = null }) {
   const [phase, setPhase]             = useState('map');
   const [dungeonList, setDungeonList] = useState(DUNGEONS);
   const [isBusy, setIsBusy]           = useState(false);
@@ -271,6 +271,34 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
       } catch (e) { console.error(e); }
     })();
   }, [studentCode]);
+
+  // 교사 캐릭터 데이터 로드 (isTeacher 모드)
+  useEffect(() => {
+    if (!isTeacher || !teacherUid) return;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'teacherProfiles', teacherUid));
+        if (snap.exists()) {
+          const data = snap.data();
+          const lv = data.level ?? 50;
+          characterDataRef.current = {
+            parts:          data.parts ?? null,
+            colors:         data.colors ?? null,
+            characterImage: data.characterImage ?? '',
+            stats: {
+              level:         lv,
+              exp:           0,
+              maxExp:        800,
+              gold:          0,
+              diamonds:      0,
+              maxHealth:     100 + Math.floor(lv * 10),
+              currentHealth: 100 + Math.floor(lv * 10),
+            },
+          };
+        }
+      } catch (e) { console.error(e); }
+    })();
+  }, [isTeacher, teacherUid]);
 
   // Unity 메시지 수신
   useEffect(() => {

@@ -17,10 +17,10 @@ const fetchStudents = async (selectedClass) => {
 };
 
 /* ─── ConfirmModal ────────────────────────────────────── */
-function ConfirmModal({ title, description, danger, onConfirm, onCancel }) {
+function ConfirmModal({ title, description, danger, confirmWord = '초기화', onConfirm, onCancel }) {
   const [inputVal, setInputVal] = useState('');
   const needsType = danger;
-  const canConfirm = !needsType || inputVal === '초기화';
+  const canConfirm = !needsType || inputVal === confirmWord;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -34,13 +34,13 @@ function ConfirmModal({ title, description, danger, onConfirm, onCancel }) {
         {needsType && (
           <div className="mb-4">
             <p className="text-sm text-rose-600 font-bold mb-2">
-              확인을 위해 아래에 <span className="font-mono bg-rose-50 px-1 rounded">초기화</span> 를 입력해주세요.
+              확인을 위해 아래에 <span className="font-mono bg-rose-50 px-1 rounded">{confirmWord}</span> 를 입력해주세요.
             </p>
             <input
               type="text"
               value={inputVal}
               onChange={e => setInputVal(e.target.value)}
-              placeholder="초기화"
+              placeholder={confirmWord}
               className="w-full border-2 border-slate-200 focus:border-rose-400 rounded-xl px-4 py-2.5 text-sm outline-none transition-colors"
               autoFocus
             />
@@ -125,8 +125,8 @@ export default function DataReset({ selectedClass }) {
   };
 
   /* 모달 열기 */
-  const openModal = (key, title, description, danger, action) => {
-    setModal({ key, title, description, danger, action });
+  const openModal = (key, title, description, danger, action, confirmWord = '초기화') => {
+    setModal({ key, title, description, danger, action, confirmWord });
   };
 
   const closeModal = () => setModal(null);
@@ -239,22 +239,67 @@ export default function DataReset({ selectedClass }) {
     addLog(`퀘스트 완료 기록 초기화 완료 (${count}건 삭제)`, 'success');
   };
 
-  /* ── 7. 학기말 전체 초기화 ── */
-  const resetAll = async () => {
-    addLog('학기말 전체 초기화 시작...', 'info');
+  /* ── 7. 학급 삭제 ── */
+  const deleteClass = async () => {
+    addLog('학급 삭제 시작...', 'info');
     const students = await fetchStudents(selectedClass);
-    const batch = writeBatch(db);
-    students.forEach(s => {
-      batch.update(doc(db, 'students', s.id), {
-        gold: 0, diamonds: 0,
-        level: 1, exp: 0, maxExp: 100,
-        bankGold: 0, bankDiamond: 0,
-        bankGoldInterest: 0, bankDiamondInterest: 0,
-        tickets: { dungeon: 3, bossRaid: 1, arena: 5 },
-      });
-    });
-    await batch.commit();
-    addLog(`전체 초기화 완료 (${students.length}명 — 재화·레벨·은행·이용권)`, 'success');
+    const studentIds = students.map(s => s.id);
+    const teacherUid = selectedClass.teacherUid;
+
+    // 배치 단위 helper (500개 제한)
+    const batchDelete = async (refs) => {
+      for (let i = 0; i < refs.length; i += 490) {
+        const b = writeBatch(db);
+        refs.slice(i, i + 490).forEach(r => b.delete(r));
+        await b.commit();
+      }
+    };
+
+    // 학생 문서 삭제
+    await batchDelete(students.map(s => doc(db, 'students', s.id)));
+    addLog(`학생 ${students.length}명 삭제`, 'info');
+
+    if (studentIds.length > 0) {
+      // bankLogs
+      const bankSnap = await getDocs(query(collection(db, 'bankLogs'), where('studentId', 'in', studentIds.slice(0, 30))));
+      await batchDelete(bankSnap.docs.map(d => d.ref));
+
+      // shopInventory / shopPurchases
+      const invSnap = await getDocs(collection(db, 'shopInventory'));
+      const purSnap = await getDocs(collection(db, 'shopPurchases'));
+      await batchDelete([
+        ...invSnap.docs.filter(d => studentIds.includes(d.data().studentId)).map(d => d.ref),
+        ...purSnap.docs.filter(d => studentIds.includes(d.data().studentId)).map(d => d.ref),
+      ]);
+    }
+
+    // teacherUid 기준 컬렉션 삭제
+    if (teacherUid) {
+      // quizDungeons
+      const dungSnap = await getDocs(query(collection(db, 'quizDungeons'), where('teacherUid', '==', teacherUid)));
+      await batchDelete(dungSnap.docs.map(d => d.ref));
+
+      // classVotes
+      const voteSnap = await getDocs(query(collection(db, 'classVotes'), where('teacherUid', '==', teacherUid)));
+      await batchDelete(voteSnap.docs.map(d => d.ref));
+
+      // boardPosts
+      const boardSnap = await getDocs(query(collection(db, 'boardPosts'), where('teacherUid', '==', teacherUid)));
+      await batchDelete(boardSnap.docs.map(d => d.ref));
+    }
+
+    // quests (classId 또는 teacherUid 기준)
+    let questsSnap;
+    if (selectedClass.id) {
+      questsSnap = await getDocs(query(collection(db, 'quests'), where('classId', '==', selectedClass.id)));
+    } else if (teacherUid) {
+      questsSnap = await getDocs(query(collection(db, 'quests'), where('teacherUid', '==', teacherUid)));
+    }
+    if (questsSnap && !questsSnap.empty) {
+      await batchDelete(questsSnap.docs.map(d => d.ref));
+    }
+
+    addLog('학급 삭제 완료. 페이지를 새로고침해주세요.', 'success');
   };
 
   /* 선택된 학급 없을 때 */
@@ -404,18 +449,19 @@ export default function DataReset({ selectedClass }) {
             <h2 className="font-extrabold text-rose-700 text-sm uppercase tracking-widest">위험 구역</h2>
           </div>
           <ActionCard
-            icon="💥"
-            title="학기말 전체 초기화"
-            description="재화·레벨·경험치·은행·이용권을 한 번에 초기화합니다. 새 학기 시작 전에만 사용하세요."
-            buttonLabel="전체 초기화"
+            icon="🗑️"
+            title="학급 삭제"
+            description="학급의 모든 학생 계정, 퀘스트, 퀴즈 던전, 학급 투표, 게시글, 은행 로그, 상점 데이터를 영구 삭제합니다. 절대 되돌릴 수 없습니다."
+            buttonLabel="학급 삭제"
             danger
-            loading={loadingKey === 'all'}
+            loading={loadingKey === 'deleteClass'}
             onAction={() => openModal(
-              'all',
-              '학기말 전체 초기화',
-              '재화, 레벨, 경험치, 은행, 이용권이 모두 초기화됩니다. 이 작업은 되돌릴 수 없습니다.',
+              'deleteClass',
+              '학급을 삭제할까요?',
+              '모든 학생 계정과 학급 데이터가 영구적으로 삭제됩니다. 이 작업은 절대 되돌릴 수 없습니다.',
               true,
-              resetAll
+              deleteClass,
+              '삭제'
             )}
           />
         </section>
@@ -458,6 +504,7 @@ export default function DataReset({ selectedClass }) {
           title={modal.title}
           description={modal.description}
           danger={modal.danger}
+          confirmWord={modal.confirmWord}
           onConfirm={confirmModal}
           onCancel={closeModal}
         />

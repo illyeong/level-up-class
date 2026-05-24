@@ -26,7 +26,7 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser }
     {
       id: 'questManage', icon: iconQuest, title: '퀘스트 관리소', isReady: true,
       subMenus: [
-        { title: '🖐️ 학생 체크인', id: 'questKiosk' },
+        { title: '🖐️ 학생 셀프체크인', id: 'questKiosk' },
       ]
     },
     {
@@ -38,7 +38,6 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser }
         { title: '퀴즈던전',    id: 'quizDungeon' },
         { title: '탐험던전',    id: 'explorationDungeon' },
         { title: '보스 레이드', id: 'bossRaid' },
-        { title: '미니 게임',  id: 'miniGame' },
         { title: '어드벤처 관리', id: 'adventureManage' }
       ]
     },
@@ -54,6 +53,12 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser }
       id: 'studentManage', icon: '👨‍🎓', title: '학급/학생 관리', isReady: true,
       subMenus: [
         { title: '학생 계정 발급', id: 'accountIssue' },
+      ]
+    },
+    {
+      id: 'townManage', icon: '📢', title: '마을 광장 관리', isReady: true,
+      subMenus: [
+        { title: '📊 학급 투표 관리', id: 'classVoteManage' },
       ]
     },
     {

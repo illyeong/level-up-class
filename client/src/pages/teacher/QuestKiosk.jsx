@@ -22,8 +22,9 @@ function QuestList({ quests, onSelect, onExit, isLoading }) {
       {/* 상단 헤더 */}
       <div className="bg-indigo-700 text-white px-6 py-4 flex items-center justify-between shadow-md">
         <div>
-          <h1 className="text-xl font-extrabold">⚔️ 퀘스트 체크인</h1>
+          <h1 className="text-xl font-extrabold">🖐️ 학생 셀프체크인</h1>
           <p className="text-indigo-200 text-xs mt-0.5">완료한 퀘스트를 선택하세요</p>
+          <p className="text-indigo-300 text-xs mt-0.5">1인 1기기로 퀘스트 체크가 어려운 경우 태블릿이나 노트북 1개로 셀프체크인하게 해주세요</p>
         </div>
         <button
           onClick={onExit}
@@ -228,7 +229,7 @@ function StudentGrid({ quest, students, completions, onToggle, onBack, isBusy })
 }
 
 // ─────────────────────── Main ─────────────────────────────────
-function QuestKiosk({ onExit }) {
+function QuestKiosk({ onExit, selectedClass }) {
   const [screen, setScreen]       = useState('quests'); // 'quests' | 'students'
   const [quests, setQuests]       = useState([]);
   const [students, setStudents]   = useState([]);
@@ -237,32 +238,40 @@ function QuestKiosk({ onExit }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy]       = useState(false);
 
+  const tid = selectedClass?.teacherUid || null;
+
   // 활성 퀘스트 + 학생 목록 로드
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
       try {
         const [questSnap, studentSnap] = await Promise.all([
-          getDocs(query(collection(db, 'quests'), where('active', '!=', false))),
+          getDocs(collection(db, 'quests')),
           getDocs(collection(db, 'students')),
         ]);
-        setQuests(
-          questSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-            .filter(q => q.active !== false)
-            .sort((a, b) => {
-              if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
-              return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
-            })
-        );
+
+        const allQuests = questSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const filtered = allQuests
+          .filter(q => q.active !== false)
+          .filter(q => !tid || q.teacherUid === tid || (!q.teacherUid && tid === 'admin_master_001'))
+          .sort((a, b) => {
+            if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
+            return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+          });
+        setQuests(filtered);
+
+        const allStudents = studentSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const classStudents = tid
+          ? allStudents.filter(s => s.teacherUid === tid)
+          : allStudents;
         setStudents(
-          studentSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-            .sort((a, b) => getSeatNum(a.studentCode) - getSeatNum(b.studentCode))
+          classStudents.sort((a, b) => getSeatNum(a.studentCode) - getSeatNum(b.studentCode))
         );
       } catch (err) { console.error(err); }
       finally { setIsLoading(false); }
     };
     load();
-  }, []);
+  }, [tid]);
 
   // 퀘스트 선택 → 완료 현황 로드
   const selectQuest = async (quest) => {

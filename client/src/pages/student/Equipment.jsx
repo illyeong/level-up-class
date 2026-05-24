@@ -581,6 +581,7 @@ export default function Equipment({ studentCode }) {
   const [gradeFilter, setGradeFilter]     = useState('all');
   const [slotFilter, setSlotFilter]       = useState('all');
   const [buyQty, setBuyQty]               = useState(1);
+  const [confirmBuy, setConfirmBuy]       = useState(false);
 
   useEffect(() => {
     if (!studentCode) return;
@@ -690,7 +691,7 @@ export default function Equipment({ studentCode }) {
                 className="px-2.5 py-1.5 text-slate-400 hover:text-white font-bold text-sm active:scale-95 transition-colors">+</button>
             </div>
             {/* 즉시 구매 버튼 */}
-            <button onClick={() => buyStones(buyQty)}
+            <button onClick={() => diamonds >= buyQty * 100 && setConfirmBuy(true)}
               disabled={diamonds < buyQty * 100}
               className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 whitespace-nowrap
                 ${diamonds >= buyQty * 100
@@ -938,6 +939,31 @@ export default function Equipment({ studentCode }) {
           onEnhance={onEnhanceDone}
           onClose={() => setEnhanceTarget(null)}
         />
+      )}
+
+      {confirmBuy && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-600 rounded-3xl p-7 w-80 shadow-2xl flex flex-col items-center gap-5">
+            <div className="text-4xl">🔮</div>
+            <div className="text-center">
+              <div className="text-white font-extrabold text-lg mb-1">강화석 구매</div>
+              <div className="text-slate-300 text-sm">
+                강화석 <span className="text-sky-400 font-extrabold">{buyQty}개</span>를<br />
+                💎 <span className="text-cyan-400 font-extrabold">{(buyQty * 100).toLocaleString()} 다이아</span>로 구매하시겠습니까?
+              </div>
+            </div>
+            <div className="flex gap-3 w-full">
+              <button onClick={() => setConfirmBuy(false)}
+                className="flex-1 py-3 rounded-2xl font-extrabold text-sm bg-slate-700 hover:bg-slate-600 text-slate-300 border border-slate-600 transition-colors active:scale-95">
+                취소
+              </button>
+              <button onClick={() => { setConfirmBuy(false); buyStones(buyQty); }}
+                className="flex-1 py-3 rounded-2xl font-extrabold text-sm bg-cyan-600 hover:bg-cyan-500 text-white border border-cyan-500/50 transition-colors active:scale-95">
+                구매
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

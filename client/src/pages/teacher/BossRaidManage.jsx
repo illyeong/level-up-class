@@ -738,10 +738,20 @@ export default function BossRaidManage({ onViewLobby }) {
                       className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-rose-500"
                     />
                   </div>
-                  <button onClick={() => setShowBossPicker(true)}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-xl transition-colors">
-                    🔄 보스 변경
-                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowBossPicker(true)}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-xl transition-colors">
+                      🔄 보스 변경
+                    </button>
+                    <button
+                      onClick={() => {
+                        const picked = BOSS_MONSTERS[Math.floor(Math.random() * BOSS_MONSTERS.length)];
+                        if (picked) { setF('bossId', picked.id); setF('bossName', picked.name); }
+                      }}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold rounded-xl transition-colors">
+                      🎲 랜덤
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
