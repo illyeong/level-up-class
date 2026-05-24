@@ -6,7 +6,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
-export default function FreeBoard({ studentCode }) {
+export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isTeacher }) {
   const [myInfo, setMyInfo]       = useState(null);
   const [posts, setPosts]         = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -24,6 +24,10 @@ export default function FreeBoard({ studentCode }) {
   const [isCommenting, setIsCommenting] = useState(false);
 
   useEffect(() => {
+    if (propTeacherUid) {
+      setMyInfo({ docId: null, name: '선생님', teacherUid: propTeacherUid });
+      return;
+    }
     if (!studentCode) return;
     (async () => {
       const snap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)));
@@ -32,7 +36,7 @@ export default function FreeBoard({ studentCode }) {
         setMyInfo({ docId: d.id, name: d.data().name, teacherUid: d.data().teacherUid });
       }
     })();
-  }, [studentCode]);
+  }, [studentCode, propTeacherUid]);
 
   useEffect(() => {
     if (!myInfo?.teacherUid) return;
@@ -187,7 +191,7 @@ export default function FreeBoard({ studentCode }) {
   // ── 상세보기 ───────────────────────────────────────────────────────
   if (view === 'detail' && selectedPost) {
     const liked    = selectedPost.likes?.includes(studentCode);
-    const isAuthor = selectedPost.authorId === studentCode;
+    const isAuthor = isTeacher || selectedPost.authorId === studentCode;
     return (
       <div className="max-w-2xl mx-auto p-6 space-y-4">
         <button
@@ -258,10 +262,12 @@ export default function FreeBoard({ studentCode }) {
     <div className="max-w-2xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-extrabold text-slate-800">📋 자유 게시판</h1>
-        <button
-          onClick={() => setView('write')}
-          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors"
-        >✏️ 글쓰기</button>
+        {!isTeacher && (
+          <button
+            onClick={() => setView('write')}
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors"
+          >✏️ 글쓰기</button>
+        )}
       </div>
 
       {posts.length === 0 ? (

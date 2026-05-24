@@ -7,7 +7,7 @@ import iconDashboard from '../assets/images/icon-dashboard.png';
 import iconQuest from '../assets/images/icon-quest.png';
 import iconAdventure from '../assets/images/icon-adventure.png';
 
-const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser }) => {
+const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, selectedClass }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [expandedMenu, setExpandedMenu] = useState('dashboard');
   const [showFeedback, setShowFeedback] = useState(false);
@@ -58,6 +58,8 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser }
     {
       id: 'townManage', icon: '📢', title: '마을 광장 관리', isReady: true,
       subMenus: [
+        { title: '📋 자유 게시판',   id: 'freeBoard' },
+        { title: '🏆 명예의 전당',   id: 'hallOfFame' },
         { title: '📊 학급 투표 관리', id: 'classVoteManage' },
       ]
     },
@@ -134,7 +136,13 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser }
             <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-orange-400 text-xl tracking-wider truncate">
               Teacher Mode
             </span>
-            <span className="text-xs text-indigo-300 font-bold tracking-widest">LEVELUP CLASS</span>
+            {selectedClass?.grade && selectedClass?.classNumber ? (
+              <span className="text-xs text-amber-300 font-extrabold tracking-wide">
+                {selectedClass.grade}학년 {selectedClass.classNumber}반
+              </span>
+            ) : (
+              <span className="text-xs text-indigo-300 font-bold tracking-widest">LEVELUP CLASS</span>
+            )}
           </div>
         )}
         <button 

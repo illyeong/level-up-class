@@ -23,6 +23,8 @@ import BossRaid from '../student/BossRaid';
 import QuizDungeon from '../student/QuizDungeon';
 import ExplorationDungeon from '../student/ExplorationDungeon';
 import ClassVoteManage from './ClassVoteManage';
+import FreeBoard      from '../student/FreeBoard';
+import HallOfFame     from '../student/HallOfFame';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
   const [currentView, setCurrentView]   = useState('dashboard');
@@ -54,6 +56,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         changeView={setCurrentView}
         currentView={currentView}
         onLogout={onLogout}
+        selectedClass={selectedClass}
       />
 
       {/* 우측 메인 화면 */}
@@ -107,6 +110,8 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
         {currentView === 'dataReset'       && <DataReset selectedClass={selectedClass} />}
         {currentView === 'classVoteManage' && <ClassVoteManage selectedClass={selectedClass} />}
+        {currentView === 'freeBoard'       && <FreeBoard teacherUid={selectedClass?.teacherUid} isTeacher={true} />}
+        {currentView === 'hallOfFame'      && <HallOfFame teacherUid={selectedClass?.teacherUid} />}
         
       </main>
 

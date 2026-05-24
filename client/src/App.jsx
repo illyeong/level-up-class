@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from './firebase';
+import { auth, db } from './firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 import LoginPage        from './pages/LoginPage.jsx';
 import ClassSelectPage  from './pages/teacher/ClassSelectPage.jsx';
@@ -39,6 +40,7 @@ function App() {
   const [studentInfo,    setStudentInfo]    = useState(null);
   const [currentView,    setCurrentView]    = useState('dashboard');
   const [testStudentCode, setTestStudentCode] = useState(null);
+  const [studentClassInfo, setStudentClassInfo] = useState(null);
 
   // ── Firebase Auth 상태 감지 (교사 로그인 유지) ─────────────────
   useEffect(() => {
@@ -69,6 +71,14 @@ function App() {
     });
     return unsub;
   }, []);
+
+  // ── 학생 학급 정보 조회 ────────────────────────────────────────
+  useEffect(() => {
+    if (!studentInfo?.classId) { setStudentClassInfo(null); return; }
+    getDoc(doc(db, 'classes', studentInfo.classId))
+      .then(snap => { if (snap.exists()) setStudentClassInfo(snap.data()); })
+      .catch(() => {});
+  }, [studentInfo?.classId]);
 
   // ── 교사 로그인 콜백 → 학급 선택으로 (테스트는 바로 입장) ───
   const handleTeacherLogin = (user) => {
@@ -175,7 +185,7 @@ function App() {
   // ── 학생 모드 ─────────────────────────────────────────────────
   return (
     <div className="flex h-screen bg-slate-50 relative">
-      <NavigationBar changeView={setCurrentView} currentView={currentView} />
+      <NavigationBar changeView={setCurrentView} currentView={currentView} classInfo={studentClassInfo} />
 
       <main className="flex-1 overflow-auto relative">
         {currentView === 'dashboard'    && <StudentDashboard studentCode={activeStudentCode} />}

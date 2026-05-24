@@ -5,7 +5,7 @@ import iconDashboard from '../assets/images/icon-dashboard.png';
 import iconQuest from '../assets/images/icon-quest.png';
 import iconAdventure from '../assets/images/icon-adventure.png';
 
-const NavigationBar = ({ changeView, currentView }) => {
+const NavigationBar = ({ changeView, currentView, classInfo }) => {
   const { t } = useTranslation();
   
   const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -111,7 +111,13 @@ const NavigationBar = ({ changeView, currentView }) => {
             <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-400 text-xl tracking-wider truncate">
               LevelUp Class
             </span>
-            <span className="text-xs text-indigo-300 font-bold tracking-widest">STUDENT MODE</span>
+            {classInfo?.grade && classInfo?.classNumber ? (
+              <span className="text-xs text-indigo-300 font-extrabold tracking-wide">
+                {classInfo.grade}학년 {classInfo.classNumber}반
+              </span>
+            ) : (
+              <span className="text-xs text-indigo-300 font-bold tracking-widest">STUDENT MODE</span>
+            )}
           </div>
         )}
         <button 
