@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, doc, writeBatch,
   onSnapshot, serverTimestamp, increment, getDoc, query, where,
@@ -118,6 +118,25 @@ const fitScale = (data, maxW, maxH) =>
 // ── 보스 몬스터 피커 ─────────────────────────────────────────────
 const ANIM_KO = { idle: '대기', run: '이동', attack: '공격', death: '사망' };
 
+// 뷰포트 진입 시에만 스프라이트 로드 (대용량 PNG 렉 방지)
+function LazyPickerSprite({ data, scale, w, h }) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold: 0.1 }
+    );
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={ref} style={{ width: w, height: h }} className="flex items-center justify-center">
+      {visible && <SpriteMonster data={data} anim="idle" scale={scale} frozen />}
+    </div>
+  );
+}
+
 function BossMonsterPicker({ selectedId, onSelect, onClose }) {
   const [filter, setFilter]   = useState('all');
   const [previewId, setPreviewId] = useState(null);
@@ -154,7 +173,7 @@ function BossMonsterPicker({ selectedId, onSelect, onClose }) {
                   : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
               <button className="w-full flex flex-col items-center gap-1" onClick={() => { onSelect(m.id); onClose(); }}>
                 <div className="flex items-center justify-center overflow-hidden" style={{ width: 96, height: 96 }}>
-                  <SpriteMonster data={m} anim="idle" scale={fitScale(m, 96, 96)} frozen />
+                  <LazyPickerSprite data={m} scale={fitScale(m, 96, 96)} w={96} h={96} />
                 </div>
                 <div className="text-xs font-bold text-slate-700 text-center leading-tight">{m.name}</div>
                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${TIER_COLOR[m.tier]}`}>
@@ -465,7 +484,7 @@ export default function BossRaidManage({ onViewLobby }) {
 
   // 생성 폼 상태
   const [form, setForm] = useState({
-    bossId:           'butcher',
+    bossId:           BOSS_MONSTERS[Math.floor(Math.random() * BOSS_MONSTERS.length)]?.id || 'butcher',
     bossName:         '',
     maxHP:            3000,
     damagePerHit:     100,
@@ -538,7 +557,6 @@ export default function BossRaidManage({ onViewLobby }) {
           clearedAt:        null,
         });
         showToast('대기실이 열렸습니다! 학생들이 입장하면 시작 버튼을 눌러주세요.');
-        setTab('active');
       } catch (err) {
         console.error(err);
         showToast('레이드 생성 중 오류가 발생했습니다.', 'error');

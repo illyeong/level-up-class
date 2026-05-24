@@ -910,7 +910,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         {/* 내 캐릭터 미리보기 */}
         {me && (
           <div className="bg-slate-900/60 rounded-2xl p-5 mb-6 flex items-center gap-5 border border-slate-700 w-full max-w-sm">
-            <div className="w-32 h-44 flex items-center justify-center shrink-0">
+            <div className="w-48 h-64 flex items-center justify-center shrink-0">
               {me.characterImage
                 ? <img src={me.characterImage} alt="" className="w-full h-full object-contain"
                     style={{ imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
@@ -1142,7 +1142,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             ${hitFlash.me ? (hitDmg.me?.isCrit ? 'border-yellow-400 bg-yellow-950/30 scale-[0.95]' : 'border-rose-500 bg-rose-950/40 scale-[0.98]') : 'border-indigo-700'}`}>
             <div className="text-xs font-extrabold text-indigo-400 tracking-widest">나</div>
             <div className="flex-1 w-full flex items-center justify-center relative">
-              <div className="w-44 h-44 flex items-center justify-center">
+              <div className="w-64 h-64 flex items-center justify-center">
                 {me?.characterImage
                   ? <img src={me.characterImage} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', imageRendering:'pixelated', transform:'scaleX(-1)' }} />
                   : <span className="text-5xl">🧑‍🎓</span>}
@@ -1180,7 +1180,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'border-yellow-400 bg-yellow-950/30 scale-[0.95]' : 'border-rose-400 bg-rose-950/60 scale-[0.98]') : 'border-rose-800'}`}>
             <div className="text-xs font-extrabold text-rose-400 tracking-widest">상대</div>
             <div className="flex-1 w-full flex items-center justify-center relative">
-              <div className="w-44 h-44 flex items-center justify-center">
+              <div className="w-64 h-64 flex items-center justify-center">
                 {opponent?.characterImage
                   ? <img src={opponent.characterImage} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', imageRendering:'pixelated' }} />
                   : <span className="text-5xl">🧑‍🎓</span>}

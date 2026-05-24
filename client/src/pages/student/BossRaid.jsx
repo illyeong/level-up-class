@@ -90,10 +90,10 @@ function ParticipantRoster({ participants, currentQuestionIdx }) {
             <div key={p.id} className="flex flex-col items-center gap-1 shrink-0 w-28">
               <div className="relative">
                 {p.characterImage
-                  ? <div className="w-24 h-24 rounded-xl bg-slate-800 border border-slate-600 flex items-center justify-center">
+                  ? <div className="w-24 h-24 rounded-xl bg-slate-800 border border-slate-600 overflow-hidden flex items-center justify-center">
                       <img src={p.characterImage} alt=""
                         className="w-full h-full object-contain"
-                        style={{ imageRendering: 'pixelated' }} />
+                        style={{ imageRendering: 'pixelated', transform: 'scale(3)', transformOrigin: 'center' }} />
                     </div>
                   : <div className="w-24 h-24 rounded-xl bg-slate-700 flex items-center justify-center text-4xl">🧑</div>
                 }
@@ -190,19 +190,15 @@ function IntroScreen({ raid, bossData, onEnter }) {
         )}
       </div>
 
-      {/* 보스 도감 */}
+      {/* 보스 도감 — 텍스트 목록만 표시 (대용량 PNG 렉 방지) */}
       <div className="px-4 pb-10">
         <div className="text-sm font-extrabold text-slate-300 mb-3 px-1">등장 보스 도감 ({bossList.length}종)</div>
-        <div className="grid grid-cols-3 gap-2.5">
-          {bossList.map(m => {
-            const sc = Math.min(52 / m.frameHeight, 52 / m.frameWidth) * 0.85;
-            return (
-              <div key={m.id} className="flex flex-col items-center gap-1 bg-slate-900/60 border border-slate-700/60 rounded-2xl px-2 pt-3 pb-2">
-                <LazySprite data={m} scale={sc} w={60} h={60} />
-                <span className="text-[9px] font-bold text-slate-400 text-center truncate w-full">{m.name || m.id}</span>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-3 gap-2">
+          {bossList.map(m => (
+            <div key={m.id} className="flex items-center justify-center bg-slate-900/60 border border-slate-700/60 rounded-xl px-2 py-2.5">
+              <span className="text-[10px] font-bold text-slate-400 text-center leading-tight">{m.name || m.id}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -330,7 +326,7 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
                     </div>
                   : <div className="w-full rounded-lg bg-slate-700 flex items-center justify-center text-xl" style={{ aspectRatio: '1', minHeight: 26 }}>🧑</div>
                 }
-                <span className={`text-[9px] font-bold text-center truncate w-full leading-tight
+                <span className={`text-[18px] font-bold text-center truncate w-full leading-tight
                   ${!isTeacher && p.id === myId ? 'text-emerald-300' : 'text-slate-200'}`}>
                   {p.name || '학생'}
                 </span>
