@@ -156,7 +156,7 @@ function DungeonLobby({ dungeons, bestScores, onPreview, isLoading }) {
             : (d.monsterId && d.monsterId !== 'random' ? d.monsterId : DIFF_MONSTER[d.difficulty]);
           const mDat = MONSTERS_DB[resolvedMonsterId] || null;
           const mScale = mDat
-            ? Math.min(100 / mDat.frameHeight, 100 / mDat.frameWidth) * 0.92
+            ? Math.min(88 / mDat.frameHeight, 88 / mDat.frameWidth) * 0.88
             : 0;
 
           const timer = d.timeLimit !== 0
@@ -274,24 +274,21 @@ function DungeonLobby({ dungeons, bestScores, onPreview, isLoading }) {
 
 // ── 보스 소개 팝업 ────────────────────────────────────────────
 function BossIntroModal({ dungeon, onConfirm, onCancel }) {
-  const m          = MONSTER[dungeon.difficulty] || MONSTER.normal;
-  const theme      = DIFF_THEME[dungeon.difficulty] || DIFF_THEME.normal;
+  const m     = MONSTER[dungeon.difficulty] || MONSTER.normal;
+  const theme = DIFF_THEME[dungeon.difficulty] || DIFF_THEME.normal;
 
-  // 첫 번째 웨이브 몬스터 (또는 기본 몬스터)
-  const isMulti   = Array.isArray(dungeon.monsterIds) && dungeon.monsterIds.length > 0;
-  const monsterId = isMulti
-    ? dungeon.monsterIds[0]
-    : (dungeon.monsterId && dungeon.monsterId !== 'random' ? dungeon.monsterId : m.monsterId);
-  const monsterDat = MONSTERS_DB[monsterId] || null;
+  // 미리 확정된 웨이브 사용
+  const waves = dungeon.waves || [];
 
-  // 출현 몬스터 이름 목록 (중복 제거)
-  const monsterNames = isMulti
-    ? [...new Set(dungeon.monsterIds.map(id => MONSTERS_DB[id]?.name).filter(Boolean))]
-    : monsterDat?.name ? [monsterDat.name] : [m.name];
-  const monsterDisplayName = monsterNames.join(' + ');
-  const mScale     = monsterDat
-    ? Math.min(130 / monsterDat.frameHeight, 130 / monsterDat.frameWidth) * 0.9
+  // 메인 스프라이트: 마지막 웨이브(가장 강한 몬스터)
+  const mainMonsterDat = waves.length > 0 ? (MONSTERS_DB[waves[waves.length - 1].monsterId] || null) : null;
+  const mScale = mainMonsterDat
+    ? Math.min(130 / mainMonsterDat.frameHeight, 130 / mainMonsterDat.frameWidth) * 0.9
     : 0;
+
+  // 제목: 고유 몬스터 이름 나열
+  const uniqueNames = [...new Set(waves.map(w => MONSTERS_DB[w.monsterId]?.name).filter(Boolean))];
+  const monsterDisplayName = uniqueNames.join(' + ') || m.name;
 
   const hasTimeLimit = dungeon.timeLimit !== 0;
   const timer = hasTimeLimit
@@ -313,28 +310,47 @@ function BossIntroModal({ dungeon, onConfirm, onCancel }) {
 
         {/* 상단 몬스터 배너 */}
         <div className={`bg-gradient-to-b ${theme.grad} px-6 pt-6 pb-5 text-center relative`}>
-          {/* 몬스터 */}
           <div className="flex justify-center items-end mb-3" style={{ height: 130 }}>
-            {monsterDat
-              ? <SpriteMonster data={monsterDat} anim="idle" scale={mScale} />
+            {mainMonsterDat
+              ? <SpriteMonster data={mainMonsterDat} anim="idle" scale={mScale} />
               : <div className="text-8xl opacity-80 select-none">{m.emoji}</div>
             }
           </div>
 
-          {/* 난이도 뱃지 */}
           <div className="flex justify-center mb-2">
             <span className={`text-[11px] font-extrabold px-3 py-0.5 rounded-full ${theme.badge}`}>
               {theme.label}
             </span>
           </div>
 
-          {/* 몬스터 이름 + 던전 제목 */}
-          <h2 className="text-xl font-extrabold text-white leading-tight">
-            {monsterDisplayName}
-          </h2>
+          <h2 className="text-xl font-extrabold text-white leading-tight">{monsterDisplayName}</h2>
           <p className="text-slate-400 text-xs mt-1 line-clamp-1">{dungeon.title}</p>
           <p className="text-slate-500 text-xs mt-0.5">{m.desc}</p>
         </div>
+
+        {/* 출현 웨이브 목록 (2웨이브 이상일 때) */}
+        {waves.length > 1 && (
+          <div className="px-5 pt-3 pb-1">
+            <div className="text-[10px] font-bold text-slate-500 mb-2">⚔️ 출현 몬스터 ({waves.length}웨이브)</div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {waves.map((wave, i) => {
+                const wMon  = MONSTERS_DB[wave.monsterId];
+                const wScale = wMon ? Math.min(36 / wMon.frameHeight, 36 / wMon.frameWidth) * 0.85 : 0;
+                return (
+                  <div key={i} className="flex flex-col items-center gap-0.5 shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden">
+                      {wMon ? <SpriteMonster data={wMon} anim="idle" scale={wScale} /> : <span className="text-base">👾</span>}
+                    </div>
+                    <div className="text-[8px] text-slate-400 font-bold text-center leading-tight" style={{ maxWidth: 42 }}>
+                      {wMon?.name || '?'}
+                    </div>
+                    <div className="text-[8px] text-slate-600">{wave.questionCount}문</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* 정보 그리드 */}
         <div className="grid grid-cols-2 gap-2 px-5 pt-4 pb-2">
@@ -618,11 +634,11 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
                     style={{ width: `${pHPpct}%` }} />
                 </div>
               </div>
-              {/* 캐릭터 - scale 제거, 실제 픽셀 크기로 렌더링 */}
-              <div style={{ height: effH, width: effH }} className="flex items-end justify-center">
+              {/* 캐릭터 - height만 고정, width는 이미지 비율에 맡겨 letterbox 방지 */}
+              <div style={{ height: effH }} className="flex items-end justify-center">
                 {playerData?.characterImage
                   ? <img src={playerData.characterImage} alt=""
-                      style={{ height: effH, width: effH, objectFit: 'contain', imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
+                      style={{ height: effH, width: 'auto', imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
                   : <span style={{ fontSize: effH * 0.6, lineHeight: 1 }}>🧙‍♂️</span>}
               </div>
             </div>
@@ -659,9 +675,9 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
                 anim={monsterAnim}
                 flash={monsterFlash}
                 scale={Math.min(
-                  monsterData.scale * layoutCfg.monsterScaleMult,
-                  layoutCfg.monsterCharHeightPx / monsterData.frameHeight
-                )}
+                  layoutCfg.monsterCharHeightPx / monsterData.frameHeight,
+                  (layoutCfg.monsterCharHeightPx * 0.85) / monsterData.frameWidth
+                ) * 0.9}
               />
             ) : (
               <span className="text-8xl leading-none"
@@ -997,7 +1013,8 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
 
   const enterDungeon = (dungeon) => {
     const totalQ = dungeon.questions.length;
-    const waves  = generateWaves(totalQ, dungeon.monsterIds || dungeon.monsterId);
+    // 미리 확정된 웨이브가 있으면 재사용, 없으면 새로 생성 (재도전 등)
+    const waves  = dungeon.waves || generateWaves(totalQ, dungeon.monsterIds || dungeon.monsterId);
     setSelectedDungeon({ ...dungeon, waves });
     setBattleRes(null);
     setEarnedRewards(null);
@@ -1076,12 +1093,19 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket }) {
     finally { setIsSaving(false); }
   };
 
+  // "입장" 클릭 시 웨이브를 미리 확정해서 모달과 배틀이 같은 몬스터를 사용하게 함
+  const handlePreview = (d) => {
+    const totalQ = (d.questions || []).length;
+    const waves  = generateWaves(totalQ, d.monsterIds || d.monsterId);
+    setPreviewDungeon({ ...d, waves });
+  };
+
   if (screen === 'lobby') return (
     <>
       <DungeonLobby
         dungeons={dungeons}
         bestScores={bestScores}
-        onPreview={setPreviewDungeon}
+        onPreview={handlePreview}
         isLoading={isLoading}
       />
       {previewDungeon && (
