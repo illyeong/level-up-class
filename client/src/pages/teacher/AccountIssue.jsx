@@ -113,6 +113,7 @@ function AccountIssue({ user, selectedClass }) {
               exp:        0,
               maxExp:     1000,
               parts:      '',
+              classId:    selectedClass?.id || null,
               teacherUid: user.uid,
             });
           }
@@ -184,6 +185,7 @@ function AccountIssue({ user, selectedClass }) {
         exp:        0,
         maxExp:     1000,
         parts:      '',
+        classId:    selectedClass?.id || null,
         teacherUid: user.uid,
       };
       await setDoc(doc(db, 'students', studentCode), data);

@@ -22,7 +22,7 @@ const NavigationBar = ({ changeView, currentView, classInfo }) => {
     {
       id: 'myCharacter', icon: '🦸‍♂️', title: t('menu.character', '내 캐릭터'), isReady: true, directNav: true,
       subMenus: [
-        { title: t('submenu.avatarRoom', '아바타 룸'), id: 'avatarRoom' },
+        { title: t('submenu.avatarRoom', '🎨 아바타 룸'), id: 'avatarRoom' },
         { title: '⚔️ 장비', id: 'equipment' },
         { title: '📦 보물상자', id: 'gachaBox' }
       ]
@@ -68,7 +68,6 @@ const NavigationBar = ({ changeView, currentView, classInfo }) => {
       id: 'town', icon: '📢', title: t('menu.town', '마을 광장'), isReady: true,
       subMenus: [
         { title: '자유 게시판', id: 'freeBoard' },
-        { title: '🏆 명예의 전당', id: 'hallOfFame' },
         { title: '📊 학급 투표', id: 'classVote' },
       ]
     },

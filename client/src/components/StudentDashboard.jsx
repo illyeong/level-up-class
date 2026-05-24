@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import AttendanceCheck from '../pages/student/AttendanceCheck';
+import HallOfFame from '../pages/student/HallOfFame';
 
 // ── 오늘의 퀘스트 위젯 ────────────────────────────────────────
 function TodayQuestWidget({ studentId, teacherUid, onYesterdayLog }) {
@@ -339,6 +340,11 @@ const StudentDashboard = ({ studentCode }) => {
           {/* 오늘의 퀘스트 */}
           <TodayQuestWidget studentId={studentData?.id} teacherUid={studentData?.teacherUid} onYesterdayLog={handleYesterdayLog} />
         </div>
+      </div>
+
+      {/* 명예의 전당 */}
+      <div className="mt-8 border-t border-slate-100 pt-6">
+        <HallOfFame studentCode={studentCode} teacherUid={studentData?.teacherUid} />
       </div>
 
       {/* 어제 완료한 퀘스트 팝업 */}

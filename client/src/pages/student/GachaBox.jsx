@@ -16,6 +16,113 @@ const weightedRandom = (rates) => {
   return 'common';
 };
 
+// ── 상자 등급별 개봉 시간 (ms) ───────────────────────────────
+const CHEST_OPEN_DURATION = {
+  wood:    1200,
+  luck:    1800,
+  silver:  2400,
+  gold:    3200,
+  premium: 4000,
+  special: 5000,
+};
+
+// ── 상자별 파티클 색상 ─────────────────────────────────────
+const CHEST_OPENING_COLORS = {
+  wood:    ['#fbbf24','#f59e0b','#d97706','#fef3c7','#fff7ed','#fde68a'],
+  luck:    ['#34d399','#10b981','#6ee7b7','#d1fae5','#fcd34d','#a7f3d0'],
+  silver:  ['#94a3b8','#cbd5e1','#e2e8f0','#f1f5f9','#fff','#7dd3fc'],
+  gold:    ['#fbbf24','#f59e0b','#fde68a','#fef3c7','#fff','#fb923c'],
+  premium: ['#818cf8','#6366f1','#a5b4fc','#c7d2fe','#fff','#7dd3fc'],
+  special: ['#c084fc','#a855f7','#f0abfc','#e879f9','#fb7185','#f472b6','#fff'],
+};
+
+// ── 상자 여는 중 상승 파티클 ──────────────────────────────
+function OpeningParticles({ chestId }) {
+  const canvasRef = React.useRef(null);
+  const colors = CHEST_OPENING_COLORS[chestId] || CHEST_OPENING_COLORS.wood;
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2 + 30;
+
+    const particles = [];
+    let raf;
+    let frame = 0;
+
+    const spawn = () => {
+      const spread = 55;
+      const sx = cx + (Math.random() - 0.5) * spread;
+      const sy = cy + (Math.random() - 0.5) * 14;
+      const speed = 1.2 + Math.random() * 2.2;
+      particles.push({
+        x: sx, y: sy,
+        vx: (Math.random() - 0.5) * 0.9,
+        vy: -(speed),
+        size: 3 + Math.random() * 7,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        life: 1,
+        decay: 0.007 + Math.random() * 0.009,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.1,
+        isCircle: Math.random() > 0.45,
+        phase: Math.random() * Math.PI * 2,
+      });
+    };
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      frame++;
+
+      // 매 2프레임마다 2~4개 스폰
+      if (frame % 2 === 0) {
+        const n = 2 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < n; i++) spawn();
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        if (p.life <= 0) { particles.splice(i, 1); continue; }
+        p.x += p.vx + Math.sin(frame * 0.06 + p.phase) * 0.4;
+        p.y += p.vy;
+        p.vy *= 0.985;
+        p.life -= p.decay;
+        p.rotation += p.rotSpeed;
+
+        ctx.globalAlpha = Math.max(0, p.life) * (0.6 + 0.4 * Math.abs(Math.sin(frame * 0.12 + p.phase)));
+        ctx.fillStyle = p.color;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        if (p.isCircle) {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        }
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+      raf = requestAnimationFrame(animate);
+    };
+
+    raf = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(raf);
+  }, [chestId]);
+
+  return (
+    <canvas ref={canvasRef}
+      className="fixed inset-0 pointer-events-none z-[51]"
+      style={{ width: '100vw', height: '100vh' }} />
+  );
+}
+
 // ── 파티클 이펙트 ────────────────────────────────────────────
 const PARTICLE_COLORS = {
   legendary: ['#fbbf24','#f59e0b','#fde68a','#fcd34d','#fff','#fb923c'],
@@ -143,6 +250,7 @@ export default function GachaBox({ studentCode }) {
   const [studentDocId, setStudentDocId] = useState(null);
   const [loading, setLoading]       = useState(true);
   const [pulling, setPulling]       = useState(false);
+  const [openingChest, setOpeningChest] = useState(null);
   const [results, setResults]       = useState(null);
   const [lastChest, setLastChest]   = useState(null);
   const [pityMap, setPityMap]       = useState({});
@@ -176,8 +284,9 @@ export default function GachaBox({ studentCode }) {
     if (diamonds < totalCost) { alert('💎 다이아몬드가 부족합니다!'); return; }
 
     setPulling(true);
+    setOpeningChest(chest);
     setResults(null);
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, CHEST_OPEN_DURATION[chest.id] || 1200));
 
     const curPity = pityMap[chest.id] || 0;
     const drawn = [];
@@ -218,6 +327,7 @@ export default function GachaBox({ studentCode }) {
       equipInventory: newInv,
       gachaPity: newPityMap,
     });
+    setOpeningChest(null);
     setPulling(false);
   };
 
@@ -341,17 +451,39 @@ export default function GachaBox({ studentCode }) {
       </div>
 
       {/* 뽑기 로딩 */}
-      {pulling && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center gap-4">
-          <div className="text-7xl animate-bounce">📦</div>
-          <p className="text-white font-extrabold text-xl animate-pulse">상자 열리는 중...</p>
-          <div className="flex gap-1.5">
-            {[0,1,2].map(i => (
-              <div key={i} className="w-2 h-2 bg-amber-400 rounded-full animate-bounce"
-                style={{ animationDelay: `${i*0.15}s` }} />
-            ))}
+      {pulling && openingChest && (
+        <>
+          <OpeningParticles chestId={openingChest.id} />
+          <div className="fixed inset-0 z-50 bg-black/88 flex flex-col items-center justify-center gap-5 pointer-events-none">
+            {/* 상자 이미지 */}
+            <div className="relative flex items-center justify-center">
+              {/* 후광 링 */}
+              <div className="absolute w-36 h-36 rounded-full animate-ping opacity-20"
+                style={{ background: `radial-gradient(circle, ${(CHEST_OPENING_COLORS[openingChest.id]||[])[0] || '#fbbf24'} 0%, transparent 70%)` }} />
+              <div className="absolute w-28 h-28 rounded-full animate-pulse opacity-30"
+                style={{ background: `radial-gradient(circle, ${(CHEST_OPENING_COLORS[openingChest.id]||[])[0] || '#fbbf24'} 0%, transparent 70%)` }} />
+              {openingChest.image
+                ? <img src={openingChest.image} alt={openingChest.name}
+                    className="w-28 h-28 object-contain relative z-10 animate-bounce"
+                    style={{ animationDuration: '0.7s' }} />
+                : <span className="text-7xl relative z-10 animate-bounce" style={{ animationDuration: '0.7s' }}>📦</span>
+              }
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-white font-extrabold text-xl animate-pulse">{openingChest.name} 여는 중...</p>
+              <p className="text-slate-400 text-xs font-bold">두근두근...</p>
+            </div>
+            <div className="flex gap-2">
+              {[0,1,2,3].map(i => (
+                <div key={i} className="w-2.5 h-2.5 rounded-full animate-bounce"
+                  style={{
+                    animationDelay: `${i * 0.18}s`,
+                    backgroundColor: (CHEST_OPENING_COLORS[openingChest.id]||['#fbbf24'])[i % (CHEST_OPENING_COLORS[openingChest.id]?.length || 1)],
+                  }} />
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* 결과 팝업 */}

@@ -4,6 +4,14 @@ import { db } from '../../firebase';
 
 const CATEGORIES = [
   {
+    id: 'arena',
+    label: '⚔️ 투기장 왕',
+    gradient: 'from-rose-500 to-orange-400',
+    bg: 'bg-rose-50',
+    sort: (a, b) => (b.arenaWins || 0) - (a.arenaWins || 0),
+    value: s => `${s.arenaWins || 0}승`,
+  },
+  {
     id: 'level',
     label: '⭐ 레벨 왕',
     gradient: 'from-amber-500 to-yellow-400',
@@ -71,8 +79,10 @@ function RankBadge({ rank }) {
 export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading]   = useState(true);
-  const [activeTab, setActiveTab] = useState('level');
+  const [activeTab, setActiveTab] = useState('arena');
   const [resolvedUid, setResolvedUid] = useState(propTeacherUid || null);
+  const [arenaWinsMap, setArenaWinsMap] = useState({});
+  const [arenaFetched, setArenaFetched] = useState(false);
 
   useEffect(() => {
     if (propTeacherUid) { setResolvedUid(propTeacherUid); return; }
@@ -93,12 +103,43 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
     })();
   }, [resolvedUid]);
 
+  // 투기장 랭킹 집계
+  useEffect(() => {
+    if (activeTab !== 'arena' || arenaFetched || students.length === 0) return;
+    const classIds = students.map(s => s.id);
+    (async () => {
+      try {
+        const logMap = {};
+        const chunks = [];
+        for (let i = 0; i < classIds.length; i += 30) chunks.push(classIds.slice(i, i + 30));
+        const snaps = await Promise.all(
+          chunks.flatMap(chunk => [
+            getDocs(query(collection(db, 'arenaLogs'), where('studentId',  'in', chunk))),
+            getDocs(query(collection(db, 'arenaLogs'), where('opponentId', 'in', chunk))),
+          ])
+        );
+        snaps.forEach(snap => snap.docs.forEach(d => { logMap[d.id] = d.data(); }));
+        const winsMap = {};
+        const idSet = new Set(classIds);
+        Object.values(logMap).forEach(log => {
+          const winner = log.isWin ? log.studentId : log.opponentId;
+          if (idSet.has(winner)) winsMap[winner] = (winsMap[winner] || 0) + 1;
+        });
+        setArenaWinsMap(winsMap);
+      } catch (e) { console.error(e); }
+      finally { setArenaFetched(true); }
+    })();
+  }, [activeTab, arenaFetched, students]);
+
   if (loading) return (
     <div className="flex items-center justify-center h-full text-slate-400">불러오는 중...</div>
   );
 
-  const cat    = CATEGORIES.find(c => c.id === activeTab);
-  const ranked = [...students].sort(cat.sort).slice(0, 10);
+  const cat = CATEGORIES.find(c => c.id === activeTab);
+  const displayStudents = activeTab === 'arena'
+    ? students.map(s => ({ ...s, arenaWins: arenaWinsMap[s.id] || 0 }))
+    : students;
+  const ranked = [...displayStudents].sort(cat.sort).slice(0, 10);
 
   return (
     <div className="max-w-xl mx-auto p-6">
@@ -141,11 +182,11 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
                   <img
                     src={s.characterImage}
                     alt=""
-                    className="w-9 h-9 rounded-xl object-cover shrink-0 border border-slate-100"
+                    className="w-14 h-14 rounded-xl object-cover shrink-0 border border-slate-100"
                     style={{ imageRendering: 'pixelated' }}
                   />
                 ) : (
-                  <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-lg">🧑‍🎓</div>
+                  <div className="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-2xl">🧑‍🎓</div>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className={`font-extrabold truncate text-sm ${isMe ? 'text-indigo-700' : isTop3 ? 'text-slate-800' : 'text-slate-600'}`}>
@@ -166,7 +207,7 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
 
       {/* 내 순위 */}
       {studentCode && (() => {
-        const myRank = [...students].sort(cat.sort).findIndex(s => s.studentCode === studentCode);
+        const myRank = [...displayStudents].sort(cat.sort).findIndex(s => s.studentCode === studentCode);
         if (myRank < 0) return null;
         return (
           <div className="mt-4 text-center text-sm text-slate-500 bg-white rounded-2xl py-3 border border-slate-100 shadow-sm">

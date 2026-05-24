@@ -272,17 +272,14 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
   }, []);
 
   return (
-    <div
-      className="min-h-screen overflow-y-auto relative"
-      style={bossBg ? {
-        backgroundImage: `url(${bossBg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center top',
-        backgroundAttachment: 'local',
-      } : {}}
-    >
+    <div className="min-h-screen relative" style={{ backgroundColor: '#020617' }}>
+      {/* 배경 이미지 */}
+      {bossBg && (
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ backgroundImage: `url(${bossBg})`, backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat' }} />
+      )}
       {/* 어두운 오버레이 */}
-      <div className={`absolute inset-0 pointer-events-none ${bossBg ? 'bg-slate-950/65' : 'bg-gradient-to-b from-slate-950 to-indigo-950'}`} />
+      <div className={`absolute inset-0 pointer-events-none ${bossBg ? 'bg-slate-950/55' : 'bg-gradient-to-b from-slate-950 to-indigo-950'}`} />
 
       <div className="relative z-10">
       {/* 보스 배너 */}
@@ -443,9 +440,15 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col">
+    <div className="min-h-screen relative flex flex-col" style={{ backgroundColor: '#020617' }}>
+      {bossBg && (
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ backgroundImage: `url(${bossBg})`, backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat' }} />
+      )}
+      <div className={`absolute inset-0 pointer-events-none ${bossBg ? 'bg-slate-950/65' : 'bg-gradient-to-b from-slate-950 to-indigo-950'}`} />
+      <div className="relative z-10 flex flex-col flex-1">
       {/* 상단: HP 바 */}
-      <div className="bg-slate-900 px-4 pt-3 pb-4 shadow-lg">
+      <div className="bg-slate-900/90 px-4 pt-3 pb-4 shadow-lg">
         <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
           <span className="font-bold text-white">{raid.bossName}</span>
           <span>👥 {Object.keys(raid.participants || {}).length}명 참전</span>
@@ -457,13 +460,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       <div
         ref={bossAreaRef}
         className="flex items-center justify-center relative py-6 min-h-[260px] overflow-hidden"
-        style={bossBg ? {
-          backgroundImage: `url(${bossBg})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center center',
-        } : { background: 'linear-gradient(to bottom, #0f172a, #1e293b)' }}
       >
-        {bossBg && <div className="absolute inset-0 bg-slate-950/55 pointer-events-none" />}
         <div className="relative z-10">
           <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={3.0} />
         </div>
@@ -475,8 +472,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
               <div key={h.uid}
                 className="flex items-center gap-2 bg-slate-900/85 border border-emerald-600/50 text-emerald-300 text-base font-bold px-4 py-2 rounded-xl backdrop-blur-sm"
                 style={{ opacity: Math.max(0.35, 1 - i * 0.07) }}>
-                <span className="truncate max-w-[160px]">⚔️ {h.name}</span>
-                <span className="text-rose-400 shrink-0 text-sm">-{h.damage}</span>
+                <span className="truncate max-w-[180px]">⚔️ {h.name} 정답!</span>
               </div>
             ))}
           </div>
@@ -488,12 +484,6 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
             💥 -{raid.damagePerHit}!
           </div>
         )}
-        {myAnswer !== null && !myAnswer?.correct && (
-          <div className="absolute top-4 left-8 text-slate-400 font-bold text-base animate-bounce pointer-events-none z-20">
-            빗나감...
-          </div>
-        )}
-
         {/* 내 데미지 / 정답 수 */}
         <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-3 z-20">
           <span className="bg-slate-900/80 text-rose-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -506,7 +496,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       </div>
 
       {/* 문제 영역 */}
-      <div className="flex-1 bg-slate-950 p-4 space-y-3">
+      <div className="flex-1 bg-slate-950/90 p-4 space-y-3">
         {/* 문제 헤더 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -560,6 +550,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
 
       {/* 하단: 참가자 로스터 */}
       <ParticipantRoster participants={raid.participants || {}} currentQuestionIdx={qIdx} />
+      </div>
     </div>
   );
 }

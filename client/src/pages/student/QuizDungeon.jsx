@@ -26,6 +26,15 @@ const calcLevelUp = (currentLevel, currentExp, currentMaxExp, gainedExp) => {
 };
 
 const toStars = (acc) => acc >= 90 ? 3 : acc >= 70 ? 2 : acc >= 50 ? 1 : 0;
+
+const cleanExplanation = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/슬라이드\s*\d*/gi, '')
+    .replace(/용의자\s*코드/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
 const hpGrad  = (pct) =>
   pct > 60 ? 'from-emerald-400 to-emerald-500'
   : pct > 30 ? 'from-amber-400 to-amber-500'
@@ -278,9 +287,14 @@ function DungeonLobby({ dungeons, bestScores, onPreview, isLoading }) {
                     </span>
                   )}
                 </div>
-                <button onClick={() => onPreview(d)}
-                  className={`shrink-0 px-5 py-2 rounded-2xl font-extrabold text-sm bg-gradient-to-r ${theme.btn} text-white shadow-lg transition-all active:scale-95`}>
-                  ⚔️ 입장
+                <button
+                  onClick={() => !best?.cleared && onPreview(d)}
+                  disabled={best?.cleared}
+                  className={`shrink-0 px-5 py-2 rounded-2xl font-extrabold text-sm transition-all
+                    ${best?.cleared
+                      ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                      : `bg-gradient-to-r ${theme.btn} text-white shadow-lg active:scale-95`}`}>
+                  {best?.cleared ? '✓ 클리어' : '⚔️ 입장'}
                 </button>
               </div>
             </div>
@@ -458,10 +472,13 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
   const [floats,       setFloats]       = useState([]);
 
   const nextRef      = useRef(null);
+  const pendingRef   = useRef(null);
   const floatIdRef   = useRef(0);
   const handlerRef   = useRef(null);
   const monsterRef   = useRef(null);
   const playerRef    = useRef(null);
+
+  const [waitingConfirm, setWaitingConfirm] = useState(false);
 
   const addFloat = (text, isPlayer) => {
     const id = floatIdRef.current++;
@@ -556,12 +573,13 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
     const isLastWave   = currentWaveIdx >= waves.length - 1;
     const playerDead   = newPlayerHP <= 0;
     const allQDone     = nextQ >= totalQ;
-    const cleared      = waveCleared && isLastWave && !playerDead;
+    const cleared      = allQDone && !playerDead;
 
     const isOver      = playerDead || allQDone || (waveCleared && isLastWave);
     const doWaveNext  = waveCleared && !isLastWave && !playerDead;
 
-    nextRef.current = setTimeout(() => {
+    const advance = () => {
+      setWaitingConfirm(false);
       if (isOver) {
         onBattleEnd({
           score: newScore, cleared,
@@ -587,7 +605,14 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
         setSaInput('');
         if (maxTime !== null) setTimeLeft(maxTime);
       }
-    }, 1400);
+    };
+
+    if (ok) {
+      nextRef.current = setTimeout(advance, 1400);
+    } else {
+      pendingRef.current = advance;
+      setWaitingConfirm(true);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answered, currentQ, score, wrongIdxs, waveMonsterHP, playerHP,
       combo, timeBonus, timeLeft, maxCombo, maxTime, dungeon,
@@ -602,7 +627,10 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
     return () => clearTimeout(t);
   }, [timeLeft, answered]);
 
-  useEffect(() => () => { if (nextRef.current) clearTimeout(nextRef.current); }, []);
+  useEffect(() => () => {
+    if (nextRef.current) clearTimeout(nextRef.current);
+    pendingRef.current = null;
+  }, []);
 
   const q       = dungeon.questions[currentQ];
   const mHPpct  = (waveMonsterHP / waveMaxHP) * 100;
@@ -834,15 +862,29 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
 
           {/* 해설 */}
           {answered !== null && (q.explanation || q.type === 'sa') && (
-            <div className={`rounded-xl p-3 text-xs font-medium leading-relaxed
+            <div className={`rounded-xl p-3 font-medium leading-relaxed
               ${answered === 'correct'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs'
+                : 'bg-rose-50 text-rose-700 border border-rose-200 text-sm'}`}>
               {answered === 'correct'
                 ? '✅ 정답! '
                 : `❌ 정답: ${q.type === 'sa' ? q.answer : (q.options?.[q.answer] || '')} — `}
-              {q.explanation || ''}
+              {cleanExplanation(q.explanation)}
             </div>
+          )}
+
+          {/* 틀렸을 때 확인 버튼 */}
+          {waitingConfirm && (
+            <button
+              onClick={() => {
+                if (pendingRef.current) {
+                  pendingRef.current();
+                  pendingRef.current = null;
+                }
+              }}
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold rounded-2xl text-base active:scale-95 transition-all">
+              ✓ 확인 — 다음 문제
+            </button>
           )}
 
         </div>
@@ -969,8 +1011,8 @@ function ResultScreen({
                     {wq.type === 'sa' && <span className="ml-1 text-amber-500 font-normal">[주관식]</span>}
                   </div>
                   <div className="text-emerald-600">정답: {correctAnswer}</div>
-                  {wq.explanation && (
-                    <div className="text-slate-400 mt-0.5">{wq.explanation}</div>
+                  {cleanExplanation(wq.explanation) && (
+                    <div className="text-slate-500 mt-0.5">{cleanExplanation(wq.explanation)}</div>
                   )}
                 </div>
               );
@@ -1242,7 +1284,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
       leveledUp={leveledUp}
       isSaving={isSaving}
       maxCombo={battleRes.maxCombo}
-      canRetry={true}
+      canRetry={!battleRes.cleared}
       onRetry={() => enterDungeon(selectedDungeon)}
       onReturnLobby={() => {
         setScreen('lobby');

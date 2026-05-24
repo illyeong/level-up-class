@@ -283,7 +283,7 @@ function QuizSetPicker({ selectedSetId, onSelect }) {
 // ── 메인 ──────────────────────────────────────────────────────────
 function QuizDungeonManage({ selectedClass }) {
   const teacherUid = selectedClass?.teacherUid || auth.currentUser?.uid || 'admin_master_001';
-  const [tab, setTab] = useState('create'); // 'create' | 'dungeons'
+  const [tab, setTab] = useState('create'); // 'create' | 'dungeons' | 'results'
 
   // 던전 설정 상태
   const [selectedSet, setSelectedSet]       = useState(null); // quizSet 객체
@@ -299,6 +299,11 @@ function QuizDungeonManage({ selectedClass }) {
   const [dungeons, setDungeons]   = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // 결과 탭
+  const [resultsMap,      setResultsMap]      = useState({}); // dungeonId → { title, items[] }
+  const [resultsLoading,  setResultsLoading]  = useState(false);
+  const [expandedDungeon, setExpandedDungeon] = useState(null);
+
   const [toast, setToast]               = useState(null);
   const [confirmState, setConfirmState] = useState(null);
   const showToast = (message, type = 'success') => {
@@ -309,6 +314,7 @@ function QuizDungeonManage({ selectedClass }) {
 
   useEffect(() => {
     if (tab === 'dungeons') fetchDungeons();
+    if (tab === 'results')  fetchResults();
   }, [tab]);
 
   const fetchDungeons = async () => {
@@ -320,6 +326,32 @@ function QuizDungeonManage({ selectedClass }) {
           .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
       );
     } finally { setIsLoading(false); }
+  };
+
+  const fetchResults = async () => {
+    setResultsLoading(true);
+    try {
+      const dungSnap = await getDocs(query(collection(db, 'quizDungeons'), where('teacherUid', '==', teacherUid)));
+      const dungeonList = dungSnap.docs.map(d => ({ id: d.id, title: d.data().title, questionCount: d.data().questionCount }));
+      const dungeonIds  = dungeonList.map(d => d.id);
+      const dungeonMeta = Object.fromEntries(dungeonList.map(d => [d.id, d]));
+
+      const map = {};
+      dungeonIds.forEach(id => { map[id] = { title: dungeonMeta[id].title, questionCount: dungeonMeta[id].questionCount, items: [] }; });
+
+      for (let i = 0; i < dungeonIds.length; i += 30) {
+        const chunk = dungeonIds.slice(i, i + 30);
+        const rSnap = await getDocs(query(collection(db, 'quizResults'), where('dungeonId', 'in', chunk)));
+        rSnap.docs.forEach(d => {
+          const r = d.data();
+          if (map[r.dungeonId]) map[r.dungeonId].items.push(r);
+        });
+      }
+      // sort items newest first per dungeon
+      Object.values(map).forEach(v => v.items.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0)));
+      setResultsMap(map);
+    } catch (err) { console.error(err); }
+    finally { setResultsLoading(false); }
   };
 
   const handleDiffChange = (d) => {
@@ -392,8 +424,12 @@ function QuizDungeonManage({ selectedClass }) {
             <h1 className="text-2xl font-extrabold text-slate-800">⚔️ 퀴즈 던전 관리</h1>
             <p className="text-slate-500 text-sm mt-0.5">내 퀴즈에서 선택해 던전을 발행하세요.</p>
           </div>
-          <div className="flex gap-2">
-            {[['create', '⚔️ 던전 만들기'], ['dungeons', `📚 발행된 던전 (${dungeons.length})`]].map(([t, l]) => (
+          <div className="flex gap-2 flex-wrap">
+            {[
+              ['create',   '⚔️ 던전 만들기'],
+              ['dungeons', `📚 발행된 던전 (${dungeons.length})`],
+              ['results',  '📊 결과 확인'],
+            ].map(([t, l]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors
                   ${tab === t ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200'}`}>
@@ -518,6 +554,105 @@ function QuizDungeonManage({ selectedClass }) {
                 퀴즈가 없으신가요?{' '}
                 <span className="text-indigo-500 font-bold">📚 퀴즈 은행</span>에서 퀴즈를 먼저 만들어주세요.
               </p>
+            )}
+          </div>
+        )}
+
+        {/* ── 결과 확인 탭 ── */}
+        {tab === 'results' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs text-slate-400">던전별 학생 결과를 확인합니다.</p>
+              <button onClick={fetchResults}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+                🔄 새로고침
+              </button>
+            </div>
+
+            {resultsLoading ? (
+              <div className="flex items-center justify-center gap-2.5 py-20">
+                <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+                <span className="text-sm text-slate-400">불러오는 중...</span>
+              </div>
+            ) : Object.keys(resultsMap).length === 0 ? (
+              <div className="text-center py-20 text-slate-400">
+                <div className="text-5xl mb-3">📊</div>
+                <p className="font-bold text-lg text-slate-600">발행된 던전이 없습니다</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {Object.entries(resultsMap)
+                  .sort((a, b) => (b[1].items[0]?.completedAt?.seconds || 0) - (a[1].items[0]?.completedAt?.seconds || 0))
+                  .map(([dungeonId, { title, questionCount, items }]) => {
+                    const clearedCount = items.filter(r => r.cleared).length;
+                    const isExpanded   = expandedDungeon === dungeonId;
+                    return (
+                      <div key={dungeonId} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <button
+                          onClick={() => setExpandedDungeon(isExpanded ? null : dungeonId)}
+                          className="w-full px-5 py-4 flex items-center gap-4 hover:bg-slate-50 transition-colors text-left">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-extrabold text-slate-800 truncate">{title}</div>
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              {questionCount}문제 · 총 {items.length}회 플레이 · 클리어 {clearedCount}명
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                              클리어 {clearedCount}/{items.length}
+                            </span>
+                            <span className="text-slate-400 text-sm">{isExpanded ? '▲' : '▼'}</span>
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="border-t border-slate-100">
+                            {items.length === 0 ? (
+                              <div className="text-center py-6 text-slate-400 text-sm">아직 플레이한 학생이 없습니다.</div>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                                      <th className="px-4 py-2.5 text-left">학생</th>
+                                      <th className="px-3 py-2.5 text-center">정답</th>
+                                      <th className="px-3 py-2.5 text-center">오답</th>
+                                      <th className="px-3 py-2.5 text-center">정확도</th>
+                                      <th className="px-3 py-2.5 text-center">클리어</th>
+                                      <th className="px-3 py-2.5 text-right">날짜</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-50">
+                                    {items.map((r, idx) => {
+                                      const wrongCount = r.totalQuestions - r.score;
+                                      const ts = r.completedAt?.toDate ? r.completedAt.toDate()
+                                        : r.completedAt?.seconds ? new Date(r.completedAt.seconds * 1000) : null;
+                                      const dateStr = ts ? `${ts.getMonth()+1}/${ts.getDate()} ${ts.getHours()}:${String(ts.getMinutes()).padStart(2,'0')}` : '';
+                                      return (
+                                        <tr key={idx} className={`${r.cleared ? 'bg-emerald-50/30' : ''} hover:bg-slate-50`}>
+                                          <td className="px-4 py-2.5 font-bold text-slate-700">{r.studentName || r.studentCode}</td>
+                                          <td className="px-3 py-2.5 text-center font-extrabold text-emerald-600">{r.score}</td>
+                                          <td className="px-3 py-2.5 text-center font-extrabold text-rose-500">{wrongCount}</td>
+                                          <td className="px-3 py-2.5 text-center font-bold text-slate-600">{r.accuracy}%</td>
+                                          <td className="px-3 py-2.5 text-center">
+                                            {r.cleared
+                                              ? <span className="text-emerald-600 font-bold">✓ 클리어</span>
+                                              : <span className="text-slate-400">—</span>}
+                                          </td>
+                                          <td className="px-3 py-2.5 text-right text-slate-400">{dateStr}</td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
             )}
           </div>
         )}

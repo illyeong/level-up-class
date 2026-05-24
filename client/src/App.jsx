@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from './firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 import LoginPage        from './pages/LoginPage.jsx';
 import ClassSelectPage  from './pages/teacher/ClassSelectPage.jsx';
@@ -74,11 +74,21 @@ function App() {
 
   // ── 학생 학급 정보 조회 ────────────────────────────────────────
   useEffect(() => {
-    if (!studentInfo?.classId) { setStudentClassInfo(null); return; }
-    getDoc(doc(db, 'classes', studentInfo.classId))
-      .then(snap => { if (snap.exists()) setStudentClassInfo(snap.data()); })
-      .catch(() => {});
-  }, [studentInfo?.classId]);
+    const classId    = studentInfo?.classId;
+    const teacherUid = studentInfo?.teacherUid;
+    if (!classId && !teacherUid) { setStudentClassInfo(null); return; }
+
+    if (classId) {
+      getDoc(doc(db, 'classes', classId))
+        .then(snap => { if (snap.exists()) setStudentClassInfo(snap.data()); })
+        .catch(() => {});
+    } else {
+      // classId 없는 구버전 학생 계정 → teacherUid로 학급 조회
+      getDocs(query(collection(db, 'classes'), where('teacherUid', '==', teacherUid)))
+        .then(snap => { if (!snap.empty) setStudentClassInfo(snap.docs[0].data()); })
+        .catch(() => {});
+    }
+  }, [studentInfo?.classId, studentInfo?.teacherUid]);
 
   // ── 교사 로그인 콜백 → 학급 선택으로 (테스트는 바로 입장) ───
   const handleTeacherLogin = (user) => {
