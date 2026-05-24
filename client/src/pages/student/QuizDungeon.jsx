@@ -283,6 +283,12 @@ function BossIntroModal({ dungeon, onConfirm, onCancel }) {
     ? dungeon.monsterIds[0]
     : (dungeon.monsterId && dungeon.monsterId !== 'random' ? dungeon.monsterId : m.monsterId);
   const monsterDat = MONSTERS_DB[monsterId] || null;
+
+  // 출현 몬스터 이름 목록 (중복 제거)
+  const monsterNames = isMulti
+    ? [...new Set(dungeon.monsterIds.map(id => MONSTERS_DB[id]?.name).filter(Boolean))]
+    : monsterDat?.name ? [monsterDat.name] : [m.name];
+  const monsterDisplayName = monsterNames.join(' + ');
   const mScale     = monsterDat
     ? Math.min(130 / monsterDat.frameHeight, 130 / monsterDat.frameWidth) * 0.9
     : 0;
@@ -324,7 +330,7 @@ function BossIntroModal({ dungeon, onConfirm, onCancel }) {
 
           {/* 몬스터 이름 + 던전 제목 */}
           <h2 className="text-xl font-extrabold text-white leading-tight">
-            {m.name}
+            {monsterDisplayName}
           </h2>
           <p className="text-slate-400 text-xs mt-1 line-clamp-1">{dungeon.title}</p>
           <p className="text-slate-500 text-xs mt-0.5">{m.desc}</p>
@@ -456,19 +462,20 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       if (newWaveHP <= 0) setMonsterAnim('death');
 
       // 파티클 발사: 플레이어 → 몬스터
-      const monEl  = monsterRef.current;
-      const plEl   = playerRef.current;
+      const monEl = monsterRef.current;
+      const plEl  = playerRef.current;
       if (monEl) {
         const mRect = monEl.getBoundingClientRect();
-        const fromX = plEl
-          ? plEl.getBoundingClientRect().right
-          : window.innerWidth * 0.22;
-        const fromY = plEl
-          ? plEl.getBoundingClientRect().top + plEl.getBoundingClientRect().height * 0.3
-          : window.innerHeight * 0.55;
+        const pRect = plEl ? plEl.getBoundingClientRect() : null;
         fireProjectile({
-          from: { x: fromX, y: fromY },
-          to:   { x: mRect.left + mRect.width * 0.4, y: mRect.top + mRect.height * 0.3 },
+          from: {
+            x: pRect ? pRect.left + pRect.width  * 0.5 : window.innerWidth  * 0.22,
+            y: pRect ? pRect.top  + pRect.height * 0.55 : window.innerHeight * 0.55,
+          },
+          to: {
+            x: mRect.left + mRect.width  * 0.5,
+            y: mRect.top  + mRect.height * 0.35,
+          },
           type: PROJECTILE_TYPE[dungeon.difficulty] || 'magic',
         });
       }
