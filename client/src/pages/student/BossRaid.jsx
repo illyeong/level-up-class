@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { fireProjectile } from '../../utils/projectile';
 import {
   collection, doc, updateDoc, onSnapshot,
   increment, serverTimestamp, getDoc, deleteField,
@@ -237,11 +238,25 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
   const q         = questions[qIdx];
   const totalQ    = questions.length;
   const myP       = raid.participants?.[myId] || {};
+  const bossAreaRef = useRef(null);
 
   const alreadyAnswered = myP.lastAnsweredIdx === qIdx || myAnswer !== null;
   const displayAnswer   = myAnswer ?? (alreadyAnswered
     ? { idx: -1, correct: myP.lastAnsweredCorrect }
     : null);
+
+  // 정답 시 보스에게 마법 파티클 발사
+  useEffect(() => {
+    if (!myAnswer?.correct) return;
+    const el = bossAreaRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    fireProjectile({
+      from: { x: window.innerWidth / 2, y: window.innerHeight - 100 },
+      to:   { x: rect.left + rect.width / 2, y: rect.top + rect.height * 0.4 },
+      type: 'magic',
+    });
+  }, [myAnswer]);
 
   if (!q) return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
@@ -261,7 +276,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       </div>
 
       {/* 보스 스프라이트 영역 */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center relative py-6 min-h-[200px]">
+      <div ref={bossAreaRef} className="bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center relative py-6 min-h-[200px]">
         <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={2.0} />
 
         {/* 데미지 이펙트 */}

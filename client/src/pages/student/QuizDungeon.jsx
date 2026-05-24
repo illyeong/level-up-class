@@ -6,6 +6,9 @@ import {
 import { db } from '../../firebase';
 import SpriteMonster from '../../components/SpriteMonster';
 import { MONSTERS_DB, DIFF_MONSTER, TIER_LABEL, TIER_COST, generateWaves } from '../../data/monsterData';
+import { fireProjectile } from '../../utils/projectile';
+
+const PROJECTILE_TYPE = { easy: 'ice', normal: 'magic', hard: 'fire' };
 
 // ── 유틸 ──────────────────────────────────────────────────────
 const getMaxExpForLevel = (lv) =>
@@ -402,9 +405,11 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
   const [playerShake,  setPlayerShake]  = useState(false);
   const [floats,       setFloats]       = useState([]);
 
-  const nextRef    = useRef(null);
-  const floatIdRef = useRef(0);
-  const handlerRef = useRef(null);
+  const nextRef      = useRef(null);
+  const floatIdRef   = useRef(0);
+  const handlerRef   = useRef(null);
+  const monsterRef   = useRef(null);
+  const playerRef    = useRef(null);
 
   const addFloat = (text, isPlayer) => {
     const id = floatIdRef.current++;
@@ -449,6 +454,24 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       setTimeout(() => setMonsterFlash(false), 350);
       addFloat(`-${dmg}${mult > 1 ? ` ×${mult}` : ''}`, false);
       if (newWaveHP <= 0) setMonsterAnim('death');
+
+      // 파티클 발사: 플레이어 → 몬스터
+      const monEl  = monsterRef.current;
+      const plEl   = playerRef.current;
+      if (monEl) {
+        const mRect = monEl.getBoundingClientRect();
+        const fromX = plEl
+          ? plEl.getBoundingClientRect().right
+          : window.innerWidth * 0.22;
+        const fromY = plEl
+          ? plEl.getBoundingClientRect().top + plEl.getBoundingClientRect().height * 0.3
+          : window.innerHeight * 0.55;
+        fireProjectile({
+          from: { x: fromX, y: fromY },
+          to:   { x: mRect.left + mRect.width * 0.4, y: mRect.top + mRect.height * 0.3 },
+          type: PROJECTILE_TYPE[dungeon.difficulty] || 'magic',
+        });
+      }
     } else {
       newPlayerHP = Math.max(0, playerHP - DAMAGE_WRONG);
       newCombo    = 0;
@@ -570,7 +593,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
         <div className="absolute inset-x-0 bottom-14 h-px bg-indigo-500/20" />
 
         {/* ── 플레이어 (좌 절대위치) ── */}
-        <div className={`absolute flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}
+        <div ref={playerRef} className={`absolute flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}
           style={{ left: `${layoutCfg.playerLeftPct}%`, bottom: layoutCfg.playerBottomPx }}>
           {/* HP 바 */}
           <div style={{ width: 120 }} className="mb-2">
@@ -605,7 +628,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
         </div>
 
         {/* ── 몬스터 (우 절대위치) ── */}
-        <div className="absolute flex flex-col items-center"
+        <div ref={monsterRef} className="absolute flex flex-col items-center"
           style={{ right: `${layoutCfg.monsterRightPct}%`, bottom: layoutCfg.monsterBottomPx }}>
           {/* HP 바 */}
           <div style={{ width: 140 }} className="mb-2">

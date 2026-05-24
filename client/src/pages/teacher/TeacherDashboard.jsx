@@ -326,9 +326,6 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
                       </span>
                     ))}
                   </div>
-                  <span className={`text-[10px] font-extrabold shrink-0 ${done === qs.length ? 'text-emerald-600' : 'text-slate-400'}`}>
-                    {done}/{qs.length}
-                  </span>
                 </div>
               );
             })()}
