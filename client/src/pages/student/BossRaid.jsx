@@ -5,7 +5,7 @@ import {
   increment, serverTimestamp, getDoc, deleteField,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { MONSTERS_DB } from '../../data/monsterData';
+import { MONSTERS_DB, BOSS_BG_MAP } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 
 // ── HP 바 ────────────────────────────────────────────────────────
@@ -243,19 +243,19 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
     .map(([id, p]) => ({ id, ...p }))
     .sort((a, b) => (a.joinedAt?.seconds || 0) - (b.joinedAt?.seconds || 0));
 
+  const bossBg = raid.bossBg || BOSS_BG_MAP[raid.bossId] || null;
+
   // 보스 랜덤 애니
   const [bossLobbyAnim, setBossLobbyAnim] = useState('idle');
   const lobbyTimerRef = useRef(null);
 
   const scheduleNext = () => {
-    const delay = 1800 + Math.random() * 2000; // 1.8~3.8초 후
+    const delay = 1800 + Math.random() * 2000;
     lobbyTimerRef.current = setTimeout(() => {
       const pick = Math.random();
       if (pick < 0.38) {
-        // attack: loop:false → onAnimEnd에서 idle 복귀
         setBossLobbyAnim('attack');
       } else if (pick < 0.76) {
-        // run: 2~3초 후 idle 복귀
         setBossLobbyAnim('run');
         const runDur = 2000 + Math.random() * 1000;
         lobbyTimerRef.current = setTimeout(() => { setBossLobbyAnim('idle'); scheduleNext(); }, runDur);
@@ -272,14 +272,26 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 overflow-y-auto">
+    <div
+      className="min-h-screen overflow-y-auto relative"
+      style={bossBg ? {
+        backgroundImage: `url(${bossBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center top',
+        backgroundAttachment: 'local',
+      } : {}}
+    >
+      {/* 어두운 오버레이 */}
+      <div className={`absolute inset-0 pointer-events-none ${bossBg ? 'bg-slate-950/65' : 'bg-gradient-to-b from-slate-950 to-indigo-950'}`} />
+
+      <div className="relative z-10">
       {/* 보스 배너 */}
       <div className="flex flex-col items-center px-6 pt-6 pb-4">
         <div className="text-xs font-extrabold text-rose-400 tracking-widest mb-1 uppercase">World Boss Raid</div>
         <h1 className="text-2xl font-extrabold text-white mb-4">{raid.bossName}</h1>
 
         {/* 보스 스프라이트 */}
-        <div className="flex items-end justify-center mb-4 bg-slate-900/60 rounded-3xl px-8 py-4 shadow-2xl border border-slate-700">
+        <div className="flex items-end justify-center mb-4 bg-slate-900/50 rounded-3xl px-8 py-4 shadow-2xl border border-slate-700/60 backdrop-blur-sm">
           <BossSprite bossData={bossData} anim={bossLobbyAnim} scale={2.0}
             onAnimEnd={() => { setBossLobbyAnim('idle'); scheduleNext(); }} />
         </div>
@@ -359,12 +371,14 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
           </div>
         )}
       </div>
+      </div>{/* /relative z-10 */}
     </div>
   );
 }
 
 // ── 배틀 ─────────────────────────────────────────────────────────
 function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossFlash, onAnswer }) {
+  const bossBg = raid.bossBg || BOSS_BG_MAP[raid.bossId] || null;
   const questions = (raid.questions || []).filter(q => q.type !== 'short');
   const qIdx      = raid.currentQuestionIdx ?? 0;
   const q         = questions[qIdx];
@@ -440,12 +454,23 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       </div>
 
       {/* 보스 스프라이트 영역 */}
-      <div ref={bossAreaRef} className="bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center relative py-6 min-h-[260px]">
-        <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={3.0} />
+      <div
+        ref={bossAreaRef}
+        className="flex items-center justify-center relative py-6 min-h-[260px] overflow-hidden"
+        style={bossBg ? {
+          backgroundImage: `url(${bossBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center center',
+        } : { background: 'linear-gradient(to bottom, #0f172a, #1e293b)' }}
+      >
+        {bossBg && <div className="absolute inset-0 bg-slate-950/55 pointer-events-none" />}
+        <div className="relative z-10">
+          <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={3.0} />
+        </div>
 
         {/* 킬피드 — 우측 세로 목록 */}
         {hitFeed.length > 0 && (
-          <div className="absolute right-3 top-14 flex flex-col gap-1 items-end pointer-events-none z-10 max-w-[160px]">
+          <div className="absolute right-3 top-14 flex flex-col gap-1 items-end pointer-events-none z-20 max-w-[160px]">
             {hitFeed.map((h, i) => (
               <div key={h.uid}
                 className="flex items-center gap-2 bg-slate-900/85 border border-emerald-600/50 text-emerald-300 text-base font-bold px-4 py-2 rounded-xl backdrop-blur-sm"
@@ -459,18 +484,18 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
 
         {/* 데미지 이펙트 */}
         {myAnswer?.correct && (
-          <div className="absolute top-4 right-8 text-yellow-300 font-extrabold text-2xl animate-bounce pointer-events-none">
+          <div className="absolute top-4 right-8 text-yellow-300 font-extrabold text-2xl animate-bounce pointer-events-none z-20">
             💥 -{raid.damagePerHit}!
           </div>
         )}
         {myAnswer !== null && !myAnswer?.correct && (
-          <div className="absolute top-4 left-8 text-slate-400 font-bold text-base animate-bounce pointer-events-none">
+          <div className="absolute top-4 left-8 text-slate-400 font-bold text-base animate-bounce pointer-events-none z-20">
             빗나감...
           </div>
         )}
 
         {/* 내 데미지 / 정답 수 */}
-        <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-3">
+        <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-3 z-20">
           <span className="bg-slate-900/80 text-rose-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
             💥 내 데미지 {(myP.totalDamage || 0).toLocaleString()}
           </span>

@@ -4,7 +4,7 @@ import {
   onSnapshot, serverTimestamp, increment, getDoc, query, where,
 } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
-import { MONSTERS_DB } from '../../data/monsterData';
+import { MONSTERS_DB, BOSS_BG_MAP } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 
 // ── 퀴즈셋 선택 피커 (스크롤형 인라인) ────────────────────────────
@@ -533,6 +533,7 @@ export default function BossRaidManage({ onViewLobby }) {
           title:            `${selectedQuizSet.title} 보스 레이드`,
           bossId:           form.bossId,
           bossName:         form.bossName || bossData?.name || '보스',
+          bossBg:           BOSS_BG_MAP[form.bossId] || null,
           quizSetId:        selectedQuizSet.id,
           maxHP:            form.maxHP,
           currentHP:        form.maxHP,
