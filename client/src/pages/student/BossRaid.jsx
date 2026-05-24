@@ -330,6 +330,39 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
     ? { idx: -1, correct: myP.lastAnsweredCorrect }
     : null);
 
+  // ── 킬피드 (정답자 이름 피드) ───────────────────────────────────
+  const [hitFeed, setHitFeed] = useState([]);
+  const feedPrevRef = useRef({});
+  const feedIdRef   = useRef(0);
+
+  useEffect(() => {
+    if (!raid?.participants) return;
+    const prev = feedPrevRef.current;
+    const newHits = [];
+    Object.entries(raid.participants).forEach(([id, p]) => {
+      const prevP = prev[id];
+      if (!prevP) return;
+      if ((p.correctCount || 0) > (prevP.correctCount || 0)) {
+        newHits.push({ uid: feedIdRef.current++, name: p.name || '학생', damage: raid.damagePerHit || 100, ts: Date.now() });
+      }
+    });
+    const next = {};
+    Object.entries(raid.participants).forEach(([id, p]) => { next[id] = { correctCount: p.correctCount || 0 }; });
+    feedPrevRef.current = next;
+    if (newHits.length === 0) return;
+    setHitFeed(cur => [...newHits, ...cur].slice(0, 10));
+  }, [raid?.participants]);
+
+  // 5초 후 오래된 항목 제거
+  useEffect(() => {
+    if (hitFeed.length === 0) return;
+    const t = setTimeout(() => {
+      const now = Date.now();
+      setHitFeed(cur => cur.filter(h => now - h.ts < 5000));
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [hitFeed]);
+
   // 정답/오답 시 파티클 발사
   useEffect(() => {
     if (myAnswer === null) return;
@@ -367,6 +400,20 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       {/* 보스 스프라이트 영역 */}
       <div ref={bossAreaRef} className="bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center relative py-6 min-h-[260px]">
         <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={3.0} />
+
+        {/* 킬피드 — 우측 세로 목록 */}
+        {hitFeed.length > 0 && (
+          <div className="absolute right-3 top-3 flex flex-col gap-1 items-end pointer-events-none z-10 max-w-[160px]">
+            {hitFeed.map((h, i) => (
+              <div key={h.uid}
+                className="flex items-center gap-1.5 bg-slate-900/85 border border-emerald-600/50 text-emerald-300 text-[11px] font-bold px-2.5 py-1 rounded-xl backdrop-blur-sm"
+                style={{ opacity: Math.max(0.35, 1 - i * 0.09) }}>
+                <span className="truncate max-w-[90px]">⚔️ {h.name}</span>
+                <span className="text-rose-400 shrink-0">-{h.damage}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* 데미지 이펙트 */}
         {myAnswer?.correct && (
