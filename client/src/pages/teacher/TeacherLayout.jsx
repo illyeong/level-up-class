@@ -11,6 +11,7 @@ import BankManage from './BankManage';
 import ClassShopManage from './ClassShopManage';
 import StockManage from './StockManage';
 import QuizDungeonManage from './QuizDungeonManage';
+import QuizBank          from './QuizBank';
 import BossRaidManage from './BossRaidManage';
 import QuestKiosk from './QuestKiosk';
 import AdventureManage from './AdventureManage';
@@ -89,6 +90,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'bankManage'       && <BankManage />}
         {currentView === 'classShopManage' && <ClassShopManage />}
         {currentView === 'stockManage'        && <StockManage />}
+        {currentView === 'quizBank'           && <QuizBank />}
         {currentView === 'quizDungeonManage' && <QuizDungeonManage />}
         {currentView === 'bossRaidManage'    && <BossRaidManage onViewLobby={() => setCurrentView('bossRaid')} />}
         {currentView === 'bossRaid'          && <BossRaid isTeacher={true} />}

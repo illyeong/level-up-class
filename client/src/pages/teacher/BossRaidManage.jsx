@@ -3,9 +3,96 @@ import {
   collection, getDocs, addDoc, updateDoc, doc, writeBatch,
   onSnapshot, serverTimestamp, increment, getDoc, query, where,
 } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { db, auth } from '../../firebase';
 import { MONSTERS_DB } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
+
+// ── 퀴즈셋 선택 피커 (스크롤형 인라인) ────────────────────────────
+const DIFF_LABEL_SM = { easy: '쉬움', normal: '보통', hard: '어려움' };
+const DIFF_COLOR_SM = { easy: 'bg-emerald-100 text-emerald-700', normal: 'bg-sky-100 text-sky-700', hard: 'bg-rose-100 text-rose-700' };
+
+function QuizSetPicker({ selectedSetId, onSelect }) {
+  const [sets, setSets]         = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter]     = useState({ grade: '', subject: '' });
+
+  useEffect(() => {
+    const uid = auth.currentUser?.uid || 'admin_master_001';
+    getDocs(query(collection(db, 'quizSets'), where('ownerId', '==', uid)))
+      .then(snap => {
+        setSets(
+          snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+        );
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const filtered = sets.filter(s =>
+    (!filter.grade   || String(s.grade) === filter.grade) &&
+    (!filter.subject || s.subject?.includes(filter.subject))
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <select value={filter.grade} onChange={e => setFilter(f => ({ ...f, grade: e.target.value }))}
+          className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-rose-500 bg-white">
+          <option value="">전체 학년</option>
+          {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}학년</option>)}
+        </select>
+        <input value={filter.subject} onChange={e => setFilter(f => ({ ...f, subject: e.target.value }))}
+          placeholder="과목명 검색"
+          className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-rose-500 w-28 bg-white" />
+        {(filter.grade || filter.subject) && (
+          <button onClick={() => setFilter({ grade: '', subject: '' })}
+            className="text-xs text-slate-400 hover:text-slate-600 font-bold px-2">초기화</button>
+        )}
+      </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-6 gap-2">
+          <div className="w-4 h-4 border-2 border-slate-200 border-t-rose-500 rounded-full animate-spin" />
+          <span className="text-xs text-slate-400">불러오는 중...</span>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-6 text-slate-400">
+          <p className="text-xs font-bold">
+            {sets.length === 0 ? '내 퀴즈가 없습니다. 퀴즈 은행에서 먼저 퀴즈를 만들어주세요.' : '조건에 맞는 퀴즈가 없습니다.'}
+          </p>
+        </div>
+      ) : (
+        <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+          {filtered.map(s => {
+            const choiceCount = (s.questions || []).filter(q => q.type !== 'short' && q.type !== 'sa').length;
+            return (
+              <button key={s.id} onClick={() => onSelect(s.id === selectedSetId ? null : s)}
+                className={`w-full text-left p-3 rounded-xl border-2 transition-all
+                  ${selectedSetId === s.id ? 'border-rose-500 bg-rose-50' : 'border-slate-200 hover:border-rose-300 hover:bg-slate-50 bg-white'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm text-slate-800 truncate">{s.title}</div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {s.grade && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded">{s.grade}학년</span>}
+                      {s.subject && <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-1.5 py-0.5 rounded">{s.subject}</span>}
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${DIFF_COLOR_SM[s.difficulty] || 'bg-slate-100 text-slate-500'}`}>
+                        {DIFF_LABEL_SM[s.difficulty] || '보통'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 px-1">객관식 {choiceCount}문항</span>
+                    </div>
+                  </div>
+                  <div className={`shrink-0 ml-3 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors
+                    ${selectedSetId === s.id ? 'border-rose-500 bg-rose-500' : 'border-slate-300'}`}>
+                    {selectedSetId === s.id && <span className="text-white text-xs font-bold">✓</span>}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // large + boss 티어만 보스 레이드에 사용
 const BOSS_MONSTERS = Object.values(MONSTERS_DB)
@@ -238,13 +325,13 @@ function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, i
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────
 export default function BossRaidManage({ onViewLobby }) {
-  const [raids, setRaids]         = useState([]);
-  const [dungeons, setDungeons]   = useState([]);
-  const [tab, setTab]             = useState('active');
+  const [raids, setRaids]           = useState([]);
+  const [selectedQuizSet, setSelectedQuizSet] = useState(null);
+  const [tab, setTab]               = useState('active');
   const [isCreating, setIsCreating] = useState(false);
-  const [isPaying, setIsPaying]   = useState(false);
+  const [isPaying, setIsPaying]     = useState(false);
   const [showBossPicker, setShowBossPicker] = useState(false);
-  const [toast, setToast]         = useState(null);
+  const [toast, setToast]           = useState(null);
   const [confirmState, setConfirmState] = useState(null);
 
   const showToast = (message, type = 'success') => {
@@ -257,7 +344,6 @@ export default function BossRaidManage({ onViewLobby }) {
   const [form, setForm] = useState({
     bossId:           'butcher',
     bossName:         '',
-    dungeonId:        '',
     maxHP:            3000,
     damagePerHit:     100,
     penaltyType:      'none',
@@ -278,46 +364,38 @@ export default function BossRaidManage({ onViewLobby }) {
     return () => unsub();
   }, []);
 
-  // 퀴즈 던전 목록
-  useEffect(() => {
-    getDocs(query(collection(db, 'quizDungeons'), where('active', '==', true)))
-      .then(snap => setDungeons(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
-  }, []);
-
   // 선택된 보스 데이터
-  const bossData       = MONSTERS_DB[form.bossId];
-  const selectedDungeon = dungeons.find(d => d.id === form.dungeonId);
+  const bossData        = MONSTERS_DB[form.bossId];
   const waitingOrActive = raids.filter(r => r.status === 'waiting' || r.status === 'active');
-  const hasOpenRaid    = waitingOrActive.length > 0;
+  const hasOpenRaid     = waitingOrActive.length > 0;
 
   // 보스 이름 자동채우기
   useEffect(() => {
     if (!form.bossName && bossData) setF('bossName', bossData.name);
   }, [form.bossId]);
 
-  // HP 자동추천: 던전 문제수 × damagePerHit × 1.5
-  const autoHP = selectedDungeon
-    ? Math.ceil((selectedDungeon.questions || []).filter(q => q.type !== 'short').length * form.damagePerHit * 1.5)
+  // HP 자동추천: 객관식 문제수 × damagePerHit × 1.5
+  const autoHP = selectedQuizSet
+    ? Math.ceil((selectedQuizSet.questions || []).filter(q => q.type !== 'short' && q.type !== 'sa').length * form.damagePerHit * 1.5)
     : null;
 
   // ── 레이드 생성 (waiting 상태) ──────────────────────────────
   const createRaid = () => {
-    if (!form.dungeonId)  return showToast('퀴즈 던전을 선택해주세요.', 'error');
+    if (!selectedQuizSet) return showToast('퀴즈를 선택해주세요.', 'error');
     if (!form.bossId)     return showToast('보스 몬스터를 선택해주세요.', 'error');
     if (hasOpenRaid)      return showToast('이미 진행 중인 레이드가 있습니다.', 'error');
 
-    const dungeon   = dungeons.find(d => d.id === form.dungeonId);
-    const questions = (dungeon.questions || []).filter(q => q.type !== 'short');
-    if (questions.length === 0) return showToast('선택한 던전에 객관식 문제가 없습니다.', 'error');
+    const questions = (selectedQuizSet.questions || []).filter(q => q.type !== 'short' && q.type !== 'sa');
+    if (questions.length === 0) return showToast('선택한 퀴즈에 객관식 문제가 없습니다.', 'error');
 
     showConfirm(`"${form.bossName}" 보스 레이드를 오픈할까요?\n학생들이 대기실에서 입장합니다.`, async () => {
       setIsCreating(true);
       try {
         await addDoc(collection(db, 'worldBossRaids'), {
-          title:            `${dungeon.title} 보스 레이드`,
+          title:            `${selectedQuizSet.title} 보스 레이드`,
           bossId:           form.bossId,
           bossName:         form.bossName || bossData?.name || '보스',
-          dungeonId:        form.dungeonId,
+          quizSetId:        selectedQuizSet.id,
           maxHP:            form.maxHP,
           currentHP:        form.maxHP,
           damagePerHit:     form.damagePerHit,
@@ -522,24 +600,18 @@ export default function BossRaidManage({ onViewLobby }) {
 
             {/* 퀴즈 선택 */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-              <h2 className="font-bold text-slate-700 text-sm mb-4">📝 퀴즈 던전 선택</h2>
-              <select value={form.dungeonId} onChange={e => setF('dungeonId', e.target.value)}
-                className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-rose-500 mb-2">
-                <option value="">— 퀴즈 던전 선택 —</option>
-                {dungeons.map(d => {
-                  const choiceCount = (d.questions || []).filter(q => q.type !== 'short').length;
-                  return (
-                    <option key={d.id} value={d.id}>
-                      {d.title} (객관식 {choiceCount}문제)
-                    </option>
-                  );
-                })}
-              </select>
-              {selectedDungeon && (
-                <div className="text-xs text-slate-400">
-                  객관식 {(selectedDungeon.questions || []).filter(q => q.type !== 'short').length}문제 사용
-                </div>
-              )}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-bold text-slate-700 text-sm">📝 퀴즈 선택</h2>
+                {selectedQuizSet && (
+                  <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5">
+                    <span className="text-xs font-extrabold text-rose-700 truncate max-w-[180px]">✓ {selectedQuizSet.title}</span>
+                    <span className="text-[10px] text-rose-500 shrink-0">
+                      {(selectedQuizSet.questions || []).filter(q => q.type !== 'short' && q.type !== 'sa').length}문항
+                    </span>
+                  </div>
+                )}
+              </div>
+              <QuizSetPicker selectedSetId={selectedQuizSet?.id} onSelect={setSelectedQuizSet} />
             </div>
 
             {/* 전투 설정 */}
@@ -638,7 +710,7 @@ export default function BossRaidManage({ onViewLobby }) {
               </div>
             </div>
 
-            <button onClick={createRaid} disabled={isCreating || hasOpenRaid || !form.dungeonId || !form.bossId}
+            <button onClick={createRaid} disabled={isCreating || hasOpenRaid || !selectedQuizSet || !form.bossId}
               className="w-full py-4 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-lg rounded-2xl shadow-md transition-all disabled:opacity-40">
               {isCreating ? '생성 중...' : `🐉 대기실 오픈하기`}
             </button>
