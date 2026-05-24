@@ -91,8 +91,8 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
       title:      title.trim(),
       content:    content.trim(),
       imageUrl:   imageData || null,
-      authorId:   studentCode,
-      authorName: myInfo.name,
+      authorId:   isTeacher ? `teacher_${propTeacherUid}` : studentCode,
+      authorName: isTeacher ? '👨‍🏫 선생님' : myInfo.name,
       teacherUid: myInfo.teacherUid,
       createdAt:  serverTimestamp(),
       likes:      [],
@@ -121,8 +121,8 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
     setIsCommenting(true);
     await addDoc(collection(db, 'boardPosts', selectedPost.id, 'comments'), {
       content:    commentText.trim(),
-      authorId:   studentCode,
-      authorName: myInfo.name,
+      authorId:   isTeacher ? `teacher_${propTeacherUid}` : studentCode,
+      authorName: isTeacher ? '👨‍🏫 선생님' : myInfo.name,
       createdAt:  serverTimestamp(),
     });
     await updateDoc(doc(db, 'boardPosts', selectedPost.id), {
@@ -262,12 +262,10 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
     <div className="max-w-2xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-extrabold text-slate-800">📋 자유 게시판</h1>
-        {!isTeacher && (
-          <button
-            onClick={() => setView('write')}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors"
-          >✏️ 글쓰기</button>
-        )}
+        <button
+          onClick={() => setView('write')}
+          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors"
+        >✏️ 글쓰기</button>
       </div>
 
       {posts.length === 0 ? (
