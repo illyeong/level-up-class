@@ -22,6 +22,7 @@ import ClassShop        from './pages/student/ClassShop.jsx';
 import AdventurePage    from './pages/student/AdventurePage.jsx';
 import StockMarket      from './pages/student/StockMarket.jsx';
 import LearningBoard    from './pages/student/LearningBoard.jsx';
+import LearningNote     from './pages/student/LearningNote.jsx';
 import PetHouse        from './pages/student/PetHouse.jsx';
 import Equipment      from './pages/student/Equipment.jsx';
 import GachaBox       from './pages/student/GachaBox.jsx';
@@ -198,7 +199,7 @@ function App() {
       <NavigationBar changeView={setCurrentView} currentView={currentView} classInfo={studentClassInfo} />
 
       <main className="flex-1 overflow-auto relative">
-        {currentView === 'dashboard'    && <StudentDashboard studentCode={activeStudentCode} />}
+        {currentView === 'dashboard'    && <StudentDashboard studentCode={activeStudentCode} onChangeView={setCurrentView} />}
         {currentView === 'myCharacter'  && <MyCharacter      studentCode={activeStudentCode} />}
         {currentView === 'avatarRoom'   && <AvatarRoom        studentCode={activeStudentCode} />}
         {currentView === 'quest'        && <StudentQuestPage  studentCode={activeStudentCode} />}
@@ -215,7 +216,8 @@ function App() {
         {ADVENTURE_VIEWS.includes(currentView) && (
           <AdventurePage currentView={currentView} studentCode={activeStudentCode} />
         )}
-        {currentView === 'board'      && <LearningBoard studentCode={activeStudentCode} />}
+        {currentView === 'board'        && <LearningBoard  studentCode={activeStudentCode} />}
+        {currentView === 'learningNote' && <LearningNote   studentCode={activeStudentCode} />}
         {currentView === 'freeBoard'  && <FreeBoard    studentCode={activeStudentCode} />}
         {currentView === 'hallOfFame' && <HallOfFame   studentCode={activeStudentCode} />}
         {currentView === 'classVote'  && <ClassVote    studentCode={activeStudentCode} />}

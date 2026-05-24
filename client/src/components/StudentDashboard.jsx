@@ -198,11 +198,12 @@ function TodayQuestWidget({ studentId, teacherUid, onYesterdayLog }) {
   );
 }
 
-const StudentDashboard = ({ studentCode }) => {
+const StudentDashboard = ({ studentCode, onChangeView }) => {
   const [studentData, setStudentData]       = useState(null);
   const [isLoading, setIsLoading]           = useState(false);
   const [yesterdayLog, setYesterdayLog]     = useState(null);
   const [showYesterdayPopup, setShowYesterdayPopup] = useState(false);
+  const [newApprovedCount, setNewApprovedCount] = useState(0);
 
   useEffect(() => {
     if (!studentCode) return;
@@ -222,6 +223,16 @@ const StudentDashboard = ({ studentCode }) => {
     };
     load();
   }, [studentCode]);
+
+  // 배움노트 신규 승인 뱃지
+  useEffect(() => {
+    if (!studentData?.id) return;
+    getDocs(query(collection(db, 'learningNotes'),
+      where('studentId', '==', studentData.id),
+      where('status', '==', 'approved'),
+      where('studentSeen', '==', false)
+    )).then(snap => setNewApprovedCount(snap.size)).catch(() => {});
+  }, [studentData?.id]);
 
   // localStorage에서 어제 완료한 퀘스트 로그 확인 (새로고침 시에도 표시)
   useEffect(() => {
@@ -277,12 +288,20 @@ const StudentDashboard = ({ studentCode }) => {
     <div className="p-8">
       <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
         <h1 className="text-3xl font-bold text-gray-800">🏰 학생 대시보드</h1>
-        {yesterdayLog?.length > 0 && (
-          <button onClick={() => setShowYesterdayPopup(true)}
-            className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm">
-            📋 어제 완료한 퀘스트 목록 보기 <span className="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded-full">{yesterdayLog.length}</span>
-          </button>
-        )}
+        <div className="flex items-center gap-3 flex-wrap">
+          {yesterdayLog?.length > 0 && (
+            <button onClick={() => setShowYesterdayPopup(true)}
+              className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm">
+              📋 어제 완료한 퀘스트 목록 보기 <span className="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded-full">{yesterdayLog.length}</span>
+            </button>
+          )}
+          {newApprovedCount > 0 && (
+            <button onClick={() => onChangeView?.('learningNote')}
+              className="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm animate-pulse">
+              📚 배움노트 {newApprovedCount}개 승인됨! <span className="bg-emerald-600 text-white text-xs px-2 py-0.5 rounded-full">{newApprovedCount}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

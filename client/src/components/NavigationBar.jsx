@@ -38,6 +38,10 @@ const NavigationBar = ({ changeView, currentView, classInfo }) => {
       subMenus: []
     },
     {
+      id: 'learningNote', icon: '📚', title: '배움노트', isReady: true,
+      subMenus: []
+    },
+    {
       id: 'adventure', icon: iconAdventure, title: t('menu.adventure', '어드벤처'), isReady: true, directNav: true,
       subMenus: [
         { title: '퀴즈던전',  id: 'quizDungeon' },

@@ -16,6 +16,7 @@ import BossRaidManage from './BossRaidManage';
 import QuestKiosk from './QuestKiosk';
 import AdventureManage from './AdventureManage';
 import BoardManage from './BoardManage';
+import LearningNoteManage from './LearningNoteManage';
 import TeacherCharacter from './TeacherCharacter';
 import FeedbackBoard from './FeedbackBoard';
 import DataReset from './DataReset';
@@ -106,7 +107,8 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {/* 임시 준비 중 화면들 */}
         {currentView === 'myCharacter'     && <TeacherCharacter selectedClass={selectedClass} />}
         {currentView === 'adventureManage' && <AdventureManage selectedClass={selectedClass} />}
-        {currentView === 'boardManage'     && <BoardManage selectedClass={selectedClass} user={user} />}
+        {currentView === 'boardManage'        && <BoardManage selectedClass={selectedClass} user={user} />}
+        {currentView === 'learningNoteManage' && <LearningNoteManage selectedClass={selectedClass} />}
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
         {currentView === 'dataReset'       && <DataReset selectedClass={selectedClass} />}
         {currentView === 'classVoteManage' && <ClassVoteManage selectedClass={selectedClass} />}

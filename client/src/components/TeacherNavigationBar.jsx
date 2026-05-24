@@ -67,6 +67,7 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       id: 'boardManage', icon: '📋', title: '학습 게시판', isReady: true,
       subMenus: [
         { title: '게시판 관리', id: 'boardManage' },
+        { title: '📚 배움노트 관리', id: 'learningNoteManage' },
       ]
     },
     {
