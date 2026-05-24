@@ -979,7 +979,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   // ── 매칭 중 ─────────────────────────────────────────────────
   if (phase === 'matching') {
     return (
-      <div className="min-h-full bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center justify-center gap-6">
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center justify-center gap-6">
         <div className="text-5xl animate-spin">⚔️</div>
         <p className="text-white font-extrabold text-xl animate-pulse">상대를 찾는 중...</p>
         {ticketUsedMsg && (
