@@ -715,7 +715,6 @@ export default function BoardManage({ selectedClass, user }) {
                         <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border ${
                           typeInfo ? `${typeInfo.color} ${typeInfo.bg} ${typeInfo.border}` : 'text-slate-500 bg-slate-100 border-slate-200'
                         }`}>
-                          {typeInfo?.icon && <span className="inline-block mr-1">{typeInfo.label.charAt(0)}</span>}
                           {typeInfo?.label || '기본형'}
                         </span>
                         <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${board.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>

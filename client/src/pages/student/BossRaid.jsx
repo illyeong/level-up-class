@@ -287,11 +287,11 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
     <div className="min-h-screen relative" style={{ backgroundColor: '#020617' }}>
       {/* 배경 이미지 */}
       {bossBg && (
-        <div className="absolute inset-0 pointer-events-none"
+        <div className="fixed inset-0 pointer-events-none z-0"
           style={{ backgroundImage: `url(${bossBg})`, backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat' }} />
       )}
       {/* 어두운 오버레이 */}
-      <div className={`absolute inset-0 pointer-events-none ${bossBg ? 'bg-slate-950/55' : 'bg-gradient-to-b from-slate-950 to-indigo-950'}`} />
+      <div className={`fixed inset-0 pointer-events-none z-0 ${bossBg ? 'bg-slate-950/55' : 'bg-gradient-to-b from-slate-950 to-indigo-950'}`} />
 
       <div className="relative z-10">
       {/* 보스 배너 */}
@@ -454,10 +454,10 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
   return (
     <div className="min-h-screen relative flex flex-col" style={{ backgroundColor: '#020617' }}>
       {bossBg && (
-        <div className="absolute inset-0 pointer-events-none"
+        <div className="fixed inset-0 pointer-events-none z-0"
           style={{ backgroundImage: `url(${bossBg})`, backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat' }} />
       )}
-      <div className={`absolute inset-0 pointer-events-none ${bossBg ? 'bg-slate-950/65' : 'bg-gradient-to-b from-slate-950 to-indigo-950'}`} />
+      <div className={`fixed inset-0 pointer-events-none z-0 ${bossBg ? 'bg-slate-950/65' : 'bg-gradient-to-b from-slate-950 to-indigo-950'}`} />
       <div className="relative z-10 flex flex-col flex-1">
       {/* 상단: HP 바 */}
       <div className="bg-slate-900/90 px-4 pt-3 pb-4 shadow-lg">

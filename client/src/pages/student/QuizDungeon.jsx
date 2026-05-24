@@ -807,12 +807,12 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       </div>
 
       {/* ── 퀴즈 영역 ── */}
-      <div className="flex-1 bg-slate-100 overflow-y-auto">
+      <div className="flex-1 bg-slate-950/90 overflow-y-auto">
         <div className="p-3 space-y-2.5">
 
           {/* 문제 */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-            <p className="font-bold text-slate-800 text-base leading-relaxed">{q.question}</p>
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 p-4">
+            <p className="font-bold text-white text-base leading-relaxed">{q.question}</p>
           </div>
 
           {/* 보기 (객관식) / 입력창 (주관식) */}
@@ -827,10 +827,10 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
                 placeholder="정답을 입력하세요"
                 className={`w-full border-2 rounded-2xl px-4 py-3 text-sm font-bold focus:outline-none transition-colors
                   ${answered === null
-                    ? 'border-slate-200 focus:border-amber-400 bg-white'
+                    ? 'border-slate-700 focus:border-amber-400 bg-slate-800 text-slate-200'
                     : answered === 'correct'
-                      ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
-                      : 'border-rose-400 bg-rose-50 text-rose-700'
+                      ? 'border-emerald-500 bg-emerald-900/60 text-emerald-200'
+                      : 'border-rose-500 bg-rose-900/40 text-rose-300'
                   } disabled:opacity-70`}
               />
               {answered === null && (
@@ -845,18 +845,18 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {(q.options || []).map((opt, oi) => {
-                let cls = 'bg-white border-2 border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50';
+                let cls = 'bg-slate-800 border-2 border-slate-700 text-slate-200 hover:border-rose-400 hover:bg-slate-700';
                 if (answered !== null) {
-                  if (oi === q.answer)         cls = 'bg-emerald-100 border-2 border-emerald-500 text-emerald-800';
-                  else if (oi === selectedOpt) cls = 'bg-rose-100 border-2 border-rose-400 text-rose-700';
-                  else                         cls = 'bg-slate-50 border-2 border-slate-100 text-slate-400 opacity-40';
+                  if (oi === q.answer)         cls = 'bg-emerald-900/60 border-2 border-emerald-500 text-emerald-200';
+                  else if (oi === selectedOpt) cls = 'bg-rose-900/40 border-2 border-rose-500 text-rose-300';
+                  else                         cls = 'bg-slate-800/50 border-2 border-slate-700 text-slate-500 opacity-50';
                 }
                 return (
                   <button key={oi}
                     onClick={() => handleAnswer(oi)}
                     disabled={answered !== null}
                     className={`py-3.5 px-3 rounded-2xl font-bold text-sm text-left transition-all active:scale-95 ${cls}`}>
-                    <span className="text-slate-400 mr-1.5">{['①','②','③','④'][oi]}</span>{opt}
+                    <span className="text-slate-500 mr-1.5">{['①','②','③','④'][oi]}</span>{opt}
                   </button>
                 );
               })}
@@ -867,8 +867,8 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
           {answered !== null && (q.explanation || q.type === 'sa') && (
             <div className={`rounded-xl p-3 font-medium leading-relaxed
               ${answered === 'correct'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs'
-                : 'bg-rose-50 text-rose-700 border border-rose-200 text-sm'}`}>
+                ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700 text-xs'
+                : 'bg-rose-900/30 text-rose-300 border border-rose-800 text-sm'}`}>
               {answered === 'correct'
                 ? '✅ 정답! '
                 : `❌ 정답: ${q.type === 'sa' ? q.answer : (q.options?.[q.answer] || '')} — `}

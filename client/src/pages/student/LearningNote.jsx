@@ -454,9 +454,14 @@ export default function LearningNote({ studentCode }) {
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-4">
 
-      {/* 헤더 */}
+      {/* 헤더 — 전체 노트 수 포함 */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold text-slate-800">📚 배움노트</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-extrabold text-slate-800">📚 배움노트</h1>
+          <span className="text-sm font-bold text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
+            전체 {notes.length}건
+          </span>
+        </div>
         <button onClick={() => { setWriteDate(today); setView('write'); }}
           className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors">
           ✏️ 작성하기
@@ -487,21 +492,44 @@ export default function LearningNote({ studentCode }) {
         </div>
       </div>
 
-      {/* 달력(1/2 크기) + 스트릭/보상 안내 */}
+      {/* 달력(1/2 크기) + 오른쪽 패널 */}
       <div className="grid grid-cols-2 gap-3">
-        <CalendarView
-          notes={notes}
-          selectedDate={selectedDate}
-          onSelectDate={d => setSelectedDate(prev => prev === d ? null : d)}
-          currentMonth={currentMonth}
-          onPrevMonth={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
-          onNextMonth={() => {
-            const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
-            if (next <= new Date()) setCurrentMonth(next);
-          }}
-        />
+        {/* 왼쪽: 버튼 + 달력 */}
+        <div className="space-y-2">
+          {/* 달력 위 필터 버튼 */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSelectedDate(null)}
+              className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors
+                ${!selectedDate
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+              📋 날짜 전체보기
+            </button>
+            <button
+              onClick={() => setSelectedDate(today)}
+              className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-colors
+                ${selectedDate === today
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+              📅 오늘 배움노트
+            </button>
+          </div>
+          <CalendarView
+            notes={notes}
+            selectedDate={selectedDate}
+            onSelectDate={d => setSelectedDate(prev => prev === d ? null : d)}
+            currentMonth={currentMonth}
+            onPrevMonth={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+            onNextMonth={() => {
+              const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+              if (next <= new Date()) setCurrentMonth(next);
+            }}
+          />
+        </div>
+
+        {/* 오른쪽: 보상 안내 + 스트릭 + 날짜 필터 표시 */}
         <div className="flex flex-col gap-2">
-          {/* 보상 안내 */}
           <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 px-3 py-3 flex items-center gap-2">
             <span className="text-lg shrink-0">🎁</span>
             <div>
@@ -511,7 +539,6 @@ export default function LearningNote({ studentCode }) {
               </div>
             </div>
           </div>
-          {/* 스트릭 */}
           {streak > 0 && (
             <div className="bg-orange-50 rounded-xl border border-orange-100 px-3 py-3">
               <div className="text-lg font-extrabold text-orange-500">🔥 {streak}일 연속 작성!</div>
@@ -520,7 +547,6 @@ export default function LearningNote({ studentCode }) {
               )}
             </div>
           )}
-          {/* 날짜 필터 표시 */}
           {selectedDate && (
             <div className="bg-indigo-50 rounded-xl px-3 py-2.5 border border-indigo-100 flex items-center justify-between">
               <span className="text-xs font-bold text-indigo-700">
@@ -530,11 +556,6 @@ export default function LearningNote({ studentCode }) {
                 className="text-[10px] text-indigo-400 hover:text-indigo-700 font-bold">전체</button>
             </div>
           )}
-          {/* 전체 통계 */}
-          <div className="bg-white rounded-xl border border-slate-100 px-3 py-2.5 flex items-center justify-between">
-            <span className="text-xs text-slate-500 font-bold">전체 노트</span>
-            <span className="text-sm font-extrabold text-slate-700">{notes.length}건</span>
-          </div>
         </div>
       </div>
 
@@ -557,28 +578,38 @@ export default function LearningNote({ studentCode }) {
               <div key={note.id}
                 className="bg-white rounded-xl border border-slate-100 hover:border-indigo-200 hover:shadow-sm transition-all overflow-hidden flex flex-col">
                 <div className={`h-1 ${stripCls}`} />
-                <div className="p-2.5 flex-1 cursor-pointer" onClick={() => setDetailNote(note)}>
-                  <div className="text-[10px] text-slate-400 font-medium mb-1.5">{note.date}</div>
-                  <div className="flex flex-wrap gap-0.5 mb-1.5">
-                    {(note.subjects || []).slice(0, 2).map((s, i) => (
-                      <span key={i} className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded">{s.subject}</span>
-                    ))}
-                    {(note.subjects || []).length > 2 && (
-                      <span className="text-[9px] text-slate-400 font-bold">+{note.subjects.length - 2}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-slate-400">📚 {note.subjectCount}과목</span>
+                <div className="p-2.5 flex-1">
+                  {/* 날짜 + 상태 */}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] text-slate-400 font-medium">{note.date}</span>
                     <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full border ${badge.cls}`}>
                       {note.status === 'approved' ? '✅' : note.status === 'rejected' ? '❌' : '🕐'}
                     </span>
                   </div>
-                  {note.teacherComment && note.status === 'rejected' && (
-                    <p className="text-[9px] text-rose-600 bg-rose-50 rounded px-1.5 py-1 mt-1 line-clamp-2">{note.teacherComment}</p>
+                  {/* 과목 태그 */}
+                  <div className="flex flex-wrap gap-0.5 mb-1.5">
+                    {(note.subjects || []).map((s, i) => (
+                      <span key={i} className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded">{s.subject}</span>
+                    ))}
+                  </div>
+                  {/* 핵심 배움 내용 (클릭 없이 바로 표시) */}
+                  {(note.subjects || []).map((s, i) => s.coreContent && (
+                    <div key={i} className="mb-1">
+                      <p className="text-[10px] text-slate-600 line-clamp-3 leading-relaxed">{s.coreContent}</p>
+                    </div>
+                  ))}
+                  {/* 선생님 코멘트 */}
+                  {note.teacherComment && (
+                    <p className={`text-[9px] rounded px-1.5 py-1 mt-1 line-clamp-1
+                      ${note.status === 'rejected' ? 'text-rose-600 bg-rose-50' : 'text-emerald-600 bg-emerald-50'}`}>
+                      💬 {note.teacherComment}
+                    </p>
                   )}
-                  {note.teacherComment && note.status === 'approved' && (
-                    <p className="text-[9px] text-emerald-600 bg-emerald-50 rounded px-1.5 py-1 mt-1 line-clamp-1">💬 {note.teacherComment}</p>
-                  )}
+                  {/* 자세히 보기 */}
+                  <button onClick={() => setDetailNote(note)}
+                    className="text-[9px] text-indigo-400 hover:text-indigo-600 font-bold mt-1.5">
+                    자세히 →
+                  </button>
                 </div>
                 {isPending && (
                   <div className="px-2 pb-2 pt-1 border-t border-slate-50 bg-amber-50/30">
