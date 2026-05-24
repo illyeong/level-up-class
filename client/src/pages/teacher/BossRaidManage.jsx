@@ -455,6 +455,7 @@ export default function BossRaidManage({ onViewLobby }) {
   const [toast, setToast]           = useState(null);
   const [confirmState, setConfirmState] = useState(null);
   const [resultRaid, setResultRaid] = useState(null);
+  const [expandedRaidId, setExpandedRaidId] = useState(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -849,38 +850,110 @@ export default function BossRaidManage({ onViewLobby }) {
               <p className="font-bold text-lg text-slate-600">이전 레이드 기록이 없습니다</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="divide-y divide-slate-100">
-                {pastRaids.map(raid => {
-                  const pCount   = Object.keys(raid.participants || {}).length;
-                  const bossData = MONSTERS_DB[raid.bossId];
-                  return (
-                    <div key={raid.id} className="flex items-center gap-4 px-5 py-4">
-                      <div className="flex items-center justify-center shrink-0 overflow-hidden" style={{ width: 48, height: 48 }}>
-                        {bossData
-                          ? <SpriteMonster data={bossData} anim="death" scale={fitScale(bossData, 48, 48)} />
-                          : <div className="text-3xl">👾</div>
-                        }
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-slate-800 text-sm truncate">{raid.bossName}</div>
-                        <div className="text-[11px] text-slate-400">{fmtDate(raid.clearedAt)}</div>
-                      </div>
-                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                        <div className={`text-xs font-extrabold px-2 py-0.5 rounded-full
-                          ${raid.status === 'cleared' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
-                          {raid.status === 'cleared' ? '✅ 클리어' : '💀 실패'}
+            <div className="space-y-3">
+              {pastRaids.map(raid => {
+                const pCount    = Object.keys(raid.participants || {}).length;
+                const bd        = MONSTERS_DB[raid.bossId];
+                const isCleared = raid.status === 'cleared';
+                const isExpanded = expandedRaidId === raid.id;
+                const questions = (raid.questions || []).filter(q => q.type !== 'short');
+                const pList = Object.entries(raid.participants || {})
+                  .map(([id, p]) => ({ id, ...p }))
+                  .sort((a, b) => (b.totalDamage || 0) - (a.totalDamage || 0));
+                return (
+                  <div key={raid.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    {/* 카드 헤더 */}
+                    <div className="flex items-center gap-4 px-5 py-4">
+                      {/* 보스 이미지 + 이름 */}
+                      <div className="flex flex-col items-center shrink-0 gap-1" style={{ width: 64 }}>
+                        <div className="flex items-center justify-center" style={{ width: 64, height: 64 }}>
+                          {bd
+                            ? <SpriteMonster data={bd} anim="idle" scale={fitScale(bd, 64, 64)} frozen />
+                            : <div className="text-4xl">👾</div>}
                         </div>
-                        <div className="text-[10px] text-slate-400">{pCount}명 참가</div>
-                        <button onClick={() => setResultRaid(raid)}
-                          className="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold px-2 py-0.5 rounded-lg hover:bg-indigo-50 transition-colors">
-                          📊 결과 보기
+                        <span className="text-[9px] font-bold text-slate-500 text-center leading-tight truncate w-full">
+                          {raid.bossName}
+                        </span>
+                      </div>
+
+                      {/* 중앙: 퀴즈명 + 날짜 + 참가 */}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-extrabold text-slate-800 text-sm truncate">{raid.title}</div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-[11px] text-slate-400">{fmtDate(raid.clearedAt)}</span>
+                          <span className="text-[11px] text-slate-400">·</span>
+                          <span className="text-[11px] text-slate-500 font-bold">{pCount}명 참가</span>
+                          <span className="text-[11px] text-slate-400">·</span>
+                          <span className="text-[11px] text-slate-500">{questions.length}문제</span>
+                        </div>
+                        {(raid.rewards?.gold || raid.rewards?.exp || raid.rewards?.diamond) && (
+                          <div className="flex gap-2 mt-1.5 text-[10px] font-bold">
+                            {raid.rewards?.gold    > 0 && <span className="text-amber-500">🪙{raid.rewards.gold}G</span>}
+                            {raid.rewards?.exp     > 0 && <span className="text-indigo-500">⭐{raid.rewards.exp}</span>}
+                            {raid.rewards?.diamond > 0 && <span className="text-blue-500">💎{raid.rewards.diamond}</span>}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 우측: 상태 + 펼치기 */}
+                      <div className="shrink-0 flex flex-col items-end gap-2">
+                        <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full
+                          ${isCleared ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
+                          {isCleared ? '✅ 클리어' : '💀 실패'}
+                        </span>
+                        <button
+                          onClick={() => setExpandedRaidId(isExpanded ? null : raid.id)}
+                          className="flex items-center gap-1 text-xs font-bold text-indigo-500 hover:text-indigo-700 px-2.5 py-1 rounded-lg hover:bg-indigo-50 transition-colors border border-indigo-200">
+                          📊 결과 {isExpanded ? '▲ 접기' : '▼ 펼치기'}
                         </button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* 펼쳐진 결과표 */}
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 bg-slate-50 overflow-x-auto">
+                        {pList.length === 0 ? (
+                          <p className="text-center text-slate-400 text-sm py-6">참가자 데이터가 없습니다.</p>
+                        ) : (
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-slate-100">
+                                <th className="text-left px-4 py-2 font-bold text-slate-600 border-b border-slate-200">학생</th>
+                                <th className="px-3 py-2 font-bold text-emerald-600 border-b border-slate-200">정답</th>
+                                <th className="px-3 py-2 font-bold text-rose-500 border-b border-slate-200">오답</th>
+                                <th className="px-3 py-2 font-bold text-rose-600 border-b border-slate-200">데미지</th>
+                                {questions.map((_, qi) => (
+                                  <th key={qi} className="px-2 py-2 font-bold text-slate-500 border-b border-slate-200 min-w-[28px]">Q{qi+1}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pList.map((p, pi) => (
+                                <tr key={p.id} className={pi % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                                  <td className="px-4 py-2 font-bold text-slate-800 border-b border-slate-100">{p.name || '학생'}</td>
+                                  <td className="px-3 py-2 text-center text-emerald-600 font-extrabold border-b border-slate-100">{p.correctCount || 0}</td>
+                                  <td className="px-3 py-2 text-center text-rose-500 font-extrabold border-b border-slate-100">{p.wrongCount || 0}</td>
+                                  <td className="px-3 py-2 text-center text-rose-600 font-bold border-b border-slate-100">{(p.totalDamage || 0).toLocaleString()}</td>
+                                  {questions.map((_, qi) => {
+                                    const res = p.qResults?.[qi];
+                                    return (
+                                      <td key={qi} className="px-1 py-2 text-center border-b border-slate-100">
+                                        {res === undefined ? <span className="text-slate-300">-</span>
+                                          : res ? <span className="text-emerald-500 font-bold">✓</span>
+                                          : <span className="text-rose-500 font-bold">✗</span>}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )
         )}

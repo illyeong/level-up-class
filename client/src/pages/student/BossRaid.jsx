@@ -430,12 +430,12 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
 
         {/* 킬피드 — 우측 세로 목록 */}
         {hitFeed.length > 0 && (
-          <div className="absolute right-3 top-3 flex flex-col gap-1 items-end pointer-events-none z-10 max-w-[160px]">
+          <div className="absolute right-3 top-14 flex flex-col gap-1 items-end pointer-events-none z-10 max-w-[160px]">
             {hitFeed.map((h, i) => (
               <div key={h.uid}
-                className="flex items-center gap-1.5 bg-slate-900/85 border border-emerald-600/50 text-emerald-300 text-[11px] font-bold px-2.5 py-1 rounded-xl backdrop-blur-sm"
+                className="flex items-center gap-2 bg-slate-900/85 border border-emerald-600/50 text-emerald-300 text-sm font-bold px-3.5 py-1.5 rounded-xl backdrop-blur-sm"
                 style={{ opacity: Math.max(0.35, 1 - i * 0.09) }}>
-                <span className="truncate max-w-[90px]">⚔️ {h.name}</span>
+                <span className="truncate max-w-[120px]">⚔️ {h.name}</span>
                 <span className="text-rose-400 shrink-0">-{h.damage}</span>
               </div>
             ))}
