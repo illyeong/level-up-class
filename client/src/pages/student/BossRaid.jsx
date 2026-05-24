@@ -227,14 +227,17 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
   const lobbyTimerRef = useRef(null);
 
   const scheduleNext = () => {
-    const delay = 2500 + Math.random() * 2500; // 2.5~5초 후
+    const delay = 1800 + Math.random() * 2000; // 1.8~3.8초 후
     lobbyTimerRef.current = setTimeout(() => {
       const pick = Math.random();
-      if (pick < 0.45) {
-        setBossLobbyAnim('attack'); // attack은 loop:false → onAnimEnd로 복귀
-      } else if (pick < 0.75) {
+      if (pick < 0.38) {
+        // attack: loop:false → onAnimEnd에서 idle 복귀
+        setBossLobbyAnim('attack');
+      } else if (pick < 0.76) {
+        // run: 2~3초 후 idle 복귀
         setBossLobbyAnim('run');
-        setTimeout(() => { setBossLobbyAnim('idle'); scheduleNext(); }, 1400);
+        const runDur = 2000 + Math.random() * 1000;
+        lobbyTimerRef.current = setTimeout(() => { setBossLobbyAnim('idle'); scheduleNext(); }, runDur);
       } else {
         setBossLobbyAnim('idle');
         scheduleNext();
