@@ -24,7 +24,7 @@ public class GameResultUI : MonoBehaviour
 
     [Header("상자 스폰 설정 (World Space)")]
     public GameObject   chestPrefab;            // IronChest 프리팹
-    public Transform    chestSpawnCenter;        // 상자 3개의 중심 위치
+    public Vector2      chestSpawnOffset = new Vector2(0f, -1.5f); // 카메라 중앙 기준 오프셋
     public float        chestSpacing = 4f;       // 상자 간격
     public string       openAnimName = "Open";
     public string       idleAnimName = "Idle";
@@ -41,6 +41,9 @@ public class GameResultUI : MonoBehaviour
     [Header("월드 스페이스 오버레이")]
     public int dimSortingOrder   = 100; // 게임 배경보다 위
     public int chestSortingOrder = 200; // 오버레이보다 위
+
+    [Header("모바일 조이스틱 (보상창 동안 비활성화)")]
+    public GameObject joystickObject; // 씬의 조이스틱 루트 오브젝트 드래그
 
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")]
@@ -69,6 +72,7 @@ public class GameResultUI : MonoBehaviour
     public void ShowRewardPanel()
     {
         _selected = -1;
+        joystickObject?.SetActive(false); // 조이스틱이 상자 클릭을 가로채지 않도록
         SpawnChests();
 
         if (rewardTitleText != null)
@@ -88,17 +92,13 @@ public class GameResultUI : MonoBehaviour
 
         if (chestPrefab == null) return;
 
-        // 카메라 화면 중앙 기준 상자 배치
+        // 현재 카메라 위치 기준으로 상자 배치 (chestSpawnOffset으로 조정)
         Camera cam = Camera.main;
-        Vector3 center;
-        if (chestSpawnCenter != null)
-        {
-            center = chestSpawnCenter.position;
-        }
-        else
-        {
-            center = new Vector3(cam.transform.position.x, cam.transform.position.y - 1.5f, 0f);
-        }
+        Vector3 center = new Vector3(
+            cam.transform.position.x + chestSpawnOffset.x,
+            cam.transform.position.y + chestSpawnOffset.y,
+            0f
+        );
 
         // 3가지 비율 미리 생성 후 셔플 → 상자마다 내용이 다름
         var rewards = GenerateThreeRewards();
@@ -150,7 +150,18 @@ public class GameResultUI : MonoBehaviour
         }
 
         if (confirmText != null)
-            confirmText.text = $"{_rewards[index].DisplayText}\n획득하기";
+        {
+            int monDia     = GameManager.Instance?.sessionEarnedDiamond ?? 0;
+            int chestDia   = _rewards[index].diamond;
+            int chestExp   = _rewards[index].exp;
+            int totalDia   = monDia + chestDia;
+            confirmText.text =
+                $"[처치 보상]  다이아 +{monDia}\n" +
+                $"[상자 보상]  다이아 +{chestDia} / EXP +{chestExp}\n" +
+                $"───────────────\n" +
+                $"합계  다이아 +{totalDia} / EXP +{chestExp}\n\n" +
+                $"획득하기";
+        }
         confirmArea?.SetActive(true);
     }
 
@@ -259,9 +270,12 @@ public class GameResultUI : MonoBehaviour
 
         if (_dimOverlay) Destroy(_dimOverlay);
         rewardPanel?.SetActive(false);
+        joystickObject?.SetActive(true);
 
 #if UNITY_WEBGL && !UNITY_EDITOR
-        string json = $"{{\"type\":\"DUNGEON_RESULT\",\"gold\":0,\"exp\":{r.exp},\"diamond\":{r.diamond}}}";
+        int monDia    = GameManager.Instance?.sessionEarnedDiamond ?? 0;
+        int totalDia  = r.diamond + monDia;
+        string json   = $"{{\"type\":\"DUNGEON_RESULT\",\"gold\":0,\"exp\":{r.exp},\"diamond\":{totalDia}}}";
         SendDungeonResultToReact(json);
         SendDungeonResultToReact("{\"type\":\"DUNGEON_EXIT\"}");
 #else
@@ -360,6 +374,6 @@ public class GameResultUI : MonoBehaviour
     {
         public int diamond, exp;
         public string DisplayText =>
-            $"💎 다이아 +{diamond}\n⭐ EXP +{exp}";
+            $"다이아 +{diamond}\nEXP +{exp}";
     }
 }

@@ -59,8 +59,9 @@ public class GameManager : MonoBehaviour
     public int defenseUpgradeLevel = 0;
 
     // ── 세션 통계 (씬 간 유지, 저장 안 함) ───────────────────────
-    [HideInInspector] public int sessionKillCount  = 0;
-    [HideInInspector] public int sessionEarnedGold = 0;
+    [HideInInspector] public int sessionKillCount     = 0;
+    [HideInInspector] public int sessionEarnedGold    = 0;
+    [HideInInspector] public int sessionEarnedDiamond = 0;
 
     // ── 현재 던전 번호 (React에서 수신, 1~25) ────────────────────
     [HideInInspector] public int dungeonIndex = 1;
@@ -70,8 +71,9 @@ public class GameManager : MonoBehaviour
 
     public void ResetSession()
     {
-        sessionKillCount  = 0;
-        sessionEarnedGold = 0;
+        sessionKillCount     = 0;
+        sessionEarnedGold    = 0;
+        sessionEarnedDiamond = 0;
     }
 
     // ─────────────────────────────────────────────────────────────

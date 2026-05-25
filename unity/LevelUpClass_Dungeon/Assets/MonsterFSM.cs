@@ -231,12 +231,12 @@ public class MonsterFSM : MonoBehaviour
         if (col) col.enabled = false;
         if (rb)  rb.isKinematic = true;
 
-        // 처치 보상 골드 지급 + 세션 통계
-        GameManager.Instance?.AddGold(goldDrop);
+        // 처치 보상: 던전번호만큼 다이아 획득 (던전1→1, 던전10→10, ...)
         if (GameManager.Instance != null)
         {
+            int diamondDrop = Mathf.Max(1, GameManager.Instance.dungeonIndex);
             GameManager.Instance.sessionKillCount++;
-            GameManager.Instance.sessionEarnedGold += goldDrop;
+            GameManager.Instance.sessionEarnedDiamond += diamondDrop;
         }
 
         Destroy(gameObject, 1.5f);

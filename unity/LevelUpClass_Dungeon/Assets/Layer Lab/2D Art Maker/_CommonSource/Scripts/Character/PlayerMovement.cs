@@ -12,10 +12,13 @@ namespace LayerLab.ArtMaker
         public float groundCheckRadius = 0.1f;
         public LayerMask groundLayer; 
 
+        [Header("모바일 조이스틱")]
+        [SerializeField] private Joystick joystick;
+
         [Header("애니메이션 이름")]
         public string idleAnimName = "Idle";
-        public string runAnimName = "Walk"; 
-        public string jumpAnimName = "Idle"; 
+        public string runAnimName = "Walk";
+        public string jumpAnimName = "Idle";
 
         private Rigidbody2D rb;
         private SkeletonAnimation skeletonAnim;
@@ -50,8 +53,10 @@ namespace LayerLab.ArtMaker
             // 1. 발밑에 바닥이 있는지 체크
             isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
 
-            // 2. 좌우 이동 (키보드 우선, 없으면 모바일 버튼)
+            // 2. 좌우 이동 (키보드 → 조이스틱 → 모바일 버튼 순 우선순위)
             float moveX = Input.GetAxisRaw("Horizontal");
+            if (Mathf.Approximately(moveX, 0f) && joystick != null)
+                moveX = joystick.Horizontal;
             if (Mathf.Approximately(moveX, 0f))
                 moveX = MobileInput.horizontal;
             rb.linearVelocity = new Vector2(moveX * moveSpeed, rb.linearVelocity.y);

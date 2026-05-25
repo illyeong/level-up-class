@@ -88,7 +88,10 @@ namespace LayerLab.ArtMaker
                 }
             }
 
-            if (Input.GetMouseButtonDown(0) && Time.time >= nextAttackTime && !MobileInput.isMovingButton)
+            // 화면 우측 절반 탭 = 공격 / 좌측 = 조이스틱 영역 (FloatingJoystick 충돌 방지)
+            bool attackInput = MobileInput.isAttackPressed
+                            || (Input.GetMouseButtonDown(0) && Input.mousePosition.x > Screen.width * 0.45f);
+            if (attackInput && Time.time >= nextAttackTime)
             {
                 Attack();
                 nextAttackTime = Time.time + attackCooldown;
