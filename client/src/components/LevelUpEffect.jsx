@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 const getStats = (level = 1) => ({
   hp:          100 + Math.floor(level * 10),
@@ -21,6 +21,80 @@ const CONFETTI_COLORS = [
   '#34d399','#f472b6','#fb923c','#4ade80','#38bdf8',
 ];
 
+// Canvas 기반 컨페티 컴포넌트 (CSS 변수 의존 없이 확실하게 동작)
+function ConfettiCanvas() {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext('2d');
+
+    const SHAPES = ['circle', 'rect', 'triangle'];
+    const particles = Array.from({ length: 120 }, () => ({
+      x:      Math.random() * canvas.width,
+      y:      -20 - Math.random() * canvas.height * 0.3,
+      vx:     (Math.random() - 0.5) * 5,
+      vy:     3 + Math.random() * 5,
+      size:   6 + Math.random() * 10,
+      color:  CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      shape:  SHAPES[Math.floor(Math.random() * SHAPES.length)],
+      rot:    Math.random() * Math.PI * 2,
+      rotV:   (Math.random() - 0.5) * 0.25,
+      opacity: 1,
+    }));
+
+    let raf;
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let alive = false;
+      particles.forEach(p => {
+        p.x   += p.vx;
+        p.y   += p.vy;
+        p.vy  += 0.07;
+        p.rot += p.rotV;
+        if (p.y < canvas.height + 30) {
+          alive = true;
+          p.opacity = Math.max(0, 1 - p.y / canvas.height);
+        }
+        ctx.save();
+        ctx.globalAlpha = p.opacity;
+        ctx.fillStyle   = p.color;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        if (p.shape === 'circle') {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (p.shape === 'rect') {
+          ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(0, -p.size / 2);
+          ctx.lineTo(p.size / 2, p.size / 2);
+          ctx.lineTo(-p.size / 2, p.size / 2);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      });
+      if (alive) raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 pointer-events-none"
+      style={{ width: '100%', height: '100%' }}
+    />
+  );
+}
+
 export default function LevelUpEffect({
   prevLevel, newLevel, characterImage, onClose,
   expGained, maxExp,
@@ -33,20 +107,6 @@ export default function LevelUpEffect({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   stageRef.current   = stage;
-
-  const confetti = useMemo(() =>
-    Array.from({ length: 60 }, (_, i) => ({
-      id:       i,
-      left:     Math.random() * 100,
-      delay:    Math.random() * 0.5,        // 최대 0.5s (원래 1.3s → 빠르게 시작)
-      duration: 1.2 + Math.random() * 1.2, // 1.2~2.4s (원래 1.8~3.4s → 더 빠르게 낙하)
-      color:    CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-      size:     5 + Math.random() * 11,
-      rotation: Math.random() * 360,
-      drift:    (Math.random() - 0.5) * 300,
-      isCircle: Math.random() > 0.45,
-    }))
-  , []);
 
   const close = () => {
     if (closedRef.current) return;
@@ -179,25 +239,8 @@ export default function LevelUpEffect({
           }} />
         </div>
 
-        {/* 컨페티 */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          {confetti.map(p => (
-            <div
-              key={p.id}
-              style={{
-                position: 'absolute',
-                left: `${p.left}%`,
-                top: '-16px',
-                width:  `${p.size}px`,
-                height: `${p.size * (p.isCircle ? 1 : 1.7)}px`,
-                background: p.color,
-                borderRadius: p.isCircle ? '50%' : '3px',
-                animation: `confetti-fall ${p.duration}s ease-in ${p.delay}s both`,
-                '--drift': `${p.drift}px`,
-              }}
-            />
-          ))}
-        </div>
+        {/* 컨페티 (Canvas 기반) */}
+        <ConfettiCanvas />
 
         {/* LEVEL UP! 텍스트 */}
         <div className="pointer-events-none select-none flex flex-col items-center gap-2 relative z-10">

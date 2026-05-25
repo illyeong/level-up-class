@@ -6,14 +6,38 @@ import {
 import { db } from '../../firebase';
 import { fireProjectile } from '../../utils/projectile';
 
-// ── 레벨 기반 스탯 ───────────────────────────────────────────
-const getStats = (level = 1) => ({
-  hp:          100 + Math.floor(level * 10),
-  attack:      10  + Math.floor(level * 2),
-  defense:     5   + Math.floor(level * 1.5),
-  crit:        5   + Math.floor(level * 0.5),
-  attackSpeed: 10  + Math.floor(level * 1),
-});
+// ── 레벨 기반 스탯 + 장비/업그레이드 보너스 ─────────────────
+// 인수로 student 객체 또는 숫자(레벨)를 받음
+const getStats = (studentOrLevel = 1) => {
+  const level = typeof studentOrLevel === 'number'
+    ? studentOrLevel
+    : (studentOrLevel?.level || 1);
+  const s = typeof studentOrLevel === 'object' && studentOrLevel !== null
+    ? studentOrLevel : null;
+
+  const base = {
+    hp:          100 + Math.floor(level * 10),
+    attack:      10  + Math.floor(level * 2),
+    defense:     5   + Math.floor(level * 1.5),
+    crit:        5   + Math.floor(level * 0.5),
+    attackSpeed: 10  + Math.floor(level * 1),
+  };
+
+  if (!s) return base;
+
+  // Firebase에 저장된 업그레이드 스탯 반영 (기본값 초과분을 보너스로 합산)
+  const atkBonus  = Math.max(0, (s.attackPower || 10) - 10);
+  const defBonus  = Math.max(0, (s.defense     ||  5) -  5);
+  const critBonus = Math.max(0, (s.critChance  || 20) - 20);
+
+  return {
+    hp:          base.hp + (s.bonusHp || 0),
+    attack:      base.attack  + atkBonus,
+    defense:     base.defense + defBonus,
+    crit:        base.crit    + critBonus,
+    attackSpeed: base.attackSpeed,
+  };
+};
 
 const getMaxExpForLevel = (lv) =>
   lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
@@ -441,7 +465,7 @@ function RankingInner({ classmates, studentDocId }) {
 
 // ── 캐릭터 카드 ───────────────────────────────────────────────
 function CharacterCard({ student, label, isMe, highlight, rank }) {
-  const stats = getStats(student?.level || 1);
+  const stats = getStats(student);  // 장비/업그레이드 보너스 포함
   const lv    = student?.level || 1;
   const expPct = Math.min(100, Math.round(((student?.exp||0) / getMaxExpForLevel(lv)) * 100));
 
@@ -768,8 +792,8 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
     try {
       clearMatch(); // 전투 시작 시 매칭 초기화
 
-      const myStats  = getStats(me?.level  || 1);
-      const oppStats = getStats(opponent?.level || 1);
+      const myStats  = getStats(me);
+      const oppStats = getStats(opponent);
       let myHP  = myStats.hp;
       let oppHP = oppStats.hp;
 
@@ -1019,8 +1043,8 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
 
   // ── VS 화면 ─────────────────────────────────────────────────
   if (phase === 'vs' && opponent) {
-    const myStats  = getStats(me?.level || 1);
-    const oppStats = getStats(opponent?.level || 1);
+    const myStats  = getStats(me);
+    const oppStats = getStats(opponent);
     const canChange = changes < MAX_CHANGES && (me?.diamonds || 0) >= CHANGE_COST;
     const myPower   = myStats.attack * 2 + myStats.defense + myStats.hp / 20;
     const oppPower  = oppStats.attack * 2 + oppStats.defense + oppStats.hp / 20;
@@ -1034,7 +1058,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
           <div />
           <div className={`text-xs font-extrabold px-3 py-1.5 rounded-full
             ${advantage==='win' ? 'bg-emerald-900 text-emerald-400' : advantage==='lose' ? 'bg-rose-900 text-rose-400' : 'bg-slate-800 text-slate-400'}`}>
-            {advantage==='win' ? '⬆️ 유리' : advantage==='lose' ? '⬇️ 불리' : '🔄 互角'}
+            {advantage==='win' ? '⬆️ 유리' : advantage==='lose' ? '⬇️ 불리' : '🔄 막상막하'}
           </div>
           <div className="text-xs text-slate-400">변경 {MAX_CHANGES - changes}회 남음</div>
         </div>

@@ -367,6 +367,13 @@ public class BossFSM : MonoBehaviour
 
         GameManager.Instance?.AddGold(goldDrop);
 
+        // 보스 처치 다이아 = dungeonIndex × 5 (던전1→5, 던전5→25, ...)
+        if (GameManager.Instance != null)
+        {
+            int bossDiamond = Mathf.Max(1, GameManager.Instance.dungeonIndex) * 5;
+            GameManager.Instance.sessionEarnedDiamond += bossDiamond;
+        }
+
         Invoke(nameof(ActivateClearPortal), 2f);
         Destroy(gameObject, 4f);
     }
