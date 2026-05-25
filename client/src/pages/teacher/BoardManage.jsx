@@ -107,6 +107,15 @@ const compressImage = (file) => new Promise((resolve) => {
   img.src = URL.createObjectURL(file);
 });
 
+const MAX_ATTACHMENT_SIZE = 450 * 1024;
+
+const toDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
+});
+
 export default function BoardManage({ selectedClass, user }) {
   const [boards, setBoards]         = useState([]);
   const [isLoading, setIsLoading]   = useState(true);
@@ -132,6 +141,7 @@ export default function BoardManage({ selectedClass, user }) {
   const [showWrite, setShowWrite]   = useState(false);
   const [writeContent, setWriteContent] = useState('');
   const [writeImage, setWriteImage] = useState('');
+  const [writeAttachment, setWriteAttachment] = useState(null);
   const [writePageId, setWritePageId] = useState(null);
   const [writeLat, setWriteLat]     = useState(null);
   const [writeLng, setWriteLng]     = useState(null);
@@ -141,9 +151,10 @@ export default function BoardManage({ selectedClass, user }) {
   const [toast, setToast]           = useState(null);
   const [confirmState, setConfirmState] = useState(null);
 
-  const textRef     = useRef(null);
-  const fileRef     = useRef(null);
-  const mapDivRef   = useRef(null);
+  const textRef       = useRef(null);
+  const imageFileRef  = useRef(null);
+  const attachFileRef = useRef(null);
+  const mapDivRef     = useRef(null);
   const mapInstance = useRef(null);
 
   const showToast = (msg, type = 'success') => {
@@ -237,13 +248,14 @@ export default function BoardManage({ selectedClass, user }) {
 
   // ── write post ────────────────────────────────────────────────
   const submitPost = async () => {
-    if (!writeContent.trim() && !writeImage) return;
+    if (!writeContent.trim() && !writeImage && !writeAttachment) return;
     setIsPosting(true);
     try {
       const newPost = {
         studentId: null, studentCode: null, studentName: '선생님',
         characterImage: '', isTeacher: true,
         content: writeContent.trim(), imageBase64: writeImage || '',
+        attachment: writeAttachment || null,
         reactions: {}, comments: [],
         pageId: writePageId || null,
         sheetId: selectedSheetId || null,
@@ -256,7 +268,7 @@ export default function BoardManage({ selectedClass, user }) {
         window.L.marker([writeLat, writeLng]).addTo(mapInstance.current)
           .bindPopup(`<b>선생님</b><br>${writeContent.trim()}`);
       }
-      setWriteContent(''); setWriteImage(''); setWritePageId(null);
+      setWriteContent(''); setWriteImage(''); setWriteAttachment(null); setWritePageId(null);
       setWriteLat(null); setWriteLng(null); setShowWrite(false);
     } catch { showToast('게시에 실패했습니다.', 'error'); }
     finally { setIsPosting(false); }
@@ -349,6 +361,15 @@ export default function BoardManage({ selectedClass, user }) {
       </div>
       {post.content && <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-2 line-clamp-6">{post.content}</p>}
       {post.imageBase64 && <img src={post.imageBase64} alt="" className="w-full rounded-xl object-cover max-h-40 mb-2 border border-slate-200" />}
+      {post.attachment?.dataUrl && (
+        <a
+          href={post.attachment.dataUrl}
+          download={post.attachment.name || 'attachment'}
+          className="mb-2 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+        >
+          📎 {post.attachment.name || '첨부파일'}
+        </a>
+      )}
       <div className="text-[10px] text-slate-400 mt-1">
         {post.createdAt?.toDate?.()?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || ''}
       </div>
@@ -392,7 +413,7 @@ export default function BoardManage({ selectedClass, user }) {
               <p className="text-slate-500 font-bold text-sm">오른쪽 아래 버튼으로 첫 번째 게시물을 작성해보세요!</p>
             </div>
           ) : (
-            <div style={{ columnCount: 4, columnGap: '1rem' }}>
+            <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 2xl:columns-5 gap-4">
               {sorted.map((p, i) => (
                 <div key={p.id} style={{ breakInside: 'avoid', marginBottom: '1rem' }}>
                   <PostCard post={p} idx={i} />
@@ -584,7 +605,7 @@ export default function BoardManage({ selectedClass, user }) {
                 {writeLat ? ` · 📍 ${writeLat.toFixed(3)}, ${writeLng.toFixed(3)}` : ''}
               </div>
             </div>
-            <button onClick={() => { setShowWrite(false); setWriteContent(''); setWriteImage(''); setWriteLat(null); setWriteLng(null); }}
+            <button onClick={() => { setShowWrite(false); setWriteContent(''); setWriteImage(''); setWriteAttachment(null); setWriteLat(null); setWriteLng(null); }}
               className="ml-auto text-slate-400 hover:text-slate-600 text-xl">✕</button>
           </div>
           {isGroupType && pages.length > 0 && (
@@ -612,7 +633,19 @@ export default function BoardManage({ selectedClass, user }) {
                   className="absolute top-2 right-2 bg-slate-900/60 text-white w-6 h-6 rounded-full text-xs flex items-center justify-center">✕</button>
               </div>
             )}
-            <input ref={fileRef} type="file" accept="image/*" className="hidden"
+            {writeAttachment?.name && (
+              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="truncate text-xs font-bold text-slate-600">📎 {writeAttachment.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setWriteAttachment(null)}
+                  className="ml-2 text-xs font-bold text-slate-400 hover:text-rose-500"
+                >
+                  삭제
+                </button>
+              </div>
+            )}
+            <input ref={imageFileRef} type="file" accept="image/*" className="hidden"
               onChange={async e => {
                 const file = e.target.files?.[0]; if (!file) return;
                 setIsCompressing(true);
@@ -620,15 +653,49 @@ export default function BoardManage({ selectedClass, user }) {
                 catch { showToast('이미지 처리 실패', 'error'); }
                 finally { setIsCompressing(false); e.target.value = ''; }
               }} />
-            <button onClick={() => fileRef.current?.click()} disabled={isCompressing}
+            <input
+              ref={attachFileRef}
+              type="file"
+              className="hidden"
+              onChange={async e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.size > MAX_ATTACHMENT_SIZE) {
+                  showToast('파일은 450KB 이하만 첨부할 수 있습니다.', 'error');
+                  e.target.value = '';
+                  return;
+                }
+                try {
+                  const dataUrl = await toDataUrl(file);
+                  setWriteAttachment({
+                    name: file.name,
+                    type: file.type || 'application/octet-stream',
+                    size: file.size,
+                    dataUrl,
+                  });
+                } catch {
+                  showToast('파일 첨부에 실패했습니다.', 'error');
+                } finally {
+                  e.target.value = '';
+                }
+              }}
+            />
+            <button onClick={() => imageFileRef.current?.click()} disabled={isCompressing}
               className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-xl border border-slate-200">
               {isCompressing ? '⏳ 처리 중...' : '🖼️ 이미지 첨부'}
             </button>
           </div>
+            <button
+              type="button"
+              onClick={() => attachFileRef.current?.click()}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-xl border border-slate-200"
+            >
+              📎 파일 첨부
+            </button>
           <div className="p-4 border-t border-slate-100 flex gap-3">
-            <button onClick={() => { setShowWrite(false); setWriteContent(''); setWriteImage(''); setWriteLat(null); setWriteLng(null); }}
+            <button onClick={() => { setShowWrite(false); setWriteContent(''); setWriteImage(''); setWriteAttachment(null); setWriteLat(null); setWriteLng(null); }}
               className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm">취소</button>
-            <button onClick={submitPost} disabled={isPosting || isCompressing || (!writeContent.trim() && !writeImage)}
+            <button onClick={submitPost} disabled={isPosting || isCompressing || (!writeContent.trim() && !writeImage && !writeAttachment)}
               className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40">
               {isPosting ? '게시 중...' : '게시하기 ✓'}
             </button>
@@ -696,7 +763,7 @@ export default function BoardManage({ selectedClass, user }) {
         </div>
 
         <div className={isMapType ? '' : 'p-6'}>
-          <div className={isMapType ? '' : 'max-w-7xl mx-auto'}>
+          <div className={isMapType ? '' : 'w-full'}>
             {loadingPosts
               ? <div className="flex items-center justify-center gap-2.5 py-20">
                   <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />

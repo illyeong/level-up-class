@@ -24,6 +24,15 @@ const compressImage = (file) => new Promise((resolve) => {
   img.src = URL.createObjectURL(file);
 });
 
+const MAX_ATTACHMENT_SIZE = 450 * 1024;
+
+const toDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
+});
+
 // ── 상수 ───────────────────────────────────────────────────────
 const CARD_COLORS = [
   { id: 'yellow', bg: 'bg-yellow-50',  border: 'border-yellow-200', label: '노랑' },
@@ -240,6 +249,15 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
             className="w-full rounded-xl object-cover mb-2 max-h-40 border border-slate-200/80 cursor-zoom-in"
             onClick={() => window.open(post.imageBase64, '_blank')} />
         )}
+        {post.attachment?.dataUrl && (
+          <a
+            href={post.attachment.dataUrl}
+            download={post.attachment.name || 'attachment'}
+            className="mb-2 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+          >
+            📎 {post.attachment.name || '첨부파일'}
+          </a>
+        )}
         <div className="text-[10px] text-slate-400 mb-2">{fmtDate(post.createdAt)}</div>
         <div className="flex items-center gap-1 flex-wrap pt-2 border-t border-black/5">
           {REACTIONS.map(emoji => {
@@ -278,6 +296,7 @@ export default function LearningBoard({ studentCode }) {
   const [content, setContent]             = useState('');
   const [cardColor, setCardColor]         = useState('yellow');
   const [imageBase64, setImageBase64]     = useState('');
+  const [attachment, setAttachment]       = useState(null);
   const [isPosting, setIsPosting]         = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
   const [writePageId, setWritePageId]     = useState(null);
@@ -288,10 +307,11 @@ export default function LearningBoard({ studentCode }) {
   const [sort, setSort]               = useState('newest');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const textRef      = useRef(null);
-  const fileRef      = useRef(null);
-  const mapDivRef    = useRef(null);
-  const mapInstance  = useRef(null);
+  const textRef        = useRef(null);
+  const imageFileRef   = useRef(null);
+  const attachFileRef  = useRef(null);
+  const mapDivRef      = useRef(null);
+  const mapInstance    = useRef(null);
 
   // ── 학생 정보 + 게시판 목록 로드 ─────────────────────────────
   useEffect(() => {
@@ -408,9 +428,32 @@ export default function LearningBoard({ studentCode }) {
     finally { setIsCompressing(false); e.target.value = ''; }
   };
 
+  const handleAttachmentSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      alert('파일은 450KB 이하만 첨부할 수 있습니다.');
+      e.target.value = '';
+      return;
+    }
+    try {
+      const dataUrl = await toDataUrl(file);
+      setAttachment({
+        name: file.name,
+        type: file.type || 'application/octet-stream',
+        size: file.size,
+        dataUrl,
+      });
+    } catch {
+      alert('파일 첨부에 실패했습니다.');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
   // ── 게시물 작성 ──────────────────────────────────────────────
   const submitPost = async () => {
-    if (!content.trim() && !imageBase64) return;
+    if (!content.trim() && !imageBase64 && !attachment) return;
     if (!student || !selectedBoard) return;
     setIsPosting(true);
     try {
@@ -421,6 +464,7 @@ export default function LearningBoard({ studentCode }) {
         characterImage: student.characterImage || '',
         content:        content.trim(),
         imageBase64:    imageBase64 || '',
+        attachment:     attachment || null,
         cardColor,
         reactions:      {},
         pinned:         false,
@@ -437,7 +481,7 @@ export default function LearningBoard({ studentCode }) {
         window.L.marker([writeLat, writeLng]).addTo(mapInstance.current)
           .bindPopup(`<b>${student.name || student.studentCode}</b><br>${content.trim()}`);
       }
-      setContent(''); setImageBase64(''); setCardColor('yellow');
+      setContent(''); setImageBase64(''); setAttachment(null); setCardColor('yellow');
       setWritePageId(null); setWriteLat(null); setWriteLng(null);
       setShowWrite(false);
     } catch { alert('게시 실패'); }
@@ -512,7 +556,7 @@ export default function LearningBoard({ studentCode }) {
               </p>
             </div>
           ) : (
-            <div style={{ columnCount: 4, columnGap: '1rem' }}>
+            <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 2xl:columns-5 gap-4">
               {filteredPosts.map(post => (
                 <div key={post.id} style={{ breakInside: 'avoid', marginBottom: '1rem' }}>
                   <PostCard {...postCardProps(post)} />
@@ -768,7 +812,7 @@ export default function LearningBoard({ studentCode }) {
                     {writeLat ? ` · 📍 ${writeLat.toFixed(3)}, ${writeLng.toFixed(3)}` : ''}
                   </div>
                 </div>
-                <button onClick={() => { setShowWrite(false); setContent(''); setImageBase64(''); setWriteLat(null); setWriteLng(null); }}
+                <button onClick={() => { setShowWrite(false); setContent(''); setImageBase64(''); setAttachment(null); setWriteLat(null); setWriteLng(null); }}
                   className="text-slate-400 hover:text-slate-600 text-xl w-8 h-8 flex items-center justify-center">✕</button>
               </div>
 
@@ -799,6 +843,18 @@ export default function LearningBoard({ studentCode }) {
                       className="absolute top-2 right-2 bg-slate-900/60 text-white w-6 h-6 rounded-full text-xs flex items-center justify-center hover:bg-rose-500">✕</button>
                   </div>
                 )}
+                {attachment?.name && (
+                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white/70 px-3 py-2">
+                    <span className="truncate text-xs font-bold text-slate-600">📎 {attachment.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAttachment(null)}
+                      className="ml-2 text-xs font-bold text-slate-400 hover:text-rose-500"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                )}
                 <div>
                   <div className="text-[10px] text-slate-500 font-bold mb-1.5">카드 색상</div>
                   <div className="flex gap-1.5 flex-wrap">
@@ -811,15 +867,23 @@ export default function LearningBoard({ studentCode }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pt-1 border-t border-black/10">
-                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
-                  <button onClick={() => fileRef.current?.click()} disabled={isCompressing}
+                  <input ref={imageFileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+                  <input ref={attachFileRef} type="file" className="hidden" onChange={handleAttachmentSelect} />
+                  <button onClick={() => imageFileRef.current?.click()} disabled={isCompressing}
                     className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-xl hover:bg-white/60 transition-colors">
                     {isCompressing ? '⏳' : '🖼️'} 사진
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => attachFileRef.current?.click()}
+                    className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-xl hover:bg-white/60 transition-colors"
+                  >
+                    📎 파일
+                  </button>
                   <div className="flex-1" />
-                  <button onClick={() => { setShowWrite(false); setContent(''); setImageBase64(''); setWriteLat(null); setWriteLng(null); }}
+                  <button onClick={() => { setShowWrite(false); setContent(''); setImageBase64(''); setAttachment(null); setWriteLat(null); setWriteLng(null); }}
                     className="px-4 py-2 rounded-xl text-slate-600 font-bold text-sm hover:bg-black/5">취소</button>
-                  <button onClick={submitPost} disabled={isPosting || isCompressing || (!content.trim() && !imageBase64)}
+                  <button onClick={submitPost} disabled={isPosting || isCompressing || (!content.trim() && !imageBase64 && !attachment)}
                     className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-extrabold text-sm disabled:opacity-40 active:scale-95 transition-all">
                     {isPosting ? '게시 중...' : '게시 ✓'}
                   </button>

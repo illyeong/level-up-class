@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { STAT_LABEL } from '../../constants/equipment';
 
 const DUNGEON_URL = '/Dungeon_Main/index.html';
 
@@ -62,6 +63,50 @@ const calcLevelUp = (level, exp, maxExp, gained) => {
   let mx = maxExp || getMaxExpForLevel(lv), leveled = false;
   while (ex >= mx && lv < 99) { ex -= mx; lv++; mx = getMaxExpForLevel(lv); leveled = true; }
   return { level: lv, exp: ex, maxExp: mx, leveled };
+};
+
+const getLevelStats = (level = 1) => ({
+  hp: 100 + Math.floor(level * 10),
+  attack: 10 + Math.floor(level * 2),
+  defense: 5 + Math.floor(level * 1.5),
+  crit: 5 + Math.floor(level * 0.5),
+  attackSpeed: 10 + Math.floor(level * 1),
+});
+
+const getDungeonStatsFromStudent = (studentData, equipmentItems = []) => {
+  const level = studentData?.level ?? 1;
+  const levelStats = getLevelStats(level);
+  const equipped = studentData?.equipped || {};
+  const inventory = studentData?.equipInventory || [];
+
+  const getInvItem = (invId) => inventory.find((inv) => inv.id === invId);
+  const getItem = (itemId) => equipmentItems.find((item) => item.id === itemId);
+
+  const equipBonus = Object.keys(STAT_LABEL).reduce((acc, key) => {
+    acc[key] = Object.values(equipped).reduce((sum, invId) => {
+      const inv = getInvItem(invId);
+      const item = inv ? getItem(inv.itemId) : null;
+      if (!item?.stats?.[key]) return sum;
+      return sum + (item.stats[key] || 0) + (inv.stars || 0) * 5;
+    }, 0);
+    return acc;
+  }, {});
+
+  const hp = (levelStats.hp || 0) + (equipBonus.hp || 0);
+  return {
+    level,
+    exp: studentData?.exp ?? 0,
+    maxExp: studentData?.maxExp ?? getMaxExpForLevel(level),
+    gold: studentData?.gold ?? 0,
+    diamonds: studentData?.diamonds ?? 0,
+    hp,
+    attack: (levelStats.attack || 0) + (equipBonus.attack || 0),
+    defense: (levelStats.defense || 0) + (equipBonus.defense || 0),
+    crit: (levelStats.crit || 0) + (equipBonus.crit || 0),
+    attackSpeed: (levelStats.attackSpeed || 0) + (equipBonus.attackSpeed || 0),
+    maxHealth: hp,
+    currentHealth: hp,
+  };
 };
 
 // 진행도: { 0:'completed', 1:'current', 2:'locked', ... }
@@ -208,6 +253,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
   const [dungeonList, setDungeonList] = useState(DUNGEONS);
   const [isBusy, setIsBusy]           = useState(false);
   const [student, setStudent]         = useState(null);
+  const [equipmentItems, setEquipmentItems] = useState([]);
   const [progress, setProgress]       = useState({});
   const [selectedDungeon, setSelectedDungeon] = useState(null);
   const selectedDungeonRef = useRef(null);
@@ -244,6 +290,19 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     })();
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const itemsSnap = await getDocs(
+          query(collection(db, 'equipmentItems'), where('active', '==', true))
+        );
+        setEquipmentItems(itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, []);
+
   // 학생 데이터 로드
   useEffect(() => {
     if (!studentCode) return;
@@ -257,21 +316,25 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
           setStudent({ id: d.id, ...data });
           // 완료된 던전만 저장 { id: 'completed' } 형태
           setProgress(data.dungeonProgress || {});
+          const mergedStats = getDungeonStatsFromStudent(data, equipmentItems);
           characterDataRef.current = {
             parts: data.parts ?? null,
             colors: data.colors ?? null,
-            stats: {
-              level: data.level ?? 1, exp: data.exp ?? 0,
-              maxExp: data.maxExp ?? 100, gold: data.gold ?? 0,
-              diamonds: data.diamonds ?? 0,
-              maxHealth: 100 + Math.floor((data.level ?? 1) * 10),
-              currentHealth: 100 + Math.floor((data.level ?? 1) * 10),
-            },
+            stats: mergedStats,
           };
         }
       } catch (e) { console.error(e); }
     })();
-  }, [studentCode]);
+  }, [studentCode, equipmentItems]);
+
+  useEffect(() => {
+    if (isTeacher || !student) return;
+    characterDataRef.current = {
+      parts: student.parts ?? null,
+      colors: student.colors ?? null,
+      stats: getDungeonStatsFromStudent(student, equipmentItems),
+    };
+  }, [isTeacher, student, equipmentItems]);
 
   // 교사 캐릭터 데이터 로드 (isTeacher 모드)
   useEffect(() => {
@@ -292,6 +355,11 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
               maxExp:        800,
               gold:          0,
               diamonds:      0,
+              hp:            100 + Math.floor(lv * 10),
+              attack:        10 + Math.floor(lv * 2),
+              defense:       5 + Math.floor(lv * 1.5),
+              crit:          5 + Math.floor(lv * 0.5),
+              attackSpeed:   10 + Math.floor(lv * 1),
               maxHealth:     100 + Math.floor(lv * 10),
               currentHealth: 100 + Math.floor(lv * 10),
             },
@@ -340,7 +408,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     win.postMessage({
       type: 'REACT_LOAD_AVATAR',
       ...cd,
-      stats: { ...cd.stats, dungeonIndex },
+      stats: { ...cd.stats, classLevel: cd.stats?.level ?? 1, dungeonIndex },
     }, '*');
   };
 

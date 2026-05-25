@@ -6,6 +6,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
+const MAX_ATTACHMENT_SIZE = 450 * 1024;
+
 export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isTeacher }) {
   const [myInfo, setMyInfo]       = useState(null);
   const [posts, setPosts]         = useState([]);
@@ -17,16 +19,20 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
   const [title, setTitle]         = useState('');
   const [content, setContent]     = useState('');
   const [imageData, setImageData] = useState(null);
+  const [attachmentData, setAttachmentData] = useState(null);
   const [isPosting, setIsPosting] = useState(false);
   const fileRef = useRef(null);
+  const attachmentFileRef = useRef(null);
 
   // 수정 모드
   const [editMode, setEditMode]       = useState(false);
   const [editTitle, setEditTitle]     = useState('');
   const [editContent, setEditContent] = useState('');
   const [editImageData, setEditImageData] = useState(null);
+  const [editAttachmentData, setEditAttachmentData] = useState(null);
   const [isUpdating, setIsUpdating]   = useState(false);
   const editFileRef = useRef(null);
+  const editAttachmentFileRef = useRef(null);
 
   // 댓글
   const [comments, setComments]       = useState([]);
@@ -108,6 +114,36 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
     setter(await compressImage(file));
   };
 
+  const toDataUrl = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const handleAttachmentUpload = async (e, setter) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      alert('파일은 450KB 이하만 첨부할 수 있습니다.');
+      e.target.value = '';
+      return;
+    }
+    try {
+      const dataUrl = await toDataUrl(file);
+      setter({
+        name: file.name,
+        type: file.type || 'application/octet-stream',
+        size: file.size,
+        dataUrl,
+      });
+    } catch {
+      alert('파일 첨부에 실패했습니다.');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
   const submitPost = async () => {
     if (!title.trim() || !content.trim() || !myInfo) return;
     setIsPosting(true);
@@ -115,6 +151,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
       title:        title.trim(),
       content:      content.trim(),
       imageUrl:     imageData || null,
+      attachment:   attachmentData || null,
       authorId:     isTeacher ? `teacher_${propTeacherUid}` : studentCode,
       authorName:   isTeacher ? '👨‍🏫 선생님' : myInfo.name,
       teacherUid:   myInfo.teacherUid,
@@ -122,7 +159,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
       likes:        [],
       commentCount: 0,
     });
-    setTitle(''); setContent(''); setImageData(null);
+    setTitle(''); setContent(''); setImageData(null); setAttachmentData(null);
     setIsPosting(false);
     setView('list');
   };
@@ -134,6 +171,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
       title:   editTitle.trim(),
       content: editContent.trim(),
       imageUrl: editImageData,
+      attachment: editAttachmentData || null,
     });
     setIsUpdating(false);
     setEditMode(false);
@@ -178,6 +216,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
     setEditTitle(selectedPost.title);
     setEditContent(selectedPost.content);
     setEditImageData(selectedPost.imageUrl || null);
+    setEditAttachmentData(selectedPost.attachment || null);
     setEditMode(true);
   };
 
@@ -194,7 +233,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
   // ── 글쓰기 페이지 ──────────────────────────────────────────────
   if (view === 'write') {
     return (
-      <div className="max-w-2xl mx-auto p-6 space-y-4">
+      <div className="max-w-3xl mx-auto p-6 space-y-4">
         <div className="flex items-center gap-3 mb-2">
           <button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-800 text-sm font-bold">← 목록</button>
           <h2 className="text-xl font-extrabold text-slate-800">✏️ 글쓰기</h2>
@@ -221,8 +260,26 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
             📷 사진 첨부
           </button>
         )}
+        {attachmentData?.name && (
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <span className="truncate text-xs font-bold text-slate-600">📎 {attachmentData.name}</span>
+            <button
+              type="button"
+              onClick={() => setAttachmentData(null)}
+              className="ml-2 text-xs font-bold text-slate-400 hover:text-rose-500"
+            >
+              삭제
+            </button>
+          </div>
+        )}
         <input ref={fileRef} type="file" accept="image/*" className="hidden"
           onChange={e => handleImageUpload(e, setImageData)} />
+        <input ref={attachmentFileRef} type="file" className="hidden"
+          onChange={e => handleAttachmentUpload(e, setAttachmentData)} />
+        <button onClick={() => attachmentFileRef.current?.click()}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-sm">
+          📎 파일 첨부
+        </button>
         <button onClick={submitPost} disabled={!title.trim() || !content.trim() || isPosting}
           className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold transition-colors disabled:opacity-50">
           {isPosting ? '게시 중...' : '게시하기'}
@@ -233,7 +290,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
 
   // ── 목록 ──────────────────────────────────────────────────────
   return (
-    <div className="max-w-2xl mx-auto p-6">
+    <div className="max-w-5xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-extrabold text-slate-800">📋 자유 게시판</h1>
         <button onClick={() => setView('write')}
@@ -249,7 +306,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
           <div className="text-sm mt-1">첫 번째 글을 작성해보세요!</div>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {posts.map(post => (
             <div key={post.id} onClick={() => openDetail(post)}
               className="bg-white rounded-2xl p-4 border border-slate-100 hover:border-indigo-200 hover:shadow-sm cursor-pointer transition-all">
@@ -264,6 +321,9 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                   </div>
                 )}
               </div>
+              {post.attachment?.name && (
+                <div className="mt-2 text-xs font-bold text-slate-500">📎 {post.attachment.name}</div>
+              )}
               <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">
                 <span className="font-bold text-slate-500">{post.authorName}</span>
                 <span>{formatDate(post.createdAt)}</span>
@@ -312,6 +372,27 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                   )}
                   <input ref={editFileRef} type="file" accept="image/*" className="hidden"
                     onChange={e => handleImageUpload(e, setEditImageData)} />
+                  {editAttachmentData?.name && (
+                    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                      <span className="truncate text-xs font-bold text-slate-600">📎 {editAttachmentData.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditAttachmentData(null)}
+                        className="ml-2 text-xs font-bold text-slate-400 hover:text-rose-500"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  )}
+                  <input ref={editAttachmentFileRef} type="file" className="hidden"
+                    onChange={e => handleAttachmentUpload(e, setEditAttachmentData)} />
+                  <button
+                    type="button"
+                    onClick={() => editAttachmentFileRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 text-sm"
+                  >
+                    📎 파일 첨부
+                  </button>
                 </div>
                 <div className="flex gap-3 p-4 border-t border-slate-100 shrink-0">
                   <button onClick={() => setEditMode(false)}
@@ -358,6 +439,15 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                   {selectedPost.imageUrl && (
                     <img src={selectedPost.imageUrl} alt=""
                       className="w-full rounded-xl max-h-72 object-contain bg-slate-50 border border-slate-100" />
+                  )}
+                  {selectedPost.attachment?.dataUrl && (
+                    <a
+                      href={selectedPost.attachment.dataUrl}
+                      download={selectedPost.attachment.name || 'attachment'}
+                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                    >
+                      📎 {selectedPost.attachment.name || '첨부파일'}
+                    </a>
                   )}
                   <p className="text-slate-700 whitespace-pre-wrap text-sm leading-relaxed">{selectedPost.content}</p>
 
