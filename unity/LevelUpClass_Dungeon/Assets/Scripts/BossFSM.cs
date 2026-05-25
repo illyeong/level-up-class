@@ -37,6 +37,9 @@ public class BossFSM : MonoBehaviour
     [Header("포탈 (보스 처치 후 활성화)")]
     public GameObject clearPortal;
 
+    [Header("클리어 축하 이펙트")]
+    public GameObject clearFXPrefab;  // 보스 사망 1초 후 스폰할 파티클
+
     [Header("피격 이펙트")]
     public GameObject hitEffectPrefab;
     public GameObject critHitEffectPrefab;   // 몬스터 위치에 재생되는 이펙트
@@ -374,8 +377,15 @@ public class BossFSM : MonoBehaviour
             GameManager.Instance.sessionEarnedDiamond += bossDiamond;
         }
 
+        Invoke(nameof(SpawnClearFX), 1f);
         Invoke(nameof(ActivateClearPortal), 2f);
         Destroy(gameObject, 4f);
+    }
+
+    void SpawnClearFX()
+    {
+        if (clearFXPrefab == null) return;
+        Instantiate(clearFXPrefab, transform.position, Quaternion.identity);
     }
 
     void ActivateClearPortal()

@@ -7,8 +7,8 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public class PortalTrigger : MonoBehaviour
 {
-    [Header("이동할 씬 이름 (GameManager 상수 참고)")]
-    [SerializeField] private string targetScene = GameManager.SceneStage1;
+    [Header("이동할 씬 이름 (예: D01_S1, D01_S2, D01_Boss)")]
+    [SerializeField] private string targetScene = "D01_S1";
 
     [Header("포탈 활성화 여부")]
     [SerializeField] private bool isActive = true;

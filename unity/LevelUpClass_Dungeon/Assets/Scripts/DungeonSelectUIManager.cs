@@ -52,7 +52,7 @@ public class DungeonSelectUIManager : MonoBehaviour
             stage2BossButton.interactable = gm.gold >= bossUnlockGold;
     }
 
-    void OnClickStage1()    => SceneManager.LoadScene(GameManager.SceneStage1);
-    void OnClickStage2Boss() => SceneManager.LoadScene(GameManager.SceneStage2Boss);
+    void OnClickStage1()    => SceneManager.LoadScene(GameManager.SceneS1  (GameManager.Instance?.dungeonIndex ?? 1));
+    void OnClickStage2Boss() => SceneManager.LoadScene(GameManager.SceneBoss(GameManager.Instance?.dungeonIndex ?? 1));
     void OnClickBack()      => SceneManager.LoadScene(GameManager.SceneLobby);
 }

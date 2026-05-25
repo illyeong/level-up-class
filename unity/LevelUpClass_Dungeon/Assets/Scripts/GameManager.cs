@@ -23,9 +23,13 @@ public class GameManager : MonoBehaviour
     // ── 씬 이름 상수 ──────────────────────────────────────────────
     public const string SceneLobby         = "Lobby";
     public const string SceneDungeonSelect = "DungeonSelect";
-    public const string SceneStage1        = "Stage1";
-    public const string SceneStage2Boss    = "Stage2_Boss";
     public const string SceneClear         = "Clear";
+
+    // 던전 씬 이름 헬퍼 (dungeonIndex 1~25)
+    // 씬 파일명 규칙: D01_S1 / D01_S2 / D01_Boss
+    public static string SceneS1(int d)   => $"D{d:D2}_S1";
+    public static string SceneS2(int d)   => $"D{d:D2}_S2";
+    public static string SceneBoss(int d) => $"D{d:D2}_Boss";
 
     // ── 플레이어 체력 ─────────────────────────────────────────────
     [Header("플레이어 체력")]

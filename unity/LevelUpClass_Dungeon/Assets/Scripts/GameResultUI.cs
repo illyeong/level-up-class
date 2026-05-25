@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.UI;
@@ -46,18 +45,12 @@ public class GameResultUI : MonoBehaviour
     [Header("모바일 조이스틱 (보상창 동안 비활성화)")]
     public GameObject joystickObject; // 씬의 조이스틱 루트 오브젝트 드래그
 
-    [Header("보상 요약 (월드스페이스 SpriteFont)")]
-    public Sprite  gemIconSprite;           // 다이아 아이콘 스프라이트
-    public Sprite  expIconSprite;           // EXP 아이콘 스프라이트
-    public float   summaryYOffset    = 2.5f;   // 카메라 중앙 기준 Y 오프셋
-    public float   summaryRowSpacing = 0.75f;  // 행 간격
-    public float   spriteFontScale   = 0.5f;   // SpriteFont 부모 스케일
-    public float   iconScale         = 0.35f;  // 아이콘 스케일
-    public float   numColumnX        = 0.65f;  // 숫자1 중심 X (rowPos 기준)
-    public float   iconColumnX       = 1.25f;  // 아이콘1 중심 X
-    public float   num2ColumnX       = 1.85f;  // 숫자2 중심 X
-    public float   icon2ColumnX      = 2.45f;  // 아이콘2 중심 X
-    public int     summarySort       = 300;
+    [Header("상자 선택 이펙트")]
+    public GameObject chestSelectFXPrefab; // 선택된 상자 위치에 스폰할 파티클
+
+    [Header("상자 선택 시 외부 딤 (Canvas Image)")]
+    public GameObject confirmDimPanel; // Canvas 안의 전체화면 어두운 Image (confirmArea보다 하위 계층)
+
 
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")]
@@ -68,9 +61,9 @@ public class GameResultUI : MonoBehaviour
     private RewardData[]        _rewards    = new RewardData[3];
     private ChestClickHandler[] _handlers   = new ChestClickHandler[3];
     private int                 _selected   = -1;
+    private bool                _confirmReady = false;
     private GameObject          _dimOverlay;
-    private List<GameObject>    _spawnedChests  = new();
-    private List<GameObject>    _summaryObjects = new();
+    private List<GameObject>    _spawnedChests = new();
 
     void Awake()
     {
@@ -78,6 +71,7 @@ public class GameResultUI : MonoBehaviour
         rewardPanel?.SetActive(false);
         deathPanel?.SetActive(false);
         confirmArea?.SetActive(false);
+        confirmDimPanel?.SetActive(false);
     }
 
     // ────────────────────────────────────────────────────────
@@ -86,7 +80,8 @@ public class GameResultUI : MonoBehaviour
 
     public void ShowRewardPanel()
     {
-        _selected = -1;
+        _selected     = -1;
+        _confirmReady = false;
         joystickObject?.SetActive(false); // 조이스틱이 상자 클릭을 가로채지 않도록
         SpawnChests();
 
@@ -164,14 +159,33 @@ public class GameResultUI : MonoBehaviour
             }
         }
 
+        // FX 스폰
+        if (chestSelectFXPrefab != null)
+        {
+            var fx = Instantiate(chestSelectFXPrefab,
+                _spawnedChests[index].transform.position + Vector3.up * 0.5f,
+                Quaternion.identity);
+            Destroy(fx, 3f);
+        }
+
+        if (confirmText != null)
         {
             int monDia   = GameManager.Instance?.sessionEarnedDiamond ?? 0;
             int chestDia = _rewards[index].diamond;
             int chestExp = _rewards[index].exp;
-            ShowRewardSummary(monDia, chestDia, chestExp);
+            int totalDia = monDia + chestDia;
+            confirmText.text =
+                $"몬스터 처치 보상   <color=#FFD700><b>+{monDia}</b></color>\n" +
+                $"보스 처치 보상     <color=#7FFFD4><b>+{chestExp}</b></color>\n" +
+                $"───────────────────\n" +
+                $"최종 보상   <color=#FFD700><b>+{totalDia}</b></color>              <color=#7FFFD4><b>+{chestExp}</b></color>\n\n" +
+                $"로비로 돌아가기";
         }
-        if (confirmText != null) confirmText.text = "획득하기 ▶";
+
+        confirmDimPanel?.SetActive(true);
+        _confirmReady = false;
         confirmArea?.SetActive(true);
+        StartCoroutine(EnableConfirmAfterDelay());
     }
 
     [Header("애니메이션 속도 (작을수록 느림)")]
@@ -265,20 +279,25 @@ public class GameResultUI : MonoBehaviour
         Destroy(obj, 4f);
     }
 
+    System.Collections.IEnumerator EnableConfirmAfterDelay()
+    {
+        yield return new WaitForSeconds(0.6f);
+        _confirmReady = true;
+    }
+
     // Inspector 버튼에 연결
     public void OnConfirm()
     {
-        if (_selected < 0) return;
+        if (_selected < 0 || !_confirmReady) return;
 
         var r = _rewards[_selected];
-
-        ClearSummary();
 
         // 상자 정리
         foreach (var obj in _spawnedChests)
             if (obj) Destroy(obj);
         _spawnedChests.Clear();
 
+        confirmDimPanel?.SetActive(false);
         if (_dimOverlay) Destroy(_dimOverlay);
         rewardPanel?.SetActive(false);
         joystickObject?.SetActive(true);
@@ -300,11 +319,11 @@ public class GameResultUI : MonoBehaviour
 
     public void ShowDeathPanel()
     {
-        int kills = GameManager.Instance?.sessionKillCount  ?? 0;
-        int gold  = GameManager.Instance?.sessionEarnedGold ?? 0;
+        int kills   = GameManager.Instance?.sessionKillCount     ?? 0;
+        int diamond = GameManager.Instance?.sessionEarnedDiamond ?? 0;
 
         if (killCountText  != null) killCountText.text  = $"처치한 몬스터  {kills}마리";
-        if (earnedGoldText != null) earnedGoldText.text = $"획득한 골드  {gold} G";
+        if (earnedGoldText != null) earnedGoldText.text = $"획득한 다이아  {diamond} 다이아";
 
         deathPanel?.SetActive(true);
         Time.timeScale = 0f;
@@ -313,12 +332,12 @@ public class GameResultUI : MonoBehaviour
     // Inspector 버튼에 연결
     public void OnReturnToLobby()
     {
-        // 처치 몬스터 비례 획득 골드를 React(Firebase)로 전송
-        int earnedGold = GameManager.Instance?.sessionEarnedGold ?? 0;
-        if (earnedGold > 0)
+        // 처치 몬스터 비례 획득 다이아를 React(Firebase)로 전송
+        int earnedDiamond = GameManager.Instance?.sessionEarnedDiamond ?? 0;
+        if (earnedDiamond > 0)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            string json = $"{{\"type\":\"DUNGEON_RESULT\",\"gold\":{earnedGold},\"exp\":0,\"diamond\":0}}";
+            string json = $"{{\"type\":\"DUNGEON_RESULT\",\"gold\":0,\"exp\":0,\"diamond\":{earnedDiamond}}}";
             SendDungeonResultToReact(json);
 #endif
         }
@@ -331,97 +350,6 @@ public class GameResultUI : MonoBehaviour
         // 에디터 테스트: 기존 로비 씬으로
         GameManager.Instance?.GoToScene(GameManager.SceneLobby);
 #endif
-    }
-
-    // ────────────────────────────────────────────────────────
-    // 보상 요약 — 월드스페이스 SpriteFont + 아이콘
-    // ────────────────────────────────────────────────────────
-
-    void ShowRewardSummary(int monDia, int chestDia, int chestExp)
-    {
-        ClearSummary();
-        int totalDia = monDia + chestDia;
-
-        Camera cam    = Camera.main;
-        Vector3 origin = new Vector3(cam.transform.position.x,
-                                     cam.transform.position.y + summaryYOffset, 0f);
-
-        SpawnSummaryRow(origin + Vector3.up * summaryRowSpacing,
-            "몬스터 처치 보상", monDia, gemIconSprite, -1, null);
-        SpawnSummaryRow(origin,
-            "보스 처치 보상", chestExp, expIconSprite, -1, null);
-        SpawnSummaryRow(origin + Vector3.down * summaryRowSpacing,
-            "최종 보상", totalDia, gemIconSprite, chestExp, expIconSprite);
-    }
-
-    void SpawnSummaryRow(Vector3 rowPos, string label, int val1, Sprite icon1, int val2, Sprite icon2)
-    {
-        // 라벨 (TextMesh, 오른쪽 정렬)
-        var labelObj = new GameObject("SumLabel");
-        _summaryObjects.Add(labelObj);
-        labelObj.transform.position = rowPos + new Vector3(-0.2f, 0f, 0f);
-        var tm = labelObj.AddComponent<TextMesh>();
-        tm.text          = label;
-        tm.color         = Color.white;
-        tm.characterSize = 0.09f;
-        tm.fontSize      = 40;
-        tm.anchor        = TextAnchor.MiddleRight;
-        tm.alignment     = TextAlignment.Right;
-        labelObj.GetComponent<MeshRenderer>().sortingOrder = summarySort;
-
-        // 숫자 1 (SpriteFont Gold)
-        SpawnSpriteNum(rowPos + new Vector3(numColumnX, 0f, 0f), val1);
-
-        // 아이콘 1
-        if (icon1 != null)
-            SpawnSummaryIcon(rowPos + new Vector3(iconColumnX, 0f, 0f), icon1);
-
-        // 숫자2 + 아이콘2 (최종 보상 행)
-        if (val2 >= 0)
-        {
-            SpawnSpriteNum(rowPos + new Vector3(num2ColumnX, 0f, 0f), val2);
-            if (icon2 != null)
-                SpawnSummaryIcon(rowPos + new Vector3(icon2ColumnX, 0f, 0f), icon2);
-        }
-    }
-
-    void SpawnSpriteNum(Vector3 pos, int val)
-    {
-        var sfObj = new GameObject("SumNum");
-        _summaryObjects.Add(sfObj);
-        sfObj.transform.position   = pos;
-        sfObj.transform.localScale = Vector3.one * spriteFontScale;
-
-        var sf = sfObj.AddComponent<StudioNAP.SpriteFont>();
-        sf.textColor = Color.white;
-
-        // sortingOrder는 private serialized — reflection으로 먼저 설정하면
-        // 이후 UpdateText() (text 세터, Start() 양쪽 모두)에서 올바른 값으로 렌더링됨
-        var soField = typeof(StudioNAP.SpriteFont).GetField("sortingOrder",
-            BindingFlags.NonPublic | BindingFlags.Instance);
-        soField?.SetValue(sf, summarySort);
-
-        var goldAtlas = Resources.Load<UnityEngine.U2D.SpriteAtlas>("Atlas/GoldAtlas");
-        if (goldAtlas != null) sf.Atlas = goldAtlas;
-        sf.text = val.ToString();
-    }
-
-    void SpawnSummaryIcon(Vector3 pos, Sprite sprite)
-    {
-        var iconObj = new GameObject("SumIcon");
-        _summaryObjects.Add(iconObj);
-        iconObj.transform.position   = pos;
-        iconObj.transform.localScale = Vector3.one * iconScale;
-        var sr = iconObj.AddComponent<SpriteRenderer>();
-        sr.sprite       = sprite;
-        sr.sortingOrder = summarySort;
-    }
-
-    void ClearSummary()
-    {
-        foreach (var obj in _summaryObjects)
-            if (obj) Destroy(obj);
-        _summaryObjects.Clear();
     }
 
     // ────────────────────────────────────────────────────────
