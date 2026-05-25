@@ -251,6 +251,14 @@ function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
           }} className="bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
             🔄 새로고침
           </button>
+          {onStudentTestLogin && (
+            <button
+              onClick={() => onStudentTestLogin('SINSEOK-5-01')}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm"
+            >
+              학생 테스트 (SINSEOK-5-01)
+            </button>
+          )}
           <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
             📋 지급/차감 내역 보기
           </button>

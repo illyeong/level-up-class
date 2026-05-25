@@ -128,9 +128,47 @@ function App() {
   }, [studentInfo?.classId, studentInfo?.teacherUid]);
 
   // ── 교사 로그인 콜백 → 학급 선택으로 (테스트는 바로 입장) ───
-  const handleTeacherLogin = (user) => {
+  const handleTeacherLogin = async (user) => {
     setTeacherUser(user);
     if (!user.uid) {
+      const testCode = 'SINSEOK-5-01';
+      try {
+        const studentSnap = await getDocs(
+          query(collection(db, 'students'), where('studentCode', '==', testCode))
+        );
+        if (!studentSnap.empty) {
+          const studentData = studentSnap.docs[0].data();
+          const classId = studentData?.classId || null;
+          const teacherUid = studentData?.teacherUid || null;
+
+          if (classId) {
+            const classDoc = await getDoc(doc(db, 'classes', classId));
+            if (classDoc.exists()) {
+              const cls = { id: classDoc.id, ...classDoc.data() };
+              setSelectedClass(cls);
+              sessionStorage.setItem('selectedClass', JSON.stringify(cls));
+              setAppMode('teacher');
+              return;
+            }
+          }
+
+          if (teacherUid) {
+            const classSnap = await getDocs(
+              query(collection(db, 'classes'), where('teacherUid', '==', teacherUid))
+            );
+            if (!classSnap.empty) {
+              const cls = { id: classSnap.docs[0].id, ...classSnap.docs[0].data() };
+              setSelectedClass(cls);
+              sessionStorage.setItem('selectedClass', JSON.stringify(cls));
+              setAppMode('teacher');
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('테스트 교사 학급 연동 실패:', e);
+      }
+
       setSelectedClass({ id: null, teacherUid: 'admin_master_001' });
       setAppMode('teacher');
     } else {
@@ -181,8 +219,21 @@ function App() {
   };
 
   // ── 교사 → 학생 테스트 로그인 ────────────────────────────────
-  const handleStudentTestLogin = (code) => {
-    setTestStudentCode(code);
+  const handleStudentTestLogin = async (code) => {
+    const normalizedCode = String(code || 'SINSEOK-5-01').trim().toUpperCase();
+    setTestStudentCode(normalizedCode);
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'students'), where('studentCode', '==', normalizedCode))
+      );
+      if (!snap.empty) {
+        const data = { id: snap.docs[0].id, ...snap.docs[0].data() };
+        setStudentInfo(data);
+        sessionStorage.setItem('studentInfo', JSON.stringify(data));
+      }
+    } catch (e) {
+      console.error('테스트 학생 연동 실패:', e);
+    }
     setAppMode('student');
     setCurrentView('quest');
   };
