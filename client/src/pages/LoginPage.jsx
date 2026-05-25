@@ -6,6 +6,7 @@ import { auth, db, googleProvider } from '../firebase';
 export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
   const [mode, setMode] = useState(null); // null | 'student'
   const [studentCode, setStudentCode] = useState('');
+  const [isCodeLocked, setIsCodeLocked] = useState(false);
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,6 +15,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
     const codeFromUrl = new URLSearchParams(window.location.search).get('code');
     if (!codeFromUrl) return;
     setStudentCode(codeFromUrl.trim().toUpperCase());
+    setIsCodeLocked(true);
     setMode('student');
   }, []);
 
@@ -112,17 +114,24 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
             <h2 className="text-white font-bold text-xl mb-6 text-center">학생 로그인</h2>
 
             <div className="space-y-4">
-              <div>
-                <label className="text-indigo-200 text-sm font-bold mb-1.5 block">학생 코드</label>
-                <input
-                  type="text"
-                  value={studentCode}
-                  onChange={(e) => setStudentCode(e.target.value)}
-                  placeholder="예: SINSEOK-5-01"
-                  className="w-full bg-white/10 border border-white/20 text-white placeholder-white/40 rounded-xl px-4 py-3 font-mono font-bold focus:outline-none focus:border-indigo-400"
-                  autoCapitalize="characters"
-                />
-              </div>
+              {!isCodeLocked ? (
+                <div>
+                  <label className="text-indigo-200 text-sm font-bold mb-1.5 block">학생 코드</label>
+                  <input
+                    type="text"
+                    value={studentCode}
+                    onChange={(e) => setStudentCode(e.target.value)}
+                    placeholder="예: SINSEOK-5-01"
+                    className="w-full bg-white/10 border border-white/20 text-white placeholder-white/40 rounded-xl px-4 py-3 font-mono font-bold focus:outline-none focus:border-indigo-400"
+                    autoCapitalize="characters"
+                  />
+                </div>
+              ) : (
+                <div className="rounded-xl border border-indigo-300/30 bg-indigo-500/10 px-4 py-3 text-center">
+                  <p className="text-indigo-100 text-xs font-bold mb-1">QR 인증 코드</p>
+                  <p className="text-white font-mono font-extrabold">{studentCode}</p>
+                </div>
+              )}
 
               <div>
                 <label className="text-indigo-200 text-sm font-bold mb-1.5 block">PIN 번호</label>
@@ -171,10 +180,16 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
         )}
 
         <div className="mt-8 border-t border-white/10 pt-6">
+          <div className="mb-3 bg-white/10 border border-white/20 rounded-2xl p-3.5">
+            <p className="text-white font-extrabold text-sm mb-1">학생 테스트 페이지 안내</p>
+            <p className="text-indigo-200 text-xs leading-relaxed">
+              학생 테스트 페이지로 모든 기능을 확인하실 수 있습니다.
+            </p>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => {
-                const pw = window.prompt('비밀번호를 입력해 주세요.');
+                const pw = window.prompt('비밀번호를 입력해 주세요');
                 if (pw === '1234') onTeacherLogin({ email: 'test@test.com', displayName: '테스트 교사' });
                 else if (pw !== null) alert('비밀번호가 올바르지 않습니다.');
               }}
@@ -184,7 +199,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
             </button>
             <button
               onClick={() => {
-                const pw = window.prompt('비밀번호를 입력해 주세요.');
+                const pw = window.prompt('비밀번호를 입력해 주세요');
                 if (pw === '0505') onStudentLogin({ id: 'test', studentCode: 'SINSEOK-5-15', name: '테스트 학생' });
                 else if (pw !== null) alert('비밀번호가 올바르지 않습니다.');
               }}

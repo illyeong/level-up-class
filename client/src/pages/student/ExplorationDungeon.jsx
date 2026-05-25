@@ -331,7 +331,12 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     if (studentCode) win.postMessage({ type: 'REACT_STUDENT_CODE', studentCode }, '*');
     const cd = characterDataRef.current;
     if (!cd) return;
-    const dungeonIndex = (selectedDungeonRef.current?.id ?? 0) + 1; // 1-based (던전1=1 ~ 던전25=25)
+    const selectedIdRaw = selectedDungeonRef.current?.id;
+    const selectedIdNum = Number(selectedIdRaw);
+    const fallbackIndex = dungeonList.findIndex((d) => String(d.id) === String(selectedIdRaw)) + 1;
+    const dungeonIndex = Number.isFinite(selectedIdNum) && selectedIdNum >= 0
+      ? selectedIdNum + 1
+      : (fallbackIndex > 0 ? fallbackIndex : 1);
     win.postMessage({
       type: 'REACT_LOAD_AVATAR',
       ...cd,

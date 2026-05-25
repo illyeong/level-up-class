@@ -41,12 +41,21 @@ function App() {
   const [testStudentCode, setTestStudentCode] = useState(null);
   const [studentClassInfo, setStudentClassInfo] = useState(null);
   const { isAdmin, loading: isAdminLoading } = useIsAdmin(teacherUser?.email);
+  const [teacherAccessCode, setTeacherAccessCode] = useState('0526');
+  const [teacherCodeInput, setTeacherCodeInput] = useState('');
+  const [teacherCodeError, setTeacherCodeError] = useState('');
 
   // ── Firebase Auth 상태 감지 (교사 로그인 유지) ─────────────────
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) {
         setTeacherUser(user);
+        if (user.uid && !localStorage.getItem(`teacherAuthVerified:${user.uid}`)) {
+          setTeacherCodeInput('');
+          setTeacherCodeError('');
+          setAppMode('teacherAuth');
+          return;
+        }
         const savedClass = sessionStorage.getItem('selectedClass');
         if (savedClass) {
           setSelectedClass(JSON.parse(savedClass));
@@ -69,8 +78,18 @@ function App() {
   }, []);
 
   useEffect(() => {
+    getDoc(doc(db, 'systemConfig', 'global'))
+      .then((snap) => {
+        const code = snap.data()?.teacherAccessCode;
+        if (code) setTeacherAccessCode(String(code));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (!teacherUser) return;
     if (!teacherUser.uid) return;
+    if (appMode === 'teacherAuth') return;
     if (isAdminLoading) {
       setAppMode('loading');
       return;
@@ -136,14 +155,29 @@ function App() {
 
   // ── 로그아웃 ─────────────────────────────────────────────────
   const handleLogout = async () => {
-    if (appMode === 'teacher' || appMode === 'classSelect' || appMode === 'admin') await signOut(auth);
+    if (teacherUser?.uid || appMode === 'teacher' || appMode === 'classSelect' || appMode === 'admin' || appMode === 'teacherAuth') {
+      await signOut(auth);
+    }
     sessionStorage.removeItem('studentInfo');
     sessionStorage.removeItem('selectedClass');
     setTeacherUser(null);
     setSelectedClass(null);
     setStudentInfo(null);
     setTestStudentCode(null);
+    setTeacherCodeInput('');
+    setTeacherCodeError('');
     setAppMode('login');
+  };
+
+  const handleTeacherAuthSubmit = () => {
+    if (!teacherUser?.uid) return;
+    if (teacherCodeInput.trim() !== String(teacherAccessCode)) {
+      setTeacherCodeError('인증번호가 올바르지 않습니다.');
+      return;
+    }
+    localStorage.setItem(`teacherAuthVerified:${teacherUser.uid}`, '1');
+    setTeacherCodeError('');
+    setAppMode('loading');
   };
 
   // ── 교사 → 학생 테스트 로그인 ────────────────────────────────
@@ -172,6 +206,44 @@ function App() {
         onTeacherLogin={handleTeacherLogin}
         onStudentLogin={handleStudentLogin}
       />
+    );
+  }
+
+  if (appMode === 'teacherAuth') {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6">
+          <h1 className="text-white text-xl font-extrabold mb-2">교사 계정 1회 인증</h1>
+          <p className="text-slate-400 text-sm mb-5">관리자가 부여한 4자리 인증번호를 입력해 주세요.</p>
+          <input
+            value={teacherCodeInput}
+            onChange={(e) => {
+              setTeacherCodeInput(e.target.value.replace(/\D/g, '').slice(0, 4));
+              if (teacherCodeError) setTeacherCodeError('');
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && handleTeacherAuthSubmit()}
+            placeholder="4자리 인증번호"
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest font-mono focus:outline-none focus:border-indigo-500"
+            maxLength={4}
+          />
+          {teacherCodeError && (
+            <p className="mt-3 text-rose-400 text-sm font-bold">{teacherCodeError}</p>
+          )}
+          <button
+            onClick={handleTeacherAuthSubmit}
+            disabled={teacherCodeInput.length !== 4}
+            className="w-full mt-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-extrabold"
+          >
+            인증 완료
+          </button>
+          <button
+            onClick={handleLogout}
+            className="w-full mt-2 py-2 text-slate-400 hover:text-white text-sm font-bold"
+          >
+            로그아웃
+          </button>
+        </div>
+      </div>
     );
   }
 

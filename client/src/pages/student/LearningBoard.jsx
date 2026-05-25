@@ -267,6 +267,8 @@ export default function LearningBoard({ studentCode }) {
   const [selectedBoard, setSelectedBoard] = useState(null);
   const [posts, setPosts]                 = useState([]);
   const [pages, setPages]                 = useState([]);
+  const [sheets, setSheets]               = useState([]);
+  const [selectedSheetId, setSelectedSheetId] = useState(null);
   const [student, setStudent]             = useState(null);
   const [isLoading, setIsLoading]         = useState(true);
   const [loadingPosts, setLoadingPosts]   = useState(false);
@@ -321,6 +323,9 @@ export default function LearningBoard({ studentCode }) {
   const openBoard = async (board) => {
     setSelectedBoard(board);
     setPages(board.pages || []);
+    const nextSheets = (board.sheets && board.sheets.length > 0) ? board.sheets : [{ id: 'sheet_1', title: '시트 1' }];
+    setSheets(nextSheets);
+    setSelectedSheetId(nextSheets[0]?.id || null);
     setShowWrite(false);
     setWriteLat(null); setWriteLng(null);
     setLoadingPosts(true);
@@ -331,6 +336,21 @@ export default function LearningBoard({ studentCode }) {
       setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) { console.error(e); }
     finally { setLoadingPosts(false); }
+  };
+
+  const addSheet = async () => {
+    if (!selectedBoard) return;
+    const nextIndex = sheets.length + 1;
+    const newSheet = { id: `sheet_${Date.now()}`, title: `시트 ${nextIndex}` };
+    const updated = [...sheets, newSheet];
+    try {
+      await updateDoc(doc(db, 'boards', selectedBoard.id), { sheets: updated });
+      setSheets(updated);
+      setSelectedSheetId(newSheet.id);
+    } catch (e) {
+      console.error(e);
+      alert('시트 추가 권한이 없습니다.');
+    }
   };
 
   // ── Leaflet 지도 초기화 ──────────────────────────────────────
@@ -344,7 +364,10 @@ export default function LearningBoard({ studentCode }) {
       const L = window.L;
       const map = L.map(mapDivRef.current).setView([37.5665, 126.9780], 11);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-      posts.forEach(p => {
+      const visiblePosts = selectedSheetId
+        ? posts.filter((p) => (p.sheetId || 'sheet_1') === selectedSheetId)
+        : posts;
+      visiblePosts.forEach(p => {
         if (p.lat && p.lng)
           L.marker([p.lat, p.lng]).addTo(map).bindPopup(`<b>${p.studentName}</b><br>${p.content || ''}`);
       });
@@ -372,7 +395,7 @@ export default function LearningBoard({ studentCode }) {
     };
     window.L ? setTimeout(init, 100) : loadLeaflet();
     return () => { if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
-  }, [selectedBoard?.boardType, loadingPosts]);
+  }, [selectedBoard?.boardType, loadingPosts, posts, selectedSheetId]);
 
   // ── 이미지 선택 ──────────────────────────────────────────────
   const handleImageSelect = async (e) => {
@@ -402,6 +425,7 @@ export default function LearningBoard({ studentCode }) {
         reactions:      {},
         pinned:         false,
         pageId:         writePageId || null,
+        sheetId:        selectedSheetId || null,
         lat:            writeLat || null,
         lng:            writeLng || null,
         createdAt:      serverTimestamp(),
@@ -455,6 +479,7 @@ export default function LearningBoard({ studentCode }) {
 
   // ── 정렬 + 검색 + 핀 ──────────────────────────────────────────
   const filteredPosts = posts
+    .filter(p => !selectedSheetId || (p.sheetId || 'sheet_1') === selectedSheetId)
     .filter(p => !searchQuery || p.content?.includes(searchQuery) || p.studentName?.includes(searchQuery))
     .sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
@@ -593,17 +618,39 @@ export default function LearningBoard({ studentCode }) {
       return (
         <div style={{ ...wrap, padding: 0, position: 'relative', overflow: 'hidden' }}>
           <div ref={mapDivRef} style={{ height: 'calc(100vh - 180px)', width: '100%' }} />
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 rounded-xl border border-slate-200 shadow-lg p-1.5 flex items-center gap-1.5 overflow-x-auto max-w-[80%]">
+            {sheets.map((sheet) => (
+              <button
+                key={sheet.id}
+                onClick={() => setSelectedSheetId(sheet.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${
+                  selectedSheetId === sheet.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {sheet.title}
+              </button>
+            ))}
+            <button
+              onClick={addSheet}
+              className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold shrink-0"
+              title="시트 추가"
+            >
+              +
+            </button>
+          </div>
           <button
-            onClick={() => { setSelectedBoard(null); setPosts([]); setPages([]); setSearchQuery(''); }}
+            onClick={() => { setSelectedBoard(null); setPosts([]); setPages([]); setSheets([]); setSelectedSheetId(null); setSearchQuery(''); }}
             className="absolute top-3 left-3 z-[1000] bg-white hover:bg-slate-50 shadow-lg rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:text-indigo-600 border border-slate-200 flex items-center gap-2 transition-all">
             ← 목록
           </button>
           <div className="absolute bottom-4 left-4 bg-white/90 rounded-xl px-3 py-2 text-xs text-slate-500 shadow pointer-events-none z-[1000]">
             📍 지도를 클릭하면 해당 위치에 게시물을 작성합니다
           </div>
-          {posts.length > 0 && (
+          {filteredPosts.length > 0 && (
             <div className="absolute top-3 right-3 z-[1000] bg-white/90 shadow-lg rounded-xl px-3 py-2 text-xs font-bold text-slate-600 border border-slate-200">
-              📌 게시물 {posts.length}개
+              📌 게시물 {filteredPosts.length}개
             </div>
           )}
         </div>
@@ -629,7 +676,7 @@ export default function LearningBoard({ studentCode }) {
         {!isMapType && (
           <div className="bg-white border-b border-slate-200 px-5 py-3 sticky top-0 z-20 shadow-sm">
             <div className="flex items-center gap-3 mb-3">
-              <button onClick={() => { setSelectedBoard(null); setPosts([]); setPages([]); setSearchQuery(''); }}
+              <button onClick={() => { setSelectedBoard(null); setPosts([]); setPages([]); setSheets([]); setSelectedSheetId(null); setSearchQuery(''); }}
                 className="text-slate-500 hover:text-slate-800 font-bold text-sm px-3 py-1.5 bg-slate-100 rounded-xl shrink-0">
                 ← 목록
               </button>
@@ -642,7 +689,29 @@ export default function LearningBoard({ studentCode }) {
                   <span className="text-xs text-slate-400 truncate hidden sm:block">— {selectedBoard.description}</span>
                 )}
               </div>
-              <span className="text-xs text-slate-400 shrink-0 font-medium">{posts.length}개</span>
+              <span className="text-xs text-slate-400 shrink-0 font-medium">{filteredPosts.length}개</span>
+            </div>
+            <div className="mb-3 bg-slate-50 border border-slate-200 rounded-xl p-1.5 flex items-center gap-1.5 overflow-x-auto">
+              {sheets.map((sheet) => (
+                <button
+                  key={sheet.id}
+                  onClick={() => setSelectedSheetId(sheet.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${
+                    selectedSheetId === sheet.id
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  {sheet.title}
+                </button>
+              ))}
+              <button
+                onClick={addSheet}
+                className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold shrink-0"
+                title="시트 추가"
+              >
+                +
+              </button>
             </div>
             {/* 검색 + 정렬 */}
             <div className="flex gap-2 flex-wrap">

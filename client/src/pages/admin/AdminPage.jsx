@@ -486,7 +486,12 @@ function FeedbacksTab() {
 
 // ── 5. 시스템 설정 탭 ─────────────────────────────────────────
 function SettingsTab() {
-  const [config, setConfig]   = useState({ maxClassPerTeacher: 2, maxStudentsPerClass: 32, maintenanceMode: false });
+  const [config, setConfig]   = useState({
+    maxClassPerTeacher: 2,
+    maxStudentsPerClass: 32,
+    maintenanceMode: false,
+    teacherAccessCode: '0526',
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
 
@@ -501,6 +506,10 @@ function SettingsTab() {
   }, []);
 
   const save = async () => {
+    if (!/^\d{4}$/.test(String(config.teacherAccessCode ?? ''))) {
+      alert('교사 인증번호는 4자리 숫자로 입력해 주세요.');
+      return;
+    }
     setSaving(true);
     try {
       await setDoc(doc(db, 'systemConfig', 'global'), config);
@@ -528,6 +537,17 @@ function SettingsTab() {
           <input type="number" min="1" max="100" value={config.maxStudentsPerClass}
             onChange={e => setConfig(p => ({ ...p, maxStudentsPerClass: Number(e.target.value) }))}
             className="w-32 border-2 border-slate-200 rounded-xl px-4 py-2 text-lg font-bold text-center focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-1.5">교사 1회 인증번호 (4자리)</label>
+          <input
+            type="text"
+            value={String(config.teacherAccessCode ?? '')}
+            onChange={e => setConfig(p => ({ ...p, teacherAccessCode: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+            maxLength={4}
+            className="w-32 border-2 border-slate-200 rounded-xl px-4 py-2 text-lg font-bold text-center focus:outline-none focus:border-indigo-500 font-mono"
+          />
         </div>
 
         <div className="flex items-center justify-between p-4 bg-rose-50 rounded-xl border border-rose-200">

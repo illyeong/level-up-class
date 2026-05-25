@@ -124,6 +124,8 @@ export default function BoardManage({ selectedClass, user }) {
   const [selectedBoard, setSelectedBoard] = useState(null);
   const [posts, setPosts]           = useState([]);
   const [pages, setPages]           = useState([]);
+  const [sheets, setSheets]         = useState([]);
+  const [selectedSheetId, setSelectedSheetId] = useState(null);
   const [loadingPosts, setLoadingPosts] = useState(false);
 
   // write
@@ -171,12 +173,13 @@ export default function BoardManage({ selectedClass, user }) {
     try {
       const defaultPages = (newType === 'vertical-group' || newType === 'horizontal-group')
         ? [{ id: `page_${Date.now()}`, title: '그룹 1' }] : [];
+      const defaultSheets = [{ id: 'sheet_1', title: '시트 1' }];
       await addDoc(collection(db, 'boards'), {
         title: newTitle.trim(), description: newDesc.trim(),
         teacherUid: selectedClass?.teacherUid || null,
         classId:    selectedClass?.id          || null,
         boardType:  newType, bgColor: newBgColor,
-        pages: defaultPages, active: true, createdAt: serverTimestamp(),
+        pages: defaultPages, sheets: defaultSheets, active: true, createdAt: serverTimestamp(),
       });
       setNewTitle(''); setNewDesc(''); setNewType('wall'); setNewBgColor('#ffffff');
       setShowCreate(false);
@@ -201,6 +204,9 @@ export default function BoardManage({ selectedClass, user }) {
   const openBoard = async (board) => {
     setSelectedBoard(board);
     setPages(board.pages || []);
+    const nextSheets = (board.sheets && board.sheets.length > 0) ? board.sheets : [{ id: 'sheet_1', title: '시트 1' }];
+    setSheets(nextSheets);
+    setSelectedSheetId(nextSheets[0]?.id || null);
     setLoadingPosts(true);
     try {
       const snap = await getDocs(
@@ -219,6 +225,16 @@ export default function BoardManage({ selectedClass, user }) {
     setPages(updated);
   };
 
+  const addSheet = async () => {
+    if (!selectedBoard) return;
+    const nextIndex = sheets.length + 1;
+    const newSheet = { id: `sheet_${Date.now()}`, title: `시트 ${nextIndex}` };
+    const updated = [...sheets, newSheet];
+    await updateDoc(doc(db, 'boards', selectedBoard.id), { sheets: updated });
+    setSheets(updated);
+    setSelectedSheetId(newSheet.id);
+  };
+
   // ── write post ────────────────────────────────────────────────
   const submitPost = async () => {
     if (!writeContent.trim() && !writeImage) return;
@@ -230,6 +246,7 @@ export default function BoardManage({ selectedClass, user }) {
         content: writeContent.trim(), imageBase64: writeImage || '',
         reactions: {}, comments: [],
         pageId: writePageId || null,
+        sheetId: selectedSheetId || null,
         lat: writeLat || null, lng: writeLng || null,
         pinned: false, createdAt: serverTimestamp(),
       };
@@ -270,11 +287,16 @@ export default function BoardManage({ selectedClass, user }) {
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
       }).addTo(map);
-      posts.forEach(p => {
+      const visiblePosts = selectedSheetId
+        ? posts.filter((p) => (p.sheetId || 'sheet_1') === selectedSheetId)
+        : posts;
+      visiblePosts.forEach(p => {
         if (p.lat && p.lng)
           L.marker([p.lat, p.lng]).addTo(map).bindPopup(`<b>${p.studentName}</b><br>${p.content || ''}`);
       });
+      const initTime = Date.now();
       map.on('click', e => {
+        if (Date.now() - initTime < 800) return;
         setWriteLat(e.latlng.lat); setWriteLng(e.latlng.lng);
         setShowWrite(true); setTimeout(() => textRef.current?.focus(), 50);
       });
@@ -296,7 +318,7 @@ export default function BoardManage({ selectedClass, user }) {
     };
     window.L ? setTimeout(init, 100) : loadLeaflet();
     return () => { if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
-  }, [selectedBoard?.boardType, loadingPosts]);
+  }, [selectedBoard?.boardType, loadingPosts, posts, selectedSheetId]);
 
   // ── PostCard ──────────────────────────────────────────────────
   const PostCard = ({ post, idx }) => (
@@ -351,7 +373,10 @@ export default function BoardManage({ selectedClass, user }) {
   );
 
   // ── layout renderers ──────────────────────────────────────────
-  const sorted = [...posts].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+  const filteredBySheet = selectedSheetId
+    ? posts.filter((p) => (p.sheetId || 'sheet_1') === selectedSheetId)
+    : posts;
+  const sorted = [...filteredBySheet].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
 
   const renderContent = () => {
     const type = selectedBoard?.boardType || 'wall';
@@ -492,7 +517,7 @@ export default function BoardManage({ selectedClass, user }) {
           <div ref={mapDivRef} style={{ height: 'calc(100vh - 230px)', width: '100%' }} />
           {/* 나가기 버튼 */}
           <button
-            onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); }}
+            onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); }}
             className="absolute top-3 left-3 z-[1000] bg-white hover:bg-rose-50 shadow-lg rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center gap-2 transition-all"
           >
             ← 목록으로
@@ -501,9 +526,9 @@ export default function BoardManage({ selectedClass, user }) {
           <div className="absolute bottom-4 left-4 bg-white/90 rounded-xl px-3 py-2 text-xs text-slate-500 shadow pointer-events-none z-[1000]">
             📍 지도를 클릭하면 해당 위치에 게시물을 작성합니다
           </div>
-          {posts.length > 0 && (
+          {sorted.length > 0 && (
             <div className="absolute top-3 right-3 z-[1000] bg-white/90 shadow-lg rounded-xl px-3 py-2 text-xs font-bold text-slate-600 border border-slate-200">
-              📌 게시물 {posts.length}개
+              📌 게시물 {sorted.length}개
             </div>
           )}
         </div>
@@ -622,7 +647,7 @@ export default function BoardManage({ selectedClass, user }) {
         {/* 헤더 바 (지도형은 제외) */}
         {!isMapType && (
           <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3 shadow-sm">
-            <button onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); }}
+            <button onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); }}
               className="text-slate-500 hover:text-slate-800 font-bold text-sm px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors shrink-0">
               ← 목록
             </button>
@@ -639,11 +664,36 @@ export default function BoardManage({ selectedClass, user }) {
             </div>
             <div className="ml-auto flex items-center gap-2 shrink-0">
               <span className="text-xs text-slate-400 font-medium bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200">
-                게시물 {posts.length}개
+                게시물 {sorted.length}개
               </span>
             </div>
           </div>
         )}
+
+        <div className={`${isMapType ? 'px-4 pt-4' : 'px-6'} pb-2`}>
+          <div className="bg-white border border-slate-200 rounded-2xl p-2 flex items-center gap-2 overflow-x-auto">
+            {sheets.map((sheet) => (
+              <button
+                key={sheet.id}
+                onClick={() => setSelectedSheetId(sheet.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors ${
+                  selectedSheetId === sheet.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {sheet.title}
+              </button>
+            ))}
+            <button
+              onClick={addSheet}
+              className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold shrink-0"
+              title="시트 추가"
+            >
+              +
+            </button>
+          </div>
+        </div>
 
         <div className={isMapType ? '' : 'p-6'}>
           <div className={isMapType ? '' : 'max-w-7xl mx-auto'}>
