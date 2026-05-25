@@ -4,7 +4,6 @@ import { db } from '../../firebase';
 
 const TICKET_CONFIG = {
   dungeon:  { label: '던전 이용권',   icon: '🗡️', color: 'sky',    max: 3 },
-  bossRaid: { label: '보스레이드권',  icon: '👹', color: 'rose',   max: 3 },
   arena:    { label: '투기장 이용권', icon: '🏟️', color: 'violet', max: 5 },
 };
 
@@ -32,7 +31,7 @@ function AdventureManage({ selectedClass }) {
   const [isSavingLevel, setIsSavingLevel]     = useState(false);
 
   // 부여 입력값
-  const [grantAmounts, setGrantAmounts] = useState({ dungeon: 0, bossRaid: 0, arena: 0 });
+  const [grantAmounts, setGrantAmounts] = useState({ dungeon: 0, arena: 0 });
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -157,7 +156,7 @@ function AdventureManage({ selectedClass }) {
 
           showToast('이용권 부여 완료!');
           setGrantModal(null);
-          setGrantAmounts({ dungeon: 0, bossRaid: 0, arena: 0 });
+          setGrantAmounts({ dungeon: 0, arena: 0 });
           setSelected([]);
         } catch (err) {
           console.error(err);
@@ -199,7 +198,6 @@ function AdventureManage({ selectedClass }) {
         students.forEach(s => {
           batch.update(doc(db, 'students', s.id), {
             'tickets.dungeon':  TICKET_CONFIG.dungeon.max,
-            'tickets.bossRaid': TICKET_CONFIG.bossRaid.max,
             'tickets.arena':    TICKET_CONFIG.arena.max,
             lastTicketRefreshDate: new Date().toISOString().split('T')[0],
           });
@@ -208,8 +206,8 @@ function AdventureManage({ selectedClass }) {
         setStudents(prev => prev.map(s => ({
           ...s,
           tickets: {
+            ...(s.tickets || {}),
             dungeon:  TICKET_CONFIG.dungeon.max,
-            bossRaid: TICKET_CONFIG.bossRaid.max,
             arena:    TICKET_CONFIG.arena.max,
           },
         })));
@@ -239,13 +237,13 @@ function AdventureManage({ selectedClass }) {
             </div>
             <div className="flex gap-2 flex-wrap">
               <button
-                onClick={() => { setGrantAmounts({ dungeon: 0, bossRaid: 0, arena: 0 }); setGrantModal('all'); }}
+                onClick={() => { setGrantAmounts({ dungeon: 0, arena: 0 }); setGrantModal('all'); }}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors shadow-sm">
                 🎁 전체 학생 부여
               </button>
               {selected.length > 0 && (
                 <button
-                  onClick={() => { setGrantAmounts({ dungeon: 0, bossRaid: 0, arena: 0 }); setGrantModal('selected'); }}
+                  onClick={() => { setGrantAmounts({ dungeon: 0, arena: 0 }); setGrantModal('selected'); }}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl transition-colors shadow-sm">
                   ✅ 선택 {selected.length}명 부여
                 </button>
@@ -290,7 +288,7 @@ function AdventureManage({ selectedClass }) {
         </div>
 
         {/* 이용권 현황 요약 */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-4 mb-6">
           {Object.entries(TICKET_CONFIG).map(([key, cfg]) => {
             const c = COLOR_MAP[cfg.color];
             return (
@@ -330,7 +328,7 @@ function AdventureManage({ selectedClass }) {
           </div>
 
           {/* 컬럼 헤더 */}
-          <div className="grid grid-cols-[auto_1fr_repeat(3,_auto)_auto] gap-0 px-5 py-2 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500">
+          <div className="grid grid-cols-[auto_1fr_repeat(2,_auto)_auto] gap-0 px-5 py-2 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500">
             <div className="w-6 mr-3" />
             <div>학생</div>
             {Object.values(TICKET_CONFIG).map(cfg => (
@@ -357,7 +355,7 @@ function AdventureManage({ selectedClass }) {
                 return (
                   <div
                     key={student.id}
-                    className={`grid grid-cols-[auto_1fr_repeat(3,_auto)_auto] gap-0 px-5 py-3 items-center hover:bg-slate-50 transition-colors
+                    className={`grid grid-cols-[auto_1fr_repeat(2,_auto)_auto] gap-0 px-5 py-3 items-center hover:bg-slate-50 transition-colors
                       ${isSelected ? 'bg-indigo-50' : ''}`}>
 
                     {/* 체크박스 */}
@@ -411,7 +409,7 @@ function AdventureManage({ selectedClass }) {
                     <div className="w-20 text-center">
                       <button
                         onClick={() => {
-                          setGrantAmounts({ dungeon: 0, bossRaid: 0, arena: 0 });
+                          setGrantAmounts({ dungeon: 0, arena: 0 });
                           setGrantModal({ studentId: student.id, studentName: student.name || student.studentCode });
                         }}
                         className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs rounded-xl transition-colors border border-indigo-200">

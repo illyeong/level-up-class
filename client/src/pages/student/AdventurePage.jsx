@@ -9,7 +9,6 @@ import Arena from './Arena';
 // ── 이용권 설정 ────────────────────────────────────────────────
 const TICKET_CONFIG = {
   dungeon:  { weekly: 3, max: 3, icon: '🗡️', label: '던전 이용권',  color: 'sky'    },
-  bossRaid: { weekly: 1, max: 3, icon: '👹', label: '보스레이드권', color: 'rose'   },
   arena:    { weekly: 5, max: 5, icon: '🏟️', label: '투기장 이용권', color: 'violet' },
 };
 
@@ -111,45 +110,140 @@ function TicketBar({ tickets, isRefreshing, studentInfo }) {
 }
 
 // ─────────────────────── 메인 허브 화면 ──────────────────────
-function AdventureHub({ tickets }) {
-  const cards = [
-    { id: 'quizDungeon',        icon: '🗡️', title: '퀴즈던전',   ticketKey: 'dungeon',  desc: '퀴즈를 풀어 던전을 공략하세요' },
-    { id: 'explorationDungeon', icon: '🗺️', title: '탐험던전',   ticketKey: 'dungeon',  desc: '미지의 던전을 탐험하세요' },
-    { id: 'bossRaid',           icon: '👹', title: '보스레이드', ticketKey: 'bossRaid', desc: '강력한 보스에 도전하세요' },
-    { id: 'arena',              icon: '🏟️', title: '투기장',     ticketKey: 'arena',    desc: '다른 학생과 실력을 겨루세요' },
-    { id: 'miniGame',           icon: '🎮', title: '미니 게임',  ticketKey: null,        desc: '다양한 미니 게임을 즐기세요' },
-  ];
+const ADVENTURE_CARDS = [
+  {
+    id: 'quizDungeon',
+    icon: '⚔️', sub: 'Quiz Dungeon',
+    title: '퀴즈 던전',
+    desc: '솔로 퀴즈 배틀로 몬스터를 처치하고 보상 획득',
+    ticketKey: null,
+    bg: 'from-sky-950 to-indigo-950',
+    border: 'border-sky-800/60',
+    dot: 'bg-sky-400',
+    shadow: 'shadow-sky-950',
+    btn: 'bg-sky-500 hover:bg-sky-400',
+  },
+  {
+    id: 'explorationDungeon',
+    icon: '🗺️', sub: 'Exploration',
+    title: '탐험 던전',
+    desc: 'Unity RPG 던전 탐험 · 보물과 아이템 수집',
+    ticketKey: 'dungeon',
+    bg: 'from-emerald-950 to-teal-950',
+    border: 'border-emerald-800/60',
+    dot: 'bg-emerald-400',
+    shadow: 'shadow-emerald-950',
+    btn: 'bg-emerald-500 hover:bg-emerald-400',
+  },
+  {
+    id: 'bossRaid',
+    icon: '👹', sub: 'World Boss Raid',
+    title: '보스 레이드',
+    desc: '학급 전원 협력 · 강력한 보스 격파',
+    ticketKey: null,
+    bg: 'from-rose-950 to-red-950',
+    border: 'border-rose-800/60',
+    dot: 'bg-rose-400',
+    shadow: 'shadow-rose-950',
+    btn: 'bg-rose-500 hover:bg-rose-400',
+  },
+  {
+    id: 'arena',
+    icon: '🏟️', sub: 'Arena',
+    title: '투기장',
+    desc: '1:1 랭크 퀴즈 배틀 · 실력을 겨뤄라',
+    ticketKey: 'arena',
+    bg: 'from-violet-950 to-purple-950',
+    border: 'border-violet-800/60',
+    dot: 'bg-violet-400',
+    shadow: 'shadow-violet-950',
+    btn: 'bg-violet-500 hover:bg-violet-400',
+  },
+];
 
+const MINI_CARD = {
+  id: 'miniGame',
+  icon: '🎮', sub: 'Mini Game',
+  title: '미니 게임',
+  desc: '다양한 미니 게임으로 골드를 획득하세요 (준비 중)',
+  ticketKey: null,
+  bg: 'from-amber-950 to-orange-950',
+  border: 'border-amber-800/60',
+  btn: 'bg-amber-500 hover:bg-amber-400',
+};
+
+function AdventureHub({ tickets, onNavigate }) {
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-extrabold text-slate-800 mb-1">⚔️ 어드벤처</h1>
-      <p className="text-slate-500 text-sm mb-6">이용권을 사용해 던전, 레이드, 투기장에 입장하세요!</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {cards.map(({ id, icon, title, ticketKey, desc }) => {
-          const count = ticketKey ? (tickets?.[ticketKey] ?? 0) : null;
-          const cfg   = ticketKey ? TICKET_CONFIG[ticketKey] : null;
-          const hasTicket = count === null || count > 0;
+    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #020617 0%, #0f172a 50%, #1e1b4b 100%)' }}>
+
+      {/* 헤더 */}
+      <div className="px-5 pt-8 pb-5 text-center">
+        <p className="text-[10px] font-extrabold tracking-[0.3em] text-indigo-400 mb-2 uppercase">Adventure Hub</p>
+        <h1 className="text-3xl font-extrabold text-white mb-1.5 tracking-wide">⚔️ 어드벤처</h1>
+        <p className="text-slate-500 text-sm">이용권으로 다양한 어드벤처에 도전하세요</p>
+      </div>
+
+      {/* 2×2 메인 그리드 */}
+      <div className="px-4 pb-3 grid grid-cols-2 gap-3">
+        {ADVENTURE_CARDS.map(adv => {
+          const cfg    = adv.ticketKey ? TICKET_CONFIG[adv.ticketKey] : null;
+          const count  = adv.ticketKey ? (tickets?.[adv.ticketKey] ?? 0) : null;
+          const locked = cfg ? count <= 0 : false;
           return (
-            <div
-              key={id}
-              className={`bg-white rounded-2xl shadow-sm border-2 p-5 transition-all
-                ${hasTicket ? 'border-slate-200 hover:shadow-md hover:-translate-y-0.5' : 'border-slate-100 opacity-60'}`}>
-              <div className="text-5xl mb-3">{icon}</div>
-              <h3 className="font-extrabold text-slate-800 text-base mb-1">{title}</h3>
-              <p className="text-xs text-slate-500 mb-3">{desc}</p>
-              {count !== null && (
-                <div className="flex items-center gap-1.5 mb-0">
-                  <div className="flex gap-0.5">
-                    {Array.from({ length: cfg.max }, (_, i) => (
-                      <div key={i} className={`w-2 h-2 rounded-full ${i < count ? 'bg-indigo-400' : 'bg-slate-200'}`} />
-                    ))}
-                  </div>
-                  <span className="text-xs text-slate-500 font-medium">{count}/{cfg.max} 이용권</span>
+            <button key={adv.id}
+              onClick={() => !locked && onNavigate?.(adv.id)}
+              disabled={locked}
+              className={`relative bg-gradient-to-br ${adv.bg} border ${adv.border} rounded-2xl p-4 text-left
+                flex flex-col gap-2.5 transition-all active:scale-95
+                ${locked
+                  ? 'opacity-50 cursor-not-allowed'
+                  : `shadow-lg ${adv.shadow} hover:brightness-110`}`}>
+
+              {locked && (
+                <div className="absolute top-2.5 right-2.5 text-[10px] text-white/40 font-bold bg-black/30 px-1.5 py-0.5 rounded-full">
+                  🔒
                 </div>
               )}
-            </div>
+
+              {/* 아이콘 */}
+              <div className="text-4xl leading-none">{adv.icon}</div>
+
+              {/* 텍스트 */}
+              <div className="flex-1">
+                <div className="text-[9px] font-extrabold tracking-widest text-white/35 mb-0.5">{adv.sub}</div>
+                <div className="text-sm font-extrabold text-white leading-tight mb-1">{adv.title}</div>
+                <div className="text-[10px] text-white/45 leading-snug line-clamp-2">{adv.desc}</div>
+              </div>
+
+              {/* 이용권 도트 — ticketKey가 있을 때만 표시 */}
+              {cfg && count !== null && (
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: cfg.max }, (_, i) => (
+                    <div key={i} className={`w-2 h-2 rounded-full transition-colors
+                      ${i < count ? adv.dot : 'bg-white/15'}`} />
+                  ))}
+                  <span className="text-[10px] text-white/40 font-bold ml-0.5">{count}/{cfg.max}</span>
+                </div>
+              )}
+            </button>
           );
         })}
+      </div>
+
+      {/* 미니 게임 — 풀 너비 */}
+      <div className="px-4 pb-8">
+        <button
+          onClick={() => onNavigate?.(MINI_CARD.id)}
+          className={`w-full bg-gradient-to-r ${MINI_CARD.bg} border ${MINI_CARD.border} rounded-2xl p-4
+            flex items-center gap-4 transition-all active:scale-95 hover:brightness-110 shadow-lg`}>
+          <div className="text-5xl leading-none shrink-0">{MINI_CARD.icon}</div>
+          <div className="flex-1 text-left">
+            <div className="text-[9px] font-extrabold tracking-widest text-white/35 mb-0.5">{MINI_CARD.sub}</div>
+            <div className="text-base font-extrabold text-white">{MINI_CARD.title}</div>
+            <div className="text-xs text-white/45 mt-0.5">{MINI_CARD.desc}</div>
+          </div>
+          <div className="shrink-0 text-white/30 text-lg">→</div>
+        </button>
       </div>
     </div>
   );
@@ -215,7 +309,7 @@ function AdventureContent({ view, tickets, onUseTicket, isBusy }) {
 }
 
 // ─────────────────────── Main ─────────────────────────────────
-function AdventurePage({ currentView, studentCode }) {
+function AdventurePage({ currentView, studentCode, onChangeView }) {
   const [studentDocId, setStudentDocId] = useState(null);
   const [tickets, setTickets]           = useState(null);
   const [studentInfo, setStudentInfo]   = useState(null);
@@ -247,7 +341,7 @@ function AdventurePage({ currentView, studentCode }) {
           diamonds: data.diamonds ?? 0,
         });
 
-        const savedTickets = data.tickets || { dungeon: 0, bossRaid: 0, arena: 0 };
+        const savedTickets = data.tickets || { dungeon: 0, arena: 0 };
         const lastMonday   = getMostRecentMonday();
         const lastRefresh  = data.lastTicketRefreshDate || '';
 
@@ -352,7 +446,7 @@ function AdventurePage({ currentView, studentCode }) {
           onUseTicket={handleUseTicket}
         />
       ) : currentView === 'adventure' ? (
-        <AdventureHub tickets={tickets} />
+        <AdventureHub tickets={tickets} onNavigate={onChangeView} />
       ) : (
         <AdventureContent
           view={currentView}

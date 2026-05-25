@@ -783,8 +783,9 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
       const log = [];
       const addLog = (msg, type = 'normal') => { log.push({ msg, type }); };
 
-      // 공격 속도에 따른 선공 결정
-      const myFirst = myStats.attackSpeed >= oppStats.attackSpeed;
+      // 공격 속도에 따른 선공 결정 (동일 속도면 랜덤)
+      const myFirst = myStats.attackSpeed > oppStats.attackSpeed ||
+        (myStats.attackSpeed === oppStats.attackSpeed && Math.random() < 0.5);
       addLog(`⚔️ 대련 시작! ${myFirst ? myName : oppName}이(가) 선공!`, 'system');
 
       const TURN_MS  = 1000;  // 1초 간격
@@ -1136,12 +1137,13 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
           {/* 나 */}
           <div ref={meBattleRef} className={`flex-1 flex flex-col items-center gap-3 bg-indigo-950/60 rounded-3xl p-5 border-2
             ${hitFlash.me
-              ? (hitDmg.me?.isCrit
-                  ? 'border-yellow-400 bg-yellow-950/30 animate-arena-crit'
-                  : 'border-rose-500 bg-rose-950/40 animate-arena-hit')
+              ? (hitDmg.me?.isCrit ? 'border-yellow-400 bg-yellow-950/30' : 'border-rose-500 bg-rose-950/40')
               : 'border-indigo-700 transition-colors'}`}>
             <div className="text-xs font-extrabold text-indigo-400 tracking-widest">나</div>
-            <div className="flex-1 w-full flex items-center justify-center relative">
+            {/* key 변경으로 CSS 애니메이션 강제 재시작 */}
+            <div key={`me-${hitFlash.me}`}
+              className={`flex-1 w-full flex items-center justify-center relative
+                ${hitFlash.me ? (hitDmg.me?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
               <div className="w-64 h-64 flex items-center justify-center overflow-hidden">
                 {me?.characterImage
                   ? <img src={me.characterImage} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', imageRendering:'pixelated', transform:'scaleX(-1) scale(3)', transformOrigin:'center' }} />
@@ -1178,12 +1180,13 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
           {/* 상대 */}
           <div ref={oppBattleRef} className={`flex-1 flex flex-col items-center gap-3 bg-rose-950/60 rounded-3xl p-5 border-2
             ${hitFlash.opp
-              ? (hitDmg.opp?.isCrit
-                  ? 'border-yellow-400 bg-yellow-950/30 animate-arena-crit'
-                  : 'border-rose-400 bg-rose-950/60 animate-arena-hit')
+              ? (hitDmg.opp?.isCrit ? 'border-yellow-400 bg-yellow-950/30' : 'border-rose-400 bg-rose-950/60')
               : 'border-rose-800 transition-colors'}`}>
             <div className="text-xs font-extrabold text-rose-400 tracking-widest">상대</div>
-            <div className="flex-1 w-full flex items-center justify-center relative">
+            {/* key 변경으로 CSS 애니메이션 강제 재시작 */}
+            <div key={`opp-${hitFlash.opp}`}
+              className={`flex-1 w-full flex items-center justify-center relative
+                ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
               <div className="w-64 h-64 flex items-center justify-center overflow-hidden">
                 {opponent?.characterImage
                   ? <img src={opponent.characterImage} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', imageRendering:'pixelated', transform:'scale(3)', transformOrigin:'center' }} />

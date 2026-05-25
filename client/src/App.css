@@ -77,28 +77,29 @@
 
 /* ── 투기장 피격 흔들림 ───────────────────────────────────────── */
 @keyframes arena-hit {
-  0%   { transform: translateX(0); }
-  18%  { transform: translateX(-9px); }
-  36%  { transform: translateX(9px); }
-  54%  { transform: translateX(-5px); }
-  72%  { transform: translateX(5px); }
-  88%  { transform: translateX(-2px); }
-  100% { transform: translateX(0); }
+  0%   { transform: translateX(0) scale(1); }
+  15%  { transform: translateX(-14px) scale(0.97); }
+  30%  { transform: translateX(14px)  scale(0.97); }
+  45%  { transform: translateX(-10px) scale(1); }
+  60%  { transform: translateX(10px)  scale(1); }
+  75%  { transform: translateX(-5px); }
+  88%  { transform: translateX(5px); }
+  100% { transform: translateX(0) scale(1); }
 }
-.animate-arena-hit { animation: arena-hit 0.4s ease-in-out; }
+.animate-arena-hit { animation: arena-hit 0.5s ease-in-out; }
 
 @keyframes arena-crit {
-  0%   { transform: translateX(0)    rotate(0deg); }
-  10%  { transform: translateX(-14px) rotate(-3deg); }
-  22%  { transform: translateX(14px)  rotate(3deg); }
-  34%  { transform: translateX(-10px) rotate(-2deg); }
-  46%  { transform: translateX(10px)  rotate(2deg); }
-  58%  { transform: translateX(-5px)  rotate(-0.5deg); }
-  70%  { transform: translateX(5px); }
-  84%  { transform: translateX(-2px); }
-  100% { transform: translateX(0)    rotate(0deg); }
+  0%   { transform: translateX(0)    scale(1)    rotate(0deg); }
+  10%  { transform: translateX(-20px) scale(0.93) rotate(-4deg); }
+  22%  { transform: translateX(20px)  scale(0.93) rotate(4deg); }
+  34%  { transform: translateX(-15px) scale(0.96) rotate(-2deg); }
+  46%  { transform: translateX(15px)  scale(0.96) rotate(2deg); }
+  58%  { transform: translateX(-8px)  rotate(-1deg); }
+  70%  { transform: translateX(8px); }
+  84%  { transform: translateX(-3px); }
+  100% { transform: translateX(0)    scale(1)    rotate(0deg); }
 }
-.animate-arena-crit { animation: arena-crit 0.55s ease-in-out; }
+.animate-arena-crit { animation: arena-crit 0.65s ease-in-out; }
 
 /* ── 강화 애니메이션 ─────────────────────────────────────────── */
 @keyframes shake {

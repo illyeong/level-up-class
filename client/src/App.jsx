@@ -214,7 +214,7 @@ function App() {
           />
         )}
         {ADVENTURE_VIEWS.includes(currentView) && (
-          <AdventurePage currentView={currentView} studentCode={activeStudentCode} />
+          <AdventurePage currentView={currentView} studentCode={activeStudentCode} onChangeView={setCurrentView} />
         )}
         {currentView === 'board'        && <LearningBoard  studentCode={activeStudentCode} />}
         {currentView === 'learningNote' && <LearningNote   studentCode={activeStudentCode} />}

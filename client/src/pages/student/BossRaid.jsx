@@ -452,15 +452,15 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
   );
 
   return (
-    <div className="min-h-screen relative flex flex-col" style={{ backgroundColor: '#020617' }}>
+    <div className="h-screen overflow-hidden relative flex flex-col" style={{ backgroundColor: '#020617' }}>
       {bossBg && (
         <div className="fixed inset-0 pointer-events-none z-0"
           style={{ backgroundImage: `url(${bossBg})`, backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat' }} />
       )}
       <div className={`fixed inset-0 pointer-events-none z-0 ${bossBg ? 'bg-slate-950/65' : 'bg-gradient-to-b from-slate-950 to-indigo-950'}`} />
-      <div className="relative z-10 flex flex-col flex-1">
+      <div className="relative z-10 flex flex-col h-full">
       {/* 상단: HP 바 */}
-      <div className="bg-slate-900/90 px-4 pt-3 pb-4 shadow-lg">
+      <div className="bg-slate-900/90 px-4 pt-3 pb-4 shadow-lg shrink-0">
         <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
           <span className="font-bold text-white">{raid.bossName}</span>
           <span>👥 {Object.keys(raid.participants || {}).length}명 참전</span>
@@ -468,10 +468,11 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
         <BossHpBar current={raid.currentHP} max={raid.maxHP} />
       </div>
 
-      {/* 보스 스프라이트 영역 */}
+      {/* 보스 스프라이트 영역 — 고정 높이 */}
       <div
         ref={bossAreaRef}
-        className="flex items-center justify-center relative py-6 min-h-[260px] overflow-hidden"
+        className="flex items-center justify-center relative overflow-hidden shrink-0"
+        style={{ height: '36vh', maxHeight: 260, minHeight: 180 }}
       >
         <div className="relative z-10">
           <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={3.0} />
@@ -507,8 +508,8 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
         </div>
       </div>
 
-      {/* 문제 영역 */}
-      <div className="flex-1 p-4 space-y-3">
+      {/* 문제 영역 — 남은 공간 채우고 스크롤 */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {/* 문제 헤더 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

@@ -662,13 +662,21 @@ export default function Equipment({ studentCode }) {
     </div>
   );
 
+  const GRADE_ORDER = { legendary: 0, epic: 1, rare: 2, common: 3 };
+
   const slotItems   = selectedSlot ? inventory.filter(inv => getItem(inv.itemId)?.type === selectedSlot) : [];
-  const filteredInv = inventory.filter(inv => {
-    const item = getItem(inv.itemId);
-    return item &&
-      (gradeFilter === 'all' || item.grade === gradeFilter) &&
-      (slotFilter  === 'all' || item.type  === slotFilter);
-  });
+  const filteredInv = inventory
+    .filter(inv => {
+      const item = getItem(inv.itemId);
+      return item &&
+        (gradeFilter === 'all' || item.grade === gradeFilter) &&
+        (slotFilter  === 'all' || item.type  === slotFilter);
+    })
+    .sort((a, b) => {
+      const aOrder = GRADE_ORDER[getItem(a.itemId)?.grade] ?? 99;
+      const bOrder = GRADE_ORDER[getItem(b.itemId)?.grade] ?? 99;
+      return aOrder - bOrder;
+    });
 
   return (
     <div className="min-h-full bg-slate-100">
