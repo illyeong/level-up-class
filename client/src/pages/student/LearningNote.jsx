@@ -70,26 +70,26 @@ function CalendarView({ notes, selectedDate, onSelectDate, currentMonth, onPrevM
   const weekLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3">
-      <div className="flex items-center justify-between mb-2">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+      <div className="flex items-center justify-between mb-3">
         <button onClick={onPrevMonth}
-          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-bold transition-colors">‹</button>
-        <span className="font-extrabold text-slate-700 text-xs">{year}년 {month + 1}월</span>
+          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-bold transition-colors text-lg">‹</button>
+        <span className="font-extrabold text-slate-700 text-sm">{year}년 {month + 1}월</span>
         <button onClick={onNextMonth} disabled={isCurrentMonth}
-          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed">›</button>
+          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 font-bold transition-colors text-lg disabled:opacity-30 disabled:cursor-not-allowed">›</button>
       </div>
-      <div className="grid grid-cols-7 gap-0.5 mb-1">
+      <div className="grid grid-cols-7 gap-1 mb-1.5">
         {weekLabels.map((d, i) => (
-          <div key={d} className={`text-center text-[9px] font-bold ${i === 0 ? 'text-rose-400' : i === 6 ? 'text-blue-400' : 'text-slate-400'}`}>{d}</div>
+          <div key={d} className={`text-center text-[11px] font-bold ${i === 0 ? 'text-rose-400' : i === 6 ? 'text-blue-400' : 'text-slate-400'}`}>{d}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-0.5">
+      <div className="grid grid-cols-7 gap-1">
         {cells.map((cell, i) => (
           <div key={i} className="flex items-center justify-center">
             {cell ? (
               <button
                 onClick={() => onSelectDate(cell.dateStr)}
-                className={`w-7 h-7 rounded-lg text-[10px] font-bold transition-all relative flex items-center justify-center
+                className={`w-9 h-9 rounded-lg text-xs font-bold transition-all relative flex items-center justify-center
                   ${cell.dateStr === selectedDate
                     ? 'bg-indigo-600 text-white shadow-md'
                     : cell.dateStr === today
@@ -100,16 +100,16 @@ function CalendarView({ notes, selectedDate, onSelectDate, currentMonth, onPrevM
               >
                 {cell.day}
                 {cell.hasNote && cell.dateStr !== selectedDate && (
-                  <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-400" />
+                  <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 )}
               </button>
             ) : null}
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-50 text-[9px] text-slate-400 font-bold">
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100 inline-block border border-emerald-200" /> 노트 있음</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-indigo-600 inline-block" /> 선택됨</span>
+      <div className="flex items-center gap-4 mt-2.5 pt-2.5 border-t border-slate-50 text-[11px] text-slate-400 font-bold">
+        <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-emerald-100 inline-block border border-emerald-200" /> 노트 있음</span>
+        <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-indigo-600 inline-block" /> 선택됨</span>
       </div>
     </div>
   );

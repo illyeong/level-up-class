@@ -233,7 +233,8 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
     const stored   = parseInt(localStorage.getItem(key) || '0', 10);
     const current  = studentData.level;
     if (stored > 0 && current > stored) {
-      setLevelUpData({ prevLevel: stored, newLevel: current });
+      const prevMaxExp = stored <= 10 ? 100 : stored <= 30 ? 300 : stored <= 60 ? 800 : 2000;
+      setLevelUpData({ prevLevel: stored, newLevel: current, expGained: prevMaxExp, maxExp: prevMaxExp });
     }
     localStorage.setItem(key, String(current));
   }, [studentData?.id, studentData?.level]);
@@ -306,6 +307,8 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
         newLevel={levelUpData.newLevel}
         characterImage={studentData?.characterImage || null}
         onClose={() => setLevelUpData(null)}
+        expGained={levelUpData.expGained}
+        maxExp={levelUpData.maxExp}
       />
     )}
     <div className="p-8">
