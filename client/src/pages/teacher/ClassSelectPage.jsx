@@ -352,7 +352,7 @@ function ClassCard({ cls, onSelect }) {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
-export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout }) {
+export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout, isAdmin = false, onEnterAdmin }) {
   const [classes,     setClasses]     = useState([]);
   const [isLoading,   setIsLoading]   = useState(true);
   const [showCreate,  setShowCreate]  = useState(false);
@@ -382,10 +382,19 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
         <div className="text-white/60 text-sm font-medium">
           {teacherUser?.email || teacherUser?.displayName || '선생님'}
         </div>
+        <div className="flex items-center gap-2">
+        {isAdmin && (
+          <button
+            onClick={onEnterAdmin}
+            className="text-indigo-100 hover:text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-indigo-300/40 hover:border-indigo-200/80 bg-indigo-500/20 hover:bg-indigo-500/30 transition-colors">
+            관리자 모드
+          </button>
+        )}
         <button onClick={onLogout}
           className="text-white/50 hover:text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-white/20 hover:border-white/40 transition-colors">
           로그아웃
         </button>
+        </div>
       </div>
 
       {/* 본문 */}

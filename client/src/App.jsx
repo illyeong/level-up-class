@@ -96,7 +96,7 @@ function App() {
     }
 
     if (isAdmin) {
-      setAppMode('admin');
+      setAppMode('classSelect');
       return;
     }
 
@@ -304,6 +304,8 @@ function App() {
       <ClassSelectPage
         teacherUser={teacherUser}
         onClassSelected={handleClassSelected}
+        isAdmin={isAdmin}
+        onEnterAdmin={() => setAppMode('admin')}
         onLogout={handleLogout}
       />
     );
