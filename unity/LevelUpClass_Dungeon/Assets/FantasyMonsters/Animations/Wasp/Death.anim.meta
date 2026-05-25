@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b2a2696a96b84c445bbf53fdc3830cae
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Animations/Wasp/Death.anim
+  uploadId: 836034

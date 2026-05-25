@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace Assets.FantasyMonsters.Scripts
+namespace Assets.FantasyMonsters.Common.Scripts
 {
     /// <summary>
     /// Can be used for positioning when creating particles and other effects.

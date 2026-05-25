@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5fae3f7304f2dff41a4920a4a48e0728
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Animations/Titan/Controller.controller
+  uploadId: 836034

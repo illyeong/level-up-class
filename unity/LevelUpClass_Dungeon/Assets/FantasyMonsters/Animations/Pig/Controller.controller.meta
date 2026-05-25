@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a0a8f6e833ab1d1438578182299fc73f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Animations/Pig/Controller.controller
+  uploadId: 836034

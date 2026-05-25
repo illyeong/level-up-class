@@ -1818,6 +1818,10 @@ PrefabInstance:
       value: 0.3
       objectReference: {fileID: 0}
     - target: {fileID: 8670515205044692367, guid: c32d06b663fe42a4894f257cd18333c9, type: 3}
+      propertyPath: bossHpFillImage
+      value: 
+      objectReference: {fileID: 2024949856}
+    - target: {fileID: 8670515205044692367, guid: c32d06b663fe42a4894f257cd18333c9, type: 3}
       propertyPath: hitEffectPrefab
       value: 
       objectReference: {fileID: 1429954232896169633, guid: 83036083a4ebcd34f98131bd3cf6f4d2, type: 3}

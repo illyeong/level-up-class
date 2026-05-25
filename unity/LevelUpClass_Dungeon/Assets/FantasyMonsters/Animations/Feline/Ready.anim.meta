@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6ec8619cd3d89bc49b05f1d739c51dce
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Animations/Feline/Ready.anim
+  uploadId: 836034

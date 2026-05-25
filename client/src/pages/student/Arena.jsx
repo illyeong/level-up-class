@@ -1162,7 +1162,8 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
           <div ref={meBattleRef} className={`flex-1 flex flex-col items-center gap-3 bg-indigo-950/60 rounded-3xl p-5 border-2
             ${hitFlash.me
               ? (hitDmg.me?.isCrit ? 'border-yellow-400 bg-yellow-950/30' : 'border-rose-500 bg-rose-950/40')
-              : 'border-indigo-700 transition-colors'}`}>
+              : 'border-indigo-700 transition-colors'}
+            ${hitFlash.me ? (hitDmg.me?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
             <div className="text-xs font-extrabold text-indigo-400 tracking-widest">나</div>
             {/* key 변경으로 CSS 애니메이션 강제 재시작 */}
             <div key={`me-${hitFlash.me}`}
@@ -1205,7 +1206,8 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
           <div ref={oppBattleRef} className={`flex-1 flex flex-col items-center gap-3 bg-rose-950/60 rounded-3xl p-5 border-2
             ${hitFlash.opp
               ? (hitDmg.opp?.isCrit ? 'border-yellow-400 bg-yellow-950/30' : 'border-rose-400 bg-rose-950/60')
-              : 'border-rose-800 transition-colors'}`}>
+              : 'border-rose-800 transition-colors'}
+            ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
             <div className="text-xs font-extrabold text-rose-400 tracking-widest">상대</div>
             {/* key 변경으로 CSS 애니메이션 강제 재시작 */}
             <div key={`opp-${hitFlash.opp}`}

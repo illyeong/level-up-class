@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Assets.FantasyMonsters.Scripts.EditorScripts
+namespace Assets.FantasyMonsters.Common.Scripts.EditorScripts
 {
     public class CustomDropdown : Dropdown
     {

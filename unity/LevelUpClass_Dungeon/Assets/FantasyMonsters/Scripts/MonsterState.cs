@@ -1,4 +1,4 @@
-﻿namespace Assets.FantasyMonsters.Scripts
+﻿namespace Assets.FantasyMonsters.Common.Scripts
 {
     /// <summary>
     /// Monster state. The same parameter controls animation transitions.

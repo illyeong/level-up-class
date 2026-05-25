@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a71f8884e6848b3498d4611490aa4ad2
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Animations/Cow/Death.anim
+  uploadId: 836034

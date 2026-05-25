@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 45918241351042e4e99367cbe861c935
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 4343727234628468602
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Bosses/Atlases/Bosses.spriteatlas
+  uploadId: 836034

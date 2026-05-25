@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Assets.FantasyMonsters.Scripts
+namespace Assets.FantasyMonsters.Common.Scripts
 {
     /// <summary>
     /// Used to order sprite layers (monster parts).

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 01fad65cca20979448179e4c367cdbbf
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Bosses/Scripts/Editor/PackageUpdater.cs
+  uploadId: 836034

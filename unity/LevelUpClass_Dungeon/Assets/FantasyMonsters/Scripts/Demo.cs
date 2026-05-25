@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Assets.FantasyMonsters.Scripts
+namespace Assets.FantasyMonsters.Common.Scripts
 {
     /// <summary>
     /// Demo scene that can run animations.
@@ -14,7 +15,7 @@ namespace Assets.FantasyMonsters.Scripts
     public class Demo : MonoBehaviour
     {
         public UnityEngine.Object MonstersFolder;
-        public List<Monster> Monsters = new List<Monster>();
+        public List<Monster> Monsters = new();
         public GameObject SelectedMonster;
         public Dropdown MonstersDropdown;
 
@@ -26,8 +27,14 @@ namespace Assets.FantasyMonsters.Scripts
         {
             if (Application.isPlaying || MonstersFolder == null) return;
 
-            Monsters = Directory.GetFiles(UnityEditor.AssetDatabase.GetAssetPath(MonstersFolder), "*.prefab", SearchOption.AllDirectories).Select(UnityEditor.AssetDatabase.LoadAssetAtPath<Monster>).Where(i => i != null).OrderBy(i => i.name).ToList();
-            MonstersDropdown.options = Monsters.Select(i => new Dropdown.OptionData(Regex.Replace(i.name, "([a-z])([A-Z])", "$1 $2"))).ToList();
+            EditorApplication.delayCall += LoadPrefabs;
+
+            void LoadPrefabs()
+            {
+                Monsters = Directory.GetFiles(UnityEditor.AssetDatabase.GetAssetPath(MonstersFolder), "*.prefab", SearchOption.AllDirectories).Select(UnityEditor.AssetDatabase.LoadAssetAtPath<Monster>).Where(i => i != null).OrderBy(i => i.name).ToList();
+                MonstersDropdown.options = Monsters.Select(i => new Dropdown.OptionData(Regex.Replace(i.name, "([a-z])([A-Z])", "$1 $2"))).ToList();
+
+            }
         }
 
         #endif
@@ -53,6 +60,11 @@ namespace Assets.FantasyMonsters.Scripts
         public void Attack()
         {
             ActiveMonsters.ForEach(i => i.Attack());
+        }
+
+        public void AttackAlt()
+        {
+            ActiveMonsters.ForEach(i => i.AttackAlt());
         }
 
         public void SetTrigger(string trigger)

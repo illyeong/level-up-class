@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 247121545ccc80d41be2d9fc64f79b2b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Animations/Bunny/Walk.anim
+  uploadId: 836034

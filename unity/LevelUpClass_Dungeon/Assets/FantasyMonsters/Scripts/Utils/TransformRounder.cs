@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Assets.FantasyMonsters.Scripts.Utils
+namespace Assets.FantasyMonsters.Common.Scripts.Utils
 {
     public class TransformRounder : MonoBehaviour
     {

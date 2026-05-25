@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace Assets.FantasyMonsters.Scripts.Tweens
+namespace Assets.FantasyMonsters.Common.Scripts.Tweens
 {
     public abstract class TweenBase : MonoBehaviour
     {

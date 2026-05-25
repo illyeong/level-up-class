@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 022a58f9cef6e7340950325738e6591f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Animations/Duck/Attack.anim
+  uploadId: 836034

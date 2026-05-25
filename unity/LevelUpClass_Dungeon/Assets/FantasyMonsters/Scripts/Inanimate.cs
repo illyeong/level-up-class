@@ -1,7 +1,7 @@
-﻿using Assets.FantasyMonsters.Scripts.Tweens;
+﻿using Assets.FantasyMonsters.Common.Scripts.Tweens;
 using UnityEngine;
 
-namespace Assets.FantasyMonsters.Scripts
+namespace Assets.FantasyMonsters.Common.Scripts
 {
     public class Inanimate : Monster
     {

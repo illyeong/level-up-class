@@ -1,7 +1,7 @@
 ﻿using System;
 using UnityEngine;
 
-namespace Assets.FantasyMonsters.Scripts
+namespace Assets.FantasyMonsters.Common.Scripts
 {
     /// <summary>
     /// This animation script prevents all possible transitions to another states.

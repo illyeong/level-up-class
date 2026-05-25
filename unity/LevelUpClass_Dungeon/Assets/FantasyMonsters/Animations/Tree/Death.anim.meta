@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 00da27b780ff1984a83b902a7fa0a48e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Animations/Tree/Death.anim
+  uploadId: 836034

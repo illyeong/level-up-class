@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5aae4b67766ba684f9a0f49122f10252
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Animations/Pug/Controller.controller
+  uploadId: 836034

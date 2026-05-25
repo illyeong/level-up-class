@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 
-namespace Assets.FantasyMonsters.Scripts.EditorScripts
+namespace Assets.FantasyMonsters.Common.Scripts.EditorScripts
 {
     public class CaptureOptions : MonoBehaviour
     {

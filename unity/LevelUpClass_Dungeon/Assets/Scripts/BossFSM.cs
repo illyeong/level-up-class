@@ -12,6 +12,12 @@ using Spine.Unity;
 /// </summary>
 public class BossFSM : MonoBehaviour
 {
+    public enum Phase2SkillType
+    {
+        Jump,
+        PoisonPool
+    }
+
     public UnityEngine.UI.Slider bossHpBar;
     [Header("보스 기본 설정")]
     public string bossName = "다크 슬라임 킹";
@@ -29,6 +35,16 @@ public class BossFSM : MonoBehaviour
     public float normalAttackCooldown = 2f;
     public float chargeAttackCooldown = 8f;
     public float jumpAttackCooldown = 10f;
+    public Phase2SkillType phase2Skill = Phase2SkillType.Jump;
+
+    [Header("Poison Pool Attack (Phase 2)")]
+    public GameObject poisonPoolEffectPrefab;
+    public float poisonPoolCooldown = 10f;
+    public float poisonPoolRadius = 2.5f;
+    public float poisonPoolDuration = 3f;
+    public float poisonTickInterval = 0.5f;
+    public float poisonTickDamageMultiplier = 0.35f;
+    public float poisonCastDelay = 0.35f;
 
     [Header("지형 감지")]
     public Transform frontCheck;
@@ -57,6 +73,7 @@ public class BossFSM : MonoBehaviour
     [Header("애니메이션 (Spine)")]
     public SkeletonAnimation skeletonAnim;
     public SkeletonGraphic   skeletonGraphic;
+    public Animator animator;
     public string idleAnimName   = "Idle";
     public string walkAnimName   = "Walk";
     public string attackAnimName = "Attack";
@@ -72,6 +89,8 @@ public class BossFSM : MonoBehaviour
     private int currentHealth;
     private int movingDir = -1;
     private Rigidbody2D rb;
+    private Collider2D bossCollider;
+    private Collider2D playerCollider;
     private SpriteRenderer spriteRenderer;
 
     public int CurrentHealth => currentHealth;
@@ -85,14 +104,17 @@ public class BossFSM : MonoBehaviour
     private float lastNormalAttackTime = 0f;
     private float lastChargeAttackTime = 0f;
     private float lastJumpAttackTime   = 0f;
+    private float lastPoisonAttackTime = 0f;
 
     void Start()
     {
         currentHealth   = maxHealth;
         rb              = GetComponent<Rigidbody2D>();
+        bossCollider    = GetComponent<Collider2D>();
         spriteRenderer  = GetComponent<SpriteRenderer>();
         skeletonAnim    ??= GetComponent<SkeletonAnimation>();
         skeletonGraphic ??= GetComponent<SkeletonGraphic>();
+        animator        ??= GetComponent<Animator>();
 
         if (playerTarget == null)
         {
@@ -102,6 +124,9 @@ public class BossFSM : MonoBehaviour
             if (found != null) playerTarget = found.transform;
             else Debug.LogWarning("[BossFSM] 플레이어를 찾지 못했습니다. Inspector에서 직접 연결하세요.");
         }
+
+        if (playerTarget != null)
+            playerCollider = playerTarget.GetComponent<Collider2D>();
 
         if (bossHpBar != null)
         {
@@ -127,13 +152,21 @@ public class BossFSM : MonoBehaviour
             return;
         }
 
-        float dist = Vector2.Distance(transform.position, playerTarget.position);
+        float dist = GetDistanceToPlayer();
         float currentChaseSpeed = isPhase2 ? chaseSpeed * phase2SpeedMultiplier : chaseSpeed;
 
         // Phase 2 전용: 점프 공격
-        if (isPhase2 && dist <= 5f && Time.time >= lastJumpAttackTime + jumpAttackCooldown)
+        if (isPhase2 && phase2Skill == Phase2SkillType.Jump &&
+            dist <= 5f && Time.time >= lastJumpAttackTime + jumpAttackCooldown)
         {
             StartCoroutine(JumpAttack());
+            return;
+        }
+
+        if (isPhase2 && phase2Skill == Phase2SkillType.PoisonPool &&
+            dist <= 6f && Time.time >= lastPoisonAttackTime + poisonPoolCooldown)
+        {
+            StartCoroutine(PoisonPoolAttack());
             return;
         }
 
@@ -172,6 +205,12 @@ public class BossFSM : MonoBehaviour
             skeletonGraphic.AnimationState.SetAnimation(0, animName, loop);
         else if (skeletonAnim != null && skeletonAnim.AnimationState != null)
             skeletonAnim.AnimationState.SetAnimation(0, animName, loop);
+        else if (animator != null)
+        {
+            int stateHash = Animator.StringToHash(animName);
+            if (animator.HasState(0, stateHash))
+                animator.Play(stateHash, 0, 0f);
+        }
     }
 
     void Chase(float speed)
@@ -278,6 +317,43 @@ public class BossFSM : MonoBehaviour
         isAttacking = false;
     }
 
+    IEnumerator PoisonPoolAttack()
+    {
+        isAttacking = true;
+        lastPoisonAttackTime = Time.time;
+        rb.linearVelocity = Vector2.zero;
+
+        PlayAnim(attackAnimName, false);
+        yield return new WaitForSeconds(poisonCastDelay);
+
+        Vector3 poolCenter = (playerTarget != null) ? playerTarget.position : transform.position;
+        poolCenter.z = transform.position.z;
+
+        if (poisonPoolEffectPrefab != null)
+        {
+            var fx = Instantiate(poisonPoolEffectPrefab, poolCenter, Quaternion.identity);
+            Destroy(fx, poisonPoolDuration + 1f);
+        }
+
+        int tickDamage = Mathf.Max(1, Mathf.RoundToInt(attackPower * poisonTickDamageMultiplier));
+        float elapsed = 0f;
+        while (elapsed < poisonPoolDuration)
+        {
+            Collider2D[] hits = Physics2D.OverlapCircleAll(poolCenter, poisonPoolRadius, LayerMask.GetMask("Player"));
+            foreach (var hit in hits)
+            {
+                var pc = hit.GetComponent<LayerLab.ArtMaker.PlayerCombat>();
+                if (pc != null)
+                    pc.TakePlayerDamage(tickDamage, poolCenter);
+            }
+
+            yield return new WaitForSeconds(poisonTickInterval);
+            elapsed += poisonTickInterval;
+        }
+
+        isAttacking = false;
+    }
+
     // ── Phase 2 전환 ──────────────────────────────────────────────────
 
     IEnumerator TriggerPhase2()
@@ -311,8 +387,25 @@ public class BossFSM : MonoBehaviour
     void DealDamageToPlayer(int damage)
     {
         if (playerTarget == null) return;
+        if (GetDistanceToPlayer() > attackRange + 0.75f) return;
         var pc = playerTarget.GetComponent<LayerLab.ArtMaker.PlayerCombat>();
         pc?.TakePlayerDamage(damage, transform.position);
+    }
+
+    float GetDistanceToPlayer()
+    {
+        if (playerTarget == null) return float.PositiveInfinity;
+
+        if (playerCollider == null)
+            playerCollider = playerTarget.GetComponent<Collider2D>();
+
+        if (bossCollider != null && playerCollider != null)
+        {
+            ColliderDistance2D info = bossCollider.Distance(playerCollider);
+            return Mathf.Max(0f, info.distance);
+        }
+
+        return Vector2.Distance(transform.position, playerTarget.position);
     }
 
     public void TakeDamage(int damage, bool isCritical = false)

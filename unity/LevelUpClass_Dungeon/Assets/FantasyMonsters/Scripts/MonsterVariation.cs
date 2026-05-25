@@ -2,7 +2,7 @@
 using System.Linq;
 using UnityEngine;
 
-namespace Assets.FantasyMonsters.Scripts
+namespace Assets.FantasyMonsters.Common.Scripts
 {
     /// <summary>
     /// This script can be used for swapping monster skins.

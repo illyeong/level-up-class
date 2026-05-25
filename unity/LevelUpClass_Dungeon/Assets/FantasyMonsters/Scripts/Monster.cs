@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Assets.FantasyMonsters.Scripts.Tweens;
+using Assets.FantasyMonsters.Common.Scripts.Tweens;
 using UnityEngine;
 
-namespace Assets.FantasyMonsters.Scripts
+namespace Assets.FantasyMonsters.Common.Scripts
 {
     /// <summary>
     /// The main script to control monsters.
@@ -12,7 +12,9 @@ namespace Assets.FantasyMonsters.Scripts
     public class Monster : MonoBehaviour
     {
         public SpriteRenderer Head;
+        public SpriteRenderer Jaw;
         public List<Sprite> HeadSprites;
+        public List<Sprite> JawSprites;
         public Animator Animator;
         public bool Variations;
         public event Action<string> OnEvent = eventName => { };
@@ -33,7 +35,7 @@ namespace Assets.FantasyMonsters.Scripts
                 }
             }
 
-            GetComponent<LayerManager>().SetSortingGroupOrder((int) -transform.localPosition.y);
+            //GetComponent<LayerManager>().SetSortingGroupOrder((int) -transform.localPosition.y);
 
             var stateHandler = Animator.GetBehaviours<StateHandler>().SingleOrDefault(i => i.Name == "Death");
 
@@ -63,6 +65,14 @@ namespace Assets.FantasyMonsters.Scripts
         }
 
         /// <summary>
+        /// Play alternative Attack animation.
+        /// </summary>
+        public void AttackAlt()
+        {
+            Animator.SetTrigger("AttackAlt");
+        }
+
+        /// <summary>
         /// Play scale spring animation.
         /// </summary>
         public virtual void Spring()
@@ -89,11 +99,14 @@ namespace Assets.FantasyMonsters.Scripts
         /// </summary>
         public void SetHead(int index)
         {
-            //if (index != 2 && Animator.GetInteger("State") == (int) MonsterState.Death) return;
-
             if (index < HeadSprites.Count)
             {
                 Head.sprite = HeadSprites[index];
+            }
+
+            if (index < JawSprites.Count)
+            {
+                Jaw.sprite = JawSprites[index];
             }
         }
     }

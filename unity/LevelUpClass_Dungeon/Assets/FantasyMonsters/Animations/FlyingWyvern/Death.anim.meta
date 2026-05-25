@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6cbedec05c3d4994d959869882ddad90
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Animations/FlyingWyvern/Death.anim
+  uploadId: 836034

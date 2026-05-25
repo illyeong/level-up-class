@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b0e83dbda39df8444849e8884357548a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300879
+  packageName: 'Fantasy Monsters Animated [Bosses]'
+  packageVersion: 1.3
+  assetPath: Assets/FantasyMonsters/Animations/Giant/Attack.anim
+  uploadId: 836034

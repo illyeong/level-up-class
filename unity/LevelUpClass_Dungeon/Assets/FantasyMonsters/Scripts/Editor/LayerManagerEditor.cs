@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Assets.FantasyMonsters.Scripts.Editor
+namespace Assets.FantasyMonsters.Common.Scripts.Editor
 {
     /// <summary>
     /// Add action buttons to LayerManager script
