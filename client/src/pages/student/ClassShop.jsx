@@ -291,7 +291,7 @@ function ClassShop({ studentCode }) {
               const tSnap = await getDoc(doc(db, 'ticketShopSettings', nextScope.scopeKey));
               let ticketData = tSnap.exists() ? tSnap.data() : null;
 
-              const teacherFallbackEnabled = !nextScope.classId && !!nextScope.teacherUid;
+              const teacherFallbackEnabled = !!nextScope.teacherUid;
               if (!ticketData && teacherFallbackEnabled) {
                 const fallbackTicketSnap = await getDocs(
                   query(collection(db, 'ticketShopSettings'), where('teacherUid', '==', nextScope.teacherUid))
@@ -305,7 +305,8 @@ function ClassShop({ studentCode }) {
               );
 
               let mergedItems = itemsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-              if (teacherFallbackEnabled) {
+              let usedTeacherItemFallback = false;
+              if (teacherFallbackEnabled && mergedItems.length === 0) {
                 const fallbackItemSnap = await getDocs(
                   query(collection(db, 'shopItems'), where('teacherUid', '==', nextScope.teacherUid))
                 );
@@ -314,12 +315,13 @@ function ClassShop({ studentCode }) {
                   byId.set(d.id, { id: d.id, ...d.data() });
                 });
                 mergedItems = Array.from(byId.values());
+                usedTeacherItemFallback = true;
               }
 
               setItems(
                 mergedItems
                   .filter(i => i.active)
-                  .filter(i => isInScope(i, nextScope) || (teacherFallbackEnabled && i.teacherUid === nextScope.teacherUid))
+                  .filter(i => isInScope(i, nextScope) || (usedTeacherItemFallback && i.teacherUid === nextScope.teacherUid))
                   .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
               );
             } else {

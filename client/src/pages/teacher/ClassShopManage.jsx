@@ -252,6 +252,7 @@ function ClassShopManage({ selectedClass }) {
   const classId = selectedClass?.id || null;
   const teacherUid = selectedClass?.teacherUid || null;
   const scopeKey = classId || teacherUid || null;
+  const isTeacherWideScope = !classId && !!teacherUid;
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -285,8 +286,15 @@ function ClassShopManage({ selectedClass }) {
       return;
     }
     const snap = await getDocs(query(collection(db, 'shopItems'), where('scopeKey', '==', scopeKey)));
+    let merged = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (isTeacherWideScope) {
+      const teacherSnap = await getDocs(query(collection(db, 'shopItems'), where('teacherUid', '==', teacherUid)));
+      const byId = new Map(merged.map((d) => [d.id, d]));
+      teacherSnap.docs.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() }));
+      merged = Array.from(byId.values());
+    }
     setItems(
-      snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      merged
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
     );
   };
@@ -294,6 +302,16 @@ function ClassShopManage({ selectedClass }) {
   const fetchPurchases = async () => {
     if (!scopeKey) {
       setPurchases([]);
+      return;
+    }
+    if (isTeacherWideScope) {
+      const teacherSnap = await getDocs(
+        query(collection(db, 'shopPurchases'), where('teacherUid', '==', teacherUid))
+      );
+      setPurchases(
+        teacherSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+      );
       return;
     }
     try {
@@ -320,7 +338,9 @@ function ClassShopManage({ selectedClass }) {
       setUsages([]);
       return;
     }
-    const snap = await getDocs(query(collection(db, 'shopUsages'), where('scopeKey', '==', scopeKey)));
+    const snap = isTeacherWideScope
+      ? await getDocs(query(collection(db, 'shopUsages'), where('teacherUid', '==', teacherUid)))
+      : await getDocs(query(collection(db, 'shopUsages'), where('scopeKey', '==', scopeKey)));
     setUsages(
       snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.usedAt?.seconds || 0) - (a.usedAt?.seconds || 0))
@@ -340,11 +360,20 @@ function ClassShopManage({ selectedClass }) {
       }
       // 이용권 가격 로드
       const tSnap = await getDoc(doc(db, 'ticketShopSettings', scopeKey));
-      if (tSnap.exists()) setTicketPrices(prev => ({ ...prev, ...tSnap.data() }));
+      if (tSnap.exists()) {
+        setTicketPrices(prev => ({ ...prev, ...tSnap.data() }));
+      } else if (isTeacherWideScope) {
+        const teacherTicketSnap = await getDocs(
+          query(collection(db, 'ticketShopSettings'), where('teacherUid', '==', teacherUid))
+        );
+        if (!teacherTicketSnap.empty) {
+          setTicketPrices(prev => ({ ...prev, ...teacherTicketSnap.docs[0].data() }));
+        }
+      }
       await Promise.all([fetchItems(), fetchPurchases(), fetchUsages()]);
       setIsLoading(false);
     })();
-  }, [scopeKey]);
+  }, [scopeKey, isTeacherWideScope, teacherUid]);
 
   const openCreate = () => { setEditingId(null); setForm(DEFAULT_FORM); setIsFormOpen(true); };
   const openEdit   = (item) => {
