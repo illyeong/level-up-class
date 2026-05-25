@@ -62,6 +62,9 @@ public class GameManager : MonoBehaviour
     [HideInInspector] public int sessionKillCount  = 0;
     [HideInInspector] public int sessionEarnedGold = 0;
 
+    // ── 현재 던전 번호 (React에서 수신, 1~25) ────────────────────
+    [HideInInspector] public int dungeonIndex = 1;
+
     // ── 캐릭터 외형 (씬 전환 시 재적용용) ────────────────────────
     [HideInInspector] public string savedAvatarJson = ""; // REACT_LOAD_AVATAR 전체 JSON
 

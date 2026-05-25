@@ -38,8 +38,8 @@ export default function LevelUpEffect({
     Array.from({ length: 60 }, (_, i) => ({
       id:       i,
       left:     Math.random() * 100,
-      delay:    Math.random() * 1.3,
-      duration: 1.8 + Math.random() * 1.6,
+      delay:    Math.random() * 0.5,        // 최대 0.5s (원래 1.3s → 빠르게 시작)
+      duration: 1.2 + Math.random() * 1.2, // 1.2~2.4s (원래 1.8~3.4s → 더 빠르게 낙하)
       color:    CONFETTI_COLORS[i % CONFETTI_COLORS.length],
       size:     5 + Math.random() * 11,
       rotation: Math.random() * 360,
@@ -67,7 +67,7 @@ export default function LevelUpEffect({
   // Stage boom → reveal
   useEffect(() => {
     if (stage !== 'boom') return;
-    const t = setTimeout(() => setStage('reveal'), 1700);
+    const t = setTimeout(() => setStage('reveal'), 3500); // 1700ms → 3500ms (파티클 충분히 보이도록)
     return () => clearTimeout(t);
   }, [stage]);
 

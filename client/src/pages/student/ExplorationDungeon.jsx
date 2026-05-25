@@ -210,6 +210,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
   const [student, setStudent]         = useState(null);
   const [progress, setProgress]       = useState({});
   const [selectedDungeon, setSelectedDungeon] = useState(null);
+  const selectedDungeonRef = useRef(null);
   const [dungeonReward, setDungeonReward]     = useState(null);
 
   const iframeRef        = useRef(null);
@@ -329,7 +330,13 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     if (!win) return;
     if (studentCode) win.postMessage({ type: 'REACT_STUDENT_CODE', studentCode }, '*');
     const cd = characterDataRef.current;
-    if (cd) win.postMessage({ type: 'REACT_LOAD_AVATAR', ...cd }, '*');
+    if (!cd) return;
+    const dungeonIndex = (selectedDungeonRef.current?.id ?? 0) + 1; // 1-based (던전1=1 ~ 던전25=25)
+    win.postMessage({
+      type: 'REACT_LOAD_AVATAR',
+      ...cd,
+      stats: { ...cd.stats, dungeonIndex },
+    }, '*');
   };
 
   const handleIframeLoad = () => {
@@ -365,6 +372,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
 
   const handleEnter = async () => {
     if (!selectedDungeon || (!isTeacher && dungeonTickets <= 0) || isBusy) return;
+    selectedDungeonRef.current = selectedDungeon; // Unity 전달용 저장
     setIsBusy(true);
     try {
       if (!isTeacher) await onUseTicket('dungeon');

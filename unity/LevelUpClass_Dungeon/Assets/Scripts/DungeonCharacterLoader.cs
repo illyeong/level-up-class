@@ -57,6 +57,7 @@ public class DungeonCharacterLoader : MonoBehaviour
         gm.currentHealth = s.currentHealth > 0 ? s.currentHealth : gm.maxHealth;
         gm.attackPower   = 10 + (s.level - 1) * 2;
         gm.defense       = 5  + (s.level - 1) * 1;
+        if (s.dungeonIndex > 0) gm.dungeonIndex = s.dungeonIndex;
 
         var pc = FindFirstObjectByType<LayerLab.ArtMaker.PlayerCombat>();
         if (pc != null)
@@ -121,6 +122,7 @@ public class DungeonCharacterLoader : MonoBehaviour
     {
         public int level=1, exp=0, maxExp=1000, gold=0, diamonds=0;
         public int maxHealth=100, currentHealth=100;
+        public int dungeonIndex=1;
     }
 
     [System.Serializable]
