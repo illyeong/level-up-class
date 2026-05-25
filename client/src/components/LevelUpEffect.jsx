@@ -207,19 +207,9 @@ export default function LevelUpEffect({ prevLevel, newLevel, characterImage, onC
               animate="visible"
               className="mt-4 text-center z-10"
             >
-              <motion.div
-                className="font-extrabold text-5xl tracking-widest text-amber-300"
-                animate={{
-                  textShadow: [
-                    '0 0 12px #fbbf24, 0 0 24px #f59e0b',
-                    '0 0 28px #fbbf24, 0 0 56px #f59e0b, 0 0 80px #fde68a',
-                    '0 0 12px #fbbf24, 0 0 24px #f59e0b',
-                  ],
-                }}
-                transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut', delay: 1.2 }}
-              >
+              <div className="font-extrabold text-5xl tracking-widest text-amber-300 animate-lvlup-glow">
                 LEVEL UP!
-              </motion.div>
+              </div>
               <motion.div
                 variants={levelVariants}
                 initial="hidden"

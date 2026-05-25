@@ -28,11 +28,11 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
   const statEntries = Object.entries(STAT_LABEL).filter(([key]) => (item.stats?.[key] || 0) > 0);
   const enhBonus = (stars || 0) * 5;
 
-  // ── compact=false : 제목(상단) + 이미지(좌하) + 스탯(우) + 등급/별(하단) ──
+  // ── compact=false : 이름(상단) → 이미지(중앙) → 등급/별 → 스탯(하단) ──
   if (!compact) {
     return (
       <button onClick={onClick}
-        className={`relative flex flex-col rounded-2xl border-2 transition-all active:scale-95 text-left w-full
+        className={`relative flex flex-col items-center rounded-2xl border-2 transition-all active:scale-95 text-left w-full
           ${g.border} ${g.bg} p-3 gap-2
           ${isEquipped ? 'ring-2 ring-indigo-500 ring-offset-2 shadow-lg' : 'hover:shadow-md hover:-translate-y-0.5'}
           ${item.grade === 'legendary' ? 'shadow-amber-100 shadow-md' : ''}
@@ -42,49 +42,49 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
           <span className="absolute top-1 left-1 text-[8px] bg-indigo-600 text-white px-1.5 py-0.5 rounded-full font-bold">착용</span>
         )}
 
-        {/* 이름 - 상단 중앙 */}
-        <div className="font-extrabold text-slate-800 text-sm leading-tight text-center w-full mt-1 px-1">
+        {/* 이름 - 상단 */}
+        <div className="font-extrabold text-slate-800 text-xs leading-tight text-center w-full px-1 line-clamp-2">
           {item.name}
         </div>
 
-        {/* 이미지(좌) + 스탯(우) */}
-        <div className="flex items-start gap-3">
-          <div className="w-24 h-24 shrink-0 flex items-center justify-center bg-white/40 rounded-xl overflow-hidden shadow-sm">
-            {item.image
-              ? <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-sm" />
-              : <span className="text-4xl">{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>}
-          </div>
-          {statEntries.length > 0 && (
-            <div className="flex-1 min-w-0 pt-1 space-y-1.5">
-              {statEntries.map(([key, meta]) => {
-                const base  = item.stats[key];
-                const total = base + enhBonus;
-                return (
-                  <div key={key} className="flex items-center justify-between">
-                    <div className="flex items-center gap-0.5">
-                      {meta.img
-                        ? <img src={meta.img} alt="" className="w-3.5 h-3.5 object-contain" />
-                        : <span className="text-xs">{meta.icon}</span>}
-                      <span className="text-slate-500 text-sm">{meta.label}</span>
-                    </div>
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      <span className="font-extrabold text-indigo-600 text-sm">+{total}</span>
-                      {enhBonus > 0 && (
-                        <span className="text-amber-500 font-bold text-xs">(★+{enhBonus})</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        {/* 이미지 - 중앙 */}
+        <div className="w-20 h-20 flex items-center justify-center bg-white/40 rounded-xl overflow-hidden shadow-sm">
+          {item.image
+            ? <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-sm" />
+            : <span className="text-4xl">{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>}
         </div>
 
-        {/* 등급 뱃지 + 별 - 하단 */}
-        <div className="flex items-center gap-2 pt-0.5">
-          <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full ${g.badge}`}>{g.label}</span>
+        {/* 등급 뱃지 + 별 */}
+        <div className="flex items-center gap-1.5 flex-wrap justify-center">
+          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${g.badge}`}>{g.label}</span>
           <Stars count={stars} size="sm" />
         </div>
+
+        {/* 스탯 - 하단 */}
+        {statEntries.length > 0 && (
+          <div className="w-full space-y-1 border-t border-slate-200/60 pt-1.5">
+            {statEntries.map(([key, meta]) => {
+              const base  = item.stats[key];
+              const total = base + enhBonus;
+              return (
+                <div key={key} className="flex items-center justify-between">
+                  <div className="flex items-center gap-0.5">
+                    {meta.img
+                      ? <img src={meta.img} alt="" className="w-3 h-3 object-contain" />
+                      : <span className="text-[10px]">{meta.icon}</span>}
+                    <span className="text-slate-500 text-[10px]">{meta.label}</span>
+                  </div>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <span className="font-extrabold text-indigo-600 text-[11px]">+{total}</span>
+                    {enhBonus > 0 && (
+                      <span className="text-amber-500 font-bold text-[9px]">(★+{enhBonus})</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </button>
     );
   }
@@ -742,44 +742,47 @@ export default function Equipment({ studentCode }) {
                               : 'border-dashed border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50'}`}>
                         {item ? (
                           <>
-                            {/* 상단: 이미지(좌) + 이름/등급/별(우) */}
-                            <div className="flex items-start gap-2 w-full">
+                            {/* 장비명 - 상단 */}
+                            <div className="text-xs font-extrabold text-slate-700 leading-tight text-center w-full line-clamp-2 mb-1">
+                              {item.name}
+                            </div>
+                            {/* 이미지(좌) + 등급 + 강화등급(우) */}
+                            <div className="flex items-center gap-2 w-full">
                               <div className="w-16 h-16 shrink-0 flex items-center justify-center bg-white/50 rounded-xl">
                                 {item.image
                                   ? <img src={item.image} alt="" className="w-full h-full object-contain drop-shadow-sm" />
                                   : <span className="text-4xl">{slot.icon}</span>}
                               </div>
-                              <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 pt-0.5">
-                                <div className="text-xs font-extrabold text-slate-700 leading-tight line-clamp-2">{item.name}</div>
+                              <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                                 <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full w-fit ${g.badge}`}>{g.label}</span>
-                                <div className="flex gap-px">
+                                <div className="flex gap-px flex-wrap">
                                   {Array.from({ length: 5 }, (_, i) => (
                                     <img key={i} src={STAR_IMG} alt="★"
-                                      className={`w-4 h-4 object-contain ${i < (invItem?.stars || 0) ? 'opacity-100' : 'opacity-10 grayscale'}`} />
+                                      className={`w-3.5 h-3.5 object-contain ${i < (invItem?.stars || 0) ? 'opacity-100' : 'opacity-10 grayscale'}`} />
                                   ))}
                                 </div>
                               </div>
                             </div>
-                            {/* 하단: 능력치 */}
+                            {/* 하단: 스탯 */}
                             {(() => {
                               const enh = (invItem?.stars || 0) * 5;
                               const sEntries = Object.entries(STAT_LABEL).filter(([k]) => (item.stats?.[k] || 0) > 0);
                               if (!sEntries.length) return null;
                               return (
-                                <div className="w-full mt-2 space-y-1 border-t border-white/50 pt-2">
+                                <div className="w-full mt-1 space-y-1 border-t border-white/50 pt-2">
                                   {sEntries.map(([k, meta]) => {
                                     const base = item.stats[k];
                                     return (
                                       <div key={k} className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1">
-                                          {meta.img
-                                            ? <img src={meta.img} alt="" className="w-4 h-4 object-contain" />
-                                            : <span className="text-xs">{meta.icon}</span>}
-                                          <span className="text-xs text-slate-600 font-medium">{meta.label}</span>
-                                        </div>
                                         <div className="flex items-center gap-0.5">
-                                          <span className="text-sm font-extrabold text-indigo-700">+{base + enh}</span>
-                                          {enh > 0 && <span className="text-[10px] text-amber-600 font-bold">(★+{enh})</span>}
+                                          {meta.img
+                                            ? <img src={meta.img} alt="" className="w-3 h-3 object-contain" />
+                                            : <span className="text-[10px]">{meta.icon}</span>}
+                                          <span className="text-[10px] text-slate-600 font-medium">{meta.label}</span>
+                                        </div>
+                                        <div className="flex items-center gap-0.5 shrink-0">
+                                          <span className="text-xs font-extrabold text-indigo-700">+{base + enh}</span>
+                                          {enh > 0 && <span className="text-[9px] text-amber-600 font-bold">(★+{enh})</span>}
                                         </div>
                                       </div>
                                     );
