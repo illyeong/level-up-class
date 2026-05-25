@@ -289,14 +289,37 @@ function ClassShop({ studentCode }) {
 
             if (nextScope.scopeKey) {
               const tSnap = await getDoc(doc(db, 'ticketShopSettings', nextScope.scopeKey));
-              if (tSnap.exists()) setTicketPrices(prev => ({ ...prev, ...tSnap.data() }));
+              let ticketData = tSnap.exists() ? tSnap.data() : null;
+
+              const teacherFallbackEnabled = !nextScope.classId && !!nextScope.teacherUid;
+              if (!ticketData && teacherFallbackEnabled) {
+                const fallbackTicketSnap = await getDocs(
+                  query(collection(db, 'ticketShopSettings'), where('teacherUid', '==', nextScope.teacherUid))
+                );
+                if (!fallbackTicketSnap.empty) ticketData = fallbackTicketSnap.docs[0].data();
+              }
+              if (ticketData) setTicketPrices(prev => ({ ...prev, ...ticketData }));
 
               const itemsSnap = await getDocs(
                 query(collection(db, 'shopItems'), where('scopeKey', '==', nextScope.scopeKey))
               );
+
+              let mergedItems = itemsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+              if (teacherFallbackEnabled) {
+                const fallbackItemSnap = await getDocs(
+                  query(collection(db, 'shopItems'), where('teacherUid', '==', nextScope.teacherUid))
+                );
+                const byId = new Map(mergedItems.map((item) => [item.id, item]));
+                fallbackItemSnap.docs.forEach((d) => {
+                  byId.set(d.id, { id: d.id, ...d.data() });
+                });
+                mergedItems = Array.from(byId.values());
+              }
+
               setItems(
-                itemsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+                mergedItems
                   .filter(i => i.active)
+                  .filter(i => isInScope(i, nextScope) || (teacherFallbackEnabled && i.teacherUid === nextScope.teacherUid))
                   .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
               );
             } else {

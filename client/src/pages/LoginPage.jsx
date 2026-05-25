@@ -200,7 +200,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
             <button
               onClick={() => {
                 const pw = window.prompt('비밀번호를 입력해 주세요');
-                if (pw === '0505') onStudentLogin({ id: 'test', studentCode: 'SINSEOK-5-01', name: '테스트 학생' });
+                if (pw === '0505') onStudentLogin({ id: 'test', studentCode: 'SINSEOK-5-15', name: '테스트 학생' });
                 else if (pw !== null) alert('비밀번호가 올바르지 않습니다.');
               }}
               className="flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors"

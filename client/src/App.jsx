@@ -131,7 +131,7 @@ function App() {
   const handleTeacherLogin = async (user) => {
     setTeacherUser(user);
     if (!user.uid) {
-      const testCode = 'SINSEOK-5-01';
+      const testCode = 'SINSEOK-5-15';
       try {
         const studentSnap = await getDocs(
           query(collection(db, 'students'), where('studentCode', '==', testCode))
@@ -141,23 +141,20 @@ function App() {
           const classId = studentData?.classId || null;
           const teacherUid = studentData?.teacherUid || null;
 
+          if (teacherUid) {
+            // 테스트 교사는 학생 계정과 동일 스코프(teacherUid)로 묶어야
+            // 기존 classId 없는 학생(구버전 계정)과도 상점/은행 데이터가 맞게 연동됩니다.
+            const cls = { id: null, teacherUid };
+            setSelectedClass(cls);
+            sessionStorage.setItem('selectedClass', JSON.stringify(cls));
+            setAppMode('teacher');
+            return;
+          }
+
           if (classId) {
             const classDoc = await getDoc(doc(db, 'classes', classId));
             if (classDoc.exists()) {
               const cls = { id: classDoc.id, ...classDoc.data() };
-              setSelectedClass(cls);
-              sessionStorage.setItem('selectedClass', JSON.stringify(cls));
-              setAppMode('teacher');
-              return;
-            }
-          }
-
-          if (teacherUid) {
-            const classSnap = await getDocs(
-              query(collection(db, 'classes'), where('teacherUid', '==', teacherUid))
-            );
-            if (!classSnap.empty) {
-              const cls = { id: classSnap.docs[0].id, ...classSnap.docs[0].data() };
               setSelectedClass(cls);
               sessionStorage.setItem('selectedClass', JSON.stringify(cls));
               setAppMode('teacher');
@@ -220,7 +217,7 @@ function App() {
 
   // ── 교사 → 학생 테스트 로그인 ────────────────────────────────
   const handleStudentTestLogin = async (code) => {
-    const normalizedCode = String(code || 'SINSEOK-5-01').trim().toUpperCase();
+    const normalizedCode = String(code || 'SINSEOK-5-15').trim().toUpperCase();
     setTestStudentCode(normalizedCode);
     try {
       const snap = await getDocs(
