@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, writeBatch, doc, updateDoc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { QRCodeSVG } from 'qrcode.react';
 import { db } from '../../firebase';
 
 const newPin = () => Math.floor(1000 + Math.random() * 9000).toString();
@@ -275,6 +276,15 @@ function AccountIssue({ user, selectedClass }) {
       <div id="print-cards" style={{ display: 'none' }}>
         {students.map(s => (
           <div key={s.id} className="print-card">
+            {(() => {
+              const loginUrl = `https://level-up-class.vercel.app?code=${encodeURIComponent(s.studentCode || '')}`;
+              return (
+                <div style={{ float: 'right', textAlign: 'center', marginLeft: 10 }}>
+                  <QRCodeSVG value={loginUrl} size={78} includeMargin />
+                  <div style={{ fontSize: 8, color: '#666', marginTop: 3 }}>QR 스캔 후 PIN 입력</div>
+                </div>
+              );
+            })()}
             <div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>LevelUp Class 학생 계정</div>
             <div style={{ fontWeight: 900, fontSize: 15 }}>{s.name || `${getSeatNum(s.studentCode)}번`}</div>
             <div style={{ fontSize: 11, marginTop: 4 }}>
@@ -285,6 +295,7 @@ function AccountIssue({ user, selectedClass }) {
               <span style={{ color: '#555' }}>PIN: </span>
               <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16, color: '#e11d48', letterSpacing: 3 }}>{s.pin}</span>
             </div>
+            <div style={{ clear: 'both' }} />
           </div>
         ))}
       </div>

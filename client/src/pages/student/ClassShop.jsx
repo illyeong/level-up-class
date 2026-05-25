@@ -58,6 +58,20 @@ const fmtDate = (ts) => {
   return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
+const getScopeFromStudent = (student) => {
+  const classId = student?.classId || null;
+  const teacherUid = student?.teacherUid || null;
+  return { classId, teacherUid, scopeKey: classId || teacherUid || null };
+};
+
+const isInScope = (data, scope) => {
+  if (!scope?.scopeKey) return false;
+  if (data.scopeKey) return data.scopeKey === scope.scopeKey;
+  if (scope.classId && data.classId) return data.classId === scope.classId;
+  if (data.teacherUid) return data.teacherUid === scope.teacherUid;
+  return true;
+};
+
 // ─────────────────────── 상점 아이템 카드 ────────────────────
 function ShopItemCard({ item, myGold, onBuy }) {
   const outOfStock = item.quantity !== -1 && item.quantity <= 0;
@@ -237,6 +251,7 @@ function ClassShop({ studentCode }) {
   const [tab, setTab]                 = useState('shop');
   const [isLoading, setIsLoading]     = useState(true);
   const [ticketPrices, setTicketPrices] = useState({ dungeon: 200, bossRaid: 200, arena: 200 });
+  const [scope, setScope] = useState({ classId: null, teacherUid: null, scopeKey: null });
   const [isBuyingTicket, setIsBuyingTicket] = useState(false);
   const [toast, setToast]       = useState(null);
 
@@ -259,25 +274,34 @@ function ClassShop({ studentCode }) {
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
+      setTicketPrices({ dungeon: 200, bossRaid: 200, arena: 200 });
       try {
-        // 이용권 가격 로드
-        const tSnap = await getDoc(doc(db, 'ticketShopSettings', 'config'));
-        if (tSnap.exists()) setTicketPrices(prev => ({ ...prev, ...tSnap.data() }));
-
-        const itemsSnap = await getDocs(collection(db, 'shopItems'));
-        setItems(
-          itemsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-            .filter(i => i.active)
-            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-        );
-
         if (studentCode) {
           const q    = query(collection(db, 'students'), where('studentCode', '==', studentCode));
           const snap = await getDocs(q);
           if (!snap.empty) {
             const sDoc = snap.docs[0];
+            const sData = sDoc.data();
+            const nextScope = getScopeFromStudent(sData);
             setStudentDocId(sDoc.id);
-            setStudent({ id: sDoc.id, ...sDoc.data() });
+            setStudent({ id: sDoc.id, ...sData });
+            setScope(nextScope);
+
+            if (nextScope.scopeKey) {
+              const tSnap = await getDoc(doc(db, 'ticketShopSettings', nextScope.scopeKey));
+              if (tSnap.exists()) setTicketPrices(prev => ({ ...prev, ...tSnap.data() }));
+
+              const itemsSnap = await getDocs(
+                query(collection(db, 'shopItems'), where('scopeKey', '==', nextScope.scopeKey))
+              );
+              setItems(
+                itemsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+                  .filter(i => i.active)
+                  .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+              );
+            } else {
+              setItems([]);
+            }
 
             const [invSnap, pSnap, uSnap] = await Promise.all([
               getDocs(query(collection(db, 'shopInventory'), where('studentId', '==', sDoc.id))),
@@ -285,12 +309,19 @@ function ClassShop({ studentCode }) {
               getDocs(query(collection(db, 'shopUsages'),   where('studentId', '==', sDoc.id))),
             ]);
             setInventory(invSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+              .filter(data => isInScope(data, nextScope))
               .sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0)));
             setPurchases(pSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+              .filter(data => isInScope(data, nextScope))
               .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
             setUsages(uSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+              .filter(data => isInScope(data, nextScope))
               .sort((a, b) => (b.usedAt?.seconds || 0) - (a.usedAt?.seconds || 0)));
+          } else {
+            setItems([]);
           }
+        } else {
+          setItems([]);
         }
       } catch (err) {
         console.error('상점 로딩 에러:', err);
@@ -344,7 +375,7 @@ function ClassShop({ studentCode }) {
     setIsBuying(true);
     try {
       const batch  = writeBatch(db);
-      const invId  = `${studentDocId}_${buyTarget.id}`;
+      const invId  = `${scope.scopeKey || 'global'}_${studentDocId}_${buyTarget.id}`;
 
       batch.update(doc(db, 'students', studentDocId), { gold: curGold - total });
 
@@ -365,6 +396,9 @@ function ClassShop({ studentCode }) {
         studentName: student.name || student.studentCode,
         itemId:   buyTarget.id, itemName: buyTarget.name, itemIcon: buyTarget.icon || '🛍️',
         price: buyTarget.price, quantity: buyQty, totalPrice: total,
+        classId: scope.classId || null,
+        teacherUid: scope.teacherUid || null,
+        scopeKey: scope.scopeKey || null,
         createdAt: serverTimestamp(),
       });
 
@@ -377,6 +411,9 @@ function ClassShop({ studentCode }) {
         itemIcon:  buyTarget.icon || '🛍️', itemPrice: buyTarget.price,
         totalQuantity: increment(buyQty),
         usedQuantity:  increment(0),
+        classId: scope.classId || null,
+        teacherUid: scope.teacherUid || null,
+        scopeKey: scope.scopeKey || null,
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
@@ -395,6 +432,9 @@ function ClassShop({ studentCode }) {
       setPurchases(prev => [{
         id: `t${Date.now()}`, itemName: buyTarget.name, itemIcon: buyTarget.icon || '🛍️',
         quantity: buyQty, totalPrice: total, createdAt: { seconds: Date.now() / 1000 },
+        classId: scope.classId || null,
+        teacherUid: scope.teacherUid || null,
+        scopeKey: scope.scopeKey || null,
       }, ...prev]);
       setInventory(prev => {
         const existing = prev.find(i => i.id === invId);
@@ -405,6 +445,9 @@ function ClassShop({ studentCode }) {
           id: invId, studentId: studentDocId,
           itemId: buyTarget.id, itemName: buyTarget.name, itemIcon: buyTarget.icon || '🛍️',
           itemPrice: buyTarget.price, totalQuantity: buyQty, usedQuantity: 0,
+          classId: scope.classId || null,
+          teacherUid: scope.teacherUid || null,
+          scopeKey: scope.scopeKey || null,
         }];
       });
 
@@ -437,6 +480,9 @@ function ClassShop({ studentCode }) {
         itemIcon:  itemData.icon  || itemData.itemIcon || '🛍️',
         itemPrice: itemData.price || itemData.itemPrice,
         quantity:  qty,
+        classId: scope.classId || null,
+        teacherUid: scope.teacherUid || null,
+        scopeKey: scope.scopeKey || null,
         usedAt:    serverTimestamp(),
       });
       await batch.commit();
@@ -449,6 +495,9 @@ function ClassShop({ studentCode }) {
         itemName: itemData.name || itemData.itemName,
         itemIcon: itemData.icon || itemData.itemIcon || '🛍️',
         quantity: qty,
+        classId: scope.classId || null,
+        teacherUid: scope.teacherUid || null,
+        scopeKey: scope.scopeKey || null,
         usedAt: { seconds: Date.now() / 1000 },
       }, ...prev]);
       return true;

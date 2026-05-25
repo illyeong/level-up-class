@@ -102,6 +102,14 @@ function calcGamePrice(basePrice, changePercent) {
   return Math.max(1, Math.round(basePrice * (1 + changePercent / 100)));
 }
 
+function getKstDateKey(date = new Date()) {
+  const kst = new Date(date.getTime() + ((9 * 60) + date.getTimezoneOffset()) * 60000);
+  const y = kst.getFullYear();
+  const m = String(kst.getMonth() + 1).padStart(2, '0');
+  const d = String(kst.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
@@ -125,7 +133,7 @@ export default async function handler(req, res) {
     const json   = await response.json();
     const quotes = json?.quoteResponse?.result ?? [];
     const now    = new Date().toISOString();
-    const today  = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
+    const today  = getKstDateKey();
 
     const prices = ETF_LIST.map(etf => {
       const quote = quotes.find(q => q.symbol === etf.symbol);
@@ -134,7 +142,7 @@ export default async function handler(req, res) {
           ...etf,
           currentPrice: etf.basePrice, prevPrice: etf.basePrice,
           changePercent: 0, realPrice: null,
-          marketClosed: true, updatedAt: now, updatedDate: today,
+          marketClosed: true, updatedAt: now, updatedDate: today, updatedDateKey: today,
         };
       }
       const changePercent = parseFloat((quote.regularMarketChangePercent || 0).toFixed(2));
@@ -148,6 +156,7 @@ export default async function handler(req, res) {
         marketClosed:  false,
         updatedAt:     now,
         updatedDate:   today,
+        updatedDateKey: today,
       };
     });
 
@@ -160,6 +169,8 @@ export default async function handler(req, res) {
       currentPrice: etf.basePrice, prevPrice: etf.basePrice,
       changePercent: 0, marketClosed: true,
       updatedAt: new Date().toISOString(),
+      updatedDate: getKstDateKey(),
+      updatedDateKey: getKstDateKey(),
     }));
     return res.status(200).json({ success: false, prices: fallback, error: error.message });
   }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   collection, getDocs, getDoc, doc, writeBatch,
-  updateDoc, serverTimestamp, setDoc,
+  updateDoc, serverTimestamp, setDoc, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -19,6 +19,20 @@ const fmtTs = (ts) => {
   const d = ts.toDate ? ts.toDate() : ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts);
   return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
+
+const getKstNow = () => {
+  const now = new Date();
+  return new Date(now.getTime() + ((9 * 60) + now.getTimezoneOffset()) * 60000);
+};
+
+const getKstDateKey = (date = getKstNow()) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const isTeacherSoulId = (etfId) => etfId === 'teacher_soul' || etfId?.startsWith('teacher_soul_');
 
 // ─────────────────────── ETF 편집 모달 ───────────────────────
 function EtfEditModal({ etf, onSave, onClose }) {
@@ -90,7 +104,7 @@ function EtfEditModal({ etf, onSave, onClose }) {
 }
 
 // ─────────────────────── Main ─────────────────────────────────
-function StockManage() {
+function StockManage({ selectedClass }) {
   const [etfs, setEtfs]             = useState([]);
   const [students, setStudents]     = useState([]);
   const [soulPrice, setSoulPrice]       = useState('');
@@ -111,17 +125,34 @@ function StockManage() {
     setTimeout(() => setToast(null), 3000);
   };
   const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
+  const classId = selectedClass?.id || null;
+  const teacherUid = selectedClass?.teacherUid || null;
+  const scopeKey = classId || teacherUid || null;
+  const studentScopeField = classId ? 'classId' : 'teacherUid';
+  const studentScopeValue = classId || teacherUid || null;
+  const soulEtfId = scopeKey ? `teacher_soul_${scopeKey}` : null;
 
   const fetchAll = async () => {
+    if (!scopeKey || !studentScopeValue) {
+      setEtfs([]);
+      setStudents([]);
+      setDividendLogs([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const [etfsSnap, studentsSnap, logSnap] = await Promise.all([
         getDocs(collection(db, 'etfs')),
-        getDocs(collection(db, 'students')),
-        getDocs(collection(db, 'dividendLogs')),
+        getDocs(query(collection(db, 'students'), where(studentScopeField, '==', studentScopeValue))),
+        getDocs(query(collection(db, 'dividendLogs'), where('scopeKey', '==', scopeKey))),
       ]);
 
-      const etfList = etfsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      const allEtfs = etfsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const regularEtfs = allEtfs.filter(e => !isTeacherSoulId(e.id));
+      const scopedSoul = soulEtfId ? allEtfs.find(e => e.id === soulEtfId) : null;
+      const etfList = [...regularEtfs, ...(scopedSoul ? [scopedSoul] : [])]
         .sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0));
       setEtfs(etfList);
 
@@ -138,7 +169,7 @@ function StockManage() {
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(); }, [scopeKey, studentScopeField, studentScopeValue, soulEtfId]);
 
   // ── 포트폴리오 로드 (탭 전환 시) ──────────────────────────
   useEffect(() => {
@@ -161,6 +192,7 @@ function StockManage() {
 
   // ── 가격 새로고침 ────────────────────────────────────────────
   const refreshPrices = async () => {
+    if (!scopeKey) return;
     setIsRefreshing(true);
     try {
       const res  = await fetch('/api/stock-prices');
@@ -169,7 +201,10 @@ function StockManage() {
         const batch = writeBatch(db);
         data.prices.forEach(p => batch.set(doc(db, 'etfs', p.id), p, { merge: true }));
         await batch.commit();
-        setEtfs(data.prices.sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0)));
+        const soul = etfs.find(e => e.id === soulEtfId);
+        const merged = [...data.prices, ...(soul ? [soul] : [])]
+          .sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0));
+        setEtfs(merged);
         showToast(`${data.prices.length}개 ETF 가격 업데이트 완료! (미국 전일 종가 기준)`);
       }
     } catch (err) {
@@ -182,22 +217,26 @@ function StockManage() {
 
   // ── 선생님의 영혼 초기 생성 ─────────────────────────────────
   const initSoulEtf = async () => {
-    const soulRef = doc(db, 'etfs', 'teacher_soul');
+    if (!soulEtfId) return;
+    const soulRef = doc(db, 'etfs', soulEtfId);
     const snap    = await getDoc(soulRef);
     if (snap.exists()) { showToast('이미 생성되어 있습니다!', 'error'); return; }
 
     await setDoc(soulRef, {
-      id: 'teacher_soul', symbol: 'SOUL', name: '선생님의 영혼',
+      id: soulEtfId, symbol: 'SOUL', name: '선생님의 영혼',
       theme: '특별',
-      description: '우리 선생님의 소중한 영혼이 담긴 특별 ETF입니다. 매일 0.8%씩 자동 상승합니다.',
+      description: '우리 선생님의 소중한 영혼이 담긴 특별 ETF입니다. 매일 1%씩 자동 상승합니다.',
       currentPrice: 100, prevPrice: 100, changePercent: 0,
       basePrice: 100, baseShares: 50, maxShares: 100,
-      dailyGrowthRate: 0.008, dividendRate: 0,
+      dailyGrowthRate: 0.01, dividendRate: 0,
       isTeacherControlled: true, teacherSetToday: false,
       lastPriceUpdate: '', active: true,
       currency: 'gold',
+      classId,
+      teacherUid,
+      scopeKey,
       updatedAt: new Date().toISOString(),
-      updatedDate: '',
+      updatedDate: getKstDateKey(),
     });
     showToast('선생님의 영혼 ETF가 생성되었습니다!');
     fetchAll();
@@ -205,7 +244,7 @@ function StockManage() {
 
   // ── 선생님의 영혼 배당 지급 (가격 초기화 + 학생 수령 대기) ─────
   const paySoulDividend = () => {
-    const soul = etfs.find(e => e.id === 'teacher_soul');
+    const soul = etfs.find(e => e.id === soulEtfId);
     if (!soul) return showToast('선생님의 영혼 ETF가 없습니다.', 'error');
 
     const dividendPerShare = Math.floor(soul.currentPrice - 100);
@@ -223,8 +262,11 @@ function StockManage() {
     setIsSoulSaving(true);
     try {
       // 모든 학생 보유 현황 로드
-      const snap = await getDocs(collection(db, 'students'));
-      const allStudents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const allStudents = students;
+      if (allStudents.length === 0) {
+        showToast('학급 학생이 없습니다.', 'error');
+        return;
+      }
 
       const batch = writeBatch(db);
       let count = 0, totalPaid = 0;
@@ -232,7 +274,7 @@ function StockManage() {
       await Promise.all(
         allStudents.map(async stu => {
           const holdSnap = await getDocs(collection(db, 'portfolios', stu.id, 'holdings'));
-          const soulDoc  = holdSnap.docs.find(d => d.id === 'teacher_soul');
+          const soulDoc  = holdSnap.docs.find(d => d.id === soulEtfId);
           if (!soulDoc) return;
           const qty = soulDoc.data().quantity || 0;
           if (qty <= 0) return;
@@ -247,8 +289,8 @@ function StockManage() {
       );
 
       // 가격 100G으로 초기화
-      const today = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
-      batch.update(doc(db, 'etfs', 'teacher_soul'), {
+      const today = getKstDateKey();
+      batch.update(doc(db, 'etfs', soulEtfId), {
         prevPrice:       soul.currentPrice,
         currentPrice:    100,
         changePercent:   parseFloat(((100 - soul.currentPrice) / soul.currentPrice * 100).toFixed(2)),
@@ -259,7 +301,7 @@ function StockManage() {
 
       await batch.commit();
 
-      setEtfs(prev => prev.map(e => e.id === 'teacher_soul'
+      setEtfs(prev => prev.map(e => e.id === soulEtfId
         ? { ...e, prevPrice: e.currentPrice, currentPrice: 100 }
         : e
       ));
@@ -277,7 +319,7 @@ function StockManage() {
 
   // ── 선생님의 영혼 활성화/비활성화 ──────────────────────────
   const toggleSoulActive = () => {
-    const soul = etfs.find(e => e.id === 'teacher_soul');
+    const soul = etfs.find(e => e.id === soulEtfId);
     if (!soul) return;
     const newActive = soul.active === false;
     showConfirm(
@@ -287,8 +329,8 @@ function StockManage() {
       async () => {
         setIsSoulToggling(true);
         try {
-          await updateDoc(doc(db, 'etfs', 'teacher_soul'), { active: newActive });
-          setEtfs(prev => prev.map(e => e.id === 'teacher_soul' ? { ...e, active: newActive } : e));
+          await updateDoc(doc(db, 'etfs', soulEtfId), { active: newActive });
+          setEtfs(prev => prev.map(e => e.id === soulEtfId ? { ...e, active: newActive } : e));
           showToast(newActive ? '활성화되었습니다.' : '비활성화되었습니다.');
         } catch (err) {
           console.error(err);
@@ -303,24 +345,24 @@ function StockManage() {
   const setSoulPriceManual = async () => {
     const price = parseFloat(soulPrice);
     if (!price || price <= 0) return showToast('올바른 가격을 입력해주세요.', 'error');
-    const soulEtf = etfs.find(e => e.id === 'teacher_soul');
+    const soulEtf = etfs.find(e => e.id === soulEtfId);
     if (!soulEtf) return showToast('먼저 ETF를 초기 생성해주세요.', 'error');
 
     const prevPrice   = soulEtf.currentPrice || 100;
     const changePct   = parseFloat(((price - prevPrice) / prevPrice * 100).toFixed(2));
-    const today       = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
+    const today       = getKstDateKey();
 
     setIsSoulSaving(true);
     try {
-      await updateDoc(doc(db, 'etfs', 'teacher_soul'), {
+      await updateDoc(doc(db, 'etfs', soulEtfId), {
         prevPrice, currentPrice: price,
         changePercent: changePct,
         lastPriceUpdate: today,
-        teacherSetToday: true,   // 오늘은 자동 0.8% 적용 안 함
+        teacherSetToday: true,   // 오늘은 자동 1% 적용 안 함
         updatedAt: new Date().toISOString(),
         updatedDate: today,
       });
-      setEtfs(prev => prev.map(e => e.id === 'teacher_soul'
+      setEtfs(prev => prev.map(e => e.id === soulEtfId
         ? { ...e, prevPrice, currentPrice: price, changePercent: changePct }
         : e
       ));
@@ -387,6 +429,9 @@ function StockManage() {
             priceAtTime: etf.currentPrice || 0,
             dividendRate: etf.dividendRate,
             dividendAmount: div,
+            classId,
+            teacherUid,
+            scopeKey,
             weekOf: thisMonday,
             paidAt: serverTimestamp(),
           });
@@ -419,6 +464,18 @@ function StockManage() {
   const totalDivPaid = dividendLogs.reduce((s, l) => s + (l.dividendAmount || 0), 0);
   const lastDivDate  = dividendLogs[0]?.weekOf || '-';
 
+  if (!scopeKey) {
+    return (
+      <div className="min-h-screen bg-slate-100 p-8">
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 text-slate-600 text-sm">
+            학급을 먼저 선택해 주세요.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 p-8">
       <div className="max-w-5xl mx-auto">
@@ -443,7 +500,7 @@ function StockManage() {
 
         {/* 선생님의 영혼 ETF 관리 카드 */}
         {(() => {
-          const soul = etfs.find(e => e.id === 'teacher_soul');
+          const soul = etfs.find(e => e.id === soulEtfId);
           return (
             <div className="relative rounded-2xl overflow-hidden shadow-md mb-6 text-white"
               style={{ background: 'linear-gradient(135deg, #5b21b6, #be185d)' }}>

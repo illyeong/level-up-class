@@ -206,6 +206,8 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
   const [showYesterdayPopup, setShowYesterdayPopup] = useState(false);
   const [newApprovedCount, setNewApprovedCount] = useState(0);
   const [levelUpData, setLevelUpData]       = useState(null); // { prevLevel, newLevel }
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
     if (!studentCode) return;
@@ -225,6 +227,21 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
     };
     load();
   }, [studentCode]);
+
+  useEffect(() => {
+    const ua = window.navigator.userAgent.toLowerCase();
+    setIsIOS(/iphone|ipad|ipod/.test(ua));
+
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
 
   // 레벨업 감지 — studentData 로드 후 이전 레벨과 비교
   useEffect(() => {
@@ -279,6 +296,13 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
     }
   };
 
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  };
+
   const name     = studentData?.name     || studentData?.studentCode || '용감한 용사';
   const getMaxExpForLevel = (lv) =>
     lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
@@ -315,6 +339,19 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
       <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
         <h1 className="text-3xl font-bold text-gray-800">🏰 학생 대시보드</h1>
         <div className="flex items-center gap-3 flex-wrap">
+          {installPrompt && (
+            <button
+              onClick={handleInstallClick}
+              className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 border border-slate-800 text-white font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm"
+            >
+              홈 화면에 추가
+            </button>
+          )}
+          {!installPrompt && isIOS && (
+            <div className="text-xs text-slate-500 font-semibold">
+              iOS는 Safari 공유 버튼에서 홈 화면에 추가를 눌러 주세요.
+            </div>
+          )}
           {yesterdayLog?.length > 0 && (
             <button onClick={() => setShowYesterdayPopup(true)}
               className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm">

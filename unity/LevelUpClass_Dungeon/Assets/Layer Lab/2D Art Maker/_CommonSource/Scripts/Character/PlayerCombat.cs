@@ -6,6 +6,16 @@ namespace LayerLab.ArtMaker
 {
     public class PlayerCombat : MonoBehaviour
     {
+        public static PlayerCombat FindMainPlayerCombat()
+        {
+            var combats = FindObjectsByType<PlayerCombat>(FindObjectsSortMode.None);
+            foreach (var combat in combats)
+            {
+                if (combat != null && combat.GetComponent<PlayerMovement>() != null)
+                    return combat;
+            }
+            return null;
+        }
         [Header("플레이어 스탯")]
         public int maxHealth = 100;
         public int currentHealth = 100;
@@ -45,6 +55,14 @@ namespace LayerLab.ArtMaker
 
         void Start()
         {
+            // 씬 실수로 AttackPoint 등에 붙어 있으면 가짜 사망 판정이 발생하므로 차단
+            if (GetComponent<PlayerMovement>() == null)
+            {
+                Debug.LogWarning($"[PlayerCombat] Disabled on '{name}' because PlayerMovement is missing.");
+                enabled = false;
+                return;
+            }
+
             skeletonAnim = GetComponent<SkeletonAnimation>();
             skeletonGraphic = GetComponent<SkeletonGraphic>();
 

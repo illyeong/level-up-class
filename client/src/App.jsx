@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { useIsAdmin } from './hooks/useIsAdmin';
 
 import LoginPage        from './pages/LoginPage.jsx';
 import ClassSelectPage  from './pages/teacher/ClassSelectPage.jsx';
 import AdminPage        from './pages/admin/AdminPage.jsx';
-
-const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || '')
-  .split(',').map(e => e.trim()).filter(Boolean);
 import NavigationBar    from './components/NavigationBar';
 import TeacherLogin     from './pages/teacher/TeacherLogin.jsx';
 import MyCharacter      from './components/MyCharacter';
@@ -42,22 +40,19 @@ function App() {
   const [currentView,    setCurrentView]    = useState('dashboard');
   const [testStudentCode, setTestStudentCode] = useState(null);
   const [studentClassInfo, setStudentClassInfo] = useState(null);
+  const { isAdmin, loading: isAdminLoading } = useIsAdmin(teacherUser?.email);
 
   // ── Firebase Auth 상태 감지 (교사 로그인 유지) ─────────────────
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) {
         setTeacherUser(user);
-        if (ADMIN_EMAILS.includes(user.email)) {
-          setAppMode('admin');
+        const savedClass = sessionStorage.getItem('selectedClass');
+        if (savedClass) {
+          setSelectedClass(JSON.parse(savedClass));
+          setAppMode('teacher');
         } else {
-          const savedClass = sessionStorage.getItem('selectedClass');
-          if (savedClass) {
-            setSelectedClass(JSON.parse(savedClass));
-            setAppMode('teacher');
-          } else {
-            setAppMode('classSelect');
-          }
+          setAppMode('classSelect');
         }
       } else {
         // 로그아웃 또는 미로그인 → 학생 세션 확인
@@ -72,6 +67,28 @@ function App() {
     });
     return unsub;
   }, []);
+
+  useEffect(() => {
+    if (!teacherUser) return;
+    if (!teacherUser.uid) return;
+    if (isAdminLoading) {
+      setAppMode('loading');
+      return;
+    }
+
+    if (isAdmin) {
+      setAppMode('admin');
+      return;
+    }
+
+    const savedClass = sessionStorage.getItem('selectedClass');
+    if (savedClass) {
+      setSelectedClass(JSON.parse(savedClass));
+      setAppMode('teacher');
+    } else {
+      setAppMode('classSelect');
+    }
+  }, [teacherUser, isAdmin, isAdminLoading]);
 
   // ── 학생 학급 정보 조회 ────────────────────────────────────────
   useEffect(() => {
@@ -97,10 +114,8 @@ function App() {
     if (!user.uid) {
       setSelectedClass({ id: null, teacherUid: 'admin_master_001' });
       setAppMode('teacher');
-    } else if (ADMIN_EMAILS.includes(user.email)) {
-      setAppMode('admin');
     } else {
-      setAppMode('classSelect');
+      setAppMode('loading');
     }
   };
 
@@ -156,7 +171,6 @@ function App() {
       <LoginPage
         onTeacherLogin={handleTeacherLogin}
         onStudentLogin={handleStudentLogin}
-        onAdminLogin={() => setAppMode('admin')}
       />
     );
   }

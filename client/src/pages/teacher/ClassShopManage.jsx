@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
   doc, setDoc, getDoc, serverTimestamp, query, orderBy, limit,
+  where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -233,7 +234,7 @@ function ItemFormModal({ form, setForm, isEditing, onSubmit, onClose }) {
 }
 
 // ─────────────────────── Main ─────────────────────────────────
-function ClassShopManage() {
+function ClassShopManage({ selectedClass }) {
   const [items, setItems]         = useState([]);
   const [purchases, setPurchases] = useState([]);
   const [usages, setUsages]       = useState([]);
@@ -248,6 +249,9 @@ function ClassShopManage() {
   const [form, setForm]         = useState(DEFAULT_FORM);
   const [toast, setToast]         = useState(null);
   const [confirmState, setConfirmState] = useState(null);
+  const classId = selectedClass?.id || null;
+  const teacherUid = selectedClass?.teacherUid || null;
+  const scopeKey = classId || teacherUid || null;
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -256,9 +260,16 @@ function ClassShopManage() {
   const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
 
   const saveTicketPrices = async () => {
+    if (!scopeKey) return;
     setIsSavingTicket(true);
     try {
-      await setDoc(doc(db, 'ticketShopSettings', 'config'), ticketPrices);
+      await setDoc(doc(db, 'ticketShopSettings', scopeKey), {
+        ...ticketPrices,
+        classId,
+        teacherUid,
+        scopeKey,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
       showToast('이용권 가격이 저장되었습니다.');
     } catch (err) {
       console.error(err);
@@ -269,7 +280,11 @@ function ClassShopManage() {
   };
 
   const fetchItems = async () => {
-    const snap = await getDocs(collection(db, 'shopItems'));
+    if (!scopeKey) {
+      setItems([]);
+      return;
+    }
+    const snap = await getDocs(query(collection(db, 'shopItems'), where('scopeKey', '==', scopeKey)));
     setItems(
       snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
@@ -277,13 +292,22 @@ function ClassShopManage() {
   };
 
   const fetchPurchases = async () => {
+    if (!scopeKey) {
+      setPurchases([]);
+      return;
+    }
     try {
       const snap = await getDocs(
-        query(collection(db, 'shopPurchases'), orderBy('createdAt', 'desc'), limit(100))
+        query(
+          collection(db, 'shopPurchases'),
+          where('scopeKey', '==', scopeKey),
+          orderBy('createdAt', 'desc'),
+          limit(100)
+        )
       );
       setPurchases(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch {
-      const snap = await getDocs(collection(db, 'shopPurchases'));
+      const snap = await getDocs(query(collection(db, 'shopPurchases'), where('scopeKey', '==', scopeKey)));
       setPurchases(
         snap.docs.map(d => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
@@ -292,7 +316,11 @@ function ClassShopManage() {
   };
 
   const fetchUsages = async () => {
-    const snap = await getDocs(collection(db, 'shopUsages'));
+    if (!scopeKey) {
+      setUsages([]);
+      return;
+    }
+    const snap = await getDocs(query(collection(db, 'shopUsages'), where('scopeKey', '==', scopeKey)));
     setUsages(
       snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.usedAt?.seconds || 0) - (a.usedAt?.seconds || 0))
@@ -302,13 +330,21 @@ function ClassShopManage() {
   useEffect(() => {
     (async () => {
       setIsLoading(true);
+      setTicketPrices({ dungeon: 200, bossRaid: 200, arena: 200 });
+      if (!scopeKey) {
+        setItems([]);
+        setPurchases([]);
+        setUsages([]);
+        setIsLoading(false);
+        return;
+      }
       // 이용권 가격 로드
-      const tSnap = await getDoc(doc(db, 'ticketShopSettings', 'config'));
+      const tSnap = await getDoc(doc(db, 'ticketShopSettings', scopeKey));
       if (tSnap.exists()) setTicketPrices(prev => ({ ...prev, ...tSnap.data() }));
       await Promise.all([fetchItems(), fetchPurchases(), fetchUsages()]);
       setIsLoading(false);
     })();
-  }, []);
+  }, [scopeKey]);
 
   const openCreate = () => { setEditingId(null); setForm(DEFAULT_FORM); setIsFormOpen(true); };
   const openEdit   = (item) => {
@@ -335,6 +371,9 @@ function ClassShopManage() {
       icon:        form.icon,
       quantity:    form.unlimited ? -1 : Number(form.quantity),
       active:      form.active,
+      classId,
+      teacherUid,
+      scopeKey,
     };
 
     try {
@@ -364,6 +403,18 @@ function ClassShopManage() {
   };
 
   const totalRevenue = purchases.reduce((s, p) => s + (p.totalPrice || 0), 0);
+
+  if (!scopeKey) {
+    return (
+      <div className="min-h-screen bg-slate-100 p-8">
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 text-slate-600 text-sm">
+            학급을 먼저 선택해 주세요.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 p-8">

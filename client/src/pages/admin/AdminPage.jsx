@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../../firebase';
+import { useIsAdmin } from '../../hooks/useIsAdmin';
 
 // ── 통계 카드 ─────────────────────────────────────────────────
 function StatCard({ icon, label, value, color = 'indigo' }) {
@@ -1191,12 +1192,38 @@ const TABS = [
 export default function AdminPage({ adminUser, onLogout }) {
   const [tab, setTab]           = useState('dashboard');
   const [newFeedbackCount, setNewFeedbackCount] = useState(0);
+  const { isAdmin, loading: isAdminLoading } = useIsAdmin(adminUser?.email);
 
   useEffect(() => {
     getDocs(collection(db, 'feedbacks')).then(snap => {
       setNewFeedbackCount(snap.docs.filter(d => d.data().status === 'new').length);
     }).catch(() => {});
   }, []);
+
+  if (isAdminLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-bold">
+        관리자 권한 확인 중...
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center max-w-sm w-full">
+          <h1 className="text-white text-lg font-extrabold mb-2">접근 권한이 없습니다</h1>
+          <p className="text-slate-400 text-sm mb-5">관리자 등록 이메일 계정만 접근할 수 있습니다.</p>
+          <button
+            onClick={onLogout}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl"
+          >
+            로그인 화면으로
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-slate-950">

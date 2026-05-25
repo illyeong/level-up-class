@@ -19,9 +19,24 @@ const LOG_TYPE_COLOR = {
   interest: 'bg-emerald-50 text-emerald-600',
 };
 
+const getScopeFromStudent = (student) => {
+  const classId = student?.classId || null;
+  const teacherUid = student?.teacherUid || null;
+  return { classId, teacherUid, scopeKey: classId || teacherUid || null };
+};
+
+const isLogInScope = (log, scope) => {
+  if (!scope?.scopeKey) return false;
+  if (log.scopeKey) return log.scopeKey === scope.scopeKey;
+  if (scope.classId && log.classId) return log.classId === scope.classId;
+  if (log.teacherUid) return log.teacherUid === scope.teacherUid;
+  return true;
+};
+
 function ClassBank({ studentCode }) {
   const [student, setStudent]   = useState(null);
   const [docId, setDocId]       = useState(null);
+  const [scope, setScope]       = useState({ classId: null, teacherUid: null, scopeKey: null });
   const [settings, setSettings] = useState({ weeklyDiamondRate: 0.03, weeklyGoldRate: 0.03 });
   const [logs, setLogs]         = useState([]);
   const [tab, setTab]           = useState('overview');
@@ -43,24 +58,32 @@ function ClassBank({ studentCode }) {
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
+      setSettings({ weeklyDiamondRate: 0.03, weeklyGoldRate: 0.03 });
       try {
-        const settingsDoc = await getDoc(doc(db, 'bankSettings', 'config'));
-        if (settingsDoc.exists()) setSettings(settingsDoc.data());
-
         if (studentCode) {
           const q    = query(collection(db, 'students'), where('studentCode', '==', studentCode));
           const snap = await getDocs(q);
           if (!snap.empty) {
             const sDoc = snap.docs[0];
+            const sData = sDoc.data();
+            const nextScope = getScopeFromStudent(sData);
             setDocId(sDoc.id);
-            setStudent({ id: sDoc.id, ...sDoc.data() });
+            setStudent({ id: sDoc.id, ...sData });
+            setScope(nextScope);
+
+            if (nextScope.scopeKey) {
+              const settingsDoc = await getDoc(doc(db, 'bankSettings', nextScope.scopeKey));
+              if (settingsDoc.exists()) setSettings(settingsDoc.data());
+            }
 
             const logsSnap = await getDocs(
               query(collection(db, 'bankLogs'), where('studentId', '==', sDoc.id))
             );
+            const scopedLogs = logsSnap.docs
+              .map(d => ({ id: d.id, ...d.data() }))
+              .filter(log => isLogInScope(log, nextScope));
             setLogs(
-              logsSnap.docs
-                .map(d => ({ id: d.id, ...d.data() }))
+              scopedLogs
                 .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
             );
           }
@@ -104,6 +127,9 @@ function ClassBank({ studentCode }) {
       batch.set(doc(collection(db, 'bankLogs')), {
         studentId: docId, studentCode: student.studentCode, studentName: student.name || student.studentCode,
         type: 'deposit', currency, amount, newDeposit: curDep + amount, createdAt: serverTimestamp(),
+        classId: scope.classId || null,
+        teacherUid: scope.teacherUid || null,
+        scopeKey: scope.scopeKey || null,
       });
       await batch.commit();
 
@@ -148,6 +174,9 @@ function ClassBank({ studentCode }) {
       batch.set(doc(collection(db, 'bankLogs')), {
         studentId: docId, studentCode: student.studentCode, studentName: student.name || student.studentCode,
         type: 'withdraw', currency, amount, newDeposit: curDep - amount, createdAt: serverTimestamp(),
+        classId: scope.classId || null,
+        teacherUid: scope.teacherUid || null,
+        scopeKey: scope.scopeKey || null,
       });
       await batch.commit();
 

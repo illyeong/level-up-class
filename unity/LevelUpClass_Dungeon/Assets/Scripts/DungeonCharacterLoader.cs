@@ -35,7 +35,11 @@ public class DungeonCharacterLoader : MonoBehaviour
         if (GameManager.Instance != null)
             GameManager.Instance.savedAvatarJson = json;
 
-        if (data.stats != null) ApplyStats(data.stats);
+        if (data.stats != null)
+        {
+            ApplyStats(data.stats);
+            FindFirstObjectByType<PlayerHpBar>()?.RefreshLevel();
+        }
 
         var pm = FindFirstObjectByType<LayerLab.ArtMaker.PartsManager>();
         if (pm != null)
@@ -59,7 +63,7 @@ public class DungeonCharacterLoader : MonoBehaviour
         gm.defense       = 5  + (s.level - 1) * 1;
         if (s.dungeonIndex > 0) gm.dungeonIndex = s.dungeonIndex;
 
-        var pc = FindFirstObjectByType<LayerLab.ArtMaker.PlayerCombat>();
+        var pc = LayerLab.ArtMaker.PlayerCombat.FindMainPlayerCombat();
         if (pc != null)
         {
             pc.maxHealth     = gm.maxHealth;

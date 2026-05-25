@@ -94,9 +94,9 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {/* 학생 계정 발급 화면 */}
         {currentView === 'accountIssue'    && <AccountIssue user={user} selectedClass={selectedClass} />}
         {currentView === 'questManage'     && <QuestManage selectedClass={selectedClass} />}
-        {currentView === 'bankManage'       && <BankManage />}
-        {currentView === 'classShopManage' && <ClassShopManage />}
-        {currentView === 'stockManage'        && <StockManage />}
+        {currentView === 'bankManage'       && <BankManage selectedClass={selectedClass} />}
+        {currentView === 'classShopManage' && <ClassShopManage selectedClass={selectedClass} />}
+        {currentView === 'stockManage'        && <StockManage selectedClass={selectedClass} />}
         {currentView === 'quizBank'           && <QuizBank />}
         {currentView === 'quizDungeonManage' && <QuizDungeonManage selectedClass={selectedClass} />}
         {currentView === 'bossRaidManage'    && <BossRaidManage onViewLobby={() => setCurrentView('bossRaid')} />}

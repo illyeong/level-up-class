@@ -15,7 +15,7 @@ public class CharacterAutoSetup : MonoBehaviour
     void ApplyStats()
     {
         var gm = GameManager.Instance;
-        var pc = FindFirstObjectByType<LayerLab.ArtMaker.PlayerCombat>();
+        var pc = LayerLab.ArtMaker.PlayerCombat.FindMainPlayerCombat();
         if (gm == null || pc == null) return;
 
         pc.maxHealth            = gm.maxHealth;

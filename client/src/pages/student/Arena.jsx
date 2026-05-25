@@ -650,7 +650,27 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   const [battleMaxHP, setBattleMaxHP] = useState({ me: 0, opp: 0 });
   const [hitFlash, setHitFlash]   = useState({ me: false, opp: false });
   const [hitDmg, setHitDmg]       = useState({ me: null, opp: null }); // { dmg, isCrit } | null
+  const [hitAnimSeq, setHitAnimSeq] = useState({ me: 0, opp: 0 });
   const logRef = useRef(null);
+  const hitTimerRef = useRef({ me: null, opp: null });
+
+  useEffect(() => () => {
+    if (hitTimerRef.current.me) clearTimeout(hitTimerRef.current.me);
+    if (hitTimerRef.current.opp) clearTimeout(hitTimerRef.current.opp);
+  }, []);
+
+  const triggerHitFx = (side, dmg, isCrit) => {
+    setHitFlash(h => ({ ...h, [side]: true }));
+    setHitDmg(h => ({ ...h, [side]: { dmg, isCrit } }));
+    setHitAnimSeq(s => ({ ...s, [side]: s[side] + 1 }));
+
+    if (hitTimerRef.current[side]) clearTimeout(hitTimerRef.current[side]);
+    hitTimerRef.current[side] = setTimeout(() => {
+      setHitFlash(h => ({ ...h, [side]: false }));
+      setHitDmg(h => ({ ...h, [side]: null }));
+      hitTimerRef.current[side] = null;
+    }, 700);
+  };
 
   // 매칭 상태 저장
   const saveMatch = (opp, ch) => {
@@ -800,6 +820,10 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
       setBattleMaxHP({ me: myHP, opp: oppHP });
       setBattleHP({ me: myHP, opp: oppHP });
       setBattleLog([]);
+      if (hitTimerRef.current.me) { clearTimeout(hitTimerRef.current.me); hitTimerRef.current.me = null; }
+      if (hitTimerRef.current.opp) { clearTimeout(hitTimerRef.current.opp); hitTimerRef.current.opp = null; }
+      setHitFlash({ me: false, opp: false });
+      setHitDmg({ me: null, opp: null });
       setPhase('battle');
 
       const myName  = me?.name  || me?.studentCode  || '나';
@@ -846,9 +870,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
                 type: 'magic',
               });
             }
-            setHitFlash(h => ({ ...h, opp: true }));
-            setHitDmg(h => ({ ...h, opp: { dmg, isCrit } }));
-            setTimeout(() => { setHitFlash(h => ({ ...h, opp: false })); setHitDmg(h => ({ ...h, opp: null })); }, 700);
+            triggerHitFx('opp', dmg, isCrit);
           } else {
             myHP = Math.max(0, myHP - dmg);
             addLog(`${isCrit ? '💥 크리티컬! ' : ''}${name}의 반격 → ${dmg} 데미지`, isCrit ? 'crit' : 'attack');
@@ -862,9 +884,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
                 type: 'fire',
               });
             }
-            setHitFlash(h => ({ ...h, me: true }));
-            setHitDmg(h => ({ ...h, me: { dmg, isCrit } }));
-            setTimeout(() => { setHitFlash(h => ({ ...h, me: false })); setHitDmg(h => ({ ...h, me: null })); }, 700);
+            triggerHitFx('me', dmg, isCrit);
           }
           setBattleHP({ me: myHP, opp: oppHP });
           setBattleLog([...log]);
@@ -1166,7 +1186,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             ${hitFlash.me ? (hitDmg.me?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
             <div className="text-xs font-extrabold text-indigo-400 tracking-widest">나</div>
             {/* key 변경으로 CSS 애니메이션 강제 재시작 */}
-            <div key={`me-${hitFlash.me}`}
+            <div key={`me-${hitAnimSeq.me}`}
               className={`flex-1 w-full flex items-center justify-center relative
                 ${hitFlash.me ? (hitDmg.me?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
               <div className="w-64 h-64 flex items-center justify-center overflow-hidden">
@@ -1210,7 +1230,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
             <div className="text-xs font-extrabold text-rose-400 tracking-widest">상대</div>
             {/* key 변경으로 CSS 애니메이션 강제 재시작 */}
-            <div key={`opp-${hitFlash.opp}`}
+            <div key={`opp-${hitAnimSeq.opp}`}
               className={`flex-1 w-full flex items-center justify-center relative
                 ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
               <div className="w-64 h-64 flex items-center justify-center overflow-hidden">

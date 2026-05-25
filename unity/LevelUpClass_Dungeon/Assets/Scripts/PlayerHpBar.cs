@@ -29,7 +29,7 @@ public class PlayerHpBar : MonoBehaviour
     void Start()
     {
         if (playerCombat == null)
-            playerCombat = FindFirstObjectByType<LayerLab.ArtMaker.PlayerCombat>();
+            playerCombat = LayerLab.ArtMaker.PlayerCombat.FindMainPlayerCombat();
 
         if (playerCombat == null)
             Debug.LogWarning("[PlayerHpBar] PlayerCombat을 찾지 못했습니다.");
@@ -81,4 +81,6 @@ public class PlayerHpBar : MonoBehaviour
         int lv = GameManager.Instance != null ? GameManager.Instance.level : 1;
         levelText.text = $"Lv.{lv}";
     }
+
+    public void RefreshLevel() => UpdateLevel();
 }
