@@ -381,6 +381,29 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
             </div>
           )}
 
+          <div className={`flex items-center justify-between p-3 rounded-xl border
+            ${form.importedFromShared ? 'bg-slate-50 border-slate-200' : 'bg-indigo-50 border-indigo-200'}`}>
+            <div>
+              <div className={`text-sm font-bold ${form.importedFromShared ? 'text-slate-700' : 'text-indigo-800'}`}>
+                공유 퀘스트에 공유하기
+              </div>
+              <div className={`text-xs mt-0.5 ${form.importedFromShared ? 'text-slate-500' : 'text-indigo-600'}`}>
+                {form.importedFromShared
+                  ? '공유 퀘스트에서 가져온 퀘스트는 다시 공유할 수 없습니다'
+                  : '다른 선생님이 공유 퀘스트에서 이 퀘스트를 가져올 수 있습니다'}
+              </div>
+            </div>
+            <button
+              disabled={form.importedFromShared}
+              onClick={() => !form.importedFromShared && set('shareToCommunity', !form.shareToCommunity)}
+              className={`w-12 h-6 rounded-full transition-colors relative
+                ${form.shareToCommunity ? 'bg-indigo-500' : 'bg-slate-300'}
+                ${form.importedFromShared ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all
+                ${form.shareToCommunity ? 'left-7' : 'left-1'}`} />
+            </button>
+          </div>
+
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-2">보상</label>
             <div className="grid grid-cols-3 gap-2">
@@ -413,6 +436,100 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
 }
 
 // ─────────────────────── RecommendedSidebar ──────────────────
+function SharedQuestModal({
+  isLoading,
+  items,
+  myTeacherUid,
+  importingId,
+  onClose,
+  onImport,
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[250] flex items-center justify-center p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+          <div>
+            <h2 className="text-lg font-extrabold text-slate-800">공유 퀘스트</h2>
+            <p className="text-xs text-slate-500 mt-0.5">다른 선생님이 공유한 퀘스트를 가져올 수 있습니다.</p>
+          </div>
+          <button onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2.5 py-24">
+              <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+              <span className="text-sm text-slate-400 font-medium">불러오는 중...</span>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="text-center py-24 text-slate-400">
+              <div className="text-4xl mb-2">📭</div>
+              <p className="font-bold">공유된 퀘스트가 없습니다.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {items.map((q) => {
+                const isMine = !!myTeacherUid && q.sourceTeacherUid === myTeacherUid;
+                return (
+                  <div key={q.id} className="border border-slate-200 rounded-2xl p-4 bg-slate-50">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-extrabold text-slate-800 text-sm leading-tight">{q.title}</h3>
+                      {isMine && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 shrink-0">
+                          내 공유
+                        </span>
+                      )}
+                    </div>
+                    {q.description && (
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-2">{q.description}</p>
+                    )}
+
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full
+                        ${q.type === 'daily' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`}>
+                        {q.type === 'daily' ? '일일' : '주간'}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${(DIFF[q.difficulty] || DIFF.easy).cls}`}>
+                        {(DIFF[q.difficulty] || DIFF.easy).label}
+                      </span>
+                      {q.selfCheck && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">
+                          자체체크
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 text-xs font-bold text-slate-600 mt-2">
+                      {q.rewards?.exp > 0 && <span>⭐{q.rewards.exp}</span>}
+                      {q.rewards?.gold > 0 && <span>🪙+{q.rewards.gold}</span>}
+                      {q.rewards?.diamond > 0 && <span>💎+{q.rewards.diamond}</span>}
+                    </div>
+
+                    <div className="mt-3 text-[11px] text-slate-400 font-medium truncate">
+                      공유자: {q.sourceLabel || q.sourceTeacherUid || '익명'}
+                    </div>
+                    <button
+                      onClick={() => onImport(q)}
+                      disabled={isMine || importingId === q.id}
+                      className={`w-full mt-3 py-2 rounded-xl font-bold text-sm transition-colors
+                        ${isMine
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>
+                      {importingId === q.id ? '가져오는 중...' : isMine ? '가져오기 불가' : '가져오기'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RecommendedSidebar({ onSelect, templates }) {
   return (
     <aside className="w-52 shrink-0 flex flex-col gap-3">
@@ -470,6 +587,10 @@ function QuestManage({ selectedClass }) {
   const [form, setForm]           = useState(DEFAULT_FORM);
   const [toast, setToast]         = useState(null);
   const [confirmState, setConfirmState] = useState(null);
+  const [isSharedModalOpen, setIsSharedModalOpen] = useState(false);
+  const [sharedQuests, setSharedQuests] = useState([]);
+  const [isSharedLoading, setIsSharedLoading] = useState(false);
+  const [importingSharedId, setImportingSharedId] = useState(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -533,6 +654,64 @@ function QuestManage({ selectedClass }) {
       .catch(() => {});
   }, []);
 
+  const loadSharedQuests = async () => {
+    setIsSharedLoading(true);
+    try {
+      const snap = await getDocs(collection(db, 'sharedQuests'));
+      const list = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(q => q.active !== false)
+        .sort((a, b) => (b.updatedAt?.seconds || b.sharedAt?.seconds || 0) - (a.updatedAt?.seconds || a.sharedAt?.seconds || 0));
+      setSharedQuests(list);
+    } catch (err) {
+      console.error('공유 퀘스트 로딩 오류:', err);
+      showToast('공유 퀘스트를 불러오지 못했습니다.', 'error');
+    } finally {
+      setIsSharedLoading(false);
+    }
+  };
+
+  const openSharedModal = async () => {
+    setIsSharedModalOpen(true);
+    await loadSharedQuests();
+  };
+
+  const importSharedQuest = async (sharedQuest) => {
+    if (!sharedQuest) return;
+    if (sharedQuest.sourceTeacherUid && selectedClass?.teacherUid && sharedQuest.sourceTeacherUid === selectedClass.teacherUid) {
+      return showToast('내가 공유한 퀘스트는 가져올 수 없습니다.', 'error');
+    }
+
+    setImportingSharedId(sharedQuest.id);
+    try {
+      const base = buildQuestPayload({
+        ...DEFAULT_FORM,
+        ...sharedQuest,
+        shareToCommunity: false,
+        importedFromShared: true,
+        sharedSourceId: sharedQuest.id,
+      });
+
+      await addDoc(collection(db, 'quests'), {
+        ...base,
+        teacherUid: selectedClass?.teacherUid || null,
+        classId: selectedClass?.id || null,
+        createdAt: serverTimestamp(),
+        importedAt: serverTimestamp(),
+        importedByTeacherUid: selectedClass?.teacherUid || null,
+      });
+
+      showToast('공유 퀘스트를 가져왔습니다.');
+      setIsSharedModalOpen(false);
+      fetchData();
+    } catch (err) {
+      console.error('공유 퀘스트 가져오기 오류:', err);
+      showToast('공유 퀘스트 가져오기에 실패했습니다.', 'error');
+    } finally {
+      setImportingSharedId(null);
+    }
+  };
+
   // 퀘스트 분류
   const activeQuests = quests.filter(q => q.active !== false);
   const endedQuests  = quests.filter(q => q.active === false);
@@ -540,7 +719,7 @@ function QuestManage({ selectedClass }) {
   // ── 폼 열기 ──
   const openCreate = () => {
     setEditingQuestId(null);
-    setForm(DEFAULT_FORM);
+    setForm({ ...DEFAULT_FORM });
     setIsFormOpen(true);
   };
 
@@ -552,10 +731,14 @@ function QuestManage({ selectedClass }) {
       type:        quest.type,
       selfCheck:   quest.selfCheck   || false,
       repeatDaily: quest.repeatDaily || false,
+      repeatWeekly: quest.repeatWeekly || false,
       difficulty:  quest.difficulty,
       rewards:     { ...quest.rewards },
       skills:      quest.skills || [],
       active:      quest.active,
+      shareToCommunity: !!quest.shareToCommunity,
+      importedFromShared: !!quest.importedFromShared,
+      sharedSourceId: quest.sharedSourceId || null,
     });
     setIsFormOpen(true);
   };
@@ -567,6 +750,9 @@ function QuestManage({ selectedClass }) {
       ...template,
       repeatDaily:  template.type === 'daily'  ? true : false,
       repeatWeekly: template.type === 'weekly' ? true : false,
+      shareToCommunity: false,
+      importedFromShared: false,
+      sharedSourceId: null,
     });
     setIsFormOpen(true);
   };
@@ -580,10 +766,14 @@ function QuestManage({ selectedClass }) {
       type:        quest.type,
       selfCheck:   quest.selfCheck   || false,
       repeatDaily: quest.repeatDaily || false,
+      repeatWeekly: quest.repeatWeekly || false,
       difficulty:  quest.difficulty  || 'easy',
       rewards:     { ...quest.rewards },
       skills:      quest.skills || [],
       active:      true,
+      shareToCommunity: !!quest.shareToCommunity && !quest.importedFromShared,
+      importedFromShared: !!quest.importedFromShared,
+      sharedSourceId: quest.sharedSourceId || null,
     });
     setIsFormOpen(true);
   };
@@ -651,6 +841,100 @@ function QuestManage({ selectedClass }) {
   };
 
   // 일괄 승인: 교사 승인 퀘스트(selfCheck=false)의 미보상 학생 전체에게 즉시 보상 지급
+  const submitFormEnhanced = async () => {
+    if (!form.title.trim()) return showToast('퀘스트 이름을 입력해주세요.', 'error');
+    setIsLoading(true);
+    try {
+      const questPayload = buildQuestPayload(form);
+      const sourceLabel = selectedClass?.name || selectedClass?.teacherEmail || selectedClass?.teacherUid || '';
+
+      if (editingQuestId) {
+        await updateDoc(doc(db, 'quests', editingQuestId), {
+          ...questPayload,
+          updatedAt: serverTimestamp(),
+        });
+
+        if (questPayload.importedFromShared) {
+          await deleteDoc(doc(db, 'sharedQuests', editingQuestId));
+        } else if (questPayload.shareToCommunity) {
+          await setDoc(doc(db, 'sharedQuests', editingQuestId), buildSharedQuestPayload(questPayload, {
+            sourceQuestId: editingQuestId,
+            sourceTeacherUid: selectedClass?.teacherUid || null,
+            sourceClassId: selectedClass?.id || null,
+            sourceLabel,
+            sharedAt: serverTimestamp(),
+          }));
+        } else {
+          await deleteDoc(doc(db, 'sharedQuests', editingQuestId));
+        }
+      } else {
+        const created = await addDoc(collection(db, 'quests'), {
+          ...questPayload,
+          teacherUid: selectedClass?.teacherUid || null,
+          classId: selectedClass?.id || null,
+          createdAt: serverTimestamp(),
+        });
+
+        if (!questPayload.importedFromShared && questPayload.shareToCommunity) {
+          await setDoc(doc(db, 'sharedQuests', created.id), buildSharedQuestPayload(questPayload, {
+            sourceQuestId: created.id,
+            sourceTeacherUid: selectedClass?.teacherUid || null,
+            sourceClassId: selectedClass?.id || null,
+            sourceLabel,
+            sharedAt: serverTimestamp(),
+          }));
+        }
+      }
+      setIsFormOpen(false);
+      fetchData();
+    } catch (err) {
+      console.error('퀘스트 저장 오류:', err);
+      showToast('저장 중 오류가 발생했습니다.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const duplicateQuestEnhanced = async (quest) => {
+    try {
+      const { id, createdAt, updatedAt, endedAt, checkedCount, ...data } = quest;
+      const duplicatedPayload = buildQuestPayload({
+        ...DEFAULT_FORM,
+        ...data,
+        title: `${data.title} (복사)`,
+        active: true,
+        shareToCommunity: false,
+        importedFromShared: !!data.importedFromShared,
+        sharedSourceId: data.sharedSourceId || null,
+      });
+      await addDoc(collection(db, 'quests'), {
+        ...duplicatedPayload,
+        teacherUid: selectedClass?.teacherUid || data.teacherUid || null,
+        classId: selectedClass?.id || data.classId || null,
+        createdAt: serverTimestamp(),
+      });
+      fetchData();
+    } catch (err) {
+      console.error('퀘스트 복제 오류:', err);
+      showToast('복제 중 오류가 발생했습니다.', 'error');
+    }
+  };
+
+  const deleteQuestEnhanced = (questId) => {
+    showConfirm('퀘스트를 완전히 삭제할까요?\n복구할 수 없습니다.', async () => {
+      try {
+        await Promise.all([
+          deleteDoc(doc(db, 'quests', questId)),
+          deleteDoc(doc(db, 'sharedQuests', questId)),
+        ]);
+        setQuests(prev => prev.filter(q => q.id !== questId));
+      } catch (err) {
+        console.error('퀘스트 삭제 오류:', err);
+        showToast('삭제 중 오류가 발생했습니다.', 'error');
+      }
+    });
+  };
+
   const bulkApproveQuest = (quest) => {
     showConfirm(`"${quest.title}"\n보상을 아직 받지 못한 학생 전체에게 지급할까요?`, async () => {
       try {
@@ -736,6 +1020,10 @@ function QuestManage({ selectedClass }) {
                 종료된 퀘스트 ({endedQuests.length})
               </button>
             </div>
+            <button onClick={openSharedModal}
+              className="bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
+              공유 퀘스트
+            </button>
             <button onClick={openCreate}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
               + 새 퀘스트 만들기
@@ -785,7 +1073,7 @@ function QuestManage({ selectedClass }) {
                     studentCount={studentCount}
                     onDetail={() => setSelectedQuestId(quest.id)}
                     onEdit={() => openEdit(quest)}
-                    onDuplicate={() => duplicateQuest(quest)}
+                    onDuplicate={() => duplicateQuestEnhanced(quest)}
                     onEnd={() => endQuest(quest.id)}
                     onBulkApprove={() => bulkApproveQuest(quest)}
                   />
@@ -820,7 +1108,7 @@ function QuestManage({ selectedClass }) {
                     key={quest.id}
                     quest={quest}
                     onReactivate={() => openReactivate(quest)}
-                    onDelete={() => deleteQuest(quest.id)}
+                    onDelete={() => deleteQuestEnhanced(quest.id)}
                   />
                 ))}
               </div>
@@ -834,7 +1122,7 @@ function QuestManage({ selectedClass }) {
           form={form}
           setForm={setForm}
           isEditing={!!editingQuestId}
-          onSubmit={submitForm}
+          onSubmit={submitFormEnhanced}
           onClose={() => setIsFormOpen(false)}
           onToggleSkill={toggleSkill}
         />
@@ -860,6 +1148,17 @@ function QuestManage({ selectedClass }) {
             />
           </div>
         </div>
+      )}
+
+      {isSharedModalOpen && (
+        <SharedQuestModal
+          isLoading={isSharedLoading}
+          items={sharedQuests}
+          myTeacherUid={selectedClass?.teacherUid || null}
+          importingId={importingSharedId}
+          onClose={() => setIsSharedModalOpen(false)}
+          onImport={importSharedQuest}
+        />
       )}
 
       {toast && (
