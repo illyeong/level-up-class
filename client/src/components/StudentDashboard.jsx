@@ -490,9 +490,9 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
         maxExp={levelUpData.maxExp}
       />
     )}
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
-        <h1 className="text-3xl font-bold text-gray-800">🏰 학생 대시보드</h1>
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 p-6 md:p-8">
+      <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 gap-4 flex-wrap">
+        <h1 className="text-3xl font-bold text-white">🏰 학생 대시보드</h1>
         <div className="flex items-center gap-3 flex-wrap">
           {installPrompt && (
             <button
@@ -510,6 +510,12 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
               홈화면/바탕화면 추가
             </button>
           )}
+          <button
+            onClick={handleInstallClick}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 border border-indigo-700 text-white font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm"
+          >
+            앱 설치하기
+          </button>
           {!installPrompt && isIOS && (
             <div className="text-xs text-slate-500 font-semibold">
               iOS는 Safari 공유 버튼에서 홈 화면에 추가를 눌러 주세요.
@@ -530,10 +536,10 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] items-start gap-6">
         {/* 캐릭터 카드 */}
-        <div className="bg-white p-6 rounded-3xl shadow-lg border border-gray-100 text-center">
-          <div className="w-full h-52 mx-auto flex items-center justify-center mb-4 relative bg-indigo-50 rounded-2xl overflow-hidden border border-indigo-100">
+        <div className="bg-white p-5 rounded-3xl shadow-lg border border-gray-100 text-center self-start">
+          <div className="w-full h-44 md:h-48 mx-auto flex items-center justify-center mb-4 relative bg-indigo-50 rounded-2xl overflow-hidden border border-indigo-100">
             {studentData?.characterImage ? (
               <img
                 src={studentData.characterImage}
@@ -578,7 +584,7 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
         </div>
 
         {/* 우측: 출석 체크 + 퀘스트 안내 */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
           {/* 출석 체크 */}
           <AttendanceCheck studentCode={studentCode} />
 
@@ -589,7 +595,7 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
       </div>
 
       {/* 명예의 전당 */}
-      <div className="mt-8 border-t border-slate-100 pt-6">
+      <div className="max-w-7xl mx-auto mt-8 border-t border-slate-700/70 pt-6">
         <HallOfFame studentCode={studentCode} teacherUid={studentData?.teacherUid} />
       </div>
 
