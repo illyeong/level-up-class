@@ -60,7 +60,7 @@ const getMaxExpForLevel = (lv) =>
 
 const calcLevelUp = (level, exp, maxExp, gained) => {
   let lv = level || 1, ex = (exp || 0) + gained;
-  let mx = maxExp || getMaxExpForLevel(lv), leveled = false;
+  let mx = getMaxExpForLevel(lv), leveled = false;
   while (ex >= mx && lv < 99) { ex -= mx; lv++; mx = getMaxExpForLevel(lv); leveled = true; }
   return { level: lv, exp: ex, maxExp: mx, leveled };
 };

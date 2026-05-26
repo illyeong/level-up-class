@@ -331,12 +331,28 @@ function AdventurePage({ currentView, studentCode, onChangeView }) {
         const sDoc = snap.docs[0];
         const data = sDoc.data();
         setStudentDocId(sDoc.id);
-        const lv = data.level ?? 1;
         const calcMaxExp = (l) => l <= 10 ? 100 : l <= 30 ? 300 : l <= 60 ? 800 : 2000;
+        let lv = data.level ?? 1;
+        let ex = data.exp ?? 0;
+        let mx = calcMaxExp(lv);
+        let normalized = false;
+        while (ex >= mx && lv < 99) {
+          ex -= mx;
+          lv += 1;
+          mx = calcMaxExp(lv);
+          normalized = true;
+        }
+        if (normalized || (data.maxExp ?? 0) !== mx) {
+          await updateDoc(doc(db, 'students', sDoc.id), {
+            level: lv,
+            exp: ex,
+            maxExp: mx,
+          });
+        }
         setStudentInfo({
           level:    lv,
-          exp:      data.exp      ?? 0,
-          maxExp:   calcMaxExp(lv),
+          exp:      ex,
+          maxExp:   mx,
           gold:     data.gold     ?? 0,
           diamonds: data.diamonds ?? 0,
         });

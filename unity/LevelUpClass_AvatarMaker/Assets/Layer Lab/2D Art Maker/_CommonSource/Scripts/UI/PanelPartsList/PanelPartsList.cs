@@ -67,10 +67,14 @@ namespace LayerLab.ArtMaker
 
             foreach (var t in _activePartsList) t.gameObject.SetActive(false);
 
+            int slotIdx = 0;
             for (var i = 0; i < parts.Length; i++)
             {
-                _activePartsList[i].SetSlot(this, DemoControl.Instance.GetSprite(parts[i]), i);
-                _activePartsList[i].gameObject.SetActive(true);
+                var sprite = DemoControl.Instance.GetSprite(parts[i]);
+                if (sprite == null) continue; // 썸네일 없으면 슬롯 숨김
+                _activePartsList[slotIdx].SetSlot(this, sprite, i);
+                _activePartsList[slotIdx].gameObject.SetActive(true);
+                slotIdx++;
             }
 
             gameObject.SetActive(true);

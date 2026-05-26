@@ -112,7 +112,7 @@ function AccountIssue({ user, selectedClass }) {
               gold:       0,
               level:      1,
               exp:        0,
-              maxExp:     1000,
+              maxExp:     100,
               parts:      '',
               classId:    selectedClass?.id || null,
               teacherUid: user.uid,
@@ -184,7 +184,7 @@ function AccountIssue({ user, selectedClass }) {
         gold:       0,
         level:      1,
         exp:        0,
-        maxExp:     1000,
+        maxExp:     100,
         parts:      '',
         classId:    selectedClass?.id || null,
         teacherUid: user.uid,
@@ -212,11 +212,11 @@ function AccountIssue({ user, selectedClass }) {
       async () => {
         try {
           await updateDoc(doc(db, 'students', student.id), {
-            gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 1000,
+            gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 100,
             parts: {}, characterImage: '',
           });
           setStudents(prev => prev.map(s => s.id === student.id
-            ? { ...s, gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 1000, parts: {}, characterImage: '' }
+            ? { ...s, gold: 0, diamonds: 1000, level: 1, exp: 0, maxExp: 100, parts: {}, characterImage: '' }
             : s
           ));
           showToast(`${student.name || student.studentCode} 초기화 완료!`);

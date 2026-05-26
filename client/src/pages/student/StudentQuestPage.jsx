@@ -1,10 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import {
   collection, getDocs, getDoc, doc, setDoc, deleteDoc, updateDoc,
-  writeBatch, increment, serverTimestamp, query, where,
+  writeBatch, serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import iconQuest from '../../assets/images/icon-quest.png';
+
+const getMaxExpForLevel = (lv) =>
+  lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
+
+const calcLevelUp = (level, exp, gained) => {
+  let lv = level || 1;
+  let ex = (exp || 0) + gained;
+  let mx = getMaxExpForLevel(lv);
+  while (ex >= mx && lv < 99) {
+    ex -= mx;
+    lv += 1;
+    mx = getMaxExpForLevel(lv);
+  }
+  return { level: lv, exp: ex, maxExp: mx };
+};
 
 const SKILL_COLORS = {
   '인성':   'bg-purple-100 text-purple-700',
@@ -296,11 +311,23 @@ function StudentQuestPage({ studentCode }) {
             if (autoReward.questIds.length > 0) {
               const batch = writeBatch(db);
               if (autoReward.gold || autoReward.exp || autoReward.diamond) {
+                const currentLevel = sData.level ?? 1;
+                const currentExp = sData.exp ?? 0;
+                const { level, exp, maxExp } = calcLevelUp(currentLevel, currentExp, autoReward.exp);
+                const nextGold = (sData.gold || 0) + autoReward.gold;
+                const nextDiamonds = (sData.diamonds || 0) + autoReward.diamond;
                 batch.update(doc(db, 'students', sDoc.id), {
-                  gold:     increment(autoReward.gold),
-                  exp:      increment(autoReward.exp),
-                  diamonds: increment(autoReward.diamond),
+                  gold: nextGold,
+                  diamonds: nextDiamonds,
+                  level,
+                  exp,
+                  maxExp,
                 });
+                sData.level = level;
+                sData.exp = exp;
+                sData.maxExp = maxExp;
+                sData.gold = nextGold;
+                sData.diamonds = nextDiamonds;
               }
               autoReward.questIds.forEach(qid => {
                 batch.update(doc(db, 'quests', qid, 'completions', sDoc.id), {

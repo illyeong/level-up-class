@@ -6,6 +6,7 @@ import {
 import { db, auth } from '../../firebase';
 import { MONSTERS_DB, BOSS_BG_MAP } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
+import { applyExpDelta } from '../../utils/leveling';
 
 // ── 퀴즈셋 선택 피커 (스크롤형 인라인) ────────────────────────────
 const DIFF_LABEL_SM = { easy: '쉬움', normal: '보통', hard: '어려움' };
@@ -641,10 +642,13 @@ export default function BossRaidManage({ onViewLobby }) {
           pIds.forEach(sid => {
             if (!all[sid]) return;
             const s = all[sid];
+            const nextProgress = applyExpDelta(s.level ?? 1, s.exp ?? 0, raid.rewards?.exp || 0);
             batch.update(doc(db, 'students', sid), {
               gold:     (s.gold     || 0) + (raid.rewards?.gold    || 0),
               diamonds: (s.diamonds || 0) + (raid.rewards?.diamond || 0),
-              exp:      (s.exp      || 0) + (raid.rewards?.exp     || 0),
+              level:    nextProgress.level,
+              exp:      nextProgress.exp,
+              maxExp:   nextProgress.maxExp,
             });
             count++;
           });

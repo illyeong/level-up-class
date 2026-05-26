@@ -170,7 +170,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
           gold:         0,
           level:        1,
           exp:          0,
-          maxExp:       500,
+          maxExp:       100,
           parts:        {},
           characterImage: '',
         });

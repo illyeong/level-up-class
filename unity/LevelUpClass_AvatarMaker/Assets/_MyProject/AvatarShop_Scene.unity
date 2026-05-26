@@ -8714,45 +8714,14 @@ MonoBehaviour:
   - {fileID: 21300000, guid: e1cdcd4e3aa70426b93e4eac5c2e2d09, type: 3}
   - {fileID: 21300000, guid: d3bb9b1b6c070487dabd4e3b334e1d52, type: 3}
   - {fileID: 21300000, guid: f1d73b41bb4e74bd18cd86034ea11c2b, type: 3}
-  - {fileID: 21300000, guid: a3e9e6a53b5f24f37a0220e59475fa36, type: 3}
-  - {fileID: 21300000, guid: 98f50c3b62a25475a9ae52c3883f4768, type: 3}
-  - {fileID: 21300000, guid: aa3a06c5d51f3439fa699362e6d4ec1d, type: 3}
-  - {fileID: 21300000, guid: f31f5ef0777ec43c78c91f2f40593022, type: 3}
-  - {fileID: 21300000, guid: f2d6ae69a9c054955beadb915cb8678a, type: 3}
-  - {fileID: 21300000, guid: e9b9a7e005951499cb79be1a7e1c9450, type: 3}
-  - {fileID: 21300000, guid: 085abdbc2d33b47348d6799a996f8fc2, type: 3}
-  - {fileID: 21300000, guid: 38f61f303f3514ed49597f78a4031362, type: 3}
-  - {fileID: 21300000, guid: b7f145d8997d94ef881faf799d594f12, type: 3}
-  - {fileID: 21300000, guid: bfb1b7f2d71b5455382abdc4545af270, type: 3}
-  - {fileID: 21300000, guid: 3fda18f8c8850431d9760b43051a1af0, type: 3}
   - {fileID: 21300000, guid: 225405db859b24b1c886ec9d67122487, type: 3}
   - {fileID: 21300000, guid: 8f27c125b51824fc4920079bb9267360, type: 3}
-  - {fileID: 21300000, guid: ac36a5bfbb07b409090d94ed99c3b12e, type: 3}
-  - {fileID: 21300000, guid: a92390b164fa9417189e81de4b49d30c, type: 3}
-  - {fileID: 21300000, guid: 8ccb52a62adfd40e2a5a540b7d8847fd, type: 3}
-  - {fileID: 21300000, guid: 55260a3d5aafa4997ab731102b97a701, type: 3}
-  - {fileID: 21300000, guid: 8fb753b0182b74f95bb84506d75b5d73, type: 3}
-  - {fileID: 21300000, guid: de230468d4db54f45b71cef0363d7ae4, type: 3}
-  - {fileID: 21300000, guid: 1ea9f23063b2b4e6db140f5a6934df77, type: 3}
-  - {fileID: 21300000, guid: 0fd908b24d7394dcf9659fbbe6d4b93a, type: 3}
-  - {fileID: 21300000, guid: 14ed14c8d3a5f4eb59bc00f9258d92e4, type: 3}
-  - {fileID: 21300000, guid: 44290dfd29c0d4613a1ac1db05ced678, type: 3}
-  - {fileID: 21300000, guid: 9e6504d9254e44765add818ddbef7be1, type: 3}
-  - {fileID: 21300000, guid: 761081ab46b824121bc28e6e46cb40e7, type: 3}
-  - {fileID: 21300000, guid: 96249bbc0c8c2412c90dfd5a6477be51, type: 3}
   - {fileID: 21300000, guid: 0f63fe4654cbe434fb1ae154dddf7cbe, type: 3}
-  - {fileID: 21300000, guid: 03181fcbea51b4e8ebce10c418d4ff70, type: 3}
-  - {fileID: 21300000, guid: 7b34a9e95b0ae48609cff03f6362f830, type: 3}
-  - {fileID: 21300000, guid: 4c38aa657c4764dab9d0608744267461, type: 3}
-  - {fileID: 21300000, guid: 09e8e0a6247e24802a3531f3f6242037, type: 3}
-  - {fileID: 21300000, guid: 9cdec2a2058be4fb79ee8641cb89b839, type: 3}
   - {fileID: 21300000, guid: c750460457c4e4deebb24b7b51db0f1e, type: 3}
   - {fileID: 21300000, guid: 5025f928ec5454f90b2ce9f7d83166fa, type: 3}
   - {fileID: 21300000, guid: 5b73e2272390d46a885f9a315e66144c, type: 3}
   - {fileID: 21300000, guid: 0b714273129f145a48f027610f024c26, type: 3}
   - {fileID: 21300000, guid: f5b9fa85c7aab4833a161fc60d8a259c, type: 3}
-  - {fileID: 21300000, guid: 62695fe5e41d740ed8945f747e6800d6, type: 3}
-  - {fileID: 21300000, guid: 7ca7c412fbfd64739b14bbdf6fb7a5ee, type: 3}
   - {fileID: 21300000, guid: 77f7f9b681a23408baea89a13478c8be, type: 3}
   - {fileID: 21300000, guid: e242d957e11154492a603b3c9df82a31, type: 3}
   - {fileID: 21300000, guid: 438a6cee4b2b14e64950c9e9838e2f15, type: 3}
@@ -12422,7 +12391,7 @@ GameObject:
   m_Component:
   - component: {fileID: 698223741}
   - component: {fileID: 698223740}
-  - component: {fileID: 698223739}
+  - component: {fileID: 698223742}
   m_Layer: 0
   m_Name: EventSystem
   m_TagString: Untagged
@@ -12430,26 +12399,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &698223739
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 698223738}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4f231c4fb786f3946a6b90b886c48677, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SendPointerHoverToParent: 1
-  m_HorizontalAxis: Horizontal
-  m_VerticalAxis: Vertical
-  m_SubmitButton: Submit
-  m_CancelButton: Cancel
-  m_InputActionsPerSecond: 10
-  m_RepeatDelay: 0.5
-  m_ForceModuleActive: 0
 --- !u!114 &698223740
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12480,6 +12429,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &698223742
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 698223738}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01614664b831546d2ae94a42149d80ac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.UI.InputSystemUIInputModule
+  m_SendPointerHoverToParent: 1
+  m_MoveRepeatDelay: 0.5
+  m_MoveRepeatRate: 0.1
+  m_XRTrackingOrigin: {fileID: 0}
+  m_ActionsAsset: {fileID: -944628639613478452, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_PointAction: {fileID: -1654692200621890270, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_MoveAction: {fileID: -8784545083839296357, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_SubmitAction: {fileID: 392368643174621059, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_CancelAction: {fileID: 7727032971491509709, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_LeftClickAction: {fileID: 3001919216989983466, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_MiddleClickAction: {fileID: -2185481485913320682, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_RightClickAction: {fileID: -4090225696740746782, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_ScrollWheelAction: {fileID: 6240969308177333660, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_TrackedDevicePositionAction: {fileID: 6564999863303420839, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_TrackedDeviceOrientationAction: {fileID: 7970375526676320489, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_DeselectOnBackgroundClick: 1
+  m_PointerBehavior: 0
+  m_CursorLockBehavior: 0
+  m_ScrollDeltaPerTick: 6
 --- !u!1 &698335348
 GameObject:
   m_ObjectHideFlags: 0
@@ -22388,7 +22368,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1456771718}
   - component: {fileID: 1456771717}
-  - component: {fileID: 1456771716}
   m_Layer: 0
   m_Name: CaptureCamera
   m_TagString: Untagged
@@ -22396,14 +22375,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!81 &1456771716
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1456771715}
-  m_Enabled: 1
 --- !u!20 &1456771717
 Camera:
   m_ObjectHideFlags: 0

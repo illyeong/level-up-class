@@ -4,6 +4,7 @@ import {
   writeBatch, setDoc, deleteDoc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { applyExpDelta } from '../../utils/leveling';
 
 const SKILL_COLORS = {
   '인성':   'bg-purple-100 text-purple-700',
@@ -138,10 +139,13 @@ function QuestDetail({ questId, onBack, isModal = false }) {
         targetIds.forEach(sid => {
           const student = students.find(s => s.id === sid);
           if (!student) return;
+          const nextProgress = applyExpDelta(student.level ?? 1, student.exp ?? 0, quest.rewards?.exp || 0);
           batch.update(doc(db, 'students', sid), {
             gold:     (student.gold     || 0) + (quest.rewards?.gold    || 0),
             diamonds: (student.diamonds || 0) + (quest.rewards?.diamond || 0),
-            exp:      (student.exp      || 0) + (quest.rewards?.exp     || 0),
+            level:    nextProgress.level,
+            exp:      nextProgress.exp,
+            maxExp:   nextProgress.maxExp,
           });
           batch.set(doc(db, 'quests', questId, 'completions', sid), {
             checked:     true,
@@ -155,11 +159,14 @@ function QuestDetail({ questId, onBack, isModal = false }) {
 
         setStudents(prev => prev.map(s => {
           if (!targetIds.includes(s.id)) return s;
+          const nextProgress = applyExpDelta(s.level ?? 1, s.exp ?? 0, quest.rewards?.exp || 0);
           return {
             ...s,
             gold:     (s.gold     || 0) + (quest.rewards?.gold    || 0),
             diamonds: (s.diamonds || 0) + (quest.rewards?.diamond || 0),
-            exp:      (s.exp      || 0) + (quest.rewards?.exp     || 0),
+            level:    nextProgress.level,
+            exp:      nextProgress.exp,
+            maxExp:   nextProgress.maxExp,
           };
         }));
         setCompletions(prev => {
@@ -201,21 +208,30 @@ function QuestDetail({ questId, onBack, isModal = false }) {
       try {
         const batch = writeBatch(db);
         if (wasRewarded && student) {
+          const rollbackProgress = applyExpDelta(student.level ?? 1, student.exp ?? 0, -(quest.rewards?.exp || 0));
           batch.update(doc(db, 'students', studentId), {
             gold:     Math.max(0, (student.gold     || 0) - (quest.rewards?.gold    || 0)),
             diamonds: Math.max(0, (student.diamonds || 0) - (quest.rewards?.diamond || 0)),
-            exp:      Math.max(0, (student.exp      || 0) - (quest.rewards?.exp     || 0)),
+            level:    rollbackProgress.level,
+            exp:      rollbackProgress.exp,
+            maxExp:   rollbackProgress.maxExp,
           });
         }
         batch.delete(doc(db, 'quests', questId, 'completions', studentId));
         await batch.commit();
 
         if (wasRewarded) {
-          setStudents(prev => prev.map(s => s.id !== studentId ? s : {
-            ...s,
-            gold:     Math.max(0, (s.gold     || 0) - (quest.rewards?.gold    || 0)),
-            diamonds: Math.max(0, (s.diamonds || 0) - (quest.rewards?.diamond || 0)),
-            exp:      Math.max(0, (s.exp      || 0) - (quest.rewards?.exp     || 0)),
+          setStudents(prev => prev.map(s => {
+            if (s.id !== studentId) return s;
+            const rollbackProgress = applyExpDelta(s.level ?? 1, s.exp ?? 0, -(quest.rewards?.exp || 0));
+            return {
+              ...s,
+              gold:     Math.max(0, (s.gold     || 0) - (quest.rewards?.gold    || 0)),
+              diamonds: Math.max(0, (s.diamonds || 0) - (quest.rewards?.diamond || 0)),
+              level:    rollbackProgress.level,
+              exp:      rollbackProgress.exp,
+              maxExp:   rollbackProgress.maxExp,
+            };
           }));
         }
         setCompletions(prev => { const n = { ...prev }; delete n[studentId]; return n; });

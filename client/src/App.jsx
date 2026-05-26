@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from './firebase';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { useIsAdmin } from './hooks/useIsAdmin';
+import { normalizeLevelProgress } from './utils/leveling';
 
 import LoginPage        from './pages/LoginPage.jsx';
 import ClassSelectPage  from './pages/teacher/ClassSelectPage.jsx';
@@ -237,6 +238,49 @@ function App() {
 
   // ── 현재 studentCode (실제 or 테스트) ────────────────────────
   const activeStudentCode = testStudentCode || studentInfo?.studentCode || null;
+
+  // 학생 로그인 후 공통 레벨/경험치 정규화(화면 진입 경로와 무관하게 1회 보정)
+  useEffect(() => {
+    if (appMode !== 'student' || !activeStudentCode) return;
+
+    const normalizeStudentProgress = async () => {
+      try {
+        const snap = await getDocs(
+          query(collection(db, 'students'), where('studentCode', '==', activeStudentCode))
+        );
+        if (snap.empty) return;
+
+        const sDoc = snap.docs[0];
+        const data = sDoc.data();
+        const currentLevel = data.level ?? 1;
+        const currentExp = data.exp ?? 0;
+        const { level, exp, maxExp, changed } = normalizeLevelProgress(currentLevel, currentExp);
+
+        const maxExpMismatch = (data.maxExp ?? 0) !== maxExp;
+        if (changed || maxExpMismatch) {
+          await updateDoc(doc(db, 'students', sDoc.id), { level, exp, maxExp });
+        }
+
+        if ((studentInfo?.id && studentInfo.id === sDoc.id) || (studentInfo?.studentCode === activeStudentCode)) {
+          setStudentInfo((prev) => {
+            if (!prev) return prev;
+            return { ...prev, level, exp, maxExp };
+          });
+          sessionStorage.setItem('studentInfo', JSON.stringify({
+            ...(studentInfo || {}),
+            id: sDoc.id,
+            level,
+            exp,
+            maxExp,
+          }));
+        }
+      } catch (error) {
+        console.error('학생 레벨/경험치 정규화 실패:', error);
+      }
+    };
+
+    normalizeStudentProgress();
+  }, [appMode, activeStudentCode]);
 
   // ── 렌더링 ───────────────────────────────────────────────────
 

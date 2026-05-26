@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc,
+  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, setDoc,
   serverTimestamp, query, where, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import iconQuest from '../../assets/images/icon-quest.png';
 import QuestDetail from './QuestDetail';
+import { applyExpDelta } from '../../utils/leveling';
 
 const SKILL_OPTIONS = ['인성', '의사소통', '성실성', '창의성', '협동심', '자기관리'];
 
@@ -90,7 +91,38 @@ const DEFAULT_FORM = {
   title: '', description: '', type: 'daily', selfCheck: false,
   repeatDaily: true, repeatWeekly: true,
   difficulty: 'easy', rewards: { exp: 100, gold: 100, diamond: 0 }, skills: [], active: true,
+  shareToCommunity: false, importedFromShared: false, sharedSourceId: null,
 };
+
+const buildQuestPayload = (form) => ({
+  title: String(form.title || '').trim(),
+  description: form.description || '',
+  type: form.type === 'weekly' ? 'weekly' : 'daily',
+  selfCheck: !!form.selfCheck,
+  repeatDaily: form.type === 'daily' ? !!form.repeatDaily : false,
+  repeatWeekly: form.type === 'weekly' ? !!form.repeatWeekly : false,
+  difficulty: form.difficulty || 'easy',
+  rewards: {
+    exp: Number(form?.rewards?.exp) || 0,
+    gold: Number(form?.rewards?.gold) || 0,
+    diamond: Number(form?.rewards?.diamond) || 0,
+  },
+  skills: Array.isArray(form.skills) ? form.skills : [],
+  active: form.active !== false,
+  importedFromShared: !!form.importedFromShared,
+  sharedSourceId: form.sharedSourceId || null,
+  shareToCommunity: form.importedFromShared ? false : !!form.shareToCommunity,
+});
+
+const buildSharedQuestPayload = (questPayload, options = {}) => ({
+  ...questPayload,
+  sourceQuestId: options.sourceQuestId || null,
+  sourceTeacherUid: options.sourceTeacherUid || null,
+  sourceClassId: options.sourceClassId || null,
+  sourceLabel: options.sourceLabel || '',
+  sharedAt: options.sharedAt || serverTimestamp(),
+  updatedAt: serverTimestamp(),
+});
 
 // ─────────────────────── ActiveQuestCard ─────────────────────
 function ActiveQuestCard({ quest, studentCount, onDetail, onEdit, onDuplicate, onEnd, onBulkApprove }) {
@@ -638,10 +670,13 @@ function QuestManage({ selectedClass }) {
 
         const batch = writeBatch(db);
         targets.forEach(student => {
+          const nextProgress = applyExpDelta(student.level ?? 1, student.exp ?? 0, quest.rewards?.exp || 0);
           batch.update(doc(db, 'students', student.id), {
             gold:     (student.gold     || 0) + (quest.rewards?.gold    || 0),
             diamonds: (student.diamonds || 0) + (quest.rewards?.diamond || 0),
-            exp:      (student.exp      || 0) + (quest.rewards?.exp     || 0),
+            level:    nextProgress.level,
+            exp:      nextProgress.exp,
+            maxExp:   nextProgress.maxExp,
           });
           batch.set(doc(db, 'quests', quest.id, 'completions', student.id), {
             checked:    true,
