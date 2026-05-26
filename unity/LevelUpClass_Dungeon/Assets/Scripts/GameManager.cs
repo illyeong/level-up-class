@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System;
 
 /// <summary>
 /// 씬 전환 후에도 파괴되지 않는 싱글톤 데이터 관리자.
@@ -17,6 +18,7 @@ public class GameManager : MonoBehaviour
             return;
         }
         Instance = this;
+        TryApplyDungeonIndexFromUrl();
         DontDestroyOnLoad(gameObject);
     }
 
@@ -79,6 +81,60 @@ public class GameManager : MonoBehaviour
         sessionKillCount     = 0;
         sessionEarnedGold    = 0;
         sessionEarnedDiamond = 0;
+    }
+
+    // WebGL iframe URL의 ?dungeonIndex= 값을 직접 읽어 초기 던전 인덱스를 고정한다.
+    // (React -> Unity 메시지 타이밍 이슈가 있어도 동작하도록 하는 안전장치)
+    void TryApplyDungeonIndexFromUrl()
+    {
+        try
+        {
+            int idx = ExtractDungeonIndexFromUrl(Application.absoluteURL);
+            if (idx > 0)
+            {
+                dungeonIndex = idx;
+                hasReactDungeonIndex = true;
+                Debug.Log($"[GameManager] dungeonIndex from URL = {dungeonIndex}");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[GameManager] Failed to parse dungeonIndex from URL: {e.Message}");
+        }
+    }
+
+    static int ExtractDungeonIndexFromUrl(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return 0;
+        int qPos = url.IndexOf('?');
+        if (qPos < 0 || qPos >= url.Length - 1) return 0;
+
+        string query = url.Substring(qPos + 1);
+        string[] pairs = query.Split('&');
+        foreach (var pair in pairs)
+        {
+            if (string.IsNullOrEmpty(pair)) continue;
+            int eq = pair.IndexOf('=');
+            if (eq <= 0 || eq >= pair.Length - 1) continue;
+
+            string key = pair.Substring(0, eq);
+            if (!string.Equals(key, "dungeonIndex", StringComparison.OrdinalIgnoreCase)) continue;
+
+            string raw = Uri.UnescapeDataString(pair.Substring(eq + 1));
+            if (int.TryParse(raw, out int idx) && idx > 0) return idx;
+        }
+        return 0;
+    }
+
+    // JS에서 SendMessage("GameManager", "SetDungeonIndexFromJS", "2")로 직접 호출 가능
+    public void SetDungeonIndexFromJS(string value)
+    {
+        if (int.TryParse(value, out int idx) && idx > 0)
+        {
+            dungeonIndex = idx;
+            hasReactDungeonIndex = true;
+            Debug.Log($"[GameManager] dungeonIndex from JS = {dungeonIndex}");
+        }
     }
 
     // ─────────────────────────────────────────────────────────────

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dungeon Wrapper</title>
+    <style>
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #020617; overflow: hidden; }
+      #unity-container { width: 100%; height: 100%; position: relative; }
+      #unity-canvas { width: 100%; height: 100%; background: #020617; }
+      #unity-loading-bar {
+        position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        width: min(380px, 80vw); z-index: 20;
+      }
+      #unity-progress-bar-empty { width: 100%; height: 8px; background: rgba(148,163,184,0.25); border-radius: 999px; overflow: hidden; }
+      #unity-progress-bar-full { width: 0%; height: 100%; background: linear-gradient(90deg,#38bdf8,#6366f1); transition: width .2s; }
+      #unity-warning { position: absolute; left: 12px; right: 12px; top: 12px; z-index: 30; font: 12px/1.4 sans-serif; color: #fff; }
+      #unity-footer { position: absolute; right: 10px; bottom: 10px; z-index: 25; display: flex; gap: 8px; }
+      #unity-fullscreen-button {
+        width: 36px; height: 36px; border-radius: 10px; background: rgba(15,23,42,.65);
+        border: 1px solid rgba(148,163,184,.35); cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas" tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-progress-bar-empty"><div id="unity-progress-bar-full"></div></div>
+      </div>
+      <div id="unity-warning"></div>
+      <div id="unity-footer"><div id="unity-fullscreen-button" title="fullscreen"></div></div>
+    </div>
+
+    <script>
+      const canvas = document.querySelector("#unity-canvas");
+      const buildUrl = "/Dungeon_Main/Build";
+      const loaderUrl = buildUrl + "/Dungeon_Main.loader.js";
+
+      function unityShowBanner(msg, type) {
+        const warningBanner = document.querySelector("#unity-warning");
+        const div = document.createElement("div");
+        div.textContent = msg;
+        div.style.padding = "8px 10px";
+        div.style.borderRadius = "10px";
+        div.style.marginBottom = "8px";
+        div.style.background = type === "error" ? "rgba(239,68,68,.85)" : "rgba(245,158,11,.85)";
+        warningBanner.appendChild(div);
+        if (type !== "error") setTimeout(() => div.remove(), 5000);
+      }
+
+      const config = {
+        arguments: [],
+        dataUrl: buildUrl + "/Dungeon_Main.data",
+        frameworkUrl: buildUrl + "/Dungeon_Main.framework.js",
+        codeUrl: buildUrl + "/Dungeon_Main.wasm",
+        streamingAssetsUrl: "/Dungeon_Main/StreamingAssets",
+        companyName: "DefaultCompany",
+        productName: "LevelUpClass_Dungeon",
+        productVersion: "1.0",
+        showBanner: unityShowBanner,
+      };
+
+      const script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          document.querySelector("#unity-progress-bar-full").style.width = (100 * progress) + "%";
+        }).then((unityInstance) => {
+          document.querySelector("#unity-loading-bar").style.display = "none";
+          document.querySelector("#unity-fullscreen-button").onclick = () => unityInstance.SetFullscreen(1);
+
+          // 던전 인덱스를 URL에서 읽어 Unity에 직접 주입
+          try {
+            const params = new URLSearchParams(window.location.search);
+            const dungeonIndex = Number(params.get("dungeonIndex"));
+            if (Number.isFinite(dungeonIndex) && dungeonIndex > 0) {
+              const idx = String(Math.floor(dungeonIndex));
+              try { unityInstance.SendMessage("GameManager", "SetDungeonIndexFromJS", idx); } catch (e) {}
+              try {
+                const payload = JSON.stringify({ type: "REACT_LOAD_AVATAR", stats: { dungeonIndex: Number(idx) } });
+                unityInstance.SendMessage("DungeonCharacterLoader", "OnReceiveMessage", payload);
+              } catch (e) {}
+              console.log("[dungeon-wrapper] injected dungeonIndex =", idx);
+            } else {
+              console.log("[dungeon-wrapper] no dungeonIndex query param");
+            }
+          } catch (e) {
+            console.warn("[dungeon-wrapper] dungeonIndex parse failed:", e);
+          }
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>
+

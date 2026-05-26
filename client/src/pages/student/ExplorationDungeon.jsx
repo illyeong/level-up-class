@@ -3,7 +3,7 @@ import { collection, query, where, getDocs, doc, updateDoc, getDoc, setDoc } fro
 import { db } from '../../firebase';
 import { STAT_LABEL } from '../../constants/equipment';
 
-const DUNGEON_URL = '/Dungeon_Main/index.html';
+const DUNGEON_URL = '/dungeon-wrapper.html';
 
 // ── 던전 데이터 ───────────────────────────────────────────────
 const DUNGEONS = [
@@ -475,6 +475,12 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
         ? selectedOrder
         : (Number.isFinite(selectedNumeric) ? Math.max(1, selectedNumeric) : 1);
       setDungeonLaunchIndex(launchIndex);
+      console.log('[ExplorationDungeon] enter', {
+        selectedDungeonId: selectedDungeon.id,
+        selectedOrder,
+        selectedNumeric,
+        launchIndex,
+      });
       if (!isTeacher) await onUseTicket('dungeon');
       setPhase('playing');
       setSelectedDungeon(null);
@@ -486,6 +492,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
   // ── Unity 플레이 화면 ──────────────────────────────────────
   if (phase === 'playing') {
     const unityUrl = `${DUNGEON_URL}?dungeonIndex=${encodeURIComponent(dungeonLaunchIndex)}&t=${Date.now()}`;
+    console.log('[ExplorationDungeon] unityUrl', unityUrl);
     return (
       <div className="relative w-full" style={{ height: 'calc(100vh - 88px)' }}>
         <iframe ref={iframeRef} id="dungeon-iframe" src={unityUrl}
