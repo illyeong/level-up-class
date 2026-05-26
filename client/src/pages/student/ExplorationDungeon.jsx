@@ -79,15 +79,15 @@ const getDungeonStatsFromStudent = (studentData, equipmentItems = []) => {
   const equipped = studentData?.equipped || {};
   const inventory = studentData?.equipInventory || [];
 
-  const getInvItem = (invId) => inventory.find((inv) => inv.id === invId);
-  const getItem = (itemId) => equipmentItems.find((item) => item.id === itemId);
+  const getInvItem = (invId) => inventory.find((inv) => String(inv.id) === String(invId));
+  const getItem = (itemId) => equipmentItems.find((item) => String(item.id) === String(itemId));
 
   const equipBonus = Object.keys(STAT_LABEL).reduce((acc, key) => {
     acc[key] = Object.values(equipped).reduce((sum, invId) => {
       const inv = getInvItem(invId);
       const item = inv ? getItem(inv.itemId) : null;
       if (!item?.stats?.[key]) return sum;
-      return sum + (item.stats[key] || 0) + (inv.stars || 0) * 5;
+      return sum + (Number(item.stats[key]) || 0) + (Number(inv.stars) || 0) * 5;
     }, 0);
     return acc;
   }, {});
@@ -381,8 +381,9 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
         const { gold = 0, exp = 0, diamond = 0 } = e.data;
         // Firebase 저장 완료 후 EXIT 처리하도록 pendingExit 플래그 설정
         const clearedDungeonId = selectedDungeonRef.current?.id;
+        const isCleared = e.data?.cleared === true || (e.data?.cleared == null && Number(exp) > 0);
         applyReward({ gold, exp, diamond }).then(() => {
-          if (clearedDungeonId !== null && clearedDungeonId !== undefined) {
+          if (isCleared && clearedDungeonId !== null && clearedDungeonId !== undefined) {
             markCompleted(clearedDungeonId);
           }
         });
@@ -396,6 +397,25 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
   }, [phase]);
+
+  // 플레이 중 학생/장비 데이터가 늦게 로드되면 Unity로 다시 전송
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const cd = characterDataRef.current;
+    if (!cd?.stats) return;
+    sendCharacterData();
+    const t = setTimeout(sendCharacterData, 400);
+    return () => clearTimeout(t);
+  }, [
+    phase,
+    student?.id,
+    student?.level,
+    student?.exp,
+    student?.gold,
+    student?.diamonds,
+    equipmentItems.length,
+    dungeonLaunchIndex,
+  ]);
 
   const sendCharacterData = () => {
     const win = iframeRef.current?.contentWindow;

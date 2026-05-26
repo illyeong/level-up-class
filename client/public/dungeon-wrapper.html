@@ -78,10 +78,6 @@
             if (Number.isFinite(dungeonIndex) && dungeonIndex > 0) {
               const idx = String(Math.floor(dungeonIndex));
               try { unityInstance.SendMessage("GameManager", "SetDungeonIndexFromJS", idx); } catch (e) {}
-              try {
-                const payload = JSON.stringify({ type: "REACT_LOAD_AVATAR", stats: { dungeonIndex: Number(idx) } });
-                unityInstance.SendMessage("DungeonCharacterLoader", "OnReceiveMessage", payload);
-              } catch (e) {}
               console.log("[dungeon-wrapper] injected dungeonIndex =", idx);
             } else {
               console.log("[dungeon-wrapper] no dungeonIndex query param");
@@ -97,4 +93,3 @@
     </script>
   </body>
 </html>
-

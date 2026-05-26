@@ -348,6 +348,171 @@ function RewardLogWidget({ studentId }) {
   );
 }
 
+function RewardLogModalWidget({ studentId }) {
+  const [logs, setLogs] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!studentId) { setLogs([]); setIsLoading(false); return; }
+    let mounted = true;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const [quizSnap, arenaSnap, txSnap, bossSnap] = await Promise.all([
+          getDocs(query(collection(db, 'quizResults'), where('studentId', '==', studentId))),
+          getDocs(query(collection(db, 'arenaLogs'), where('studentId', '==', studentId))),
+          getDocs(query(collection(db, 'transactions'), where('targetIds', 'array-contains', studentId))),
+          getDocs(query(collection(db, 'worldBossRaids'), where('status', '==', 'cleared'))),
+        ]);
+
+        const merged = [];
+
+        quizSnap.docs.forEach((d) => {
+          const r = d.data();
+          const gold = r.goldEarned || 0;
+          const exp = r.expEarned || 0;
+          const diamond = r.diamondEarned || 0;
+          if (gold + exp + diamond <= 0) return;
+          merged.push({
+            id: `quiz-${d.id}`,
+            source: '퀴즈던전',
+            title: r.dungeonTitle || '퀴즈던전',
+            gold, exp, diamond,
+            at: r.completedAt || r.createdAt || null,
+          });
+        });
+
+        arenaSnap.docs.forEach((d) => {
+          const r = d.data();
+          const reward = r.reward || {};
+          const gold = reward.gold || 0;
+          const exp = reward.exp || 0;
+          const diamond = reward.diamond || 0;
+          if (gold + exp + diamond <= 0) return;
+          merged.push({
+            id: `arena-${d.id}`,
+            source: '투기장',
+            title: r.isWin ? '투기장 승리 보상' : '투기장 참여 보상',
+            gold, exp, diamond,
+            at: r.createdAt || null,
+          });
+        });
+
+        txSnap.docs.forEach((d) => {
+          const r = d.data();
+          const gold = Math.max(0, r.goldAmount || 0);
+          const diamond = Math.max(0, r.diaAmount || 0);
+          if (gold + diamond <= 0) return;
+          merged.push({
+            id: `tx-${d.id}`,
+            source: '교사 지급',
+            title: r.reason || '선생님 보상 지급',
+            gold, exp: 0, diamond,
+            at: r.timestamp || null,
+          });
+        });
+
+        bossSnap.docs.forEach((d) => {
+          const r = d.data();
+          if (!r.rewardsPaid) return;
+          if (!r.participants?.[studentId]) return;
+          const gold = r.rewards?.gold || 0;
+          const exp = r.rewards?.exp || 0;
+          const diamond = r.rewards?.diamond || 0;
+          if (gold + exp + diamond <= 0) return;
+          merged.push({
+            id: `boss-${d.id}`,
+            source: '보스레이드',
+            title: r.bossName ? `${r.bossName} 클리어` : '보스레이드 클리어',
+            gold, exp, diamond,
+            at: r.rewardsPaidAt || r.clearedAt || r.createdAt || null,
+          });
+        });
+
+        merged.sort((a, b) => toMillis(b.at) - toMillis(a.at));
+        if (mounted) setLogs(merged.slice(0, 20));
+      } catch (e) {
+        console.error('보상 로그 로드 에러:', e);
+        if (mounted) setLogs([]);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [studentId]);
+
+  return (
+    <>
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-extrabold text-slate-800">🎁 받은 보상 로그</h3>
+            <p className="text-xs text-slate-400 font-medium mt-1">
+              {isLoading ? '불러오는 중...' : `총 ${logs.length}건`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-extrabold transition-colors"
+          >
+            로그 보기
+          </button>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[220] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-800">🎁 받은 보상 로그</h3>
+                <p className="text-xs text-slate-400 mt-0.5">{isLoading ? '불러오는 중...' : `${logs.length}건`}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+
+            <div className="p-5 max-h-[65vh] overflow-y-auto">
+              {isLoading ? (
+                <div className="flex items-center gap-2.5 py-3">
+                  <div className="w-4 h-4 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin shrink-0" />
+                  <span className="text-sm text-slate-400">불러오는 중...</span>
+                </div>
+              ) : logs.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-sm font-bold">아직 받은 보상 로그가 없습니다.</div>
+              ) : (
+                <div className="space-y-2 pr-1">
+                  {logs.map((log) => (
+                    <div key={log.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-500">{log.source}</span>
+                        <span className="text-[10px] text-slate-400">{fmtLogDate(log.at)}</span>
+                      </div>
+                      <div className="text-sm font-bold text-slate-800 truncate mt-0.5">{log.title}</div>
+                      <div className="flex items-center gap-2 mt-1.5 text-[11px] font-extrabold">
+                        {log.gold > 0 && <span className="text-amber-600">🪙 +{log.gold.toLocaleString()}</span>}
+                        {log.exp > 0 && <span className="text-indigo-600">⭐ +{log.exp.toLocaleString()}</span>}
+                        {log.diamond > 0 && <span className="text-cyan-600">💎 +{log.diamond.toLocaleString()}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => {
   const [studentData, setStudentData]       = useState(null);
   const [isLoading, setIsLoading]           = useState(false);
@@ -594,7 +759,7 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
 
           {/* 오늘의 퀘스트 */}
           <TodayQuestWidget studentId={studentData?.id} teacherUid={studentData?.teacherUid} onYesterdayLog={handleYesterdayLog} />
-          <RewardLogWidget studentId={studentData?.id} />
+          <RewardLogModalWidget studentId={studentData?.id} />
         </div>
       </div>
 

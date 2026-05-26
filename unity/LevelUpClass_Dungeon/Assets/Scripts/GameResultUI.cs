@@ -305,7 +305,7 @@ public class GameResultUI : MonoBehaviour
 #if UNITY_WEBGL && !UNITY_EDITOR
         int monDia    = GameManager.Instance?.sessionEarnedDiamond ?? 0;
         int totalDia  = r.diamond + monDia;
-        string json   = $"{{\"type\":\"DUNGEON_RESULT\",\"gold\":0,\"exp\":{r.exp},\"diamond\":{totalDia}}}";
+        string json   = $"{{\"type\":\"DUNGEON_RESULT\",\"cleared\":true,\"gold\":0,\"exp\":{r.exp},\"diamond\":{totalDia}}}";
         SendDungeonResultToReact(json);
         SendDungeonResultToReact("{\"type\":\"DUNGEON_EXIT\"}");
 #else
@@ -337,7 +337,7 @@ public class GameResultUI : MonoBehaviour
         if (earnedDiamond > 0)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            string json = $"{{\"type\":\"DUNGEON_RESULT\",\"gold\":0,\"exp\":0,\"diamond\":{earnedDiamond}}}";
+            string json = $"{{\"type\":\"DUNGEON_RESULT\",\"cleared\":false,\"gold\":0,\"exp\":0,\"diamond\":{earnedDiamond}}}";
             SendDungeonResultToReact(json);
 #endif
         }
