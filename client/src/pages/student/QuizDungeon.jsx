@@ -291,12 +291,8 @@ function DungeonLobby({ dungeons, bestScores, onPreview, isLoading }) {
                   )}
                 </div>
                 <button
-                  onClick={() => !best?.cleared && onPreview(d)}
-                  disabled={best?.cleared}
-                  className={`shrink-0 px-5 py-2 rounded-2xl font-extrabold text-sm transition-all
-                    ${best?.cleared
-                      ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                      : `bg-gradient-to-r ${theme.btn} text-white shadow-lg active:scale-95`}`}>
+                  onClick={() => onPreview(d)}
+                  className={`shrink-0 px-5 py-2 rounded-2xl font-extrabold text-sm transition-all bg-gradient-to-r ${theme.btn} text-white shadow-lg active:scale-95`}>
                   {best?.cleared ? '✓ 클리어' : '⚔️ 입장'}
                 </button>
               </div>
@@ -1275,7 +1271,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
       {previewDungeon && (
         <BossIntroModal
           dungeon={previewDungeon}
-          onConfirm={() => enterDungeon(previewDungeon)}
+          onConfirm={() => enterDungeon(previewDungeon, !!bestScores[previewDungeon.id]?.cleared)}
           onCancel={() => setPreviewDungeon(null)}
         />
       )}
