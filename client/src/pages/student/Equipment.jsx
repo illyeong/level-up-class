@@ -43,7 +43,7 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
         )}
 
         {/* 이름 - 상단 */}
-        <div className="font-extrabold text-slate-800 text-xs leading-tight text-center w-full px-1 line-clamp-2">
+        <div className="font-extrabold text-slate-800 text-xs leading-tight text-center w-full px-1 line-clamp-2 bg-white/70 rounded-md py-0.5">
           {item.name}
         </div>
 
@@ -686,30 +686,33 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
       <div className="bg-gradient-to-b from-slate-800 to-slate-900 px-5 py-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-extrabold text-white tracking-wide">⚔️ 장비</h1>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2 rounded-2xl border border-cyan-400/50 bg-gradient-to-r from-cyan-950/70 via-sky-900/60 to-blue-950/70 px-2.5 py-2 shadow-[0_0_24px_rgba(34,211,238,0.18)]">
+            <span className="rounded-md border border-cyan-300/40 bg-cyan-400/10 px-2 py-1 text-[10px] font-black tracking-wider text-cyan-200">
+              STONE SHOP
+            </span>
             {/* 보유 강화석 */}
-            <div className="flex items-center gap-1.5 bg-sky-900/50 border border-sky-700/50 text-sky-300 px-3 py-1.5 rounded-xl text-sm font-extrabold">
+            <div className="flex items-center gap-1.5 rounded-lg border border-sky-600/50 bg-sky-900/55 px-3 py-2 text-sm font-extrabold text-sky-200">
               🔮 {stones}
             </div>
-            <div className="flex items-center gap-1.5 bg-cyan-900/50 border border-cyan-700/50 text-cyan-300 px-3 py-1.5 rounded-xl text-sm font-extrabold">
+            <div className="flex items-center gap-1.5 rounded-lg border border-cyan-600/50 bg-cyan-900/55 px-3 py-2 text-sm font-extrabold text-cyan-200">
               💎 {diamonds.toLocaleString()}
             </div>
             {/* 인라인 수량 조절 */}
-            <div className="flex items-center bg-slate-800 border border-slate-600 rounded-xl overflow-hidden">
+            <div className="flex items-center overflow-hidden rounded-lg border border-slate-500 bg-slate-900/90">
               <button onClick={() => setBuyQty(q => Math.max(1, q - 1))}
-                className="px-2.5 py-1.5 text-slate-400 hover:text-white font-bold text-sm active:scale-95 transition-colors">−</button>
-              <span className="text-white font-extrabold text-sm w-6 text-center">{buyQty}</span>
+                className="px-3 py-2 text-base font-black text-slate-300 transition-colors hover:bg-slate-800 hover:text-white active:scale-95">−</button>
+              <span className="w-8 text-center text-base font-extrabold text-white">{buyQty}</span>
               <button onClick={() => setBuyQty(q => q + 1)}
-                className="px-2.5 py-1.5 text-slate-400 hover:text-white font-bold text-sm active:scale-95 transition-colors">+</button>
+                className="px-3 py-2 text-base font-black text-slate-300 transition-colors hover:bg-slate-800 hover:text-white active:scale-95">+</button>
             </div>
             {/* 즉시 구매 버튼 */}
             <button onClick={() => diamonds >= buyQty * 100 && setConfirmBuy(true)}
               disabled={diamonds < buyQty * 100}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 whitespace-nowrap
+              className={`rounded-lg px-4 py-2 text-sm font-extrabold whitespace-nowrap transition-all active:scale-95
                 ${diamonds >= buyQty * 100
-                  ? 'bg-cyan-600 hover:bg-cyan-500 text-white border border-cyan-500/50'
-                  : 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-600'}`}>
-              💎 {(buyQty * 100).toLocaleString()}
+                  ? 'border border-cyan-200/70 bg-cyan-400 text-slate-950 shadow-[0_0_16px_rgba(34,211,238,0.35)] hover:bg-cyan-300'
+                  : 'cursor-not-allowed border border-slate-600 bg-slate-700 text-slate-400'}`}>
+              구매 · 💎 {(buyQty * 100).toLocaleString()}
             </button>
           </div>
         </div>
@@ -757,7 +760,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                         {item ? (
                           <>
                             {/* 장비명 - 상단 */}
-                            <div className={`text-xs font-extrabold leading-tight text-center w-full line-clamp-2 mb-1 ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>
+                            <div className="text-xs font-extrabold leading-tight text-center w-full line-clamp-2 mb-1 bg-white/75 text-slate-900 rounded-md py-0.5">
                               {item.name}
                             </div>
                             {/* 이미지(좌) + 등급 + 강화등급(우) */}

@@ -492,6 +492,10 @@ function SettingsTab() {
     maintenanceMode: false,
     teacherAccessCode: '0526',
   });
+  const [uiPrefs, setUiPrefs] = useState({
+    hideStudentNav: false,
+    hideTeacherNav: false,
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
 
@@ -500,6 +504,8 @@ function SettingsTab() {
       try {
         const snap = await getDoc(doc(db, 'systemConfig', 'global'));
         if (snap.exists()) setConfig(prev => ({ ...prev, ...snap.data() }));
+        const uiSnap = await getDoc(doc(db, 'systemConfig', 'uiPreferences'));
+        if (uiSnap.exists()) setUiPrefs(prev => ({ ...prev, ...uiSnap.data() }));
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
@@ -513,6 +519,7 @@ function SettingsTab() {
     setSaving(true);
     try {
       await setDoc(doc(db, 'systemConfig', 'global'), config);
+      await setDoc(doc(db, 'systemConfig', 'uiPreferences'), uiPrefs, { merge: true });
       alert('✅ 설정이 저장되었습니다.');
     } catch (e) { alert('저장 실패'); }
     finally { setSaving(false); }
@@ -560,6 +567,31 @@ function SettingsTab() {
             <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all
               ${config.maintenanceMode ? 'left-7' : 'left-1'}`} />
           </button>
+        </div>
+        <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
+          <div className="font-bold text-slate-700 text-sm mb-3">메뉴 숨기기</div>
+          <div className="space-y-3">
+            <label className="flex items-center justify-between text-sm">
+              <span className="font-semibold text-slate-700">학생 네비게이션 숨김</span>
+              <button
+                type="button"
+                onClick={() => setUiPrefs(p => ({ ...p, hideStudentNav: !p.hideStudentNav }))}
+                className={`w-12 h-6 rounded-full transition-colors relative ${uiPrefs.hideStudentNav ? 'bg-indigo-500' : 'bg-slate-300'}`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${uiPrefs.hideStudentNav ? 'left-7' : 'left-1'}`} />
+              </button>
+            </label>
+            <label className="flex items-center justify-between text-sm">
+              <span className="font-semibold text-slate-700">교사 네비게이션 숨김</span>
+              <button
+                type="button"
+                onClick={() => setUiPrefs(p => ({ ...p, hideTeacherNav: !p.hideTeacherNav }))}
+                className={`w-12 h-6 rounded-full transition-colors relative ${uiPrefs.hideTeacherNav ? 'bg-indigo-500' : 'bg-slate-300'}`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${uiPrefs.hideTeacherNav ? 'left-7' : 'left-1'}`} />
+              </button>
+            </label>
+          </div>
         </div>
       </div>
 

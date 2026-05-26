@@ -13,23 +13,23 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
-const QUICK_SETUP_VERSION = 2;
+export const QUICK_SETUP_VERSION = 4;
 const DUNGEON_TICKET_BASE = 3;
-const DEFAULT_BOSS_ID = 'demon02';
-const DEFAULT_BOSS_NAME = '강화 악마';
-const DEFAULT_BOSS_BG = '/images/boss-bg/boss-bg-Demon.png';
+const DEFAULT_BOSS_ID = 'redDragon';
+const DEFAULT_BOSS_NAME = '붉은 드래곤';
+const DEFAULT_BOSS_BG = '/images/boss-bg/boss-bg-RedDragon.png';
 const DEFAULT_BOSS_DAMAGE_PER_HIT = 100;
 
 const DEFAULT_SHOP_ITEMS = [
   {
     name: '자리바꾸기 쿠폰',
     price: 3000,
-    description: '수업 중 자리 바꾸기를 요청할 수 있습니다.',
+    description: '원하는 자리로 바꿀 수 있습니다.',
     icon: '🪑',
   },
   {
     name: '급식 1등권',
-    price: 2500,
+    price: 1500,
     description: '점심시간 급식 줄에서 1회 우선권을 사용할 수 있습니다.',
     icon: '🥇',
   },
@@ -41,8 +41,8 @@ const DEFAULT_SHOP_ITEMS = [
   },
   {
     name: '선생님 칭찬권',
-    price: 1000,
-    description: '칭찬 스티커 또는 칭찬 메시지를 받을 수 있습니다.',
+    price: 300,
+    description: '선생님께 칭찬 1회를 받아요',
     icon: '👏',
   },
   {
@@ -273,21 +273,44 @@ const normalizeTemplateQuest = (quest) => ({
   repeatDaily: quest?.type === 'daily' ? quest?.repeatDaily !== false : false,
   repeatWeekly: quest?.type === 'weekly' ? quest?.repeatWeekly !== false : false,
   rewards: {
-    exp: Number(quest?.rewards?.exp || 0),
-    gold: Number(quest?.rewards?.gold || 0),
-    diamond: Number(quest?.rewards?.diamond || 0),
+    exp: Number(quest?.rewards?.exp ?? quest?.exp ?? 0),
+    gold: Number(quest?.rewards?.gold ?? quest?.gold ?? 0),
+    diamond: Number(quest?.rewards?.diamond ?? quest?.diamond ?? 0),
   },
   description: String(quest?.description || '').trim(),
 });
 
 const loadRecommendedQuestTemplates = async () => {
-  const snap = await getDoc(doc(db, 'systemConfig', 'questTemplates'));
-  const list = snap.exists() ? snap.data()?.templates : null;
-  if (!Array.isArray(list) || list.length === 0) return DEFAULT_RECOMMENDED_QUESTS;
-  const normalized = list
-    .map(normalizeTemplateQuest)
-    .filter((q) => q.title.length > 0);
-  return normalized.length > 0 ? normalized : DEFAULT_RECOMMENDED_QUESTS;
+  const candidates = [
+    doc(db, 'systemConfig', 'questTemplates'),
+    doc(db, 'adminContent', 'questTemplates'),
+    doc(db, 'systemConfig', 'contentQuests'),
+  ];
+
+  for (const ref of candidates) {
+    try {
+      const snap = await getDoc(ref);
+      if (!snap.exists()) continue;
+      const data = snap.data() || {};
+      const list = Array.isArray(data.templates)
+        ? data.templates
+        : Array.isArray(data.quests)
+          ? data.quests
+          : Array.isArray(data.recommendedQuests)
+            ? data.recommendedQuests
+            : null;
+
+      if (!Array.isArray(list) || list.length === 0) continue;
+      const normalized = list
+        .map(normalizeTemplateQuest)
+        .filter((q) => q.title.length > 0);
+      if (normalized.length > 0) return normalized;
+    } catch (err) {
+      console.warn('[QuickSetup] quest template read failed:', ref.path, err);
+    }
+  }
+
+  return DEFAULT_RECOMMENDED_QUESTS;
 };
 
 export async function applyClassQuickSetup(selectedClass) {

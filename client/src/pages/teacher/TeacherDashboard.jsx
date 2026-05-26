@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, getDoc, writeBatch, serverTimestamp, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
 import LevelUpEffect from '../../components/LevelUpEffect';
-import { applyClassQuickSetup } from '../../utils/classQuickSetup';
+import { applyClassQuickSetup, QUICK_SETUP_VERSION } from '../../utils/classQuickSetup';
 
 import iconGold from '../../assets/images/icon-gold.png';
 import iconDiamond from '../../assets/images/icon-diamond.png';
@@ -10,7 +10,7 @@ import iconQuest from '../../assets/images/icon-quest.png';
 
 const getSeatNum = (code) => parseInt(code?.slice(-2)) || 0;
 
-function TeacherDashboard({ selectedClass }) {
+function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [questStats, setQuestStats] = useState([]);
@@ -37,6 +37,7 @@ function TeacherDashboard({ selectedClass }) {
   const [studentQuestMap, setStudentQuestMap] = useState({}); // { studentId: [{title, checked}] }
   const [quickSetupInfo, setQuickSetupInfo] = useState(null);
   const [isQuickSetupRunning, setIsQuickSetupRunning] = useState(false);
+  const [showQrGuide, setShowQrGuide] = useState(false);
 
   const fetchStudents = async () => {
     setIsLoading(true);
@@ -139,6 +140,7 @@ function TeacherDashboard({ selectedClass }) {
       const data = classSnap.data() || {};
       setQuickSetupInfo({
         completed: data.quickSetupCompleted === true,
+        version: Number(data.quickSetupVersion || 0),
         summary: data.quickSetupSummary || null,
       });
     } catch {
@@ -170,6 +172,7 @@ function TeacherDashboard({ selectedClass }) {
       showToast(error?.message || '기본 셋팅 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsQuickSetupRunning(false);
+      setShowQrGuide(true);
     }
   };
 
@@ -317,7 +320,7 @@ function TeacherDashboard({ selectedClass }) {
         </div>
       </div>
 
-      {!quickSetupInfo?.completed && (
+      {quickSetupInfo && !quickSetupInfo.completed && (
         <div className="mb-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
@@ -326,12 +329,45 @@ function TeacherDashboard({ selectedClass }) {
                 추천 퀘스트, 기본 상점, 어드벤처 입장권, 예시 퀴즈던전, 기본 보스레이드를 한 번에 생성합니다.
               </p>
             </div>
-            <button
-              onClick={handleRunQuickSetup}
-              disabled={isQuickSetupRunning}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-50">
-              {isQuickSetupRunning ? '적용 중...' : '기본 셋팅 실행'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowQrGuide(true)}
+                className="px-4 py-2.5 rounded-xl border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold text-sm">
+                안내 보기
+              </button>
+              <button
+                onClick={handleRunQuickSetup}
+                disabled={isQuickSetupRunning}
+                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-50">
+                {isQuickSetupRunning ? '적용 중...' : '기본 셋팅 실행'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showQrGuide && (
+        <div className="fixed inset-0 z-[130] bg-slate-900/55 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <h3 className="text-lg font-extrabold text-slate-800 mb-2">안내</h3>
+            <p className="text-sm text-slate-600 mb-5">학급/학생관리 페이지에서 학생별 로그인 QR코드를 출력할 수 있습니다.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowQrGuide(false);
+                  onGoAccountIssue?.();
+                }}
+                className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white"
+              >
+                출력하러 가기
+              </button>
+              <button
+                onClick={() => setShowQrGuide(false)}
+                className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700"
+              >
+                확인
+              </button>
+            </div>
           </div>
         </div>
       )}

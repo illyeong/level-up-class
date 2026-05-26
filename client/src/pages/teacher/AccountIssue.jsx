@@ -328,31 +328,6 @@ function AccountIssue({ user, selectedClass }) {
           </div>
         </div>
 
-        {/* 계정 생성 패널 */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 border-l-4 border-indigo-500 border border-indigo-100">
-          <h2 className="text-lg font-bold text-slate-800 mb-4">🚀 학생 계정 일괄 발급</h2>
-          <div className="flex items-end gap-4 flex-wrap">
-            <div>
-              <label className="block text-sm font-medium text-slate-600 mb-1">우리 반 학생 수</label>
-              <input
-                type="number" min="1" max="50"
-                value={studentCount}
-                onChange={e => setStudentCount(e.target.value)}
-                className="border border-slate-300 rounded-lg px-4 py-2 w-32 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <button
-              onClick={generateStudentAccounts}
-              disabled={isLoading}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-sm transition-colors disabled:bg-slate-400">
-              {isLoading ? '생성 중...' : '계정 및 PIN 번호 생성'}
-            </button>
-          </div>
-          <p className="text-xs text-slate-400 mt-3">
-            * 신규 생성 시 초기 정착금 1,000 다이아가 지급됩니다. 이름 칸은 생성 후 직접 입력하거나 학생이 직접 수정합니다.
-          </p>
-        </div>
-
         {/* 학생 목록 */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">

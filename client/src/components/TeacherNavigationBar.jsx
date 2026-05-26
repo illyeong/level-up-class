@@ -73,6 +73,7 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
     {
       id: 'systemSettings', icon: '⚙️', title: '시스템 설정', isReady: true,
       subMenus: [
+        { title: '테마/화면 설정', id: 'systemSettings' },
         { title: '데이터 초기화 및 삭제', id: 'dataReset' },
       ]
     },

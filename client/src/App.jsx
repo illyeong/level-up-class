@@ -48,10 +48,25 @@ function App() {
   const [teacherCodeInput, setTeacherCodeInput] = useState('');
   const [teacherCodeError, setTeacherCodeError] = useState('');
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem('studentThemeMode') || 'dark');
+  const [hideStudentNav, setHideStudentNav] = useState(false);
+  const [forceShowStudentNav, setForceShowStudentNav] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('studentThemeMode', themeMode);
   }, [themeMode]);
+
+  useEffect(() => {
+    const loadUiPrefs = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'systemConfig', 'uiPreferences'));
+        const data = snap.exists() ? (snap.data() || {}) : {};
+        setHideStudentNav(data.hideStudentNav === true);
+      } catch {
+        setHideStudentNav(false);
+      }
+    };
+    loadUiPrefs();
+  }, []);
 
   // ── Firebase Auth 상태 감지 (교사 로그인 유지) ─────────────────
   useEffect(() => {
@@ -388,10 +403,21 @@ function App() {
 
   // ── 학생 모드 ─────────────────────────────────────────────────
   const shouldUseAdventureBg = THEMEABLE_VIEWS.has(currentView) && themeMode === 'dark';
+  const showStudentNav = !hideStudentNav || forceShowStudentNav;
 
   return (
     <div className={`flex h-screen relative ${themeMode === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
-      <NavigationBar changeView={setCurrentView} currentView={currentView} classInfo={studentClassInfo} />
+      {showStudentNav && (
+        <NavigationBar changeView={setCurrentView} currentView={currentView} classInfo={studentClassInfo} />
+      )}
+      {!showStudentNav && (
+        <button
+          onClick={() => setForceShowStudentNav(true)}
+          className="fixed left-3 top-3 z-[90] rounded-lg bg-indigo-600 px-3 py-2 text-xs font-extrabold text-white shadow-lg"
+        >
+          메뉴 열기
+        </button>
+      )}
 
       <main className="flex-1 overflow-auto relative" style={shouldUseAdventureBg ? { background: ADVENTURE_BG } : undefined}>
         {currentView === 'dashboard'    && <StudentDashboard studentCode={activeStudentCode} onChangeView={setCurrentView} themeMode={themeMode} />}

@@ -353,7 +353,7 @@ function ClassCard({ cls, onSelect }) {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
-function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
+function QuickSetupModal({ state, onClose, onRun, onEnterClass, onGoAccountIssue }) {
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
@@ -400,6 +400,26 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
             </div>
           )}
         </div>
+        <div className="px-5 pb-4">
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-3 text-sm text-indigo-800">
+            학급/학생관리 페이지에서 학생별 로그인 QR코드를 출력할 수 있습니다.
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={onGoAccountIssue}
+                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white"
+              >
+                출력하러 가기
+              </button>
+              <button
+                onClick={onClose}
+                disabled={state.isRunning}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 disabled:opacity-50"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div className="px-5 pb-5 flex gap-2">
           <button
@@ -416,11 +436,18 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
               {state.isRunning ? '적용 중...' : '바로 적용'}
             </button>
           ) : (
-            <button
-              onClick={onEnterClass}
-              className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm">
-              학급 입장
-            </button>
+            <>
+              <button
+                onClick={onGoAccountIssue}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm">
+                출력하러 가기
+              </button>
+              <button
+                onClick={onEnterClass}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm">
+                확인
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -473,7 +500,7 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
       const result = await applyClassQuickSetup(quickSetup.newClass);
       setQuickSetup(prev => ({
         ...prev,
-        open: false,
+        open: true,
         isRunning: false,
         isDone: true,
         result,
@@ -570,6 +597,10 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
           onClose={() => setQuickSetup(prev => ({ ...prev, open: false }))}
           onRun={runQuickSetup}
           onEnterClass={() => {
+            if (quickSetup.newClass) onClassSelected(quickSetup.newClass);
+          }}
+          onGoAccountIssue={() => {
+            localStorage.setItem('teacherInitialView', 'accountIssue');
             if (quickSetup.newClass) onClassSelected(quickSetup.newClass);
           }}
         />
