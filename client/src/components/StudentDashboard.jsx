@@ -794,7 +794,6 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
               ))}
             </div>
             <div className="px-5 pb-5">
-              <p className="text-xs text-slate-400 text-center mb-4">보상은 선생님이 별도로 확인 후 지급합니다</p>
               <button onClick={handleCloseYesterday}
                 className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl transition-colors">
                 확인

@@ -426,7 +426,7 @@ function TeacherDashboard({ selectedClass }) {
                   onError={e => { e.target.style.display = 'none'; }}
                 />
               ) : student.parts ? (
-                <span className="text-6xl drop-shadow-sm">?┯?띯셽截?/span>
+                <span className="text-6xl drop-shadow-sm">👤</span>
               ) : (
                 <span className="text-6xl drop-shadow-sm opacity-30">?쭕</span>
               )}
@@ -448,7 +448,7 @@ function TeacherDashboard({ selectedClass }) {
                 <div className="flex justify-between items-center bg-indigo-50 px-2 py-1.5 rounded-md">
                   <div className="flex items-center gap-1">
                     <img src={iconDiamond} alt="Diamond" className="w-3 h-3" />
-                    <span className="text-[10px] text-indigo-400">?ㅼ씠??/span>
+                    <span className="text-[10px] text-indigo-400">다이아</span>
                   </div>
                   <span className="font-bold text-indigo-700">{(student.diamonds || 0).toLocaleString()}</span>
                 </div>
@@ -471,9 +471,9 @@ function TeacherDashboard({ selectedClass }) {
             <div className={`p-5 text-white font-bold text-xl flex justify-between items-center
               ${modalMode === 'add' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
               <h2 className="flex items-center gap-2">
-                {modalMode === 'add' ? '???쇨큵 吏湲? : '???쇨큵 李④컧'}
+                {modalMode === 'add' ? '일괄 지급' : '일괄 차감'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-white hover:text-white/70">??/button>
+              <button onClick={() => setIsModalOpen(false)} className="text-white hover:text-white/70">×</button>
             </div>
 
             <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
@@ -499,12 +499,12 @@ function TeacherDashboard({ selectedClass }) {
                         </div>
                         <div className="font-mono text-[10px] text-slate-400 truncate">{student.studentCode}</div>
                         <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">
-                          <img src={iconDiamond} alt="?ㅼ씠?? className="w-3 h-3" /> {student.diamonds || 0}
-                          <img src={iconGold} alt="怨⑤뱶" className="w-3 h-3 ml-1" /> {student.gold || 0}
+                          <img src={iconDiamond} alt="다이아" className="w-3 h-3" /> {student.diamonds || 0}
+                          <img src={iconGold} alt="골드" className="w-3 h-3 ml-1" /> {student.gold || 0}
                         </div>
                       </div>
                       {selectedIds.includes(student.id) && (
-                        <span className="text-indigo-500 text-base ml-1 shrink-0">??/span>
+                        <span className="text-indigo-500 text-base ml-1 shrink-0">✓</span>
                       )}
                     </div>
                   ))}
@@ -514,14 +514,14 @@ function TeacherDashboard({ selectedClass }) {
               <div className="w-full lg:w-80 p-5 bg-white flex flex-col overflow-y-auto gap-4">
                 {/* ?좏깮 ?몄썝 */}
                 <div className="p-3 bg-slate-50 rounded-xl text-center border border-slate-200">
-                  <span className="text-slate-500 text-xs font-medium">?좏깮???숈깮</span>
-                  <div className="text-3xl font-black text-indigo-600 my-0.5">{selectedIds.length} <span className="text-lg text-slate-700">紐?/span></div>
+                  <span className="text-slate-500 text-xs font-medium">선택한 학생</span>
+                  <div className="text-3xl font-black text-indigo-600 my-0.5">{selectedIds.length} <span className="text-lg text-slate-700">명</span></div>
                 </div>
 
                 {/* ?뭿 ?ㅼ씠??*/}
                 <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                   <label className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 mb-2">
-                    <img src={iconDiamond} className="w-4 h-4" alt="?ㅼ씠?? /> ?ㅼ씠??湲덉븸
+                    <img src={iconDiamond} className="w-4 h-4" alt="다이아" /> 다이아 금액
                   </label>
                   <input
                     type="number" min="0" value={diaAmount}
@@ -582,7 +582,7 @@ function TeacherDashboard({ selectedClass }) {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden">
             <div className="p-5 bg-slate-800 text-white font-bold text-xl flex justify-between items-center">
               <h2>?뱥 理쒓렐 吏湲?李④컧 ?댁뿭</h2>
-              <button onClick={() => setIsLogOpen(false)} className="text-slate-300 hover:text-white">??/button>
+              <button onClick={() => setIsLogOpen(false)} className="text-slate-300 hover:text-white">×</button>
             </div>
             <div className="p-0 overflow-x-auto max-h-[70vh]">
               <table className="w-full text-left border-collapse text-xs">
@@ -592,7 +592,7 @@ function TeacherDashboard({ selectedClass }) {
                     <th className="p-4 font-semibold">援щ텇</th>
                     <th className="p-4 font-semibold">?댁슜</th>
                     <th className="p-4 font-semibold">?ъ쑀</th>
-                    <th className="p-4 font-semibold">???/th>
+                    <th className="p-4 font-semibold">대상</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -607,23 +607,23 @@ function TeacherDashboard({ selectedClass }) {
                     // 援ы삎 ?щ㎎ fallback
                     if (parts.length === 0 && log.currency) {
                       const sign = log.amount > 0 ? '+' : '';
-                      parts.push(`${log.currency === '?ㅼ씠?? ? '?뭿' : '?첌'} ${sign}${(log.amount || 0).toLocaleString()}`);
+                      parts.push(`${log.currency === 'diamond' || log.currency === '다이아' ? '다이아' : '골드'} ${sign}${(log.amount || 0).toLocaleString()}`);
                     }
                     return (
                       <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="p-4 text-slate-500 whitespace-nowrap">
-                          {log.timestamp ? new Date(log.timestamp.toDate()).toLocaleString('ko-KR') : '諛⑷툑 ??}
+                          {log.timestamp ? new Date(log.timestamp.toDate()).toLocaleString('ko-KR') : '방금 전'}
                         </td>
                         <td className="p-4">
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isAdd ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
-                            {isAdd ? '吏湲? : '李④컧'}
+                            {isAdd ? '지급' : '차감'}
                           </span>
                         </td>
                         <td className={`p-4 font-bold ${isAdd ? 'text-emerald-600' : 'text-rose-600'}`}>
                           {parts.join('  ')}
                         </td>
                         <td className="p-4 text-slate-700">{log.reason}</td>
-                        <td className="p-4 font-medium text-slate-600">{log.targetCount}紐?/td>
+                        <td className="p-4 font-medium text-slate-600">{log.targetCount}명</td>
                       </tr>
                     );
                   })}

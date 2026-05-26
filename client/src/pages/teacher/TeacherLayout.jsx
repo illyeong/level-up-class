@@ -260,39 +260,6 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
                   <button onClick={() => setTeacherThemeMode('light')} className={`px-4 py-2 rounded-lg text-sm font-bold border ${teacherThemeMode === 'light' ? 'bg-amber-500 text-white border-amber-400' : 'border-slate-400/40'}`}>밝은 모드</button>
                 </div>
               </div>
-              <div className={`rounded-xl p-4 mb-4 ${isDark ? 'border border-slate-700 bg-slate-900/40' : 'border border-slate-200 bg-white'}`}>
-                <div className="text-sm font-bold mb-3">메뉴 숨기기</div>
-                <div className="space-y-3">
-                  <label className={`flex items-center justify-between text-sm ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                    <span>학생 네비게이션 숨김</span>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const next = !hideStudentNav;
-                        setHideStudentNav(next);
-                        await setDoc(doc(db, 'systemConfig', 'uiPreferences'), { hideStudentNav: next }, { merge: true });
-                      }}
-                      className={`w-12 h-6 rounded-full transition-colors relative ${hideStudentNav ? 'bg-indigo-500' : 'bg-slate-300'}`}
-                    >
-                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${hideStudentNav ? 'left-7' : 'left-1'}`} />
-                    </button>
-                  </label>
-                  <label className={`flex items-center justify-between text-sm ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                    <span>교사 네비게이션 숨김</span>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const next = !hideTeacherNav;
-                        setHideTeacherNav(next);
-                        await setDoc(doc(db, 'systemConfig', 'uiPreferences'), { hideTeacherNav: next }, { merge: true });
-                      }}
-                      className={`w-12 h-6 rounded-full transition-colors relative ${hideTeacherNav ? 'bg-indigo-500' : 'bg-slate-300'}`}
-                    >
-                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${hideTeacherNav ? 'left-7' : 'left-1'}`} />
-                    </button>
-                  </label>
-                </div>
-              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className={`rounded-xl p-4 ${isDark ? 'border border-slate-700 bg-slate-900/40' : 'border border-slate-200 bg-white'}`}>
                   <div className="text-sm font-bold mb-2">학생 메뉴별 활성/비활성</div>

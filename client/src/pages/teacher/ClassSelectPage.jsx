@@ -6,8 +6,8 @@ import { db } from '../../firebase';
 import { applyClassQuickSetup } from '../../utils/classQuickSetup';
 
 // ?? ?숆탳紐????쎌묶 (珥덈벑?숆탳/以묓븰援?怨좊벑?숆탳 ?쒓굅) ??????????????
-const getSchoolAbbr = (name) =>
-  name.replace(/珥덈벑?숆탳$/, '').replace(/以묓븰援?/, '').replace(/怨좊벑?숆탳$/, '').replace(/?숆탳$/, '');
+const getSchoolAbbr = (name = '') =>
+  name.replace(/초등학교$/, '').replace(/중학교$/, '').replace(/고등학교$/, '').replace(/학교$/, '');
 
 // ?? ?숈깮 肄붾뱶 ?앹꽦 ????????????????????????????????????????????
 const makeStudentCode = (schoolName, grade, classNum, studentNum) => {
@@ -389,13 +389,13 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
 
           {state.result?.summary && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
-              <div className="font-extrabold mb-1">?곸슜 ?꾨즺</div>
-              <div>?앹꽦???섏뒪?? {state.result.summary.createdQuestCount}媛?/div>
-              <div>?앹꽦???곸젏 ?꾩씠?? {state.result.summary.createdShopItemCount}媛?/div>
-              <div>??젣??湲곕낯 ?꾩씠???꾨━?⑥뒪 荑좏룿): {state.result.summary.removedLegacyShopItemCount || 0}媛?/div>
-              <div>?낆옣沅?蹂댁젙 ?숈깮 ?? {state.result.summary.updatedStudentTicketCount}紐?/div>
-              <div>?앹꽦??蹂댁뒪?덉씠???댁쫰?? {state.result.summary.createdBossQuizSet ? '?? : '?꾨땲??}</div>
-              <div>?앹꽦??湲곕낯 蹂댁뒪 ?덉씠?? {state.result.summary.createdBossRaid ? '?? : '?꾨땲??}</div>
+              <div className="font-extrabold mb-1">적용 완료</div>
+              <div>생성된 퀘스트: {state.result.summary.createdQuestCount}개</div>
+              <div>생성된 상점 아이템: {state.result.summary.createdShopItemCount}개</div>
+              <div>제거된 기본 아이템: {state.result.summary.removedLegacyShopItemCount || 0}개</div>
+              <div>입장권 보정 학생 수: {state.result.summary.updatedStudentTicketCount}명</div>
+              <div>생성된 보스레이드 퀴즈: {state.result.summary.createdBossQuizSet ? '예' : '아니오'}</div>
+              <div>생성된 기본 보스레이드: {state.result.summary.createdBossRaid ? '예' : '아니오'}</div>
             </div>
           )}
         </div>
@@ -503,7 +503,7 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
       {/* ?곷떒 諛?*/}
       <div className="flex items-center justify-between px-6 py-4">
         <div className="text-white/60 text-sm font-medium">
-          {teacherUser?.email || teacherUser?.displayName || '?좎깮??}
+          {teacherUser?.email || teacherUser?.displayName || '선생님'}
         </div>
         <div className="flex items-center gap-2">
         {isAdmin && (

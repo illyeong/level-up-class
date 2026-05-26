@@ -4,6 +4,12 @@ import {
   updateDoc, serverTimestamp, setDoc, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import {
+  loadClassEtfs,
+  seedClassEtfsFromApi,
+  openDailyMarket,
+  mergeUpdatedEtfs,
+} from '../../utils/stockMarketEngine';
 
 const getMostRecentMonday = () => {
   const now = new Date();
@@ -202,18 +208,17 @@ function StockManage({ selectedClass }) {
     setIsLoading(true);
     try {
       const [etfsSnap, studentsSnap, logSnap, classSnap] = await Promise.all([
-        getDocs(collection(db, 'etfs')),
+        loadClassEtfs(db, { scopeKey, soulEtfId }),
         getDocs(query(collection(db, 'students'), where(studentScopeField, '==', studentScopeValue))),
         getDocs(query(collection(db, 'dividendLogs'), where('scopeKey', '==', scopeKey))),
         classId ? getDoc(doc(db, 'classes', classId)) : Promise.resolve(null),
       ]);
 
-      const allEtfs = etfsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const regularEtfs = allEtfs.filter(e => !isTeacherSoulId(e.id));
-      const scopedSoul = soulEtfId ? allEtfs.find(e => e.id === soulEtfId) : null;
-      const etfList = [...regularEtfs, ...(scopedSoul ? [scopedSoul] : [])]
-        .sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0));
-      setEtfs(etfList);
+      let etfList = etfsSnap;
+      if (etfList.filter(e => !isTeacherSoulId(e.id)).length === 0) {
+        const soul = etfList.find(e => e.id === soulEtfId);
+        etfList = await seedClassEtfsFromApi(db, { scopeKey, classId, teacherUid, soulEtf: soul });
+      }
 
       const sList = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (a.studentCode || '').localeCompare(b.studentCode || ''));
@@ -222,7 +227,20 @@ function StockManage({ selectedClass }) {
       setDividendLogs(logSnap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.paidAt?.seconds || 0) - (a.paidAt?.seconds || 0)));
 
-      const market = classSnap?.exists?.() ? (classSnap.data().stockMarket || {}) : {};
+      let market = classSnap?.exists?.() ? (classSnap.data().stockMarket || {}) : {};
+      const autoOpen = await openDailyMarket(db, {
+        classId,
+        teacherUid,
+        scopeKey,
+        etfs: etfList,
+        mode: market.mode || 'balanced',
+        lastOpenDate: market.lastOpenDate || '',
+      });
+      if (autoOpen.opened) {
+        etfList = mergeUpdatedEtfs(etfList, autoOpen.updatedRows);
+        market = autoOpen.marketInfo;
+      }
+      setEtfs(etfList.sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0)));
       setMarketMode(market.mode || 'balanced');
       setMarketHeadline(market.headline || '');
       setMarketLastOpenDate(market.lastOpenDate || '');
@@ -260,16 +278,11 @@ function StockManage({ selectedClass }) {
     if (!scopeKey) return;
     setIsRefreshing(true);
     try {
-      const res  = await fetch('/api/stock-prices');
-      const data = await res.json();
-      if (data.prices?.length > 0) {
-        const batch = writeBatch(db);
-        data.prices.forEach(p => batch.set(doc(db, 'etfs', p.id), p, { merge: true }));
-        await batch.commit();
-        const soul = etfs.find(e => e.id === soulEtfId);
-        const merged = [...data.prices, ...(soul ? [soul] : [])]
-          .sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0));
-        setEtfs(merged);
+      const soul = etfs.find(e => e.id === soulEtfId);
+      const rows = await seedClassEtfsFromApi(db, { scopeKey, classId, teacherUid, soulEtf: soul });
+      const data = { prices: rows };
+      if (rows.length > 0) {
+        setEtfs(rows.sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0)));
         showToast(`${data.prices.length}개 ETF 가격 업데이트 완료! (미국 전일 종가 기준)`);
       }
     } catch (err) {
@@ -656,8 +669,8 @@ function StockManage({ selectedClass }) {
             <div className="space-y-2">
               <h2 className="text-lg font-extrabold text-slate-800">시장 운영센터</h2>
               <p className="text-sm text-slate-600 leading-relaxed">
-                실제 가격을 참고하되 학급 시장은 교사가 매일 열어 학생이 변동을 체감하도록 설계했습니다.
-                오전 8시 이후에 시장 오픈 실행을 누르면 ETF별 변동률과 오늘 시장 요약이 생성됩니다.
+                학급 시장은 매일 오전 8시 이후 첫 접속자가 들어오면 자동으로 열립니다.
+                교사가 매일 버튼을 누르지 않아도 ETF별 변동률과 오늘 시장 요약이 생성됩니다.
               </p>
               <div className="text-xs text-slate-500">
                 마지막 오픈: {marketLastOpenDate || '-'} {marketLastOpenAt ? `(${new Date(marketLastOpenAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})` : ''}
@@ -686,22 +699,14 @@ function StockManage({ selectedClass }) {
                   </button>
                 ))}
               </div>
+              <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs leading-relaxed text-slate-600">
+                <div><b>안정형</b>: 변동폭을 낮춰 손실 위험을 줄입니다.</div>
+                <div><b>균형형</b>: 상승과 하락의 균형을 맞춘 기본 모드입니다.</div>
+                <div><b>공격형</b>: 변동폭이 커서 수익과 손실이 모두 큽니다.</div>
+              </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => runDailyMarketOpen({ force: false })}
-                  disabled={isMarketOpening}
-                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm rounded-xl transition-colors disabled:opacity-50"
-                >
-                  {isMarketOpening ? '오픈 중...' : '시장 오픈 실행'}
-                </button>
-                <button
-                  onClick={() => runDailyMarketOpen({ force: true })}
-                  disabled={isMarketOpening}
-                  className="px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-extrabold text-sm rounded-xl transition-colors disabled:opacity-50"
-                >
-                  강제 재계산
-                </button>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+                매일 오전 8시 이후 첫 접속자가 자동으로 시장을 오픈합니다.
               </div>
             </div>
           </div>

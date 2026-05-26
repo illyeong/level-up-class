@@ -4,6 +4,11 @@ import {
   serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import {
+  loadClassEtfs,
+  openDailyMarket,
+  mergeUpdatedEtfs,
+} from '../../utils/stockMarketEngine';
 
 // 이번 주 월요일 날짜 문자열
 const getMostRecentMonday = () => {
@@ -394,9 +399,31 @@ function StockMarket({ studentCode }) {
     const load = async () => {
       setIsLoading(true);
       try {
+        let preloadedStudentDoc = null;
+        let preloadedStudentData = null;
+        let effectiveScope = scope;
+
+        if (studentCode) {
+          const studentQuery = query(collection(db, 'students'), where('studentCode', '==', studentCode));
+          const studentSnap = await getDocs(studentQuery);
+          if (!studentSnap.empty) {
+            preloadedStudentDoc = studentSnap.docs[0];
+            preloadedStudentData = preloadedStudentDoc.data();
+            effectiveScope = getScopeFromStudent(preloadedStudentData);
+          }
+        }
+
         // 1. Firestore에서 ETF 목록 로드
-        const etfsSnap = await getDocs(collection(db, 'etfs'));
-        let etfList = etfsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        let etfList = [];
+        if (effectiveScope.scopeKey) {
+          etfList = await loadClassEtfs(db, {
+            scopeKey: effectiveScope.scopeKey,
+            soulEtfId: `teacher_soul_${effectiveScope.scopeKey}`,
+          });
+        } else {
+          const etfsSnap = await getDocs(collection(db, 'etfs'));
+          etfList = etfsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        }
 
         // 2. 오늘 업데이트 필요한지 확인
         const today = getKstDateKey();
@@ -484,11 +511,9 @@ function StockMarket({ studentCode }) {
 
         // 5. 학생 데이터 로드
         if (studentCode) {
-          const q    = query(collection(db, 'students'), where('studentCode', '==', studentCode));
-          const snap = await getDocs(q);
-          if (!snap.empty) {
-            const sDoc = snap.docs[0];
-            const sData = sDoc.data();
+          if (preloadedStudentDoc) {
+            const sDoc = preloadedStudentDoc;
+            const sData = preloadedStudentData;
             const nextScope = getScopeFromStudent(sData);
             const nextSoulEtfId = nextScope.scopeKey ? `teacher_soul_${nextScope.scopeKey}` : null;
             setStudentDocId(sDoc.id);
@@ -497,7 +522,24 @@ function StockMarket({ studentCode }) {
 
             if (nextScope.classId) {
               const classSnap = await getDoc(doc(db, 'classes', nextScope.classId));
-              const stockMarket = classSnap.exists() ? (classSnap.data().stockMarket || {}) : {};
+              let stockMarket = classSnap.exists() ? (classSnap.data().stockMarket || {}) : {};
+              const autoOpen = await openDailyMarket(db, {
+                classId: nextScope.classId,
+                teacherUid: nextScope.teacherUid,
+                scopeKey: nextScope.scopeKey,
+                etfs: etfList,
+                mode: stockMarket.mode || 'balanced',
+                lastOpenDate: stockMarket.lastOpenDate || '',
+              });
+              if (autoOpen.opened) {
+                etfList = mergeUpdatedEtfs(etfList, autoOpen.updatedRows);
+                stockMarket = autoOpen.marketInfo;
+                setEtfs(etfList.sort((a, b) => {
+                  if (nextSoulEtfId && a.id === nextSoulEtfId) return -1;
+                  if (nextSoulEtfId && b.id === nextSoulEtfId) return 1;
+                  return (b.changePercent || 0) - (a.changePercent || 0);
+                }));
+              }
               setMarketInfo({
                 mode: stockMarket.mode || 'balanced',
                 lastOpenDate: stockMarket.lastOpenDate || '',
@@ -752,12 +794,7 @@ function StockMarket({ studentCode }) {
   const totalValue    = portfolioItems.reduce((s, i) => s + i.currentValue, 0);
   const totalPnl      = totalValue - totalInvested;
   const totalPnlPct   = totalInvested > 0 ? (totalPnl / totalInvested * 100).toFixed(2) : '0.00';
-  const marketModeLabel = marketInfo.mode === 'safe'
-    ? '안정형'
-    : marketInfo.mode === 'aggressive'
-      ? '공격형'
-      : '균형형';
-
+  const marketModeLabel = ({ safe: '안정형', aggressive: '공격형', balanced: '균형형' }[marketInfo.mode] || '균형형');
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-64 gap-3">
@@ -789,37 +826,6 @@ function StockMarket({ studentCode }) {
         )}
       </div>
 
-      <div className="px-4 pt-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-extrabold text-slate-800">이 페이지 보는 법</h2>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                ETF는 여러 회사에 분산 투자하는 상품입니다. 오늘 가격은 교사가 시장을 열 때 반영되며,
-                같은 날에는 학생마다 다른 가격이 보이지 않도록 고정됩니다.
-              </p>
-              <div className="text-xs text-slate-500 mt-2">
-                운영 모드: <span className="font-bold text-slate-700">{marketModeLabel}</span>
-                {' '}| 마지막 시장 오픈: <span className="font-bold text-slate-700">{marketInfo.lastOpenDate || '-'}</span>
-              </div>
-            </div>
-            <div className="lg:min-w-[300px] space-y-2">
-              <div className="rounded-xl bg-slate-100 border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700">
-                {marketInfo.headline || '오늘 시장 요약이 아직 생성되지 않았습니다.'}
-              </div>
-              {(marketInfo.topMoverName || '') !== '' && (
-                <div className="rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2 text-xs">
-                  <span className="font-semibold text-indigo-700">오늘의 변동 TOP:</span>{' '}
-                  <span className="font-extrabold text-indigo-800">{marketInfo.topMoverName}</span>{' '}
-                  <span className={`font-extrabold ${marketInfo.topMoverChange >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                    {marketInfo.topMoverChange >= 0 ? '+' : ''}{Number(marketInfo.topMoverChange || 0).toFixed(2)}%
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* 배당금 수령 요약 (보유 ETF 있을 때) */}
       {(dividendsReceived > 0 || totalExpectedDiv > 0) && (
