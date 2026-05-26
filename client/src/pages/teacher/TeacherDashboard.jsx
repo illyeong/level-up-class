@@ -442,7 +442,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                 <span className="text-6xl drop-shadow-sm opacity-30">?쭕</span>
               )}
               <div className="absolute top-2 left-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
-                {getSeatNum(student.studentCode)}踰?
+                {getSeatNum(student.studentCode)}번
               </div>
               <div className="absolute bottom-2 right-2 bg-amber-400 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
                 LV.{student.level || 1}
@@ -506,7 +506,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                       className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedIds.includes(student.id) ? 'border-indigo-500 bg-indigo-50 shadow-md' : 'border-slate-200 bg-white hover:border-indigo-300'}`}>
                       <div className="flex-1 min-w-0">
                         <div className="font-extrabold text-sm text-slate-800 truncate">
-                          {getSeatNum(student.studentCode)}踰?{student.name || ''}
+                          {getSeatNum(student.studentCode)}번 {student.name || ''}
                         </div>
                         <div className="font-mono text-[10px] text-slate-400 truncate">{student.studentCode}</div>
                         <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">

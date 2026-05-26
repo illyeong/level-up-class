@@ -520,11 +520,16 @@ function StockMarket({ studentCode }) {
             setStudent({ id: sDoc.id, ...sData });
             setScope(nextScope);
 
-            if (nextScope.classId) {
-              const classSnap = await getDoc(doc(db, 'classes', nextScope.classId));
-              let stockMarket = classSnap.exists() ? (classSnap.data().stockMarket || {}) : {};
+            if (nextScope.scopeKey) {
+              const [classSnap, marketSnap] = await Promise.all([
+                nextScope.classId ? getDoc(doc(db, 'classes', nextScope.classId)) : Promise.resolve(null),
+                getDoc(doc(db, 'stockMarkets', nextScope.scopeKey)),
+              ]);
+              let stockMarket = classSnap?.exists?.()
+                ? (classSnap.data().stockMarket || {})
+                : (marketSnap.exists() ? (marketSnap.data() || {}) : {});
               const autoOpen = await openDailyMarket(db, {
-                classId: nextScope.classId,
+                classId: nextScope.classId || null,
                 teacherUid: nextScope.teacherUid,
                 scopeKey: nextScope.scopeKey,
                 etfs: etfList,

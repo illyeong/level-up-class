@@ -173,15 +173,18 @@ export async function openDailyMarket(db, {
   lastOpenDate = '',
   force = false,
 }) {
-  if (!classId || !scopeKey) return { opened: false, reason: 'missing-class' };
+  if (!scopeKey) return { opened: false, reason: 'missing-scope' };
   if (!force && !isAfterMarketOpenTime()) return { opened: false, reason: 'before-8' };
 
   const today = getKstDateKey();
-  if (!force && lastOpenDate === today) return { opened: false, reason: 'already-opened' };
-
   const modeMeta = MARKET_MODE_META[mode] || MARKET_MODE_META.balanced;
   const marketTargets = (etfs || []).filter((etf) => !isTeacherSoulId(etf.id) && etf.active !== false);
   if (marketTargets.length === 0) return { opened: false, reason: 'no-etfs' };
+
+  const hasRowsNotOpenedToday = marketTargets.some((etf) => etf.marketOpenDate !== today);
+  if (!force && lastOpenDate === today && !hasRowsNotOpenedToday) {
+    return { opened: false, reason: 'already-opened' };
+  }
 
   const nowIso = new Date().toISOString();
   const updatedRows = marketTargets.map((etf, idx) => {
@@ -208,6 +211,7 @@ export async function openDailyMarket(db, {
       updatedAt: nowIso,
       updatedDate: today,
       updatedDateKey: today,
+      marketOpenDate: today,
       marketComment,
     };
   });
@@ -223,17 +227,19 @@ export async function openDailyMarket(db, {
   updatedRows.forEach((row) => {
     batch.set(doc(db, 'classEtfs', getScopedEtfDocId(scopeKey, row.id)), row, { merge: true });
   });
-  batch.set(doc(db, 'classes', classId), {
-    stockMarket: {
-      mode,
-      lastOpenDate: today,
-      lastOpenAt: nowIso,
-      headline,
-      topMoverId: topMover?.id || '',
-      topMoverName: topMover?.name || '',
-      topMoverChange: topMover?.changePercent || 0,
-    },
-  }, { merge: true });
+  const marketInfo = {
+    mode,
+    lastOpenDate: today,
+    lastOpenAt: nowIso,
+    headline,
+    topMoverId: topMover?.id || '',
+    topMoverName: topMover?.name || '',
+    topMoverChange: topMover?.changePercent || 0,
+  };
+  if (classId) {
+    batch.set(doc(db, 'classes', classId), { stockMarket: marketInfo }, { merge: true });
+  }
+  batch.set(doc(db, 'stockMarkets', scopeKey), { ...marketInfo, scopeKey, classId: classId || null, teacherUid: teacherUid || null }, { merge: true });
 
   await batch.commit();
   return {
@@ -242,15 +248,7 @@ export async function openDailyMarket(db, {
     lastOpenAt: nowIso,
     headline,
     updatedRows,
-    marketInfo: {
-      mode,
-      lastOpenDate: today,
-      lastOpenAt: nowIso,
-      headline,
-      topMoverId: topMover?.id || '',
-      topMoverName: topMover?.name || '',
-      topMoverChange: topMover?.changePercent || 0,
-    },
+    marketInfo,
   };
 }
 

@@ -207,11 +207,12 @@ function StockManage({ selectedClass }) {
 
     setIsLoading(true);
     try {
-      const [etfsSnap, studentsSnap, logSnap, classSnap] = await Promise.all([
+      const [etfsSnap, studentsSnap, logSnap, classSnap, marketSnap] = await Promise.all([
         loadClassEtfs(db, { scopeKey, soulEtfId }),
         getDocs(query(collection(db, 'students'), where(studentScopeField, '==', studentScopeValue))),
         getDocs(query(collection(db, 'dividendLogs'), where('scopeKey', '==', scopeKey))),
         classId ? getDoc(doc(db, 'classes', classId)) : Promise.resolve(null),
+        getDoc(doc(db, 'stockMarkets', scopeKey)),
       ]);
 
       let etfList = etfsSnap;
@@ -227,7 +228,9 @@ function StockManage({ selectedClass }) {
       setDividendLogs(logSnap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.paidAt?.seconds || 0) - (a.paidAt?.seconds || 0)));
 
-      let market = classSnap?.exists?.() ? (classSnap.data().stockMarket || {}) : {};
+      let market = classSnap?.exists?.()
+        ? (classSnap.data().stockMarket || {})
+        : (marketSnap?.exists?.() ? (marketSnap.data() || {}) : {});
       const autoOpen = await openDailyMarket(db, {
         classId,
         teacherUid,
@@ -653,10 +656,6 @@ function StockManage({ selectedClass }) {
             <p className="text-slate-500 text-sm mt-0.5">ETF 가격 업데이트 및 배당금을 관리합니다.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <button onClick={refreshPrices} disabled={isRefreshing}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50 shadow-sm">
-              {isRefreshing ? '업데이트 중...' : '🔄 가격 새로고침'}
-            </button>
             <button onClick={payDividends} disabled={isPaying}
               className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50 shadow-sm">
               {isPaying ? '지급 중...' : '💰 배당금 지급하기'}
@@ -897,7 +896,7 @@ function StockManage({ selectedClass }) {
               {etfs.length === 0 && (
                 <div className="text-center py-12 text-slate-400">
                   <p className="font-bold">등록된 ETF가 없습니다</p>
-                  <p className="text-sm mt-1">"가격 새로고침"을 눌러 ETF 데이터를 불러오세요</p>
+                  <p className="text-sm mt-1">잠시 후 다시 접속하면 학급 ETF 시장 데이터가 자동으로 준비됩니다.</p>
                 </div>
               )}
             </div>
