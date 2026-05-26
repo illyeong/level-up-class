@@ -23,16 +23,6 @@ public class GameManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
-    void Start()
-    {
-        TryRouteFromDungeonMain();
-    }
-
-    void OnLevelWasLoaded(int level)
-    {
-        TryRouteFromDungeonMain();
-    }
-
     // ── 씬 이름 상수 ──────────────────────────────────────────────
     public const string SceneLobby         = "Lobby";
     public const string SceneDungeonSelect = "DungeonSelect";
@@ -120,11 +110,18 @@ public class GameManager : MonoBehaviour
         var active = SceneManager.GetActiveScene().name;
         if (!string.Equals(active, "Dungeon_Main", StringComparison.Ordinal)) return;
         if (!hasReactDungeonIndex || dungeonIndex <= 0) return;
+        if (string.IsNullOrEmpty(savedAvatarJson)) return;
 
         _autoRoutedFromMain = true;
         var target = SceneS1(dungeonIndex);
         Debug.Log($"[GameManager] Auto route from Dungeon_Main -> {target}");
         SceneManager.LoadScene(target);
+    }
+
+    // DungeonCharacterLoader에서 캐릭터 데이터 적용 완료 후 호출
+    public void RouteToSelectedDungeon()
+    {
+        TryRouteFromDungeonMain();
     }
 
     static int ExtractDungeonIndexFromUrl(string url)

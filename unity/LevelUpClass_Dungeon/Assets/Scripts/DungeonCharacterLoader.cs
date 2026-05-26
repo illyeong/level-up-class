@@ -48,6 +48,10 @@ public class DungeonCharacterLoader : MonoBehaviour
             if (data.parts  != null) ApplyParts(pm, data.parts);
             if (data.colors != null) ApplyColors(pm, data.colors);
         }
+
+        // 캐릭터 데이터 적용이 끝난 뒤에만 던전 씬으로 이동
+        if (GameManager.Instance != null)
+            GameManager.Instance.RouteToSelectedDungeon();
     }
 
     static void ApplyStats(StatsData s)
