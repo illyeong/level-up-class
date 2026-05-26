@@ -701,6 +701,12 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       {/* ── 전투 씬 ── */}
       <div className="relative shrink-0 overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800"
            style={{ height: `${layoutCfg.sceneHeightVh}vh`, minHeight: '300px' }}>
+        <img
+          src="/images/quiz-battle-scene.png"
+          alt="전투 배경"
+          className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none"
+        />
+        <div className="absolute inset-0 bg-slate-950/30 pointer-events-none" />
 
         {/* 바닥 그라데이션 */}
         <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none" />
@@ -901,7 +907,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
 function ResultScreen({
   dungeon, score, totalQ, wrongIdxs, cleared,
   earnedRewards, leveledUp, isSaving, maxCombo,
-  canRetry, onRetry, onReturnLobby,
+  canRetry, onRetry, onReturnLobby, isRetryAttempt = false,
 }) {
   const accuracy  = totalQ > 0 ? Math.round(score / totalQ * 100) : 0;
   const stars     = toStars(accuracy);
@@ -1069,6 +1075,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
   const [leveledUp,       setLeveledUp]      = useState(null);
   const [isSaving,        setIsSaving]       = useState(false);
   const [layoutCfg,       setLayoutCfg]      = useState(BATTLE_LAYOUT_DEFAULTS);
+  const [isRetryAttempt,  setIsRetryAttempt] = useState(false);
 
   useEffect(() => {
     getDoc(doc(db, 'siteConfig', 'battleLayout')).then(snap => {
@@ -1150,11 +1157,12 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
     }).catch(() => {});
   }, [isTeacher, teacherUid]);
 
-  const enterDungeon = (dungeon) => {
+  const enterDungeon = (dungeon, retry = false) => {
     const totalQ = dungeon.questions.length;
     // 미리 확정된 웨이브가 있으면 재사용, 없으면 새로 생성 (재도전 등)
     const waves  = dungeon.waves || generateWaves(totalQ, dungeon.monsterIds || dungeon.monsterId, dungeon.id);
     setSelectedDungeon({ ...dungeon, waves });
+    setIsRetryAttempt(retry);
     setBattleRes(null);
     setEarnedRewards(null);
     setLeveledUp(null);
@@ -1177,14 +1185,17 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
     const isFirst  = !bestScores[dungeon.id]?.cleared;
     const rewardRatio = totalQ > 0 ? Math.max(0, Math.min(1, score / totalQ)) : 0;
 
-    const mult          = (isFirst && cleared) ? 1.5 : 1;
-    const goldEarned    = Math.round((dungeon.rewards?.gold    || 0) * rewardRatio * mult);
-    const expEarned     = Math.round((dungeon.rewards?.exp     || 0) * rewardRatio * mult);
-    const diamondEarned = Math.round((dungeon.rewards?.diamond || 0) * rewardRatio * mult);
+    const mult = (isFirst && cleared) ? 1.5 : 1;
+    const baseGold = Math.round((dungeon.rewards?.gold    || 0) * rewardRatio * mult);
+    const baseExp = Math.round((dungeon.rewards?.exp      || 0) * rewardRatio * mult);
+    const baseDiamond = Math.round((dungeon.rewards?.diamond || 0) * rewardRatio * mult);
+    const goldEarned = isRetryAttempt ? 0 : baseGold;
+    const expEarned = isRetryAttempt ? 0 : baseExp;
+    const diamondEarned = isRetryAttempt ? 0 : baseDiamond;
 
     setEarnedRewards({
       goldEarned, expEarned, diamondEarned,
-      firstClear: isFirst && cleared,
+      firstClear: !isRetryAttempt && isFirst && cleared,
     });
 
     if (isTeacher || !studentDocId || !studentData) { setIsSaving(false); return; }
@@ -1291,13 +1302,15 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
       leveledUp={leveledUp}
       isSaving={isSaving}
       maxCombo={battleRes.maxCombo}
-      canRetry={!battleRes.cleared}
-      onRetry={() => enterDungeon(selectedDungeon)}
+      canRetry={true}
+      onRetry={() => enterDungeon(selectedDungeon, true)}
+      isRetryAttempt={isRetryAttempt}
       onReturnLobby={() => {
         setScreen('lobby');
         setBattleRes(null);
         setEarnedRewards(null);
         setLeveledUp(null);
+        setIsRetryAttempt(false);
       }}
     />
   );

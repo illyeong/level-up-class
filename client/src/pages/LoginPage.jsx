@@ -7,55 +7,56 @@ const INTRO_SECTIONS = [
   {
     id: 'student',
     label: '학생 화면',
-    desc: '학생이 실제로 사용하는 주요 기능 화면',
+    desc: '학생이 매일 사용하는 핵심 화면입니다.',
     items: [
-      ['학생 대시보드', '학생대시보드.png'],
-      ['나의 퀘스트', '학생-퀘스트.png'],
-      ['학급 상점', '학급상점.png'],
-      ['학급 은행', '학급은행.png'],
-      ['주식/ETF 거래소', '주식ETF.png'],
-      ['장비창', '장비창.png'],
-      ['아바타 룸', '아바타룸.png'],
-      ['보물상자', '보물상자.png'],
-      ['투기장', '투기장.png'],
-      ['탐험던전', '탐험던전.png'],
-      ['퀴즈던전', '퀴즈던전.png'],
-      ['배움노트 쓰기', '배움노트쓰기.png'],
-      ['학생 셀프체크인', '학생 셀프체크인.png'],
+      { title: '학생 대시보드', file: '학생대시보드.png', description: '퀘스트 진행, 출석, 자원, 보상 로그를 한 화면에서 확인합니다.' },
+      { title: '나의 퀘스트', file: '학생-퀘스트.png', description: '진행 중인 퀘스트를 체크하고 완료/보상 상태를 관리합니다.' },
+      { title: '학급 상점', file: '학급상점.png', description: '골드/다이아로 학급 아이템과 이용권을 구매합니다.' },
+      { title: '학급 은행', file: '학급은행.png', description: '예금/출금과 이자 현황을 확인합니다.' },
+      { title: '주식/ETF 거래소', file: '주식ETF.png', description: 'ETF 매수/매도와 포트폴리오를 운영합니다.' },
+      { title: '장비창', file: '장비창.png', description: '장비 강화와 스탯 상승 효과를 확인합니다.' },
+      { title: '아바타 룸', file: '아바타룸.png', description: '캐릭터 외형을 꾸미고 저장합니다.' },
+      { title: '보물상자', file: '보물상자.png', description: '다이아로 상자를 구매해 보상을 획득합니다.' },
+      { title: '투기장', file: '투기장.png', description: '상대와 매칭되어 전투형 퀴즈를 진행합니다.' },
+      { title: '탐험던전', file: '탐험던전.png', description: '던전 입장 후 Unity 연동 전투를 진행합니다.' },
+      { title: '퀴즈던전', file: '퀴즈던전.png', description: '문제를 풀며 몬스터를 처치하는 싱글 전투를 진행합니다.' },
+      { title: '배움노트 쓰기', file: '배움노트쓰기.png', description: '학습 내용을 기록하고 승인 보상을 받습니다.' },
+      { title: '학생 셀프체크인', file: '학생 셀프체크인.png', description: '학생이 스스로 일일/주간 퀘스트를 체크합니다.' },
     ],
   },
   {
     id: 'teacher',
     label: '교사 화면',
-    desc: '교사가 운영/관리하는 핵심 화면',
+    desc: '교사가 운영과 관리에 사용하는 화면입니다.',
     items: [
-      ['교사 대시보드', '교사대시보드.png'],
-      ['학생 계정 발급', '학생계정발급.png'],
-      ['퀘스트 관리', '교사-퀘스트관리.png'],
-      ['퀴즈 은행', '퀴즈은행.png'],
-      ['퀴즈던전 관리', '퀴즈던전 관리.png'],
-      ['어드벤처 관리', '어드벤처관리.png'],
-      ['보스레이드 관리', '보스레이드관리.png'],
-      ['배움노트 관리', '배움노트관리.png'],
-      ['주식/ETF 관리', '주식ETF관리.png'],
-      ['공유게시판', '공유게시판.png'],
-      ['AI 문제출제', 'AI문제출제.png'],
+      { title: '교사 대시보드', file: '교사대시보드.png', description: '학급 전체 진행률, 퀘스트 현황, 학생 상태를 확인합니다.' },
+      { title: '학생 계정 발급', file: '학생계정발급.png', description: '학생 코드/PIN 생성과 초기화, 출력 관리를 진행합니다.' },
+      { title: '퀘스트 관리', file: '교사-퀘스트관리.png', description: '퀘스트 생성/종료/복제와 공유 설정을 관리합니다.' },
+      { title: '퀴즈 은행', file: '퀴즈은행.png', description: '문제 제작과 보관, 던전 발행용 문제를 구성합니다.' },
+      { title: '퀴즈던전 관리', file: '퀴즈던전 관리.png', description: '던전 생성과 발행, 결과 확인을 관리합니다.' },
+      { title: '어드벤처 관리', file: '어드벤처관리.png', description: '이용권/레벨/학생 어드벤처 상태를 조정합니다.' },
+      { title: '보스레이드 관리', file: '보스레이드관리.png', description: '레이드 생성, 진행, 결과/정산을 확인합니다.' },
+      { title: '배움노트 관리', file: '배움노트관리.png', description: '학생 노트 승인/반려와 보상 기준을 설정합니다.' },
+      { title: '주식/ETF 관리', file: '주식ETF관리.png', description: 'ETF 가격, 배당, 교사 설정 종목을 관리합니다.' },
+      { title: '공유게시판', file: '공유게시판.png', description: '시트/그룹/게시글 구조로 공유 학습 보드를 운영합니다.' },
+      { title: 'AI 문제출제', file: 'AI문제출제.png', description: '자료 기반으로 AI 퀴즈를 자동 생성합니다.' },
     ],
   },
   {
     id: 'battle',
     label: '전투/레이드',
-    desc: '전투, 레이드, 랭킹 관련 화면',
+    desc: '전투, 레이드, 랭킹 관련 화면입니다.',
     items: [
-      ['당 명예의 전당', '당명예의 전당.png'],
-      ['보스레이드 대기실', '보스레이드 대기실.png'],
-      ['보스레이드 전투화면', '보스레이드 전투화면.png'],
+      { title: '당 명예의 전당', file: '당명예의 전당.png', description: '투기장/던전 랭킹을 유형별로 확인합니다.' },
+      { title: '보스레이드 대기실', file: '보스레이드 대기실.png', description: '참여 인원과 보상 정보를 확인한 뒤 레이드를 시작합니다.' },
+      { title: '보스레이드 전투화면', file: '보스레이드 전투화면.png', description: '보스 HP, 정답 로그, 타이머를 보며 전투를 진행합니다.' },
     ],
   },
 ];
 
 function IntroModal({ open, onClose }) {
   const [tab, setTab] = useState(INTRO_SECTIONS[0].id);
+  const [focusedItem, setFocusedItem] = useState(null);
   const selected = useMemo(
     () => INTRO_SECTIONS.find((section) => section.id === tab) || INTRO_SECTIONS[0],
     [tab]
@@ -64,11 +65,18 @@ function IntroModal({ open, onClose }) {
   useEffect(() => {
     if (!open) return undefined;
     const handleEsc = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (focusedItem) setFocusedItem(null);
+        else onClose();
+      }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [open, onClose]);
+  }, [open, onClose, focusedItem]);
+
+  useEffect(() => {
+    if (!open) setFocusedItem(null);
+  }, [open]);
 
   if (!open) return null;
 
@@ -111,24 +119,60 @@ function IntroModal({ open, onClose }) {
 
         <div className="p-5 overflow-y-auto max-h-[72vh] bg-slate-900">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {selected.items.map(([title, file]) => (
-              <article key={file} className="rounded-xl border border-white/15 bg-slate-800/50 overflow-hidden hover:border-indigo-300/40 transition-colors">
+            {selected.items.map((item) => (
+              <article key={item.file} className="rounded-xl border border-white/15 bg-slate-800/50 overflow-hidden hover:border-indigo-300/40 transition-colors">
                 <div className="px-3 py-2 border-b border-white/10">
-                  <p className="text-indigo-100 text-sm font-bold">{title}</p>
+                  <p className="text-indigo-100 text-sm font-bold">{item.title}</p>
                 </div>
-                <div className="aspect-[16/10] bg-slate-950">
-                  <img
-                    src={`/intro/${encodeURIComponent(file)}`}
-                    alt={title}
-                    loading="lazy"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setFocusedItem(item)}
+                  className="w-full text-left"
+                >
+                  <div className="aspect-[16/10] bg-slate-950">
+                    <img
+                      src={`/intro/${encodeURIComponent(item.file)}`}
+                      alt={item.title}
+                      loading="lazy"
+                      className="w-full h-full object-contain cursor-zoom-in"
+                    />
+                  </div>
+                </button>
               </article>
             ))}
           </div>
         </div>
       </div>
+
+      {focusedItem && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" onClick={() => setFocusedItem(null)}>
+          <div
+            className="w-full max-w-5xl rounded-2xl border border-white/20 bg-slate-900 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+              <h4 className="text-white font-extrabold">{focusedItem.title}</h4>
+              <button
+                type="button"
+                onClick={() => setFocusedItem(null)}
+                className="px-3 py-1 rounded-lg bg-white/10 text-white text-sm font-bold hover:bg-white/20"
+              >
+                닫기
+              </button>
+            </div>
+            <div className="bg-slate-950 max-h-[70vh] overflow-auto p-3">
+              <img
+                src={`/intro/${encodeURIComponent(focusedItem.file)}`}
+                alt={focusedItem.title}
+                className="w-full h-auto object-contain rounded-lg"
+              />
+            </div>
+            <div className="px-4 py-3 border-t border-white/10">
+              <p className="text-indigo-100 text-sm leading-relaxed">{focusedItem.description}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

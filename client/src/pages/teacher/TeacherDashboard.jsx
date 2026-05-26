@@ -9,13 +9,14 @@ import iconQuest from '../../assets/images/icon-quest.png';
 
 const getSeatNum = (code) => parseInt(code?.slice(-2)) || 0;
 
-function TeacherDashboard({ onStudentTestLogin, selectedClass }) {
+function TeacherDashboard({ selectedClass }) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [questStats, setQuestStats] = useState([]);
   const [toast, setToast] = useState(null);
   const [showLevelUpPreview, setShowLevelUpPreview] = useState(false);
   const [previewLevel, setPreviewLevel] = useState(9);
+  const onStudentTestLogin = null;
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });

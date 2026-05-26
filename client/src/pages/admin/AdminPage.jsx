@@ -1197,6 +1197,122 @@ function BattleLayoutTab() {
   );
 }
 
+function GradeClassesTab() {
+  const [loading, setLoading] = useState(true);
+  const [grades, setGrades] = useState([]);
+  const [selectedClass, setSelectedClass] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [classSnap, studentSnap] = await Promise.all([
+          getDocs(collection(db, 'classes')),
+          getDocs(collection(db, 'students')),
+        ]);
+
+        const classes = classSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const students = studentSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        const studentCountByClassId = students.reduce((acc, s) => {
+          const classId = s.classId || null;
+          if (!classId) return acc;
+          acc[classId] = (acc[classId] || 0) + 1;
+          return acc;
+        }, {});
+
+        const grouped = new Map();
+        classes.forEach((c) => {
+          const grade = Number(c.grade) || 0;
+          const classNumber = Number(c.classNumber) || 0;
+          const gradeKey = grade > 0 ? `${grade}` : '기타';
+          if (!grouped.has(gradeKey)) grouped.set(gradeKey, []);
+          grouped.get(gradeKey).push({
+            ...c,
+            grade,
+            classNumber,
+            studentCountComputed: studentCountByClassId[c.id] ?? Number(c.studentCount || 0),
+          });
+        });
+
+        const gradeList = Array.from(grouped.entries())
+          .map(([gradeKey, classList]) => ({
+            gradeKey,
+            classes: classList.sort((a, b) => a.classNumber - b.classNumber),
+          }))
+          .sort((a, b) => {
+            if (a.gradeKey === '기타') return 1;
+            if (b.gradeKey === '기타') return -1;
+            return Number(a.gradeKey) - Number(b.gradeKey);
+          });
+
+        setGrades(gradeList);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  if (loading) {
+    return <div className="p-10 text-slate-400 font-bold text-center animate-pulse">불러오는 중...</div>;
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div>
+        <h2 className="text-xl font-extrabold text-slate-800">학년/학급 데이터</h2>
+        <p className="text-sm text-slate-500 mt-1">학년별로 학급을 확인하고, 카드 클릭 시 상세 정보를 볼 수 있습니다.</p>
+      </div>
+
+      {grades.length === 0 ? (
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-400">학급 데이터가 없습니다.</div>
+      ) : (
+        grades.map((gradeGroup) => (
+          <section key={gradeGroup.gradeKey} className="space-y-3">
+            <h3 className="text-base font-extrabold text-slate-700">
+              {gradeGroup.gradeKey === '기타' ? '기타 학급' : `${gradeGroup.gradeKey}학년`}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {gradeGroup.classes.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedClass(c)}
+                  className={`text-left bg-white border rounded-2xl p-4 transition ${
+                    selectedClass?.id === c.id ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-extrabold text-slate-800 truncate">{c.schoolName || '학교 미설정'}</div>
+                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                      {c.grade || '-'}-{c.classNumber || '-'}반
+                    </span>
+                  </div>
+                  <div className="mt-2 text-sm text-slate-600">학생 {c.studentCountComputed}명</div>
+                  <div className="mt-1 text-xs text-slate-400 truncate">{c.teacherEmail || c.teacherUid || '교사 정보 없음'}</div>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))
+      )}
+
+      {selectedClass && (
+        <section className="bg-white border border-slate-200 rounded-2xl p-5">
+          <h3 className="font-extrabold text-slate-800 text-base mb-3">학급 상세</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <div className="text-slate-600">학교: <span className="font-bold text-slate-800">{selectedClass.schoolName || '-'}</span></div>
+            <div className="text-slate-600">학년/반: <span className="font-bold text-slate-800">{selectedClass.grade || '-'}학년 {selectedClass.classNumber || '-'}반</span></div>
+            <div className="text-slate-600">학생 수: <span className="font-bold text-slate-800">{selectedClass.studentCountComputed}명</span></div>
+            <div className="text-slate-600">교사 이메일: <span className="font-bold text-slate-800">{selectedClass.teacherEmail || '-'}</span></div>
+            <div className="text-slate-600 md:col-span-2">교사 UID: <span className="font-mono text-xs text-slate-500">{selectedClass.teacherUid || '-'}</span></div>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
 // ── 메인 ─────────────────────────────────────────────────────
 const TABS = [
   { id: 'dashboard',    icon: '📊', label: '대시보드' },
@@ -1209,10 +1325,15 @@ const TABS = [
   { id: 'battleLayout', icon: '🖼️', label: '배틀씬 에디터' },
 ];
 
-export default function AdminPage({ adminUser, onLogout }) {
+export default function AdminPage({ adminUser, onLogout, onBackToClassSelect }) {
   const [tab, setTab]           = useState('dashboard');
   const [newFeedbackCount, setNewFeedbackCount] = useState(0);
   const { isAdmin, loading: isAdminLoading } = useIsAdmin(adminUser?.email);
+  const tabs = [
+    ...TABS.slice(0, 1),
+    { id: 'classesByGrade', icon: '🏫', label: '학년별 학급' },
+    ...TABS.slice(1),
+  ];
 
   useEffect(() => {
     getDocs(collection(db, 'feedbacks')).then(snap => {
@@ -1263,7 +1384,7 @@ export default function AdminPage({ adminUser, onLogout }) {
         </div>
 
         <nav className="flex-1 p-3 space-y-0.5">
-          {TABS.map(t => (
+          {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`w-full text-left px-3 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-3
                 ${tab === t.id
@@ -1291,11 +1412,20 @@ export default function AdminPage({ adminUser, onLogout }) {
       {/* 본문 */}
       <main className="flex-1 overflow-auto bg-slate-100">
         {/* 탭 상단 헤더 바 */}
-        <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3 sticky top-0 z-10">
-          <span className="text-xl">{TABS.find(t => t.id === tab)?.icon}</span>
-          <h1 className="font-extrabold text-slate-800 text-base">{TABS.find(t => t.id === tab)?.label}</h1>
+        <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between gap-3 sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">{tabs.find(t => t.id === tab)?.icon}</span>
+            <h1 className="font-extrabold text-slate-800 text-base">{tabs.find(t => t.id === tab)?.label}</h1>
+          </div>
+          <button
+            onClick={() => onBackToClassSelect?.()}
+            className="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 text-sm font-bold hover:bg-slate-50"
+          >
+            학급 선택으로
+          </button>
         </div>
         {tab === 'dashboard' && <DashboardTab />}
+        {tab === 'classesByGrade' && <GradeClassesTab />}
         {tab === 'teachers'  && <TeachersTab />}
         {tab === 'notices'   && <NoticesTab />}
         {tab === 'feedbacks' && <FeedbacksTab />}

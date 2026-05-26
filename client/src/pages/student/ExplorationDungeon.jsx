@@ -404,14 +404,27 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     if (!cd) return;
     const selectedIdRaw = selectedDungeonRef.current?.id;
     const selectedIdNum = Number(selectedIdRaw);
-    const fallbackIndex = dungeonList.findIndex((d) => String(d.id) === String(selectedIdRaw)) + 1;
-    const dungeonIndex = Number.isFinite(selectedIdNum) && selectedIdNum >= 0
-      ? selectedIdNum + 1
-      : (fallbackIndex > 0 ? fallbackIndex : 1);
+
+    // 던전 id가 0기반/1기반/문자열로 섞여도 항상 "선택한 던전 번호(1부터)"를 계산
+    const numericIds = dungeonList
+      .map((d) => Number(d.id))
+      .filter((n) => Number.isFinite(n));
+    const hasZeroBasedId = numericIds.length > 0 && numericIds.some((n) => n === 0);
+    const orderBasedIndex = dungeonList.findIndex((d) => String(d.id) === String(selectedIdRaw)) + 1;
+
+    let dungeonIndex = 1;
+    if (orderBasedIndex > 0) {
+      dungeonIndex = orderBasedIndex;
+    } else if (Number.isFinite(selectedIdNum)) {
+      dungeonIndex = hasZeroBasedId ? selectedIdNum + 1 : selectedIdNum;
+    }
+    dungeonIndex = Math.max(1, dungeonIndex);
+
     win.postMessage({
       type: 'REACT_LOAD_AVATAR',
       ...cd,
       stats: { ...cd.stats, classLevel: cd.stats?.level ?? 1, dungeonIndex },
+      dungeonIndex,
     }, '*');
   };
 

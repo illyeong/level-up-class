@@ -347,7 +347,13 @@ function App() {
   }
 
   if (appMode === 'admin') {
-    return <AdminPage adminUser={teacherUser} onLogout={handleLogout} />;
+    return (
+      <AdminPage
+        adminUser={teacherUser}
+        onLogout={handleLogout}
+        onBackToClassSelect={() => setAppMode('classSelect')}
+      />
+    );
   }
 
   if (appMode === 'classSelect') {
