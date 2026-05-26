@@ -55,12 +55,20 @@ public class DungeonCharacterLoader : MonoBehaviour
         var gm = GameManager.Instance;
         if (gm == null) return;
 
-        gm.level         = s.level;
+        int resolvedLevel = s.level > 0 ? s.level : (s.classLevel > 0 ? s.classLevel : gm.level);
+        gm.level         = resolvedLevel;
         gm.gold          = s.gold;
-        gm.maxHealth     = s.maxHealth     > 0 ? s.maxHealth     : gm.maxHealth;
-        gm.currentHealth = s.currentHealth > 0 ? s.currentHealth : gm.maxHealth;
-        gm.attackPower   = 10 + (s.level - 1) * 2;
-        gm.defense       = 5  + (s.level - 1) * 1;
+        gm.maxHealth     = s.maxHealth > 0 ? s.maxHealth : (s.hp > 0 ? s.hp : gm.maxHealth);
+        gm.currentHealth = s.currentHealth > 0 ? Mathf.Min(s.currentHealth, gm.maxHealth) : gm.maxHealth;
+
+        int fallbackAttack  = 10 + (resolvedLevel - 1) * 2;
+        int fallbackDefense = 5  + (resolvedLevel - 1) * 1;
+        gm.attackPower      = s.attack > 0 ? s.attack : (s.attackPower > 0 ? s.attackPower : fallbackAttack);
+        gm.defense          = s.defense > 0 ? s.defense : fallbackDefense;
+
+        if (s.crit > 0)
+            gm.critChance = Mathf.Clamp(s.crit, 0, 100);
+
         if (s.dungeonIndex > 0) gm.dungeonIndex = s.dungeonIndex;
 
         var pc = LayerLab.ArtMaker.PlayerCombat.FindMainPlayerCombat();
@@ -70,6 +78,7 @@ public class DungeonCharacterLoader : MonoBehaviour
             pc.currentHealth = gm.currentHealth;
             pc.attackPower   = gm.attackPower;
             pc.defense       = gm.defense;
+            pc.critChance    = gm.critChance;
         }
     }
 
@@ -125,6 +134,13 @@ public class DungeonCharacterLoader : MonoBehaviour
     public class StatsData
     {
         public int level=1, exp=0, maxExp=1000, gold=0, diamonds=0;
+        public int classLevel=1;
+        public int hp=0;
+        public int attack=0;
+        public int attackPower=0;
+        public int defense=0;
+        public int crit=0;
+        public int attackSpeed=0;
         public int maxHealth=100, currentHealth=100;
         public int dungeonIndex=1;
     }

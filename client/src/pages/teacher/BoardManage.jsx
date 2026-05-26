@@ -135,6 +135,9 @@ export default function BoardManage({ selectedClass, user }) {
   const [pages, setPages]           = useState([]);
   const [sheets, setSheets]         = useState([]);
   const [selectedSheetId, setSelectedSheetId] = useState(null);
+  const [editingSheetId, setEditingSheetId] = useState(null);
+  const [editingSheetTitle, setEditingSheetTitle] = useState('');
+  const [isRenamingSheet, setIsRenamingSheet] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(false);
 
   // write
@@ -218,6 +221,8 @@ export default function BoardManage({ selectedClass, user }) {
     const nextSheets = (board.sheets && board.sheets.length > 0) ? board.sheets : [{ id: 'sheet_1', title: '시트 1' }];
     setSheets(nextSheets);
     setSelectedSheetId(nextSheets[0]?.id || null);
+    setEditingSheetId(null);
+    setEditingSheetTitle('');
     setLoadingPosts(true);
     try {
       const snap = await getDocs(
@@ -244,9 +249,84 @@ export default function BoardManage({ selectedClass, user }) {
     await updateDoc(doc(db, 'boards', selectedBoard.id), { sheets: updated });
     setSheets(updated);
     setSelectedSheetId(newSheet.id);
+    setEditingSheetId(null);
+    setEditingSheetTitle('');
   };
 
   // ── write post ────────────────────────────────────────────────
+  const beginSheetRename = (sheet) => {
+    setEditingSheetId(sheet.id);
+    setEditingSheetTitle(sheet.title || '');
+  };
+
+  const cancelSheetRename = () => {
+    setEditingSheetId(null);
+    setEditingSheetTitle('');
+  };
+
+  const submitSheetRename = async (sheetId = editingSheetId) => {
+    if (!selectedBoard || !sheetId) return;
+
+    const nextTitle = editingSheetTitle.trim();
+    if (!nextTitle) {
+      showToast('시트 이름을 입력해주세요.', 'error');
+      return;
+    }
+
+    const target = sheets.find((sheet) => sheet.id === sheetId);
+    if (!target) return;
+    if ((target.title || '') === nextTitle) {
+      cancelSheetRename();
+      return;
+    }
+
+    setIsRenamingSheet(true);
+    try {
+      const updated = sheets.map((sheet) => (
+        sheet.id === sheetId ? { ...sheet, title: nextTitle } : sheet
+      ));
+      await updateDoc(doc(db, 'boards', selectedBoard.id), { sheets: updated });
+      setSheets(updated);
+      cancelSheetRename();
+      showToast('시트 이름을 변경했습니다.');
+    } catch {
+      showToast('시트 이름 변경에 실패했습니다.', 'error');
+    } finally {
+      setIsRenamingSheet(false);
+    }
+  };
+
+  const removeSheet = (sheet) => {
+    if (!selectedBoard) return;
+    if (sheets.length <= 1) {
+      showToast('시트는 최소 1개가 필요합니다.', 'error');
+      return;
+    }
+
+    const usedCount = posts.filter((post) => (post.sheetId || 'sheet_1') === sheet.id).length;
+    if (usedCount > 0) {
+      showToast('게시물이 있는 시트는 삭제할 수 없습니다.', 'error');
+      return;
+    }
+
+    showConfirm(`"${sheet.title}" 시트를 삭제할까요?`, async () => {
+      try {
+        const updated = sheets.filter((it) => it.id !== sheet.id);
+        await updateDoc(doc(db, 'boards', selectedBoard.id), { sheets: updated });
+        setSheets(updated);
+        if (selectedSheetId === sheet.id) {
+          setSelectedSheetId(updated[0]?.id || null);
+        }
+        if (editingSheetId === sheet.id) {
+          cancelSheetRename();
+        }
+        showToast('시트를 삭제했습니다.');
+      } catch {
+        showToast('시트 삭제에 실패했습니다.', 'error');
+      }
+    });
+  };
+
   const submitPost = async () => {
     if (!writeContent.trim() && !writeImage && !writeAttachment) return;
     setIsPosting(true);
@@ -538,7 +618,7 @@ export default function BoardManage({ selectedClass, user }) {
           <div ref={mapDivRef} style={{ height: 'calc(100vh - 230px)', width: '100%' }} />
           {/* 나가기 버튼 */}
           <button
-            onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); }}
+            onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); setEditingSheetId(null); setEditingSheetTitle(''); }}
             className="absolute top-3 left-3 z-[1000] bg-white hover:bg-rose-50 shadow-lg rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center gap-2 transition-all"
           >
             ← 목록으로
@@ -714,7 +794,7 @@ export default function BoardManage({ selectedClass, user }) {
         {/* 헤더 바 (지도형은 제외) */}
         {!isMapType && (
           <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3 shadow-sm">
-            <button onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); }}
+            <button onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); setEditingSheetId(null); setEditingSheetTitle(''); }}
               className="text-slate-500 hover:text-slate-800 font-bold text-sm px-3 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors shrink-0">
               ← 목록
             </button>
@@ -739,19 +819,75 @@ export default function BoardManage({ selectedClass, user }) {
 
         <div className={`${isMapType ? 'px-4 pt-4' : 'px-6'} pb-2`}>
           <div className="bg-white border border-slate-200 rounded-2xl p-2 flex items-center gap-2 overflow-x-auto">
-            {sheets.map((sheet) => (
-              <button
-                key={sheet.id}
-                onClick={() => setSelectedSheetId(sheet.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors ${
-                  selectedSheetId === sheet.id
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {sheet.title}
-              </button>
-            ))}
+            {sheets.map((sheet) => {
+              const isSelected = selectedSheetId === sheet.id;
+              const isEditing = editingSheetId === sheet.id;
+
+              return (
+                <div key={sheet.id} className={`flex items-center gap-1 rounded-xl px-1 py-1 ${isSelected ? 'bg-indigo-600' : 'bg-slate-100'}`}>
+                  {isEditing ? (
+                    <>
+                      <input
+                        value={editingSheetTitle}
+                        onChange={(e) => setEditingSheetTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') submitSheetRename(sheet.id);
+                          if (e.key === 'Escape') cancelSheetRename();
+                        }}
+                        onBlur={() => submitSheetRename(sheet.id)}
+                        className="w-32 px-2 py-1 text-xs rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        autoFocus
+                        disabled={isRenamingSheet}
+                      />
+                      <button
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => submitSheetRename(sheet.id)}
+                        className="px-1.5 py-1 text-[11px] rounded-md bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-60"
+                        disabled={isRenamingSheet}
+                        title="시트 이름 저장"
+                      >
+                        저장
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setSelectedSheetId(sheet.id)}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${
+                          isSelected
+                            ? 'text-white'
+                            : 'text-slate-600 hover:text-slate-800'
+                        }`}
+                      >
+                        {sheet.title}
+                      </button>
+                      <button
+                        onClick={() => beginSheetRename(sheet)}
+                        className={`px-1.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                          isSelected
+                            ? 'text-indigo-100 hover:text-white'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                        title="시트 이름 변경"
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={() => removeSheet(sheet)}
+                        className={`px-1.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                          isSelected
+                            ? 'text-rose-100 hover:text-white'
+                            : 'text-rose-500 hover:text-rose-700'
+                        }`}
+                        title="시트 삭제"
+                      >
+                        삭제
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
             <button
               onClick={addSheet}
               className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold shrink-0"

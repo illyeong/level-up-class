@@ -1187,7 +1187,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             <div className="text-xs font-extrabold text-indigo-400 tracking-widest">나</div>
             {/* key 변경으로 CSS 애니메이션 강제 재시작 */}
             <div key={`me-${hitAnimSeq.me}`}
-              className={`flex-1 w-full flex items-center justify-center relative
+              className={`flex-1 w-full flex items-center justify-center relative z-10
                 ${hitFlash.me ? (hitDmg.me?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
               <div className="w-64 h-64 flex items-center justify-center overflow-hidden">
                 {me?.characterImage
@@ -1195,13 +1195,13 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
                   : <span className="text-5xl">🧑‍🎓</span>}
               </div>
               {hitDmg.me && (
-                <div className={`absolute -top-2 left-1/2 -translate-x-1/2 font-extrabold animate-bounce pointer-events-none
+                <div className={`absolute -top-2 left-1/2 -translate-x-1/2 font-extrabold animate-bounce pointer-events-none z-10
                   ${hitDmg.me.isCrit ? 'text-yellow-300 text-2xl drop-shadow-[0_0_8px_#facc15]' : 'text-rose-400 text-xl'}`}>
                   {hitDmg.me.isCrit ? '💥 ' : ''}-{hitDmg.me.dmg}
                 </div>
               )}
             </div>
-            <div className="w-full">
+            <div className="w-full relative z-30 bg-slate-900/35 rounded-xl border border-slate-700/50 px-2 py-2">
               <div className="text-white font-extrabold text-sm truncate text-center mb-2">{me?.name || me?.studentCode}</div>
               <div className="flex justify-between text-xs text-slate-400 mb-1.5">
                 <span className="font-bold">HP</span>
@@ -1231,7 +1231,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             <div className="text-xs font-extrabold text-rose-400 tracking-widest">상대</div>
             {/* key 변경으로 CSS 애니메이션 강제 재시작 */}
             <div key={`opp-${hitAnimSeq.opp}`}
-              className={`flex-1 w-full flex items-center justify-center relative
+              className={`flex-1 w-full flex items-center justify-center relative z-10
                 ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
               <div className="w-64 h-64 flex items-center justify-center overflow-hidden">
                 {opponent?.characterImage
@@ -1239,13 +1239,13 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
                   : <span className="text-5xl">🧑‍🎓</span>}
               </div>
               {hitDmg.opp && (
-                <div className={`absolute -top-2 left-1/2 -translate-x-1/2 font-extrabold animate-bounce pointer-events-none
+                <div className={`absolute -top-2 left-1/2 -translate-x-1/2 font-extrabold animate-bounce pointer-events-none z-10
                   ${hitDmg.opp.isCrit ? 'text-yellow-300 text-2xl drop-shadow-[0_0_8px_#facc15]' : 'text-rose-400 text-xl'}`}>
                   {hitDmg.opp.isCrit ? '💥 ' : ''}-{hitDmg.opp.dmg}
                 </div>
               )}
             </div>
-            <div className="w-full">
+            <div className="w-full relative z-30 bg-slate-900/35 rounded-xl border border-slate-700/50 px-2 py-2">
               <div className="text-white font-extrabold text-sm truncate text-center mb-2">{opponent?.name || opponent?.studentCode}</div>
               <div className="flex justify-between text-xs text-slate-400 mb-1.5">
                 <span className="font-bold">HP</span>

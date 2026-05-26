@@ -461,9 +461,10 @@ function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, i
 }
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────
-export default function BossRaidManage({ onViewLobby }) {
+export default function BossRaidManage({ selectedClass, onViewLobby }) {
   const [raids, setRaids]           = useState([]);
   const [selectedQuizSet, setSelectedQuizSet] = useState(null);
+  const [classStudentCount, setClassStudentCount] = useState(0);
   const [tab, setTab]               = useState('active');
   const [isCreating, setIsCreating] = useState(false);
   const [isPaying, setIsPaying]     = useState(false);
@@ -472,6 +473,7 @@ export default function BossRaidManage({ onViewLobby }) {
   const [confirmState, setConfirmState] = useState(null);
   const [resultRaid, setResultRaid] = useState(null);
   const [expandedRaidId, setExpandedRaidId] = useState(null);
+  const autoHpRef = useRef(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -503,6 +505,29 @@ export default function BossRaidManage({ onViewLobby }) {
     return () => unsub();
   }, []);
 
+  // 현재 학급(또는 교사 범위) 학생 수 로딩
+  useEffect(() => {
+    let mounted = true;
+    const loadStudentCount = async () => {
+      try {
+        const classId = selectedClass?.id || null;
+        const teacherUid = selectedClass?.teacherUid || auth.currentUser?.uid || null;
+        const q = classId
+          ? query(collection(db, 'students'), where('classId', '==', classId))
+          : teacherUid
+          ? query(collection(db, 'students'), where('teacherUid', '==', teacherUid))
+          : collection(db, 'students');
+        const snap = await getDocs(q);
+        if (mounted) setClassStudentCount(snap.size);
+      } catch (err) {
+        console.error('학생 수 로딩 실패:', err);
+        if (mounted) setClassStudentCount(0);
+      }
+    };
+    loadStudentCount();
+    return () => { mounted = false; };
+  }, [selectedClass?.id, selectedClass?.teacherUid]);
+
   // 선택된 보스 데이터
   const bossData        = MONSTERS_DB[form.bossId];
   const waitingOrActive = raids.filter(r => r.status === 'waiting' || r.status === 'active');
@@ -513,10 +538,24 @@ export default function BossRaidManage({ onViewLobby }) {
     if (!form.bossName && bossData) setF('bossName', bossData.name);
   }, [form.bossId]);
 
-  // HP 자동추천: 객관식 문제수 × damagePerHit × 1.5
-  const autoHP = selectedQuizSet
-    ? Math.ceil((selectedQuizSet.questions || []).filter(q => q.type !== 'short' && q.type !== 'sa').length * form.damagePerHit * 1.5)
+  // HP 자동추천:
+  // (학급 학생수 × 객관식 문제수 × 정답당 데미지)의 75%
+  // 예) 14명 × 8문항 × 100 = 11,200 -> 추천 HP 8,400
+  const questionCount = (selectedQuizSet?.questions || []).filter(q => q.type !== 'short' && q.type !== 'sa').length;
+  const totalPerfectDamage = classStudentCount * questionCount * (Number(form.damagePerHit) || 0);
+  const autoHP = (questionCount > 0 && classStudentCount > 0)
+    ? Math.max(100, Math.round((totalPerfectDamage * 0.75) / 100) * 100)
     : null;
+
+  // 추천 HP가 계산되면 기본값/직전 자동값일 때 자동 동기화
+  useEffect(() => {
+    if (!autoHP) return;
+    setForm(prev => {
+      const shouldSync = prev.maxHP === 3000 || prev.maxHP === autoHpRef.current;
+      return shouldSync ? { ...prev, maxHP: autoHP } : prev;
+    });
+    autoHpRef.current = autoHP;
+  }, [autoHP]);
 
   // ── 레이드 생성 (waiting 상태) ──────────────────────────────
   const createRaid = () => {
@@ -796,6 +835,10 @@ export default function BossRaidManage({ onViewLobby }) {
                     보스 HP
                     {autoHP && <span className="text-indigo-500 ml-1">(추천: {autoHP.toLocaleString()})</span>}
                   </label>
+                  <div className="text-[10px] text-slate-400 mb-1">
+                    인원 {classStudentCount}명 × {questionCount}문항 × 데미지 {Number(form.damagePerHit) || 0}
+                    = 총 {totalPerfectDamage.toLocaleString()} 기준의 75%
+                  </div>
                   <div className="flex gap-2 items-center">
                     <input type="number" min="100" step="100" value={form.maxHP}
                       onChange={e => setF('maxHP', Number(e.target.value))}

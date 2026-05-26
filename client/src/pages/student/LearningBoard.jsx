@@ -676,13 +676,6 @@ export default function LearningBoard({ studentCode }) {
                 {sheet.title}
               </button>
             ))}
-            <button
-              onClick={addSheet}
-              className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold shrink-0"
-              title="시트 추가"
-            >
-              +
-            </button>
           </div>
           <button
             onClick={() => { setSelectedBoard(null); setPosts([]); setPages([]); setSheets([]); setSelectedSheetId(null); setSearchQuery(''); }}
@@ -749,13 +742,6 @@ export default function LearningBoard({ studentCode }) {
                   {sheet.title}
                 </button>
               ))}
-              <button
-                onClick={addSheet}
-                className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold shrink-0"
-                title="시트 추가"
-              >
-                +
-              </button>
             </div>
             {/* 검색 + 정렬 */}
             <div className="flex gap-2 flex-wrap">
