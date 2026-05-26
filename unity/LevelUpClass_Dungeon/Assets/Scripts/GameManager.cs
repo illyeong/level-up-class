@@ -9,6 +9,7 @@ using System;
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
+    bool _autoRoutedFromMain = false;
 
     void Awake()
     {
@@ -20,6 +21,16 @@ public class GameManager : MonoBehaviour
         Instance = this;
         TryApplyDungeonIndexFromUrl();
         DontDestroyOnLoad(gameObject);
+    }
+
+    void Start()
+    {
+        TryRouteFromDungeonMain();
+    }
+
+    void OnLevelWasLoaded(int level)
+    {
+        TryRouteFromDungeonMain();
     }
 
     // ── 씬 이름 상수 ──────────────────────────────────────────────
@@ -101,6 +112,19 @@ public class GameManager : MonoBehaviour
         {
             Debug.LogWarning($"[GameManager] Failed to parse dungeonIndex from URL: {e.Message}");
         }
+    }
+
+    void TryRouteFromDungeonMain()
+    {
+        if (_autoRoutedFromMain) return;
+        var active = SceneManager.GetActiveScene().name;
+        if (!string.Equals(active, "Dungeon_Main", StringComparison.Ordinal)) return;
+        if (!hasReactDungeonIndex || dungeonIndex <= 0) return;
+
+        _autoRoutedFromMain = true;
+        var target = SceneS1(dungeonIndex);
+        Debug.Log($"[GameManager] Auto route from Dungeon_Main -> {target}");
+        SceneManager.LoadScene(target);
     }
 
     static int ExtractDungeonIndexFromUrl(string url)
