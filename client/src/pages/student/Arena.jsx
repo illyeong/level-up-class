@@ -467,7 +467,8 @@ function RankingInner({ classmates, studentDocId }) {
 function CharacterCard({ student, label, isMe, highlight, rank }) {
   const stats = getStats(student);  // 장비/업그레이드 보너스 포함
   const lv    = student?.level || 1;
-  const expPct = Math.min(100, Math.round(((student?.exp||0) / getMaxExpForLevel(lv)) * 100));
+  const maxHp = Math.max(1, Number(stats.hp) || 1);
+  const hpPct = 100;
 
   return (
     <div className={`flex flex-col items-center rounded-3xl p-5 transition-all
@@ -505,11 +506,15 @@ function CharacterCard({ student, label, isMe, highlight, rank }) {
         )}
       </div>
 
-      {/* EXP 바 */}
+      {/* HP 바 */}
       <div className="w-full mb-3">
+        <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+          <span className="font-bold">HP</span>
+          <span className="font-extrabold text-slate-200">{maxHp} / {maxHp}</span>
+        </div>
         <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
           <div className={`h-full rounded-full transition-all ${isMe ? 'bg-indigo-400' : 'bg-rose-400'}`}
-            style={{ width: `${expPct}%` }} />
+            style={{ width: `${hpPct}%` }} />
         </div>
       </div>
 

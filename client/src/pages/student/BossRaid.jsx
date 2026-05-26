@@ -20,6 +20,33 @@ import { db } from '../../firebase';
 import { MONSTERS_DB, BOSS_BG_MAP } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 
+const normalizeBossId = (value) => String(value || '').trim();
+
+const resolveKeyFromMap = (sourceMap, rawKey) => {
+  const key = normalizeBossId(rawKey);
+  if (!key) return null;
+  if (sourceMap[key]) return key;
+
+  const lowered = key.toLowerCase();
+  const exactCaseInsensitive = Object.keys(sourceMap).find(k => k.toLowerCase() === lowered);
+  if (exactCaseInsensitive) return exactCaseInsensitive;
+
+  const compactKey = lowered.replace(/[\s_-]/g, '');
+  return Object.keys(sourceMap).find(k => k.toLowerCase().replace(/[\s_-]/g, '') === compactKey) || null;
+};
+
+const resolveBossBg = (raid) => {
+  const direct = String(raid?.bossBg || '').trim();
+  const bgKey = resolveKeyFromMap(BOSS_BG_MAP, raid?.bossId);
+  if (bgKey) return BOSS_BG_MAP[bgKey];
+  return direct || null;
+};
+
+const resolveBossData = (raid) => {
+  const bossKey = resolveKeyFromMap(MONSTERS_DB, raid?.bossId);
+  return bossKey ? MONSTERS_DB[bossKey] : null;
+};
+
 // ── HP 바 ────────────────────────────────────────────────────────
 function BossHpBar({ current, max }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, Math.round(current / max * 100))) : 0;
@@ -255,7 +282,7 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
     .map(([id, p]) => ({ id, ...p }))
     .sort((a, b) => (a.joinedAt?.seconds || 0) - (b.joinedAt?.seconds || 0));
 
-  const bossBg = raid.bossBg || BOSS_BG_MAP[raid.bossId] || null;
+  const bossBg = resolveBossBg(raid);
 
   // 보스 랜덤 애니
   const [bossLobbyAnim, setBossLobbyAnim] = useState('idle');
@@ -387,7 +414,7 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
 
 // ── 배틀 ─────────────────────────────────────────────────────────
 function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossFlash, onAnswer }) {
-  const bossBg = raid.bossBg || BOSS_BG_MAP[raid.bossId] || null;
+  const bossBg = resolveBossBg(raid);
   const questions = (raid.questions || []).filter(q => q.type !== 'short');
   const qIdx      = raid.currentQuestionIdx ?? 0;
   const q         = questions[qIdx];
@@ -471,11 +498,11 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       {/* 보스 스프라이트 영역 — 고정 높이 */}
       <div
         ref={bossAreaRef}
-        className="flex items-center justify-center relative overflow-hidden shrink-0"
-        style={{ height: '36vh', maxHeight: 260, minHeight: 180 }}
+        className="flex items-center justify-center relative shrink-0"
+        style={{ height: '42vh', maxHeight: 420, minHeight: 250 }}
       >
         <div className="relative z-10">
-          <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={3.0} />
+          <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={2.5} />
         </div>
 
         {/* 킬피드 — 우측 세로 목록 */}
@@ -715,15 +742,20 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
       const open = all.find(r => r.status === 'waiting' || r.status === 'active');
       if (open) { setRaid(open); return; }
 
-      // 2순위: 내가 참여한 최근 ended
-      const ended = all.find(r =>
-        (r.status === 'cleared' || r.status === 'failed') &&
-        r.participants?.[studentDocId]
-      );
+      // 2순위: 최근 ended
+      // - 교사: 가장 최근 종료 레이드
+      // - 학생: 내가 참여한 최근 종료 레이드
+      const ended = isTeacher
+        ? all.find(r => r.status === 'cleared' || r.status === 'failed')
+        : all.find(r =>
+            (r.status === 'cleared' || r.status === 'failed') &&
+            r.participants?.[studentDocId]
+          );
+
       setRaid(ended || null);
     });
     return () => unsub();
-  }, [studentDocId]);
+  }, [studentDocId, isTeacher]);
 
   // 대기실 자동 입장 (교사 모드에서는 참가자로 등록 안 함)
   useEffect(() => {
@@ -886,7 +918,7 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
   };
 
   // ── 렌더링 ──────────────────────────────────────────────────
-  const bossData = raid?.bossId ? MONSTERS_DB[raid.bossId] : null;
+  const bossData = resolveBossData(raid);
   const isOpen   = raid && (raid.status === 'waiting' || raid.status === 'active');
 
   // 초기 소개 화면
