@@ -562,12 +562,25 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
 
   // 레이드 실시간 리스닝
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'worldBossRaids'), snap =>
+    const classId = selectedClass?.id || null;
+    const teacherUid = selectedClass?.teacherUid || auth.currentUser?.uid || null;
+    const raidQuery = classId
+      ? query(collection(db, 'worldBossRaids'), where('classId', '==', classId))
+      : teacherUid
+      ? query(collection(db, 'worldBossRaids'), where('teacherUid', '==', teacherUid))
+      : null;
+
+    if (!raidQuery) {
+      setRaids([]);
+      return () => {};
+    }
+
+    const unsub = onSnapshot(raidQuery, snap =>
       setRaids(snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)))
     );
     return () => unsub();
-  }, []);
+  }, [selectedClass?.id, selectedClass?.teacherUid]);
 
   // 현재 학급(또는 교사 범위) 학생 수 로딩
   useEffect(() => {
@@ -635,6 +648,8 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
       try {
         await addDoc(collection(db, 'worldBossRaids'), {
           title:            `${selectedQuizSet.title} 보스 레이드`,
+          classId:          selectedClass?.id || null,
+          teacherUid:       selectedClass?.teacherUid || auth.currentUser?.uid || null,
           bossId:           form.bossId,
           bossName:         form.bossName || bossData?.name || '보스',
           bossBg:           resolveBossBgById(form.bossId),

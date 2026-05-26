@@ -20,7 +20,7 @@ const fetchStudents = async (selectedClass) => {
 function ConfirmModal({ title, description, danger, confirmWord = '초기화', onConfirm, onCancel }) {
   const [inputVal, setInputVal] = useState('');
   const needsType = danger;
-  const canConfirm = !needsType || inputVal === confirmWord;
+  const canConfirm = !needsType || inputVal.trim() === confirmWord;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">

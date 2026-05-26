@@ -567,7 +567,8 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
-export default function Equipment({ studentCode }) {
+export default function Equipment({ studentCode, themeMode = 'dark' }) {
+  const isDark = themeMode === 'dark';
   const [tab, setTab]             = useState('equip');
   const [allItems, setAllItems]   = useState([]);
   const [inventory, setInventory] = useState([]);
@@ -679,7 +680,7 @@ export default function Equipment({ studentCode }) {
     });
 
   return (
-    <div className="min-h-full bg-slate-100">
+    <div className={`min-h-full ${isDark ? '' : 'bg-slate-100'}`}>
 
       {/* 헤더 */}
       <div className="bg-gradient-to-b from-slate-800 to-slate-900 px-5 py-4">
@@ -729,9 +730,9 @@ export default function Equipment({ studentCode }) {
         {tab === 'equip' && (
           <div className="space-y-3">
 
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-4">
+            <div className={`rounded-3xl shadow-sm border p-4 ${isDark ? 'bg-slate-900/80 border-slate-700' : 'bg-white border-slate-200'}`}>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-extrabold text-slate-700 text-sm">장착 슬롯</h3>
+                <h3 className={`font-extrabold text-sm ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>장착 슬롯</h3>
                 <span className="text-[10px] text-slate-400">탭 → 변경  ·  ⚒️ → 강화</span>
               </div>
               <div className="grid grid-cols-3 gap-2.5">
@@ -750,11 +751,13 @@ export default function Equipment({ studentCode }) {
                             ? 'border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-100'
                             : item
                               ? `${g.border} ${g.bg} hover:shadow-md`
-                              : 'border-dashed border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50'}`}>
+                              : isDark
+                                ? 'border-dashed border-slate-600 bg-slate-800/70 hover:border-indigo-400 hover:bg-slate-800'
+                                : 'border-dashed border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50'}`}>
                         {item ? (
                           <>
                             {/* 장비명 - 상단 */}
-                            <div className="text-xs font-extrabold text-slate-700 leading-tight text-center w-full line-clamp-2 mb-1">
+                            <div className={`text-xs font-extrabold leading-tight text-center w-full line-clamp-2 mb-1 ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>
                               {item.name}
                             </div>
                             {/* 이미지(좌) + 등급 + 강화등급(우) */}
@@ -789,7 +792,7 @@ export default function Equipment({ studentCode }) {
                                           {meta.img
                                             ? <img src={meta.img} alt="" className="w-3 h-3 object-contain" />
                                             : <span className="text-[10px]">{meta.icon}</span>}
-                                          <span className="text-[10px] text-slate-600 font-medium">{meta.label}</span>
+                                          <span className={`text-[10px] font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{meta.label}</span>
                                         </div>
                                         <div className="flex items-center gap-0.5 shrink-0">
                                           <span className="text-xs font-extrabold text-indigo-700">+{base + enh}</span>
@@ -805,8 +808,8 @@ export default function Equipment({ studentCode }) {
                         ) : (
                           <>
                             <span className="text-5xl opacity-20">{slot.icon}</span>
-                            <span className="text-xs text-slate-400 font-bold mt-1">{slot.label}</span>
-                            <span className="text-[10px] text-slate-300 mt-0.5">비어 있음</span>
+                            <span className={`text-xs font-bold mt-1 ${isDark ? 'text-slate-300' : 'text-slate-400'}`}>{slot.label}</span>
+                            <span className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-300'}`}>비어 있음</span>
                           </>
                         )}
                       </button>
@@ -825,19 +828,19 @@ export default function Equipment({ studentCode }) {
             </div>
 
             {selectedSlot && (
-              <div className="bg-white rounded-3xl shadow-sm border border-indigo-200 p-4">
+              <div className={`rounded-3xl shadow-sm border p-4 ${isDark ? 'bg-slate-900/80 border-indigo-600/40' : 'bg-white border-indigo-200'}`}>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-extrabold text-indigo-700 text-sm flex items-center gap-1.5">
                     {SLOTS.find(s => s.key === selectedSlot)?.icon}
                     {SLOTS.find(s => s.key === selectedSlot)?.label} 선택
                   </h3>
                   <button onClick={() => setSelectedSlot(null)}
-                    className="text-slate-400 hover:text-slate-600 text-xs px-2 py-0.5 rounded-lg hover:bg-slate-100 transition-colors">
+                    className={`text-xs px-2 py-0.5 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}>
                     ✕ 닫기
                   </button>
                 </div>
                 {slotItems.length === 0 ? (
-                  <p className="text-slate-400 text-sm text-center py-6">
+                  <p className={`text-sm text-center py-6 ${isDark ? 'text-slate-300' : 'text-slate-400'}`}>
                     보유한 {SLOTS.find(s => s.key === selectedSlot)?.label}가 없습니다
                   </p>
                 ) : (
@@ -856,21 +859,23 @@ export default function Equipment({ studentCode }) {
               </div>
             )}
 
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-4">
-              <h3 className="font-extrabold text-slate-700 text-sm mb-3">⚡ 장비 보너스</h3>
+            <div className={`rounded-3xl shadow-sm border p-4 ${isDark ? 'bg-slate-900/80 border-slate-700' : 'bg-white border-slate-200'}`}>
+              <h3 className={`font-extrabold text-sm mb-3 ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>⚡ 장비 보너스</h3>
               <div className="grid grid-cols-2 gap-2">
                 {Object.entries(STAT_LABEL).map(([key, meta]) => {
                   const val = equipBonus[key] || 0;
                   return (
                     <div key={key} className={`flex items-center justify-between rounded-xl px-3 py-2.5 border
-                      ${val > 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
-                      <span className="text-xs text-slate-500 flex items-center gap-1.5">
+                      ${val > 0
+                        ? (isDark ? 'bg-indigo-900/30 border-indigo-700/50' : 'bg-indigo-50 border-indigo-100')
+                        : (isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100')}`}>
+                      <span className={`text-xs flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>
                         {meta.img
                           ? <img src={meta.img} alt="" className="w-4 h-4 object-contain" />
                           : <span>{meta.icon}</span>}
                         {meta.label}
                       </span>
-                      <span className={`text-sm font-extrabold ${val > 0 ? 'text-indigo-600' : 'text-slate-300'}`}>
+                      <span className={`text-sm font-extrabold ${val > 0 ? 'text-indigo-500' : (isDark ? 'text-slate-500' : 'text-slate-300')}`}>
                         +{val}
                       </span>
                     </div>
@@ -893,7 +898,7 @@ export default function Equipment({ studentCode }) {
                       ? g === 'all'
                         ? 'bg-slate-700 text-white border-slate-700'
                         : `${(GRADE[g] || GRADE.common).badge} border-transparent`
-                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}>
+                      : (isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400')}`}>
                   {g === 'all' ? '전체' : (GRADE[g] || GRADE.common).label}
                 </button>
               ))}
@@ -902,13 +907,17 @@ export default function Equipment({ studentCode }) {
             <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
               <button onClick={() => setSlotFilter('all')}
                 className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors border
-                  ${slotFilter === 'all' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}>
+                  ${slotFilter === 'all'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : (isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400')}`}>
                 전체
               </button>
               {SLOTS.map(slot => (
                 <button key={slot.key} onClick={() => setSlotFilter(slot.key)}
                   className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors border flex items-center gap-1
-                    ${slotFilter === slot.key ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}>
+                    ${slotFilter === slot.key
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : (isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400')}`}>
                   {slot.icon} {slot.label}
                 </button>
               ))}
@@ -916,7 +925,7 @@ export default function Equipment({ studentCode }) {
             </div>
 
             {filteredInv.length === 0 ? (
-              <div className="text-center py-20 text-slate-400">
+              <div className={`text-center py-20 ${isDark ? 'text-slate-300' : 'text-slate-400'}`}>
                 <div className="text-5xl mb-3">📦</div>
                 <p className="font-bold">보유한 장비가 없습니다</p>
                 <p className="text-sm mt-1">보물상자를 뽑아 장비를 얻어보세요!</p>

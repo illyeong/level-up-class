@@ -455,7 +455,7 @@ function App() {
         {currentView === 'hallOfFame' && <HallOfFame   studentCode={activeStudentCode} />}
         {currentView === 'classVote'  && <ClassVote    studentCode={activeStudentCode} />}
         {currentView === 'petHouse'  && <PetHouse />}
-        {currentView === 'equipment' && <Equipment studentCode={activeStudentCode} />}
+        {currentView === 'equipment' && <Equipment studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'gachaBox'  && <GachaBox  studentCode={activeStudentCode} />}
         {currentView === 'academy' && (
           <div className="p-8 text-2xl font-bold text-slate-800">아카데미 화면 (준비 중 📚)</div>

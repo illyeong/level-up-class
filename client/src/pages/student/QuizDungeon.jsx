@@ -121,7 +121,7 @@ const DIFF_THEME = {
 };
 
 // ── 던전 로비 ─────────────────────────────────────────────────
-function DungeonLobby({ dungeons, bestScores, onPreview, isLoading }) {
+function DungeonLobby({ dungeons, bestScores, onPreview, onRetryPreview, isLoading }) {
   if (isLoading) return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex items-center justify-center">
       <div className="text-center">
@@ -290,11 +290,27 @@ function DungeonLobby({ dungeons, bestScores, onPreview, isLoading }) {
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={() => onPreview(d)}
-                  className={`shrink-0 px-5 py-2 rounded-2xl font-extrabold text-sm transition-all bg-gradient-to-r ${theme.btn} text-white shadow-lg active:scale-95`}>
-                  {best?.cleared ? '✓ 클리어' : '⚔️ 입장'}
-                </button>
+                {best?.cleared ? (
+                  <div className="shrink-0 flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled
+                      className="px-4 py-2 rounded-2xl font-extrabold text-sm bg-emerald-900/40 text-emerald-300 border border-emerald-700/60 cursor-not-allowed">
+                      ✓ 클리어
+                    </button>
+                    <button
+                      onClick={() => onRetryPreview(d)}
+                      className={`px-4 py-2 rounded-2xl font-extrabold text-sm transition-all bg-gradient-to-r ${theme.btn} text-white shadow-lg active:scale-95`}>
+                      🔄 다시 풀어보기
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => onPreview(d)}
+                    className={`shrink-0 px-5 py-2 rounded-2xl font-extrabold text-sm transition-all bg-gradient-to-r ${theme.btn} text-white shadow-lg active:scale-95`}>
+                    ⚔️ 입장
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -697,11 +713,6 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       {/* ── 전투 씬 ── */}
       <div className="relative shrink-0 overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800"
            style={{ height: `${layoutCfg.sceneHeightVh}vh`, minHeight: '300px' }}>
-        <img
-          src="/images/quiz-battle-scene.png"
-          alt="전투 배경"
-          className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none"
-        />
         <div className="absolute inset-0 bg-slate-950/30 pointer-events-none" />
 
         {/* 바닥 그라데이션 */}
@@ -797,12 +808,12 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
           </div>
         ))}
 
-        {/* HIT / 빗나감 */}
+        {/* HIT / 오답 */}
         {answered === 'correct' && (
           <div className="absolute top-4 right-[25%] text-yellow-300 font-extrabold text-2xl animate-bounce drop-shadow-lg">💥 HIT!</div>
         )}
         {answered === 'wrong' && (
-          <div className="absolute top-4 left-[18%] text-rose-400 font-extrabold text-lg animate-bounce">😵 빗나감!</div>
+          <div className="absolute top-4 left-[18%] text-rose-400 font-extrabold text-lg animate-bounce">❌ 오답!</div>
         )}
         {answered === 'timeout' && (
           <div className="absolute top-4 left-[18%] text-rose-400 font-extrabold text-lg animate-bounce">⏰ 시간 초과!</div>
@@ -907,6 +918,7 @@ function ResultScreen({
 }) {
   const accuracy  = totalQ > 0 ? Math.round(score / totalQ * 100) : 0;
   const stars     = toStars(accuracy);
+  const successByStars = stars >= 2;
   const [visStars, setVisStars] = useState(0);
 
   useEffect(() => {
@@ -929,9 +941,9 @@ function ResultScreen({
 
   return (
     <div className="flex flex-col items-center min-h-full p-5 bg-slate-50">
-      <div className="text-6xl mt-4 mb-2">{cleared ? '🏆' : '💀'}</div>
+      <div className="text-6xl mt-4 mb-2">{successByStars ? '🏆' : '💀'}</div>
       <h2 className="text-2xl font-extrabold text-slate-800 mb-1">
-        {cleared ? '던전 클리어!' : '던전 실패'}
+        {successByStars ? '던전 클리어!' : '던전 실패'}
       </h2>
       <p className="text-slate-500 text-sm mb-4">{dungeon.title}</p>
 
@@ -966,9 +978,9 @@ function ResultScreen({
         <div className="text-sm text-slate-400 mb-4 animate-pulse">💾 결과 저장 중...</div>
       ) : earnedRewards ? (
         <div className={`border rounded-2xl p-4 w-full max-w-xs mb-4
-          ${cleared ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
-          <div className={`font-bold mb-2 text-sm ${cleared ? 'text-emerald-700' : 'text-slate-600'}`}>
-            {cleared ? '🎁 획득 보상' : '🎁 정답 수 비례 보상'}
+          ${successByStars ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+          <div className={`font-bold mb-2 text-sm ${successByStars ? 'text-emerald-700' : 'text-slate-600'}`}>
+            {successByStars ? '🎁 획득 보상' : '🎁 정답 수 비례 보상'}
           </div>
           {(earnedRewards.goldEarned > 0 || earnedRewards.expEarned > 0 || earnedRewards.diamondEarned > 0) ? (
             <div className="space-y-1.5">
@@ -1154,6 +1166,10 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
   }, [isTeacher, teacherUid]);
 
   const enterDungeon = (dungeon, retry = false) => {
+    if (retry) {
+      const confirmed = window.confirm('재도전은 보상이 지급되지 않습니다. 계속하시겠습니까?');
+      if (!confirmed) return;
+    }
     const totalQ = dungeon.questions.length;
     // 미리 확정된 웨이브가 있으면 재사용, 없으면 새로 생성 (재도전 등)
     const waves  = dungeon.waves || generateWaves(totalQ, dungeon.monsterIds || dungeon.monsterId, dungeon.id);
@@ -1172,12 +1188,13 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
     await doSaveResult(result);
   };
 
-  const doSaveResult = async ({ score, cleared, playerHP, wrongIdxs, timeBonus }) => {
+  const doSaveResult = async ({ score, cleared: battleCleared, playerHP, wrongIdxs, timeBonus }) => {
     if (!selectedDungeon) return;
     setIsSaving(true);
     const dungeon  = selectedDungeon;
     const totalQ   = (dungeon.questions || []).length || dungeon.questionCount || 0;
     const accuracy = totalQ > 0 ? Math.round(score / totalQ * 100) : 0;
+    const cleared  = !!battleCleared || toStars(accuracy) >= 2;
     const isFirst  = !bestScores[dungeon.id]?.cleared;
     const rewardRatio = totalQ > 0 ? Math.max(0, Math.min(1, score / totalQ)) : 0;
 
@@ -1257,7 +1274,14 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
     const totalQ = (d.questions || []).length;
     const waves  = generateWaves(totalQ, d.monsterIds || d.monsterId, d.id);
     preloadWaveImages(waves); // 팝업 보는 동안 백그라운드 로드
-    setPreviewDungeon({ ...d, waves });
+    setPreviewDungeon({ ...d, waves, retry: false });
+  };
+
+  const handleRetryPreview = (d) => {
+    const totalQ = (d.questions || []).length;
+    const waves  = generateWaves(totalQ, d.monsterIds || d.monsterId, d.id);
+    preloadWaveImages(waves);
+    setPreviewDungeon({ ...d, waves, retry: true });
   };
 
   if (screen === 'lobby') return (
@@ -1266,12 +1290,13 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
         dungeons={dungeons}
         bestScores={bestScores}
         onPreview={handlePreview}
+        onRetryPreview={handleRetryPreview}
         isLoading={isLoading}
       />
       {previewDungeon && (
         <BossIntroModal
           dungeon={previewDungeon}
-          onConfirm={() => enterDungeon(previewDungeon, !!bestScores[previewDungeon.id]?.cleared)}
+          onConfirm={() => enterDungeon(previewDungeon, !!previewDungeon.retry)}
           onCancel={() => setPreviewDungeon(null)}
         />
       )}

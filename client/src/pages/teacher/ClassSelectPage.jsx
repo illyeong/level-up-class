@@ -223,7 +223,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
                   type="text"
                   value={query}
                   onChange={e => { setQuery(e.target.value); setSelectedSchool(null); }}
-                  placeholder="예: 인천신석초등학교"
+                  placeholder="예: OO초등학교"
                   className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500"
                 />
                 {loading && (
@@ -375,9 +375,10 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
           {!state.isDone && (
             <ul className="text-sm text-slate-600 space-y-1.5 list-disc pl-5">
               <li>추천 퀘스트 전체 자동 생성</li>
-              <li>기본 학급 상점 4종 자동 등록</li>
+              <li>기본 학급 상점 5종 자동 등록</li>
               <li>탐험던전 입장권 3장 기본 지급</li>
               <li>학년 맞춤 수학 6문항 + 예시 퀴즈던전 자동 생성</li>
+              <li>학년 맞춤 보스레이드용 6문항 + 기본 보스 레이드 1개 생성</li>
             </ul>
           )}
 
@@ -392,7 +393,10 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
               <div className="font-extrabold mb-1">적용 완료</div>
               <div>생성된 퀘스트: {state.result.summary.createdQuestCount}개</div>
               <div>생성된 상점 아이템: {state.result.summary.createdShopItemCount}개</div>
+              <div>삭제된 기본 아이템(프리패스 쿠폰): {state.result.summary.removedLegacyShopItemCount || 0}개</div>
               <div>입장권 보정 학생 수: {state.result.summary.updatedStudentTicketCount}명</div>
+              <div>생성된 보스레이드 퀴즈셋: {state.result.summary.createdBossQuizSet ? '예' : '아니오'}</div>
+              <div>생성된 기본 보스 레이드: {state.result.summary.createdBossRaid ? '예' : '아니오'}</div>
             </div>
           )}
         </div>

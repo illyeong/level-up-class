@@ -322,7 +322,7 @@ function TeacherDashboard({ selectedClass }) {
           <div>
             <h2 className="text-lg font-extrabold text-slate-800">딸깍 기본 셋팅</h2>
             <p className="text-sm text-slate-500 mt-1">
-              추천 퀘스트, 기본 상점, 어드벤처 입장권, 예시 퀴즈던전을 한 번에 생성합니다.
+              추천 퀘스트, 기본 상점, 어드벤처 입장권, 예시 퀴즈던전, 기본 보스레이드를 한 번에 생성합니다.
             </p>
             {quickSetupInfo?.completed && (
               <p className="text-xs text-emerald-600 font-bold mt-1">

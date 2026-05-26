@@ -14,7 +14,7 @@ const cleanExplanation = (text) => {
 };
 import {
   collection, doc, updateDoc, onSnapshot,
-  increment, serverTimestamp, getDoc, getDocs, deleteField, writeBatch,
+  increment, serverTimestamp, getDoc, getDocs, deleteField, writeBatch, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { MONSTERS_DB, BOSS_BG_MAP } from '../../data/monsterData';
@@ -766,9 +766,10 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
 }
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────
-export default function BossRaid({ studentCode, studentDocId, isTeacher = false }) {
+export default function BossRaid({ studentCode, studentDocId, isTeacher = false, selectedClass = null }) {
   const [raid, setRaid]           = useState(undefined); // undefined=로딩, null=없음
   const [studentData, setStudentData] = useState(null);
+  const [raidScope, setRaidScope] = useState({ classId: null, teacherUid: null });
   const [showIntro, setShowIntro] = useState(!isTeacher);
 
   // 내 답변 상태 (로컬)
@@ -788,9 +789,23 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
   useEffect(() => {
     if (!studentDocId) return;
     getDoc(doc(db, 'students', studentDocId)).then(snap => {
-      if (snap.exists()) setStudentData({ id: snap.id, ...snap.data() });
+      if (!snap.exists()) return;
+      const data = { id: snap.id, ...snap.data() };
+      setStudentData(data);
+      setRaidScope({
+        classId: data.classId || null,
+        teacherUid: data.teacherUid || null,
+      });
     });
   }, [studentDocId]);
+
+  useEffect(() => {
+    if (!isTeacher) return;
+    setRaidScope({
+      classId: selectedClass?.id || null,
+      teacherUid: selectedClass?.teacherUid || null,
+    });
+  }, [isTeacher, selectedClass?.id, selectedClass?.teacherUid]);
 
   // raidRef 최신 raid 추적 (언마운트 시 사용)
   useEffect(() => { raidRef.current = raid; }, [raid]);
@@ -808,7 +823,20 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
 
   // 레이드 실시간 리스닝 (컬렉션 전체 — 소규모)
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'worldBossRaids'), snap => {
+    const classId = raidScope.classId || null;
+    const teacherUid = raidScope.teacherUid || null;
+    const raidQuery = classId
+      ? query(collection(db, 'worldBossRaids'), where('classId', '==', classId))
+      : teacherUid
+      ? query(collection(db, 'worldBossRaids'), where('teacherUid', '==', teacherUid))
+      : null;
+
+    if (!raidQuery) {
+      setRaid(null);
+      return () => {};
+    }
+
+    const unsub = onSnapshot(raidQuery, snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
@@ -829,7 +857,7 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
       setRaid(ended || null);
     });
     return () => unsub();
-  }, [studentDocId, isTeacher]);
+  }, [studentDocId, isTeacher, raidScope.classId, raidScope.teacherUid]);
 
   // 대기실 자동 입장 (교사 모드에서는 참가자로 등록 안 함)
   useEffect(() => {
