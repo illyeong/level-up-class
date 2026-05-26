@@ -110,7 +110,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'boardManage'        && <BoardManage selectedClass={selectedClass} user={user} />}
         {currentView === 'learningNoteManage' && <LearningNoteManage selectedClass={selectedClass} />}
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
-        {currentView === 'dataReset'       && <DataReset selectedClass={selectedClass} />}
+        {currentView === 'dataReset'       && <DataReset selectedClass={selectedClass} onClassDeleted={onChangeClass} />}
         {currentView === 'classVoteManage' && <ClassVoteManage selectedClass={selectedClass} />}
         {currentView === 'freeBoard'       && <FreeBoard teacherUid={selectedClass?.teacherUid} isTeacher={true} />}
         {currentView === 'hallOfFame'      && <HallOfFame teacherUid={selectedClass?.teacherUid} />}

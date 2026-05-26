@@ -100,7 +100,7 @@ function ActionCard({ icon, title, description, buttonLabel, danger, onAction, l
 }
 
 /* ─── 메인 컴포넌트 ───────────────────────────────────── */
-export default function DataReset({ selectedClass }) {
+export default function DataReset({ selectedClass, onClassDeleted }) {
   const [loadingKey, setLoadingKey] = useState(null);
   const [logs, setLogs]             = useState([]);
   const [modal, setModal]           = useState(null); // { key, title, description, danger, action }
@@ -299,7 +299,12 @@ export default function DataReset({ selectedClass }) {
       await batchDelete(questsSnap.docs.map(d => d.ref));
     }
 
-    addLog('학급 삭제 완료. 페이지를 새로고침해주세요.', 'success');
+    if (selectedClass?.id) {
+      await batchDelete([doc(db, 'classes', selectedClass.id)]);
+      addLog('학급 문서 삭제 완료', 'info');
+    }
+    addLog('학급 삭제 완료', 'success');
+    if (onClassDeleted) onClassDeleted();
   };
 
   /* 선택된 학급 없을 때 */
