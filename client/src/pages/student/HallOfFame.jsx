@@ -82,7 +82,6 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
   const [activeTab, setActiveTab] = useState('level');
   const [resolvedUid, setResolvedUid] = useState(propTeacherUid || null);
   const [arenaWinsMap, setArenaWinsMap] = useState({});
-  const [arenaFetched, setArenaFetched] = useState(false);
 
   useEffect(() => {
     if (propTeacherUid) { setResolvedUid(propTeacherUid); return; }
@@ -105,7 +104,7 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
 
   // 투기장 랭킹 집계
   useEffect(() => {
-    if (activeTab !== 'arena' || arenaFetched || students.length === 0) return;
+    if (activeTab !== 'arena' || students.length === 0) return;
     const classIds = students.map(s => s.id);
     (async () => {
       try {
@@ -127,9 +126,8 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
         });
         setArenaWinsMap(winsMap);
       } catch (e) { console.error(e); }
-      finally { setArenaFetched(true); }
     })();
-  }, [activeTab, arenaFetched, students]);
+  }, [activeTab, students]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-full text-slate-400">불러오는 중...</div>

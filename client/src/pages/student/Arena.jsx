@@ -702,6 +702,17 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   const oppBattleRef              = useRef(null);
   const arenaTickets              = tickets?.arena ?? 0;
 
+  // VS 단계에서 다음 전투의 HP/최대 HP를 미리 맞춰 stale 상태를 방지
+  useEffect(() => {
+    if (phase !== 'vs' || !me || !opponent) return;
+    const myStats = getStats(me);
+    const oppStats = getStats(opponent);
+    const nextMeMax = Math.max(1, Number(myStats.hp) || 1);
+    const nextOppMax = Math.max(1, Number(oppStats.hp) || 1);
+    setBattleMaxHP({ me: nextMeMax, opp: nextOppMax });
+    setBattleHP({ me: nextMeMax, opp: nextOppMax });
+  }, [phase, me, opponent]);
+
   // 내 정보 + 우리반 로드
   useEffect(() => {
     if (!studentCode) return;
@@ -814,11 +825,13 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
 
       const myStats  = getStats(me);
       const oppStats = getStats(opponent);
-      let myHP  = myStats.hp;
-      let oppHP = oppStats.hp;
+      const myMaxHP = Math.max(1, Number(myStats.hp) || 1);
+      const oppMaxHP = Math.max(1, Number(oppStats.hp) || 1);
+      let myHP  = myMaxHP;
+      let oppHP = oppMaxHP;
 
-      setBattleMaxHP({ me: myHP, opp: oppHP });
-      setBattleHP({ me: myHP, opp: oppHP });
+      setBattleMaxHP({ me: myMaxHP, opp: oppMaxHP });
+      setBattleHP({ me: myMaxHP, opp: oppMaxHP });
       setBattleLog([]);
       if (hitTimerRef.current.me) { clearTimeout(hitTimerRef.current.me); hitTimerRef.current.me = null; }
       if (hitTimerRef.current.opp) { clearTimeout(hitTimerRef.current.opp); hitTimerRef.current.opp = null; }
@@ -886,7 +899,10 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
             }
             triggerHitFx('me', dmg, isCrit);
           }
-          setBattleHP({ me: myHP, opp: oppHP });
+          setBattleHP({
+            me: Math.max(0, Math.min(myHP, myMaxHP)),
+            opp: Math.max(0, Math.min(oppHP, oppMaxHP)),
+          });
           setBattleLog([...log]);
           if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
 
@@ -914,17 +930,13 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
       // 방금 싸운 상대 기록 (다음 매칭에서 제외)
       if (opponent?.id) addRecentOpponent(opponent.id);
 
-      // 테스트 계정(SINSEOK / admin_master_001)은 전적 기록 저장 안 함
-      const isTestBattle = me?.teacherUid === 'admin_master_001' || opponent?.teacherUid === 'admin_master_001';
-      if (!isTestBattle) {
-        await addDoc(collection(db, 'arenaLogs'), {
-          studentId: docId, studentCode: me.studentCode, studentName: myName,
-          studentCharacterImage: me.characterImage || '',
-          opponentId: opponent?.id, opponentCode: opponent?.studentCode, opponentName: oppName,
-          opponentCharacterImage: opponent?.characterImage || '',
-          isWin, reward, createdAt: serverTimestamp(),
-        });
-      }
+      await addDoc(collection(db, 'arenaLogs'), {
+        studentId: docId, studentCode: me.studentCode, studentName: myName,
+        studentCharacterImage: me.characterImage || '',
+        opponentId: opponent?.id, opponentCode: opponent?.studentCode, opponentName: oppName,
+        opponentCharacterImage: opponent?.characterImage || '',
+        isWin, reward, createdAt: serverTimestamp(),
+      });
 
       await new Promise(r => setTimeout(r, 1200));
       setResult({ isWin, reward });
