@@ -373,7 +373,7 @@ function TeacherDashboard({ selectedClass }) {
                     {/* 吏꾪뻾瑜?*/}
                     <div className="flex justify-between text-xs font-bold mb-1">
                       <span className={isDaily ? 'text-sky-600' : 'text-violet-600'}>
-                        {quest.checkedCount}紐?/ {students.length}紐?
+                        {quest.checkedCount}명 / {students.length}명
                       </span>
                       <span className="text-slate-500 font-extrabold">{pct}%</span>
                     </div>

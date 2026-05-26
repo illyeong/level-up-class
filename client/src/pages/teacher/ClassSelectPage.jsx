@@ -138,7 +138,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
   const handleCreate = async () => {
     if (!selectedSchool || !grade || !classNum || !studentCount) return;
     const count = parseInt(studentCount);
-    if (count < 1 || count > 32) { showToast('?숈깮 ?섎뒗 1~32紐낆쑝濡??낅젰?댁＜?몄슂.', 'error'); return; }
+    if (count < 1 || count > 32) { showToast('학생 수는 1~32명으로 입력해주세요.', 'error'); return; }
 
     setIsCreating(true);
     setStep(3);
@@ -188,8 +188,8 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
         studentCount: count,
       });
     } catch (err) {
-      console.error('?숆툒 ?앹꽦 ?먮윭:', err);
-      showToast('?숆툒 ?앹꽦???ㅽ뙣?덉뒿?덈떎: ' + err.message, 'error');
+      console.error('학급 생성 오류:', err);
+      showToast('학급 생성에 실패했습니다: ' + err.message, 'error');
       setIsCreating(false);
       setStep(2);
     }
@@ -207,27 +207,27 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
 
         {step === 3 ? (
           <div className="p-10 flex flex-col items-center gap-4">
-            <div className="text-5xl animate-spin">?숋툘</div>
-            <p className="font-extrabold text-slate-700 text-lg">?숆툒 諛??숈깮 怨꾩젙 ?앹꽦 以?..</p>
-            <p className="text-slate-400 text-sm">{studentCount}紐낆쓽 怨꾩젙??留뚮뱾怨??덉뒿?덈떎</p>
+            <div className="text-5xl animate-spin">⚙️</div>
+            <p className="font-extrabold text-slate-700 text-lg">학급 및 학생 계정 생성 중...</p>
+            <p className="text-slate-400 text-sm">{studentCount}명의 계정을 만들고 있습니다</p>
           </div>
         ) : (
           <div className="p-6 space-y-5 overflow-y-auto flex-1">
             {/* ?숆탳 寃??*/}
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                ?숆탳 ?대쫫 寃??<span className="text-rose-500">*</span>
+                학교 이름 검색<span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <input
                   type="text"
                   value={query}
                   onChange={e => { setQuery(e.target.value); setSelectedSchool(null); }}
-                  placeholder="?? OO珥덈벑?숆탳"
+                  placeholder="예: OO초등학교"
                   className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500"
                 />
                 {loading && (
-                  <div className="absolute right-3 top-3 text-slate-400 text-xs">寃??以?..</div>
+                  <div className="absolute right-3 top-3 text-slate-400 text-xs">검색 중...</div>
                 )}
                 {/* 寃??寃곌낵 ?쒕∼?ㅼ슫 */}
                 {results.length > 0 && !selectedSchool && (
@@ -238,7 +238,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
                         onClick={() => selectSchool(s)}
                         className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-0">
                         <div className="font-bold text-slate-800 text-sm">{s.name}</div>
-                        <div className="text-xs text-slate-400">{s.location} 쨌 {s.type}</div>
+                        <div className="text-xs text-slate-400">{s.location} · {s.type}</div>
                       </button>
                     ))}
                   </div>
@@ -246,7 +246,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
               </div>
               {selectedSchool && (
                 <div className="mt-1.5 flex items-center gap-2 text-xs text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-lg">
-                  ??{selectedSchool.name} ({selectedSchool.location})
+                  선택됨: {selectedSchool.name} ({selectedSchool.location})
                   <button onClick={() => { setSelectedSchool(null); setQuery(''); }} className="ml-auto text-slate-400 hover:text-rose-400">삭제</button>
                 </div>
               )}
@@ -255,14 +255,14 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
             {/* ?숇뀈 / 諛?/ ?숈깮???ㅽ겕濡??쇱빱 */}
             <div>
               <div className="text-xs font-bold text-slate-600 mb-3 text-center">
-                ?숇뀈 쨌 諛?쨌 ?숈깮 ??<span className="text-rose-500">*</span>
+                학년 · 반 · 학생 수<span className="text-rose-500">*</span>
               </div>
               <div className="flex justify-center gap-4 py-2">
                 <ScrollPicker
-                  label="?숇뀈"
+                  label="학년"
                   value={grade || '1'}
                   onChange={v => setGrade(v)}
-                  items={[1,2,3,4,5,6].map(g => ({ value: String(g), label: `${g}?숇뀈` }))}
+                  items={[1,2,3,4,5,6].map(g => ({ value: String(g), label: `${g}학년` }))}
                 />
                 <ScrollPicker
                   label="반"
@@ -282,32 +282,32 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
             {/* 誘몃━蹂닿린 */}
             {selectedSchool && grade && classNum && studentCount && (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm space-y-1">
-                <div className="font-bold text-slate-700">?뱥 ?앹꽦 誘몃━蹂닿린</div>
+                <div className="font-bold text-slate-700">계정 생성 미리보기</div>
                 <div className="text-slate-500">
-                  ?숆툒: {selectedSchool.name} {grade}?숇뀈 {classNum}諛?
+                  학급: {selectedSchool.name} {grade}학년 {classNum}반
                 </div>
                 <div className="text-slate-500">
-                  ?숈깮 肄붾뱶 ?덉떆:&nbsp;
+                  학생 코드 예시:&nbsp;
                   <span className="font-mono font-bold text-indigo-600">
                     {makeStudentCode(selectedSchool.name, grade, classNum, 1)}
                     &nbsp;~&nbsp;
                     {makeStudentCode(selectedSchool.name, grade, classNum, parseInt(studentCount)||1)}
                   </span>
                 </div>
-                <div className="text-slate-500">?숈깮 {studentCount}紐?怨꾩젙 ?먮룞 ?앹꽦</div>
+                <div className="text-slate-500">학생 {studentCount}명 계정 자동 생성</div>
               </div>
             )}
 
             <div className="flex gap-3 pt-1">
               <button onClick={onClose}
                 className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50">
-                痍⑥냼
+                취소
               </button>
               <button
                 onClick={handleCreate}
                 disabled={!selectedSchool || !grade || !classNum || !studentCount || isCreating}
                 className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40 transition-colors">
-                ?숆툒 ?앹꽦?섍린
+                학급 만들기
               </button>
             </div>
           </div>
