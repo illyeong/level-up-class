@@ -121,6 +121,19 @@
                   unityInstance.SetFullscreen(1);
                 };
 
+                // URL 쿼리의 dungeonIndex를 Unity로 직접 전달 (메시지 타이밍 이슈 방지)
+                try {
+                  const params = new URLSearchParams(window.location.search);
+                  const dungeonIndex = Number(params.get("dungeonIndex"));
+                  if (Number.isFinite(dungeonIndex) && dungeonIndex > 0) {
+                    const payload = JSON.stringify({
+                      type: "REACT_LOAD_AVATAR",
+                      stats: { dungeonIndex: Math.floor(dungeonIndex) }
+                    });
+                    unityInstance.SendMessage("DungeonCharacterLoader", "OnReceiveMessage", payload);
+                  }
+                } catch (e) {}
+
               }).catch((message) => {
                 alert(message);
               });

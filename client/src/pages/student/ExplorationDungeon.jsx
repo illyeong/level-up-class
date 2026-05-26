@@ -250,6 +250,7 @@ function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets
 // ── 메인 ─────────────────────────────────────────────────────
 export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, isTeacher = false, teacherUid = null }) {
   const [phase, setPhase]             = useState('map');
+  const [dungeonLaunchIndex, setDungeonLaunchIndex] = useState(1);
   const [dungeonList, setDungeonList] = useState(DUNGEONS);
   const [isBusy, setIsBusy]           = useState(false);
   const [student, setStudent]         = useState(null);
@@ -464,6 +465,13 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     selectedDungeonRef.current = selectedDungeon; // Unity 전달용 저장
     setIsBusy(true);
     try {
+      setIsBusy(true);
+      const selectedOrder = dungeonList.findIndex((d) => String(d.id) === String(selectedDungeon.id)) + 1;
+      const selectedNumeric = Number(selectedDungeon.id);
+      const launchIndex = selectedOrder > 0
+        ? selectedOrder
+        : (Number.isFinite(selectedNumeric) ? Math.max(1, selectedNumeric) : 1);
+      setDungeonLaunchIndex(launchIndex);
       if (!isTeacher) await onUseTicket('dungeon');
       setPhase('playing');
       setSelectedDungeon(null);
@@ -474,9 +482,10 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
 
   // ── Unity 플레이 화면 ──────────────────────────────────────
   if (phase === 'playing') {
+    const unityUrl = `${DUNGEON_URL}?dungeonIndex=${encodeURIComponent(dungeonLaunchIndex)}&t=${Date.now()}`;
     return (
       <div className="relative w-full" style={{ height: 'calc(100vh - 88px)' }}>
-        <iframe ref={iframeRef} id="dungeon-iframe" src={DUNGEON_URL}
+        <iframe ref={iframeRef} id="dungeon-iframe" src={unityUrl}
           onLoad={handleIframeLoad} className="w-full h-full border-0"
           allow="fullscreen" title="탐험던전" />
         <button onClick={() => setPhase('map')}
