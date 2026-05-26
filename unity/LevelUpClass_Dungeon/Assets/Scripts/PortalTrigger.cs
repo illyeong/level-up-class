@@ -57,6 +57,7 @@ public class PortalTrigger : MonoBehaviour
     {
         if (!isActive) return;
         if (!other.CompareTag("Player")) return;
+        if (GameManager.Instance != null && !GameManager.Instance.hasReactDungeonIndex) return;
 
         // 씬 이동 전 현재 체력을 GameManager에 저장
         if (GameManager.Instance != null)

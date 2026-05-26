@@ -69,7 +69,11 @@ public class DungeonCharacterLoader : MonoBehaviour
         if (s.crit > 0)
             gm.critChance = Mathf.Clamp(s.crit, 0, 100);
 
-        if (s.dungeonIndex > 0) gm.dungeonIndex = s.dungeonIndex;
+        if (s.dungeonIndex > 0)
+        {
+            gm.dungeonIndex = s.dungeonIndex;
+            gm.hasReactDungeonIndex = true;
+        }
 
         var pc = LayerLab.ArtMaker.PlayerCombat.FindMainPlayerCombat();
         if (pc != null)
