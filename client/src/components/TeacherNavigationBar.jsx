@@ -7,13 +7,14 @@ import iconDashboard from '../assets/images/icon-dashboard.png';
 import iconQuest from '../assets/images/icon-quest.png';
 import iconAdventure from '../assets/images/icon-adventure.png';
 
-const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, selectedClass }) => {
+const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, selectedClass, hiddenMenuIds = [] }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [expandedMenu, setExpandedMenu] = useState('dashboard');
   const [showFeedback, setShowFeedback] = useState(false);
   const [fbText, setFbText]             = useState('');
   const [fbSaving, setFbSaving]         = useState(false);
 
+  const hidden = new Set(hiddenMenuIds || []);
   const teacherMenuData = [
     {
       id: 'dashboard', icon: iconDashboard, title: '대시보드', isReady: true,
@@ -81,7 +82,11 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       id: 'inquiry', icon: '💬', title: '건의 및 문의하기', isReady: true,
       subMenus: []
     }
-  ];
+  ].filter((menu) => !hidden.has(menu.id))
+    .map((menu) => ({
+      ...menu,
+      subMenus: (menu.subMenus || []).filter((sub) => !hidden.has(sub.id)),
+    }));
 
   // 서브메뉴와 상관없이 자체 페이지로 이동하는 메뉴
   const DIRECT_NAV_MENUS = ['dashboard', 'myCharacter', 'questManage', 'inquiry'];

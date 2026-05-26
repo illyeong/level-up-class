@@ -29,9 +29,11 @@ import HallOfFame     from '../student/HallOfFame';
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
   const [currentView, setCurrentView]   = useState('dashboard');
-  const [teacherThemeMode, setTeacherThemeMode] = useState(() => localStorage.getItem('teacherThemeMode') || 'dark');
+  const [teacherThemeMode, setTeacherThemeMode] = useState(() => localStorage.getItem('teacherThemeMode') || 'light');
   const [hideTeacherNav, setHideTeacherNav] = useState(false);
   const [hideStudentNav, setHideStudentNav] = useState(false);
+  const [hiddenTeacherMenuIds, setHiddenTeacherMenuIds] = useState([]);
+  const [hiddenStudentMenuIds, setHiddenStudentMenuIds] = useState([]);
   const [forceShowNav, setForceShowNav] = useState(false);
   const [dashboardKey, setDashboardKey] = useState(0);
   const [notices, setNotices]           = useState([]);
@@ -57,6 +59,8 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         const data = snap.exists() ? (snap.data() || {}) : {};
         setHideTeacherNav(data.hideTeacherNav === true);
         setHideStudentNav(data.hideStudentNav === true);
+        setHiddenTeacherMenuIds(Array.isArray(data.hiddenTeacherMenuIds) ? data.hiddenTeacherMenuIds : []);
+        setHiddenStudentMenuIds(Array.isArray(data.hiddenStudentMenuIds) ? data.hiddenStudentMenuIds : []);
       } catch {
         setHideTeacherNav(false);
       }
@@ -82,6 +86,33 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
 
   const isDark = teacherThemeMode === 'dark';
   const shouldShowNav = !hideTeacherNav || forceShowNav;
+  const studentMenuOptions = [
+    'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement',
+    'board','learningNote','adventure','quizDungeon','explorationDungeon','arena','bossRaid','trade',
+    'classBank','classShop','stockMarket','town','freeBoard','classVote','settings','editProfile','themeSettings'
+  ];
+  const teacherMenuOptions = [
+    'dashboard','myCharacter','questManage','questKiosk','adventure','quizBank','quizDungeonManage','bossRaidManage',
+    'quizDungeon','explorationDungeon','bossRaid','adventureManage','boardManage','learningNoteManage','economyManage',
+    'classShopManage','bankManage','stockManage','townManage','freeBoard','hallOfFame','classVoteManage','studentManage',
+    'accountIssue','systemSettings','dataReset','inquiry'
+  ];
+
+  const toggleHiddenMenu = async (scope, id) => {
+    if (scope === 'student') {
+      const next = hiddenStudentMenuIds.includes(id)
+        ? hiddenStudentMenuIds.filter((x) => x !== id)
+        : [...hiddenStudentMenuIds, id];
+      setHiddenStudentMenuIds(next);
+      await setDoc(doc(db, 'systemConfig', 'uiPreferences'), { hiddenStudentMenuIds: next }, { merge: true });
+      return;
+    }
+    const next = hiddenTeacherMenuIds.includes(id)
+      ? hiddenTeacherMenuIds.filter((x) => x !== id)
+      : [...hiddenTeacherMenuIds, id];
+    setHiddenTeacherMenuIds(next);
+    await setDoc(doc(db, 'systemConfig', 'uiPreferences'), { hiddenTeacherMenuIds: next }, { merge: true });
+  };
 
   return (
     <div className={`flex h-screen w-full ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
@@ -92,6 +123,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
           currentView={currentView}
           onLogout={onLogout}
           selectedClass={selectedClass}
+          hiddenMenuIds={hiddenTeacherMenuIds}
         />
       )}
       {!shouldShowNav && (
@@ -203,6 +235,44 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
                       <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${hideTeacherNav ? 'left-7' : 'left-1'}`} />
                     </button>
                   </label>
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="text-sm font-bold mb-2">학생 메뉴별 활성/비활성</div>
+                  <div className="max-h-56 overflow-auto space-y-1">
+                    {studentMenuOptions.map((id) => {
+                      const hidden = hiddenStudentMenuIds.includes(id);
+                      return (
+                        <label key={id} className="flex items-center justify-between text-xs py-1">
+                          <span className={hidden ? 'text-slate-400' : ''}>{id}</span>
+                          <input
+                            type="checkbox"
+                            checked={!hidden}
+                            onChange={() => toggleHiddenMenu('student', id)}
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="text-sm font-bold mb-2">교사 메뉴별 활성/비활성</div>
+                  <div className="max-h-56 overflow-auto space-y-1">
+                    {teacherMenuOptions.map((id) => {
+                      const hidden = hiddenTeacherMenuIds.includes(id);
+                      return (
+                        <label key={id} className="flex items-center justify-between text-xs py-1">
+                          <span className={hidden ? 'text-slate-400' : ''}>{id}</span>
+                          <input
+                            type="checkbox"
+                            checked={!hidden}
+                            onChange={() => toggleHiddenMenu('teacher', id)}
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>

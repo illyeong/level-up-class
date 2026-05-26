@@ -5,10 +5,11 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { fireProjectile } from '../../utils/projectile';
+import { STAT_LABEL } from '../../constants/equipment';
 
 // ── 레벨 기반 스탯 + 장비/업그레이드 보너스 ─────────────────
 // 인수로 student 객체 또는 숫자(레벨)를 받음
-const getStats = (studentOrLevel = 1) => {
+const getStats = (studentOrLevel = 1, equipmentItems = []) => {
   const level = typeof studentOrLevel === 'number'
     ? studentOrLevel
     : (studentOrLevel?.level || 1);
@@ -25,17 +26,31 @@ const getStats = (studentOrLevel = 1) => {
 
   if (!s) return base;
 
+  const equipped = s.equipped || {};
+  const inventory = s.equipInventory || [];
+  const getInvItem = (invId) => inventory.find((inv) => String(inv.id) === String(invId));
+  const getItem = (itemId) => equipmentItems.find((item) => String(item.id) === String(itemId));
+  const equipBonus = Object.keys(STAT_LABEL).reduce((acc, key) => {
+    acc[key] = Object.values(equipped).reduce((sum, invId) => {
+      const inv = getInvItem(invId);
+      const item = inv ? getItem(inv.itemId) : null;
+      if (!item?.stats?.[key]) return sum;
+      return sum + (Number(item.stats[key]) || 0) + (Number(inv.stars) || 0) * 5;
+    }, 0);
+    return acc;
+  }, {});
+
   // Firebase에 저장된 업그레이드 스탯 반영 (기본값 초과분을 보너스로 합산)
   const atkBonus  = Math.max(0, (s.attackPower || 10) - 10);
   const defBonus  = Math.max(0, (s.defense     ||  5) -  5);
   const critBonus = Math.max(0, (s.critChance  || 20) - 20);
 
   return {
-    hp:          base.hp + (s.bonusHp || 0),
-    attack:      base.attack  + atkBonus,
-    defense:     base.defense + defBonus,
-    crit:        base.crit    + critBonus,
-    attackSpeed: base.attackSpeed,
+    hp:          base.hp + (s.bonusHp || 0) + (equipBonus.hp || 0),
+    attack:      base.attack  + atkBonus + (equipBonus.attack || 0),
+    defense:     base.defense + defBonus + (equipBonus.defense || 0),
+    crit:        base.crit    + critBonus + (equipBonus.crit || 0),
+    attackSpeed: base.attackSpeed + (equipBonus.attackSpeed || 0),
   };
 };
 
@@ -464,8 +479,8 @@ function RankingInner({ classmates, studentDocId }) {
 }
 
 // ── 캐릭터 카드 ───────────────────────────────────────────────
-function CharacterCard({ student, label, isMe, highlight, rank }) {
-  const stats = getStats(student);  // 장비/업그레이드 보너스 포함
+function CharacterCard({ student, label, isMe, highlight, rank, equipmentItems = [] }) {
+  const stats = getStats(student, equipmentItems);  // 장비/업그레이드 보너스 포함
   const lv    = student?.level || 1;
   const maxHp = Math.max(1, Number(stats.hp) || 1);
   const hpPct = 100;
@@ -695,6 +710,7 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
 
   const [me, setMe]               = useState(null);
   const [classmates, setClassmates] = useState([]);
+  const [equipmentItems, setEquipmentItems] = useState([]);
   const [isBusy, setIsBusy]       = useState(false);
   const [result, setResult]       = useState(null);
   const [rankMap, setRankMap]     = useState({});
@@ -710,13 +726,13 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
   // VS 단계에서 다음 전투의 HP/최대 HP를 미리 맞춰 stale 상태를 방지
   useEffect(() => {
     if (phase !== 'vs' || !me || !opponent) return;
-    const myStats = getStats(me);
-    const oppStats = getStats(opponent);
+    const myStats = getStats(me, equipmentItems);
+    const oppStats = getStats(opponent, equipmentItems);
     const nextMeMax = Math.max(1, Number(myStats.hp) || 1);
     const nextOppMax = Math.max(1, Number(oppStats.hp) || 1);
     setBattleMaxHP({ me: nextMeMax, opp: nextOppMax });
     setBattleHP({ me: nextMeMax, opp: nextOppMax });
-  }, [phase, me, opponent]);
+  }, [phase, me, opponent, equipmentItems]);
 
   // 내 정보 + 우리반 로드
   useEffect(() => {
@@ -751,6 +767,9 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
         const rm = {};
         all.forEach((s, i) => { rm[s.id] = i; });
         setRankMap(rm);
+
+        const equipSnap = await getDocs(collection(db, 'equipmentItems'));
+        setEquipmentItems(equipSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (e) { console.error(e); }
     })();
   }, [studentCode]);
@@ -828,8 +847,8 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
     try {
       clearMatch(); // 전투 시작 시 매칭 초기화
 
-      const myStats  = getStats(me);
-      const oppStats = getStats(opponent);
+      const myStats  = getStats(me, equipmentItems);
+      const oppStats = getStats(opponent, equipmentItems);
       const myMaxHP = Math.max(1, Number(myStats.hp) || 1);
       const oppMaxHP = Math.max(1, Number(oppStats.hp) || 1);
       let myHP  = myMaxHP;
@@ -1080,8 +1099,8 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
 
   // ── VS 화면 ─────────────────────────────────────────────────
   if (phase === 'vs' && opponent) {
-    const myStats  = getStats(me);
-    const oppStats = getStats(opponent);
+    const myStats  = getStats(me, equipmentItems);
+    const oppStats = getStats(opponent, equipmentItems);
     const canChange = changes < MAX_CHANGES && (me?.diamonds || 0) >= CHANGE_COST;
     const myPower   = myStats.attack * 2 + myStats.defense + myStats.hp / 20;
     const oppPower  = oppStats.attack * 2 + oppStats.defense + oppStats.hp / 20;
@@ -1102,14 +1121,14 @@ export default function Arena({ studentCode, tickets, onUseTicket }) {
 
         {/* VS 카드 */}
         <div className={`flex items-stretch gap-3 mb-4 transition-opacity duration-300 ${matchAnim ? 'opacity-30' : 'opacity-100'}`}>
-          <div className="flex-1"><CharacterCard student={me} label="나" isMe rank={rankMap[me?.id]} /></div>
+          <div className="flex-1"><CharacterCard student={me} label="나" isMe rank={rankMap[me?.id]} equipmentItems={equipmentItems} /></div>
 
           <div className="flex flex-col items-center justify-center gap-2 shrink-0">
             <div className="text-2xl font-extrabold text-slate-500">VS</div>
             <div className="w-px flex-1 bg-slate-700" />
           </div>
 
-          <div className="flex-1"><CharacterCard student={opponent} label="상대" isMe={false} rank={rankMap[opponent?.id]} /></div>
+          <div className="flex-1"><CharacterCard student={opponent} label="상대" isMe={false} rank={rankMap[opponent?.id]} equipmentItems={equipmentItems} /></div>
         </div>
 
         {/* 상대 바꾸기 */}

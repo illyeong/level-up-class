@@ -169,7 +169,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
           name:         '',
           diamonds:     1000,
           gold:         0,
-          level:        1,
+          level:        5,
           exp:          0,
           maxExp:       100,
           parts:        {},
@@ -483,14 +483,8 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
   const handleCreated = (newClass) => {
     setShowCreate(false);
     setClasses(prev => [...prev, newClass]);
-    setQuickSetup({
-      open: true,
-      newClass,
-      isRunning: false,
-      isDone: false,
-      result: null,
-      error: '',
-    });
+    localStorage.setItem('showQrGuideOnDashboard', JSON.stringify({ classId: newClass.id }));
+    onClassSelected(newClass);
   };
 
   const runQuickSetup = async () => {
@@ -591,20 +585,7 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
           onCreated={handleCreated}
         />
       )}
-      {quickSetup.open && (
-        <QuickSetupModal
-          state={quickSetup}
-          onClose={() => setQuickSetup(prev => ({ ...prev, open: false }))}
-          onRun={runQuickSetup}
-          onEnterClass={() => {
-            if (quickSetup.newClass) onClassSelected(quickSetup.newClass);
-          }}
-          onGoAccountIssue={() => {
-            localStorage.setItem('teacherInitialView', 'accountIssue');
-            if (quickSetup.newClass) onClassSelected(quickSetup.newClass);
-          }}
-        />
-      )}
+      
     </div>
   );
 }

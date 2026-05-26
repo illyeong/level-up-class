@@ -345,7 +345,8 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
         const snap = await getDoc(doc(db, 'teacherProfiles', teacherUid));
         if (snap.exists()) {
           const data = snap.data();
-          const lv = data.level ?? 50;
+          const lv = Number(data.level ?? 50) || 50;
+          const levelStats = getLevelStats(lv);
           characterDataRef.current = {
             parts:          data.parts ?? null,
             colors:         data.colors ?? null,
@@ -353,16 +354,16 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
             stats: {
               level:         lv,
               exp:           0,
-              maxExp:        800,
+              maxExp:        getMaxExpForLevel(lv),
               gold:          0,
               diamonds:      0,
-              hp:            100 + Math.floor(lv * 10),
-              attack:        10 + Math.floor(lv * 2),
-              defense:       5 + Math.floor(lv * 1.5),
-              crit:          5 + Math.floor(lv * 0.5),
-              attackSpeed:   10 + Math.floor(lv * 1),
-              maxHealth:     100 + Math.floor(lv * 10),
-              currentHealth: 100 + Math.floor(lv * 10),
+              hp:            levelStats.hp,
+              attack:        levelStats.attack,
+              defense:       levelStats.defense,
+              crit:          levelStats.crit,
+              attackSpeed:   levelStats.attackSpeed,
+              maxHealth:     levelStats.hp,
+              currentHealth: levelStats.hp,
             },
           };
         }

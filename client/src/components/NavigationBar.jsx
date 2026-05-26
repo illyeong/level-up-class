@@ -5,12 +5,13 @@ import iconDashboard from '../assets/images/icon-dashboard.png';
 import iconQuest from '../assets/images/icon-quest.png';
 import iconAdventure from '../assets/images/icon-adventure.png';
 
-const NavigationBar = ({ changeView, currentView, classInfo }) => {
+const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] }) => {
   const { t } = useTranslation();
   
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [expandedMenu, setExpandedMenu] = useState('myCharacter'); 
 
+  const hidden = new Set(hiddenMenuIds || []);
   const menuData = [
     {
       id: 'dashboard', icon: iconDashboard, title: t('menu.dashboard', '대시보드'), isReady: true, directNav: true,
@@ -72,7 +73,11 @@ const NavigationBar = ({ changeView, currentView, classInfo }) => {
         { title: t('submenu.themeSettings', '테마 설정'), id: 'themeSettings' }
       ]
     }
-  ];
+  ].filter((menu) => !hidden.has(menu.id))
+    .map((menu) => ({
+      ...menu,
+      subMenus: (menu.subMenus || []).filter((sub) => !hidden.has(sub.id)),
+    }));
 
   const handleMenuClick = (menuId) => {
     const menu = menuData.find(m => m.id === menuId);

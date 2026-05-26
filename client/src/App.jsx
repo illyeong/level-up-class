@@ -49,6 +49,7 @@ function App() {
   const [teacherCodeError, setTeacherCodeError] = useState('');
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem('studentThemeMode') || 'dark');
   const [hideStudentNav, setHideStudentNav] = useState(false);
+  const [hiddenStudentMenuIds, setHiddenStudentMenuIds] = useState([]);
   const [forceShowStudentNav, setForceShowStudentNav] = useState(false);
 
   useEffect(() => {
@@ -61,8 +62,10 @@ function App() {
         const snap = await getDoc(doc(db, 'systemConfig', 'uiPreferences'));
         const data = snap.exists() ? (snap.data() || {}) : {};
         setHideStudentNav(data.hideStudentNav === true);
+        setHiddenStudentMenuIds(Array.isArray(data.hiddenStudentMenuIds) ? data.hiddenStudentMenuIds : []);
       } catch {
         setHideStudentNav(false);
+        setHiddenStudentMenuIds([]);
       }
     };
     loadUiPrefs();
@@ -408,7 +411,7 @@ function App() {
   return (
     <div className={`flex h-screen relative ${themeMode === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
       {showStudentNav && (
-        <NavigationBar changeView={setCurrentView} currentView={currentView} classInfo={studentClassInfo} />
+        <NavigationBar changeView={setCurrentView} currentView={currentView} classInfo={studentClassInfo} hiddenMenuIds={hiddenStudentMenuIds} />
       )}
       {!showStudentNav && (
         <button

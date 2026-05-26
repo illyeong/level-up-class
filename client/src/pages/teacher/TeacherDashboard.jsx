@@ -39,6 +39,19 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   const [isQuickSetupRunning, setIsQuickSetupRunning] = useState(false);
   const [showQrGuide, setShowQrGuide] = useState(false);
 
+  useEffect(() => {
+    if (!selectedClass?.id) return;
+    try {
+      const raw = localStorage.getItem('showQrGuideOnDashboard');
+      if (!raw) return;
+      const payload = JSON.parse(raw);
+      if (payload?.classId === selectedClass.id) {
+        setShowQrGuide(true);
+        localStorage.removeItem('showQrGuideOnDashboard');
+      }
+    } catch {}
+  }, [selectedClass?.id]);
+
   const fetchStudents = async () => {
     setIsLoading(true);
     if (!selectedClass?.id && !selectedClass?.teacherUid) { setStudents([]); setIsLoading(false); return []; }
