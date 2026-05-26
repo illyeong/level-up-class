@@ -174,12 +174,12 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       const result = await applyClassQuickSetup(selectedClass);
       await loadQuickSetupStatus();
       if (result?.alreadyCompleted) {
-        showToast('?대? 湲곕낯 ?뗮똿???꾨즺???숆툒?낅땲??');
+        showToast('이미 기본 셋팅이 완료된 학급입니다.');
       } else {
-        showToast('?숆툒 湲곕낯 ?뗮똿???꾨즺?섏뿀?듬땲??');
+        showToast('학급 기본 셋팅이 완료되었습니다.');
       }
     } catch (error) {
-      showToast(error?.message || '湲곕낯 ?뗮똿 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.', 'error');
+      showToast(error?.message || '기본 셋팅 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsQuickSetupRunning(false);
     }
