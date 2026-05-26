@@ -21,7 +21,30 @@ import { MONSTERS_DB, BOSS_BG_MAP } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 import { applyExpDelta } from '../../utils/leveling';
 
+const LEGACY_BOSS_ID_ALIASES = {
+  highdemon: 'demon03',
+  demon3: 'demon03',
+  demon03: 'demon03',
+  demon2: 'demon02',
+  demon02: 'demon02',
+  giantlizard: 'lizard03',
+  lizard3: 'lizard03',
+  lizard03: 'lizard03',
+  crocodile: 'croc03',
+  croc3: 'croc03',
+  croc03: 'croc03',
+  minotaur2: 'minotaur02',
+  minotaur02: 'minotaur02',
+  minotaur3: 'minotaur03',
+  minotaur03: 'minotaur03',
+};
+
 const normalizeBossId = (value) => String(value || '').trim();
+const normalizeLookupKey = (value) =>
+  normalizeBossId(value)
+    .toLowerCase()
+    .replace(/[\s_-]/g, '')
+    .replace(/[^a-z0-9가-힣]/g, '');
 
 const resolveKeyFromMap = (sourceMap, rawKey) => {
   const key = normalizeBossId(rawKey);
@@ -37,27 +60,61 @@ const resolveKeyFromMap = (sourceMap, rawKey) => {
 };
 
 const resolveBossIdByName = (rawName) => {
-  const target = normalizeBossId(rawName).toLowerCase().replace(/\s/g, '');
+  const target = normalizeLookupKey(rawName);
   if (!target) return null;
   return Object.keys(MONSTERS_DB).find((id) => {
-    const name = String(MONSTERS_DB[id]?.name || '').toLowerCase().replace(/\s/g, '');
+    const name = normalizeLookupKey(MONSTERS_DB[id]?.name || '');
     return name === target;
   }) || null;
 };
 
+const resolveCanonicalBossId = (raid) => {
+  const candidates = [raid?.bossId, raid?.bossName];
+
+  for (const raw of candidates) {
+    const byId = resolveKeyFromMap(MONSTERS_DB, raw);
+    if (byId) return byId;
+  }
+
+  for (const raw of candidates) {
+    const norm = normalizeLookupKey(raw);
+    if (!norm) continue;
+    const aliased = LEGACY_BOSS_ID_ALIASES[norm];
+    if (aliased && MONSTERS_DB[aliased]) return aliased;
+  }
+
+  for (const raw of candidates) {
+    const byName = resolveBossIdByName(raw);
+    if (byName) return byName;
+  }
+
+  return null;
+};
+
+const normalizeBgPath = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/')) return raw;
+  return `/${raw.replace(/^\/+/, '')}`;
+};
+
 const resolveBossBg = (raid) => {
-  const bgKey = resolveKeyFromMap(BOSS_BG_MAP, raid?.bossId);
-  if (bgKey) return BOSS_BG_MAP[bgKey];
-  const dbKey = resolveKeyFromMap(MONSTERS_DB, raid?.bossId);
-  if (dbKey && BOSS_BG_MAP[dbKey]) return BOSS_BG_MAP[dbKey];
-  const nameKey = resolveBossIdByName(raid?.bossName);
-  if (nameKey && BOSS_BG_MAP[nameKey]) return BOSS_BG_MAP[nameKey];
-  const direct = String(raid?.bossBg || '').trim();
-  return direct || null;
+  const direct = normalizeBgPath(raid?.bossBg);
+  const canonicalBossId = resolveCanonicalBossId(raid);
+
+  if (canonicalBossId && BOSS_BG_MAP[canonicalBossId]) return BOSS_BG_MAP[canonicalBossId];
+
+  const bgKeyFromBossId = resolveKeyFromMap(BOSS_BG_MAP, raid?.bossId);
+  if (bgKeyFromBossId) return BOSS_BG_MAP[bgKeyFromBossId];
+
+  const bgKeyFromBossName = resolveKeyFromMap(BOSS_BG_MAP, raid?.bossName);
+  if (bgKeyFromBossName) return BOSS_BG_MAP[bgKeyFromBossName];
+
+  return direct;
 };
 
 const resolveBossData = (raid) => {
-  const bossKey = resolveKeyFromMap(MONSTERS_DB, raid?.bossId);
+  const bossKey = resolveCanonicalBossId(raid);
   return bossKey ? MONSTERS_DB[bossKey] : null;
 };
 

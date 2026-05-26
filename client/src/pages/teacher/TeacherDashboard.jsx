@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, writeBatch, serverTimestamp, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, writeBatch, serverTimestamp, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
 import LevelUpEffect from '../../components/LevelUpEffect';
+import { applyClassQuickSetup } from '../../utils/classQuickSetup';
 
 import iconGold from '../../assets/images/icon-gold.png';
 import iconDiamond from '../../assets/images/icon-diamond.png';
@@ -34,6 +35,8 @@ function TeacherDashboard({ selectedClass }) {
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [logs, setLogs] = useState([]);
   const [studentQuestMap, setStudentQuestMap] = useState({}); // { studentId: [{title, checked}] }
+  const [quickSetupInfo, setQuickSetupInfo] = useState(null);
+  const [isQuickSetupRunning, setIsQuickSetupRunning] = useState(false);
 
   const fetchStudents = async () => {
     setIsLoading(true);
@@ -122,13 +125,53 @@ function TeacherDashboard({ selectedClass }) {
     }
   };
 
+  const loadQuickSetupStatus = async () => {
+    if (!selectedClass?.id) {
+      setQuickSetupInfo(null);
+      return;
+    }
+    try {
+      const classSnap = await getDoc(doc(db, 'classes', selectedClass.id));
+      if (!classSnap.exists()) {
+        setQuickSetupInfo(null);
+        return;
+      }
+      const data = classSnap.data() || {};
+      setQuickSetupInfo({
+        completed: data.quickSetupCompleted === true,
+        summary: data.quickSetupSummary || null,
+      });
+    } catch {
+      setQuickSetupInfo(null);
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       const studentList = await fetchStudents();
       await fetchQuestStats(studentList.map(s => s.id));
+      await loadQuickSetupStatus();
     };
     load();
   }, [selectedClass]);
+
+  const handleRunQuickSetup = async () => {
+    if (!selectedClass?.id || isQuickSetupRunning) return;
+    setIsQuickSetupRunning(true);
+    try {
+      const result = await applyClassQuickSetup(selectedClass);
+      await loadQuickSetupStatus();
+      if (result?.alreadyCompleted) {
+        showToast('이미 기본 셋팅이 완료된 학급입니다.');
+      } else {
+        showToast('학급 기본 셋팅이 완료되었습니다.');
+      }
+    } catch (error) {
+      showToast(error?.message || '기본 셋팅 중 오류가 발생했습니다.', 'error');
+    } finally {
+      setIsQuickSetupRunning(false);
+    }
+  };
 
   const openModal = (mode) => {
     setModalMode(mode);
@@ -270,6 +313,28 @@ function TeacherDashboard({ selectedClass }) {
           <button onClick={() => openModal('sub')}
             className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors">
             ✕ 차감하기
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-extrabold text-slate-800">딸깍 기본 셋팅</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              추천 퀘스트, 기본 상점, 어드벤처 입장권, 예시 퀴즈던전을 한 번에 생성합니다.
+            </p>
+            {quickSetupInfo?.completed && (
+              <p className="text-xs text-emerald-600 font-bold mt-1">
+                적용 완료된 학급입니다.
+              </p>
+            )}
+          </div>
+          <button
+            onClick={handleRunQuickSetup}
+            disabled={isQuickSetupRunning}
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-50">
+            {isQuickSetupRunning ? '적용 중...' : '기본 셋팅 실행'}
           </button>
         </div>
       </div>

@@ -881,6 +881,10 @@ export const MONSTERS_DB = {
     id:'demon02', name:'강화 악마',
     src:'/images/Monsters/Bosses/Demon02 653x578 (AttackAlt Idle Run Attack Death).png',
     frameWidth:653, frameHeight:578, sheetCols:20, sheetRows:5,
+    frameShiftX: {
+      run:    [0, 0, -2, -4, -5, -4.5, -6, -10.5, -13, -11.5, -11, -10.5, -11.5, -13.5, -15, -12.5, -10, -8, -5.5, -3.5],
+      attack: [0, 0, 6.5, 21, 22.5, 5.5, -31, -35.5, -38.5, -39.5, -42, 25.5, 59, 44.5, 26.5, 11, 3, 1, -1.5, -5],
+    },
     scale:0.25, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
   },
   megabear01: {

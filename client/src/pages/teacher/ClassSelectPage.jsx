@@ -3,6 +3,7 @@ import {
   collection, getDocs, addDoc, query, where, writeBatch, doc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { applyClassQuickSetup } from '../../utils/classQuickSetup';
 
 // ── 학교명 → 약칭 (초등학교/중학교/고등학교 제거) ──────────────
 const getSchoolAbbr = (name) =>
@@ -352,10 +353,89 @@ function ClassCard({ cls, onSelect }) {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
+function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
+  return (
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="px-5 py-4 bg-indigo-600 text-white">
+          <h3 className="text-lg font-extrabold">학급 기본 셋팅</h3>
+          <p className="text-xs text-indigo-100 mt-1">
+            학급 생성 직후 한 번만 실행하면 기본 운영 환경이 자동으로 준비됩니다.
+          </p>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+            <div className="font-bold">{state.newClass?.schoolName}</div>
+            <div className="text-slate-500 mt-0.5">
+              {state.newClass?.grade}학년 {state.newClass?.classNumber}반
+            </div>
+          </div>
+
+          {!state.isDone && (
+            <ul className="text-sm text-slate-600 space-y-1.5 list-disc pl-5">
+              <li>추천 퀘스트 전체 자동 생성</li>
+              <li>기본 학급 상점 4종 자동 등록</li>
+              <li>탐험던전 입장권 3장 기본 지급</li>
+              <li>학년 맞춤 수학 6문항 + 예시 퀴즈던전 자동 생성</li>
+            </ul>
+          )}
+
+          {state.error && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 font-bold">
+              {state.error}
+            </div>
+          )}
+
+          {state.result?.summary && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
+              <div className="font-extrabold mb-1">적용 완료</div>
+              <div>생성된 퀘스트: {state.result.summary.createdQuestCount}개</div>
+              <div>생성된 상점 아이템: {state.result.summary.createdShopItemCount}개</div>
+              <div>입장권 보정 학생 수: {state.result.summary.updatedStudentTicketCount}명</div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 pb-5 flex gap-2">
+          <button
+            onClick={onClose}
+            disabled={state.isRunning}
+            className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 disabled:opacity-50">
+            나중에
+          </button>
+          {!state.isDone ? (
+            <button
+              onClick={onRun}
+              disabled={state.isRunning}
+              className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-50">
+              {state.isRunning ? '적용 중...' : '바로 적용'}
+            </button>
+          ) : (
+            <button
+              onClick={onEnterClass}
+              className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm">
+              학급 입장
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout, isAdmin = false, onEnterAdmin }) {
   const [classes,     setClasses]     = useState([]);
   const [isLoading,   setIsLoading]   = useState(true);
   const [showCreate,  setShowCreate]  = useState(false);
+  const [quickSetup, setQuickSetup] = useState({
+    open: false,
+    newClass: null,
+    isRunning: false,
+    isDone: false,
+    result: null,
+    error: '',
+  });
 
   const fetchClasses = async () => {
     try {
@@ -372,6 +452,34 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
   const handleCreated = (newClass) => {
     setShowCreate(false);
     setClasses(prev => [...prev, newClass]);
+    setQuickSetup({
+      open: true,
+      newClass,
+      isRunning: false,
+      isDone: false,
+      result: null,
+      error: '',
+    });
+  };
+
+  const runQuickSetup = async () => {
+    if (!quickSetup?.newClass || quickSetup.isRunning) return;
+    setQuickSetup(prev => ({ ...prev, isRunning: true, error: '' }));
+    try {
+      const result = await applyClassQuickSetup(quickSetup.newClass);
+      setQuickSetup(prev => ({
+        ...prev,
+        isRunning: false,
+        isDone: true,
+        result,
+      }));
+    } catch (error) {
+      setQuickSetup(prev => ({
+        ...prev,
+        isRunning: false,
+        error: error?.message || '기본 셋팅 중 오류가 발생했습니다.',
+      }));
+    }
   };
 
   return (
@@ -448,6 +556,16 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
           teacherUser={teacherUser}
           onClose={() => setShowCreate(false)}
           onCreated={handleCreated}
+        />
+      )}
+      {quickSetup.open && (
+        <QuickSetupModal
+          state={quickSetup}
+          onClose={() => setQuickSetup(prev => ({ ...prev, open: false }))}
+          onRun={runQuickSetup}
+          onEnterClass={() => {
+            if (quickSetup.newClass) onClassSelected(quickSetup.newClass);
+          }}
         />
       )}
     </div>

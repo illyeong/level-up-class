@@ -60,6 +60,16 @@ export default function SpriteMonster({
   const bgH = data.sheetRows * dh;
   const bgX = -(frame * dw);
   const bgY = -(animCfg.row * dh);
+  const animShift = data?.frameShiftX?.[anim];
+  const baseShift = data?.frameShiftX?.default;
+  const shiftRaw = Array.isArray(animShift)
+    ? (animShift[Math.min(frame, animShift.length - 1)] ?? 0)
+    : (typeof animShift === 'number' ? animShift : (typeof baseShift === 'number' ? baseShift : 0));
+  const shiftPx = Math.round(shiftRaw * s);
+  const transformValue = [
+    shiftPx ? `translateX(${shiftPx}px)` : '',
+    data.flip ? 'scaleX(-1)' : '',
+  ].filter(Boolean).join(' ') || undefined;
 
   return (
     <div
@@ -72,7 +82,7 @@ export default function SpriteMonster({
         backgroundRepeat:   'no-repeat',
         backgroundSize:     `${bgW}px ${bgH}px`,
         imageRendering:     'pixelated',
-        transform:          data.flip ? 'scaleX(-1)' : undefined,
+        transform:          transformValue,
         filter:             flash ? 'brightness(4) saturate(0)' : undefined,
         transition:         'filter 0.15s',
         flexShrink:         0,

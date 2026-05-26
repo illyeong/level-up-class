@@ -12,6 +12,60 @@ import { applyExpDelta } from '../../utils/leveling';
 const DIFF_LABEL_SM = { easy: '쉬움', normal: '보통', hard: '어려움' };
 const DIFF_COLOR_SM = { easy: 'bg-emerald-100 text-emerald-700', normal: 'bg-sky-100 text-sky-700', hard: 'bg-rose-100 text-rose-700' };
 
+const LEGACY_BOSS_ID_ALIASES = {
+  highdemon: 'demon03',
+  demon3: 'demon03',
+  demon03: 'demon03',
+  demon2: 'demon02',
+  demon02: 'demon02',
+  giantlizard: 'lizard03',
+  lizard3: 'lizard03',
+  lizard03: 'lizard03',
+  crocodile: 'croc03',
+  croc3: 'croc03',
+  croc03: 'croc03',
+  minotaur2: 'minotaur02',
+  minotaur02: 'minotaur02',
+  minotaur3: 'minotaur03',
+  minotaur03: 'minotaur03',
+};
+
+const normalizeBossKey = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]/g, '')
+    .replace(/[^a-z0-9가-힣]/g, '');
+
+const resolveBossIdByName = (rawName) => {
+  const target = normalizeBossKey(rawName);
+  if (!target) return null;
+  return Object.keys(MONSTERS_DB).find((id) => normalizeBossKey(MONSTERS_DB[id]?.name || '') === target) || null;
+};
+
+const resolveBossDataFromRaid = (raid) => {
+  const candidates = [raid?.bossId, raid?.bossName];
+
+  for (const raw of candidates) {
+    const key = String(raw || '').trim();
+    if (MONSTERS_DB[key]) return MONSTERS_DB[key];
+  }
+
+  for (const raw of candidates) {
+    const norm = normalizeBossKey(raw);
+    if (!norm) continue;
+    const aliasedId = LEGACY_BOSS_ID_ALIASES[norm];
+    if (aliasedId && MONSTERS_DB[aliasedId]) return MONSTERS_DB[aliasedId];
+  }
+
+  for (const raw of candidates) {
+    const byName = resolveBossIdByName(raw);
+    if (byName && MONSTERS_DB[byName]) return MONSTERS_DB[byName];
+  }
+
+  return null;
+};
+
 const resolveBossBgById = (bossId) => {
   const key = String(bossId || '').trim();
   if (!key) return null;
@@ -323,7 +377,7 @@ function RaidResultModal({ raid, onClose }) {
 
 // ── 진행 중 레이드 패널 ──────────────────────────────────────────
 function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, isPaying, onViewLobby, onViewResult }) {
-  const bossData = raid.bossId ? MONSTERS_DB[raid.bossId] : null;
+  const bossData = resolveBossDataFromRaid(raid);
   const pMap     = raid.participants || {};
   const pList    = Object.entries(pMap)
     .map(([id, p]) => ({ id, ...p }))
@@ -1003,7 +1057,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
               </div>
               {pastRaids.map(raid => {
                 const pCount    = Object.keys(raid.participants || {}).length;
-                const bd        = MONSTERS_DB[raid.bossId];
+                const bd        = resolveBossDataFromRaid(raid);
                 const isCleared = raid.status === 'cleared';
                 const isExpanded = expandedRaidId === raid.id;
                 const questions = (raid.questions || []).filter(q => q.type !== 'short');
