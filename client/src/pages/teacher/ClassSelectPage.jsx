@@ -474,6 +474,10 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
 
   const enterClassAfterQuickSetup = () => {
     if (!quickSetup?.newClass) return;
+    const classKey = quickSetup.newClass.id || quickSetup.newClass.teacherUid;
+    if (classKey) {
+      sessionStorage.setItem(`showQrPrintGuide:${classKey}`, '1');
+    }
     onClassSelected(quickSetup.newClass);
   };
 

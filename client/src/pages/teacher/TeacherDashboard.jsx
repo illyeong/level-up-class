@@ -10,7 +10,7 @@ import iconQuest from '../../assets/images/icon-quest.png';
 
 const getSeatNum = (code) => parseInt(code?.slice(-2)) || 0;
 
-function TeacherDashboard({ selectedClass }) {
+function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [questStats, setQuestStats] = useState([]);
@@ -37,6 +37,7 @@ function TeacherDashboard({ selectedClass }) {
   const [studentQuestMap, setStudentQuestMap] = useState({}); // { studentId: [{title, checked}] }
   const [quickSetupInfo, setQuickSetupInfo] = useState(null);
   const [isQuickSetupRunning, setIsQuickSetupRunning] = useState(false);
+  const [showQrPrintGuide, setShowQrPrintGuide] = useState(false);
 
   const fetchStudents = async () => {
     setIsLoading(true);
@@ -155,6 +156,16 @@ function TeacherDashboard({ selectedClass }) {
     };
     load();
   }, [selectedClass]);
+
+  useEffect(() => {
+    const classKey = selectedClass?.id || selectedClass?.teacherUid;
+    if (!classKey) return;
+    const flagKey = `showQrPrintGuide:${classKey}`;
+    if (sessionStorage.getItem(flagKey) === '1') {
+      sessionStorage.removeItem(flagKey);
+      setShowQrPrintGuide(true);
+    }
+  }, [selectedClass?.id, selectedClass?.teacherUid]);
 
   const handleRunQuickSetup = async () => {
     if (!selectedClass?.id || isQuickSetupRunning) return;
@@ -641,6 +652,44 @@ function TeacherDashboard({ selectedClass }) {
           characterImage={null}
           onClose={() => setShowLevelUpPreview(false)}
         />
+      )}
+
+      {showQrPrintGuide && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[180] p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="bg-indigo-600 px-5 py-4 text-white">
+              <h2 className="text-lg font-extrabold">학생 로그인 QR코드 출력</h2>
+              <p className="mt-1 text-xs font-bold text-indigo-100">
+                기본 셋팅이 완료되었습니다. 학생들이 쉽게 접속할 수 있도록 로그인 QR코드를 출력해두세요.
+              </p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                <div className="font-extrabold text-slate-800">학급/학생 관리 페이지에서 출력할 수 있습니다.</div>
+                <div className="mt-1 text-slate-500">
+                  출력물의 QR코드를 스캔하면 학생코드가 자동 입력되고, 학생은 PIN만 입력하면 로그인됩니다.
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowQrPrintGuide(false)}
+                  className="flex-1 rounded-xl border-2 border-slate-200 py-2.5 text-sm font-extrabold text-slate-600 hover:bg-slate-50"
+                >
+                  닫기
+                </button>
+                <button
+                  onClick={() => {
+                    setShowQrPrintGuide(false);
+                    onGoAccountIssue?.();
+                  }}
+                  className="flex-1 rounded-xl bg-indigo-600 py-2.5 text-sm font-extrabold text-white hover:bg-indigo-700"
+                >
+                  출력하러 가기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {toast && (
