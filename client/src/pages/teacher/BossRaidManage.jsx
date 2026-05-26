@@ -474,6 +474,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
   const [resultRaid, setResultRaid] = useState(null);
   const [expandedRaidId, setExpandedRaidId] = useState(null);
   const autoHpRef = useRef(null);
+  const autoPayRaidRef = useRef(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -703,6 +704,49 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
       }
     );
   };
+
+  useEffect(() => {
+    const target = raids.find(r => r.status === 'cleared' && !r.rewardsPaid);
+    if (!target || isPaying) return;
+    if (autoPayRaidRef.current === target.id) return;
+    autoPayRaidRef.current = target.id;
+
+    (async () => {
+      try {
+        const pIds = Object.keys(target.participants || {});
+        if (pIds.length === 0) {
+          await updateDoc(doc(db, 'worldBossRaids', target.id), { rewardsPaid: true, rewardsPaidAt: serverTimestamp() });
+          return;
+        }
+
+        setIsPaying(true);
+        const snap = await getDocs(collection(db, 'students'));
+        const all  = {};
+        snap.docs.forEach(d => { all[d.id] = d.data(); });
+
+        const batch = writeBatch(db);
+        pIds.forEach(sid => {
+          if (!all[sid]) return;
+          const s = all[sid];
+          const nextProgress = applyExpDelta(s.level ?? 1, s.exp ?? 0, target.rewards?.exp || 0);
+          batch.update(doc(db, 'students', sid), {
+            gold:     (s.gold     || 0) + (target.rewards?.gold    || 0),
+            diamonds: (s.diamonds || 0) + (target.rewards?.diamond || 0),
+            level:    nextProgress.level,
+            exp:      nextProgress.exp,
+            maxExp:   nextProgress.maxExp,
+          });
+        });
+        batch.update(doc(db, 'worldBossRaids', target.id), { rewardsPaid: true, rewardsPaidAt: serverTimestamp() });
+        await batch.commit();
+      } catch (err) {
+        console.error('Boss raid auto reward failed:', err);
+      } finally {
+        setIsPaying(false);
+        autoPayRaidRef.current = null;
+      }
+    })();
+  }, [raids, isPaying]);
 
   const activeRaids  = raids.filter(r => r.status === 'waiting' || r.status === 'active');
   const pastRaids    = raids.filter(r => r.status === 'cleared' || r.status === 'failed');

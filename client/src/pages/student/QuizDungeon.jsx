@@ -571,14 +571,15 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
     }
     setWrongIdxs(newWrong);
 
-    const nextQ        = currentQ + 1;
-    const waveCleared  = newWaveHP <= 0;
-    const isLastWave   = currentWaveIdx >= waves.length - 1;
-    const playerDead   = newPlayerHP <= 0;
-    const allQDone     = nextQ >= totalQ;
-    const cleared      = allQDone && !playerDead;
+    const nextQ            = currentQ + 1;
+    const waveCleared      = newWaveHP <= 0;
+    const isLastWave       = currentWaveIdx >= waves.length - 1;
+    const playerDead       = newPlayerHP <= 0;
+    const allQDone         = nextQ >= totalQ;
+    const cleared          = !playerDead && waveCleared && isLastWave;
+    const failedByQuestion = !playerDead && allQDone && !cleared;
 
-    const isOver      = playerDead || allQDone || (waveCleared && isLastWave);
+    const isOver      = playerDead || cleared || failedByQuestion;
     const doWaveNext  = waveCleared && !isLastWave && !playerDead;
 
     const advance = () => {
@@ -898,16 +899,16 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
 
 // ── 결과 화면 ──────────────────────────────────────────────────
 function ResultScreen({
-  dungeon, score, totalQ, wrongIdxs, playerAlive,
+  dungeon, score, totalQ, wrongIdxs, cleared,
   earnedRewards, leveledUp, isSaving, maxCombo,
   canRetry, onRetry, onReturnLobby,
 }) {
-  const accuracy  = Math.round(score / totalQ * 100);
+  const accuracy  = totalQ > 0 ? Math.round(score / totalQ * 100) : 0;
   const stars     = toStars(accuracy);
   const [visStars, setVisStars] = useState(0);
 
   useEffect(() => {
-    if (!playerAlive || stars === 0) return;
+    if (stars === 0) return;
     let n = 0;
     const t = setInterval(() => {
       n++;
@@ -915,7 +916,7 @@ function ResultScreen({
       if (n >= stars) clearInterval(t);
     }, 420);
     return () => clearInterval(t);
-  }, [playerAlive, stars]);
+  }, [stars]);
 
   const STATS = [
     ['정답 수',   `${score} / ${totalQ}`,                null],
@@ -926,9 +927,9 @@ function ResultScreen({
 
   return (
     <div className="flex flex-col items-center min-h-full p-5 bg-slate-50">
-      <div className="text-6xl mt-4 mb-2">{playerAlive ? '🏆' : '💀'}</div>
+      <div className="text-6xl mt-4 mb-2">{cleared ? '🏆' : '💀'}</div>
       <h2 className="text-2xl font-extrabold text-slate-800 mb-1">
-        {playerAlive ? '던전 클리어!' : '던전 실패'}
+        {cleared ? '던전 클리어!' : '던전 실패'}
       </h2>
       <p className="text-slate-500 text-sm mb-4">{dungeon.title}</p>
 
@@ -963,11 +964,11 @@ function ResultScreen({
         <div className="text-sm text-slate-400 mb-4 animate-pulse">💾 결과 저장 중...</div>
       ) : earnedRewards ? (
         <div className={`border rounded-2xl p-4 w-full max-w-xs mb-4
-          ${playerAlive ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
-          <div className={`font-bold mb-2 text-sm ${playerAlive ? 'text-emerald-700' : 'text-slate-500'}`}>
-            {playerAlive ? '🎁 획득 보상' : '😢 실패 — 보상 없음'}
+          ${cleared ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+          <div className={`font-bold mb-2 text-sm ${cleared ? 'text-emerald-700' : 'text-slate-600'}`}>
+            {cleared ? '🎁 획득 보상' : '🎁 정답 수 비례 보상'}
           </div>
-          {playerAlive && (
+          {(earnedRewards.goldEarned > 0 || earnedRewards.expEarned > 0 || earnedRewards.diamondEarned > 0) ? (
             <div className="space-y-1.5">
               {earnedRewards.goldEarned    > 0 && (
                 <div className="flex justify-between text-sm">
@@ -993,6 +994,8 @@ function ResultScreen({
                 </div>
               )}
             </div>
+          ) : (
+            <div className="text-sm text-slate-500">획득 보상이 없습니다.</div>
           )}
         </div>
       ) : null}
@@ -1169,14 +1172,15 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
     if (!selectedDungeon) return;
     setIsSaving(true);
     const dungeon  = selectedDungeon;
-    const totalQ   = dungeon.questionCount;
-    const accuracy = Math.round(score / totalQ * 100);
+    const totalQ   = (dungeon.questions || []).length || dungeon.questionCount || 0;
+    const accuracy = totalQ > 0 ? Math.round(score / totalQ * 100) : 0;
     const isFirst  = !bestScores[dungeon.id]?.cleared;
+    const rewardRatio = totalQ > 0 ? Math.max(0, Math.min(1, score / totalQ)) : 0;
 
     const mult          = (isFirst && cleared) ? 1.5 : 1;
-    const goldEarned    = cleared ? Math.round((dungeon.rewards?.gold    || 0) * mult) : 0;
-    const expEarned     = cleared ? Math.round((dungeon.rewards?.exp     || 0) * mult) : 0;
-    const diamondEarned = cleared ? (dungeon.rewards?.diamond || 0) : 0;
+    const goldEarned    = Math.round((dungeon.rewards?.gold    || 0) * rewardRatio * mult);
+    const expEarned     = Math.round((dungeon.rewards?.exp     || 0) * rewardRatio * mult);
+    const diamondEarned = Math.round((dungeon.rewards?.diamond || 0) * rewardRatio * mult);
 
     setEarnedRewards({
       goldEarned, expEarned, diamondEarned,
@@ -1280,9 +1284,9 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
     <ResultScreen
       dungeon={selectedDungeon}
       score={battleRes.score}
-      totalQ={selectedDungeon.questionCount}
+      totalQ={(selectedDungeon.questions || []).length || selectedDungeon.questionCount || 0}
       wrongIdxs={battleRes.wrongIdxs}
-      playerAlive={battleRes.cleared ?? (battleRes.playerHP > 0)}
+      cleared={!!battleRes.cleared}
       earnedRewards={earnedRewards}
       leveledUp={leveledUp}
       isSaving={isSaving}

@@ -14,11 +14,12 @@ const cleanExplanation = (text) => {
 };
 import {
   collection, doc, updateDoc, onSnapshot,
-  increment, serverTimestamp, getDoc, deleteField,
+  increment, serverTimestamp, getDoc, getDocs, deleteField, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { MONSTERS_DB, BOSS_BG_MAP } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
+import { applyExpDelta } from '../../utils/leveling';
 
 const normalizeBossId = (value) => String(value || '').trim();
 
@@ -498,10 +499,10 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       {/* 보스 스프라이트 영역 — 고정 높이 */}
       <div
         ref={bossAreaRef}
-        className="flex items-center justify-center relative shrink-0"
-        style={{ height: '42vh', maxHeight: 420, minHeight: 250 }}
+        className="flex items-end justify-center relative shrink-0 pt-4"
+        style={{ height: '46vh', maxHeight: 480, minHeight: 290 }}
       >
-        <div className="relative z-10">
+        <div className="relative z-10 translate-y-3">
           <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={2.5} />
         </div>
 
@@ -536,7 +537,8 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       </div>
 
       {/* 문제 영역 — 남은 공간 채우고 스크롤 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-1 pb-2">
+        <div className="min-h-full flex flex-col justify-end space-y-2.5">
         {/* 문제 헤더 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -586,6 +588,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
             {cleanExplanation(q.explanation) && <span className="ml-1 opacity-80">{cleanExplanation(q.explanation)}</span>}
           </div>
         )}
+        </div>
       </div>
 
       {/* 하단: 참가자 로스터 */}
@@ -709,6 +712,7 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
   const timerRef           = useRef(null);
   const raidRef            = useRef(null);
   const prevParticipantsRef = useRef({});
+  const autoPayingRaidRef  = useRef(null);
 
   // 학생 데이터 로드
   useEffect(() => {
@@ -813,6 +817,51 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false 
   useEffect(() => {
     if (raid?.status === 'cleared') setBossAnim('death');
   }, [raid?.status]);
+
+  // 클리어 시 교사 화면에서 보상 자동 지급
+  useEffect(() => {
+    if (!isTeacher || !raid || raid.status !== 'cleared' || raid.rewardsPaid) return;
+    if (autoPayingRaidRef.current === raid.id) return;
+    autoPayingRaidRef.current = raid.id;
+
+    const payRewards = async () => {
+      try {
+        const participantIds = Object.keys(raid.participants || {});
+        const raidRefDoc = doc(db, 'worldBossRaids', raid.id);
+
+        if (participantIds.length === 0) {
+          await updateDoc(raidRefDoc, { rewardsPaid: true, rewardsPaidAt: serverTimestamp() });
+          return;
+        }
+
+        const studentsSnap = await getDocs(collection(db, 'students'));
+        const allStudents = {};
+        studentsSnap.docs.forEach(s => { allStudents[s.id] = s.data(); });
+
+        const batch = writeBatch(db);
+        participantIds.forEach((sid) => {
+          const s = allStudents[sid];
+          if (!s) return;
+          const nextProgress = applyExpDelta(s.level ?? 1, s.exp ?? 0, raid.rewards?.exp || 0);
+          batch.update(doc(db, 'students', sid), {
+            gold:     (s.gold     || 0) + (raid.rewards?.gold    || 0),
+            diamonds: (s.diamonds || 0) + (raid.rewards?.diamond || 0),
+            level:    nextProgress.level,
+            exp:      nextProgress.exp,
+            maxExp:   nextProgress.maxExp,
+          });
+        });
+
+        batch.update(raidRefDoc, { rewardsPaid: true, rewardsPaidAt: serverTimestamp() });
+        await batch.commit();
+      } catch (err) {
+        console.error('Boss raid auto reward failed:', err);
+        autoPayingRaidRef.current = null;
+      }
+    };
+
+    payRewards();
+  }, [isTeacher, raid?.id, raid?.status, raid?.rewardsPaid]);
 
   // 다른 참가자 답변 실시간 파티클 공유 (item 6)
   useEffect(() => {

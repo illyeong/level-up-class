@@ -690,6 +690,9 @@ export default function Equipment({ studentCode }) {
             <div className="flex items-center gap-1.5 bg-sky-900/50 border border-sky-700/50 text-sky-300 px-3 py-1.5 rounded-xl text-sm font-extrabold">
               🔮 {stones}
             </div>
+            <div className="flex items-center gap-1.5 bg-cyan-900/50 border border-cyan-700/50 text-cyan-300 px-3 py-1.5 rounded-xl text-sm font-extrabold">
+              💎 {diamonds.toLocaleString()}
+            </div>
             {/* 인라인 수량 조절 */}
             <div className="flex items-center bg-slate-800 border border-slate-600 rounded-xl overflow-hidden">
               <button onClick={() => setBuyQty(q => Math.max(1, q - 1))}
@@ -961,6 +964,9 @@ export default function Equipment({ studentCode }) {
               <div className="text-slate-300 text-sm">
                 강화석 <span className="text-sky-400 font-extrabold">{buyQty}개</span>를<br />
                 💎 <span className="text-cyan-400 font-extrabold">{(buyQty * 100).toLocaleString()} 다이아</span>로 구매하시겠습니까?
+              </div>
+              <div className="text-cyan-300 text-xs font-bold mt-2">
+                보유 다이아: 💎 {diamonds.toLocaleString()}
               </div>
             </div>
             <div className="flex gap-3 w-full">
