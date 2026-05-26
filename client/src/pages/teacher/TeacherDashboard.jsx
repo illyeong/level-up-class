@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, getDoc, writeBatch, serverTimestamp, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
 import LevelUpEffect from '../../components/LevelUpEffect';
@@ -10,7 +10,7 @@ import iconQuest from '../../assets/images/icon-quest.png';
 
 const getSeatNum = (code) => parseInt(code?.slice(-2)) || 0;
 
-function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
+function TeacherDashboard({ selectedClass }) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [questStats, setQuestStats] = useState([]);
@@ -37,20 +37,6 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   const [studentQuestMap, setStudentQuestMap] = useState({}); // { studentId: [{title, checked}] }
   const [quickSetupInfo, setQuickSetupInfo] = useState(null);
   const [isQuickSetupRunning, setIsQuickSetupRunning] = useState(false);
-  const [showQrGuide, setShowQrGuide] = useState(false);
-
-  useEffect(() => {
-    if (!selectedClass?.id) return;
-    try {
-      const raw = localStorage.getItem('showQrGuideOnDashboard');
-      if (!raw) return;
-      const payload = JSON.parse(raw);
-      if (payload?.classId === selectedClass.id) {
-        setShowQrGuide(true);
-        localStorage.removeItem('showQrGuideOnDashboard');
-      }
-    } catch {}
-  }, [selectedClass?.id]);
 
   const fetchStudents = async () => {
     setIsLoading(true);
@@ -68,7 +54,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       setStudents(studentList);
       return studentList;
     } catch (error) {
-      console.error("학생 목록 에러:", error);
+      console.error("?숈깮 紐⑸줉 ?먮윭:", error);
       return [];
     } finally {
       setIsLoading(false);
@@ -79,11 +65,11 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
     const teacherUid = selectedClass?.teacherUid;
     if (!teacherUid) return;
     try {
-      // QuestManage와 동일한 방식: 전체 조회 후 메모리 필터 (where 인덱스 문제 회피)
+      // QuestManage? ?숈씪??諛⑹떇: ?꾩껜 議고쉶 ??硫붾え由??꾪꽣 (where ?몃뜳??臾몄젣 ?뚰뵾)
       const questsSnap = await getDocs(collection(db, 'quests'));
       const allQuests = questsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      console.log('[Quest Debug] teacherUid:', teacherUid, '/ 전체 퀘스트 수:', allQuests.length);
-      console.log('[Quest Debug] 샘플:', allQuests.slice(0,3).map(q => ({ id: q.id, teacherUid: q.teacherUid, active: q.active, title: q.title })));
+      console.log('[Quest Debug] teacherUid:', teacherUid, '/ ?꾩껜 ?섏뒪????', allQuests.length);
+      console.log('[Quest Debug] ?섑뵆:', allQuests.slice(0,3).map(q => ({ id: q.id, teacherUid: q.teacherUid, active: q.active, title: q.title })));
       const activeQuests = allQuests
         .filter(q =>
           (q.teacherUid === teacherUid || (!q.teacherUid && teacherUid === 'admin_master_001'))
@@ -109,7 +95,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
             if (!studentIdSet.has(sid)) return;
             const data = d.data();
 
-            // 일일 반복 퀘스트는 오늘 체크한 것만 카운트 (QuestManage와 동일)
+            // ?쇱씪 諛섎났 ?섏뒪?몃뒗 ?ㅻ뒛 泥댄겕??寃껊쭔 移댁슫??(QuestManage? ?숈씪)
             let validCheck = data.checked === true;
             if (validCheck && q.repeatDaily) {
               const ts = data.checkedAt;
@@ -131,11 +117,11 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         })
       );
 
-      console.log('[Quest Debug] 활성 퀘스트:', activeQuests.length, activeQuests.map(q => q.title));
+      console.log('[Quest Debug] ?쒖꽦 ?섏뒪??', activeQuests.length, activeQuests.map(q => q.title));
       setQuestStats(stats);
       setStudentQuestMap(sqMap);
     } catch (err) {
-      console.error('퀘스트 통계 에러:', err);
+      console.error('?섏뒪???듦퀎 ?먮윭:', err);
     }
   };
 
@@ -177,15 +163,14 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       const result = await applyClassQuickSetup(selectedClass);
       await loadQuickSetupStatus();
       if (result?.alreadyCompleted) {
-        showToast('이미 기본 셋팅이 완료된 학급입니다.');
+        showToast('?대? 湲곕낯 ?뗮똿???꾨즺???숆툒?낅땲??');
       } else {
-        showToast('학급 기본 셋팅이 완료되었습니다.');
+        showToast('?숆툒 湲곕낯 ?뗮똿???꾨즺?섏뿀?듬땲??');
       }
     } catch (error) {
-      showToast(error?.message || '기본 셋팅 중 오류가 발생했습니다.', 'error');
+      showToast(error?.message || '湲곕낯 ?뗮똿 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.', 'error');
     } finally {
       setIsQuickSetupRunning(false);
-      setShowQrGuide(true);
     }
   };
 
@@ -219,10 +204,10 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   };
 
   const submitTransaction = async () => {
-    if (selectedIds.length === 0) return showToast("학생을 최소 1명 이상 선택해주세요.", 'error');
+    if (selectedIds.length === 0) return showToast("?숈깮??理쒖냼 1紐??댁긽 ?좏깮?댁＜?몄슂.", 'error');
     const diaAmt  = Number(diaAmount)  || 0;
     const goldAmt = Number(goldAmount) || 0;
-    if (diaAmt === 0 && goldAmt === 0) return showToast("다이아 또는 골드 금액을 입력해주세요.", 'error');
+    if (diaAmt === 0 && goldAmt === 0) return showToast("?ㅼ씠???먮뒗 怨⑤뱶 湲덉븸???낅젰?댁＜?몄슂.", 'error');
 
     const isAdd = modalMode === 'add';
     setIsLoading(true);
@@ -244,7 +229,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         mode:        modalMode,
         diaAmount:   isAdd ? diaAmt  : -diaAmt,
         goldAmount:  isAdd ? goldAmt : -goldAmt,
-        reason:      reason.trim() || (isAdd ? "선생님 보상 지급" : "선생님 차감 집행"),
+        reason:      reason.trim() || (isAdd ? '학생 보상 지급' : '학생 차감 집행'),
         targetCount: selectedIds.length,
         targetIds:   selectedIds,
       });
@@ -252,14 +237,14 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       await batch.commit();
 
       const parts = [];
-      if (diaAmt  > 0) parts.push(`💎 ${diaAmt.toLocaleString()} 다이아`);
-      if (goldAmt > 0) parts.push(`🪙 ${goldAmt.toLocaleString()} 골드`);
+      if (diaAmt  > 0) parts.push(`다이아 ${diaAmt.toLocaleString()}`);
+      if (goldAmt > 0) parts.push(`?첌 ${goldAmt.toLocaleString()} 怨⑤뱶`);
       showToast(`${parts.join(', ')} ${isAdd ? '지급' : '차감'} 완료!`);
       setIsModalOpen(false);
       fetchStudents();
     } catch (error) {
-      console.error("트랜잭션 에러:", error);
-      showToast("처리 중 오류가 발생했습니다.", 'error');
+      console.error("?몃옖??뀡 ?먮윭:", error);
+      showToast("泥섎━ 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.", 'error');
     } finally {
       setIsLoading(false);
     }
@@ -276,7 +261,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       setLogs(logData);
       setIsLogOpen(true);
     } catch (error) {
-      console.error("로그 에러:", error);
+      console.error("濡쒓렇 ?먮윭:", error);
     }
   };
 
@@ -288,9 +273,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-800 flex items-center">
-            👑 학급 전체 대시보드
+            ?몣 ?숆툒 ?꾩껜 ??쒕낫??
           </h1>
-          <p className="text-slate-500 mt-2 text-sm">학생들의 레벨과 재화를 관리합니다.</p>
+          <p className="text-slate-500 mt-2 text-sm">?숈깮?ㅼ쓽 ?덈꺼怨??ы솕瑜?愿由ы빀?덈떎.</p>
         </div>
         
         <div className="flex flex-wrap gap-2">
@@ -302,33 +287,33 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
               }}
               className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-amber-900 px-4 py-2 rounded-lg font-extrabold text-sm shadow-sm transition-all border border-amber-300"
             >
-              ⬆️ 레벨업 효과 보기
+              燧놅툘 ?덈꺼???④낵 蹂닿린
             </button>
           )}
           <button onClick={async () => {
             const list = await fetchStudents();
             await fetchQuestStats(list.map(s => s.id));
           }} className="bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
-            🔄 새로고침
+            ?봽 ?덈줈怨좎묠
           </button>
           {onStudentTestLogin && (
             <button
               onClick={() => onStudentTestLogin('SINSEOK-5-15')}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm"
             >
-              학생 테스트 (SINSEOK-5-15)
+              ?숈깮 ?뚯뒪??(SINSEOK-5-15)
             </button>
           )}
           <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
-            📋 지급/차감 내역 보기
+            ?뱥 吏湲?李④컧 ?댁뿭 蹂닿린
           </button>
           <button onClick={() => openModal('add')}
             className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors">
-            ✨ 지급하기
+            ??吏湲됲븯湲?
           </button>
           <button onClick={() => openModal('sub')}
             className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors">
-            ✕ 차감하기
+            ??李④컧?섍린
           </button>
         </div>
       </div>
@@ -337,63 +322,32 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         <div className="mb-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
-              <h2 className="text-lg font-extrabold text-slate-800">딸깍 기본 셋팅</h2>
+              <h2 className="text-lg font-extrabold text-slate-800">?멸퉵 湲곕낯 ?뗮똿</h2>
               <p className="text-sm text-slate-500 mt-1">
-                추천 퀘스트, 기본 상점, 어드벤처 입장권, 예시 퀴즈던전, 기본 보스레이드를 한 번에 생성합니다.
+                異붿쿇 ?섏뒪?? 湲곕낯 ?곸젏, ?대뱶踰ㅼ쿂 ?낆옣沅? ?덉떆 ?댁쫰?섏쟾, 湲곕낯 蹂댁뒪?덉씠?쒕? ??踰덉뿉 ?앹꽦?⑸땲??
               </p>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowQrGuide(true)}
-                className="px-4 py-2.5 rounded-xl border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold text-sm">
-                안내 보기
-              </button>
-              <button
+<button
                 onClick={handleRunQuickSetup}
                 disabled={isQuickSetupRunning}
                 className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-50">
-                {isQuickSetupRunning ? '적용 중...' : '기본 셋팅 실행'}
+                {isQuickSetupRunning ? '?곸슜 以?..' : '湲곕낯 ?뗮똿 ?ㅽ뻾'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {showQrGuide && (
-        <div className="fixed inset-0 z-[130] bg-slate-900/55 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
-            <h3 className="text-lg font-extrabold text-slate-800 mb-2">안내</h3>
-            <p className="text-sm text-slate-600 mb-5">학급/학생관리 페이지에서 학생별 로그인 QR코드를 출력할 수 있습니다.</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setShowQrGuide(false);
-                  onGoAccountIssue?.();
-                }}
-                className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white"
-              >
-                출력하러 가기
-              </button>
-              <button
-                onClick={() => setShowQrGuide(false)}
-                className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700"
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 퀘스트 현황 섹션 */}
+      {/* ?섏뒪???꾪솴 ?뱀뀡 */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <img src={iconQuest} alt="퀘스트" className="w-6 h-6 object-contain" />
-          <h2 className="font-extrabold text-slate-700 text-base">오늘의 퀘스트 현황</h2>
+          <h2 className="font-extrabold text-slate-700 text-base">?ㅻ뒛???섏뒪???꾪솴</h2>
         </div>
         {questStats.length === 0 ? (
           <div className="text-slate-400 text-sm py-3 px-4 bg-white rounded-2xl border border-slate-200">
-            활성 퀘스트가 없습니다. 퀘스트 관리소에서 퀘스트를 만들어보세요!
+            ?쒖꽦 ?섏뒪?멸? ?놁뒿?덈떎. ?섏뒪??愿由ъ냼?먯꽌 ?섏뒪?몃? 留뚮뱾?대낫?몄슂!
           </div>
         ) : (
         <div className="flex gap-3 overflow-x-auto pb-2">
@@ -407,19 +361,19 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                     ${isDaily
                       ? 'border-sky-200 bg-gradient-to-b from-sky-50 to-white'
                       : 'border-violet-200 bg-gradient-to-b from-violet-50 to-white'}`}>
-                  {/* 상단 타입 띠 */}
+                  {/* ?곷떒 ?????*/}
                   <div className={`px-3 py-1.5 text-[10px] font-extrabold tracking-wide
                     ${isDaily ? 'bg-sky-500 text-white' : 'bg-violet-500 text-white'}`}>
-                    {isDaily ? '📅 일일퀘스트' : '📆 주간퀘스트'}
+                    {isDaily ? '일일 퀘스트' : '주간 퀘스트'}
                   </div>
                   <div className="p-3">
                     <div className="font-extrabold text-sm text-slate-800 mb-2 leading-tight truncate">
                       {quest.title}
                     </div>
-                    {/* 진행률 */}
+                    {/* 吏꾪뻾瑜?*/}
                     <div className="flex justify-between text-xs font-bold mb-1">
                       <span className={isDaily ? 'text-sky-600' : 'text-violet-600'}>
-                        {quest.checkedCount}명 / {students.length}명
+                        {quest.checkedCount}紐?/ {students.length}紐?
                       </span>
                       <span className="text-slate-500 font-extrabold">{pct}%</span>
                     </div>
@@ -443,7 +397,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {students.map((student) => (
           <div key={student.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow relative">
-            {/* 일일퀘스트 완료 현황 */}
+            {/* ?쇱씪?섏뒪???꾨즺 ?꾪솴 */}
             {(() => {
               const qs = studentQuestMap[student.id] || [];
               if (qs.length === 0) return null;
@@ -456,7 +410,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                       <span key={i} title={q.title}
                         className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full truncate max-w-[80px]
                           ${q.rewarded ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                        ✓ {q.title.length > 6 ? q.title.slice(0, 6) + '…' : q.title}
+                        {q.title.length > 6 ? `${q.title.slice(0, 6)}...` : q.title}
                       </span>
                     ))}
                   </div>
@@ -472,12 +426,12 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                   onError={e => { e.target.style.display = 'none'; }}
                 />
               ) : student.parts ? (
-                <span className="text-6xl drop-shadow-sm">🦸‍♂️</span>
+                <span className="text-6xl drop-shadow-sm">?┯?띯셽截?/span>
               ) : (
-                <span className="text-6xl drop-shadow-sm opacity-30">🧍</span>
+                <span className="text-6xl drop-shadow-sm opacity-30">?쭕</span>
               )}
               <div className="absolute top-2 left-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
-                {getSeatNum(student.studentCode)}번
+                {getSeatNum(student.studentCode)}踰?
               </div>
               <div className="absolute bottom-2 right-2 bg-amber-400 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
                 LV.{student.level || 1}
@@ -494,14 +448,14 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                 <div className="flex justify-between items-center bg-indigo-50 px-2 py-1.5 rounded-md">
                   <div className="flex items-center gap-1">
                     <img src={iconDiamond} alt="Diamond" className="w-3 h-3" />
-                    <span className="text-[10px] text-indigo-400">다이아</span>
+                    <span className="text-[10px] text-indigo-400">?ㅼ씠??/span>
                   </div>
                   <span className="font-bold text-indigo-700">{(student.diamonds || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center bg-amber-50 px-2 py-1.5 rounded-md">
                   <div className="flex items-center gap-1">
                     <img src={iconGold} alt="Gold" className="w-3 h-3" />
-                    <span className="text-[10px] text-amber-500">골드</span>
+                    <span className="text-[10px] text-amber-500">怨⑤뱶</span>
                   </div>
                   <span className="font-bold text-amber-600">{(student.gold || 0).toLocaleString()}</span>
                 </div>
@@ -517,9 +471,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
             <div className={`p-5 text-white font-bold text-xl flex justify-between items-center
               ${modalMode === 'add' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
               <h2 className="flex items-center gap-2">
-                {modalMode === 'add' ? '✨ 일괄 지급' : '✕ 일괄 차감'}
+                {modalMode === 'add' ? '???쇨큵 吏湲? : '???쇨큵 李④컧'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-white hover:text-white/70">✕</button>
+              <button onClick={() => setIsModalOpen(false)} className="text-white hover:text-white/70">??/button>
             </div>
 
             <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
@@ -529,9 +483,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                     <input type="checkbox" id="selectAll" className="w-5 h-5 rounded text-indigo-600 cursor-pointer"
                       checked={selectedIds.length === filteredStudents.length && filteredStudents.length > 0}
                       onChange={() => toggleSelectAll(filteredStudents)} />
-                    <label htmlFor="selectAll" className="font-bold text-slate-700 cursor-pointer text-sm">전체 선택</label>
+                    <label htmlFor="selectAll" className="font-bold text-slate-700 cursor-pointer text-sm">?꾩껜 ?좏깮</label>
                   </div>
-                  <input type="text" placeholder="아이디 검색..." className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs w-32 focus:outline-none focus:border-indigo-500"
+                  <input type="text" placeholder="?꾩씠??寃??.." className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs w-32 focus:outline-none focus:border-indigo-500"
                     value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
                 
@@ -541,16 +495,16 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                       className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedIds.includes(student.id) ? 'border-indigo-500 bg-indigo-50 shadow-md' : 'border-slate-200 bg-white hover:border-indigo-300'}`}>
                       <div className="flex-1 min-w-0">
                         <div className="font-extrabold text-sm text-slate-800 truncate">
-                          {getSeatNum(student.studentCode)}번 {student.name || ''}
+                          {getSeatNum(student.studentCode)}踰?{student.name || ''}
                         </div>
                         <div className="font-mono text-[10px] text-slate-400 truncate">{student.studentCode}</div>
                         <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">
-                          <img src={iconDiamond} alt="다이아" className="w-3 h-3" /> {student.diamonds || 0}
-                          <img src={iconGold} alt="골드" className="w-3 h-3 ml-1" /> {student.gold || 0}
+                          <img src={iconDiamond} alt="?ㅼ씠?? className="w-3 h-3" /> {student.diamonds || 0}
+                          <img src={iconGold} alt="怨⑤뱶" className="w-3 h-3 ml-1" /> {student.gold || 0}
                         </div>
                       </div>
                       {selectedIds.includes(student.id) && (
-                        <span className="text-indigo-500 text-base ml-1 shrink-0">✓</span>
+                        <span className="text-indigo-500 text-base ml-1 shrink-0">??/span>
                       )}
                     </div>
                   ))}
@@ -558,16 +512,16 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
               </div>
 
               <div className="w-full lg:w-80 p-5 bg-white flex flex-col overflow-y-auto gap-4">
-                {/* 선택 인원 */}
+                {/* ?좏깮 ?몄썝 */}
                 <div className="p-3 bg-slate-50 rounded-xl text-center border border-slate-200">
-                  <span className="text-slate-500 text-xs font-medium">선택된 학생</span>
-                  <div className="text-3xl font-black text-indigo-600 my-0.5">{selectedIds.length} <span className="text-lg text-slate-700">명</span></div>
+                  <span className="text-slate-500 text-xs font-medium">?좏깮???숈깮</span>
+                  <div className="text-3xl font-black text-indigo-600 my-0.5">{selectedIds.length} <span className="text-lg text-slate-700">紐?/span></div>
                 </div>
 
-                {/* 💎 다이아 */}
+                {/* ?뭿 ?ㅼ씠??*/}
                 <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                   <label className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 mb-2">
-                    <img src={iconDiamond} className="w-4 h-4" alt="다이아" /> 다이아 금액
+                    <img src={iconDiamond} className="w-4 h-4" alt="?ㅼ씠?? /> ?ㅼ씠??湲덉븸
                   </label>
                   <input
                     type="number" min="0" value={diaAmount}
@@ -584,10 +538,10 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                   </div>
                 </div>
 
-                {/* 🪙 골드 */}
+                {/* ?첌 怨⑤뱶 */}
                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
                   <label className="flex items-center gap-1.5 text-xs font-bold text-amber-700 mb-2">
-                    <img src={iconGold} className="w-4 h-4" alt="골드" /> 골드 금액
+                    <img src={iconGold} className="w-4 h-4" alt="怨⑤뱶" /> 怨⑤뱶 湲덉븸
                   </label>
                   <input
                     type="number" min="0" value={goldAmount}
@@ -604,18 +558,18 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                   </div>
                 </div>
 
-                {/* 사유 */}
+                {/* ?ъ쑀 */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">사유 (선택)</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">?ъ쑀 (?좏깮)</label>
                   <textarea value={reason} onChange={e => setReason(e.target.value)}
                     className="w-full h-16 border-2 border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-none"
-                    placeholder="비워두셔도 됩니다." />
+                    placeholder="鍮꾩썙?먯뀛???⑸땲??" />
                 </div>
 
                 <button onClick={submitTransaction}
                   className={`w-full py-4 rounded-xl font-bold text-lg text-white shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]
                     ${modalMode === 'add' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
-                  {modalMode === 'add' ? '✨ 지급 집행하기' : '✕ 차감 집행하기'}
+                  {modalMode === 'add' ? '??吏湲?吏묓뻾?섍린' : '??李④컧 吏묓뻾?섍린'}
                 </button>
               </div>
             </div>
@@ -627,49 +581,49 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden">
             <div className="p-5 bg-slate-800 text-white font-bold text-xl flex justify-between items-center">
-              <h2>📋 최근 지급/차감 내역</h2>
-              <button onClick={() => setIsLogOpen(false)} className="text-slate-300 hover:text-white">✕</button>
+              <h2>?뱥 理쒓렐 吏湲?李④컧 ?댁뿭</h2>
+              <button onClick={() => setIsLogOpen(false)} className="text-slate-300 hover:text-white">??/button>
             </div>
             <div className="p-0 overflow-x-auto max-h-[70vh]">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                    <th className="p-4 font-semibold">일시</th>
-                    <th className="p-4 font-semibold">구분</th>
-                    <th className="p-4 font-semibold">내용</th>
-                    <th className="p-4 font-semibold">사유</th>
-                    <th className="p-4 font-semibold">대상</th>
+                    <th className="p-4 font-semibold">?쇱떆</th>
+                    <th className="p-4 font-semibold">援щ텇</th>
+                    <th className="p-4 font-semibold">?댁슜</th>
+                    <th className="p-4 font-semibold">?ъ쑀</th>
+                    <th className="p-4 font-semibold">???/th>
                   </tr>
                 </thead>
                 <tbody>
                   {logs.map(log => {
-                    // 신규 포맷 (diaAmount/goldAmount) & 구형 포맷 (currency/amount) 모두 지원
+                    // ?좉퇋 ?щ㎎ (diaAmount/goldAmount) & 援ы삎 ?щ㎎ (currency/amount) 紐⑤몢 吏??
                     const isAdd = log.mode === 'add' || (log.amount > 0);
                     const parts = [];
                     if (log.diaAmount  !== undefined && log.diaAmount  !== 0)
-                      parts.push(`💎 ${log.diaAmount  > 0 ? '+' : ''}${log.diaAmount.toLocaleString()}`);
+                      parts.push(`?뭿 ${log.diaAmount  > 0 ? '+' : ''}${log.diaAmount.toLocaleString()}`);
                     if (log.goldAmount !== undefined && log.goldAmount !== 0)
-                      parts.push(`🪙 ${log.goldAmount > 0 ? '+' : ''}${log.goldAmount.toLocaleString()}`);
-                    // 구형 포맷 fallback
+                      parts.push(`?첌 ${log.goldAmount > 0 ? '+' : ''}${log.goldAmount.toLocaleString()}`);
+                    // 援ы삎 ?щ㎎ fallback
                     if (parts.length === 0 && log.currency) {
                       const sign = log.amount > 0 ? '+' : '';
-                      parts.push(`${log.currency === '다이아' ? '💎' : '🪙'} ${sign}${(log.amount || 0).toLocaleString()}`);
+                      parts.push(`${log.currency === '?ㅼ씠?? ? '?뭿' : '?첌'} ${sign}${(log.amount || 0).toLocaleString()}`);
                     }
                     return (
                       <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="p-4 text-slate-500 whitespace-nowrap">
-                          {log.timestamp ? new Date(log.timestamp.toDate()).toLocaleString('ko-KR') : '방금 전'}
+                          {log.timestamp ? new Date(log.timestamp.toDate()).toLocaleString('ko-KR') : '諛⑷툑 ??}
                         </td>
                         <td className="p-4">
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isAdd ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
-                            {isAdd ? '지급' : '차감'}
+                            {isAdd ? '吏湲? : '李④컧'}
                           </span>
                         </td>
                         <td className={`p-4 font-bold ${isAdd ? 'text-emerald-600' : 'text-rose-600'}`}>
                           {parts.join('  ')}
                         </td>
                         <td className="p-4 text-slate-700">{log.reason}</td>
-                        <td className="p-4 font-medium text-slate-600">{log.targetCount}명</td>
+                        <td className="p-4 font-medium text-slate-600">{log.targetCount}紐?/td>
                       </tr>
                     );
                   })}
@@ -701,3 +655,8 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
 }
 
 export default TeacherDashboard;
+
+
+
+
+
