@@ -1,7 +1,137 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { signInWithPopup } from 'firebase/auth';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
+
+const INTRO_SECTIONS = [
+  {
+    id: 'student',
+    label: '학생 화면',
+    desc: '학생이 실제로 사용하는 주요 기능 화면',
+    items: [
+      ['학생 대시보드', '학생대시보드.png'],
+      ['나의 퀘스트', '학생-퀘스트.png'],
+      ['학급 상점', '학급상점.png'],
+      ['학급 은행', '학급은행.png'],
+      ['주식/ETF 거래소', '주식ETF.png'],
+      ['장비창', '장비창.png'],
+      ['아바타 룸', '아바타룸.png'],
+      ['보물상자', '보물상자.png'],
+      ['투기장', '투기장.png'],
+      ['탐험던전', '탐험던전.png'],
+      ['퀴즈던전', '퀴즈던전.png'],
+      ['배움노트 쓰기', '배움노트쓰기.png'],
+      ['학생 셀프체크인', '학생 셀프체크인.png'],
+    ],
+  },
+  {
+    id: 'teacher',
+    label: '교사 화면',
+    desc: '교사가 운영/관리하는 핵심 화면',
+    items: [
+      ['교사 대시보드', '교사대시보드.png'],
+      ['학생 계정 발급', '학생계정발급.png'],
+      ['퀘스트 관리', '교사-퀘스트관리.png'],
+      ['퀴즈 은행', '퀴즈은행.png'],
+      ['퀴즈던전 관리', '퀴즈던전 관리.png'],
+      ['어드벤처 관리', '어드벤처관리.png'],
+      ['보스레이드 관리', '보스레이드관리.png'],
+      ['배움노트 관리', '배움노트관리.png'],
+      ['주식/ETF 관리', '주식ETF관리.png'],
+      ['공유게시판', '공유게시판.png'],
+      ['AI 문제출제', 'AI문제출제.png'],
+    ],
+  },
+  {
+    id: 'battle',
+    label: '전투/레이드',
+    desc: '전투, 레이드, 랭킹 관련 화면',
+    items: [
+      ['당 명예의 전당', '당명예의 전당.png'],
+      ['보스레이드 대기실', '보스레이드 대기실.png'],
+      ['보스레이드 전투화면', '보스레이드 전투화면.png'],
+    ],
+  },
+];
+
+function IntroModal({ open, onClose }) {
+  const [tab, setTab] = useState(INTRO_SECTIONS[0].id);
+  const selected = useMemo(
+    () => INTRO_SECTIONS.find((section) => section.id === tab) || INTRO_SECTIONS[0],
+    [tab]
+  );
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-950/75 p-4 flex items-center justify-center" onClick={onClose}>
+      <div
+        className="w-full max-w-7xl max-h-[92vh] rounded-2xl border border-white/15 bg-slate-900 overflow-hidden shadow-2xl shadow-black/50"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+          <div>
+            <h3 className="text-white font-extrabold text-lg">LevelUp Class 소개</h3>
+            <p className="text-indigo-200/80 text-xs mt-0.5">{selected.desc}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-sm font-bold hover:bg-white/20"
+          >
+            닫기
+          </button>
+        </div>
+
+        <div className="px-5 pt-4 pb-3 border-b border-white/10 flex flex-wrap gap-2 items-center">
+          {INTRO_SECTIONS.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => setTab(section.id)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition-colors ${
+                section.id === tab
+                  ? 'bg-indigo-500 border-indigo-400 text-white'
+                  : 'bg-white/5 border-white/15 text-indigo-100 hover:bg-white/10'
+              }`}
+            >
+              {section.label} ({section.items.length})
+            </button>
+          ))}
+        </div>
+
+        <div className="p-5 overflow-y-auto max-h-[72vh] bg-slate-900">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {selected.items.map(([title, file]) => (
+              <article key={file} className="rounded-xl border border-white/15 bg-slate-800/50 overflow-hidden hover:border-indigo-300/40 transition-colors">
+                <div className="px-3 py-2 border-b border-white/10">
+                  <p className="text-indigo-100 text-sm font-bold">{title}</p>
+                </div>
+                <div className="aspect-[16/10] bg-slate-950">
+                  <img
+                    src={`/intro/${encodeURIComponent(file)}`}
+                    alt={title}
+                    loading="lazy"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
   const [mode, setMode] = useState(null); // null | 'student'
@@ -10,6 +140,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isIntroOpen, setIsIntroOpen] = useState(false);
 
   useEffect(() => {
     const codeFromUrl = new URLSearchParams(window.location.search).get('code');
@@ -48,7 +179,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
       const q = query(
         collection(db, 'students'),
         where('studentCode', '==', studentCode.trim().toUpperCase()),
-        where('pin', '==', pin.trim()),
+        where('pin', '==', pin.trim())
       );
       const snap = await getDocs(q);
 
@@ -105,6 +236,14 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
               </svg>
               교사 로그인 (Google)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsIntroOpen(true)}
+              className="w-full bg-white/5 hover:bg-white/10 text-indigo-100 font-bold py-3.5 px-6 rounded-2xl border border-white/20 transition-all hover:scale-[1.01]"
+            >
+              소개화면 보기
             </button>
           </div>
         )}
@@ -210,6 +349,8 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
           </div>
         </div>
       </div>
+
+      <IntroModal open={isIntroOpen} onClose={() => setIsIntroOpen(false)} />
     </div>
   );
 }
