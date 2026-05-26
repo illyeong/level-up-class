@@ -7019,7 +7019,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a53e064e216b3b749b7b2d3acca83645, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PortalTrigger
-  targetScene: D01_S1
+  targetScene: D01_S2
   isActive: 1
   portalEffect: {fileID: 0}
 --- !u!212 &1419458148
