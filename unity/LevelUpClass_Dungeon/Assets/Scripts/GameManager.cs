@@ -26,10 +26,10 @@ public class GameManager : MonoBehaviour
     public const string SceneClear         = "Clear";
 
     // 던전 씬 이름 헬퍼 (dungeonIndex 1~25)
-    // 씬 파일명 규칙: D01_S1 / D01_S2 / D01_Boss
+    // 씬 파일명 규칙: D01_S1 / D01_S2 / D01_S3
     public static string SceneS1(int d)   => $"D{d:D2}_S1";
     public static string SceneS2(int d)   => $"D{d:D2}_S2";
-    public static string SceneBoss(int d) => $"D{d:D2}_Boss";
+    public static string SceneBoss(int d) => $"D{d:D2}_S3";
 
     // ── 플레이어 체력 ─────────────────────────────────────────────
     [Header("플레이어 체력")]

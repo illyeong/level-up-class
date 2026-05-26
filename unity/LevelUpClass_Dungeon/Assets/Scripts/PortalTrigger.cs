@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public class PortalTrigger : MonoBehaviour
 {
-    [Header("이동할 씬 이름 (예: D01_S1, D01_S2, D01_Boss)")]
+    [Header("이동할 씬 이름 (예: D01_S1, D01_S2, D01_S3)")]
     [SerializeField] private string targetScene = "D01_S1";
 
     [Header("포탈 활성화 여부")]
@@ -22,7 +22,7 @@ public class PortalTrigger : MonoBehaviour
         if (string.IsNullOrWhiteSpace(targetScene))
             return GameManager.SceneS1(idx);
 
-        // 기존 씬에 D01_S1 / D01_S2 / D01_Boss 같은 값이 박혀 있어도
+        // 기존 씬에 D01_S1 / D01_S2 / D01_S3(또는 D01_Boss) 같은 값이 박혀 있어도
         // 현재 선택한 dungeonIndex를 반영해 DXX_*로 자동 변환한다.
         if (targetScene.Length >= 5 &&
             targetScene[0] == 'D' &&
@@ -31,6 +31,7 @@ public class PortalTrigger : MonoBehaviour
             targetScene[3] == '_')
         {
             string suffix = targetScene.Substring(4);
+            if (suffix == "S3") return GameManager.SceneBoss(idx);
             if (suffix == "S1") return GameManager.SceneS1(idx);
             if (suffix == "S2") return GameManager.SceneS2(idx);
             if (suffix == "Boss") return GameManager.SceneBoss(idx);
