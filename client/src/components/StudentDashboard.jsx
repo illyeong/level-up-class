@@ -445,10 +445,17 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
   };
 
   const handleInstallClick = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    await installPrompt.userChoice;
-    setInstallPrompt(null);
+    if (installPrompt) {
+      installPrompt.prompt();
+      await installPrompt.userChoice;
+      setInstallPrompt(null);
+      return;
+    }
+    if (isIOS) {
+      window.alert('iOS Safari에서 하단 공유 버튼 -> "홈 화면에 추가"를 눌러주세요.');
+      return;
+    }
+    window.alert('브라우저 메뉴에서 "홈 화면에 추가" 또는 "앱 설치"를 눌러주세요.');
   };
 
   const name     = studentData?.name     || studentData?.studentCode || '용감한 용사';
@@ -493,6 +500,14 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
               className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 border border-slate-800 text-white font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm"
             >
               홈 화면에 추가
+            </button>
+          )}
+          {!installPrompt && (
+            <button
+              onClick={handleInstallClick}
+              className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 border border-slate-800 text-white font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm"
+            >
+              홈화면/바탕화면 추가
             </button>
           )}
           {!installPrompt && isIOS && (
