@@ -273,9 +273,9 @@ function TeacherDashboard({ selectedClass }) {
       <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-800 flex items-center">
-            ?몣 ?숆툒 ?꾩껜 ??쒕낫??
+            학급 전체 대시보드
           </h1>
-          <p className="text-slate-500 mt-2 text-sm">?숈깮?ㅼ쓽 ?덈꺼怨??ы솕瑜?愿由ы빀?덈떎.</p>
+          <p className="text-slate-500 mt-2 text-sm">학생들의 레벨과 재화를 관리합니다.</p>
         </div>
         
         <div className="flex flex-wrap gap-2">
@@ -287,33 +287,33 @@ function TeacherDashboard({ selectedClass }) {
               }}
               className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-amber-900 px-4 py-2 rounded-lg font-extrabold text-sm shadow-sm transition-all border border-amber-300"
             >
-              燧놅툘 ?덈꺼???④낵 蹂닿린
+              레벨업 효과 보기
             </button>
           )}
           <button onClick={async () => {
             const list = await fetchStudents();
             await fetchQuestStats(list.map(s => s.id));
           }} className="bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
-            ?봽 ?덈줈怨좎묠
+            새로고침
           </button>
           {onStudentTestLogin && (
             <button
               onClick={() => onStudentTestLogin('SINSEOK-5-15')}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm"
             >
-              ?숈깮 ?뚯뒪??(SINSEOK-5-15)
+              학생 테스트 (SINSEOK-5-15)
             </button>
           )}
           <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
-            ?뱥 吏湲?李④컧 ?댁뿭 蹂닿린
+            지급/차감 내역 보기
           </button>
           <button onClick={() => openModal('add')}
             className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors">
-            ??吏湲됲븯湲?
+            지급하기
           </button>
           <button onClick={() => openModal('sub')}
             className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors">
-            ??李④컧?섍린
+            차감하기
           </button>
         </div>
       </div>
@@ -322,9 +322,9 @@ function TeacherDashboard({ selectedClass }) {
         <div className="mb-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
-              <h2 className="text-lg font-extrabold text-slate-800">?멸퉵 湲곕낯 ?뗮똿</h2>
+              <h2 className="text-lg font-extrabold text-slate-800">학급 기본 셋팅</h2>
               <p className="text-sm text-slate-500 mt-1">
-                異붿쿇 ?섏뒪?? 湲곕낯 ?곸젏, ?대뱶踰ㅼ쿂 ?낆옣沅? ?덉떆 ?댁쫰?섏쟾, 湲곕낯 蹂댁뒪?덉씠?쒕? ??踰덉뿉 ?앹꽦?⑸땲??
+                추천 퀘스트, 기본 상점, 어드벤처 입장권, 예시 퀴즈던전, 기본 보스레이드를 한 번에 생성합니다.
               </p>
             </div>
             <div className="flex gap-2">
@@ -332,7 +332,7 @@ function TeacherDashboard({ selectedClass }) {
                 onClick={handleRunQuickSetup}
                 disabled={isQuickSetupRunning}
                 className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-50">
-                {isQuickSetupRunning ? '?곸슜 以?..' : '湲곕낯 ?뗮똿 ?ㅽ뻾'}
+                {isQuickSetupRunning ? '적용 중...' : '기본 셋팅 실행'}
               </button>
             </div>
           </div>
@@ -343,11 +343,11 @@ function TeacherDashboard({ selectedClass }) {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <img src={iconQuest} alt="퀘스트" className="w-6 h-6 object-contain" />
-          <h2 className="font-extrabold text-slate-700 text-base">?ㅻ뒛???섏뒪???꾪솴</h2>
+          <h2 className="font-extrabold text-slate-700 text-base">오늘의 퀘스트 현황</h2>
         </div>
         {questStats.length === 0 ? (
           <div className="text-slate-400 text-sm py-3 px-4 bg-white rounded-2xl border border-slate-200">
-            ?쒖꽦 ?섏뒪?멸? ?놁뒿?덈떎. ?섏뒪??愿由ъ냼?먯꽌 ?섏뒪?몃? 留뚮뱾?대낫?몄슂!
+            활성 퀘스트가 없습니다. 퀘스트 관리소에서 퀘스트를 만들어보세요!
           </div>
         ) : (
         <div className="flex gap-3 overflow-x-auto pb-2">

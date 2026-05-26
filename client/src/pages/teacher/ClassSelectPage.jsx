@@ -331,12 +331,12 @@ function ClassCard({ cls, onSelect }) {
     <button
       onClick={() => onSelect(cls)}
       className="bg-white rounded-2xl shadow-sm border-2 border-slate-200 hover:border-indigo-400 hover:shadow-md transition-all p-6 text-left w-full group">
-      <div className="text-3xl mb-3">?룶</div>
+      <div className="text-3xl mb-3">🏫</div>
       <h3 className="font-extrabold text-slate-800 text-lg leading-tight mb-1">
         {cls.schoolName}
       </h3>
       <p className="text-indigo-600 font-extrabold text-base mb-3">
-        {cls.grade}?숇뀈 {cls.classNumber}諛?
+        {cls.grade}학년 {cls.classNumber}반
       </p>
       <div className="flex items-center gap-3 text-sm text-slate-500">
         <span>학생 {cls.studentCount}명</span>
@@ -346,7 +346,7 @@ function ClassCard({ cls, onSelect }) {
         </span>
       </div>
       <div className="mt-4 text-xs font-bold text-indigo-500 group-hover:text-indigo-600 transition-colors">
-        ?낆옣?섍린 ??
+        입장하기 →
       </div>
     </button>
   );
@@ -358,9 +358,9 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
         <div className="px-5 py-4 bg-indigo-600 text-white">
-          <h3 className="text-lg font-extrabold">?숆툒 湲곕낯 ?뗮똿</h3>
+          <h3 className="text-lg font-extrabold">학급 기본 셋팅</h3>
           <p className="text-xs text-indigo-100 mt-1">
-            ?숆툒 ?앹꽦 吏곹썑 ??踰덈쭔 ?ㅽ뻾?섎㈃ 湲곕낯 ?댁쁺 ?섍꼍???먮룞?쇰줈 以鍮꾨맗?덈떎.
+            학급 생성 직후 한 번만 실행하면 기본 운영 환경이 자동으로 준비됩니다.
           </p>
         </div>
 
@@ -368,16 +368,17 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
             <div className="font-bold">{state.newClass?.schoolName}</div>
             <div className="text-slate-500 mt-0.5">
-              {state.newClass?.grade}?숇뀈 {state.newClass?.classNumber}諛?            </div>
+              {state.newClass?.grade}학년 {state.newClass?.classNumber}반
+            </div>
           </div>
 
           {!state.isDone && (
             <ul className="text-sm text-slate-600 space-y-1.5 list-disc pl-5">
-              <li>異붿쿇 ?섏뒪???꾩껜 ?먮룞 ?앹꽦</li>
-              <li>湲곕낯 ?숆툒 ?곸젏 5醫??먮룞 ?깅줉</li>
-              <li>?먰뿕?섏쟾 ?낆옣沅?3??湲곕낯 吏湲?</li>
-              <li>?숇뀈 留욎땄 ?섑븰 6臾명빆 + ?덉떆 ?댁쫰?섏쟾 ?먮룞 ?앹꽦</li>
-              <li>?숇뀈 留욎땄 蹂댁뒪?덉씠?쒖슜 6臾명빆 + 湲곕낯 蹂댁뒪 ?덉씠??1媛??앹꽦</li>
+              <li>추천 퀘스트 전체 자동 생성</li>
+              <li>기본 학급 상점 5종 자동 등록</li>
+              <li>탐험던전 입장권 3장 기본 지급</li>
+              <li>학년 맞춤 수학 6문항 + 예시 퀴즈던전 자동 생성</li>
+              <li>학년 맞춤 보스레이드용 6문항 + 기본 보스레이드 1개 생성</li>
             </ul>
           )}
 
@@ -404,25 +405,26 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
             onClick={onClose}
             disabled={state.isRunning}
             className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 disabled:opacity-50">
-            ?섏쨷??          </button>
+            나중에
+          </button>
           {!state.isDone ? (
             <button
               onClick={onRun}
               disabled={state.isRunning}
               className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-50">
-              {state.isRunning ? '?곸슜 以?..' : '諛붾줈 ?곸슜'}
+              {state.isRunning ? '적용 중...' : '바로 적용'}
             </button>
           ) : (
             <>
               <button
                 onClick={onClose}
                 className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm">
-                ?リ린
+                닫기
               </button>
               <button
                 onClick={onEnterClass}
                 className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm">
-                ?뺤씤
+                확인
               </button>
             </>
           )}
@@ -492,7 +494,7 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
       setQuickSetup(prev => ({
         ...prev,
         isRunning: false,
-        error: error?.message || '湲곕낯 ?뗮똿 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.',
+        error: error?.message || '기본 셋팅 중 오류가 발생했습니다.',
       }));
     }
   };
@@ -510,25 +512,25 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
           <button
             onClick={onEnterAdmin}
             className="text-indigo-100 hover:text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-indigo-300/40 hover:border-indigo-200/80 bg-indigo-500/20 hover:bg-indigo-500/30 transition-colors">
-            愿由ъ옄 紐⑤뱶
+            관리자 모드
           </button>
         )}
         <button onClick={onLogout}
           className="text-white/50 hover:text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-white/20 hover:border-white/40 transition-colors">
-          濡쒓렇?꾩썐
+          로그아웃
         </button>
         </div>
       </div>
 
       {/* 蹂몃Ц */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-        <h1 className="text-3xl font-extrabold text-white mb-2">???숆툒</h1>
-        <p className="text-white/50 text-sm mb-10">?낆옣???숆툒???좏깮?섍굅?????숆툒??留뚮뱶?몄슂</p>
+        <h1 className="text-3xl font-extrabold text-white mb-2">학급 선택</h1>
+        <p className="text-white/50 text-sm mb-10">입장할 학급을 선택하거나 새 학급을 만들어주세요.</p>
 
         {isLoading ? (
           <div className="flex items-center gap-2.5">
             <div className="w-5 h-5 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
-            <span className="text-white/50 font-bold text-sm">遺덈윭?ㅻ뒗 以?..</span>
+            <span className="text-white/50 font-bold text-sm">불러오는 중...</span>
           </div>
         ) : (
           <div className="w-full max-w-2xl">
@@ -544,9 +546,9 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
             {/* ?숆툒 ?놁쓣 ???덈궡 */}
             {classes.length === 0 && (
               <div className="text-center mb-8">
-                <div className="text-6xl mb-4 opacity-40">?룶</div>
-                <p className="text-white/50 font-bold">?꾩쭅 ?숆툒???놁뒿?덈떎</p>
-                <p className="text-white/30 text-sm mt-1">?꾨옒 踰꾪듉???뚮윭 泥?踰덉㎏ ?숆툒??留뚮뱾?대낫?몄슂!</p>
+                <div className="text-6xl mb-4 opacity-40">🏫</div>
+                <p className="text-white/50 font-bold">아직 학급이 없습니다</p>
+                <p className="text-white/30 text-sm mt-1">아래 버튼을 눌러 첫 번째 학급을 만들어보세요!</p>
               </div>
             )}
 
@@ -555,11 +557,11 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
               <button
                 onClick={() => setShowCreate(true)}
                 className="w-full py-4 rounded-2xl border-2 border-dashed border-white/30 hover:border-indigo-400 text-white/50 hover:text-white font-bold transition-all hover:bg-white/5">
-                + ???숆툒 留뚮뱾湲?{classes.length > 0 && `(${2 - classes.length}媛???媛??`}
+                + 새 학급 만들기 {classes.length > 0 && `(${2 - classes.length}개 더 가능)`}
               </button>
             ) : (
               <div className="text-center text-white/30 text-sm py-3">
-                理쒕? 2媛??숆툒源뚯? 留뚮뱾 ???덉뒿?덈떎
+                최대 2개 학급까지 만들 수 있습니다
               </div>
             )}
           </div>
