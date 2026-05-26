@@ -8,6 +8,7 @@ function AvatarShop({ studentCode }) {
   const [isReady, setIsReady]           = useState(false);
   const [avatarSent, setAvatarSent]     = useState(false);
   const [unityLoaded, setUnityLoaded]   = useState(false);
+  const [unityReady, setUnityReady]     = useState(false);
 
   // ─── refs ────────────────────────────────────────────────
   const diamondsRef      = useRef(0);
@@ -126,6 +127,8 @@ function AvatarShop({ studentCode }) {
   const handleIframeLoad = useCallback(() => {
     setUnityLoaded(true);
     console.log('🎮 iframe 로드 완료. Unity 초기화를 기다리며 아바타 전송 시도...');
+    // UNITY_READY 메시지가 늦거나 누락되는 빌드 대비용 fallback
+    setTimeout(() => setUnityReady(true), 4500);
     // Unity WebGL은 iframe onload 이후에도 초기화 시간이 필요
     // → 2초 간격으로 최대 10회 재시도
     startRetry();
@@ -140,6 +143,7 @@ function AvatarShop({ studentCode }) {
       // ── Unity 준비 완료 신호 (Unity 측에서 보내면 즉시 전송) ──
       if (msg.type === 'UNITY_READY') {
         console.log('✅ Unity READY 신호 수신. 아바타 즉시 전송.');
+        setUnityReady(true);
         stopRetry();
         sendAvatarToUnity();
       }
@@ -227,10 +231,10 @@ function AvatarShop({ studentCode }) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col bg-white" style={{ height: 'calc(100vh - 88px)' }}>
       {/* 상단 UI */}
-      <div className="flex justify-between items-center px-4 py-3 border-b bg-white shadow-sm gap-3 flex-wrap">
-        <h2 className="text-xl font-bold text-slate-800">👕 아바타 상점</h2>
+      <div className="flex justify-between items-center px-3 py-2 border-b bg-white shadow-sm gap-2 flex-wrap">
+        <h2 className="text-lg font-bold text-slate-800">👕 아바타 상점</h2>
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* 아바타 불러오기 상태 표시 */}
@@ -279,6 +283,15 @@ function AvatarShop({ studentCode }) {
           onLoad={handleIframeLoad}
           style={{ width: '100%', height: '100%', border: 'none' }}
         />
+        {(!unityLoaded || !unityReady) && (
+          <div className="absolute inset-0 z-20 bg-slate-950/90 flex items-center justify-center">
+            <div className="text-center px-6">
+              <div className="mx-auto mb-4 w-10 h-10 border-4 border-indigo-300/30 border-t-indigo-400 rounded-full animate-spin" />
+              <p className="text-white font-extrabold text-lg">아바타 룸 로딩 중...</p>
+              <p className="text-slate-300 text-sm mt-1">유니티 엔진을 준비하고 있습니다</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

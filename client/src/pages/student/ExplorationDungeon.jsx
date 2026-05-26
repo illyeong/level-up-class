@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { STAT_LABEL } from '../../constants/equipment';
@@ -248,6 +248,49 @@ function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
+function RewardParticleBurst() {
+  const particles = useMemo(
+    () =>
+      Array.from({ length: 28 }, (_, i) => ({
+        id: i,
+        left: `${8 + Math.random() * 84}%`,
+        size: 6 + Math.random() * 10,
+        delay: Math.random() * 0.45,
+        dur: 0.9 + Math.random() * 0.9,
+        color: ['#facc15', '#60a5fa', '#22d3ee', '#a78bfa', '#fb7185'][Math.floor(Math.random() * 5)],
+      })),
+    []
+  );
+
+  return (
+    <>
+      <style>{`
+        @keyframes dungeonRewardBurst {
+          0% { transform: translateY(18px) scale(0.6); opacity: 0; }
+          25% { opacity: 1; }
+          100% { transform: translateY(-140px) scale(1); opacity: 0; }
+        }
+      `}</style>
+      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+        {particles.map((p) => (
+          <span
+            key={p.id}
+            className="absolute bottom-8 rounded-full"
+            style={{
+              left: p.left,
+              width: `${p.size}px`,
+              height: `${p.size}px`,
+              background: p.color,
+              boxShadow: `0 0 12px ${p.color}`,
+              animation: `dungeonRewardBurst ${p.dur}s ease-out ${p.delay}s infinite`,
+            }}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
 export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, isTeacher = false, teacherUid = null }) {
   const [phase, setPhase]             = useState('map');
   const [dungeonLaunchIndex, setDungeonLaunchIndex] = useState(1);
@@ -547,8 +590,9 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     <div className="bg-slate-900 flex flex-col" style={{ height: 'calc(100vh - 88px)' }}>
       {dungeonReward && (
         <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-3xl border border-white/20 bg-slate-900/95 shadow-2xl px-6 py-6 text-center">
+          <div className="relative w-full max-w-sm rounded-3xl border border-white/20 bg-slate-900/95 shadow-2xl px-6 py-6 text-center overflow-hidden">
             <p className="text-white font-extrabold text-xl mb-4">🎁 던전 보상 획득</p>
+            <RewardParticleBurst />
             <div className="flex justify-center gap-5 mb-5">
               {dungeonReward.gold > 0 && (
                 <div className="flex flex-col items-center">

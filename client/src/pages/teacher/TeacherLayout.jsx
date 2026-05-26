@@ -97,6 +97,62 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
     'classShopManage','bankManage','stockManage','townManage','freeBoard','hallOfFame','classVoteManage','studentManage',
     'accountIssue','systemSettings','dataReset','inquiry'
   ];
+  const studentMenuLabels = {
+    dashboard: '대시보드',
+    classAll: '우리반 전체 보기',
+    myCharacter: '내 캐릭터',
+    avatarRoom: '아바타 룸',
+    equipment: '장비',
+    gachaBox: '보물상자',
+    quest: '퀘스트',
+    achievement: '업적',
+    board: '공유 게시판',
+    learningNote: '배움노트',
+    adventure: '어드벤처',
+    quizDungeon: '퀴즈던전',
+    explorationDungeon: '탐험던전',
+    arena: '투기장',
+    bossRaid: '보스 레이드',
+    trade: '무역 센터',
+    classBank: '학급 은행',
+    classShop: '학급 상점',
+    stockMarket: '주식/ETF 거래소',
+    town: '마을 광장',
+    freeBoard: '자유 게시판',
+    classVote: '학급 투표',
+    settings: '시스템 설정',
+    editProfile: '프로필 수정',
+    themeSettings: '테마 설정',
+  };
+  const teacherMenuLabels = {
+    dashboard: '대시보드',
+    myCharacter: '내 캐릭터',
+    questManage: '퀘스트 관리소',
+    questKiosk: '학생 셀프체크인',
+    adventure: '어드벤처',
+    quizBank: '퀴즈 은행',
+    quizDungeonManage: '퀴즈던전 관리',
+    bossRaidManage: '보스레이드 관리',
+    quizDungeon: '퀴즈던전',
+    explorationDungeon: '탐험던전',
+    bossRaid: '보스 레이드',
+    adventureManage: '어드벤처 관리',
+    boardManage: '공유 게시판',
+    learningNoteManage: '배움노트 관리',
+    economyManage: '학급 경제 관리',
+    classShopManage: '학급 상점 관리',
+    bankManage: '은행 관리',
+    stockManage: '주식/ETF 관리',
+    townManage: '마을 광장 관리',
+    freeBoard: '자유 게시판',
+    hallOfFame: '명예의 전당',
+    classVoteManage: '학급 투표 관리',
+    studentManage: '학급/학생 관리',
+    accountIssue: '학생 계정 발급',
+    systemSettings: '시스템 설정',
+    dataReset: '데이터 초기화',
+    inquiry: '건의 및 문의하기',
+  };
 
   const toggleHiddenMenu = async (scope, id) => {
     if (scope === 'student') {
@@ -179,7 +235,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'bankManage'       && <BankManage selectedClass={selectedClass} />}
         {currentView === 'classShopManage' && <ClassShopManage selectedClass={selectedClass} />}
         {currentView === 'stockManage'        && <StockManage selectedClass={selectedClass} />}
-        {currentView === 'quizBank'           && <QuizBank />}
+        {currentView === 'quizBank'           && <QuizBank selectedClass={selectedClass} />}
         {currentView === 'quizDungeonManage' && <QuizDungeonManage selectedClass={selectedClass} />}
         {currentView === 'bossRaidManage'    && <BossRaidManage selectedClass={selectedClass} onViewLobby={() => setCurrentView('bossRaid')} />}
         {currentView === 'bossRaid'          && <BossRaid isTeacher={true} selectedClass={selectedClass} />}
@@ -204,10 +260,10 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
                   <button onClick={() => setTeacherThemeMode('light')} className={`px-4 py-2 rounded-lg text-sm font-bold border ${teacherThemeMode === 'light' ? 'bg-amber-500 text-white border-amber-400' : 'border-slate-400/40'}`}>밝은 모드</button>
                 </div>
               </div>
-              <div className="rounded-xl border border-slate-200 p-4 mb-4">
+              <div className={`rounded-xl p-4 mb-4 ${isDark ? 'border border-slate-700 bg-slate-900/40' : 'border border-slate-200 bg-white'}`}>
                 <div className="text-sm font-bold mb-3">메뉴 숨기기</div>
                 <div className="space-y-3">
-                  <label className="flex items-center justify-between text-sm">
+                  <label className={`flex items-center justify-between text-sm ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
                     <span>학생 네비게이션 숨김</span>
                     <button
                       type="button"
@@ -221,7 +277,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
                       <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${hideStudentNav ? 'left-7' : 'left-1'}`} />
                     </button>
                   </label>
-                  <label className="flex items-center justify-between text-sm">
+                  <label className={`flex items-center justify-between text-sm ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
                     <span>교사 네비게이션 숨김</span>
                     <button
                       type="button"
@@ -238,14 +294,19 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 p-4">
+                <div className={`rounded-xl p-4 ${isDark ? 'border border-slate-700 bg-slate-900/40' : 'border border-slate-200 bg-white'}`}>
                   <div className="text-sm font-bold mb-2">학생 메뉴별 활성/비활성</div>
                   <div className="max-h-56 overflow-auto space-y-1">
                     {studentMenuOptions.map((id) => {
                       const hidden = hiddenStudentMenuIds.includes(id);
                       return (
                         <label key={id} className="flex items-center justify-between text-xs py-1">
-                          <span className={hidden ? 'text-slate-400' : ''}>{id}</span>
+                          <span className={hidden ? 'text-slate-400' : (isDark ? 'text-slate-200' : 'text-slate-700')}>
+                            {studentMenuLabels[id] || id}
+                          </span>
+                          <span className={`mr-2 text-[11px] font-bold ${hidden ? 'text-rose-400' : 'text-emerald-500'}`}>
+                            {hidden ? '비활성' : '활성'}
+                          </span>
                           <input
                             type="checkbox"
                             checked={!hidden}
@@ -256,14 +317,19 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
                     })}
                   </div>
                 </div>
-                <div className="rounded-xl border border-slate-200 p-4">
+                <div className={`rounded-xl p-4 ${isDark ? 'border border-slate-700 bg-slate-900/40' : 'border border-slate-200 bg-white'}`}>
                   <div className="text-sm font-bold mb-2">교사 메뉴별 활성/비활성</div>
                   <div className="max-h-56 overflow-auto space-y-1">
                     {teacherMenuOptions.map((id) => {
                       const hidden = hiddenTeacherMenuIds.includes(id);
                       return (
                         <label key={id} className="flex items-center justify-between text-xs py-1">
-                          <span className={hidden ? 'text-slate-400' : ''}>{id}</span>
+                          <span className={hidden ? 'text-slate-400' : (isDark ? 'text-slate-200' : 'text-slate-700')}>
+                            {teacherMenuLabels[id] || id}
+                          </span>
+                          <span className={`mr-2 text-[11px] font-bold ${hidden ? 'text-rose-400' : 'text-emerald-500'}`}>
+                            {hidden ? '비활성' : '활성'}
+                          </span>
                           <input
                             type="checkbox"
                             checked={!hidden}

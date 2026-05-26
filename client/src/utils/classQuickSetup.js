@@ -281,6 +281,12 @@ const normalizeTemplateQuest = (quest) => ({
   description: String(quest?.description || '').trim(),
 });
 
+const normalizeQuestTitleKey = (title) =>
+  String(title || '')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .trim();
+
 const loadRecommendedQuestTemplates = async () => {
   const candidates = [
     doc(db, 'systemConfig', 'questTemplates'),
@@ -304,14 +310,17 @@ const loadRecommendedQuestTemplates = async () => {
       if (!Array.isArray(list) || list.length === 0) continue;
       const normalized = list
         .map(normalizeTemplateQuest)
-        .filter((q) => q.title.length > 0);
+        .filter((q) => q.title.length > 0)
+        .filter((q) => normalizeQuestTitleKey(q.title) !== normalizeQuestTitleKey('지각하지 않고 등교하기'));
       if (normalized.length > 0) return normalized;
     } catch (err) {
       console.warn('[QuickSetup] quest template read failed:', ref.path, err);
     }
   }
 
-  return DEFAULT_RECOMMENDED_QUESTS;
+  return DEFAULT_RECOMMENDED_QUESTS.filter(
+    (q) => normalizeQuestTitleKey(q.title) !== normalizeQuestTitleKey('지각하지 않고 등교하기'),
+  );
 };
 
 export async function applyClassQuickSetup(selectedClass) {
@@ -353,12 +362,16 @@ export async function applyClassQuickSetup(selectedClass) {
   };
 
   const questsSnap = await getDocs(query(collection(db, 'quests'), where('classId', '==', classId)));
-  const existingQuestTitles = new Set(
-    questsSnap.docs.map((d) => String(d.data()?.title || '').trim()).filter(Boolean),
+  const existingQuestTitleKeys = new Set(
+    questsSnap.docs
+      .map((d) => normalizeQuestTitleKey(d.data()?.title))
+      .filter(Boolean),
   );
   const templateQuests = await loadRecommendedQuestTemplates();
   for (const quest of templateQuests) {
-    if (existingQuestTitles.has(quest.title)) continue;
+    const titleKey = normalizeQuestTitleKey(quest.title);
+    if (!titleKey) continue;
+    if (existingQuestTitleKeys.has(titleKey)) continue;
     await addDoc(collection(db, 'quests'), {
       ...quest,
       active: true,
@@ -369,6 +382,7 @@ export async function applyClassQuickSetup(selectedClass) {
       classId,
       createdAt: serverTimestamp(),
     });
+    existingQuestTitleKeys.add(titleKey);
     summary.createdQuestCount += 1;
   }
 

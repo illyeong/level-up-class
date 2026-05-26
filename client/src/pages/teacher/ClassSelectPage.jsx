@@ -353,7 +353,7 @@ function ClassCard({ cls, onSelect }) {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
-function QuickSetupModal({ state, onClose, onRun, onEnterClass, onGoAccountIssue }) {
+function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
@@ -405,10 +405,10 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass, onGoAccountIssue
             학급/학생관리 페이지에서 학생별 로그인 QR코드를 출력할 수 있습니다.
             <div className="mt-2 flex gap-2">
               <button
-                onClick={onGoAccountIssue}
+                onClick={onClose}
                 className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white"
               >
-                출력하러 가기
+                닫기
               </button>
               <button
                 onClick={onClose}
@@ -438,9 +438,9 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass, onGoAccountIssue
           ) : (
             <>
               <button
-                onClick={onGoAccountIssue}
+                onClick={onClose}
                 className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm">
-                출력하러 가기
+                닫기
               </button>
               <button
                 onClick={onEnterClass}
@@ -483,8 +483,20 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
   const handleCreated = (newClass) => {
     setShowCreate(false);
     setClasses(prev => [...prev, newClass]);
-    localStorage.setItem('showQrGuideOnDashboard', JSON.stringify({ classId: newClass.id }));
-    onClassSelected(newClass);
+    setQuickSetup({
+      open: true,
+      newClass,
+      isRunning: false,
+      isDone: false,
+      result: null,
+      error: '',
+    });
+  };
+
+  const enterClassAfterQuickSetup = () => {
+    if (!quickSetup?.newClass) return;
+    localStorage.setItem('showQrGuideOnDashboard', JSON.stringify({ classId: quickSetup.newClass.id }));
+    onClassSelected(quickSetup.newClass);
   };
 
   const runQuickSetup = async () => {
@@ -583,6 +595,16 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
           teacherUser={teacherUser}
           onClose={() => setShowCreate(false)}
           onCreated={handleCreated}
+        />
+      )}
+      {quickSetup.open && (
+        <QuickSetupModal
+          state={quickSetup}
+          onClose={() => setQuickSetup({
+            open: false, newClass: null, isRunning: false, isDone: false, result: null, error: '',
+          })}
+          onRun={runQuickSetup}
+          onEnterClass={enterClassAfterQuickSetup}
         />
       )}
       

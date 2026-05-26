@@ -258,7 +258,7 @@ function EditModal({ set, onSave, onClose }) {
 }
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────
-export default function QuizBank() {
+export default function QuizBank({ selectedClass = null }) {
   const [tab, setTab] = useState('mine'); // 'mine' | 'ai' | 'manual' | 'bank'
 
   // ── 내 퀴즈 상태 ─────────────────────────────────────────────────
@@ -322,20 +322,24 @@ export default function QuizBank() {
   const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
 
   const currentUid = auth.currentUser?.uid || 'admin_master_001';
+  const currentClassId = selectedClass?.id || null;
 
   // ── 데이터 로드 ──────────────────────────────────────────────────
   useEffect(() => {
     if (tab === 'mine') fetchMySets();
     if (tab === 'bank') fetchBankSets();
-  }, [tab]);
+  }, [tab, currentClassId]);
 
   const fetchMySets = async () => {
     setIsLoadingMine(true);
     try {
       const snap = await getDocs(query(collection(db, 'quizSets'), where('ownerId', '==', currentUid)));
+      const mapped = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const classScoped = currentClassId
+        ? mapped.filter((s) => String(s.classId || '') === String(currentClassId))
+        : mapped;
       setMySets(
-        snap.docs.map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+        classScoped.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
       );
     } finally { setIsLoadingMine(false); }
   };
@@ -458,6 +462,7 @@ export default function QuizBank() {
         questionCount: aiQuestions.length,
         ownerId:       currentUid,
         ownerName:     auth.currentUser?.email || '선생님',
+        classId:       currentClassId,
         isShared,
         sharedAt:      isShared ? serverTimestamp() : null,
         importCount:   0,
@@ -511,6 +516,7 @@ export default function QuizBank() {
         questionCount: manualQuestions.length,
         ownerId:       currentUid,
         ownerName:     auth.currentUser?.email || '선생님',
+        classId:       currentClassId,
         isShared,
         sharedAt:      isShared ? serverTimestamp() : null,
         importCount:   0,
@@ -554,6 +560,7 @@ export default function QuizBank() {
         ...setData,
         ownerId:   currentUid,
         ownerName: auth.currentUser?.email || '선생님',
+        classId:   currentClassId,
         isShared:  false,
         sharedAt:  null,
         sourceId:  set.id,
