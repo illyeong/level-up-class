@@ -709,15 +709,19 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
         {/* 캐릭터 카드 */}
         <div className="bg-white p-5 rounded-3xl shadow-lg border border-gray-100 text-center self-start">
           <div className="w-full h-44 md:h-48 mx-auto flex items-center justify-center mb-4 relative bg-indigo-50 rounded-2xl overflow-hidden border border-indigo-100">
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute left-1/2 top-[46%] -translate-x-1/2 -translate-y-1/2 w-40 h-40 rounded-full bg-indigo-300/35 blur-3xl" />
+              <div className="absolute left-1/2 bottom-6 -translate-x-1/2 w-36 h-6 rounded-[999px] bg-slate-700/20 blur-md" />
+            </div>
             {studentData?.characterImage ? (
               <img
                 src={studentData.characterImage}
                 alt="내 캐릭터"
-                className="w-full h-full object-contain scale-[2] drop-shadow-md"
+                className="relative z-10 w-full h-full object-contain scale-[2] drop-shadow-md"
                 onError={e => { e.target.style.display = 'none'; }}
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-6xl">
+              <div className="relative z-10 w-full h-full flex items-center justify-center text-6xl">
                 {studentData?.parts ? '🦸‍♂️' : '🧑‍🎓'}
               </div>
             )}

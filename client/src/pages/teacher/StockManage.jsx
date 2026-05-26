@@ -34,6 +34,59 @@ const getKstDateKey = (date = getKstNow()) => {
 
 const isTeacherSoulId = (etfId) => etfId === 'teacher_soul' || etfId?.startsWith('teacher_soul_');
 
+const MARKET_MODE_META = {
+  safe: { label: '안정형', multiplier: 0.75 },
+  balanced: { label: '균형형', multiplier: 1.0 },
+  aggressive: { label: '공격형', multiplier: 1.35 },
+};
+
+const ETF_BUCKET = {
+  stable: new Set(['bank', 'gold', 'reits', 'k_kospi200']),
+  growth: new Set(['tech', 'consumer', 'healthcare', 'energy', 'samsung']),
+  highRisk: new Set(['bitcoin', 'semiconductor', 'battery', 'k_semiconductor', 'k_battery']),
+};
+
+const MARKET_BAND = {
+  stable: { min: -0.024, max: 0.032 },
+  growth: { min: -0.05, max: 0.065 },
+  highRisk: { min: -0.095, max: 0.125 },
+};
+
+const MARKET_NEWS = {
+  up: [
+    '위험자산 선호 심리가 강해졌습니다.',
+    '성장 섹터 중심으로 매수세가 유입됐습니다.',
+    '기관 수급이 강하게 들어왔습니다.',
+  ],
+  down: [
+    '차익 실현 매물이 나오며 조정이 발생했습니다.',
+    '변동성 확대 구간으로 방어적 매매가 늘었습니다.',
+    '단기 리스크 회피 심리가 확대됐습니다.',
+  ],
+};
+
+const hashSeed = (input) => {
+  let h = 2166136261;
+  const text = String(input || '');
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+};
+
+const seededRandom = (seedStr) => {
+  const seed = hashSeed(seedStr);
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+};
+
+const resolveBand = (etfId) => {
+  if (ETF_BUCKET.highRisk.has(etfId)) return MARKET_BAND.highRisk;
+  if (ETF_BUCKET.growth.has(etfId)) return MARKET_BAND.growth;
+  return MARKET_BAND.stable;
+};
+
 // ─────────────────────── ETF 편집 모달 ───────────────────────
 function EtfEditModal({ etf, onSave, onClose }) {
   const [dividendRate, setDividendRate] = useState(
@@ -115,8 +168,13 @@ function StockManage({ selectedClass }) {
   const [tab, setTab]               = useState('etfs');
   const [isLoading, setIsLoading]   = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isMarketOpening, setIsMarketOpening] = useState(false);
   const [isPaying, setIsPaying]     = useState(false);
   const [editingEtf, setEditingEtf] = useState(null);
+  const [marketMode, setMarketMode] = useState('balanced');
+  const [marketHeadline, setMarketHeadline] = useState('');
+  const [marketLastOpenDate, setMarketLastOpenDate] = useState('');
+  const [marketLastOpenAt, setMarketLastOpenAt] = useState('');
   const [toast, setToast]           = useState(null);
   const [confirmState, setConfirmState] = useState(null);
 
@@ -143,10 +201,11 @@ function StockManage({ selectedClass }) {
 
     setIsLoading(true);
     try {
-      const [etfsSnap, studentsSnap, logSnap] = await Promise.all([
+      const [etfsSnap, studentsSnap, logSnap, classSnap] = await Promise.all([
         getDocs(collection(db, 'etfs')),
         getDocs(query(collection(db, 'students'), where(studentScopeField, '==', studentScopeValue))),
         getDocs(query(collection(db, 'dividendLogs'), where('scopeKey', '==', scopeKey))),
+        classId ? getDoc(doc(db, 'classes', classId)) : Promise.resolve(null),
       ]);
 
       const allEtfs = etfsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -162,6 +221,12 @@ function StockManage({ selectedClass }) {
 
       setDividendLogs(logSnap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.paidAt?.seconds || 0) - (a.paidAt?.seconds || 0)));
+
+      const market = classSnap?.exists?.() ? (classSnap.data().stockMarket || {}) : {};
+      setMarketMode(market.mode || 'balanced');
+      setMarketHeadline(market.headline || '');
+      setMarketLastOpenDate(market.lastOpenDate || '');
+      setMarketLastOpenAt(market.lastOpenAt || '');
     } catch (err) {
       console.error('주식 관리 로딩 에러:', err);
     } finally {
@@ -212,6 +277,94 @@ function StockManage({ selectedClass }) {
       showToast('가격 업데이트 실패. 인터넷 연결을 확인해주세요.', 'error');
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const runDailyMarketOpen = async ({ force = false } = {}) => {
+    if (!classId || !scopeKey) return;
+    const today = getKstDateKey();
+    if (!force && marketLastOpenDate === today) {
+      showToast('오늘 시장 오픈이 이미 반영되었습니다. 강제 오픈으로 다시 계산할 수 있습니다.', 'error');
+      return;
+    }
+
+    const modeMeta = MARKET_MODE_META[marketMode] || MARKET_MODE_META.balanced;
+    const marketTargets = etfs.filter(e => !isTeacherSoulId(e.id) && e.active !== false);
+    if (marketTargets.length === 0) {
+      showToast('시장 오픈 대상 ETF가 없습니다.', 'error');
+      return;
+    }
+
+    setIsMarketOpening(true);
+    try {
+      const batch = writeBatch(db);
+      const nowIso = new Date().toISOString();
+      const updatedRows = marketTargets.map((etf, idx) => {
+        const prevPrice = Math.max(1, Math.round(etf.currentPrice || etf.basePrice || 100));
+        const band = resolveBand(etf.id);
+        const seedKey = `${scopeKey}:${today}:${etf.id}:${idx}`;
+        const r = seededRandom(seedKey);
+        const rawRate = band.min + (band.max - band.min) * r;
+        const rate = Math.max(-0.18, Math.min(0.2, rawRate * modeMeta.multiplier));
+        const nextPrice = Math.max(1, Math.round(prevPrice * (1 + rate)));
+        const changePercent = parseFloat((((nextPrice - prevPrice) / prevPrice) * 100).toFixed(2));
+        const newsPool = changePercent >= 0 ? MARKET_NEWS.up : MARKET_NEWS.down;
+        const news = newsPool[Math.floor(seededRandom(`${seedKey}:news`) * newsPool.length)] || '';
+        return {
+          ...etf,
+          prevPrice,
+          currentPrice: nextPrice,
+          changePercent,
+          updatedAt: nowIso,
+          updatedDate: today,
+          updatedDateKey: today,
+          marketComment: news,
+        };
+      });
+
+      const updatedMap = new Map(updatedRows.map(row => [row.id, row]));
+      updatedRows.forEach(row => {
+        batch.set(doc(db, 'etfs', row.id), {
+          prevPrice: row.prevPrice,
+          currentPrice: row.currentPrice,
+          changePercent: row.changePercent,
+          updatedAt: row.updatedAt,
+          updatedDate: row.updatedDate,
+          updatedDateKey: row.updatedDateKey,
+          marketComment: row.marketComment,
+        }, { merge: true });
+      });
+
+      const sortedByAbs = [...updatedRows].sort((a, b) => Math.abs(b.changePercent || 0) - Math.abs(a.changePercent || 0));
+      const topMover = sortedByAbs[0];
+      const upCount = updatedRows.filter(row => (row.changePercent || 0) > 0).length;
+      const downCount = updatedRows.filter(row => (row.changePercent || 0) < 0).length;
+      const flatCount = updatedRows.length - upCount - downCount;
+      const headline = `오늘 시장 오픈 완료: 상승 ${upCount} / 하락 ${downCount} / 보합 ${flatCount}`;
+
+      batch.set(doc(db, 'classes', classId), {
+        stockMarket: {
+          mode: marketMode,
+          lastOpenDate: today,
+          lastOpenAt: nowIso,
+          headline,
+          topMoverId: topMover?.id || '',
+          topMoverName: topMover?.name || '',
+          topMoverChange: topMover?.changePercent || 0,
+        },
+      }, { merge: true });
+
+      await batch.commit();
+      setEtfs(prev => prev.map(etf => updatedMap.get(etf.id) || etf));
+      setMarketHeadline(headline);
+      setMarketLastOpenDate(today);
+      setMarketLastOpenAt(nowIso);
+      showToast('오늘 시장 변동이 반영되었습니다.');
+    } catch (err) {
+      console.error('market open error:', err);
+      showToast('시장 오픈 처리 중 오류가 발생했습니다.', 'error');
+    } finally {
+      setIsMarketOpening(false);
     }
   };
 
@@ -495,6 +648,62 @@ function StockManage({ selectedClass }) {
               className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50 shadow-sm">
               {isPaying ? '지급 중...' : '💰 배당금 지급하기'}
             </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-6">
+          <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
+            <div className="space-y-2">
+              <h2 className="text-lg font-extrabold text-slate-800">시장 운영센터</h2>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                실제 가격을 참고하되 학급 시장은 교사가 매일 열어 학생이 변동을 체감하도록 설계했습니다.
+                오전 8시 이후에 시장 오픈 실행을 누르면 ETF별 변동률과 오늘 시장 요약이 생성됩니다.
+              </p>
+              <div className="text-xs text-slate-500">
+                마지막 오픈: {marketLastOpenDate || '-'} {marketLastOpenAt ? `(${new Date(marketLastOpenAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})` : ''}
+              </div>
+              {marketHeadline && (
+                <div className="inline-flex items-center rounded-lg bg-slate-100 border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700">
+                  {marketHeadline}
+                </div>
+              )}
+            </div>
+
+            <div className="xl:min-w-[320px] space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(MARKET_MODE_META).map(([key, meta]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setMarketMode(key)}
+                    className={`px-3 py-2 rounded-xl text-xs font-extrabold border transition-colors ${
+                      marketMode === key
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
+                    }`}
+                  >
+                    {meta.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => runDailyMarketOpen({ force: false })}
+                  disabled={isMarketOpening}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm rounded-xl transition-colors disabled:opacity-50"
+                >
+                  {isMarketOpening ? '오픈 중...' : '시장 오픈 실행'}
+                </button>
+                <button
+                  onClick={() => runDailyMarketOpen({ force: true })}
+                  disabled={isMarketOpening}
+                  className="px-4 py-2.5 bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-extrabold text-sm rounded-xl transition-colors disabled:opacity-50"
+                >
+                  강제 재계산
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

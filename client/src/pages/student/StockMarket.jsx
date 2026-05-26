@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, doc, writeBatch, updateDoc, setDoc,
+  collection, getDocs, getDoc, doc, writeBatch, updateDoc, setDoc,
   serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -113,6 +113,11 @@ function StockListRow({ etf, myGold, myHolding, onSelect, isLast }) {
         </div>
         {etf.topHoldings && (
           <div className="text-[9px] text-slate-400 truncate mt-0.5">{etf.topHoldings}</div>
+        )}
+        {etf.marketComment && (
+          <div className="text-[10px] text-indigo-600 mt-1 font-semibold truncate">
+            오늘 변동 이유: {etf.marketComment}
+          </div>
         )}
       </div>
 
@@ -369,6 +374,14 @@ function StockMarket({ studentCode }) {
   const [dividendsReceived, setDividendsReceived] = useState(0);
   const [isReceivingSoul, setIsReceivingSoul]     = useState(false);
   const [toast, setToast]                         = useState(null);
+  const [marketInfo, setMarketInfo]               = useState({
+    mode: 'balanced',
+    lastOpenDate: '',
+    lastOpenAt: '',
+    headline: '',
+    topMoverName: '',
+    topMoverChange: 0,
+  });
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -395,9 +408,9 @@ function StockMarket({ studentCode }) {
         const existingIds  = etfList.filter(e => !isTeacherSoulId(e.id)).map(e => e.id);
         const hasMissing   = REQUIRED_IDS.some(id => !existingIds.includes(id));
         const regularCount = etfList.filter(e => !isTeacherSoulId(e.id)).length;
-        const needsUpdate  = regularCount === 0 || (after8Am && (
-          hasMissing || etfList.some(e => !isTeacherSoulId(e.id) && (e.updatedDateKey || e.updatedDate) !== today)
-        ));
+        // 학생 화면에서는 매일 가격 재계산을 직접 수행하지 않고,
+        // 데이터가 비어 있는 경우에만 초기 시드 데이터를 불러옵니다.
+        const needsUpdate  = regularCount === 0 || hasMissing;
 
         if (needsUpdate) {
           // API 새로고침 전에 teacher_soul 보관 (API 목록에 없으므로 사라지면 안 됨)
@@ -481,6 +494,28 @@ function StockMarket({ studentCode }) {
             setStudentDocId(sDoc.id);
             setStudent({ id: sDoc.id, ...sData });
             setScope(nextScope);
+
+            if (nextScope.classId) {
+              const classSnap = await getDoc(doc(db, 'classes', nextScope.classId));
+              const stockMarket = classSnap.exists() ? (classSnap.data().stockMarket || {}) : {};
+              setMarketInfo({
+                mode: stockMarket.mode || 'balanced',
+                lastOpenDate: stockMarket.lastOpenDate || '',
+                lastOpenAt: stockMarket.lastOpenAt || '',
+                headline: stockMarket.headline || '',
+                topMoverName: stockMarket.topMoverName || '',
+                topMoverChange: stockMarket.topMoverChange || 0,
+              });
+            } else {
+              setMarketInfo({
+                mode: 'balanced',
+                lastOpenDate: '',
+                lastOpenAt: '',
+                headline: '',
+                topMoverName: '',
+                topMoverChange: 0,
+              });
+            }
 
             // 6. 보유 주식 로드
             const holdSnap = await getDocs(collection(db, 'portfolios', sDoc.id, 'holdings'));
@@ -717,6 +752,11 @@ function StockMarket({ studentCode }) {
   const totalValue    = portfolioItems.reduce((s, i) => s + i.currentValue, 0);
   const totalPnl      = totalValue - totalInvested;
   const totalPnlPct   = totalInvested > 0 ? (totalPnl / totalInvested * 100).toFixed(2) : '0.00';
+  const marketModeLabel = marketInfo.mode === 'safe'
+    ? '안정형'
+    : marketInfo.mode === 'aggressive'
+      ? '공격형'
+      : '균형형';
 
   if (isLoading) {
     return (
@@ -747,6 +787,38 @@ function StockMarket({ studentCode }) {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="px-4 pt-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-extrabold text-slate-800">이 페이지 보는 법</h2>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                ETF는 여러 회사에 분산 투자하는 상품입니다. 오늘 가격은 교사가 시장을 열 때 반영되며,
+                같은 날에는 학생마다 다른 가격이 보이지 않도록 고정됩니다.
+              </p>
+              <div className="text-xs text-slate-500 mt-2">
+                운영 모드: <span className="font-bold text-slate-700">{marketModeLabel}</span>
+                {' '}| 마지막 시장 오픈: <span className="font-bold text-slate-700">{marketInfo.lastOpenDate || '-'}</span>
+              </div>
+            </div>
+            <div className="lg:min-w-[300px] space-y-2">
+              <div className="rounded-xl bg-slate-100 border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700">
+                {marketInfo.headline || '오늘 시장 요약이 아직 생성되지 않았습니다.'}
+              </div>
+              {(marketInfo.topMoverName || '') !== '' && (
+                <div className="rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2 text-xs">
+                  <span className="font-semibold text-indigo-700">오늘의 변동 TOP:</span>{' '}
+                  <span className="font-extrabold text-indigo-800">{marketInfo.topMoverName}</span>{' '}
+                  <span className={`font-extrabold ${marketInfo.topMoverChange >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    {marketInfo.topMoverChange >= 0 ? '+' : ''}{Number(marketInfo.topMoverChange || 0).toFixed(2)}%
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 배당금 수령 요약 (보유 ETF 있을 때) */}
