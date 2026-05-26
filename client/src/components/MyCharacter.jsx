@@ -4,7 +4,7 @@ import { doc, getDoc, getDocs, collection, query, where } from 'firebase/firesto
 import { db } from '../firebase';
 import { GRADE, SLOTS, STAT_LABEL } from '../constants/equipment';
 
-export default function MyCharacter({ studentCode }) {
+export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
   const { t } = useTranslation();
   const [studentData, setStudentData] = useState(null);
   const [allItems, setAllItems]       = useState([]);
@@ -90,7 +90,7 @@ export default function MyCharacter({ studentCode }) {
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto w-full">
-      <h1 className="text-3xl font-bold text-slate-800 mb-6 drop-shadow-sm">
+      <h1 className={`text-3xl font-bold mb-6 drop-shadow-sm ${themeMode === 'dark' ? 'text-white' : 'text-slate-800'}`}>
         {t('character.title')}
       </h1>
 

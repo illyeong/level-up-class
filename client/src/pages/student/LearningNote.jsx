@@ -116,7 +116,7 @@ function CalendarView({ notes, selectedDate, onSelectDate, currentMonth, onPrevM
 }
 
 // ── 메인 컴포넌트 ──────────────────────────────────────────────
-export default function LearningNote({ studentCode }) {
+export default function LearningNote({ studentCode, themeMode = 'dark' }) {
   const [myInfo, setMyInfo]     = useState(null);
   const [notes, setNotes]       = useState([]);
   const [settings, setSettings] = useState({ minCoreLength: 10, minThoughtLength: 20, rewardGold: 10, rewardExp: 30, rewardDiamond: 10 });
@@ -491,7 +491,7 @@ export default function LearningNote({ studentCode }) {
   const displayNotes  = selectedDate ? calendarNotes : notes;
 
   return (
-    <div className="w-full pb-12 space-y-4 px-4">
+    <div className={`w-full pb-12 space-y-4 px-4 ${themeMode === 'dark' ? '' : 'bg-slate-50'}`}>
 
       {/* 히어로 헤더 */}
       <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 rounded-2xl shadow-lg px-6 py-5">

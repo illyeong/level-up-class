@@ -7,6 +7,7 @@ import { db } from '../firebase';
 import AttendanceCheck from '../pages/student/AttendanceCheck';
 import HallOfFame from '../pages/student/HallOfFame';
 import LevelUpEffect from './LevelUpEffect';
+import iconDashboard from '../assets/images/icon-dashboard.png';
 
 // ── 오늘의 퀘스트 위젯 ────────────────────────────────────────
 function TodayQuestWidget({ studentId, teacherUid, onYesterdayLog }) {
@@ -347,7 +348,7 @@ function RewardLogWidget({ studentId }) {
   );
 }
 
-const StudentDashboard = ({ studentCode, onChangeView }) => {
+const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => {
   const [studentData, setStudentData]       = useState(null);
   const [isLoading, setIsLoading]           = useState(false);
   const [yesterdayLog, setYesterdayLog]     = useState(null);
@@ -490,9 +491,12 @@ const StudentDashboard = ({ studentCode, onChangeView }) => {
         maxExp={levelUpData.maxExp}
       />
     )}
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 p-6 md:p-8">
+    <div className={`min-h-screen p-6 md:p-8 ${themeMode === 'dark' ? '' : 'bg-slate-50'}`}>
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 gap-4 flex-wrap">
-        <h1 className="text-3xl font-bold text-white">🏰 학생 대시보드</h1>
+        <h1 className={`text-3xl font-bold flex items-center gap-2 ${themeMode === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+          <img src={iconDashboard} alt="대시보드" className="w-8 h-8 object-contain" />
+          학생 대시보드
+        </h1>
         <div className="flex items-center gap-3 flex-wrap">
           {installPrompt && (
             <button

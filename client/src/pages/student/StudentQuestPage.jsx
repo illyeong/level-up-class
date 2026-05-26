@@ -217,7 +217,7 @@ function CompletedQuestCard({ quest, completion }) {
 }
 
 // ─────────────────────── Main ──────────────────────────────
-function StudentQuestPage({ studentCode }) {
+function StudentQuestPage({ studentCode, themeMode = 'dark' }) {
   const [quests, setQuests]           = useState([]);
   const [studentId, setStudentId]     = useState(null);
   const [studentName, setStudentName] = useState('');
@@ -439,16 +439,16 @@ function StudentQuestPage({ studentCode }) {
   }
 
   return (
-    <div className="min-h-full bg-slate-50 p-6">
+    <div className={`min-h-full p-6 ${themeMode === 'dark' ? '' : 'bg-slate-50'}`}>
       {/* 헤더 */}
       <div className="flex items-start justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+          <h1 className={`text-2xl font-extrabold flex items-center gap-2 ${themeMode === 'dark' ? 'text-white' : 'text-slate-800'}`}>
             <img src={iconQuest} alt="퀘스트" className="w-8 h-8 object-contain drop-shadow-sm" />
             나의 퀘스트
           </h1>
           {studentCode && studentName && (
-            <p className="text-sm text-slate-500 mt-0.5 font-medium">{studentName}</p>
+            <p className={`text-sm mt-0.5 font-medium ${themeMode === 'dark' ? 'text-slate-300' : 'text-slate-500'}`}>{studentName}</p>
           )}
         </div>
         <div className="flex gap-2">

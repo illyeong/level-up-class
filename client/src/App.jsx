@@ -31,6 +31,8 @@ import HallOfFame     from './pages/student/HallOfFame.jsx';
 import ClassVote      from './pages/student/ClassVote.jsx';
 
 const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','miniGame'];
+const THEMEABLE_VIEWS = new Set(['dashboard', 'classAll', 'quest', 'learningNote', 'myCharacter']);
+const ADVENTURE_BG = 'linear-gradient(160deg, #020617 0%, #0f172a 50%, #1e1b4b 100%)';
 
 // appMode: 'loading' | 'login' | 'classSelect' | 'student' | 'teacher' | 'admin'
 function App() {
@@ -45,6 +47,11 @@ function App() {
   const [teacherAccessCode, setTeacherAccessCode] = useState('0526');
   const [teacherCodeInput, setTeacherCodeInput] = useState('');
   const [teacherCodeError, setTeacherCodeError] = useState('');
+  const [themeMode, setThemeMode] = useState(() => localStorage.getItem('studentThemeMode') || 'dark');
+
+  useEffect(() => {
+    localStorage.setItem('studentThemeMode', themeMode);
+  }, [themeMode]);
 
   // ── Firebase Auth 상태 감지 (교사 로그인 유지) ─────────────────
   useEffect(() => {
@@ -374,16 +381,18 @@ function App() {
   }
 
   // ── 학생 모드 ─────────────────────────────────────────────────
+  const shouldUseAdventureBg = THEMEABLE_VIEWS.has(currentView) && themeMode === 'dark';
+
   return (
-    <div className="flex h-screen bg-slate-50 relative">
+    <div className={`flex h-screen relative ${themeMode === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
       <NavigationBar changeView={setCurrentView} currentView={currentView} classInfo={studentClassInfo} />
 
-      <main className="flex-1 overflow-auto relative">
-        {currentView === 'dashboard'    && <StudentDashboard studentCode={activeStudentCode} onChangeView={setCurrentView} />}
-        {currentView === 'myCharacter'  && <MyCharacter      studentCode={activeStudentCode} />}
+      <main className="flex-1 overflow-auto relative" style={shouldUseAdventureBg ? { background: ADVENTURE_BG } : undefined}>
+        {currentView === 'dashboard'    && <StudentDashboard studentCode={activeStudentCode} onChangeView={setCurrentView} themeMode={themeMode} />}
+        {currentView === 'myCharacter'  && <MyCharacter      studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'avatarRoom'   && <AvatarRoom        studentCode={activeStudentCode} />}
-        {currentView === 'quest'        && <StudentQuestPage  studentCode={activeStudentCode} />}
-        {currentView === 'classAll'     && <ClassAllView studentCode={activeStudentCode} />}
+        {currentView === 'quest'        && <StudentQuestPage  studentCode={activeStudentCode} themeMode={themeMode} />}
+        {currentView === 'classAll'     && <ClassAllView studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'classBank'    && <ClassBank         studentCode={activeStudentCode} />}
         {currentView === 'classShop'    && <ClassShop         studentCode={activeStudentCode} />}
         {currentView === 'stockMarket'  && <StockMarket       studentCode={activeStudentCode} />}
@@ -397,7 +406,45 @@ function App() {
           <AdventurePage currentView={currentView} studentCode={activeStudentCode} onChangeView={setCurrentView} />
         )}
         {currentView === 'board'        && <LearningBoard  studentCode={activeStudentCode} />}
-        {currentView === 'learningNote' && <LearningNote   studentCode={activeStudentCode} />}
+        {currentView === 'learningNote' && <LearningNote   studentCode={activeStudentCode} themeMode={themeMode} />}
+        {currentView === 'themeSettings' && (
+          <div className="p-6 md:p-8">
+            <div className={`max-w-xl rounded-3xl border p-6 ${
+              themeMode === 'dark'
+                ? 'bg-slate-900/70 border-slate-700 text-slate-100'
+                : 'bg-white border-slate-200 text-slate-800'
+            }`}>
+              <h2 className="text-2xl font-extrabold mb-2">테마 설정</h2>
+              <p className={`text-sm mb-5 ${themeMode === 'dark' ? 'text-slate-300' : 'text-slate-500'}`}>
+                기본값은 어두운 모드이며, 어드벤처 화면은 테마 변경과 무관하게 동일합니다.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setThemeMode('dark')}
+                  className={`rounded-2xl px-4 py-3 font-bold border ${
+                    themeMode === 'dark'
+                      ? 'bg-indigo-600 text-white border-indigo-500'
+                      : 'bg-transparent border-slate-400/40'
+                  }`}
+                >
+                  어두운 모드
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setThemeMode('light')}
+                  className={`rounded-2xl px-4 py-3 font-bold border ${
+                    themeMode === 'light'
+                      ? 'bg-amber-500 text-white border-amber-400'
+                      : 'bg-transparent border-slate-400/40'
+                  }`}
+                >
+                  밝은 모드
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {currentView === 'freeBoard'  && <FreeBoard    studentCode={activeStudentCode} />}
         {currentView === 'hallOfFame' && <HallOfFame   studentCode={activeStudentCode} />}
         {currentView === 'classVote'  && <ClassVote    studentCode={activeStudentCode} />}

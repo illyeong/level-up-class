@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 
-export default function ClassAllView({ studentCode }) {
+export default function ClassAllView({ studentCode, themeMode = 'dark' }) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        // 내 teacherUid 먼저 조회 → 같은 반 학생만 표시
         let teacherUid = null;
         if (studentCode) {
           const meSnap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)));
@@ -21,46 +20,50 @@ export default function ClassAllView({ studentCode }) {
           : collection(db, 'students');
         const snap = await getDocs(q);
         const list = snap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
+          .map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (a.studentCode || '').localeCompare(b.studentCode || ''));
         setStudents(list);
-      } catch (e) { console.error(e); }
-      finally { setIsLoading(false); }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
     };
     load();
   }, [studentCode]);
 
-  if (isLoading) return (
-    <div className="flex flex-col items-center justify-center h-full min-h-64 gap-3">
-      <div className="w-10 h-10 border-4 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
-      <div className="text-slate-400 font-bold text-sm">불러오는 중...</div>
-    </div>
-  );
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-64 gap-3">
+        <div className="w-10 h-10 border-4 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+        <div className="text-slate-400 font-bold text-sm">불러오는 중...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">👥 우리 반 전체 보기</h1>
+      <h1 className={`text-2xl font-bold mb-6 ${themeMode === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+        우리 반 전체 보기
+      </h1>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-        {students.map(s => (
+        {students.map((s) => (
           <div key={s.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col items-center">
-            {/* 캐릭터 이미지 */}
             <div className="w-full h-56 bg-indigo-50 flex items-center justify-center overflow-hidden">
-              {s.characterImage
-                ? <img src={s.characterImage} alt="캐릭터" className="w-full h-full object-contain scale-[2.5]" />
-                : <span className="text-7xl opacity-40">🧍</span>
-              }
+              {s.characterImage ? (
+                <img src={s.characterImage} alt="캐릭터" className="w-full h-full object-contain scale-[2.5]" />
+              ) : (
+                <span className="text-7xl opacity-40">👤</span>
+              )}
             </div>
-            {/* 정보 */}
             <div className="p-3 text-center w-full">
               <div className="text-xs font-bold text-amber-500 bg-amber-50 rounded-full px-2 py-0.5 inline-block mb-1">
                 Lv.{s.level || 1}
               </div>
               <div className="text-sm font-bold text-slate-700 truncate w-full">
-                {s.name || s.studentCode || '?'}
+                {s.name || s.studentCode || '-'}
               </div>
-              {s.name && (
-                <div className="text-xs text-slate-400 truncate w-full">{s.studentCode}</div>
-              )}
+              {s.name && <div className="text-xs text-slate-400 truncate w-full">{s.studentCode}</div>}
             </div>
           </div>
         ))}
