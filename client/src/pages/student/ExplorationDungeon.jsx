@@ -430,8 +430,11 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
   };
 
   const handleIframeLoad = () => {
-    setTimeout(sendCharacterData, 3000);
-    setTimeout(sendCharacterData, 6000);
+    // Unity 초기화/씬 로드 타이밍 차이를 고려해 여러 번 전송
+    sendCharacterData();
+    [500, 1000, 2000, 3000, 5000, 7000, 9000].forEach((ms) => {
+      setTimeout(sendCharacterData, ms);
+    });
   };
 
   const applyReward = async ({ gold, exp, diamond }) => {
