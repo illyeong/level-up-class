@@ -473,10 +473,12 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
       const result = await applyClassQuickSetup(quickSetup.newClass);
       setQuickSetup(prev => ({
         ...prev,
+        open: false,
         isRunning: false,
         isDone: true,
         result,
       }));
+      await fetchClasses();
     } catch (error) {
       setQuickSetup(prev => ({
         ...prev,

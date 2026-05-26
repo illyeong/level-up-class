@@ -265,6 +265,31 @@ const buildMcQuestions = (grade) =>
     explanation: '',
   }));
 
+const normalizeTemplateQuest = (quest) => ({
+  title: String(quest?.title || '').trim(),
+  type: quest?.type === 'weekly' ? 'weekly' : 'daily',
+  difficulty: quest?.difficulty || 'easy',
+  selfCheck: quest?.selfCheck !== false,
+  repeatDaily: quest?.type === 'daily' ? quest?.repeatDaily !== false : false,
+  repeatWeekly: quest?.type === 'weekly' ? quest?.repeatWeekly !== false : false,
+  rewards: {
+    exp: Number(quest?.rewards?.exp || 0),
+    gold: Number(quest?.rewards?.gold || 0),
+    diamond: Number(quest?.rewards?.diamond || 0),
+  },
+  description: String(quest?.description || '').trim(),
+});
+
+const loadRecommendedQuestTemplates = async () => {
+  const snap = await getDoc(doc(db, 'systemConfig', 'questTemplates'));
+  const list = snap.exists() ? snap.data()?.templates : null;
+  if (!Array.isArray(list) || list.length === 0) return DEFAULT_RECOMMENDED_QUESTS;
+  const normalized = list
+    .map(normalizeTemplateQuest)
+    .filter((q) => q.title.length > 0);
+  return normalized.length > 0 ? normalized : DEFAULT_RECOMMENDED_QUESTS;
+};
+
 export async function applyClassQuickSetup(selectedClass) {
   const classId = selectedClass?.id || null;
   const teacherUid = selectedClass?.teacherUid || null;
@@ -307,7 +332,8 @@ export async function applyClassQuickSetup(selectedClass) {
   const existingQuestTitles = new Set(
     questsSnap.docs.map((d) => String(d.data()?.title || '').trim()).filter(Boolean),
   );
-  for (const quest of DEFAULT_RECOMMENDED_QUESTS) {
+  const templateQuests = await loadRecommendedQuestTemplates();
+  for (const quest of templateQuests) {
     if (existingQuestTitles.has(quest.title)) continue;
     await addDoc(collection(db, 'quests'), {
       ...quest,
