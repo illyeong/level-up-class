@@ -669,8 +669,9 @@ function StockManage({ selectedClass }) {
             <div className="space-y-2">
               <h2 className="text-lg font-extrabold text-slate-800">시장 운영센터</h2>
               <p className="text-sm text-slate-600 leading-relaxed">
-                학급 시장은 매일 오전 8시 이후 첫 접속자가 들어오면 자동으로 열립니다.
-                교사가 매일 버튼을 누르지 않아도 ETF별 변동률과 오늘 시장 요약이 생성됩니다.
+                실제 주식 가격을 그대로 반영하는 기능이 아니라, 학급별로 운영되는 교실용 가상 ETF 시장입니다.
+                매일 오전 8시 이후 첫 접속 시 자동으로 시장이 열리고, ETF 성향과 운영 모드에 따라 가격이 상승하거나 하락합니다.
+                같은 학급의 학생들은 동일한 가격을 보며, 다른 학급 시장과는 분리되어 운영됩니다.
               </p>
               <div className="text-xs text-slate-500">
                 마지막 오픈: {marketLastOpenDate || '-'} {marketLastOpenAt ? `(${new Date(marketLastOpenAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})` : ''}
