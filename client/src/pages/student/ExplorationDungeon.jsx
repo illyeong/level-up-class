@@ -379,8 +379,11 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
       if (e.data.type === 'DUNGEON_RESULT') {
         const { gold = 0, exp = 0, diamond = 0 } = e.data;
         // Firebase 저장 완료 후 EXIT 처리하도록 pendingExit 플래그 설정
+        const clearedDungeonId = selectedDungeonRef.current?.id;
         applyReward({ gold, exp, diamond }).then(() => {
-          if (selectedDungeon !== null) markCompleted(selectedDungeon.id);
+          if (clearedDungeonId !== null && clearedDungeonId !== undefined) {
+            markCompleted(clearedDungeonId);
+          }
         });
       }
 
@@ -391,7 +394,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [phase, selectedDungeon]);
+  }, [phase]);
 
   const sendCharacterData = () => {
     const win = iframeRef.current?.contentWindow;
@@ -467,7 +470,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
           className="absolute top-3 right-3 z-10 bg-slate-900/70 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-xl backdrop-blur-sm">
           ✕ 나가기
         </button>
-        {dungeonReward && (
+        {false && dungeonReward && (
           <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
             <div className="bg-slate-900/80 backdrop-blur-sm rounded-3xl px-8 py-6 text-center shadow-2xl border border-white/20 animate-bounce">
               <p className="text-white font-extrabold text-lg mb-3">🎁 던전 보상!</p>
@@ -489,6 +492,39 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
 
   return (
     <div className="bg-slate-900 flex flex-col" style={{ height: 'calc(100vh - 88px)' }}>
+      {dungeonReward && (
+        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-3xl border border-white/20 bg-slate-900/95 shadow-2xl px-6 py-6 text-center">
+            <p className="text-white font-extrabold text-xl mb-4">🎁 던전 보상 획득</p>
+            <div className="flex justify-center gap-5 mb-5">
+              {dungeonReward.gold > 0 && (
+                <div className="flex flex-col items-center">
+                  <span className="text-3xl">🪙</span>
+                  <span className="text-yellow-300 font-extrabold text-sm">+{dungeonReward.gold}G</span>
+                </div>
+              )}
+              {dungeonReward.exp > 0 && (
+                <div className="flex flex-col items-center">
+                  <span className="text-3xl">⭐</span>
+                  <span className="text-indigo-300 font-extrabold text-sm">+{dungeonReward.exp} EXP</span>
+                </div>
+              )}
+              {dungeonReward.diamond > 0 && (
+                <div className="flex flex-col items-center">
+                  <span className="text-3xl">💎</span>
+                  <span className="text-cyan-300 font-extrabold text-sm">+{dungeonReward.diamond}</span>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setDungeonReward(null)}
+              className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
       {/* 상단 바 */}
       <div className="bg-slate-800 border-b border-slate-700 px-5 py-2.5 flex items-center gap-4 shrink-0">
         <h1 className="font-extrabold text-white text-base">🗺️ 탐험던전</h1>
