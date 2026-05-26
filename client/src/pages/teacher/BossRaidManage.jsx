@@ -12,6 +12,15 @@ import { applyExpDelta } from '../../utils/leveling';
 const DIFF_LABEL_SM = { easy: '쉬움', normal: '보통', hard: '어려움' };
 const DIFF_COLOR_SM = { easy: 'bg-emerald-100 text-emerald-700', normal: 'bg-sky-100 text-sky-700', hard: 'bg-rose-100 text-rose-700' };
 
+const resolveBossBgById = (bossId) => {
+  const key = String(bossId || '').trim();
+  if (!key) return null;
+  if (BOSS_BG_MAP[key]) return BOSS_BG_MAP[key];
+  const compact = key.toLowerCase().replace(/[\s_-]/g, '');
+  const matched = Object.keys(BOSS_BG_MAP).find((k) => k.toLowerCase().replace(/[\s_-]/g, '') === compact);
+  return matched ? BOSS_BG_MAP[matched] : null;
+};
+
 function QuizSetPicker({ selectedSetId, onSelect }) {
   const [sets, setSets]         = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -574,7 +583,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
           title:            `${selectedQuizSet.title} 보스 레이드`,
           bossId:           form.bossId,
           bossName:         form.bossName || bossData?.name || '보스',
-          bossBg:           BOSS_BG_MAP[form.bossId] || null,
+          bossBg:           resolveBossBgById(form.bossId),
           quizSetId:        selectedQuizSet.id,
           maxHP:            form.maxHP,
           currentHP:        form.maxHP,

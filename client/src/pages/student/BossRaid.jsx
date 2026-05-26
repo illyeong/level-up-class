@@ -36,10 +36,23 @@ const resolveKeyFromMap = (sourceMap, rawKey) => {
   return Object.keys(sourceMap).find(k => k.toLowerCase().replace(/[\s_-]/g, '') === compactKey) || null;
 };
 
+const resolveBossIdByName = (rawName) => {
+  const target = normalizeBossId(rawName).toLowerCase().replace(/\s/g, '');
+  if (!target) return null;
+  return Object.keys(MONSTERS_DB).find((id) => {
+    const name = String(MONSTERS_DB[id]?.name || '').toLowerCase().replace(/\s/g, '');
+    return name === target;
+  }) || null;
+};
+
 const resolveBossBg = (raid) => {
-  const direct = String(raid?.bossBg || '').trim();
   const bgKey = resolveKeyFromMap(BOSS_BG_MAP, raid?.bossId);
   if (bgKey) return BOSS_BG_MAP[bgKey];
+  const dbKey = resolveKeyFromMap(MONSTERS_DB, raid?.bossId);
+  if (dbKey && BOSS_BG_MAP[dbKey]) return BOSS_BG_MAP[dbKey];
+  const nameKey = resolveBossIdByName(raid?.bossName);
+  if (nameKey && BOSS_BG_MAP[nameKey]) return BOSS_BG_MAP[nameKey];
+  const direct = String(raid?.bossBg || '').trim();
   return direct || null;
 };
 
