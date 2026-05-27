@@ -1042,6 +1042,122 @@ export const BOSS_BG_MAP = {
   volcanoWorm:      '/images/boss-bg/boss-bg-VolcanoWorm.png',
 };
 
+const normalizeBossLookup = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]/g, '')
+    .replace(/[^a-z0-9가-힣]/g, '');
+
+const BOSS_BG_ALIASES = {
+  blackdragon: 'blackDragon',
+  emeralddragon: 'emeraldDragon',
+  goldendragon: 'goldenDragon',
+  greendragon: 'greenDragon',
+  greydragon: 'greyDragon',
+  graydragon: 'greyDragon',
+  icedragon: 'iceDragon',
+  mechanicaldragon: 'mechanicalDragon',
+  purpledragon: 'purpleDragon',
+  reddragon: 'redDragon',
+  lizard: 'lizard03',
+  giantlizard: 'lizard03',
+  demon: 'demon03',
+  highdemon: 'demon03',
+  strongdemon: 'demon02',
+  croco: 'croc03',
+  crocodile: 'croc03',
+  megabear: 'megabear01',
+  minotauro: 'minotaur03',
+  minotaur: 'minotaur03',
+  icegolem: 'iceGolem',
+  mechanicalgolem: 'mechanicalGolem',
+  rockgolem: 'rockGolem',
+  sandgolem: 'sandGolem',
+  stonegolem: 'stoneGolem',
+  volcanogolem: 'volcanoGolem',
+  fancyworm: 'fancyWorm',
+  greenworm: 'greenWorm',
+  iceworm: 'iceWorm',
+  mechanicalworm: 'mechanicalWormA',
+  mosquitoworm: 'mosquitoWorm',
+  volcanoworm: 'volcanoWorm',
+  검은드래곤: 'blackDragon',
+  블랙드래곤: 'blackDragon',
+  에메랄드드래곤: 'emeraldDragon',
+  황금드래곤: 'goldenDragon',
+  골든드래곤: 'goldenDragon',
+  녹색드래곤: 'greenDragon',
+  초록드래곤: 'greenDragon',
+  회색드래곤: 'greyDragon',
+  얼음드래곤: 'iceDragon',
+  기계드래곤: 'mechanicalDragon',
+  보라드래곤: 'purpleDragon',
+  붉은드래곤: 'redDragon',
+  빨간드래곤: 'redDragon',
+  거대악마뱀: 'lizard03',
+  고위악마: 'demon03',
+  강화악마: 'demon02',
+  거대악어: 'croc03',
+  거대곰: 'megabear01',
+  미노타우로스: 'minotaur03',
+  얼음골렘: 'iceGolem',
+  기계골렘: 'mechanicalGolem',
+  바위골렘: 'rockGolem',
+  모래골렘: 'sandGolem',
+  석재골렘: 'stoneGolem',
+  화산골렘: 'volcanoGolem',
+  화려한거대벌레: 'fancyWorm',
+  초록거대벌레: 'greenWorm',
+  얼음거대벌레: 'iceWorm',
+  기계벌레: 'mechanicalWormA',
+  모기거대벌레: 'mosquitoWorm',
+  화산거대벌레: 'volcanoWorm',
+};
+
+const normalizeBgPath = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/')) return raw;
+  return `/${raw.replace(/^\/+/, '')}`;
+};
+
+export const resolveBossKey = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+
+  if (MONSTERS_DB[raw]) return raw;
+
+  const normalized = normalizeBossLookup(raw);
+  if (BOSS_BG_ALIASES[normalized] && MONSTERS_DB[BOSS_BG_ALIASES[normalized]]) {
+    return BOSS_BG_ALIASES[normalized];
+  }
+
+  const idMatch = Object.keys(MONSTERS_DB).find((id) => normalizeBossLookup(id) === normalized);
+  if (idMatch) return idMatch;
+
+  const nameMatch = Object.keys(MONSTERS_DB).find((id) => normalizeBossLookup(MONSTERS_DB[id]?.name) === normalized);
+  if (nameMatch) return nameMatch;
+
+  const containedIdMatch = Object.keys(MONSTERS_DB).find((id) => normalized.includes(normalizeBossLookup(id)));
+  if (containedIdMatch) return containedIdMatch;
+
+  return null;
+};
+
+export const resolveBossBg = (raidOrValue) => {
+  const isRaid = raidOrValue && typeof raidOrValue === 'object';
+  const direct = normalizeBgPath(isRaid ? raidOrValue.bossBg : (String(raidOrValue || '').includes('/') ? raidOrValue : null));
+  const candidates = isRaid ? [raidOrValue.bossId, raidOrValue.bossName] : [raidOrValue];
+
+  for (const candidate of candidates) {
+    const key = resolveBossKey(candidate);
+    if (key && BOSS_BG_MAP[key]) return BOSS_BG_MAP[key];
+  }
+
+  return direct;
+};
+
 /** 던전 난이도 → 기본 몬스터 ID (dungeon.monsterId 없을 때 fallback) */
 export const DIFF_MONSTER = {
   easy:   'rat',

@@ -73,21 +73,39 @@ const getComboLv = (n) => COMBO_CFG.find(c => n >= c.min) || null;
 function CircleTimer({ timeLeft, maxTime }) {
   const R    = 20;
   const circ = 2 * Math.PI * R;
-  const pct  = Math.max(0, timeLeft / maxTime);
-  const color = timeLeft <= 3 ? '#ef4444' : timeLeft <= Math.ceil(maxTime / 2) ? '#f59e0b' : '#22c55e';
+  const safeMax = Math.max(1, Number(maxTime) || 1);
+  const safeLeft = Math.max(0, Number(timeLeft) || 0);
+  const pct  = Math.max(0, Math.min(1, safeLeft / safeMax));
+  const urgent = safeLeft <= 3;
+  const warning = !urgent && safeLeft <= Math.ceil(safeMax / 2);
+  const color = urgent ? '#ef4444' : warning ? '#f59e0b' : '#22c55e';
+  const tone = urgent
+    ? 'border-rose-400/80 bg-rose-950/95 shadow-rose-500/30'
+    : warning
+      ? 'border-amber-400/80 bg-amber-950/95 shadow-amber-500/25'
+      : 'border-emerald-400/70 bg-emerald-950/90 shadow-emerald-500/20';
   return (
-    <div className="relative flex items-center justify-center w-14 h-14 shrink-0">
-      <svg width="56" height="56" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx="28" cy="28" r={R} fill="none" stroke="#1e293b" strokeWidth="5" />
-        <circle cx="28" cy="28" r={R} fill="none" stroke={color} strokeWidth="5"
-          strokeDasharray={circ}
-          strokeDashoffset={circ * (1 - pct)}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.3s' }} />
-      </svg>
-      <span className={`absolute text-sm font-extrabold ${timeLeft <= 3 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
-        {timeLeft}
-      </span>
+    <div className={`shrink-0 h-16 min-w-[122px] rounded-2xl border px-3 flex items-center gap-2.5 shadow-lg ${tone}`}>
+      <div className="relative flex items-center justify-center w-11 h-11">
+        <svg width="44" height="44" style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx="22" cy="22" r={R} fill="none" stroke="rgba(15,23,42,0.9)" strokeWidth="5" />
+          <circle cx="22" cy="22" r={R} fill="none" stroke={color} strokeWidth="5"
+            strokeDasharray={circ}
+            strokeDashoffset={circ * (1 - pct)}
+            strokeLinecap="round"
+            style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.3s' }} />
+        </svg>
+        <span className={`absolute text-[10px] font-black ${urgent ? 'text-rose-100 animate-pulse' : 'text-white'}`}>
+          ⏱
+        </span>
+      </div>
+      <div className="leading-none">
+        <div className="text-[10px] font-extrabold text-white/70 whitespace-nowrap">남은 시간</div>
+        <div className={`mt-1 flex items-end gap-0.5 ${urgent ? 'animate-pulse' : ''}`}>
+          <span className="text-2xl font-black text-white tabular-nums tracking-tight">{safeLeft}</span>
+          <span className="pb-0.5 text-xs font-extrabold text-white/80">초</span>
+        </div>
+      </div>
     </div>
   );
 }

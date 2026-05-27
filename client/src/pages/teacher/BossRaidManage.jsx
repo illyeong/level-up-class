@@ -4,7 +4,7 @@ import {
   onSnapshot, serverTimestamp, increment, getDoc, query, where,
 } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
-import { MONSTERS_DB, BOSS_BG_MAP } from '../../data/monsterData';
+import { MONSTERS_DB, resolveBossBg as resolveBossBackground } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 import { applyExpDelta } from '../../utils/leveling';
 
@@ -67,12 +67,7 @@ const resolveBossDataFromRaid = (raid) => {
 };
 
 const resolveBossBgById = (bossId) => {
-  const key = String(bossId || '').trim();
-  if (!key) return null;
-  if (BOSS_BG_MAP[key]) return BOSS_BG_MAP[key];
-  const compact = key.toLowerCase().replace(/[\s_-]/g, '');
-  const matched = Object.keys(BOSS_BG_MAP).find((k) => k.toLowerCase().replace(/[\s_-]/g, '') === compact);
-  return matched ? BOSS_BG_MAP[matched] : null;
+  return resolveBossBackground(bossId);
 };
 
 function QuizSetPicker({ selectedSetId, onSelect }) {

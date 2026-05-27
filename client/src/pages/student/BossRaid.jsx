@@ -17,7 +17,7 @@ import {
   increment, serverTimestamp, getDoc, getDocs, deleteField, writeBatch, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { MONSTERS_DB, BOSS_BG_MAP } from '../../data/monsterData';
+import { MONSTERS_DB, resolveBossBg as resolveBossBackground } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 import { applyExpDelta } from '../../utils/leveling';
 
@@ -99,18 +99,7 @@ const normalizeBgPath = (value) => {
 };
 
 const resolveBossBg = (raid) => {
-  const direct = normalizeBgPath(raid?.bossBg);
-  const canonicalBossId = resolveCanonicalBossId(raid);
-
-  if (canonicalBossId && BOSS_BG_MAP[canonicalBossId]) return BOSS_BG_MAP[canonicalBossId];
-
-  const bgKeyFromBossId = resolveKeyFromMap(BOSS_BG_MAP, raid?.bossId);
-  if (bgKeyFromBossId) return BOSS_BG_MAP[bgKeyFromBossId];
-
-  const bgKeyFromBossName = resolveKeyFromMap(BOSS_BG_MAP, raid?.bossName);
-  if (bgKeyFromBossName) return BOSS_BG_MAP[bgKeyFromBossName];
-
-  return direct;
+  return resolveBossBackground(raid) || normalizeBgPath(raid?.bossBg);
 };
 
 const resolveBossData = (raid) => {
@@ -155,25 +144,41 @@ function BossSprite({ bossData, anim, flash, scale = 2, onAnimEnd }) {
 
 // ── 타이머 링 ────────────────────────────────────────────────────
 function TimerRing({ timeLeft, duration }) {
-  const pct = duration > 0 ? timeLeft / duration : 0;
+  const safeDuration = Math.max(1, Number(duration) || 1);
+  const safeLeft = Math.max(0, Number(timeLeft) || 0);
+  const pct = Math.max(0, Math.min(1, safeLeft / safeDuration));
   const r   = 18;
   const circ = 2 * Math.PI * r;
-  const col = timeLeft > duration * 0.4 ? '#22c55e'
-            : timeLeft > duration * 0.2 ? '#f59e0b'
-            : '#ef4444';
+  const urgent = safeLeft <= Math.max(3, Math.ceil(safeDuration * 0.2));
+  const warning = !urgent && safeLeft <= Math.ceil(safeDuration * 0.45);
+  const col = urgent ? '#ef4444' : warning ? '#f59e0b' : '#22c55e';
+  const tone = urgent
+    ? 'border-rose-400/80 bg-rose-950/95 shadow-rose-500/30'
+    : warning
+      ? 'border-amber-400/80 bg-amber-950/95 shadow-amber-500/25'
+      : 'border-emerald-400/70 bg-emerald-950/90 shadow-emerald-500/20';
   return (
-    <div className="relative w-12 h-12 flex items-center justify-center">
-      <svg className="absolute inset-0" viewBox="0 0 44 44">
-        <circle cx="22" cy="22" r={r} fill="none" stroke="#334155" strokeWidth="4" />
-        <circle cx="22" cy="22" r={r} fill="none" stroke={col} strokeWidth="4"
-          strokeDasharray={circ}
-          strokeDashoffset={circ * (1 - pct)}
-          strokeLinecap="round"
-          transform="rotate(-90 22 22)"
-          style={{ transition: 'stroke-dashoffset 0.4s linear' }}
-        />
-      </svg>
-      <span className="text-sm font-extrabold text-white">{timeLeft}</span>
+    <div className={`h-14 min-w-[124px] rounded-2xl border px-3 flex items-center gap-2.5 shadow-lg ${tone}`}>
+      <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
+        <svg className="absolute inset-0" viewBox="0 0 44 44">
+          <circle cx="22" cy="22" r={r} fill="none" stroke="rgba(15,23,42,0.9)" strokeWidth="4" />
+          <circle cx="22" cy="22" r={r} fill="none" stroke={col} strokeWidth="4"
+            strokeDasharray={circ}
+            strokeDashoffset={circ * (1 - pct)}
+            strokeLinecap="round"
+            transform="rotate(-90 22 22)"
+            style={{ transition: 'stroke-dashoffset 0.4s linear, stroke 0.2s' }}
+          />
+        </svg>
+        <span className="text-[10px] font-black text-white">⏱</span>
+      </div>
+      <div className="leading-none">
+        <div className="text-[10px] font-extrabold text-white/70 whitespace-nowrap">남은 시간</div>
+        <div className={`mt-1 flex items-end gap-0.5 ${urgent ? 'animate-pulse' : ''}`}>
+          <span className="text-2xl font-black text-white tabular-nums tracking-tight">{safeLeft}</span>
+          <span className="pb-0.5 text-xs font-extrabold text-white/80">초</span>
+        </div>
+      </div>
     </div>
   );
 }
