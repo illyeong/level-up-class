@@ -1,0 +1,13 @@
+{
+  "name": "levelup-class-teacher-widget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LevelUp Class teacher desktop mini widget",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^42.3.0"
+  }
+}
