@@ -215,10 +215,10 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   };
 
   const submitTransaction = async () => {
-    if (selectedIds.length === 0) return showToast("?숈깮??理쒖냼 1紐??댁긽 ?좏깮?댁＜?몄슂.", 'error');
+    if (selectedIds.length === 0) return showToast("학생을 최소 1명 이상 선택해주세요.", 'error');
     const diaAmt  = Number(diaAmount)  || 0;
     const goldAmt = Number(goldAmount) || 0;
-    if (diaAmt === 0 && goldAmt === 0) return showToast("?ㅼ씠???먮뒗 怨⑤뱶 湲덉븸???낅젰?댁＜?몄슂.", 'error');
+    if (diaAmt === 0 && goldAmt === 0) return showToast("다이아 또는 골드 금액을 입력해주세요.", 'error');
 
     const isAdd = modalMode === 'add';
     setIsLoading(true);
@@ -249,13 +249,13 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
 
       const parts = [];
       if (diaAmt  > 0) parts.push(`다이아 ${diaAmt.toLocaleString()}`);
-      if (goldAmt > 0) parts.push(`?첌 ${goldAmt.toLocaleString()} 怨⑤뱶`);
+      if (goldAmt > 0) parts.push(`골드 ${goldAmt.toLocaleString()}`);
       showToast(`${parts.join(', ')} ${isAdd ? '지급' : '차감'} 완료!`);
       setIsModalOpen(false);
       fetchStudents();
     } catch (error) {
       console.error("?몃옖??뀡 ?먮윭:", error);
-      showToast("泥섎━ 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.", 'error');
+      showToast("처리 중 오류가 발생했습니다.", 'error');
     } finally {
       setIsLoading(false);
     }
@@ -315,6 +315,14 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
               학생 테스트 (SINSEOK-5-15)
             </button>
           )}
+          <a
+            href="/downloads/levelup-teacher-widget.zip"
+            download
+            className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm"
+            title="교사용 바탕화면 미니 위젯을 내려받습니다."
+          >
+            위젯 다운로드
+          </a>
           <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
             지급/차감 내역 보기
           </button>
@@ -355,6 +363,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         <div className="flex items-center gap-2 mb-3">
           <img src={iconQuest} alt="퀘스트" className="w-6 h-6 object-contain" />
           <h2 className="font-extrabold text-slate-700 text-base">오늘의 퀘스트 현황</h2>
+          <span className="text-xs font-bold text-slate-500">
+            학생들이 자체체크를 하면 매일 자정에 퀘스트가 초기화되면서 보상이 자동지급됩니다.
+          </span>
         </div>
         {questStats.length === 0 ? (
           <div className="text-slate-400 text-sm py-3 px-4 bg-white rounded-2xl border border-slate-200">
@@ -466,7 +477,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                 <div className="flex justify-between items-center bg-amber-50 px-2 py-1.5 rounded-md">
                   <div className="flex items-center gap-1">
                     <img src={iconGold} alt="Gold" className="w-3 h-3" />
-                    <span className="text-[10px] text-amber-500">怨⑤뱶</span>
+                    <span className="text-[10px] text-amber-500">골드</span>
                   </div>
                   <span className="font-bold text-amber-600">{(student.gold || 0).toLocaleString()}</span>
                 </div>
@@ -494,9 +505,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                     <input type="checkbox" id="selectAll" className="w-5 h-5 rounded text-indigo-600 cursor-pointer"
                       checked={selectedIds.length === filteredStudents.length && filteredStudents.length > 0}
                       onChange={() => toggleSelectAll(filteredStudents)} />
-                    <label htmlFor="selectAll" className="font-bold text-slate-700 cursor-pointer text-sm">?꾩껜 ?좏깮</label>
+                    <label htmlFor="selectAll" className="font-bold text-slate-700 cursor-pointer text-sm">전체 선택</label>
                   </div>
-                  <input type="text" placeholder="?꾩씠??寃??.." className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs w-32 focus:outline-none focus:border-indigo-500"
+                  <input type="text" placeholder="이름/코드 검색" className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs w-32 focus:outline-none focus:border-indigo-500"
                     value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
                 
@@ -552,7 +563,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                 {/* ?첌 怨⑤뱶 */}
                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
                   <label className="flex items-center gap-1.5 text-xs font-bold text-amber-700 mb-2">
-                    <img src={iconGold} className="w-4 h-4" alt="怨⑤뱶" /> 怨⑤뱶 湲덉븸
+                    <img src={iconGold} className="w-4 h-4" alt="골드" /> 골드 금액
                   </label>
                   <input
                     type="number" min="0" value={goldAmount}
@@ -571,16 +582,16 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
 
                 {/* ?ъ쑀 */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">?ъ쑀 (?좏깮)</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">사유 (선택)</label>
                   <textarea value={reason} onChange={e => setReason(e.target.value)}
                     className="w-full h-16 border-2 border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-none"
-                    placeholder="鍮꾩썙?먯뀛???⑸땲??" />
+                    placeholder="비워두셔도 됩니다." />
                 </div>
 
                 <button onClick={submitTransaction}
                   className={`w-full py-4 rounded-xl font-bold text-lg text-white shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]
                     ${modalMode === 'add' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
-                  {modalMode === 'add' ? '??吏湲?吏묓뻾?섍린' : '??李④컧 吏묓뻾?섍린'}
+                  {modalMode === 'add' ? '지급 실행하기' : '차감 실행하기'}
                 </button>
               </div>
             </div>
@@ -592,17 +603,17 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden">
             <div className="p-5 bg-slate-800 text-white font-bold text-xl flex justify-between items-center">
-              <h2>?뱥 理쒓렐 吏湲?李④컧 ?댁뿭</h2>
+              <h2>최근 지급/차감 내역</h2>
               <button onClick={() => setIsLogOpen(false)} className="text-slate-300 hover:text-white">×</button>
             </div>
             <div className="p-0 overflow-x-auto max-h-[70vh]">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                    <th className="p-4 font-semibold">?쇱떆</th>
-                    <th className="p-4 font-semibold">援щ텇</th>
-                    <th className="p-4 font-semibold">?댁슜</th>
-                    <th className="p-4 font-semibold">?ъ쑀</th>
+                    <th className="p-4 font-semibold">일시</th>
+                    <th className="p-4 font-semibold">구분</th>
+                    <th className="p-4 font-semibold">내용</th>
+                    <th className="p-4 font-semibold">사유</th>
                     <th className="p-4 font-semibold">대상</th>
                   </tr>
                 </thead>
@@ -612,9 +623,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                     const isAdd = log.mode === 'add' || (log.amount > 0);
                     const parts = [];
                     if (log.diaAmount  !== undefined && log.diaAmount  !== 0)
-                      parts.push(`?뭿 ${log.diaAmount  > 0 ? '+' : ''}${log.diaAmount.toLocaleString()}`);
+                      parts.push(`다이아 ${log.diaAmount  > 0 ? '+' : ''}${log.diaAmount.toLocaleString()}`);
                     if (log.goldAmount !== undefined && log.goldAmount !== 0)
-                      parts.push(`?첌 ${log.goldAmount > 0 ? '+' : ''}${log.goldAmount.toLocaleString()}`);
+                      parts.push(`골드 ${log.goldAmount > 0 ? '+' : ''}${log.goldAmount.toLocaleString()}`);
                     // 援ы삎 ?щ㎎ fallback
                     if (parts.length === 0 && log.currency) {
                       const sign = log.amount > 0 ? '+' : '';

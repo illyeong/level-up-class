@@ -12,6 +12,11 @@ const TICKET_CONFIG = {
   arena:    { weekly: 5, max: 5, icon: '🏟️', label: '투기장 이용권', color: 'violet' },
 };
 
+const TICKET_DAILY_POLICY = {
+  dungeon: { daily: 1, mondayBonus: 1, max: 3 },
+  arena:   { daily: 2, mondayBonus: 2, max: 5 },
+};
+
 // 어떤 뷰가 어떤 이용권을 사용하는지
 const VIEW_CONFIG = {
   adventure:          { title: '어드벤처',   icon: '⚔️',  ticketKey: null },

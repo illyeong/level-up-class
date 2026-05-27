@@ -33,6 +33,24 @@ import ClassVote      from './pages/student/ClassVote.jsx';
 const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','miniGame'];
 const THEMEABLE_VIEWS = new Set(['dashboard', 'classAll', 'quest', 'learningNote', 'myCharacter']);
 const ADVENTURE_BG = 'linear-gradient(160deg, #020617 0%, #0f172a 50%, #1e1b4b 100%)';
+const STUDENT_SESSION_KEY = 'studentInfo';
+const STUDENT_AUTO_LOGIN_KEY = 'levelupStudentAutoLogin';
+
+const readSavedStudentSession = () => {
+  const raw = sessionStorage.getItem(STUDENT_SESSION_KEY) || localStorage.getItem(STUDENT_AUTO_LOGIN_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const saveStudentSession = (data) => {
+  const payload = JSON.stringify({ ...data, savedAt: Date.now() });
+  sessionStorage.setItem(STUDENT_SESSION_KEY, payload);
+  localStorage.setItem(STUDENT_AUTO_LOGIN_KEY, payload);
+};
 
 // appMode: 'loading' | 'login' | 'classSelect' | 'student' | 'teacher' | 'admin'
 function App() {
@@ -91,9 +109,21 @@ function App() {
         }
       } else {
         // 로그아웃 또는 미로그인 → 학생 세션 확인
-        const saved = sessionStorage.getItem('studentInfo');
+        if (sessionStorage.getItem('skipStudentAutoLoginOnce') === '1') {
+          sessionStorage.removeItem('skipStudentAutoLoginOnce');
+          setAppMode('login');
+          return;
+        }
+
+        if (new URLSearchParams(window.location.search).get('code')) {
+          setAppMode('login');
+          return;
+        }
+
+        const saved = readSavedStudentSession();
         if (saved) {
-          setStudentInfo(JSON.parse(saved));
+          setStudentInfo(saved);
+          sessionStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(saved));
           setAppMode('student');
         } else {
           setAppMode('login');
@@ -209,7 +239,7 @@ function App() {
   // ── 학생 로그인 콜백 ─────────────────────────────────────────
   const handleStudentLogin = (data) => {
     setStudentInfo(data);
-    sessionStorage.setItem('studentInfo', JSON.stringify(data));
+    saveStudentSession(data);
     setAppMode('student');
     setCurrentView('dashboard');
   };
@@ -217,9 +247,10 @@ function App() {
   // ── 로그아웃 ─────────────────────────────────────────────────
   const handleLogout = async () => {
     if (teacherUser?.uid || appMode === 'teacher' || appMode === 'classSelect' || appMode === 'admin' || appMode === 'teacherAuth') {
+      sessionStorage.setItem('skipStudentAutoLoginOnce', '1');
       await signOut(auth);
     }
-    sessionStorage.removeItem('studentInfo');
+    sessionStorage.removeItem(STUDENT_SESSION_KEY);
     sessionStorage.removeItem('selectedClass');
     setTeacherUser(null);
     setSelectedClass(null);
@@ -252,7 +283,7 @@ function App() {
       if (!snap.empty) {
         const data = { id: snap.docs[0].id, ...snap.docs[0].data() };
         setStudentInfo(data);
-        sessionStorage.setItem('studentInfo', JSON.stringify(data));
+        saveStudentSession(data);
       }
     } catch (e) {
       console.error('테스트 학생 연동 실패:', e);
@@ -291,13 +322,13 @@ function App() {
             if (!prev) return prev;
             return { ...prev, level, exp, maxExp };
           });
-          sessionStorage.setItem('studentInfo', JSON.stringify({
+          saveStudentSession({
             ...(studentInfo || {}),
             id: sDoc.id,
             level,
             exp,
             maxExp,
-          }));
+          });
         }
       } catch (error) {
         console.error('학생 레벨/경험치 정규화 실패:', error);
