@@ -26,76 +26,414 @@ function StatCard({ icon, label, value, color = 'indigo' }) {
   );
 }
 
+const toJsDate = (value) => {
+  if (!value) return null;
+  if (value.toDate) return value.toDate();
+  if (value.seconds) return new Date(value.seconds * 1000);
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const isTodayDate = (value) => {
+  const d = toJsDate(value);
+  if (!d) return false;
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear()
+    && d.getMonth() === now.getMonth()
+    && d.getDate() === now.getDate();
+};
+
+const percent = (value, total) => total > 0 ? Math.round((value / total) * 100) : 0;
+const fmtNum = (value) => Number(value || 0).toLocaleString();
+
+function MiniMetric({ label, value, tone = 'slate' }) {
+  const colors = {
+    slate: 'bg-slate-50 text-slate-700 border-slate-200',
+    indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200',
+    rose: 'bg-rose-50 text-rose-700 border-rose-200',
+    sky: 'bg-sky-50 text-sky-700 border-sky-200',
+  };
+  return (
+    <div className={`rounded-2xl border p-4 ${colors[tone] || colors.slate}`}>
+      <div className="text-xs font-bold opacity-70">{label}</div>
+      <div className="mt-1 text-2xl font-black">{value}</div>
+    </div>
+  );
+}
+
+function FeatureBar({ label, value, total, color = 'bg-indigo-500' }) {
+  const width = total > 0 ? Math.max(4, Math.round((value / total) * 100)) : 0;
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-600">
+        <span>{label}</span>
+        <span>{fmtNum(value)}회</span>
+      </div>
+      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
 // ── 1. 대시보드 탭 ────────────────────────────────────────────
 function DashboardTab() {
-  const [stats, setStats]   = useState(null);
-  const [recent, setRecent] = useState([]);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sortKey, setSortKey] = useState('grade');
+  const [sortDir, setSortDir] = useState('asc');
 
   useEffect(() => {
     (async () => {
       try {
-        const [classSnap, studentSnap] = await Promise.all([
+        const [
+          classSnap,
+          studentSnap,
+          questSnap,
+          quizSnap,
+          shopSnap,
+          noteSnap,
+          raidSnap,
+        ] = await Promise.all([
           getDocs(collection(db, 'classes')),
           getDocs(collection(db, 'students')),
+          getDocs(collection(db, 'quests')),
+          getDocs(collection(db, 'quizResults')),
+          getDocs(collection(db, 'shopPurchases')),
+          getDocs(collection(db, 'learningNotes')),
+          getDocs(collection(db, 'worldBossRaids')),
         ]);
-        const classes  = classSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const teachers = new Set(classes.map(c => c.teacherUid)).size;
 
-        setStats({
-          teachers,
-          classes:  classes.length,
-          students: studentSnap.size,
+        const classes = classSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const students = studentSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const quests = questSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const quizResults = quizSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const shopPurchases = shopSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const notes = noteSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const raids = raidSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const classesByTeacher = {};
+        classes.forEach(c => {
+          if (!c.teacherUid) return;
+          if (!classesByTeacher[c.teacherUid]) classesByTeacher[c.teacherUid] = [];
+          classesByTeacher[c.teacherUid].push(c.id);
         });
 
-        const sorted = classes.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-        setRecent(sorted.slice(0, 8));
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
+        const classStats = {};
+        classes.forEach(c => {
+          classStats[c.id] = {
+            id: c.id,
+            schoolName: c.schoolName || '-',
+            teacherEmail: c.teacherEmail || '',
+            teacherUid: c.teacherUid || '',
+            grade: Number(c.grade || 0),
+            classNumber: Number(c.classNumber || 0),
+            studentCount: 0,
+            totalGold: 0,
+            totalDiamonds: 0,
+            todayActiveStudents: new Set(),
+            todayActivityCount: 0,
+            questPossible: 0,
+            questCompleted: 0,
+            quizTotal: 0,
+            quizAccuracySum: 0,
+            quizCleared: 0,
+            goldSpent: 0,
+            goldEarned: 0,
+            shopPurchaseCount: 0,
+            learningNoteCount: 0,
+            bossRaidParticipants: 0,
+            bossRaidTotalSlots: 0,
+            stockHoldingCount: 0,
+            recentActivityAt: null,
+            popularItems: {},
+          };
+        });
+
+        const studentToClass = {};
+        students.forEach(s => {
+          let classId = s.classId || null;
+          if (!classId && s.teacherUid && classesByTeacher[s.teacherUid]?.length === 1) {
+            classId = classesByTeacher[s.teacherUid][0];
+          }
+          studentToClass[s.id] = classId;
+          if (!classId || !classStats[classId]) return;
+          classStats[classId].studentCount += 1;
+          classStats[classId].totalGold += Number(s.gold || 0);
+          classStats[classId].totalDiamonds += Number(s.diamonds || 0);
+        });
+
+        const touchActivity = (classId, studentId, ts) => {
+          if (!classId || !classStats[classId]) return;
+          const date = toJsDate(ts);
+          if (date && (!classStats[classId].recentActivityAt || date > classStats[classId].recentActivityAt)) {
+            classStats[classId].recentActivityAt = date;
+          }
+          if (isTodayDate(ts)) {
+            classStats[classId].todayActivityCount += 1;
+            if (studentId) classStats[classId].todayActiveStudents.add(studentId);
+          }
+        };
+
+        const teacherToSingleClass = (teacherUid) => {
+          const ids = classesByTeacher[teacherUid] || [];
+          return ids.length === 1 ? ids[0] : null;
+        };
+
+        const questCompletionSnaps = await Promise.all(
+          quests.map(q => getDocs(collection(db, 'quests', q.id, 'completions')).then(snap => ({ quest: q, snap })))
+        );
+        questCompletionSnaps.forEach(({ quest, snap }) => {
+          const questClassId = quest.classId || teacherToSingleClass(quest.teacherUid);
+          if (quest.active !== false && questClassId && classStats[questClassId]) {
+            classStats[questClassId].questPossible += classStats[questClassId].studentCount;
+          }
+          snap.docs.forEach(d => {
+            const completion = d.data();
+            if (completion.checked !== true) return;
+            const classId = studentToClass[d.id] || questClassId;
+            if (!classId || !classStats[classId]) return;
+            classStats[classId].questCompleted += 1;
+            const ts = completion.checkedAt || completion.updatedAt || completion.createdAt;
+            touchActivity(classId, d.id, ts);
+          });
+        });
+
+        quizResults.forEach(r => {
+          const classId = studentToClass[r.studentId];
+          if (!classId || !classStats[classId]) return;
+          classStats[classId].quizTotal += 1;
+          classStats[classId].quizAccuracySum += Number(r.accuracy || 0);
+          if (r.cleared) classStats[classId].quizCleared += 1;
+          classStats[classId].goldEarned += Number(r.goldEarned || 0);
+          touchActivity(classId, r.studentId, r.completedAt);
+        });
+
+        shopPurchases.forEach(p => {
+          const classId = p.classId || studentToClass[p.studentId];
+          if (!classId || !classStats[classId]) return;
+          const totalPrice = Number(p.totalPrice || 0);
+          classStats[classId].goldSpent += totalPrice;
+          classStats[classId].shopPurchaseCount += 1;
+          const itemName = p.itemName || '이름 없는 아이템';
+          classStats[classId].popularItems[itemName] = (classStats[classId].popularItems[itemName] || 0) + Number(p.quantity || 1);
+          touchActivity(classId, p.studentId, p.createdAt);
+        });
+
+        notes.forEach(n => {
+          const classId = studentToClass[n.studentId] || teacherToSingleClass(n.teacherUid);
+          if (!classId || !classStats[classId]) return;
+          classStats[classId].learningNoteCount += 1;
+          touchActivity(classId, n.studentId, n.createdAt || n.approvedAt);
+        });
+
+        raids.forEach(r => {
+          const classId = r.classId || teacherToSingleClass(r.teacherUid);
+          if (!classId || !classStats[classId]) return;
+          const participants = Object.entries(r.participants || {});
+          classStats[classId].bossRaidParticipants += participants.length;
+          classStats[classId].bossRaidTotalSlots += classStats[classId].studentCount || 0;
+          participants.forEach(([studentId, p]) => {
+            touchActivity(classId, studentId, p.joinedAt);
+          });
+        });
+
+        await Promise.all(students.map(async s => {
+          const classId = studentToClass[s.id];
+          if (!classId || !classStats[classId]) return;
+          const holdingSnap = await getDocs(collection(db, 'portfolios', s.id, 'holdings')).catch(() => null);
+          if (!holdingSnap) return;
+          classStats[classId].stockHoldingCount += holdingSnap.size;
+          holdingSnap.docs.forEach(h => touchActivity(classId, s.id, h.data().updatedAt));
+        }));
+
+        const rows = Object.values(classStats).map(row => {
+          const popularItems = Object.entries(row.popularItems)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([name, count]) => ({ name, count }));
+          return {
+            ...row,
+            questRate: percent(row.questCompleted, row.questPossible),
+            quizAccuracyAvg: row.quizTotal ? Math.round(row.quizAccuracySum / row.quizTotal) : 0,
+            bossRaidRate: percent(row.bossRaidParticipants, row.bossRaidTotalSlots),
+            todayActiveCount: row.todayActiveStudents.size,
+            recentActivityLabel: row.recentActivityAt ? row.recentActivityAt.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '-',
+            popularItems,
+          };
+        });
+
+        const featureUsage = {
+          quest: rows.reduce((s, r) => s + r.questCompleted, 0),
+          adventure: rows.reduce((s, r) => s + r.quizTotal + r.bossRaidParticipants, 0),
+          stock: rows.reduce((s, r) => s + r.stockHoldingCount, 0),
+          shop: rows.reduce((s, r) => s + r.shopPurchaseCount, 0),
+          learningNote: rows.reduce((s, r) => s + r.learningNoteCount, 0),
+        };
+        const topShopItems = {};
+        rows.forEach(r => {
+          r.popularItems.forEach(item => {
+            topShopItems[item.name] = (topShopItems[item.name] || 0) + item.count;
+          });
+        });
+
+        setData({
+          summary: {
+            classCount: classes.length,
+            studentCount: students.length,
+            todayActiveStudents: rows.reduce((s, r) => s + r.todayActiveCount, 0),
+            todayActivityCount: rows.reduce((s, r) => s + r.todayActivityCount, 0),
+          },
+          rows,
+          featureUsage,
+          topShopItems: Object.entries(topShopItems).sort((a, b) => b[1] - a[1]).slice(0, 5),
+          totals: {
+            gold: rows.reduce((s, r) => s + r.totalGold, 0),
+            diamonds: rows.reduce((s, r) => s + r.totalDiamonds, 0),
+            goldEarned: rows.reduce((s, r) => s + r.goldEarned, 0),
+            goldSpent: rows.reduce((s, r) => s + r.goldSpent, 0),
+            quizAccuracyAvg: rows.length ? Math.round(rows.reduce((s, r) => s + r.quizAccuracyAvg, 0) / rows.length) : 0,
+            questRate: percent(rows.reduce((s, r) => s + r.questCompleted, 0), rows.reduce((s, r) => s + r.questPossible, 0)),
+            bossRaidRate: percent(rows.reduce((s, r) => s + r.bossRaidParticipants, 0), rows.reduce((s, r) => s + r.bossRaidTotalSlots, 0)),
+          },
+        });
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
-  if (loading) return <div className="p-10 text-slate-400 font-bold text-center animate-pulse">불러오는 중...</div>;
+  const sortedRows = [...(data?.rows || [])].sort((a, b) => {
+    const direction = sortDir === 'asc' ? 1 : -1;
+    if (sortKey === 'grade') {
+      return direction * ((a.grade - b.grade) || (a.classNumber - b.classNumber) || a.schoolName.localeCompare(b.schoolName));
+    }
+    if (sortKey === 'students') return direction * (a.studentCount - b.studentCount);
+    if (sortKey === 'quest') return direction * (a.questRate - b.questRate);
+    if (sortKey === 'quiz') return direction * (a.quizAccuracyAvg - b.quizAccuracyAvg);
+    if (sortKey === 'goldSpent') return direction * (a.goldSpent - b.goldSpent);
+    return 0;
+  });
+
+  const featureTotal = data ? Object.values(data.featureUsage).reduce((s, v) => s + v, 0) : 0;
+
+  if (loading) return <div className="p-10 text-slate-400 font-bold text-center animate-pulse">통계 데이터를 집계하는 중...</div>;
 
   return (
     <div className="p-6 space-y-6">
-      <h2 className="text-xl font-extrabold text-slate-800">📊 전체 현황</h2>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon="👨‍🏫" label="가입 교사" value={`${stats?.teachers || 0}명`} color="indigo" />
-        <StatCard icon="🏫" label="생성 학급" value={`${stats?.classes || 0}개`} color="emerald" />
-        <StatCard icon="👨‍🎓" label="전체 학생" value={`${stats?.students || 0}명`} color="amber" />
-        <StatCard icon="🏆" label="학급당 평균" value={stats?.classes ? `${Math.round((stats.students || 0) / stats.classes)}명` : '-'} color="rose" />
+      <div>
+        <h2 className="text-xl font-extrabold text-slate-800">📊 관리자 통계 대시보드</h2>
+        <p className="mt-1 text-sm text-slate-500">현재 저장된 학급 운영 데이터를 기준으로 집계합니다. 체류 시간과 개인 클릭 추적은 포함하지 않았습니다.</p>
       </div>
 
-      <div>
-        <h3 className="font-extrabold text-slate-700 text-sm mb-3">최근 생성된 학급</h3>
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          {recent.length === 0 ? (
-            <div className="p-8 text-center text-slate-400">학급이 없습니다</div>
-          ) : (
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard icon="🏫" label="총 학급 수" value={`${fmtNum(data?.summary.classCount)}개`} color="indigo" />
+        <StatCard icon="👨‍🎓" label="총 학생 수" value={`${fmtNum(data?.summary.studentCount)}명`} color="emerald" />
+        <StatCard icon="✅" label="오늘 접속/활동 학생" value={`${fmtNum(data?.summary.todayActiveStudents)}명`} color="amber" />
+        <StatCard icon="⚡" label="오늘 활동 수" value={`${fmtNum(data?.summary.todayActivityCount)}회`} color="rose" />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <section className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="font-extrabold text-slate-800">학급별 비교</h3>
+              <p className="text-xs text-slate-500 mt-1">학년/반, 완료율, 정답률, 경제 흐름을 한 번에 비교합니다.</p>
+            </div>
+            <div className="flex gap-2">
+              <select value={sortKey} onChange={e => setSortKey(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
+                <option value="grade">학년/반</option>
+                <option value="students">학생 수</option>
+                <option value="quest">퀘스트 완료율</option>
+                <option value="quiz">퀴즈 정답률</option>
+                <option value="goldSpent">골드 소비량</option>
+              </select>
+              <button onClick={() => setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')}
+                className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-extrabold text-white">
+                {sortDir === 'asc' ? '오름차순' : '내림차순'}
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500 text-xs">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold">학교</th>
-                  <th className="px-4 py-3 text-left font-semibold">학년/반</th>
-                  <th className="px-4 py-3 text-center font-semibold">학생</th>
-                  <th className="px-4 py-3 text-left font-semibold">교사 UID</th>
+                  <th className="px-3 py-3 text-left font-semibold">학급명</th>
+                  <th className="px-3 py-3 text-center font-semibold">학생</th>
+                  <th className="px-3 py-3 text-center font-semibold">퀘스트 완료율</th>
+                  <th className="px-3 py-3 text-center font-semibold">퀴즈 정답률</th>
+                  <th className="px-3 py-3 text-right font-semibold">골드 소비</th>
+                  <th className="px-3 py-3 text-center font-semibold">최근 활동</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
-                {recent.map(c => (
-                  <tr key={c.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-bold text-slate-800">{c.schoolName}</td>
-                    <td className="px-4 py-3 text-slate-600">{c.grade}학년 {c.classNumber}반</td>
-                    <td className="px-4 py-3 text-center font-bold text-indigo-600">{c.studentCount}명</td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-slate-400 truncate max-w-[160px]">{c.teacherUid}</td>
+              <tbody className="divide-y divide-slate-100">
+                {sortedRows.map(row => (
+                  <tr key={row.id} className="hover:bg-slate-50">
+                    <td className="px-3 py-3">
+                      <div className="font-extrabold text-slate-800">{row.schoolName}</div>
+                      <div className="text-xs text-slate-500">{row.grade || '-'}학년 {row.classNumber || '-'}반</div>
+                    </td>
+                    <td className="px-3 py-3 text-center font-bold text-slate-700">{row.studentCount}명</td>
+                    <td className="px-3 py-3 text-center font-extrabold text-indigo-600">{row.questRate}%</td>
+                    <td className="px-3 py-3 text-center font-extrabold text-emerald-600">{row.quizAccuracyAvg}%</td>
+                    <td className="px-3 py-3 text-right font-bold text-amber-600">{fmtNum(row.goldSpent)}G</td>
+                    <td className="px-3 py-3 text-center text-slate-500">{row.recentActivityLabel}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="font-extrabold text-slate-800">기능별 사용 현황</h3>
+          <p className="text-xs text-slate-500 mt-1 mb-4">저장된 완료/구매/참여 기록 기준입니다.</p>
+          <div className="space-y-4">
+            <FeatureBar label="퀘스트" value={data?.featureUsage.quest || 0} total={featureTotal} color="bg-sky-500" />
+            <FeatureBar label="어드벤처" value={data?.featureUsage.adventure || 0} total={featureTotal} color="bg-violet-500" />
+            <FeatureBar label="주식ETF" value={data?.featureUsage.stock || 0} total={featureTotal} color="bg-emerald-500" />
+            <FeatureBar label="상점" value={data?.featureUsage.shop || 0} total={featureTotal} color="bg-amber-500" />
+            <FeatureBar label="배움노트" value={data?.featureUsage.learningNote || 0} total={featureTotal} color="bg-rose-500" />
+          </div>
+        </section>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="font-extrabold text-slate-800 mb-4">경제 상태</h3>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <MiniMetric label="학급 총 골드" value={`${fmtNum(data?.totals.gold)}G`} tone="amber" />
+            <MiniMetric label="학급 총 다이아" value={`💎 ${fmtNum(data?.totals.diamonds)}`} tone="sky" />
+            <MiniMetric label="골드 획득량" value={`${fmtNum(data?.totals.goldEarned)}G`} tone="emerald" />
+            <MiniMetric label="골드 소비량" value={`${fmtNum(data?.totals.goldSpent)}G`} tone="rose" />
+          </div>
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+            <div className="text-xs font-extrabold text-slate-600 mb-2">상점 인기 아이템 TOP 5</div>
+            {data?.topShopItems.length ? data.topShopItems.map(([name, count], idx) => (
+              <div key={name} className="flex items-center justify-between py-1.5 text-sm">
+                <span className="font-bold text-slate-700">{idx + 1}. {name}</span>
+                <span className="text-amber-600 font-extrabold">{count}개</span>
+              </div>
+            )) : <div className="text-sm text-slate-400">구매 데이터가 없습니다.</div>}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="font-extrabold text-slate-800 mb-4">학습/참여 지표</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <MiniMetric label="퀴즈 평균 정답률" value={`${data?.totals.quizAccuracyAvg || 0}%`} tone="emerald" />
+            <MiniMetric label="보스레이드 참여율" value={`${data?.totals.bossRaidRate || 0}%`} tone="rose" />
+            <MiniMetric label="퀘스트 완료율" value={`${data?.totals.questRate || 0}%`} tone="indigo" />
+          </div>
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-500">
+            학생별 접속 시간이나 체류 시간은 추적하지 않습니다. 이 화면은 퀘스트 완료, 퀴즈 결과, 구매 내역, 배움노트 작성, 보스레이드 참여처럼 학급 운영에 필요한 기록만 집계합니다.
+          </div>
+        </section>
       </div>
     </div>
   );
