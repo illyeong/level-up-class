@@ -94,12 +94,7 @@ function App() {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) {
         setTeacherUser(user);
-        if (user.uid && !localStorage.getItem(`teacherAuthVerified:${user.uid}`)) {
-          setTeacherCodeInput('');
-          setTeacherCodeError('');
-          setAppMode('teacherAuth');
-          return;
-        }
+        // 인증 미완료 시 ClassSelectPage에서 인라인으로 처리
         const savedClass = sessionStorage.getItem('selectedClass');
         if (savedClass) {
           setSelectedClass(JSON.parse(savedClass));
@@ -421,6 +416,7 @@ function App() {
         onEnterAdmin={() => setAppMode('admin')}
         onEnterTeacherTest={handleTeacherTestPage}
         onLogout={handleLogout}
+        teacherAccessCode={teacherAccessCode}
       />
     );
   }

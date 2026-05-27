@@ -391,6 +391,11 @@ function AdventurePage({ currentView, studentCode, onChangeView }) {
         } else {
           setTickets(savedTickets);
         }
+
+        // 테스트 계정 무한 이용권
+        if (studentCode === 'SINSEOK-5-15') {
+          setTickets({ dungeon: 9999, bossRaid: 9999, arena: 9999 });
+        }
       } catch (err) {
         console.error('어드벤처 로딩 에러:', err);
       } finally {
@@ -403,6 +408,7 @@ function AdventurePage({ currentView, studentCode, onChangeView }) {
   // 이용권 1개 소비
   const handleUseTicket = useCallback(async (ticketKey) => {
     if (!ticketKey || !studentDocId || !tickets) return;
+    if (studentCode === 'SINSEOK-5-15') return; // 테스트 계정 소비 없음
     const count = tickets[ticketKey] ?? 0;
     if (count <= 0) return;
 

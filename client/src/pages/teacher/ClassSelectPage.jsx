@@ -437,7 +437,22 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
   );
 }
 
-export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout, isAdmin = false, onEnterAdmin, onEnterTeacherTest }) {
+export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout, isAdmin = false, onEnterAdmin, onEnterTeacherTest, teacherAccessCode }) {
+  const isVerified = !!(teacherUser?.uid && localStorage.getItem(`teacherAuthVerified:${teacherUser.uid}`));
+  const [authInput,   setAuthInput]   = useState('');
+  const [authError,   setAuthError]   = useState('');
+  const [verified,    setVerified]    = useState(isVerified);
+
+  const handleAuthSubmit = () => {
+    if (authInput.trim() !== String(teacherAccessCode)) {
+      setAuthError('인증번호가 올바르지 않습니다.');
+      return;
+    }
+    localStorage.setItem(`teacherAuthVerified:${teacherUser.uid}`, '1');
+    setAuthError('');
+    setVerified(true);
+  };
+
   const [classes,     setClasses]     = useState([]);
   const [isLoading,   setIsLoading]   = useState(true);
   const [showCreate,  setShowCreate]  = useState(false);
@@ -505,6 +520,40 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
       }));
     }
   };
+
+  if (!verified) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6">
+          <h1 className="text-white text-xl font-extrabold mb-2">교사 계정 1회 인증</h1>
+          <p className="text-slate-400 text-sm mb-5">관리자가 부여한 4자리 인증번호를 입력해 주세요.</p>
+          <input
+            value={authInput}
+            onChange={(e) => {
+              setAuthInput(e.target.value.replace(/\D/g, '').slice(0, 4));
+              if (authError) setAuthError('');
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && handleAuthSubmit()}
+            placeholder="4자리 인증번호"
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest font-mono focus:outline-none focus:border-indigo-500"
+            maxLength={4}
+            autoFocus
+          />
+          {authError && <p className="mt-3 text-rose-400 text-sm font-bold">{authError}</p>}
+          <button
+            onClick={handleAuthSubmit}
+            disabled={authInput.length !== 4}
+            className="w-full mt-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-extrabold"
+          >
+            인증 완료
+          </button>
+          <button onClick={onLogout} className="w-full mt-2 py-2 text-slate-500 hover:text-slate-300 text-sm">
+            로그아웃
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 flex flex-col">
