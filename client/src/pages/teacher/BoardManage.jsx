@@ -148,6 +148,7 @@ export default function BoardManage({ selectedClass, user }) {
   const [writePageId, setWritePageId] = useState(null);
   const [writeLat, setWriteLat]     = useState(null);
   const [writeLng, setWriteLng]     = useState(null);
+  const [selectedMapPost, setSelectedMapPost] = useState(null);
   const [isPosting, setIsPosting]   = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
 
@@ -344,9 +345,8 @@ export default function BoardManage({ selectedClass, user }) {
       };
       const ref = await addDoc(collection(db, 'boards', selectedBoard.id, 'posts'), newPost);
       setPosts(prev => [{ id: ref.id, ...newPost, createdAt: { toDate: () => new Date() } }, ...prev]);
-      if (selectedBoard.boardType === 'map' && writeLat && mapInstance.current && window.L) {
-        window.L.marker([writeLat, writeLng]).addTo(mapInstance.current)
-          .bindPopup(`<b>선생님</b><br>${writeContent.trim()}`);
+      if (selectedBoard.boardType === 'map') {
+        setSelectedMapPost({ id: ref.id, ...newPost, createdAt: { toDate: () => new Date() } });
       }
       setWriteContent(''); setWriteImage(''); setWriteAttachment(null); setWritePageId(null);
       setWriteLat(null); setWriteLng(null); setShowWrite(false);
@@ -364,6 +364,7 @@ export default function BoardManage({ selectedClass, user }) {
   const togglePin = async (postId, cur) => {
     await updateDoc(doc(db, 'boards', selectedBoard.id, 'posts', postId), { pinned: !cur });
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, pinned: !cur } : p));
+    setSelectedMapPost(prev => prev?.id === postId ? { ...prev, pinned: !cur } : prev);
   };
 
   // ── Leaflet map init ──────────────────────────────────────────
@@ -382,13 +383,26 @@ export default function BoardManage({ selectedClass, user }) {
       const visiblePosts = selectedSheetId
         ? posts.filter((p) => (p.sheetId || 'sheet_1') === selectedSheetId)
         : posts;
-      visiblePosts.forEach(p => {
-        if (p.lat && p.lng)
-          L.marker([p.lat, p.lng]).addTo(map).bindPopup(`<b>${p.studentName}</b><br>${p.content || ''}`);
+      visiblePosts.forEach((p, idx) => {
+        if (!p.lat || !p.lng) return;
+        const marker = L.marker([p.lat, p.lng], {
+          icon: L.divIcon({
+            className: 'levelup-map-pin',
+            html: `<div style="width:34px;height:34px;border-radius:999px;background:#4f46e5;color:#fff;border:3px solid #fff;box-shadow:0 8px 18px rgba(15,23,42,.28);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;">${idx + 1}</div>`,
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+          }),
+          title: p.content || '지도 게시물',
+        }).addTo(map);
+        marker.on('click', (event) => {
+          event.originalEvent?.stopPropagation?.();
+          setSelectedMapPost(p);
+        });
       });
       const initTime = Date.now();
       map.on('click', e => {
         if (Date.now() - initTime < 800) return;
+        setSelectedMapPost(null);
         setWriteLat(e.latlng.lat); setWriteLng(e.latlng.lng);
         setShowWrite(true); setTimeout(() => textRef.current?.focus(), 50);
       });
@@ -616,22 +630,93 @@ export default function BoardManage({ selectedClass, user }) {
       return (
         <div style={{ ...wrap, padding: 0, position: 'relative', overflow: 'hidden' }}>
           <div ref={mapDivRef} style={{ height: 'calc(100vh - 230px)', width: '100%' }} />
-          {/* 나가기 버튼 */}
-          <button
-            onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); setEditingSheetId(null); setEditingSheetTitle(''); }}
-            className="absolute top-3 left-3 z-[1000] bg-white hover:bg-rose-50 shadow-lg rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center gap-2 transition-all"
-          >
-            ← 목록으로
-          </button>
-          {/* 힌트 */}
-          <div className="absolute bottom-4 left-4 bg-white/90 rounded-xl px-3 py-2 text-xs text-slate-500 shadow pointer-events-none z-[1000]">
-            📍 지도를 클릭하면 해당 위치에 게시물을 작성합니다
-          </div>
-          {sorted.length > 0 && (
-            <div className="absolute top-3 right-3 z-[1000] bg-white/90 shadow-lg rounded-xl px-3 py-2 text-xs font-bold text-slate-600 border border-slate-200">
+          <div className="absolute left-4 top-4 z-[1100] flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); setEditingSheetId(null); setEditingSheetTitle(''); setSelectedMapPost(null); }}
+              className="bg-white hover:bg-rose-50 shadow-lg rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center gap-2 transition-all"
+            >
+              ← 목록으로
+            </button>
+            <div className="bg-white/95 shadow-lg rounded-xl px-3 py-2 text-xs font-extrabold text-slate-600 border border-slate-200">
               📌 게시물 {sorted.length}개
             </div>
-          )}
+          </div>
+          <div className="absolute bottom-4 left-4 z-[1100] max-w-sm rounded-2xl border border-indigo-100 bg-white/95 px-4 py-3 text-xs text-slate-600 shadow-lg">
+            <div className="font-extrabold text-slate-800">지도에 글 남기기</div>
+            <div className="mt-1">원하는 위치를 클릭하면 글쓰기 창이 열리고, 게시 후 해당 위치에 번호 핀이 표시됩니다.</div>
+          </div>
+          <div
+            className="absolute right-4 top-4 bottom-4 z-[1100] w-[340px] max-w-[calc(100%-2rem)] pointer-events-none"
+          >
+            <div className="h-full rounded-2xl border border-slate-200 bg-white/95 shadow-2xl pointer-events-auto overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <div>
+                  <div className="text-sm font-extrabold text-slate-800">
+                    {selectedMapPost ? '지도 게시물' : '위치를 선택하세요'}
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-400">
+                    {selectedMapPost ? `${selectedMapPost.studentName || '작성자'} · 핀 상세` : '지도 클릭으로 새 게시물 작성'}
+                  </div>
+                </div>
+                {selectedMapPost && (
+                  <button
+                    onClick={() => setSelectedMapPost(null)}
+                    className="h-8 w-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-500 font-extrabold"
+                    title="닫기"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              {selectedMapPost ? (
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+                    <div className="mb-2 text-xs font-extrabold text-indigo-600">{selectedMapPost.studentName || '선생님'}</div>
+                    <div className="whitespace-pre-wrap text-sm font-bold leading-relaxed text-slate-800">
+                      {selectedMapPost.content || '내용 없음'}
+                    </div>
+                    {selectedMapPost.imageBase64 && (
+                      <img src={selectedMapPost.imageBase64} alt="" className="mt-3 max-h-44 w-full rounded-xl object-cover border border-white" />
+                    )}
+                    {selectedMapPost.attachment?.name && (
+                      <a
+                        href={selectedMapPost.attachment.dataUrl}
+                        download={selectedMapPost.attachment.name}
+                        className="mt-3 block rounded-xl bg-white px-3 py-2 text-xs font-bold text-indigo-600 border border-indigo-100 hover:bg-indigo-50"
+                      >
+                        📎 {selectedMapPost.attachment.name}
+                      </a>
+                    )}
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => togglePin(selectedMapPost.id, selectedMapPost.pinned)}
+                      className="rounded-xl border border-amber-200 bg-amber-50 py-2 text-xs font-extrabold text-amber-700 hover:bg-amber-100"
+                    >
+                      {selectedMapPost.pinned ? '고정 해제' : '상단 고정'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        deletePost(selectedMapPost.id);
+                        setSelectedMapPost(null);
+                      }}
+                      className="rounded-xl border border-rose-200 bg-rose-50 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-100"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+                  <div className="mb-3 text-5xl">📍</div>
+                  <div className="text-sm font-extrabold text-slate-700">지도를 클릭해 글을 작성하세요</div>
+                  <div className="mt-2 text-xs leading-relaxed text-slate-400">
+                    위치를 찍으면 글쓰기 창이 열립니다. 이미 등록된 번호 핀을 누르면 여기서 게시물을 확인할 수 있습니다.
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       );
     }
@@ -674,7 +759,7 @@ export default function BoardManage({ selectedClass, user }) {
   const WriteModal = () => {
     const isGroupType = selectedBoard?.boardType === 'vertical-group' || selectedBoard?.boardType === 'horizontal-group';
     return (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1300] flex items-end sm:items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
           <div className="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center text-xl">👑</div>
