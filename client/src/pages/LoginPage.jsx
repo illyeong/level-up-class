@@ -376,7 +376,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
                 if (pw === '1234') onTeacherLogin({ email: 'test@test.com', displayName: '테스트 교사' });
                 else if (pw !== null) alert('비밀번호가 올바르지 않습니다.');
               }}
-              className="flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors"
+              className="hidden flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors"
             >
               교사 테스트
             </button>

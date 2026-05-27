@@ -236,6 +236,13 @@ function App() {
     setAppMode('teacher');
   };
 
+  const handleTeacherTestPage = () => {
+    const cls = { id: null, teacherUid: 'admin_master_001', schoolName: '교사 테스트 페이지' };
+    setSelectedClass(cls);
+    sessionStorage.setItem('selectedClass', JSON.stringify(cls));
+    setAppMode('teacher');
+  };
+
   // ── 학생 로그인 콜백 ─────────────────────────────────────────
   const handleStudentLogin = (data) => {
     setStudentInfo(data);
@@ -412,6 +419,7 @@ function App() {
         onClassSelected={handleClassSelected}
         isAdmin={isAdmin}
         onEnterAdmin={() => setAppMode('admin')}
+        onEnterTeacherTest={handleTeacherTestPage}
         onLogout={handleLogout}
       />
     );

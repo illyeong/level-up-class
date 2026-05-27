@@ -6,7 +6,10 @@ import { db } from '../../firebase';
 const newPin = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 // studentCode에서 자리번호 추출 (예: "SINSEOK-5-01" → 1)
-const getSeatNum = (code) => parseInt(code?.split('-').pop()) || 0;
+const getSeatNum = (code) => {
+  const match = String(code || '').match(/(\d{1,2})$/);
+  return match ? parseInt(match[1], 10) : 0;
+};
 
 // 기존 학생코드에서 prefix 추출 (예: "SINSEOK-5-01" → "SINSEOK-5")
 const getPrefix = (students) => {

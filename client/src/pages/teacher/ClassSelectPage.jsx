@@ -174,6 +174,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
           maxExp:       100,
           parts:        {},
           characterImage: '',
+          tickets:      { dungeon: 3, bossRaid: 1, arena: 5 },
         });
       }
       await batch.commit();
@@ -436,7 +437,7 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
   );
 }
 
-export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout, isAdmin = false, onEnterAdmin }) {
+export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout, isAdmin = false, onEnterAdmin, onEnterTeacherTest }) {
   const [classes,     setClasses]     = useState([]);
   const [isLoading,   setIsLoading]   = useState(true);
   const [showCreate,  setShowCreate]  = useState(false);
@@ -519,6 +520,13 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
             onClick={onEnterAdmin}
             className="text-indigo-100 hover:text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-indigo-300/40 hover:border-indigo-200/80 bg-indigo-500/20 hover:bg-indigo-500/30 transition-colors">
             관리자 모드
+          </button>
+        )}
+        {isAdmin && (
+          <button
+            onClick={onEnterTeacherTest}
+            className="text-sky-100 hover:text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-sky-300/40 hover:border-sky-200/80 bg-sky-500/20 hover:bg-sky-500/30 transition-colors">
+            교사 테스트 페이지
           </button>
         )}
         <button onClick={onLogout}
