@@ -235,6 +235,9 @@ function AdventureManage({ selectedClass }) {
               <h1 className="text-2xl font-extrabold text-slate-800">⚔️ 어드벤처 관리</h1>
               <p className="text-slate-500 text-sm mt-0.5">학생별 이용권 현황 조회 및 부여</p>
             </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-500">
+              자동 지급: 탐험던전 매일 1장(최대 3장), 투기장 매일 2장(최대 5장), 월요일 보너스 탐험 +1장/투기장 +2장
+            </div>
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => { setGrantAmounts({ dungeon: 0, arena: 0 }); setGrantModal('all'); }}

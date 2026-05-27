@@ -114,6 +114,7 @@ function AccountIssue({ user, selectedClass }) {
               exp:        0,
               maxExp:     100,
               parts:      '',
+              tickets:    { dungeon: 3, bossRaid: 1, arena: 5 },
               classId:    selectedClass?.id || null,
               teacherUid: user.uid,
             });
@@ -186,6 +187,7 @@ function AccountIssue({ user, selectedClass }) {
         exp:        0,
         maxExp:     100,
         parts:      '',
+        tickets:    { dungeon: 3, bossRaid: 1, arena: 5 },
         classId:    selectedClass?.id || null,
         teacherUid: user.uid,
       };

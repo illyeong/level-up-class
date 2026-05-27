@@ -345,6 +345,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
               <p className="text-sm text-slate-500 mt-1">
                 추천 퀘스트, 기본 상점, 어드벤처 입장권, 예시 퀴즈던전, 기본 보스레이드를 한 번에 생성합니다.
               </p>
+              <p className="text-xs text-slate-400 mt-1">
+                입장권은 탐험던전 매일 1장, 투기장 매일 2장 자동 지급되며 월요일 보너스가 추가됩니다.
+              </p>
             </div>
             <div className="flex gap-2">
 <button
