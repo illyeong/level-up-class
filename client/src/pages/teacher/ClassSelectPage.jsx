@@ -376,7 +376,7 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
             <ul className="text-sm text-slate-600 space-y-1.5 list-disc pl-5">
               <li>추천 퀘스트 전체 자동 생성</li>
               <li>기본 학급 상점 5종 자동 등록</li>
-              <li>탐험던전 입장권 3장 기본 지급</li>
+              <li>탐험던전 입장권 3장, 투기장 입장권 5장 기본 지급</li>
               <li>학년 맞춤 수학 6문항 + 예시 퀴즈던전 자동 생성</li>
               <li>학년 맞춤 보스레이드용 6문항 + 기본 보스레이드 1개 생성</li>
             </ul>

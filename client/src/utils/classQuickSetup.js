@@ -16,6 +16,7 @@ import { db } from '../firebase';
 
 export const QUICK_SETUP_VERSION = 4;
 const DUNGEON_TICKET_BASE = 3;
+const ARENA_TICKET_BASE = 5;
 const DEFAULT_BOSS_ID = 'redDragon';
 const DEFAULT_BOSS_NAME = '붉은 드래곤';
 const DEFAULT_BOSS_BG = '/images/boss-bg/boss-bg-RedDragon.png';
@@ -419,15 +420,19 @@ export async function applyClassQuickSetup(selectedClass) {
   const studentUpdates = [];
   studentsSnap.docs.forEach((studentDoc) => {
     const data = studentDoc.data() || {};
-    const cur = Number(data?.tickets?.dungeon || 0);
-    if (cur >= DUNGEON_TICKET_BASE) return;
-    studentUpdates.push({ id: studentDoc.id, value: DUNGEON_TICKET_BASE });
+    const dungeon = Math.max(Number(data?.tickets?.dungeon || 0), DUNGEON_TICKET_BASE);
+    const arena = Math.max(Number(data?.tickets?.arena || 0), ARENA_TICKET_BASE);
+    if (Number(data?.tickets?.dungeon || 0) >= DUNGEON_TICKET_BASE && Number(data?.tickets?.arena || 0) >= ARENA_TICKET_BASE) return;
+    studentUpdates.push({ id: studentDoc.id, dungeon, arena });
   });
 
   for (const chunk of chunkArray(studentUpdates, 400)) {
     const batch = writeBatch(db);
     chunk.forEach((row) => {
-      batch.update(doc(db, 'students', row.id), { 'tickets.dungeon': row.value });
+      batch.update(doc(db, 'students', row.id), {
+        'tickets.dungeon': row.dungeon,
+        'tickets.arena': row.arena,
+      });
     });
     await batch.commit();
   }

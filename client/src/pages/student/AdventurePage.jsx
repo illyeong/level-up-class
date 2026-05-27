@@ -8,16 +8,18 @@ import Arena from './Arena';
 
 // ── 이용권 설정 ────────────────────────────────────────────────
 const TICKET_CONFIG = {
-  dungeon:  { weekly: 3, max: 3, icon: '🗡️', label: '던전 이용권',  color: 'sky'    },
-  arena:    { weekly: 5, max: 5, icon: '🏟️', label: '투기장 이용권', color: 'violet' },
-};
-
-const TICKET_DAILY_POLICY = {
-  dungeon: { daily: 1, mondayBonus: 1, max: 3 },
-  arena:   { daily: 2, mondayBonus: 2, max: 5 },
+  dungeon:  { daily: 1, mondayBonus: 1, max: 3, icon: '🗡️', label: '던전 이용권',  color: 'sky'    },
+  arena:    { daily: 2, mondayBonus: 2, max: 5, icon: '🏟️', label: '투기장 이용권', color: 'violet' },
 };
 
 // 어떤 뷰가 어떤 이용권을 사용하는지
+const getDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const VIEW_CONFIG = {
   adventure:          { title: '어드벤처',   icon: '⚔️',  ticketKey: null },
   quizDungeon:        { title: '퀴즈던전',   icon: '🗡️',  ticketKey: 'dungeon'  },
@@ -35,7 +37,7 @@ const getMostRecentMonday = () => {
   const monday = new Date(now);
   monday.setDate(monday.getDate() - diff);
   monday.setHours(0, 0, 0, 0);
-  return monday.toISOString().split('T')[0];
+  return getDateKey(monday);
 };
 
 // ─────────────────────── 이용권 바 ────────────────────────────
@@ -107,7 +109,7 @@ function TicketBar({ tickets, isRefreshing, studentInfo }) {
 
       {isRefreshing && (
         <span className="text-[10px] text-emerald-400 font-bold animate-pulse ml-auto">
-          ✨ 주간 이용권 지급됨!
+          ✨ 오늘 이용권이 지급되었습니다!
         </span>
       )}
     </div>
@@ -302,7 +304,7 @@ function AdventureContent({ view, tickets, onUseTicket, isBusy }) {
 
       {!hasTicket && (
         <p className="text-sm text-slate-400 mt-3">
-          매주 <span className="font-bold text-indigo-400">월요일</span>에 이용권이 자동 지급됩니다
+          매일 기본 이용권이 자동 지급되고, 월요일에는 보너스 이용권이 추가 지급됩니다
         </p>
       )}
 
@@ -363,20 +365,26 @@ function AdventurePage({ currentView, studentCode, onChangeView }) {
         });
 
         const savedTickets = data.tickets || { dungeon: 0, arena: 0 };
-        const lastMonday   = getMostRecentMonday();
-        const lastRefresh  = data.lastTicketRefreshDate || '';
+        const todayKey = getDateKey();
+        const mondayKey = getMostRecentMonday();
+        const lastDailyRefresh = data.lastTicketDailyRefreshDate || data.lastTicketRefreshDate || '';
+        const lastMondayBonus = data.lastTicketWeeklyBonusDate || data.lastTicketRefreshDate || '';
+        const shouldDailyRefresh = lastDailyRefresh < todayKey;
+        const shouldMondayBonus = lastMondayBonus < mondayKey;
 
-        if (lastRefresh < lastMonday) {
+        if (shouldDailyRefresh || shouldMondayBonus) {
           // 주간 이용권 갱신
-          const newTickets = {};
+          const newTickets = { ...savedTickets };
           for (const [key, cfg] of Object.entries(TICKET_CONFIG)) {
             const cur = savedTickets[key] ?? 0;
-            newTickets[key] = Math.min(cfg.max, cur + cfg.weekly);
+            const dailyAmount = shouldDailyRefresh ? Number(cfg.daily || 0) : 0;
+            const bonusAmount = shouldMondayBonus ? Number(cfg.mondayBonus || 0) : 0;
+            newTickets[key] = Math.min(cfg.max, cur + dailyAmount + bonusAmount);
           }
-          await updateDoc(doc(db, 'students', sDoc.id), {
-            tickets:                newTickets,
-            lastTicketRefreshDate:  lastMonday,
-          });
+          const updates = { tickets: newTickets };
+          if (shouldDailyRefresh) updates.lastTicketDailyRefreshDate = todayKey;
+          if (shouldMondayBonus) updates.lastTicketWeeklyBonusDate = mondayKey;
+          await updateDoc(doc(db, 'students', sDoc.id), updates);
           setTickets(newTickets);
           setIsRefreshed(true);
           setTimeout(() => setIsRefreshed(false), 4000);
