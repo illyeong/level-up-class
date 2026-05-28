@@ -4,7 +4,7 @@ import {
   increment, query, serverTimestamp, updateDoc, where,
 } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js';
 import {
-  getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut,
+  getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithCredential, signOut,
 } from 'https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js';
 
 const firebaseConfig = {
@@ -34,6 +34,13 @@ const fmt = (v) => Number(v || 0).toLocaleString('ko-KR');
 
 let settings = loadSettings();
 let authUser = null;
+let googleCredentialPromise = null;
+
+// 메인 프로세스에서 OAuth 토큰 수신 (signInWithPopup의 postMessage 우회)
+window.levelupWidget?.onGoogleAuthResult?.(({ idToken, accessToken }) => {
+  const credential = GoogleAuthProvider.credential(idToken, accessToken);
+  googleCredentialPromise = signInWithCredential(auth, credential).then(r => r.user);
+});
 
 // 앱 재시작 시 Firebase Auth 상태 복원
 onAuthStateChanged(auth, (user) => { authUser = user; });
@@ -451,8 +458,23 @@ function bindEvents() {
       authUser = result.user;
       await connectUser(authUser.uid);
     } catch (err) {
-      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') setupState('login');
-      else setupState('error', err.message);
+      // popup-closed-by-user는 IPC 경로로 토큰이 도착했을 때 정상 발생
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        if (googleCredentialPromise) {
+          try {
+            authUser = await googleCredentialPromise;
+            googleCredentialPromise = null;
+            await connectUser(authUser.uid);
+          } catch (credErr) {
+            googleCredentialPromise = null;
+            setupState('error', `인증 실패: ${credErr.message}`);
+          }
+        } else {
+          setupState('login');
+        }
+      } else {
+        setupState('error', err.message);
+      }
     }
   });
 

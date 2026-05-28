@@ -7,4 +7,5 @@ contextBridge.exposeInMainWorld('levelupWidget', {
   close: () => ipcRenderer.invoke('window-close'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
   onUpdateStatus: (cb) => ipcRenderer.on('update-status', (_e, data) => cb(data)),
+  onGoogleAuthResult: (cb) => ipcRenderer.on('google-auth-result', (_e, data) => cb(data)),
 });

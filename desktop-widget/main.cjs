@@ -65,26 +65,37 @@ async function createWindow() {
   mainWindow.loadURL(`http://localhost:${port}/`);
 
   // Firebase Auth signInWithPopup 팝업 허용
-  mainWindow.webContents.setWindowOpenHandler(() => {
-    return {
-      action: 'allow',
-      overrideBrowserWindowOptions: {
-        width: 500,
-        height: 660,
-        webPreferences: {
-          nodeIntegration: false,
-          contextIsolation: true,
-          sandbox: false,           // Google OAuth 페이지 렌더링에 필요
-        },
+  mainWindow.webContents.setWindowOpenHandler(() => ({
+    action: 'allow',
+    overrideBrowserWindowOptions: {
+      width: 500,
+      height: 660,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: false,
       },
-    };
-  });
+    },
+  }));
 
-  // 팝업에 일반 Chrome User-Agent 적용 (Google의 Electron 차단 우회)
+  // Google 차단 우회 + window.opener.postMessage 대체 (IPC 직접 전달)
   mainWindow.webContents.on('did-create-window', (popupWin) => {
     popupWin.webContents.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
     );
+
+    // Firebase 인증 핸들러에 토큰이 실릴 때 URL을 가로채 IPC로 전달
+    popupWin.webContents.on('did-navigate', (_e, url) => {
+      if (!url.includes('/__/auth/handler')) return;
+      const hashIdx = url.indexOf('#');
+      if (hashIdx < 0) return;
+      const params = new URLSearchParams(url.slice(hashIdx + 1));
+      const idToken    = params.get('id_token');
+      const accessToken = params.get('access_token');
+      if (!idToken) return;
+      mainWindow?.webContents.send('google-auth-result', { idToken, accessToken });
+      setTimeout(() => { try { popupWin.close(); } catch (_) {} }, 400);
+    });
   });
 }
 
