@@ -316,8 +316,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
             </button>
           )}
           <a
-            href="/downloads/LevelUpTeacherWidgetSetup.exe"
-            download
+            href="https://github.com/illyeong/level-up-class/releases/download/v1.0.0/LevelUpTeacherWidgetSetup.exe"
+            target="_blank"
+            rel="noreferrer"
             className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm"
             title="교사용 바탕화면 미니 위젯을 설치합니다."
           >
