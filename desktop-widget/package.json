@@ -26,6 +26,7 @@
       "index.html",
       "styles.css"
     ],
+    "artifactName": "LevelUpTeacherWidgetSetup.exe",
     "win": {
       "target": [
         {
