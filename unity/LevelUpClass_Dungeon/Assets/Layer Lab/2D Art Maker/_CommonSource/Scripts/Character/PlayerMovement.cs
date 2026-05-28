@@ -37,9 +37,11 @@ namespace LayerLab.ArtMaker
             rb = GetComponent<Rigidbody2D>();
             skeletonAnim = GetComponent<SkeletonAnimation>();
             skeletonGraphic = GetComponent<SkeletonGraphic>();
-
-            // 시작할 때 내 몸에 붙어있는 전투 스크립트를 찾아옵니다.
             playerCombat = GetComponent<PlayerCombat>();
+
+            // Inspector에서 연결 안 됐으면 씬에서 자동으로 찾기
+            if (joystick == null)
+                joystick = UnityEngine.Object.FindFirstObjectByType<Joystick>();
         }
 
         void Update()
