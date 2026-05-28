@@ -199,13 +199,11 @@ async function loadWidgetData() {
     });
   });
 
-  $('studentCount').textContent = fmt(students.length);
-  $('questToday').textContent = fmt(todayQuestDone);
-  $('pendingNotes').textContent = fmt(pendingNotesList.length);
-  $('todayActivity').textContent = fmt(todayActs.size);
-  $('totalGold').textContent = `${fmt(students.reduce((s, x) => s + Number(x.gold || 0), 0))}G`;
-  $('totalDiamonds').textContent = fmt(students.reduce((s, x) => s + Number(x.diamonds || 0), 0));
-  $('lastUpdated').textContent = `마지막 갱신 ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
+  $('studentCount').textContent = students.length;
+  $('questToday').textContent = todayQuestDone;
+  $('pendingNotes').textContent = pendingNotesList.length;
+  $('todayActivity').textContent = todayActs.size;
+  $('lastUpdated').textContent = `갱신 ${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
 
   renderTodos({ pendingNotes: pendingNotesList, openRaids, resultWaiting, purchases, usages });
   renderRaids(openRaids);
@@ -215,25 +213,67 @@ function renderTodos({ pendingNotes, openRaids, resultWaiting, purchases, usages
   const todayPurchases = purchases.filter(p => isToday(p.createdAt));
   const pendingUsages = usages.filter(u => !u.confirmed && !u.used);
   const todos = [
-    pendingNotes.length > 0 && { title: `배움노트 승인 대기 ${pendingNotes.length}건`, meta: pendingNotes.slice(0, 3).map(n => n.studentName).filter(Boolean).join(', ') || '확인이 필요합니다.' },
-    resultWaiting.length > 0 && { title: `레이드 결과 확인 ${resultWaiting.length}건`, meta: '결과 확인 또는 보상 지급 상태를 확인하세요.' },
-    openRaids.length > 0 && { title: `진행 중인 보스레이드 ${openRaids.length}개`, meta: openRaids.map(r => r.bossName || r.title).filter(Boolean).slice(0, 2).join(', ') },
-    todayPurchases.length > 0 && { title: `오늘 상점 구매 ${todayPurchases.length}건`, meta: '학급 상점 구매 흐름을 확인하세요.' },
-    pendingUsages.length > 0 && { title: `아이템 사용 확인 필요 ${pendingUsages.length}건`, meta: '학생 사용 요청을 확인하세요.' },
+    pendingNotes.length > 0 && {
+      urgent: true,
+      title: `배움노트 승인 대기 ${pendingNotes.length}건`,
+      meta: pendingNotes.slice(0, 3).map(n => n.studentName).filter(Boolean).join(', ') || '확인 필요',
+    },
+    resultWaiting.length > 0 && {
+      urgent: true,
+      title: `레이드 보상 지급 ${resultWaiting.length}건`,
+      meta: '전투 종료, 보상을 지급해 주세요',
+    },
+    todayPurchases.length > 0 && {
+      title: `오늘 상점 구매 ${todayPurchases.length}건`,
+      meta: '학급 상점 활동',
+    },
+    pendingUsages.length > 0 && {
+      title: `아이템 사용 확인 ${pendingUsages.length}건`,
+      meta: '학생 사용 요청 대기 중',
+    },
   ].filter(Boolean);
+
   $('todoList').innerHTML = todos.length
-    ? todos.map(t => `<div class="todo-item"><div class="todo-title">${escapeHtml(t.title)}</div><div class="todo-meta">${escapeHtml(t.meta || '')}</div></div>`).join('')
-    : '<div class="todo-item"><div class="todo-title">지금 급한 확인 항목이 없습니다</div><div class="todo-meta">수업 중에는 이 창만 띄워두셔도 됩니다.</div></div>';
+    ? todos.map(t => `
+        <div class="todo-item${t.urgent ? ' urgent' : ''}">
+          <div class="todo-dot"></div>
+          <div class="todo-body">
+            <div class="todo-title">${escapeHtml(t.title)}</div>
+            <div class="todo-meta">${escapeHtml(t.meta || '')}</div>
+          </div>
+        </div>`).join('')
+    : `<div class="todo-item empty">
+         <span style="font-size:11px;color:#1e293b">지금은 확인할 항목이 없습니다</span>
+       </div>`;
 }
 
 function renderRaids(openRaids) {
-  $('raidList').innerHTML = openRaids.length
-    ? openRaids.map(r => {
-        const max = Number(r.maxHP || 0), cur = Number(r.currentHP ?? max);
-        const pct = max > 0 ? Math.max(0, Math.round(cur / max * 100)) : 0;
-        return `<div class="raid-item"><div class="raid-title">${escapeHtml(r.bossName || r.title || '보스레이드')}</div><div class="raid-meta">${r.status === 'active' ? '전투 중' : '대기 중'} · ${Object.keys(r.participants || {}).length}명 참여 · HP ${pct}%</div></div>`;
-      }).join('')
-    : '<div class="raid-item"><div class="raid-title">열려 있는 레이드가 없습니다</div><div class="raid-meta">레이드를 시작하면 여기에 표시됩니다.</div></div>';
+  if (!openRaids.length) {
+    $('raidList').innerHTML = '<div class="raid-empty">진행 중인 레이드가 없습니다</div>';
+    return;
+  }
+  $('raidList').innerHTML = openRaids.map(r => {
+    const max = Number(r.maxHP || 0), cur = Number(r.currentHP ?? max);
+    const pct = max > 0 ? Math.max(0, Math.round(cur / max * 100)) : 0;
+    const count = Object.keys(r.participants || {}).length;
+    const isFighting = r.status === 'active';
+    const hpClass = pct > 60 ? 'hp-high' : pct > 30 ? 'hp-mid' : 'hp-low';
+    const badgeClass = isFighting ? 'fighting' : 'waiting';
+    const badgeText = isFighting ? '⚔ 전투 중' : '대기 중';
+    return `<div class="raid-item${isFighting ? ' fighting' : ''}">
+      <div class="raid-header">
+        <span class="raid-name">${escapeHtml(r.bossName || r.title || '보스레이드')}</span>
+        <span class="raid-badge ${badgeClass}">${badgeText}</span>
+      </div>
+      <div class="raid-hp-bar">
+        <div class="raid-hp-fill ${hpClass}" style="width:${pct}%"></div>
+      </div>
+      <div class="raid-footer">
+        <span class="raid-stat">HP ${pct}%</span>
+        <span class="raid-stat">${count}명 참여</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── 퀘스트 패널 ──
@@ -372,9 +412,9 @@ async function updateNoteStatus(noteId, status) {
 // ── 설정 패널 ──
 function showSettingsPanel() {
   $('settingsClassCard').innerHTML = `
-    <div class="panel-title">${escapeHtml($('className').textContent || '학급')}</div>
-    <div class="class-meta">${escapeHtml($('classMeta').textContent || '')}</div>
-    ${authUser?.email ? `<div style="margin-top:5px;font-size:11px;color:#475569">${escapeHtml(authUser.email)}</div>` : ''}
+    <div style="font-size:15px;font-weight:900;color:white;margin-bottom:3px">${escapeHtml($('className').textContent || '학급')}</div>
+    <div style="font-size:11px;color:#3b82f6;font-weight:600">${escapeHtml($('classMeta').textContent || '')}</div>
+    ${authUser?.email ? `<div style="margin-top:5px;font-size:11px;color:#1e293b">${escapeHtml(authUser.email)}</div>` : ''}
   `;
   $('pinToggleSetting').textContent = settings.alwaysOnTop ? 'ON' : 'OFF';
   $('pinToggleSetting').classList.toggle('active', settings.alwaysOnTop);
@@ -483,6 +523,26 @@ async function refresh() {
   try { await loadWidgetData(); }
   catch (err) { showError(err); }
 }
+
+// ── 자동 업데이트 ──
+window.levelupWidget?.onUpdateStatus?.(({ type, version }) => {
+  const banner = $('updateBanner');
+  const msg = $('updateBannerMsg');
+  const btn = $('installUpdateBtn');
+  if (type === 'available') {
+    msg.textContent = `v${version} 업데이트 다운로드 중...`;
+    btn.classList.add('hidden');
+    banner.classList.remove('hidden');
+  } else if (type === 'downloaded') {
+    msg.textContent = `v${version} 업데이트 준비 완료!`;
+    btn.classList.remove('hidden');
+    banner.classList.remove('hidden');
+  }
+});
+
+$('installUpdateBtn')?.addEventListener('click', () => {
+  window.levelupWidget?.installUpdate();
+});
 
 bindEvents();
 $('pinBtn').classList.toggle('active', Boolean(settings.alwaysOnTop));

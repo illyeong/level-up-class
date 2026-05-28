@@ -7,7 +7,10 @@
   "author": "LevelUp Class",
   "scripts": {
     "start": "electron .",
-    "build:win": "electron-builder --win --x64"
+    "build:win": "electron-builder --win --x64 && node generate-latest-yml.cjs"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "electron": "^42.3.0",
@@ -27,6 +30,12 @@
       "styles.css"
     ],
     "artifactName": "LevelUpTeacherWidgetSetup.exe",
+    "publish": {
+      "provider": "github",
+      "owner": "illyeong",
+      "repo": "level-up-class",
+      "releaseType": "release"
+    },
     "win": {
       "target": [
         {
