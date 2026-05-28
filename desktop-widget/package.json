@@ -1,13 +1,38 @@
 {
   "name": "levelup-class-teacher-widget",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "LevelUp Class teacher desktop mini widget",
   "main": "main.cjs",
+  "author": "LevelUp Class",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64"
   },
   "devDependencies": {
-    "electron": "^42.3.0"
+    "electron": "^42.3.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.levelupclass.teacherwidget",
+    "productName": "LevelUp Class 위젯",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "renderer.js",
+      "index.html",
+      "styles.css"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    }
   }
 }

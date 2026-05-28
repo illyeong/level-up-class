@@ -316,12 +316,12 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
             </button>
           )}
           <a
-            href="/downloads/levelup-teacher-widget.zip"
+            href="/downloads/LevelUpTeacherWidgetSetup.exe"
             download
             className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm"
-            title="교사용 바탕화면 미니 위젯을 내려받습니다."
+            title="교사용 바탕화면 미니 위젯을 설치합니다."
           >
-            위젯 다운로드
+            교사용 위젯 설치하기
           </a>
           <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
             지급/차감 내역 보기

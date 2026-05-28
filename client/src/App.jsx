@@ -441,12 +441,14 @@ function App() {
 
   // ── 학생 모드 ─────────────────────────────────────────────────
   const shouldUseAdventureBg = THEMEABLE_VIEWS.has(currentView) && themeMode === 'dark';
-  const showStudentNav = !hideStudentNav || forceShowStudentNav;
+  const isStudentTestAccount = activeStudentCode?.toLowerCase?.() === 'sinseok-5-15';
+  const effectiveHiddenStudentMenuIds = isStudentTestAccount ? [] : hiddenStudentMenuIds;
+  const showStudentNav = isStudentTestAccount || !hideStudentNav || forceShowStudentNav;
 
   return (
     <div className={`flex h-screen relative ${themeMode === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
       {showStudentNav && (
-        <NavigationBar changeView={setCurrentView} currentView={currentView} classInfo={studentClassInfo} hiddenMenuIds={hiddenStudentMenuIds} />
+        <NavigationBar changeView={setCurrentView} currentView={currentView} classInfo={studentClassInfo} hiddenMenuIds={effectiveHiddenStudentMenuIds} />
       )}
       {!showStudentNav && (
         <button

@@ -11,4 +11,12 @@ unity/*/UserSettings/
 unity/*/*.csproj
 unity/*/*.slnx
 unity/*/*.sln
-node_modules
+
+# Desktop widget build output
+desktop-widget/dist/
+desktop-widget/node_modules/
+
+# Large binary downloads (교사용 위젯 설치파일)
+client/public/downloads/*.exe
+client/public/downloads/*.msi
+client/public/downloads/*.zip
