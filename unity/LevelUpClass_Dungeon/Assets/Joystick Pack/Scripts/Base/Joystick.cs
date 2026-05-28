@@ -35,7 +35,7 @@ public class Joystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoint
     [SerializeField] private RectTransform handle = null;
     private RectTransform baseRect = null;
 
-    private Canvas canvas;
+    protected Canvas canvas;
     private Camera cam;
 
     private Vector2 input = Vector2.zero;
@@ -133,6 +133,14 @@ public class Joystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoint
     {
         input = Vector2.zero;
         handle.anchoredPosition = Vector2.zero;
+    }
+
+    // background RectTransform 영역 안에 터치가 있는지 확인
+    protected bool IsPointerOverBackground(PointerEventData eventData)
+    {
+        Camera c = (canvas != null && canvas.renderMode == RenderMode.ScreenSpaceCamera)
+            ? canvas.worldCamera : null;
+        return RectTransformUtility.RectangleContainsScreenPoint(background, eventData.position, c);
     }
 
     protected Vector2 ScreenPointToAnchoredPosition(Vector2 screenPosition)

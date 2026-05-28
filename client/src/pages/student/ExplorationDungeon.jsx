@@ -561,7 +561,8 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
       <div className="relative w-full" style={{ height: 'calc(100vh - 88px)' }}>
         <iframe ref={iframeRef} id="dungeon-iframe" src={unityUrl}
           onLoad={handleIframeLoad} className="w-full h-full border-0"
-          allow="fullscreen" title="탐험던전" />
+          allow="fullscreen" title="탐험던전"
+          style={{ touchAction: 'none' }} />
         <button onClick={() => setPhase('map')}
           className="absolute top-3 right-3 z-10 bg-slate-900/70 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-xl backdrop-blur-sm">
           ✕ 나가기

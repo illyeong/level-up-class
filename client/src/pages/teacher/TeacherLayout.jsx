@@ -196,6 +196,16 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
     }
   }, []);
 
+  // AI 요약 카드의 액션 버튼 → 페이지 이동
+  useEffect(() => {
+    const handler = (e) => {
+      const view = e.detail?.view;
+      if (view) setCurrentView(view);
+    };
+    window.addEventListener('teacher-nav', handler);
+    return () => window.removeEventListener('teacher-nav', handler);
+  }, []);
+
   const dismiss = (id) => {
     const next = [...dismissedIds, id];
     setDismissedIds(next);

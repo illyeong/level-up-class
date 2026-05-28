@@ -164,6 +164,40 @@ const TEACHER_MENUS = [
   },
 ];
 
+const SCREENSHOTS = {
+  student: [
+    { title: '학생 대시보드',    file: '학생대시보드.png',         desc: '퀘스트 진행, 출석, 자원, 보상 로그를 한 화면에서 확인합니다.' },
+    { title: '나의 퀘스트',     file: '학생-퀘스트.png',          desc: '진행 중인 퀘스트를 체크하고 완료/보상 상태를 관리합니다.' },
+    { title: '학급 상점',       file: '학급상점.png',              desc: '골드/다이아로 학급 아이템과 이용권을 구매합니다.' },
+    { title: '학급 은행',       file: '학급은행.png',              desc: '예금/출금과 이자 현황을 확인합니다.' },
+    { title: '주식/ETF 거래소', file: '주식ETF.png',               desc: 'ETF 매수/매도와 포트폴리오를 운영합니다.' },
+    { title: '장비창',          file: '장비창.png',                desc: '장비 강화와 스탯 상승 효과를 확인합니다.' },
+    { title: '아바타 룸',       file: '아바타룸.png',              desc: '캐릭터 외형을 꾸미고 저장합니다.' },
+    { title: '보물상자',        file: '보물상자.png',              desc: '다이아로 상자를 구매해 보상을 획득합니다.' },
+    { title: '투기장',          file: '투기장.png',                desc: '상대와 매칭되어 전투형 퀴즈를 진행합니다.' },
+    { title: '탐험던전',        file: '탐험던전.png',              desc: '던전 입장 후 Unity 연동 전투를 진행합니다.' },
+    { title: '퀴즈던전',        file: '퀴즈던전.png',              desc: '문제를 풀며 몬스터를 처치하는 싱글 전투를 진행합니다.' },
+    { title: '배움노트 쓰기',   file: '배움노트쓰기.png',          desc: '학습 내용을 기록하고 승인 보상을 받습니다.' },
+    { title: '학생 셀프체크인', file: '학생 셀프체크인.png',       desc: '학생이 스스로 일일/주간 퀘스트를 체크합니다.' },
+    { title: '보스레이드 대기실',  file: '보스레이드 대기실.png',   desc: '참여 인원과 보상 정보를 확인한 뒤 레이드를 시작합니다.' },
+    { title: '보스레이드 전투화면', file: '보스레이드 전투화면.png', desc: '보스 HP, 정답 로그, 타이머를 보며 전투를 진행합니다.' },
+    { title: '명예의 전당',     file: '당명예의 전당.png',          desc: '투기장/던전 랭킹을 유형별로 확인합니다.' },
+  ],
+  teacher: [
+    { title: '교사 대시보드',   file: '교사대시보드.png',          desc: '학급 전체 진행률, 퀘스트 현황, 학생 상태를 확인합니다.' },
+    { title: '학생 계정 발급',  file: '학생계정발급.png',          desc: '학생 코드/PIN 생성과 초기화, 출력 관리를 진행합니다.' },
+    { title: '퀘스트 관리',     file: '교사-퀘스트관리.png',       desc: '퀘스트 생성/종료/복제와 공유 설정을 관리합니다.' },
+    { title: '퀴즈 은행',       file: '퀴즈은행.png',              desc: '문제 제작과 보관, 던전 발행용 문제를 구성합니다.' },
+    { title: '퀴즈던전 관리',   file: '퀴즈던전 관리.png',         desc: '던전 생성과 발행, 결과 확인을 관리합니다.' },
+    { title: '어드벤처 관리',   file: '어드벤처관리.png',          desc: '이용권/레벨/학생 어드벤처 상태를 조정합니다.' },
+    { title: '보스레이드 관리', file: '보스레이드관리.png',         desc: '레이드 생성, 진행, 결과/정산을 확인합니다.' },
+    { title: '배움노트 관리',   file: '배움노트관리.png',          desc: '학생 노트 승인/반려와 보상 기준을 설정합니다.' },
+    { title: '주식/ETF 관리',   file: '주식ETF관리.png',           desc: 'ETF 가격, 배당, 교사 설정 종목을 관리합니다.' },
+    { title: '공유게시판',      file: '공유게시판.png',            desc: '시트/그룹/게시글 구조로 공유 학습 보드를 운영합니다.' },
+    { title: 'AI 문제출제',     file: 'AI문제출제.png',            desc: '자료 기반으로 AI 퀴즈를 자동 생성합니다.' },
+  ],
+};
+
 const COLOR_MAP = {
   indigo: { card: 'border-indigo-500/30 bg-indigo-950/40', icon: 'bg-indigo-500/20 text-indigo-300', badge: 'bg-indigo-500/20 text-indigo-200', dot: 'bg-indigo-400' },
   purple: { card: 'border-purple-500/30 bg-purple-950/40', icon: 'bg-purple-500/20 text-purple-300', badge: 'bg-purple-500/20 text-purple-200', dot: 'bg-purple-400' },
@@ -227,17 +261,28 @@ function MenuCard({ menu }) {
 
 function IntroModal({ open, onClose }) {
   const [tab, setTab] = useState('student');
+  const [view, setView] = useState('guide'); // 'guide' | 'screenshots'
+  const [lightbox, setLightbox] = useState(null);
 
   useEffect(() => {
     if (!open) return undefined;
-    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        if (lightbox) setLightbox(null);
+        else onClose();
+      }
+    };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [open, onClose]);
+  }, [open, onClose, lightbox]);
+
+  useEffect(() => { if (!open) setLightbox(null); }, [open]);
 
   if (!open) return null;
 
   const menus = tab === 'student' ? STUDENT_MENUS : TEACHER_MENUS;
+  const shots = tab === 'student' ? SCREENSHOTS.student : SCREENSHOTS.teacher;
+  const isStudent = tab === 'student';
 
   return (
     <div
@@ -245,67 +290,126 @@ function IntroModal({ open, onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl max-h-[92vh] rounded-2xl border border-white/15 bg-slate-900 overflow-hidden shadow-2xl shadow-black/60 flex flex-col"
+        className="w-full max-w-5xl max-h-[92vh] rounded-2xl border border-white/15 bg-slate-900 overflow-hidden shadow-2xl shadow-black/60 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between shrink-0">
           <div>
-            <h3 className="text-white font-extrabold text-lg">LevelUp Class 기능 안내</h3>
-            <p className="text-indigo-200/70 text-xs mt-0.5">각 메뉴를 클릭하면 상세 기능을 확인할 수 있습니다.</p>
+            <h3 className="text-white font-extrabold text-lg">LevelUp Class 소개</h3>
+            <p className="text-indigo-200/70 text-xs mt-0.5">
+              {view === 'guide' ? '각 메뉴를 클릭하면 상세 기능을 확인할 수 있습니다.' : '화면을 클릭하면 크게 볼 수 있습니다.'}
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-sm font-bold hover:bg-white/20 transition-colors"
-          >
+          <button type="button" onClick={onClose}
+            className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-sm font-bold hover:bg-white/20 transition-colors">
             닫기
           </button>
         </div>
 
-        {/* 탭 */}
-        <div className="px-5 pt-4 pb-3 border-b border-white/10 flex gap-2 shrink-0">
-          {GUIDE_TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
-                t.id === tab
-                  ? t.id === 'student'
-                    ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg shadow-indigo-900/40'
-                    : 'bg-amber-500 border-amber-400 text-white shadow-lg shadow-amber-900/40'
-                  : 'bg-white/5 border-white/15 text-slate-300 hover:bg-white/10'
-              }`}
-            >
-              {t.label}
-              <span className="ml-2 text-[11px] opacity-70">({(t.id === 'student' ? STUDENT_MENUS : TEACHER_MENUS).length}개 메뉴)</span>
+        {/* 상단 탭 바 — 학생/교사 + 뷰 전환 */}
+        <div className="px-5 pt-3 pb-3 border-b border-white/10 flex items-center justify-between gap-3 shrink-0 flex-wrap">
+          {/* 학생/교사 탭 */}
+          <div className="flex gap-2">
+            {GUIDE_TABS.map((t) => (
+              <button key={t.id} type="button" onClick={() => setTab(t.id)}
+                className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
+                  t.id === tab
+                    ? t.id === 'student'
+                      ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg shadow-indigo-900/40'
+                      : 'bg-amber-500 border-amber-400 text-white shadow-lg shadow-amber-900/40'
+                    : 'bg-white/5 border-white/15 text-slate-300 hover:bg-white/10'
+                }`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 메뉴설명 / 스크린샷 전환 */}
+          <div className="flex gap-1 bg-white/5 rounded-xl p-1 border border-white/10">
+            <button type="button" onClick={() => setView('guide')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                view === 'guide' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-slate-200'
+              }`}>
+              📋 메뉴 설명
             </button>
-          ))}
+            <button type="button" onClick={() => setView('screenshots')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                view === 'screenshots' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-slate-200'
+              }`}>
+              🖼 스크린샷 <span className="opacity-60">({shots.length})</span>
+            </button>
+          </div>
         </div>
 
         {/* 설명 배너 */}
-        <div className={`px-5 py-3 shrink-0 ${
-          tab === 'student'
-            ? 'bg-indigo-900/30 border-b border-indigo-500/20'
-            : 'bg-amber-900/30 border-b border-amber-500/20'
+        <div className={`px-5 py-2.5 shrink-0 border-b ${
+          isStudent ? 'bg-indigo-900/25 border-indigo-500/20' : 'bg-amber-900/25 border-amber-500/20'
         }`}>
-          <p className="text-sm font-bold text-white">
-            {tab === 'student'
+          <p className="text-xs font-bold text-white/80">
+            {isStudent
               ? '🎓 학생은 로그인 후 아래 메뉴를 통해 학급 활동에 참여합니다.'
               : '👨‍🏫 교사는 구글 계정으로 로그인 후 학급을 선택하여 전체 시스템을 운영합니다.'}
           </p>
         </div>
 
-        {/* 메뉴 카드 그리드 */}
+        {/* 본문 영역 */}
         <div className="flex-1 overflow-y-auto p-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {menus.map((menu) => (
-              <MenuCard key={menu.title} menu={menu} />
-            ))}
-          </div>
+          {view === 'guide' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {menus.map((menu) => <MenuCard key={menu.title} menu={menu} />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+              {shots.map((item) => (
+                <article key={item.file}
+                  className="rounded-xl border border-white/10 bg-slate-800/50 overflow-hidden hover:border-white/25 transition-colors cursor-pointer group"
+                  onClick={() => setLightbox(item)}
+                >
+                  <div className="aspect-[16/10] bg-slate-950 overflow-hidden">
+                    <img
+                      src={`/intro/${encodeURIComponent(item.file)}`}
+                      alt={item.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                    />
+                    <div className="hidden w-full h-full items-center justify-center text-slate-600 text-xs">이미지 없음</div>
+                  </div>
+                  <div className="px-2.5 py-2">
+                    <p className="text-white text-xs font-bold truncate">{item.title}</p>
+                    <p className="text-slate-400 text-[11px] mt-0.5 line-clamp-2 leading-relaxed">{item.desc}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* 라이트박스 */}
+      {lightbox && (
+        <div className="fixed inset-0 z-[60] bg-black/85 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}>
+          <div className="w-full max-w-4xl rounded-2xl border border-white/20 bg-slate-900 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+              <h4 className="text-white font-extrabold">{lightbox.title}</h4>
+              <button type="button" onClick={() => setLightbox(null)}
+                className="px-3 py-1 rounded-lg bg-white/10 text-white text-sm font-bold hover:bg-white/20">
+                닫기
+              </button>
+            </div>
+            <div className="bg-slate-950 max-h-[68vh] overflow-auto p-3">
+              <img src={`/intro/${encodeURIComponent(lightbox.file)}`} alt={lightbox.title}
+                className="w-full h-auto object-contain rounded-lg" />
+            </div>
+            <div className="px-4 py-3 border-t border-white/10">
+              <p className="text-indigo-100 text-sm leading-relaxed">{lightbox.desc}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

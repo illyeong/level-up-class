@@ -1,5 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, getDoc, writeBatch, serverTimestamp, query, where, orderBy, limit } from 'firebase/firestore';
+﻿import React, { useState, useEffect, useCallback } from 'react';
+import { collection, getDocs, doc, getDoc, writeBatch, serverTimestamp, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import LevelUpEffect from '../../components/LevelUpEffect';
 import { applyClassQuickSetup, QUICK_SETUP_VERSION } from '../../utils/classQuickSetup';
@@ -38,6 +38,118 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   const [quickSetupInfo, setQuickSetupInfo] = useState(null);
   const [isQuickSetupRunning, setIsQuickSetupRunning] = useState(false);
   const [showQrPrintGuide, setShowQrPrintGuide] = useState(false);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  // ── AI 요약 데이터 수집 ──────────────────────────────────────
+  const fetchAiSummary = useCallback(async (currentStudents, currentQuestStats) => {
+    const teacherUid = selectedClass?.teacherUid;
+    if (!teacherUid) return;
+    setAiLoading(true);
+    try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayTs = Timestamp.fromDate(todayStart);
+
+      const [notesSnap, txSnap, quizSnap] = await Promise.all([
+        // 배움노트 pending 건수
+        getDocs(query(
+          collection(db, 'learningNotes'),
+          where('teacherUid', '==', teacherUid),
+          where('status', '==', 'pending')
+        )),
+        // 오늘 재화 거래 내역
+        getDocs(query(
+          collection(db, 'transactions'),
+          where('timestamp', '>=', todayTs)
+        )),
+        // 오늘 퀴즈 결과
+        getDocs(query(
+          collection(db, 'quizResults'),
+          where('completedAt', '>=', todayTs)
+        )),
+      ]);
+
+      // 오늘 골드 지급/소비 합산
+      let goldIssued = 0, goldConsumed = 0;
+      txSnap.docs.forEach(d => {
+        const t = d.data();
+        const g = Number(t.goldAmount || 0);
+        if (g > 0) goldIssued += g * (t.targetCount || 1);
+        else if (g < 0) goldConsumed += Math.abs(g) * (t.targetCount || 1);
+      });
+
+      // 퀴즈던전 참여 & 평균 정답률 (오늘 학급 학생만)
+      const studentIds = new Set((currentStudents || []).map(s => s.id));
+      const todayQuizResults = quizSnap.docs
+        .map(d => d.data())
+        .filter(r => studentIds.has(r.studentId));
+      const quizCount = todayQuizResults.length;
+      const avgAccuracy = quizCount > 0
+        ? Math.round(todayQuizResults.reduce((s, r) => s + (Number(r.accuracy) || 0), 0) / quizCount)
+        : null;
+
+      // 퀘스트 완료율 계산 (daily 퀘스트 기준)
+      const dailyQuests = (currentQuestStats || []).filter(q => q.type === 'daily');
+      const totalStu = (currentStudents || []).length || 1;
+      const questRate = dailyQuests.length > 0
+        ? Math.round(dailyQuests.reduce((s, q) => s + (q.checkedCount || 0), 0) / dailyQuests.length / totalStu * 100)
+        : null;
+
+      const pendingNotes = notesSnap.size;
+
+      // 요약 텍스트 규칙 생성
+      const summary = generateAiText({ questRate, pendingNotes, goldIssued, goldConsumed, totalStu, quizCount, avgAccuracy, dailyQuests });
+
+      setAiSummary({ questRate, pendingNotes, goldIssued, goldConsumed, quizCount, avgAccuracy, text: summary, refreshedAt: new Date() });
+    } catch (e) {
+      console.error('AI 요약 fetch 실패:', e);
+    } finally {
+      setAiLoading(false);
+    }
+  }, [selectedClass]);
+
+  const generateAiText = ({ questRate, pendingNotes, goldIssued, goldConsumed, totalStu, quizCount, avgAccuracy, dailyQuests }) => {
+    const parts = [];
+
+    if (dailyQuests.length === 0) {
+      parts.push('활성 퀘스트가 없습니다. 퀘스트 관리소에서 퀘스트를 만들어보세요.');
+    } else if (questRate === null) {
+      parts.push('퀘스트 현황을 불러오는 중입니다.');
+    } else if (questRate >= 80) {
+      parts.push(`오늘 퀘스트 참여율이 ${questRate}%로 높습니다. 활발한 하루입니다! 🎉`);
+    } else if (questRate >= 50) {
+      parts.push(`퀘스트 참여율은 ${questRate}%입니다. 아직 미완료 학생이 있으니 확인해보세요.`);
+    } else if (questRate > 0) {
+      parts.push(`퀘스트 참여율이 ${questRate}%로 낮습니다. 짧은 독려 공지나 보상 퀘스트를 활용해보세요.`);
+    } else {
+      parts.push('아직 퀘스트 체크인이 없습니다. 학생들에게 안내해보세요.');
+    }
+
+    if (pendingNotes > 0) {
+      parts.push(`배움노트 승인 대기 ${pendingNotes}건이 있습니다. 확인 후 보상을 지급해주세요.`);
+    }
+
+    if (goldIssued > 0 && goldConsumed < goldIssued * 0.25) {
+      parts.push(`오늘 골드 지급(${goldIssued.toLocaleString()}G) 대비 소비(${goldConsumed.toLocaleString()}G)가 낮습니다. 소형 상점 아이템 추가를 추천합니다.`);
+    } else if (goldIssued > 0 && goldConsumed >= goldIssued * 0.5) {
+      parts.push(`오늘 학급 경제는 지급과 소비가 균형 잡혀 있습니다.`);
+    }
+
+    if (quizCount > 0 && avgAccuracy !== null) {
+      if (avgAccuracy < 60) {
+        parts.push(`퀴즈던전 평균 정답률이 ${avgAccuracy}%로 낮습니다. 오답 내용 복습을 권장합니다.`);
+      } else {
+        parts.push(`오늘 퀴즈던전에 ${quizCount}명이 참여했으며 평균 정답률은 ${avgAccuracy}%입니다.`);
+      }
+    }
+
+    if (parts.length === 1 && questRate >= 80 && pendingNotes === 0) {
+      return parts[0] + ' 보상 대기 항목도 없어 오늘 운영이 안정적입니다.';
+    }
+
+    return parts.join(' ');
+  };
 
   const fetchStudents = async () => {
     setIsLoading(true);
@@ -121,8 +233,10 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       console.log('[Quest Debug] ?쒖꽦 ?섏뒪??', activeQuests.length, activeQuests.map(q => q.title));
       setQuestStats(stats);
       setStudentQuestMap(sqMap);
+      return stats;
     } catch (err) {
-      console.error('?섏뒪???듦퀎 ?먮윭:', err);
+      console.error('퀘스트 데이터 오류:', err);
+      return [];
     }
   };
 
@@ -151,8 +265,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   useEffect(() => {
     const load = async () => {
       const studentList = await fetchStudents();
-      await fetchQuestStats(studentList.map(s => s.id));
+      const questList = await fetchQuestStats(studentList.map(s => s.id));
       await loadQuickSetupStatus();
+      await fetchAiSummary(studentList, questList);
     };
     load();
   }, [selectedClass]);
@@ -362,7 +477,113 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         </div>
       )}
 
-      {/* ?섏뒪???꾪솴 ?뱀뀡 */}
+      {/* ── AI 오늘의 운영 요약 ── */}
+      <div className="mb-6">
+        <div className="rounded-2xl border border-indigo-800/60 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-900 shadow-lg overflow-hidden">
+          {/* 헤더 */}
+          <div className="px-5 py-4 flex items-center justify-between border-b border-white/10">
+            <div className="flex items-center gap-2.5">
+              <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-500/20 text-lg">✨</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-extrabold text-sm">AI 오늘의 운영 요약</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200">BETA</span>
+                </div>
+                <p className="text-indigo-300/70 text-[11px] mt-0.5">오늘 학급 운영에서 확인하면 좋은 내용을 정리해드립니다.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => fetchAiSummary(students, questStats)}
+              disabled={aiLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-colors disabled:opacity-50"
+            >
+              {aiLoading ? (
+                <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : '↻'}
+              새로고침
+            </button>
+          </div>
+
+          {/* 본문 */}
+          <div className="px-5 py-4">
+            {aiLoading && !aiSummary ? (
+              <div className="flex items-center gap-2 text-indigo-300 text-sm py-2">
+                <span className="inline-block w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+                분석 중...
+              </div>
+            ) : aiSummary ? (
+              <>
+                {/* 요약 텍스트 */}
+                <p className="text-slate-100 text-sm leading-relaxed mb-4">{aiSummary.text}</p>
+
+                {/* 지표 칩 */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {aiSummary.questRate !== null && (
+                    <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
+                      ${aiSummary.questRate >= 70 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : aiSummary.questRate >= 40 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
+                      ⚔️ 퀘스트 완료율 {aiSummary.questRate}%
+                    </span>
+                  )}
+                  {aiSummary.pendingNotes > 0 && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      📚 승인 대기 {aiSummary.pendingNotes}건
+                    </span>
+                  )}
+                  {aiSummary.goldIssued > 0 && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
+                      🪙 오늘 지급 {aiSummary.goldIssued.toLocaleString()}G
+                    </span>
+                  )}
+                  {aiSummary.goldConsumed > 0 && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-500/20 text-slate-300 border border-slate-500/30">
+                      💸 오늘 소비 {aiSummary.goldConsumed.toLocaleString()}G
+                    </span>
+                  )}
+                  {aiSummary.quizCount > 0 && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      🧩 퀴즈 참여 {aiSummary.quizCount}명
+                      {aiSummary.avgAccuracy !== null && ` · 정답률 ${aiSummary.avgAccuracy}%`}
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="text-slate-400 text-sm py-2">데이터를 불러오려면 새로고침을 눌러주세요.</p>
+            )}
+
+            {/* 액션 버튼 */}
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-white/10">
+              {[
+                { label: '⚔️ 퀘스트 확인', view: 'questManage' },
+                { label: '📚 배움노트 승인', view: 'learningNoteManage' },
+                { label: '🛒 상점 관리', view: 'classShopManage' },
+                { label: '👥 학생 현황', view: 'accountIssue' },
+              ].map(({ label, view }) => (
+                <button
+                  key={view}
+                  onClick={() => {
+                    // TeacherLayout의 changeView 호출 — props로 올리거나 CustomEvent 사용
+                    window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view } }));
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white/8 hover:bg-white/15 border border-white/15 text-slate-200 text-xs font-bold transition-colors"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {aiSummary?.refreshedAt && (
+              <p className="text-slate-600 text-[10px] mt-2 text-right">
+                {aiSummary.refreshedAt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 퀘스트 현황 */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <img src={iconQuest} alt="퀘스트" className="w-6 h-6 object-contain" />
