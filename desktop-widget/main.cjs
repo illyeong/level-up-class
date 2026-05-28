@@ -1,9 +1,48 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const http = require('http');
+const fs = require('fs');
 const path = require('path');
 
 let mainWindow = null;
+let localServer = null;
 
-function createWindow() {
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js':   'text/javascript; charset=utf-8',
+  '.css':  'text/css; charset=utf-8',
+  '.json': 'application/json',
+};
+
+function startLocalServer() {
+  return new Promise((resolve) => {
+    localServer = http.createServer((req, res) => {
+      const urlPath = req.url.split('?')[0];
+      const file = urlPath === '/' ? 'index.html' : urlPath.replace(/^\//, '');
+      const filePath = path.join(__dirname, file);
+      const ext = path.extname(filePath).toLowerCase();
+
+      fs.readFile(filePath, (err, data) => {
+        if (err) {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('Not found');
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+        res.end(data);
+      });
+    });
+
+    // 포트 0 = OS가 사용 가능한 포트 자동 할당
+    localServer.listen(0, 'localhost', () => {
+      resolve(localServer.address().port);
+    });
+  });
+}
+
+async function createWindow() {
+  // localhost HTTP 서버로 로드해야 Firebase Auth 도메인 인증 통과
+  const port = await startLocalServer();
+
   mainWindow = new BrowserWindow({
     width: 392,
     height: 640,
@@ -22,9 +61,9 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.loadURL(`http://localhost:${port}/`);
 
-  // Firebase Auth signInWithPopup이 window.open()으로 팝업을 열므로 허용
+  // Firebase Auth signInWithPopup 팝업 허용
   mainWindow.webContents.setWindowOpenHandler(() => {
     return {
       action: 'allow',
@@ -45,6 +84,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  if (localServer) localServer.close();
   if (process.platform !== 'darwin') app.quit();
 });
 
