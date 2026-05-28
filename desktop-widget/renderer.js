@@ -93,9 +93,14 @@ async function connectUser(uid) {
   try {
     const snap = await getDocs(query(collection(db, 'classes'), where('teacherUid', '==', uid)));
     if (snap.empty) {
-      setupState('error', '이 계정에 연결된 학급이 없습니다.\n웹앱에서 학급을 먼저 생성해 주세요.');
+      setupState('error', '이 계정에 연결된 학급이 없습니다.\n웹앱에서 학급을 먼저 생성하거나,\n아래 UID를 학급의 teacherUid로 설정해 주세요.');
+      $('uidText').textContent = uid;
+      $('uidDisplayArea').classList.remove('hidden');
+      $('manualConnectArea').classList.remove('hidden');
       return;
     }
+    $('uidDisplayArea').classList.add('hidden');
+    $('manualConnectArea').classList.add('hidden');
     if (snap.docs.length === 1) {
       saveSettings({ classId: snap.docs[0].id, teacherUid: uid });
       await refresh();
@@ -458,7 +463,37 @@ function bindEvents() {
     setupState('login');
   });
 
-  $('retryLoginBtn').addEventListener('click', () => setupState('login'));
+  $('retryLoginBtn').addEventListener('click', () => {
+    $('uidDisplayArea').classList.add('hidden');
+    $('manualConnectArea').classList.add('hidden');
+    setupState('login');
+  });
+
+  $('copyUidBtn').addEventListener('click', () => {
+    const uid = $('uidText').textContent;
+    navigator.clipboard.writeText(uid).then(() => {
+      $('copyUidBtn').textContent = '✓ 복사됨';
+      setTimeout(() => { $('copyUidBtn').textContent = '복사'; }, 1800);
+    }).catch(() => {});
+  });
+
+  $('manualConnectBtn').addEventListener('click', async () => {
+    const classId = $('manualClassIdInput').value.trim();
+    if (!classId) return;
+    setupState('loading');
+    try {
+      const snap = await getDoc(doc(db, 'classes', classId));
+      if (!snap.exists()) {
+        setupState('error', '해당 학급 ID를 찾을 수 없습니다.\nFirebase 콘솔에서 classes 컬렉션의 문서 ID를 확인해 주세요.');
+        return;
+      }
+      const data = snap.data();
+      saveSettings({ classId: snap.id, teacherUid: data.teacherUid || authUser?.uid || '' });
+      await refresh();
+    } catch (err) {
+      setupState('error', err.message);
+    }
+  });
 
   // 대시보드 버튼
   $('settingsBtn').addEventListener('click', showSettingsPanel);
@@ -495,7 +530,14 @@ function bindEvents() {
     window.levelupWidget?.openExternal(settings.webUrl || DEFAULTS.webUrl);
   });
 
-  $('changeClassBtn').addEventListener('click', () => setupState('login'));
+  $('changeClassBtn').addEventListener('click', async () => {
+    saveSettings({ classId: '', teacherUid: '' });
+    if (authUser) {
+      await connectUser(authUser.uid);
+    } else {
+      setupState('login');
+    }
+  });
 
   $('logoutBtn').addEventListener('click', () => {
     saveSettings({ classId: '', teacherUid: '' });

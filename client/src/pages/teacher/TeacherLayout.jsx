@@ -420,21 +420,22 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
               <div className="grid gap-4 md:grid-cols-2">
                 <div className={`rounded-xl p-4 ${isDark ? 'border border-slate-700 bg-slate-900/40' : 'border border-slate-200 bg-white'}`}>
                   <div className="text-sm font-bold mb-2">학생 메뉴별 활성/비활성</div>
-                  <div className="max-h-56 overflow-auto space-y-1">
+                  <div className="max-h-96 overflow-auto space-y-0.5">
                     {studentMenuOptions.map((id) => {
                       const hidden = hiddenStudentMenuIds.includes(id);
                       return (
-                        <label key={id} className="flex items-center justify-between text-xs py-1">
-                          <span className={hidden ? 'text-slate-400' : (isDark ? 'text-slate-200' : 'text-slate-700')}>
+                        <label key={id} className="flex items-center gap-2 text-xs py-1.5 cursor-pointer">
+                          <span className={`flex-1 min-w-0 leading-snug ${hidden ? 'text-slate-400' : (isDark ? 'text-slate-200' : 'text-slate-700')}`}>
                             {studentMenuLabelMap[id] || id}
                           </span>
-                          <span className={`mr-2 text-[11px] font-bold ${hidden ? 'text-rose-400' : 'text-emerald-500'}`}>
+                          <span className={`shrink-0 w-10 text-right text-[11px] font-bold ${hidden ? 'text-rose-400' : 'text-emerald-500'}`}>
                             {hidden ? '비활성' : '활성'}
                           </span>
                           <input
                             type="checkbox"
                             checked={!hidden}
                             onChange={() => toggleHiddenMenu('student', id)}
+                            className="shrink-0 w-4 h-4 accent-indigo-500"
                           />
                         </label>
                       );
@@ -443,21 +444,22 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
                 </div>
                 <div className={`rounded-xl p-4 ${isDark ? 'border border-slate-700 bg-slate-900/40' : 'border border-slate-200 bg-white'}`}>
                   <div className="text-sm font-bold mb-2">교사 메뉴별 활성/비활성</div>
-                  <div className="max-h-56 overflow-auto space-y-1">
+                  <div className="max-h-96 overflow-auto space-y-0.5">
                     {teacherMenuOptions.map((id) => {
                       const hidden = hiddenTeacherMenuIds.includes(id);
                       return (
-                        <label key={id} className="flex items-center justify-between text-xs py-1">
-                          <span className={hidden ? 'text-slate-400' : (isDark ? 'text-slate-200' : 'text-slate-700')}>
+                        <label key={id} className="flex items-center gap-2 text-xs py-1.5 cursor-pointer">
+                          <span className={`flex-1 min-w-0 leading-snug ${hidden ? 'text-slate-400' : (isDark ? 'text-slate-200' : 'text-slate-700')}`}>
                             {teacherMenuLabelMap[id] || id}
                           </span>
-                          <span className={`mr-2 text-[11px] font-bold ${hidden ? 'text-rose-400' : 'text-emerald-500'}`}>
+                          <span className={`shrink-0 w-10 text-right text-[11px] font-bold ${hidden ? 'text-rose-400' : 'text-emerald-500'}`}>
                             {hidden ? '비활성' : '활성'}
                           </span>
                           <input
                             type="checkbox"
                             checked={!hidden}
                             onChange={() => toggleHiddenMenu('teacher', id)}
+                            className="shrink-0 w-4 h-4 accent-indigo-500"
                           />
                         </label>
                       );

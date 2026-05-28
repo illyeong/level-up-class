@@ -61,7 +61,22 @@
             <div id="stateError" class="hidden">
               <div class="panel-title">연결 실패</div>
               <p id="setupErrMsg" class="error-text"></p>
-              <button id="retryLoginBtn" class="primary-btn" style="margin-top:14px">다시 시도</button>
+              <div id="uidDisplayArea" class="uid-display hidden">
+                <div class="uid-label">내 계정 UID</div>
+                <div class="uid-row">
+                  <code id="uidText" class="uid-value">-</code>
+                  <button id="copyUidBtn" class="uid-copy-btn">복사</button>
+                </div>
+                <p class="uid-hint">Firebase 콘솔 → classes → teacherUid 를 위 값으로 변경하면 자동 연결됩니다.</p>
+              </div>
+              <div id="manualConnectArea" class="hidden" style="margin-top:10px">
+                <div class="uid-label" style="margin-bottom:5px">학급 ID로 직접 연결</div>
+                <div style="display:flex;gap:6px">
+                  <input id="manualClassIdInput" placeholder="학급 문서 ID 입력" style="flex:1;padding:8px 10px;font-size:12px" />
+                  <button id="manualConnectBtn" class="approve-btn" style="flex-shrink:0;padding:8px 12px">연결</button>
+                </div>
+              </div>
+              <button id="retryLoginBtn" class="primary-btn" style="margin-top:12px">다시 시도</button>
             </div>
             <div id="disconnectArea" class="disconnect-area hidden">
               <button id="disconnectBtn" class="small-btn red">연결 해제</button>
