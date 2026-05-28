@@ -69,11 +69,22 @@ async function createWindow() {
     return {
       action: 'allow',
       overrideBrowserWindowOptions: {
-        width: 480,
-        height: 640,
-        webPreferences: { nodeIntegration: false, contextIsolation: true },
+        width: 500,
+        height: 660,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          sandbox: false,           // Google OAuth 페이지 렌더링에 필요
+        },
       },
     };
+  });
+
+  // 팝업에 일반 Chrome User-Agent 적용 (Google의 Electron 차단 우회)
+  mainWindow.webContents.on('did-create-window', (popupWin) => {
+    popupWin.webContents.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+    );
   });
 }
 
