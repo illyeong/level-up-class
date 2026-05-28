@@ -447,12 +447,24 @@ function TeachersTab() {
   useEffect(() => {
     (async () => {
       try {
-        const [classSnap, studentSnap] = await Promise.all([
+        const [classSnap, studentSnap, quizSnap] = await Promise.all([
           getDocs(collection(db, 'classes')),
           getDocs(collection(db, 'students')),
+          getDocs(collection(db, 'quizSets')),
         ]);
         const classes  = classSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         const students = studentSnap.docs.map(d => d.data());
+        const quizSets = quizSnap.docs.map(d => d.data());
+
+        // quizSets → ownerId별 문항 수 합산
+        const quizCountByOwner = {};
+        const quizQCountByOwner = {};
+        quizSets.forEach(q => {
+          const oid = q.ownerId;
+          if (!oid) return;
+          quizCountByOwner[oid] = (quizCountByOwner[oid] || 0) + 1;
+          quizQCountByOwner[oid] = (quizQCountByOwner[oid] || 0) + (q.questionCount || (q.questions?.length ?? 0));
+        });
 
         // teacherUid 기준으로 그룹핑
         const map = {};
@@ -462,12 +474,21 @@ function TeachersTab() {
             teacherEmail: c.teacherEmail || '',
             classes: [],
             studentCount: 0,
+            quizSetCount: 0,
+            questionCount: 0,
           };
           map[c.teacherUid].classes.push(c);
         });
         students.forEach(s => {
           if (s.teacherUid && map[s.teacherUid])
             map[s.teacherUid].studentCount++;
+        });
+        // 퀴즈 통계 병합
+        Object.entries(quizCountByOwner).forEach(([oid, cnt]) => {
+          if (map[oid]) {
+            map[oid].quizSetCount  = cnt;
+            map[oid].questionCount = quizQCountByOwner[oid] || 0;
+          }
         });
 
         setTeachers(Object.values(map).sort((a, b) => b.classes.length - a.classes.length));
@@ -481,7 +502,7 @@ function TeachersTab() {
   return (
     <div className="p-6 space-y-4">
       <h2 className="text-xl font-extrabold text-slate-800">👨‍🏫 교사 목록 ({teachers.length}명)</h2>
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
         {teachers.length === 0 ? (
           <div className="p-8 text-center text-slate-400">등록된 교사가 없습니다</div>
         ) : (
@@ -491,6 +512,8 @@ function TeachersTab() {
                 <th className="px-4 py-3 text-left font-semibold">이메일</th>
                 <th className="px-4 py-3 text-center font-semibold">학급</th>
                 <th className="px-4 py-3 text-center font-semibold">학생</th>
+                <th className="px-4 py-3 text-center font-semibold">퀴즈 세트</th>
+                <th className="px-4 py-3 text-center font-semibold">총 문항</th>
                 <th className="px-4 py-3 text-left font-semibold">학급 목록</th>
               </tr>
             </thead>
@@ -500,6 +523,16 @@ function TeachersTab() {
                   <td className="px-4 py-3 font-bold text-slate-800">{t.teacherEmail || t.teacherUid}</td>
                   <td className="px-4 py-3 text-center font-extrabold text-indigo-600">{t.classes.length}개</td>
                   <td className="px-4 py-3 text-center font-extrabold text-emerald-600">{t.studentCount}명</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`font-extrabold ${t.quizSetCount > 0 ? 'text-violet-600' : 'text-slate-300'}`}>
+                      {t.quizSetCount}세트
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`font-extrabold ${t.questionCount > 0 ? 'text-amber-600' : 'text-slate-300'}`}>
+                      {t.questionCount}문항
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 flex-wrap">
                       {t.classes.map(c => (

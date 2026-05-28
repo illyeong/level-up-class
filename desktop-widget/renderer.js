@@ -98,7 +98,50 @@ function setupState(state, payload) {
 async function connectUser(uid) {
   setupState('loading');
   try {
-    const snap = await getDocs(query(collection(db, 'classes'), where('teacherUid', '==', uid)));
+    let snap = await getDocs(query(collection(db, 'classes'), where('teacherUid', '==', uid)));
+
+    // UID로 학급 없으면 → 이메일로 classes 조회 (teacherEmail 필드)
+    if (snap.empty && authUser?.email) {
+      snap = await getDocs(query(collection(db, 'classes'), where('teacherEmail', '==', authUser.email)));
+      if (!snap.empty) {
+        // teacherEmail 매치: teacherUid를 현재 UID로 업데이트 (다음 로그인부터 UID 직접 조회)
+        await updateDoc(doc(db, 'classes', snap.docs[0].id), { teacherUid: uid });
+      }
+    }
+
+    // 아직도 없으면 → 학생 코드로 학급 탐색 (오너 계정 폴백)
+    if (snap.empty && authUser?.email) {
+      const studentSnap = await getDocs(
+        query(collection(db, 'students'), where('studentCode', '==', 'SINSEOK-5-15'))
+      );
+      if (!studentSnap.empty) {
+        const sd = studentSnap.docs[0].data();
+        const fbClassId   = sd.classId    || null;
+        const fbTeacherUid = sd.teacherUid || null;
+        if (fbClassId) {
+          // 찾은 classId로 학급 문서 가져오기 + teacherUid 등록
+          const clsSnap = await getDoc(doc(db, 'classes', fbClassId));
+          if (clsSnap.exists()) {
+            await updateDoc(doc(db, 'classes', fbClassId), { teacherUid: uid, teacherEmail: authUser.email });
+            saveSettings({ classId: fbClassId, teacherUid: uid });
+            await refresh();
+            return;
+          }
+        }
+        if (fbTeacherUid && !fbClassId) {
+          // classId 없는 구버전: teacherUid 기반으로 연결
+          const clsSnap2 = await getDocs(query(collection(db, 'classes'), where('teacherUid', '==', fbTeacherUid)));
+          if (!clsSnap2.empty) {
+            const cid = clsSnap2.docs[0].id;
+            await updateDoc(doc(db, 'classes', cid), { teacherUid: uid, teacherEmail: authUser.email });
+            saveSettings({ classId: cid, teacherUid: uid });
+            await refresh();
+            return;
+          }
+        }
+      }
+    }
+
     if (snap.empty) {
       setupState('error', '이 계정에 연결된 학급이 없습니다.\n웹앱에서 학급을 먼저 생성하거나,\n아래 UID를 학급의 teacherUid로 설정해 주세요.');
       $('uidText').textContent = uid;

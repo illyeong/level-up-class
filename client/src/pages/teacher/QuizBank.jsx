@@ -736,43 +736,53 @@ export default function QuizBank({ selectedClass = null }) {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {filteredMySets.map(set => (
-                  <div key={set.id} className="bg-white rounded-2xl shadow-sm border-2 border-slate-200 hover:shadow-md transition-all overflow-hidden">
-                    {/* 색 띠 */}
-                    <div className={`px-4 py-1.5 text-[10px] font-extrabold flex justify-between items-center
-                      ${set.difficulty === 'easy' ? 'bg-emerald-500 text-white' : set.difficulty === 'hard' ? 'bg-rose-500 text-white' : 'bg-sky-500 text-white'}`}>
-                      <span>{DIFF_LABEL[set.difficulty] || '보통'}</span>
-                      <span>{set.questionCount || 0}문항 · {fmtDate(set.createdAt)}</span>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-extrabold text-slate-800 mb-1 leading-tight">{set.title}</h3>
+                  <div key={set.id} className={`rounded-2xl border-2 overflow-hidden hover:shadow-md transition-all group
+                    ${set.isShared ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 bg-white'}`}>
+                    {/* 상단 헤더 */}
+                    <div className="px-4 pt-4 pb-3">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="font-extrabold text-slate-800 text-sm leading-snug line-clamp-2 flex-1">{set.title}</h3>
+                        <span className={`shrink-0 text-[10px] font-extrabold px-2 py-0.5 rounded-full border
+                          ${set.difficulty === 'easy' ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                          : set.difficulty === 'hard' ? 'bg-rose-50 text-rose-600 border-rose-200'
+                          : 'bg-sky-50 text-sky-600 border-sky-200'}`}>
+                          {DIFF_LABEL[set.difficulty] || '보통'}
+                        </span>
+                      </div>
+                      {/* 태그 */}
                       <div className="flex flex-wrap gap-1 mb-3">
                         {set.grade && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.grade}학년</span>}
                         {set.semester && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.semester}학기</span>}
                         {set.subject && <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-full">{set.subject}</span>}
-                        {set.isShared && <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full">🌐 공유 중</span>}
                         {set.sourceId && <span className="text-[10px] bg-amber-50 text-amber-600 font-bold px-2 py-0.5 rounded-full">📥 가져옴</span>}
                       </div>
-                      <div className="flex gap-2 flex-wrap">
-                        <button onClick={() => setPreviewSet(set)}
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
-                          👁 미리보기
-                        </button>
-                        <button onClick={() => setEditingSet(set)}
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors">
-                          ✏️ 수정
-                        </button>
-                        <button onClick={() => toggleShare(set)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors
-                            ${set.isShared ? 'border-emerald-200 text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                          {set.isShared ? '🌐 공유 중' : '↑ 공유하기'}
-                        </button>
-                        <button onClick={() => deleteSet(set)}
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold border border-rose-200 text-rose-500 hover:bg-rose-50 transition-colors ml-auto">
-                          삭제
-                        </button>
+                      {/* 문항수 + 날짜 */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                        <span className="font-extrabold text-slate-600">📝 {set.questionCount || 0}문항</span>
+                        <span>{fmtDate(set.createdAt)}</span>
                       </div>
+                    </div>
+                    {/* 하단 액션 */}
+                    <div className="px-3 pb-3 flex gap-1.5 flex-wrap border-t border-slate-100 pt-2.5">
+                      <button onClick={() => setPreviewSet(set)}
+                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+                        👁 미리보기
+                      </button>
+                      <button onClick={() => setEditingSet(set)}
+                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors">
+                        ✏️ 수정
+                      </button>
+                      <button onClick={() => toggleShare(set)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors
+                          ${set.isShared ? 'border-emerald-200 text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                        {set.isShared ? '🌐 공유중' : '↑ 공유'}
+                      </button>
+                      <button onClick={() => deleteSet(set)}
+                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-rose-200 text-rose-500 hover:bg-rose-50 transition-colors ml-auto">
+                        삭제
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1208,35 +1218,43 @@ export default function QuizBank({ selectedClass = null }) {
                 <p className="text-sm mt-1">내 퀴즈에서 "공유하기" 버튼을 눌러 퀴즈를 공유해보세요!</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {filteredBankSets.map(set => (
-                  <div key={set.id} className="bg-white rounded-2xl shadow-sm border-2 border-slate-200 hover:shadow-md transition-all overflow-hidden">
-                    <div className={`px-4 py-1.5 text-[10px] font-extrabold flex justify-between items-center
-                      ${set.difficulty === 'easy' ? 'bg-emerald-500 text-white' : set.difficulty === 'hard' ? 'bg-rose-500 text-white' : 'bg-sky-500 text-white'}`}>
-                      <span>{DIFF_LABEL[set.difficulty] || '보통'}</span>
-                      <span>{set.questionCount || 0}문항</span>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-extrabold text-slate-800 mb-1 leading-tight">{set.title}</h3>
-                      <div className="text-xs text-slate-400 mb-2">
-                        {set.ownerName || '선생님'} · {fmtDate(set.sharedAt || set.createdAt)}
-                        {(set.importCount || 0) > 0 && <span className="ml-2 text-indigo-500 font-bold">📥 {set.importCount}회 가져옴</span>}
+                  <div key={set.id} className="bg-white rounded-2xl border-2 border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all overflow-hidden group">
+                    {/* 상단 헤더 */}
+                    <div className="px-4 pt-4 pb-3">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="font-extrabold text-slate-800 text-sm leading-snug line-clamp-2 flex-1">{set.title}</h3>
+                        <span className={`shrink-0 text-[10px] font-extrabold px-2 py-0.5 rounded-full border
+                          ${set.difficulty === 'easy' ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                          : set.difficulty === 'hard' ? 'bg-rose-50 text-rose-600 border-rose-200'
+                          : 'bg-sky-50 text-sky-600 border-sky-200'}`}>
+                          {DIFF_LABEL[set.difficulty] || '보통'}
+                        </span>
                       </div>
+                      {/* 태그 */}
                       <div className="flex flex-wrap gap-1 mb-3">
                         {set.grade && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.grade}학년</span>}
                         {set.semester && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.semester}학기</span>}
                         {set.subject && <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-full">{set.subject}</span>}
+                        {(set.importCount || 0) > 0 && <span className="text-[10px] bg-violet-50 text-violet-600 font-bold px-2 py-0.5 rounded-full">📥 {set.importCount}회</span>}
                       </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => setPreviewSet(set)}
-                          className="flex-1 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
-                          👁 미리보기
-                        </button>
-                        <button onClick={() => importFromBank(set)}
-                          className="flex-1 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">
-                          📥 내 퀴즈로 가져오기
-                        </button>
+                      {/* 문항수 + 날짜 */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                        <span className="font-extrabold text-slate-600">📝 {set.questionCount || 0}문항</span>
+                        <span>{fmtDate(set.sharedAt || set.createdAt)}</span>
                       </div>
+                    </div>
+                    {/* 하단 액션 */}
+                    <div className="px-3 pb-3 flex gap-1.5 border-t border-slate-100 pt-2.5">
+                      <button onClick={() => setPreviewSet(set)}
+                        className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+                        👁 미리보기
+                      </button>
+                      <button onClick={() => importFromBank(set)}
+                        className="flex-1 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors text-center">
+                        📥 내 퀴즈로 가져오기
+                      </button>
                     </div>
                   </div>
                 ))}
