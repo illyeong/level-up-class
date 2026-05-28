@@ -41,13 +41,14 @@ const extractPptxText = async (file) => {
 
 // ─── 교육과정 데이터 ─────────────────────────────────────────────
 const NATIONAL = ['국정'];
+const MATH_PUB = ['비상', '천재교과서', '동아출판', '미래엔', '아이스크림', '지학사', 'YBM'];
 const CURRICULUM = {
-  1: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '국어활동', publishers: NATIONAL }, { name: '수학', publishers: NATIONAL }, { name: '통합교과', publishers: NATIONAL, units: { '1학기': ['학교', '사람들', '우리나라', '탐험'], '2학기': ['하루', '약속', '상상', '이야기'] } }, { name: '입학초기적응활동', publishers: NATIONAL }, { name: '국어기초학습', publishers: NATIONAL }] },
-  2: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: NATIONAL }, { name: '통합교과', publishers: NATIONAL, units: { '1학기': ['나', '자연', '마을', '세계'], '2학기': ['계절', '인물', '물건', '기억'] } }, { name: '안전한생활', publishers: NATIONAL }, { name: '국어기초학습', publishers: NATIONAL }] },
-  3: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: NATIONAL }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '동아출판', '미래엔', '비상', '천재(정)', '천재(이)'] }, { name: '체육', publishers: ['금성', '비상', '지학사', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림'] }] },
-  4: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: NATIONAL }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '동아출판', '미래엔', '비상', '천재(정)', '천재(이)'] }, { name: '체육', publishers: ['금성', '비상', '지학사', '동아출판', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림'] }] },
-  5: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: NATIONAL }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '미래엔', '비상', '천재(정)'] }, { name: '실과', publishers: ['아이스크림', '교학사', '비상', '동아출판', '지학사', '금성', '미래엔', 'YBM', '천재'] }, { name: '체육', publishers: ['금성', '비상', '지학사', '동아출판', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔', '금성'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔', '아침나라'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림', '비상'] }] },
-  6: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: NATIONAL }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '미래엔', '비상', '천재(정)'] }, { name: '실과', publishers: ['아이스크림', '교학사', '비상', '동아출판', '지학사', '금성', '미래엔', 'YBM', '천재'] }, { name: '체육', publishers: ['금성', '비상', '지학사', '동아출판', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔', '금성'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔', '아침나라'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림', '비상'] }] },
+  1: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '국어활동', publishers: NATIONAL }, { name: '수학', publishers: MATH_PUB }, { name: '통합교과', publishers: NATIONAL, units: { '1학기': ['학교', '사람들', '우리나라', '탐험'], '2학기': ['하루', '약속', '상상', '이야기'] } }, { name: '입학초기적응활동', publishers: NATIONAL }, { name: '국어기초학습', publishers: NATIONAL }] },
+  2: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB }, { name: '통합교과', publishers: NATIONAL, units: { '1학기': ['나', '자연', '마을', '세계'], '2학기': ['계절', '인물', '물건', '기억'] } }, { name: '안전한생활', publishers: NATIONAL }, { name: '국어기초학습', publishers: NATIONAL }] },
+  3: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '동아출판', '미래엔', '비상', '천재(정)', '천재(이)'] }, { name: '체육', publishers: ['금성', '비상', '지학사', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림'] }] },
+  4: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '동아출판', '미래엔', '비상', '천재(정)', '천재(이)'] }, { name: '체육', publishers: ['금성', '비상', '지학사', '동아출판', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림'] }] },
+  5: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '미래엔', '비상', '천재(정)'] }, { name: '실과', publishers: ['아이스크림', '교학사', '비상', '동아출판', '지학사', '금성', '미래엔', 'YBM', '천재'] }, { name: '체육', publishers: ['금성', '비상', '지학사', '동아출판', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔', '금성'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔', '아침나라'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림', '비상'] }] },
+  6: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '미래엔', '비상', '천재(정)'] }, { name: '실과', publishers: ['아이스크림', '교학사', '비상', '동아출판', '지학사', '금성', '미래엔', 'YBM', '천재'] }, { name: '체육', publishers: ['금성', '비상', '지학사', '동아출판', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔', '금성'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔', '아침나라'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림', '비상'] }] },
 };
 const DIFF_OPTIONS = [
   { value: 'easy',   label: '🟢 쉬움',   desc: '기본 개념 확인' },
@@ -115,6 +116,153 @@ function QuestionCard({ q, idx, onChange, onDelete, onTypeChange }) {
       <input value={q.explanation || ''} onChange={e => onChange(idx, 'explanation', e.target.value)}
         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-400"
         placeholder="해설 (선택사항)" />
+    </div>
+  );
+}
+
+// ─── 단원 추가 요청 모달 ─────────────────────────────────────────
+function UnitRequestModal({ grade, semester, subject, publisher, currentUid, onClose, onRequested }) {
+  const [unitNumber, setUnitNumber] = useState('');
+  const [unitName, setUnitName]     = useState('');
+  const [commonTopic, setCommonTopic] = useState('');
+  const [saving, setSaving]         = useState(false);
+
+  const handleSubmit = async () => {
+    if (!unitName.trim()) return;
+    setSaving(true);
+    try {
+      const data = {
+        grade: parseInt(grade),
+        semester: semester ? parseInt(semester) : null,
+        subject,
+        publisher: publisher || '공통',
+        unitNumber: unitNumber ? parseInt(unitNumber) : null,
+        unitName: unitName.trim(),
+        commonTopic: commonTopic.trim() || null,
+        status: 'pending',
+        createdBy: currentUid,
+        createdAt: serverTimestamp(),
+      };
+      const ref = await addDoc(collection(db, 'curriculumUnits'), data);
+      onRequested({ id: ref.id, ...data });
+      onClose();
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[500] flex items-center justify-center p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-extrabold text-slate-800">📚 단원 추가 요청</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
+        </div>
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-2 text-xs text-indigo-700 font-bold">
+          {grade}학년 {semester ? `${semester}학기 ` : ''}{subject}{publisher && publisher !== '공통' ? ` (${publisher})` : ''}
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-xs font-bold text-slate-500 mb-1 block">단원 번호</label>
+            <input type="number" min="1" value={unitNumber} onChange={e => setUnitNumber(e.target.value)}
+              placeholder="예: 3"
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs font-bold text-slate-500 mb-1 block">단원명 *</label>
+            <input value={unitName} onChange={e => setUnitName(e.target.value)}
+              placeholder="예: 약수와 배수"
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500" />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-bold text-slate-500 mb-1 block">공통 주제 (선택)</label>
+          <input value={commonTopic} onChange={e => setCommonTopic(e.target.value)}
+            placeholder="예: 수와 연산, 문학과 독해"
+            className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
+        </div>
+        <p className="text-[10px] text-slate-400 leading-relaxed">
+          요청 즉시 사용 가능합니다. 관리자 승인 후 공통 단원 목록에 정식 반영됩니다.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+          <button onClick={handleSubmit} disabled={saving || !unitName.trim()}
+            className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm disabled:opacity-40">
+            {saving ? '요청 중...' : '요청하기'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 공통 단원 선택기 ─────────────────────────────────────────────
+function UnitSelector({ grade, semester, subject, publisher, unitId, onUnitChange, currentUid }) {
+  const [units, setUnits]           = useState([]);
+  const [loading, setLoading]       = useState(false);
+  const [showRequest, setShowRequest] = useState(false);
+
+  useEffect(() => {
+    if (!grade || !subject) { setUnits([]); return; }
+    setLoading(true);
+    getDocs(query(
+      collection(db, 'curriculumUnits'),
+      where('grade', '==', parseInt(grade)),
+      where('subject', '==', subject),
+    )).then(snap => {
+      const list = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(u => ['approved', 'pending'].includes(u.status))
+        .filter(u => !semester || !u.semester || String(u.semester) === String(semester))
+        .filter(u => !publisher || !u.publisher || u.publisher === publisher || u.publisher === '공통')
+        .sort((a, b) => (a.unitNumber || 99) - (b.unitNumber || 99));
+      setUnits(list);
+    }).catch(() => setUnits([])).finally(() => setLoading(false));
+  }, [grade, semester, subject, publisher]);
+
+  if (!grade || !subject) return null;
+
+  return (
+    <div className="md:col-span-3">
+      <div className="flex items-center gap-2 mb-1">
+        <label className="text-xs font-bold text-slate-500">단원</label>
+        {loading && <span className="text-[10px] text-slate-400">불러오는 중...</span>}
+        <button type="button" onClick={() => setShowRequest(true)}
+          className="ml-auto text-[10px] font-bold text-indigo-500 hover:text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-lg hover:bg-indigo-50 transition-colors">
+          + 단원 추가 요청
+        </button>
+      </div>
+      <select value={unitId} onChange={e => {
+          const sel = units.find(u => u.id === e.target.value);
+          onUnitChange(e.target.value, sel?.unitName || '');
+        }}
+        className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+        <option value="">단원 선택 (선택사항)</option>
+        {units.map(u => (
+          <option key={u.id} value={u.id}>
+            {u.unitNumber ? `${u.unitNumber}단원 ` : ''}{u.unitName}
+            {u.status === 'pending' ? ' (승인 대기)' : ''}
+          </option>
+        ))}
+      </select>
+      {!loading && units.length === 0 && (
+        <p className="text-[10px] text-slate-400 mt-1">
+          등록된 단원이 없습니다. 위 버튼으로 단원을 추가 요청해주세요.
+        </p>
+      )}
+      {showRequest && (
+        <UnitRequestModal
+          grade={grade} semester={semester} subject={subject} publisher={publisher}
+          currentUid={currentUid}
+          onClose={() => setShowRequest(false)}
+          onRequested={(newUnit) => {
+            setUnits(prev =>
+              [...prev, newUnit].sort((a, b) => (a.unitNumber || 99) - (b.unitNumber || 99))
+            );
+            onUnitChange(newUnit.id, newUnit.unitName);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -289,6 +437,10 @@ export default function QuizBank({ selectedClass = null }) {
   const [genError, setGenError]             = useState('');
   const [isSavingAi, setIsSavingAi]         = useState(false);
 
+  // 공통 단원 선택 (AI탭 / 직접출제탭)
+  const [aiUnitId, setAiUnitId]     = useState('');
+  const [mUnitId, setMUnitId]       = useState('');
+
   // ── 직접 출제 탭 상태 ────────────────────────────────────────────
   const [mGrade, setMGrade]                 = useState('');
   const [mSemester, setMSemester]           = useState('');
@@ -457,6 +609,7 @@ export default function QuizBank({ selectedClass = null }) {
         publisher:     publisher || null,
         part:          part || null,
         unit:          unit || null,
+        unitId:        aiUnitId || null,
         difficulty,
         questions:     aiQuestions,
         questionCount: aiQuestions.length,
@@ -478,7 +631,7 @@ export default function QuizBank({ selectedClass = null }) {
   };
 
   const resetAiForm = () => {
-    setGrade(''); setSemester(''); setSubject(''); setPublisher(''); setPart(''); setUnit('');
+    setGrade(''); setSemester(''); setSubject(''); setPublisher(''); setPart(''); setUnit(''); setAiUnitId('');
     setSourceText(''); setPdfBase64(''); setPdfName(''); setCount(5); setSaCount(0);
     setDifficulty('normal'); setCustomTitle(''); setAiQuestions([]); setAiStep('form'); setGenError('');
   };
@@ -511,6 +664,7 @@ export default function QuizBank({ selectedClass = null }) {
         publisher:     mPublisher || null,
         part:          mPart || null,
         unit:          mUnit || null,
+        unitId:        mUnitId || null,
         difficulty:    manualDiff,
         questions:     manualQuestions,
         questionCount: manualQuestions.length,
@@ -525,7 +679,7 @@ export default function QuizBank({ selectedClass = null }) {
       });
       showToast(isShared ? '✅ 내 퀴즈에 저장되고 퀴즈은행에 공유됐습니다!' : '✅ 내 퀴즈에 저장됐습니다!');
       setManualTitle(''); setManualQuestions([]); setMGrade(''); setMSemester(''); setMSubject('');
-      setMPublisher(''); setMPart(''); setMUnit(''); setManualDiff('normal');
+      setMPublisher(''); setMPart(''); setMUnit(''); setMUnitId(''); setManualDiff('normal');
       setNewQText(''); setNewOptions(['', '', '', '']); setNewAnswer(0); setNewShortAnswer(''); setNewExplanation('');
       setTab('mine');
     } catch { showToast('저장 중 오류가 발생했습니다.', 'error'); }
@@ -846,16 +1000,12 @@ export default function QuizBank({ selectedClass = null }) {
                         </select>
                       </div>
                     )}
-                    {unitList.length > 0 && (
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">단원</label>
-                        <select value={unit} onChange={e => setUnit(e.target.value)}
-                          className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
-                          <option value="">전체</option>
-                          {unitList.map(u => <option key={u} value={u}>{u}</option>)}
-                        </select>
-                      </div>
-                    )}
+                    <UnitSelector
+                      grade={grade} semester={semester} subject={subject} publisher={publisher}
+                      unitId={aiUnitId}
+                      onUnitChange={(id, name) => { setAiUnitId(id); setUnit(name || ''); }}
+                      currentUid={currentUid}
+                    />
                   </div>
                   <div className="mt-3">
                     <label className="block text-xs font-bold text-slate-500 mb-1">퀴즈 제목 (선택)</label>
@@ -1057,16 +1207,12 @@ export default function QuizBank({ selectedClass = null }) {
                     </select>
                   </div>
                 )}
-                {mUnitList.length > 0 && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">단원</label>
-                    <select value={mUnit} onChange={e => setMUnit(e.target.value)}
-                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
-                      <option value="">전체</option>
-                      {mUnitList.map(u => <option key={u} value={u}>{u}</option>)}
-                    </select>
-                  </div>
-                )}
+                <UnitSelector
+                  grade={mGrade} semester={mSemester} subject={mSubject} publisher={mPublisher}
+                  unitId={mUnitId}
+                  onUnitChange={(id, name) => { setMUnitId(id); setMUnit(name || ''); }}
+                  currentUid={currentUid}
+                />
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">난이도</label>
                   <div className="flex rounded-xl border-2 border-slate-200 overflow-hidden">

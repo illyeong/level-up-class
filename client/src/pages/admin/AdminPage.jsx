@@ -1716,16 +1716,324 @@ function GradeClassesTab() {
   );
 }
 
+// ── 단원 관리 탭 ──────────────────────────────────────────────
+function CurriculumUnitsTab() {
+  const [subtab, setSubtab]   = useState('pending'); // 'pending' | 'all'
+  const [units, setUnits]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName]   = useState('');
+  const [editNum,  setEditNum]    = useState('');
+  const [editTopic, setEditTopic] = useState('');
+  const [rejectId, setRejectId]   = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [mergeSourceId, setMergeSourceId] = useState(null);
+  const [mergeTargetId, setMergeTargetId] = useState('');
+  const [saving, setSaving]   = useState(false);
+  const [filterGrade, setFilterGrade]   = useState('');
+  const [filterSubject, setFilterSubject] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const snap = await getDocs(collection(db, 'curriculumUnits'));
+      setUnits(snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          if (a.grade !== b.grade) return (a.grade || 0) - (b.grade || 0);
+          if (a.subject !== b.subject) return (a.subject || '').localeCompare(b.subject || '');
+          return (a.unitNumber || 99) - (b.unitNumber || 99);
+        }));
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const approve = async (unit) => {
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'curriculumUnits', unit.id), {
+        status: 'approved',
+        approvedAt: serverTimestamp(),
+      });
+      setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, status: 'approved' } : u));
+    } finally { setSaving(false); }
+  };
+
+  const reject = async () => {
+    if (!rejectId) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'curriculumUnits', rejectId), {
+        status: 'rejected',
+        rejectedReason: rejectReason.trim() || null,
+      });
+      setUnits(prev => prev.map(u => u.id === rejectId ? { ...u, status: 'rejected' } : u));
+      setRejectId(null); setRejectReason('');
+    } finally { setSaving(false); }
+  };
+
+  const saveEdit = async (unit) => {
+    setSaving(true);
+    try {
+      const updates = {
+        unitName: editName.trim(),
+        unitNumber: editNum ? parseInt(editNum) : null,
+        commonTopic: editTopic.trim() || null,
+      };
+      await updateDoc(doc(db, 'curriculumUnits', unit.id), updates);
+      setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, ...updates } : u));
+      setEditingId(null);
+    } finally { setSaving(false); }
+  };
+
+  const deleteUnit = async (unit) => {
+    if (!window.confirm(`"${unit.unitName}"을 삭제할까요?`)) return;
+    await deleteDoc(doc(db, 'curriculumUnits', unit.id));
+    setUnits(prev => prev.filter(u => u.id !== unit.id));
+  };
+
+  const merge = async () => {
+    if (!mergeSourceId || !mergeTargetId || mergeSourceId === mergeTargetId) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'curriculumUnits', mergeSourceId), {
+        status: 'rejected',
+        mergedIntoId: mergeTargetId,
+        rejectedReason: '중복 병합',
+      });
+      setUnits(prev => prev.map(u => u.id === mergeSourceId
+        ? { ...u, status: 'rejected', mergedIntoId: mergeTargetId }
+        : u));
+      setMergeSourceId(null); setMergeTargetId('');
+    } finally { setSaving(false); }
+  };
+
+  const pending  = units.filter(u => u.status === 'pending');
+  const allUnits = units.filter(u => {
+    if (filterGrade   && String(u.grade)   !== filterGrade)   return false;
+    if (filterSubject && u.subject         !== filterSubject)  return false;
+    return true;
+  });
+  const allSubjects = [...new Set(units.map(u => u.subject).filter(Boolean))].sort();
+  const STATUS_BADGE = {
+    approved: 'bg-emerald-100 text-emerald-700',
+    pending:  'bg-amber-100 text-amber-700',
+    rejected: 'bg-rose-100 text-rose-600',
+  };
+
+  if (loading) return <div className="p-10 text-slate-400 font-bold text-center animate-pulse">불러오는 중...</div>;
+
+  return (
+    <div className="p-6 space-y-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-extrabold text-slate-800">📚 공통 단원 관리</h2>
+        <div className="flex gap-2 text-sm font-bold">
+          <button onClick={() => setSubtab('pending')}
+            className={`px-4 py-2 rounded-xl border transition-colors ${subtab === 'pending' ? 'bg-amber-500 text-white border-amber-400' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+            승인 대기 {pending.length > 0 && <span className="ml-1 bg-white/30 px-1.5 rounded-full">{pending.length}</span>}
+          </button>
+          <button onClick={() => setSubtab('all')}
+            className={`px-4 py-2 rounded-xl border transition-colors ${subtab === 'all' ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+            전체 단원 ({units.filter(u => u.status === 'approved').length})
+          </button>
+        </div>
+      </div>
+
+      {/* 승인 대기 탭 */}
+      {subtab === 'pending' && (
+        <div className="space-y-3">
+          {pending.length === 0 ? (
+            <div className="text-center py-16 text-slate-400">
+              <div className="text-4xl mb-2">✅</div>
+              <p className="font-bold">승인 대기 중인 단원이 없습니다</p>
+            </div>
+          ) : pending.map(u => (
+            <div key={u.id} className="bg-white border-2 border-amber-200 rounded-2xl p-4 space-y-2">
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-extrabold text-slate-800">
+                      {u.unitNumber ? `${u.unitNumber}단원 ` : ''}{u.unitName}
+                    </span>
+                    <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full">승인 대기</span>
+                  </div>
+                  <div className="flex gap-2 flex-wrap mt-1">
+                    <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full">{u.grade}학년</span>
+                    {u.semester && <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full">{u.semester}학기</span>}
+                    <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-full">{u.subject}</span>
+                    {u.publisher && u.publisher !== '공통' && <span className="text-[10px] bg-violet-50 text-violet-600 font-bold px-2 py-0.5 rounded-full">{u.publisher}</span>}
+                    {u.commonTopic && <span className="text-[10px] bg-teal-50 text-teal-600 font-bold px-2 py-0.5 rounded-full">주제: {u.commonTopic}</span>}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">요청자: {u.createdBy}</p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => approve(u)} disabled={saving}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-40">
+                    ✓ 승인
+                  </button>
+                  <button onClick={() => setRejectId(u.id)}
+                    className="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-500 hover:bg-rose-50 text-xs font-bold">
+                    ✕ 반려
+                  </button>
+                </div>
+              </div>
+              {/* 병합 옵션 */}
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                <span className="text-[10px] text-slate-400 font-bold shrink-0">병합 →</span>
+                <select value={mergeSourceId === u.id ? mergeTargetId : ''}
+                  onChange={e => { setMergeSourceId(u.id); setMergeTargetId(e.target.value); }}
+                  className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none">
+                  <option value="">기존 단원으로 병합 (선택)</option>
+                  {units.filter(x => x.status === 'approved' && x.subject === u.subject && x.id !== u.id)
+                    .map(x => <option key={x.id} value={x.id}>{x.unitNumber ? `${x.unitNumber}단원 ` : ''}{x.unitName}</option>)}
+                </select>
+                {mergeSourceId === u.id && mergeTargetId && (
+                  <button onClick={merge} disabled={saving}
+                    className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold disabled:opacity-40 shrink-0">
+                    병합 실행
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 전체 단원 탭 */}
+      {subtab === 'all' && (
+        <div className="space-y-4">
+          {/* 필터 */}
+          <div className="flex gap-3 flex-wrap">
+            <select value={filterGrade} onChange={e => setFilterGrade(e.target.value)}
+              className="border-2 border-slate-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none">
+              <option value="">전체 학년</option>
+              {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}학년</option>)}
+            </select>
+            <select value={filterSubject} onChange={e => setFilterSubject(e.target.value)}
+              className="border-2 border-slate-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none">
+              <option value="">전체 과목</option>
+              {allSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <button onClick={() => { setFilterGrade(''); setFilterSubject(''); }}
+              className="text-xs text-slate-400 hover:text-slate-600 font-bold px-2">초기화</button>
+            <span className="text-xs text-slate-400 self-center ml-auto">{allUnits.length}개</span>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500 text-xs">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">단원명</th>
+                  <th className="px-4 py-3 text-center font-semibold">학년</th>
+                  <th className="px-4 py-3 text-center font-semibold">학기</th>
+                  <th className="px-4 py-3 text-left font-semibold">과목/출판사</th>
+                  <th className="px-4 py-3 text-left font-semibold">공통 주제</th>
+                  <th className="px-4 py-3 text-center font-semibold">상태</th>
+                  <th className="px-4 py-3 text-center font-semibold">관리</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {allUnits.map(u => (
+                  <tr key={u.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-2.5">
+                      {editingId === u.id ? (
+                        <div className="flex gap-2">
+                          <input type="number" value={editNum} onChange={e => setEditNum(e.target.value)}
+                            placeholder="#" className="w-12 border rounded-lg px-2 py-1 text-xs focus:outline-none" />
+                          <input value={editName} onChange={e => setEditName(e.target.value)}
+                            className="flex-1 border-2 border-indigo-300 rounded-lg px-2 py-1 text-xs font-bold focus:outline-none" />
+                        </div>
+                      ) : (
+                        <span className="font-bold text-slate-800">
+                          {u.unitNumber ? `${u.unitNumber}. ` : ''}{u.unitName}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-center text-slate-600">{u.grade}학년</td>
+                    <td className="px-4 py-2.5 text-center text-slate-600">{u.semester ? `${u.semester}학기` : '-'}</td>
+                    <td className="px-4 py-2.5">
+                      <span className="text-slate-700 font-medium">{u.subject}</span>
+                      {u.publisher && u.publisher !== '공통' && <span className="ml-1 text-[10px] text-slate-400">({u.publisher})</span>}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {editingId === u.id ? (
+                        <input value={editTopic} onChange={e => setEditTopic(e.target.value)}
+                          className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none" />
+                      ) : (
+                        <span className="text-slate-500 text-xs">{u.commonTopic || '-'}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_BADGE[u.status] || STATUS_BADGE.pending}`}>
+                        {u.status === 'approved' ? '승인' : u.status === 'pending' ? '대기' : '반려'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex gap-1 justify-center">
+                        {editingId === u.id ? (
+                          <>
+                            <button onClick={() => saveEdit(u)} disabled={saving}
+                              className="px-2 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-bold disabled:opacity-40">저장</button>
+                            <button onClick={() => setEditingId(null)}
+                              className="px-2 py-1 rounded-lg border border-slate-200 text-slate-500 text-[10px] font-bold">취소</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => { setEditingId(u.id); setEditName(u.unitName); setEditNum(String(u.unitNumber || '')); setEditTopic(u.commonTopic || ''); }}
+                              className="px-2 py-1 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 text-[10px] font-bold">수정</button>
+                            {u.status !== 'approved' && (
+                              <button onClick={() => approve(u)} disabled={saving}
+                                className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 text-[10px] font-bold">승인</button>
+                            )}
+                            <button onClick={() => deleteUnit(u)}
+                              className="px-2 py-1 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 text-[10px] font-bold">삭제</button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 반려 사유 모달 */}
+      {rejectId && (
+        <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-5 w-full max-w-sm space-y-4">
+            <h3 className="font-extrabold text-slate-800">단원 반려</h3>
+            <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+              placeholder="반려 사유 (선택)"
+              className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:border-rose-400" />
+            <div className="flex gap-3">
+              <button onClick={() => { setRejectId(null); setRejectReason(''); }}
+                className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm">취소</button>
+              <button onClick={reject} disabled={saving}
+                className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl text-sm disabled:opacity-40">
+                반려 처리
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 메인 ─────────────────────────────────────────────────────
 const TABS = [
-  { id: 'dashboard',    icon: '📊', label: '대시보드' },
-  { id: 'teachers',     icon: '👨‍🏫', label: '교사 관리' },
-  { id: 'notices',      icon: '📢', label: '공지사항' },
-  { id: 'feedbacks',    icon: '💬', label: '건의/문의' },
-  { id: 'settings',     icon: '⚙️', label: '시스템 설정' },
-  { id: 'content',      icon: '🎮', label: '콘텐츠 관리' },
-  { id: 'equipment',    icon: '⚔️', label: '장비 관리' },
-  { id: 'battleLayout', icon: '🖼️', label: '배틀씬 에디터' },
+  { id: 'dashboard',       icon: '📊', label: '대시보드' },
+  { id: 'teachers',        icon: '👨‍🏫', label: '교사 관리' },
+  { id: 'notices',         icon: '📢', label: '공지사항' },
+  { id: 'feedbacks',       icon: '💬', label: '건의/문의' },
+  { id: 'settings',        icon: '⚙️', label: '시스템 설정' },
+  { id: 'content',         icon: '🎮', label: '콘텐츠 관리' },
+  { id: 'equipment',       icon: '⚔️', label: '장비 관리' },
+  { id: 'battleLayout',    icon: '🖼️', label: '배틀씬 에디터' },
+  { id: 'curriculumUnits', icon: '📚', label: '단원 관리' },
 ];
 
 export default function AdminPage({ adminUser, onLogout, onBackToClassSelect }) {
@@ -1835,7 +2143,8 @@ export default function AdminPage({ adminUser, onLogout, onBackToClassSelect }) 
         {tab === 'settings'  && <SettingsTab />}
         {tab === 'content'      && <ContentTab />}
         {tab === 'equipment'    && <EquipmentManage />}
-        {tab === 'battleLayout' && <BattleLayoutTab />}
+        {tab === 'battleLayout'    && <BattleLayoutTab />}
+        {tab === 'curriculumUnits' && <CurriculumUnitsTab />}
       </main>
     </div>
   );
