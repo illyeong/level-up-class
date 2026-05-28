@@ -352,6 +352,217 @@ input:focus {
   line-height: 1.5;
 }
 
+/* 서브 패널 공통 */
+.sub-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 10px;
+  border-bottom: 1px solid rgba(148,163,184,0.15);
+  margin-bottom: 10px;
+}
+
+.back-btn {
+  border: 0;
+  background: transparent;
+  color: #93c5fd;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 4px 8px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.back-btn:hover { background: rgba(99,102,241,0.2); }
+
+.sub-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 900;
+  color: white;
+}
+
+.sub-content { display: grid; gap: 8px; }
+
+.sub-loading {
+  padding: 20px 0;
+  text-align: center;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.empty-state {
+  padding: 16px 0;
+  text-align: center;
+  color: #475569;
+  font-size: 12px;
+}
+
+.empty-state.small { padding: 8px 0; font-size: 11px; }
+
+/* 퀘스트/노트 공용 카드 */
+.info-card {
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,0.16);
+  background: rgba(15,23,42,0.74);
+}
+
+.info-card.has-action { border-color: rgba(99,102,241,0.4); }
+
+.info-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.info-card-title {
+  font-size: 13px;
+  font-weight: 900;
+  color: white;
+}
+
+.info-card-meta {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.action-badge {
+  background: #4f46e5;
+  color: white;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 2px 7px;
+  border-radius: 20px;
+}
+
+.reward-text {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.completions-list { margin-top: 10px; display: grid; gap: 6px; }
+
+.completion-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  background: rgba(30,41,59,0.8);
+  border-radius: 10px;
+  border: 1px solid rgba(148,163,184,0.12);
+}
+
+.completion-name { font-size: 12px; font-weight: 700; color: #e2e8f0; }
+
+.approve-btn {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  background: linear-gradient(135deg,#4f46e5,#0ea5e9);
+  color: white;
+  border: 0;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.approve-btn:disabled { opacity: 0.5; }
+
+.done-label {
+  font-size: 11px;
+  color: #4ade80;
+  font-weight: 700;
+}
+
+/* 배움노트 */
+.note-content {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.note-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.note-approve-btn {
+  flex: 1;
+  padding: 7px;
+  background: rgba(5,150,105,0.85);
+  color: white;
+  border: 0;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.note-reject-btn {
+  flex: 1;
+  padding: 7px;
+  background: rgba(190,18,60,0.7);
+  color: white;
+  border: 0;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+/* 설정 패널 */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.toggle-btn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(148,163,184,0.3);
+  background: rgba(30,41,59,0.9);
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.toggle-btn.active {
+  background: #4f46e5;
+  border-color: #818cf8;
+  color: white;
+}
+
+.settings-link-btn {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  color: #93c5fd;
+  border: 0;
+  font-size: 13px;
+  font-weight: 900;
+  text-align: left;
+}
+
+.settings-action-btn {
+  width: 100%;
+  padding: 10px;
+  background: rgba(30,41,59,0.9);
+  color: #e2e8f0;
+  border: 1px solid rgba(148,163,184,0.2);
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 900;
+  text-align: left;
+}
+
 /* 구글 로그인 버튼 */
 .google-btn {
   background: white;

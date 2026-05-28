@@ -28,56 +28,47 @@
       </header>
 
       <main class="content">
-        <!-- 설정/로그인 패널 -->
-        <section id="setupPanel" class="panel setup-panel hidden">
 
-          <!-- 상태: 로그인 -->
+        <!-- ── 로그인/연결 패널 ── -->
+        <section id="setupPanel" class="panel setup-panel hidden">
           <div id="stateLogin">
             <div class="panel-title">교사 계정 연결</div>
             <p class="help">구글 계정으로 로그인하면 담당 학급이 자동 연결됩니다.</p>
             <button id="googleSignInBtn" class="primary-btn google-btn">구글로 로그인</button>
           </div>
-
-          <!-- 상태: 처리 중 -->
           <div id="stateLoading" class="hidden">
             <div class="panel-title">연결 중...</div>
             <p class="help">잠시만 기다려 주세요.</p>
           </div>
-
-          <!-- 상태: 학급 선택 (여러 학급일 때) -->
           <div id="statePick" class="hidden">
             <div class="panel-title">학급 선택</div>
             <p class="help">담당 학급을 선택해 주세요.</p>
             <div id="classPickList" class="class-pick-list"></div>
           </div>
-
-          <!-- 상태: 오류 -->
           <div id="stateError" class="hidden">
             <div class="panel-title">연결 실패</div>
             <p id="setupErrMsg" class="error-text"></p>
             <button id="retryLoginBtn" class="primary-btn">다시 시도</button>
           </div>
-
-          <!-- 연결 해제 (이미 연결된 경우에만 표시) -->
           <div id="disconnectArea" class="disconnect-area hidden">
             <button id="disconnectBtn" class="small-btn">연결 해제</button>
           </div>
         </section>
 
-        <!-- 대시보드 패널 -->
+        <!-- ── 대시보드 패널 ── -->
         <section id="dashboardPanel" class="hidden">
           <div class="class-card">
             <div>
               <div id="className" class="class-name">학급 불러오는 중</div>
               <div id="classMeta" class="class-meta">-</div>
             </div>
-            <button id="settingsBtn" class="small-btn">설정</button>
+            <button id="settingsBtn" class="small-btn">⚙ 설정</button>
           </div>
 
           <div class="quick-row">
             <button data-open="dashboard" class="quick-btn">웹 대시보드</button>
-            <button data-open="quest" class="quick-btn">퀘스트</button>
-            <button data-open="note" class="quick-btn">배움노트</button>
+            <button id="quickQuestBtn" class="quick-btn">퀘스트</button>
+            <button id="quickNotesBtn" class="quick-btn">배움노트</button>
           </div>
 
           <section class="metric-grid">
@@ -118,24 +109,65 @@
           <section class="panel compact">
             <div class="panel-title">학급 경제 요약</div>
             <div class="money-row">
-              <div>
-                <span>총 골드</span>
-                <strong id="totalGold">-</strong>
-              </div>
-              <div>
-                <span>총 다이아</span>
-                <strong id="totalDiamonds">-</strong>
-              </div>
+              <div><span>총 골드</span><strong id="totalGold">-</strong></div>
+              <div><span>총 다이아</span><strong id="totalDiamonds">-</strong></div>
             </div>
           </section>
         </section>
 
-        <!-- 오류 패널 -->
+        <!-- ── 퀘스트 패널 ── -->
+        <section id="questPanel" class="hidden">
+          <div class="sub-header">
+            <button class="back-btn" data-target="dashboardPanel">← 뒤로</button>
+            <span class="sub-title">퀘스트 현황</span>
+            <button id="questRefreshBtn" class="small-btn">↻</button>
+          </div>
+          <div id="questContent" class="sub-content"></div>
+        </section>
+
+        <!-- ── 배움노트 패널 ── -->
+        <section id="notesPanel" class="hidden">
+          <div class="sub-header">
+            <button class="back-btn" data-target="dashboardPanel">← 뒤로</button>
+            <span class="sub-title">배움노트</span>
+            <button id="notesRefreshBtn" class="small-btn">↻</button>
+          </div>
+          <div id="notesContent" class="sub-content"></div>
+        </section>
+
+        <!-- ── 설정 패널 ── -->
+        <section id="settingsPanel" class="hidden">
+          <div class="sub-header">
+            <button class="back-btn" data-target="dashboardPanel">← 뒤로</button>
+            <span class="sub-title">설정</span>
+          </div>
+
+          <div id="settingsClassCard" class="panel" style="margin-top:10px;"></div>
+
+          <div class="panel" style="margin-top:10px;">
+            <div class="settings-row">
+              <span>항상 위에 표시</span>
+              <button id="pinToggleSetting" class="toggle-btn">OFF</button>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:10px;">
+            <button id="openWebDashBtn" class="settings-link-btn">교사 대시보드 열기 ↗</button>
+          </div>
+
+          <div class="panel" style="margin-top:10px;">
+            <button id="changeClassBtn" class="settings-action-btn">학급 변경</button>
+            <button id="logoutBtn" class="settings-action-btn" style="margin-top:8px; color:#fca5a5;">로그아웃</button>
+          </div>
+        </section>
+
+        <!-- ── 오류 패널 ── -->
         <section id="errorPanel" class="panel error-panel hidden">
           <div class="panel-title">불러오지 못했습니다</div>
           <p id="errorMessage"></p>
           <button id="retryBtn" class="primary-btn">다시 시도</button>
         </section>
+
       </main>
     </div>
     <script type="module" src="./renderer.js"></script>
