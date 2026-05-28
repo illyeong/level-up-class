@@ -27,6 +27,124 @@ import ClassVoteManage from './ClassVoteManage';
 import FreeBoard      from '../student/FreeBoard';
 import HallOfFame     from '../student/HallOfFame';
 
+const STUDENT_MENU_IDS = [
+  'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement',
+  'board','learningNote','adventure','quizDungeon','explorationDungeon','arena','bossRaid','trade',
+  'classBank','classShop','stockMarket','town','freeBoard','classVote','settings','editProfile','themeSettings'
+];
+
+const TEACHER_MENU_IDS = [
+  'dashboard','myCharacter','questManage','questKiosk','adventure','quizBank','quizDungeonManage','bossRaidManage',
+  'quizDungeon','explorationDungeon','bossRaid','adventureManage','boardManage','learningNoteManage','economyManage',
+  'classShopManage','bankManage','stockManage','townManage','freeBoard','hallOfFame','classVoteManage','studentManage',
+  'accountIssue','systemSettings','dataReset','inquiry'
+];
+
+const hideExcept = (allIds, visibleIds) => allIds.filter((id) => !visibleIds.includes(id));
+
+const OPERATION_MODE_PRESETS = {
+  basic: {
+    title: '가볍게 시작',
+    description: '퀘스트, 보상 지급/차감, 학급 상점, 배움노트 중심으로 운영합니다.',
+    studentHidden: hideExcept(STUDENT_MENU_IDS, [
+      'dashboard','classAll','myCharacter','quest','achievement','learningNote','trade','classShop','settings','editProfile','themeSettings'
+    ]),
+    teacherHidden: hideExcept(TEACHER_MENU_IDS, [
+      'dashboard','myCharacter','questManage','questKiosk','boardManage','learningNoteManage','economyManage','classShopManage',
+      'studentManage','accountIssue','systemSettings','dataReset','inquiry'
+    ]),
+  },
+  game: {
+    title: '게임형 학급 운영',
+    description: '퀘스트와 상점에 어드벤처, 퀴즈던전, 보스레이드, 투기장을 더합니다.',
+    studentHidden: hideExcept(STUDENT_MENU_IDS, [
+      'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement','learningNote',
+      'adventure','quizDungeon','explorationDungeon','arena','bossRaid','trade','classShop','settings','editProfile','themeSettings'
+    ]),
+    teacherHidden: hideExcept(TEACHER_MENU_IDS, [
+      'dashboard','myCharacter','questManage','questKiosk','adventure','quizBank','quizDungeonManage','bossRaidManage',
+      'quizDungeon','explorationDungeon','bossRaid','adventureManage','boardManage','learningNoteManage','economyManage',
+      'classShopManage','studentManage','accountIssue','systemSettings','dataReset','inquiry'
+    ]),
+  },
+  economy: {
+    title: '경제형 학급 운영',
+    description: '퀘스트, 상점, 은행, 주식 ETF로 학급 경제를 운영합니다.',
+    studentHidden: hideExcept(STUDENT_MENU_IDS, [
+      'dashboard','classAll','myCharacter','quest','achievement','learningNote','trade','classBank','classShop','stockMarket',
+      'settings','editProfile','themeSettings'
+    ]),
+    teacherHidden: hideExcept(TEACHER_MENU_IDS, [
+      'dashboard','myCharacter','questManage','questKiosk','boardManage','learningNoteManage','economyManage','classShopManage',
+      'bankManage','stockManage','studentManage','accountIssue','systemSettings','dataReset','inquiry'
+    ]),
+  },
+  full: {
+    title: '전체 기능 사용',
+    description: '모든 메뉴를 열어두고 학급 상황에 맞게 직접 운영합니다.',
+    studentHidden: [],
+    teacherHidden: [],
+  },
+};
+
+const KOREAN_STUDENT_MENU_LABELS = {
+  dashboard: '대시보드',
+  classAll: '우리반 전체 보기',
+  myCharacter: '내 캐릭터',
+  avatarRoom: '아바타 룸',
+  equipment: '장비',
+  gachaBox: '보물상자',
+  quest: '퀘스트',
+  achievement: '업적',
+  board: '공유 게시판',
+  learningNote: '배움노트',
+  adventure: '어드벤처',
+  quizDungeon: '퀴즈던전',
+  explorationDungeon: '탐험던전',
+  arena: '투기장',
+  bossRaid: '보스 레이드',
+  trade: '무역 센터',
+  classBank: '학급 은행',
+  classShop: '학급 상점',
+  stockMarket: '주식/ETF 거래소',
+  town: '마을 광장',
+  freeBoard: '자유 게시판',
+  classVote: '학급 투표',
+  settings: '시스템 설정',
+  editProfile: '프로필 수정',
+  themeSettings: '테마 설정',
+};
+
+const KOREAN_TEACHER_MENU_LABELS = {
+  dashboard: '대시보드',
+  myCharacter: '내 캐릭터',
+  questManage: '퀘스트 관리소',
+  questKiosk: '학생 셀프체크인',
+  adventure: '어드벤처',
+  quizBank: '퀴즈 은행',
+  quizDungeonManage: '퀴즈던전 관리',
+  bossRaidManage: '보스레이드 관리',
+  quizDungeon: '퀴즈던전',
+  explorationDungeon: '탐험던전',
+  bossRaid: '보스 레이드',
+  adventureManage: '어드벤처 관리',
+  boardManage: '공유 게시판',
+  learningNoteManage: '배움노트 관리',
+  economyManage: '학급 경제 관리',
+  classShopManage: '학급 상점 관리',
+  bankManage: '은행 관리',
+  stockManage: '주식/ETF 관리',
+  townManage: '마을 광장 관리',
+  freeBoard: '자유 게시판',
+  hallOfFame: '명예의 전당',
+  classVoteManage: '학급 투표 관리',
+  studentManage: '학급/학생 관리',
+  accountIssue: '학생 계정 발급',
+  systemSettings: '시스템 설정',
+  dataReset: '데이터 초기화',
+  inquiry: '건의 및 문의하기',
+};
+
 function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
   const [currentView, setCurrentView]   = useState('dashboard');
   const [teacherThemeMode, setTeacherThemeMode] = useState(() => localStorage.getItem('teacherThemeMode') || 'light');
@@ -34,6 +152,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   const [hideStudentNav, setHideStudentNav] = useState(false);
   const [hiddenTeacherMenuIds, setHiddenTeacherMenuIds] = useState([]);
   const [hiddenStudentMenuIds, setHiddenStudentMenuIds] = useState([]);
+  const [operationMode, setOperationMode] = useState('custom');
   const [forceShowNav, setForceShowNav] = useState(false);
   const [dashboardKey, setDashboardKey] = useState(0);
   const [notices, setNotices]           = useState([]);
@@ -61,6 +180,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         setHideStudentNav(data.hideStudentNav === true);
         setHiddenTeacherMenuIds(Array.isArray(data.hiddenTeacherMenuIds) ? data.hiddenTeacherMenuIds : []);
         setHiddenStudentMenuIds(Array.isArray(data.hiddenStudentMenuIds) ? data.hiddenStudentMenuIds : []);
+        setOperationMode(data.operationMode || 'custom');
       } catch {
         setHideTeacherNav(false);
       }
@@ -86,17 +206,8 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
 
   const isDark = teacherThemeMode === 'dark';
   const shouldShowNav = !hideTeacherNav || forceShowNav;
-  const studentMenuOptions = [
-    'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement',
-    'board','learningNote','adventure','quizDungeon','explorationDungeon','arena','bossRaid','trade',
-    'classBank','classShop','stockMarket','town','freeBoard','classVote','settings','editProfile','themeSettings'
-  ];
-  const teacherMenuOptions = [
-    'dashboard','myCharacter','questManage','questKiosk','adventure','quizBank','quizDungeonManage','bossRaidManage',
-    'quizDungeon','explorationDungeon','bossRaid','adventureManage','boardManage','learningNoteManage','economyManage',
-    'classShopManage','bankManage','stockManage','townManage','freeBoard','hallOfFame','classVoteManage','studentManage',
-    'accountIssue','systemSettings','dataReset','inquiry'
-  ];
+  const studentMenuOptions = STUDENT_MENU_IDS;
+  const teacherMenuOptions = TEACHER_MENU_IDS;
   const studentMenuLabels = {
     dashboard: '대시보드',
     classAll: '우리반 전체 보기',
@@ -153,21 +264,37 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
     dataReset: '데이터 초기화',
     inquiry: '건의 및 문의하기',
   };
+  const studentMenuLabelMap = { ...studentMenuLabels, ...KOREAN_STUDENT_MENU_LABELS };
+  const teacherMenuLabelMap = { ...teacherMenuLabels, ...KOREAN_TEACHER_MENU_LABELS };
 
   const toggleHiddenMenu = async (scope, id) => {
+    setOperationMode('custom');
     if (scope === 'student') {
       const next = hiddenStudentMenuIds.includes(id)
         ? hiddenStudentMenuIds.filter((x) => x !== id)
         : [...hiddenStudentMenuIds, id];
       setHiddenStudentMenuIds(next);
-      await setDoc(doc(db, 'systemConfig', 'uiPreferences'), { hiddenStudentMenuIds: next }, { merge: true });
+      await setDoc(doc(db, 'systemConfig', 'uiPreferences'), { hiddenStudentMenuIds: next, operationMode: 'custom' }, { merge: true });
       return;
     }
     const next = hiddenTeacherMenuIds.includes(id)
       ? hiddenTeacherMenuIds.filter((x) => x !== id)
       : [...hiddenTeacherMenuIds, id];
     setHiddenTeacherMenuIds(next);
-    await setDoc(doc(db, 'systemConfig', 'uiPreferences'), { hiddenTeacherMenuIds: next }, { merge: true });
+    await setDoc(doc(db, 'systemConfig', 'uiPreferences'), { hiddenTeacherMenuIds: next, operationMode: 'custom' }, { merge: true });
+  };
+
+  const applyOperationMode = async (mode) => {
+    const preset = OPERATION_MODE_PRESETS[mode];
+    if (!preset) return;
+    setOperationMode(mode);
+    setHiddenStudentMenuIds(preset.studentHidden);
+    setHiddenTeacherMenuIds(preset.teacherHidden);
+    await setDoc(doc(db, 'systemConfig', 'uiPreferences'), {
+      operationMode: mode,
+      hiddenStudentMenuIds: preset.studentHidden,
+      hiddenTeacherMenuIds: preset.teacherHidden,
+    }, { merge: true });
   };
 
   return (
@@ -253,6 +380,36 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
           <div className="p-6">
             <div className={`max-w-2xl rounded-2xl border p-5 ${isDark ? 'border-slate-700 bg-slate-800 text-slate-100' : 'border-slate-200 bg-white text-slate-800'}`}>
               <h2 className="text-xl font-extrabold mb-4">시스템 설정</h2>
+              <div className="mb-5 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-slate-800">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-extrabold text-indigo-800">운영 모드 선택</div>
+                    <p className="mt-1 text-xs font-semibold text-indigo-700">
+                      처음에는 꼭 필요한 기능만 보이고, 학급 운영이 익숙해지면 기능을 확장할 수 있습니다.
+                    </p>
+                  </div>
+                  {operationMode === 'custom' && (
+                    <span className="rounded-full bg-slate-800 px-3 py-1 text-[11px] font-extrabold text-white">직접 설정 중</span>
+                  )}
+                </div>
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  {Object.entries(OPERATION_MODE_PRESETS).map(([mode, preset]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => applyOperationMode(mode)}
+                      className={`rounded-xl border p-3 text-left transition ${
+                        operationMode === mode
+                          ? 'border-indigo-500 bg-white shadow-sm ring-2 ring-indigo-200'
+                          : 'border-indigo-100 bg-white/70 hover:border-indigo-300'
+                      }`}
+                    >
+                      <div className="text-sm font-extrabold text-slate-900">{preset.title}</div>
+                      <div className="mt-1 text-xs font-semibold leading-relaxed text-slate-500">{preset.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="mb-5">
                 <div className="text-sm font-bold mb-2">교사 다크모드</div>
                 <div className="flex gap-2">
@@ -269,7 +426,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
                       return (
                         <label key={id} className="flex items-center justify-between text-xs py-1">
                           <span className={hidden ? 'text-slate-400' : (isDark ? 'text-slate-200' : 'text-slate-700')}>
-                            {studentMenuLabels[id] || id}
+                            {studentMenuLabelMap[id] || id}
                           </span>
                           <span className={`mr-2 text-[11px] font-bold ${hidden ? 'text-rose-400' : 'text-emerald-500'}`}>
                             {hidden ? '비활성' : '활성'}
@@ -292,7 +449,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
                       return (
                         <label key={id} className="flex items-center justify-between text-xs py-1">
                           <span className={hidden ? 'text-slate-400' : (isDark ? 'text-slate-200' : 'text-slate-700')}>
-                            {teacherMenuLabels[id] || id}
+                            {teacherMenuLabelMap[id] || id}
                           </span>
                           <span className={`mr-2 text-[11px] font-bold ${hidden ? 'text-rose-400' : 'text-emerald-500'}`}>
                             {hidden ? '비활성' : '활성'}
