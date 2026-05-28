@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com;"
+      content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src https://level-up-class.firebaseapp.com https://accounts.google.com;"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LevelUp Class 위젯</title>
@@ -28,26 +28,43 @@
       </header>
 
       <main class="content">
+        <!-- 설정/로그인 패널 -->
         <section id="setupPanel" class="panel setup-panel hidden">
-          <div class="panel-title">위젯 연결</div>
-          <p class="help">
-            처음 한 번만 학급 ID 또는 teacherUid를 저장하면 Firestore에서 학급 현황을 읽어옵니다.
-          </p>
-          <label>
-            <span>학급 ID</span>
-            <input id="classIdInput" autocomplete="off" placeholder="예: classes 문서 ID" />
-          </label>
-          <label>
-            <span>teacherUid</span>
-            <input id="teacherUidInput" autocomplete="off" placeholder="예: admin_master_001" />
-          </label>
-          <label>
-            <span>웹앱 주소</span>
-            <input id="webUrlInput" autocomplete="off" value="https://level-up-class.vercel.app" />
-          </label>
-          <button id="saveSettingsBtn" class="primary-btn">저장하고 불러오기</button>
+
+          <!-- 상태: 로그인 -->
+          <div id="stateLogin">
+            <div class="panel-title">교사 계정 연결</div>
+            <p class="help">구글 계정으로 로그인하면 담당 학급이 자동 연결됩니다.</p>
+            <button id="googleSignInBtn" class="primary-btn google-btn">구글로 로그인</button>
+          </div>
+
+          <!-- 상태: 처리 중 -->
+          <div id="stateLoading" class="hidden">
+            <div class="panel-title">연결 중...</div>
+            <p class="help">잠시만 기다려 주세요.</p>
+          </div>
+
+          <!-- 상태: 학급 선택 (여러 학급일 때) -->
+          <div id="statePick" class="hidden">
+            <div class="panel-title">학급 선택</div>
+            <p class="help">담당 학급을 선택해 주세요.</p>
+            <div id="classPickList" class="class-pick-list"></div>
+          </div>
+
+          <!-- 상태: 오류 -->
+          <div id="stateError" class="hidden">
+            <div class="panel-title">연결 실패</div>
+            <p id="setupErrMsg" class="error-text"></p>
+            <button id="retryLoginBtn" class="primary-btn">다시 시도</button>
+          </div>
+
+          <!-- 연결 해제 (이미 연결된 경우에만 표시) -->
+          <div id="disconnectArea" class="disconnect-area hidden">
+            <button id="disconnectBtn" class="small-btn">연결 해제</button>
+          </div>
         </section>
 
+        <!-- 대시보드 패널 -->
         <section id="dashboardPanel" class="hidden">
           <div class="class-card">
             <div>
@@ -113,6 +130,7 @@
           </section>
         </section>
 
+        <!-- 오류 패널 -->
         <section id="errorPanel" class="panel error-panel hidden">
           <div class="panel-title">불러오지 못했습니다</div>
           <p id="errorMessage"></p>

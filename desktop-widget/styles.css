@@ -351,3 +351,74 @@ input:focus {
   font-size: 12px;
   line-height: 1.5;
 }
+
+/* 구글 로그인 버튼 */
+.google-btn {
+  background: white;
+  color: #1e293b;
+  font-weight: 900;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.google-btn:hover {
+  background: #f1f5f9;
+}
+
+/* 학급 선택 목록 */
+.class-pick-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.class-pick-btn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 12px 14px;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  color: white;
+  text-align: left;
+}
+
+.class-pick-btn:hover {
+  background: rgba(79, 70, 229, 0.55);
+  border-color: #818cf8;
+}
+
+.pick-name {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.pick-meta {
+  font-size: 11px;
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+/* 오류 텍스트 */
+.error-text {
+  margin: 10px 0 0;
+  color: #fca5a5;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+/* 연결 해제 영역 */
+.disconnect-area {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  text-align: center;
+}
+
+.disconnect-area .small-btn {
+  color: #fca5a5;
+  border-color: rgba(252, 165, 165, 0.3);
+}

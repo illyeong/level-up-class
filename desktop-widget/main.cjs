@@ -23,6 +23,18 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
+
+  // Firebase Auth signInWithPopup이 window.open()으로 팝업을 열므로 허용
+  mainWindow.webContents.setWindowOpenHandler(() => {
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        width: 480,
+        height: 640,
+        webPreferences: { nodeIntegration: false, contextIsolation: true },
+      },
+    };
+  });
 }
 
 app.whenReady().then(() => {
