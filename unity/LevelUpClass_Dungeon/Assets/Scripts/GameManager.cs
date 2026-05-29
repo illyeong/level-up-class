@@ -21,6 +21,13 @@ public class GameManager : MonoBehaviour
         Instance = this;
         TryApplyDungeonIndexFromUrl();
         DontDestroyOnLoad(gameObject);
+
+        // MobileInputReceiver가 없으면 자동 생성 (WebGL 태블릿 터치 수신)
+        if (MobileInputReceiver.Instance == null)
+        {
+            var go = new GameObject("MobileInputReceiver");
+            go.AddComponent<MobileInputReceiver>();
+        }
     }
 
     // ── 씬 이름 상수 ──────────────────────────────────────────────

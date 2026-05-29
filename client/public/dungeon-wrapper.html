@@ -10,7 +10,7 @@
       #unity-container { width: 100%; height: 100%; position: relative; touch-action: none; }
       #unity-canvas {
         width: 100%; height: 100%; background: #020617;
-        touch-action: none;               /* 브라우저 스크롤·줌 차단 → Unity가 터치 직접 수신 */
+        touch-action: none;
         user-select: none;
         -webkit-user-select: none;
         -webkit-tap-highlight-color: transparent;
@@ -28,6 +28,51 @@
         width: 36px; height: 36px; border-radius: 10px; background: rgba(15,23,42,.65);
         border: 1px solid rgba(148,163,184,.35); cursor: pointer;
       }
+
+      /* ── HTML 모바일 컨트롤 ── */
+      #mobile-controls {
+        display: none;
+        position: absolute; left: 0; right: 0; bottom: 0; top: 0;
+        z-index: 100; pointer-events: none;
+      }
+      /* 조이스틱 존 (화면 왼쪽 40%) */
+      #joy-zone {
+        position: absolute; left: 0; bottom: 0;
+        width: 42%; height: 45%;
+        pointer-events: auto; touch-action: none;
+      }
+      /* 조이스틱 비주얼 */
+      #joy-base {
+        position: absolute;
+        width: 110px; height: 110px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.15);
+        border: 2px solid rgba(255,255,255,0.35);
+        display: none;
+        transform: translate(-50%, -50%);
+      }
+      #joy-handle {
+        position: absolute;
+        width: 48px; height: 48px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.7);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+      /* 공격 버튼 (오른쪽 하단) */
+      #btn-attack {
+        position: absolute; right: 24px; bottom: 28px;
+        width: 72px; height: 72px;
+        border-radius: 50%;
+        background: rgba(239,68,68,0.75);
+        border: 2px solid rgba(255,100,100,0.8);
+        color: #fff; font-size: 26px;
+        display: flex; align-items: center; justify-content: center;
+        pointer-events: auto; touch-action: none;
+        user-select: none; -webkit-user-select: none;
+        box-shadow: 0 2px 12px rgba(239,68,68,0.5);
+      }
     </style>
   </head>
   <body>
@@ -38,6 +83,14 @@
       </div>
       <div id="unity-warning"></div>
       <div id="unity-footer"><div id="unity-fullscreen-button" title="fullscreen"></div></div>
+
+      <!-- HTML 모바일 컨트롤 오버레이 -->
+      <div id="mobile-controls">
+        <div id="joy-zone">
+          <div id="joy-base"><div id="joy-handle"></div></div>
+        </div>
+        <div id="btn-attack">⚔</div>
+      </div>
     </div>
 
     <script>
@@ -69,40 +122,140 @@
         showBanner: unityShowBanner,
       };
 
-      // 태블릿/모바일 감지 → Unity mobile 모드 적용
+      // ── 태블릿/모바일 감지 ──────────────────────────────────────
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-        || (navigator.maxTouchPoints > 1 && navigator.platform !== 'Win32'); // iPad (iPadOS 13+)
+        || (navigator.maxTouchPoints > 1 && navigator.platform !== 'Win32');
+
       if (isMobile) {
         document.querySelector("#unity-container").className = "unity-mobile";
         canvas.className = "unity-mobile";
+        document.getElementById("mobile-controls").style.display = "block";
       }
 
+      // ── HTML 조이스틱 ────────────────────────────────────────────
+      let unityInstance = null;
+      const DEADZONE = 12;
+      const JOY_RADIUS = 48;
+
+      const joyZone   = document.getElementById("joy-zone");
+      const joyBase   = document.getElementById("joy-base");
+      const joyHandle = document.getElementById("joy-handle");
+      const btnAttack = document.getElementById("btn-attack");
+
+      let joyActive = false;
+      let joyStartX = 0, joyStartY = 0;
+      let joyTouchId = null;
+
+      function sendHorizontal(val) {
+        if (!unityInstance) return;
+        try { unityInstance.SendMessage("MobileInputReceiver", "SetHorizontal", val.toFixed(3)); } catch(e) {}
+      }
+
+      function sendAttack() {
+        if (!unityInstance) return;
+        try { unityInstance.SendMessage("MobileInputReceiver", "SetAttack", "1"); } catch(e) {}
+      }
+
+      function joyShow(x, y) {
+        joyBase.style.display = "block";
+        joyBase.style.left = x + "px";
+        joyBase.style.top  = y + "px";
+        joyHandle.style.left = "50%";
+        joyHandle.style.top  = "50%";
+      }
+
+      function joyMove(touchX, touchY) {
+        const rect  = joyZone.getBoundingClientRect();
+        const ox    = joyStartX + rect.left;
+        const oy    = joyStartY + rect.top;
+        const dx    = touchX - ox;
+        const dy    = touchY - oy;
+        const dist  = Math.sqrt(dx * dx + dy * dy);
+
+        const clamped = Math.min(dist, JOY_RADIUS);
+        const angle   = Math.atan2(dy, dx);
+        const hx      = Math.cos(angle) * clamped;
+        const hy      = Math.sin(angle) * clamped;
+
+        // 핸들 위치 업데이트
+        joyHandle.style.left = (50 + hx / JOY_RADIUS * 50) + "%";
+        joyHandle.style.top  = (50 + hy / JOY_RADIUS * 50) + "%";
+
+        // 수평값 계산 (데드존 적용)
+        const horizontal = dist < DEADZONE ? 0 : Math.max(-1, Math.min(1, dx / JOY_RADIUS));
+        sendHorizontal(horizontal);
+      }
+
+      function joyEnd() {
+        joyActive = false;
+        joyTouchId = null;
+        joyBase.style.display = "none";
+        sendHorizontal(0);
+      }
+
+      joyZone.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        if (joyActive) return;
+        const t = e.changedTouches[0];
+        joyTouchId = t.identifier;
+        const rect = joyZone.getBoundingClientRect();
+        joyStartX = t.clientX - rect.left;
+        joyStartY = t.clientY - rect.top;
+        joyActive = true;
+        joyShow(joyStartX, joyStartY);
+        joyMove(t.clientX, t.clientY);
+      }, { passive: false });
+
+      joyZone.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (t.identifier === joyTouchId) {
+            joyMove(t.clientX, t.clientY);
+            break;
+          }
+        }
+      }, { passive: false });
+
+      joyZone.addEventListener("touchend",    (e) => { e.preventDefault(); joyEnd(); }, { passive: false });
+      joyZone.addEventListener("touchcancel", (e) => { e.preventDefault(); joyEnd(); }, { passive: false });
+
+      // ── 공격 버튼 ────────────────────────────────────────────────
+      btnAttack.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        sendAttack();
+        btnAttack.style.background = "rgba(239,68,68,1)";
+        btnAttack.style.transform  = "scale(0.92)";
+      }, { passive: false });
+
+      btnAttack.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        btnAttack.style.background = "rgba(239,68,68,0.75)";
+        btnAttack.style.transform  = "scale(1)";
+      }, { passive: false });
+
+      // ── Unity 인스턴스 생성 ──────────────────────────────────────
       const script = document.createElement("script");
       script.src = loaderUrl;
       script.onload = () => {
         createUnityInstance(canvas, config, (progress) => {
           document.querySelector("#unity-progress-bar-full").style.width = (100 * progress) + "%";
-        }).then((unityInstance) => {
+        }).then((inst) => {
+          unityInstance = inst;
+          window._unityInstance = inst;
           document.querySelector("#unity-loading-bar").style.display = "none";
-          document.querySelector("#unity-fullscreen-button").onclick = () => unityInstance.SetFullscreen(1);
+          document.querySelector("#unity-fullscreen-button").onclick = () => inst.SetFullscreen(1);
 
-          // 던전 인덱스를 URL에서 읽어 Unity에 직접 주입
+          // 던전 인덱스 주입
           try {
             const params = new URLSearchParams(window.location.search);
             const dungeonIndex = Number(params.get("dungeonIndex"));
             if (Number.isFinite(dungeonIndex) && dungeonIndex > 0) {
               const idx = String(Math.floor(dungeonIndex));
-              try { unityInstance.SendMessage("GameManager", "SetDungeonIndexFromJS", idx); } catch (e) {}
-              console.log("[dungeon-wrapper] injected dungeonIndex =", idx);
-            } else {
-              console.log("[dungeon-wrapper] no dungeonIndex query param");
+              try { inst.SendMessage("GameManager", "SetDungeonIndexFromJS", idx); } catch(e) {}
             }
-          } catch (e) {
-            console.warn("[dungeon-wrapper] dungeonIndex parse failed:", e);
-          }
-        }).catch((message) => {
-          alert(message);
-        });
+          } catch(e) {}
+        }).catch((message) => { alert(message); });
       };
       document.body.appendChild(script);
     </script>

@@ -106,9 +106,10 @@ namespace LayerLab.ArtMaker
                 }
             }
 
-            // 화면 우측 절반 탭 = 공격 / 좌측 = 조이스틱 영역 (FloatingJoystick 충돌 방지)
+            // HTML 오버레이 공격 버튼(MobileInputReceiver) 또는 마우스 우측 탭
             bool attackInput = MobileInput.isAttackPressed
                             || (Input.GetMouseButtonDown(0) && Input.mousePosition.x > Screen.width * 0.45f);
+            // isAttackPressed는 MobileInputReceiver.LateUpdate에서 리셋되므로 여기선 처리만
             if (attackInput && Time.time >= nextAttackTime)
             {
                 Attack();
