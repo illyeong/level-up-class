@@ -910,30 +910,23 @@ export default function QuizBank({ selectedClass = null }) {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {filteredMySets.map(set => (
-                  <div key={set.id} className={`rounded-2xl border-2 overflow-hidden hover:shadow-md transition-all group
-                    ${set.isShared ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 bg-white'}`}>
-                    {/* 상단 헤더 */}
-                    <div className="px-4 pt-4 pb-3">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <h3 className="font-extrabold text-slate-800 text-sm leading-snug line-clamp-2 flex-1">{set.title}</h3>
-                        <span className={`shrink-0 text-[10px] font-extrabold px-2 py-0.5 rounded-full border
-                          ${set.difficulty === 'easy' ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                          : set.difficulty === 'hard' ? 'bg-rose-50 text-rose-600 border-rose-200'
-                          : 'bg-sky-50 text-sky-600 border-sky-200'}`}>
-                          {DIFF_LABEL[set.difficulty] || '보통'}
-                        </span>
-                      </div>
+                  <div key={set.id} className="rounded-2xl border-2 border-slate-200 bg-white overflow-hidden hover:shadow-md transition-all group">
+                    {/* 색깔 띠 */}
+                    <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center
+                      ${set.difficulty === 'easy' ? 'bg-emerald-500' : set.difficulty === 'hard' ? 'bg-rose-500' : 'bg-sky-500'}`}>
+                      <span>{DIFF_LABEL[set.difficulty] || '보통'}</span>
+                      <span>{set.questionCount || 0}문항 · {fmtDate(set.createdAt)}</span>
+                    </div>
+                    {/* 본문 */}
+                    <div className="p-4">
+                      <h3 className="font-extrabold text-slate-800 text-sm leading-snug mb-2 line-clamp-2">{set.title}</h3>
                       {/* 태그 */}
                       <div className="flex flex-wrap gap-1 mb-3">
                         {set.grade && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.grade}학년</span>}
                         {set.semester && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.semester}학기</span>}
                         {set.subject && <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-full">{set.subject}</span>}
+                        {set.isShared && <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full">🌐 공유중</span>}
                         {set.sourceId && <span className="text-[10px] bg-amber-50 text-amber-600 font-bold px-2 py-0.5 rounded-full">📥 가져옴</span>}
-                      </div>
-                      {/* 문항수 + 날짜 */}
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                        <span className="font-extrabold text-slate-600">📝 {set.questionCount || 0}문항</span>
-                        <span>{fmtDate(set.createdAt)}</span>
                       </div>
                     </div>
                     {/* 하단 액션 */}
@@ -1386,30 +1379,23 @@ export default function QuizBank({ selectedClass = null }) {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {filteredBankSets.map(set => (
-                  <div key={set.id} className="bg-white rounded-2xl border-2 border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all overflow-hidden group">
-                    {/* 상단 헤더 */}
-                    <div className="px-4 pt-4 pb-3">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <h3 className="font-extrabold text-slate-800 text-sm leading-snug line-clamp-2 flex-1">{set.title}</h3>
-                        <span className={`shrink-0 text-[10px] font-extrabold px-2 py-0.5 rounded-full border
-                          ${set.difficulty === 'easy' ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                          : set.difficulty === 'hard' ? 'bg-rose-50 text-rose-600 border-rose-200'
-                          : 'bg-sky-50 text-sky-600 border-sky-200'}`}>
-                          {DIFF_LABEL[set.difficulty] || '보통'}
-                        </span>
-                      </div>
+                  <div key={set.id} className="bg-white rounded-2xl border-2 border-slate-200 hover:shadow-md transition-all overflow-hidden group">
+                    {/* 색깔 띠 */}
+                    <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center
+                      ${set.difficulty === 'easy' ? 'bg-emerald-500' : set.difficulty === 'hard' ? 'bg-rose-500' : 'bg-sky-500'}`}>
+                      <span>{DIFF_LABEL[set.difficulty] || '보통'}</span>
+                      <span>{set.questionCount || 0}문항{(set.importCount || 0) > 0 ? ` · 📥 ${set.importCount}회` : ''}</span>
+                    </div>
+                    {/* 본문 */}
+                    <div className="p-4">
+                      <h3 className="font-extrabold text-slate-800 text-sm leading-snug mb-2 line-clamp-2">{set.title}</h3>
                       {/* 태그 */}
-                      <div className="flex flex-wrap gap-1 mb-3">
+                      <div className="flex flex-wrap gap-1 mb-2">
                         {set.grade && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.grade}학년</span>}
                         {set.semester && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.semester}학기</span>}
                         {set.subject && <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-full">{set.subject}</span>}
-                        {(set.importCount || 0) > 0 && <span className="text-[10px] bg-violet-50 text-violet-600 font-bold px-2 py-0.5 rounded-full">📥 {set.importCount}회</span>}
                       </div>
-                      {/* 문항수 + 날짜 */}
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                        <span className="font-extrabold text-slate-600">📝 {set.questionCount || 0}문항</span>
-                        <span>{fmtDate(set.sharedAt || set.createdAt)}</span>
-                      </div>
+                      <div className="text-[11px] text-slate-400">{fmtDate(set.sharedAt || set.createdAt)}</div>
                     </div>
                     {/* 하단 액션 */}
                     <div className="px-3 pb-3 flex gap-1.5 border-t border-slate-100 pt-2.5">

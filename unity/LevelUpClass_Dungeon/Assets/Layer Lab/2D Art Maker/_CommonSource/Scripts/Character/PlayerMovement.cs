@@ -1,7 +1,8 @@
+using System.Collections;
 using UnityEngine;
 using Spine.Unity;
 
-namespace LayerLab.ArtMaker 
+namespace LayerLab.ArtMaker
 {
     public class PlayerMovement : MonoBehaviour
     {
@@ -39,14 +40,25 @@ namespace LayerLab.ArtMaker
             skeletonGraphic = GetComponent<SkeletonGraphic>();
             playerCombat = GetComponent<PlayerCombat>();
 
-            // Inspector에서 연결 안 됐으면 씬에서 자동으로 찾기
+            // Inspector에서 연결 안 됐으면 씬에서 자동 탐색
+            // 씬 전환 직후엔 1프레임 뒤 재탐색으로 타이밍 문제 방지
+            if (joystick == null)
+                joystick = UnityEngine.Object.FindFirstObjectByType<Joystick>();
+            if (joystick == null)
+                StartCoroutine(FindJoystickNextFrame());
+        }
+
+        System.Collections.IEnumerator FindJoystickNextFrame()
+        {
+            yield return null;
             if (joystick == null)
                 joystick = UnityEngine.Object.FindFirstObjectByType<Joystick>();
         }
 
         void Update()
         {
-            if (playerCombat != null && (playerCombat.isHit || playerCombat.isAttacking))
+            // 피격 중에는 이동 완전 차단, 공격 중에는 이동 허용
+            if (playerCombat != null && playerCombat.isHit)
             {
                 rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
                 return;
@@ -73,18 +85,21 @@ namespace LayerLab.ArtMaker
             if (moveX > 0) transform.localScale = new Vector3(-1, 1, 1); 
             else if (moveX < 0) transform.localScale = new Vector3(1, 1, 1); 
 
-            // 5. 상황별 애니메이션 재생
-            if (!isGrounded)
+            // 5. 상황별 애니메이션 재생 (공격 중에는 Movement가 덮어쓰지 않음)
+            bool isAttacking = playerCombat != null && playerCombat.isAttacking;
+            if (!isAttacking)
             {
-                PlayAnim(jumpAnimName, false);
+                if (!isGrounded)
+                    PlayAnim(jumpAnimName, false);
+                else if (moveX != 0)
+                    PlayAnim(runAnimName, true);
+                else
+                    PlayAnim(idleAnimName, true);
             }
             else if (moveX != 0)
             {
-                PlayAnim(runAnimName, true);
-            }
-            else
-            {
-                PlayAnim(idleAnimName, true);
+                // 공격 중 이동 방향만 전환 (애니메이션은 PlayerCombat이 관리)
+                // 방향 전환은 이미 위에서 처리됨
             }
         }
 

@@ -9,6 +9,7 @@ const BOARD_TYPES = [
   {
     id: 'vertical-group', label: '세로그룹형',
     desc: '그룹이 세로로 나열되는 형태로 각 그룹 안에서는 포스트들이 가로로 배치됩니다.',
+    strip: 'bg-red-500',
     color: 'text-red-500', border: 'border-red-400', bg: 'bg-red-50',
     icon: (
       <svg viewBox="0 0 44 44" className="w-9 h-9">
@@ -21,6 +22,7 @@ const BOARD_TYPES = [
   {
     id: 'horizontal-group', label: '가로그룹형',
     desc: '그룹이 가로로 나열되는 형태로 각 그룹 안에서는 포스트들이 세로로 배치됩니다.',
+    strip: 'bg-orange-500',
     color: 'text-orange-500', border: 'border-orange-400', bg: 'bg-orange-50',
     icon: (
       <svg viewBox="0 0 44 44" className="w-9 h-9">
@@ -34,6 +36,7 @@ const BOARD_TYPES = [
   {
     id: 'wall', label: '담벼락형',
     desc: '벽에 붙이는 벽보처럼 벽돌 형식으로 포스트가 자동으로 배치되는 형태입니다.',
+    strip: 'bg-green-500',
     color: 'text-green-600', border: 'border-green-400', bg: 'bg-green-50',
     icon: (
       <svg viewBox="0 0 44 44" className="w-9 h-9">
@@ -48,6 +51,7 @@ const BOARD_TYPES = [
   {
     id: 'map', label: '지도형',
     desc: '지도 위에 핀을 찍어 포스트를 작성하는 형태입니다.',
+    strip: 'bg-purple-500',
     color: 'text-purple-600', border: 'border-purple-400', bg: 'bg-purple-50',
     icon: (
       <svg viewBox="0 0 44 44" className="w-9 h-9">
@@ -1052,25 +1056,10 @@ export default function BoardManage({ selectedClass, user }) {
                       className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all cursor-pointer group
                         ${board.active ? 'border-slate-200 hover:shadow-lg hover:-translate-y-0.5' : 'border-slate-100 opacity-60'}`}
                       onClick={() => openBoard(board)}>
-                      {/* 공통 헤더 — 배경 항상 흰색, 색상은 왼쪽 점으로만 표시 */}
-                      <div className="px-4 py-3 flex items-center justify-between bg-white border-b border-slate-100">
-                        <div className="flex items-center gap-2">
-                          {/* 배경색 스와치 */}
-                          <span className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0"
-                            style={{ backgroundColor: board.bgColor || '#ffffff' }} />
-                          {/* 타입 배지 — 모든 타입 동일한 스타일 */}
-                          <span className="text-xs font-extrabold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
-                            {typeInfo?.label || '기본형'}
-                          </span>
-                        </div>
-                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${board.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
-                          {board.active ? '🟢 공개' : '⏸ 비공개'}
-                        </span>
-                      </div>
-                      {/* 아이콘 미리보기 영역 */}
-                      <div className="flex items-center justify-center py-4 border-b border-slate-50"
-                        style={{ backgroundColor: board.bgColor || '#f8fafc' }}>
-                        {typeInfo?.icon}
+                      {/* 색깔 띠 헤더 */}
+                      <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center ${typeInfo?.strip || 'bg-slate-400'}`}>
+                        <span>{typeInfo?.label || '기본형'}</span>
+                        <span>{board.active ? '🟢 공개' : '⏸ 비공개'}</span>
                       </div>
                       <div className="p-4">
                         <h3 className="font-extrabold text-slate-800 text-base mb-1 group-hover:text-indigo-700 transition-colors">{board.title}</h3>
