@@ -1797,40 +1797,40 @@ function CurriculumUnitsTab() {
     )) return;
     setMigrating(true);
     try {
-      const snap = await getDocs(query(
-        collection(db, 'curriculumUnits'),
-        where('subject', '==', '수학'),
-      ));
-      let updated = 0;
-      for (const d of snap.docs) {
-        const data = d.data();
-        const lessons = data.lessons || [];
+      // where 없이 전체 로드 후 클라이언트 필터 (seed 함수와 동일 방식)
+      const snap = await getDocs(collection(db, 'curriculumUnits'));
+      const mathDocs = snap.docs.filter(d => d.data().subject === '수학');
 
-        let filtered = lessons
-          // 1~2학년: 수학이랑 확인해요/만들어요 제거
-          .filter(l => !l.title?.includes('수학이랑 확인해요') && !l.title?.includes('수학이랑 만들어요'))
-          // 3~6학년: 생각을 더하다 / 놀이를 더하다 제거
-          .filter(l => !l.title?.includes('생각을 더하다') && !l.title?.includes('놀이를 더하다'))
-          // 공부한 내용을 확인해요 → 단원평가
+      let updated = 0, skipped = 0;
+      for (const d of mathDocs) {
+        const lessons = d.data().lessons || [];
+
+        const filtered = lessons
+          .filter(l => !l.title?.includes('수학이랑 확인해요'))
+          .filter(l => !l.title?.includes('수학이랑 만들어요'))
+          .filter(l => !l.title?.includes('생각을 더하다'))
+          .filter(l => !l.title?.includes('놀이를 더하다'))
           .map(l => l.title?.includes('공부한 내용을 확인해요')
-            ? { ...l, title: '단원평가' }
-            : l
+            ? { ...l, title: '단원평가' } : l
           );
 
-        // 단원평가 없으면 추가
+        // 단원평가 없으면 맨 뒤에 추가
         if (!filtered.some(l => l.title === '단원평가')) {
           filtered.push({ no: '단원평가', title: '단원평가', keywords: ['단원 종합', '최종 확인', '복습'] });
         }
 
-        // 변경된 경우만 업데이트
-        if (JSON.stringify(filtered) !== JSON.stringify(lessons)) {
+        // 실제로 달라진 경우만 업데이트
+        const changed = filtered.length !== lessons.length
+          || filtered.some((l, i) => l.title !== lessons[i]?.title);
+        if (changed) {
           await updateDoc(doc(db, 'curriculumUnits', d.id), { lessons: filtered });
           updated++;
-        }
+        } else { skipped++; }
       }
-      setSeedResult({ added: updated, skipped: snap.docs.length - updated });
+      setSeedResult({ added: updated, skipped });
       await load();
     } catch (e) {
+      console.error('migrateLessons 오류:', e);
       setSeedResult({ error: e.message });
     } finally { setMigrating(false); }
   };
