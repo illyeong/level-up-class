@@ -265,11 +265,6 @@ export default function AICourseware({ studentCode }) {
 
   // ── 차시 선택 → AI 콘텐츠 로드/생성 후 바로 학습 시작 ──────
   const openLesson = async (unit, lesson) => {
-    // 하루 최대 횟수 체크
-    if (dailyCount >= DAILY_LIMIT) {
-      showToast(`오늘 AI 학습은 최대 ${DAILY_LIMIT}번까지 가능합니다. 내일 다시 도전하세요!`, 'error');
-      return;
-    }
     setUnit(unit); setLesson(lesson);
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
