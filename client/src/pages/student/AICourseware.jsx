@@ -603,19 +603,19 @@ export default function AICourseware({ studentCode }) {
                 <div className="absolute -right-1 -bottom-3 w-12 h-12 rounded-full bg-white/10" />
 
                 <div className="relative p-5">
-                  {/* 단원 번호 + 차시 수 */}
-                  <div className="flex items-start justify-between mb-3">
-                    <span className={`text-4xl font-black opacity-30 leading-none ${p.num}`}>
-                      {unit.unitNumber || '?'}
-                    </span>
-                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${p.tag}`}>
+                  {/* 단원 번호 + 단원명 + 차시 수 */}
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-baseline gap-2 flex-1 min-w-0 pr-2">
+                      <span className={`text-2xl font-black opacity-50 leading-none shrink-0 ${p.num}`}>
+                        {unit.unitNumber || '?'}
+                      </span>
+                      <span className="text-white font-extrabold text-base leading-snug">
+                        {unit.unitName}
+                      </span>
+                    </div>
+                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${p.tag}`}>
                       {lessonCount}차시
                     </span>
-                  </div>
-
-                  {/* 단원명 */}
-                  <div className="text-white font-extrabold text-lg leading-snug mb-1">
-                    {unit.unitName}
                   </div>
 
                   {/* 단원 숙달도 / 완료도 */}
@@ -705,11 +705,13 @@ export default function AICourseware({ studentCode }) {
                           ring-2 ${p.ring} shadow-md`}>
                         <div className="absolute -right-3 -top-3 w-14 h-14 rounded-full bg-white/10" />
                         <div className="relative p-3.5">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-white/30 font-black text-2xl leading-none">{unit.unitNumber}</span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.tag}`}>{uLessons.length}차시</span>
+                          <div className="flex items-start justify-between mb-1.5">
+                            <div className="flex items-baseline gap-1.5 flex-1 min-w-0 pr-1">
+                              <span className="text-white/40 font-black text-lg leading-none shrink-0">{unit.unitNumber}</span>
+                              <span className="text-white font-extrabold text-sm leading-snug">{unit.unitName}</span>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${p.tag}`}>{uLessons.length}차시</span>
                           </div>
-                          <div className="text-white font-extrabold text-sm leading-snug">{unit.unitName}</div>
                           {mCfg2 ? (
                             <div className="mt-1">
                               <div className="text-white/90 text-[10px] font-extrabold">{mCfg2.emoji} {mCfg2.label} · {unitMastery2.avg}점</div>
