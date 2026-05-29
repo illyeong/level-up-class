@@ -77,14 +77,14 @@ const preloadLesson = (unit, lesson) => {
   preloadMap.set(key, promise);
 };
 
-// 로딩 단계 메시지
-const LOADING_STEPS = [
+// 로딩 순환 메시지 (끝이 없이 반복)
+const LOADING_MSGS = [
   '차시 내용을 분석하는 중...',
   'AI 선생님이 개념 카드 작성 중...',
-  '핵심 개념 정리 중...',
-  '퀴즈 문제 만드는 중...',
-  '오답 보기 설계 중...',
-  '거의 다 됐어요! 🎉',
+  '핵심 개념을 정리하는 중...',
+  '퀴즈 문제를 만드는 중...',
+  '오답 보기를 설계하는 중...',
+  '해설을 다듬는 중...',
 ];
 
 export default function AICourseware({ studentCode }) {
@@ -113,7 +113,10 @@ export default function AICourseware({ studentCode }) {
   const [showResult, setShowResult] = useState(false);
   const [finalResult, setFR]    = useState(null);
   const [saving, setSaving]     = useState(false);
-  const [loadingStepIdx, setLoadingStepIdx] = useState(0); // 로딩 단계 표시
+  const [minTimeLeft, setMinTimeLeft] = useState(0);  // 최소 응답 시간 남은 초 (5→0)
+  const [consecWrong, setConsecWrong] = useState(0); // 연속 오답 횟수
+  const [loadingElapsed, setLoadingElapsed]  = useState(0);  // 경과 시간(초)
+  const [loadingMsgIdx,  setLoadingMsgIdx]   = useState(0);  // 순환 메시지 인덱스
 
   const [dailyCount, setDailyCount] = useState(0); // 오늘 완료 횟수
   const [toast, setToast] = useState(null);
@@ -187,15 +190,17 @@ export default function AICourseware({ studentCode }) {
     setUnit(unit); setLesson(lesson);
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
+    setConsecWrong(0); setMinTimeLeft(0);
     setCL(true); setContent(null); setMyProgress(null);
-    setLoadingStepIdx(0);
+    setLoadingElapsed(0);
+    setLoadingMsgIdx(0);
     setStep('loading');
     const key = lessonKey(unit, lesson);
 
-    // 로딩 단계 메시지 순환
-    const stepTimer = setInterval(() => {
-      setLoadingStepIdx(prev => Math.min(prev + 1, LOADING_STEPS.length - 1));
-    }, 2500);
+    // 경과 시간 카운터 (1초마다) + 메시지 순환 (3초마다)
+    const elapsedTimer = setInterval(() => setLoadingElapsed(s => s + 1), 1000);
+    const msgTimer     = setInterval(() => setLoadingMsgIdx(i => (i + 1) % LOADING_MSGS.length), 3000);
+    const stepTimer    = { clear: () => { clearInterval(elapsedTimer); clearInterval(msgTimer); } };
 
     try {
       const today = new Date().toISOString().slice(0, 10);
@@ -244,11 +249,11 @@ export default function AICourseware({ studentCode }) {
         }
       }
 
-      clearInterval(stepTimer);
+      stepTimer.clear();
       setContent(data);
       setStep('concept');
     } catch (e) {
-      clearInterval(stepTimer);
+      stepTimer.clear();
       showToast('콘텐츠 로드에 실패했습니다. 다시 시도해주세요.', 'error');
       setStep('lessons');
       console.error(e);
@@ -258,18 +263,50 @@ export default function AICourseware({ studentCode }) {
   const startLearning = () => {
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
+    setConsecWrong(0); setMinTimeLeft(0);
     setStep('concept');
   };
 
+  // ── 최소 응답 시간: 문제 바뀔 때마다 5초 카운트다운 ─────────
+  useEffect(() => {
+    if (step !== 'quiz') return;
+    const MIN_SEC = 5;
+    setMinTimeLeft(MIN_SEC);
+    const t = setInterval(() => {
+      setMinTimeLeft(prev => {
+        if (prev <= 1) { clearInterval(t); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [step, qIdx]);
+
   // ── 퀴즈 ──────────────────────────────────────────────────────
   const confirmAnswer = () => {
-    if (selected === null) return;
+    if (selected === null || minTimeLeft > 0) return;
     const correct = selected === content.questions[qIdx].answerIndex;
     setAnswers(prev => [...prev, { questionIndex: qIdx, selectedIndex: selected, correct }]);
     setShowResult(true);
+
+    // 연속 오답 카운터 업데이트
+    if (!correct) {
+      setConsecWrong(prev => prev + 1);
+    } else {
+      setConsecWrong(0); // 정답이면 리셋
+    }
   };
 
   const nextQuestion = () => {
+    const lastAnswer = answers[answers.length - 1];
+
+    // 연속 2번 오답 → 개념 카드로 강제 복귀
+    if (!lastAnswer?.correct && consecWrong >= 2) {
+      setConsecWrong(0);
+      setCardIdx(0);
+      setStep('concept');
+      return;
+    }
+
     if (qIdx < content.questions.length - 1) {
       setQIdx(q => q + 1); setSelected(null); setShowResult(false);
     } else { finishQuiz(); }
@@ -566,60 +603,44 @@ export default function AICourseware({ studentCode }) {
     </div>
   );
 
-  // ── 로딩 화면 (단계별 메시지 + 진행바) ──────────────────────
-  if (step === 'loading') {
-    const progress = Math.round(((loadingStepIdx + 1) / LOADING_STEPS.length) * 100);
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-indigo-950 to-slate-900 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm space-y-6 text-center">
-          {/* 아이콘 애니메이션 */}
-          <div className="relative w-20 h-20 mx-auto">
-            <div className="absolute inset-0 rounded-full border-4 border-indigo-300/20 border-t-indigo-400 animate-spin" />
-            <div className="absolute inset-3 rounded-full bg-indigo-500/20 flex items-center justify-center text-2xl">
-              🤖
-            </div>
-          </div>
+  // ── 로딩 화면 ────────────────────────────────────────────────
+  if (step === 'loading') return (
+    <div className="min-h-screen bg-gradient-to-b from-indigo-950 to-slate-900 flex items-center justify-center p-6">
+      <div className="w-full max-w-sm space-y-6 text-center">
 
-          {/* 차시 정보 */}
-          <div>
-            <p className="text-white font-extrabold text-lg leading-snug">
-              {selectedUnit?.unitName}
-            </p>
-            <p className="text-indigo-300 text-sm mt-1">
-              {selectedLesson?.no}차시 · {selectedLesson?.title}
-            </p>
+        {/* 스피너 */}
+        <div className="relative w-20 h-20 mx-auto">
+          <div className="absolute inset-0 rounded-full border-4 border-indigo-300/20 border-t-indigo-400 animate-spin" />
+          <div className="absolute inset-3 rounded-full bg-indigo-500/20 flex items-center justify-center text-2xl">
+            🤖
           </div>
-
-          {/* 단계별 메시지 */}
-          <div className="bg-white/5 rounded-2xl px-5 py-4 min-h-[56px] flex items-center justify-center">
-            <p className="text-indigo-200 text-sm font-bold transition-all duration-500">
-              {LOADING_STEPS[loadingStepIdx]}
-            </p>
-          </div>
-
-          {/* 진행바 */}
-          <div className="space-y-1.5">
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-700 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-[10px] text-indigo-400/60">
-              <span>AI 생성 중...</span>
-              <span>{loadingStepIdx < LOADING_STEPS.length - 1 ? `${progress}%` : '완료!'}</span>
-            </div>
-          </div>
-
-          {loadingStepIdx < 2 && (
-            <p className="text-indigo-400/50 text-xs">
-              처음 방문하는 차시는 10~15초가 걸려요
-            </p>
-          )}
         </div>
+
+        {/* 차시 정보 */}
+        <div>
+          <p className="text-white font-extrabold text-lg">{selectedUnit?.unitName}</p>
+          <p className="text-indigo-300 text-sm mt-1">
+            {selectedLesson?.no}차시 · {selectedLesson?.title}
+          </p>
+        </div>
+
+        {/* 순환 메시지 */}
+        <div className="bg-white/5 rounded-2xl px-5 py-4 min-h-[56px] flex items-center justify-center">
+          <p className="text-indigo-200 text-sm font-bold">
+            {LOADING_MSGS[loadingMsgIdx]}
+          </p>
+        </div>
+
+        {/* 경과 시간 — 솔직하게 표시 */}
+        <div className="flex items-center justify-center gap-2 text-indigo-400/70 text-sm">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+          <span>{loadingElapsed}초 경과</span>
+          {loadingElapsed < 5 && <span className="text-xs">(20~30초 소요돼요)</span>}
+        </div>
+
       </div>
-    );
-  }
+    </div>
+  );
 
   if (!content || !selectedUnit || !selectedLesson) return null;
   const currentCard = content.conceptCards?.[cardIdx];
@@ -634,6 +655,17 @@ export default function AICourseware({ studentCode }) {
           <button onClick={backToLessons} className="text-white/50 hover:text-white text-sm font-bold">← {selectedLesson.no}차시 목록</button>
           <span className="text-white/40 text-sm">{cardIdx + 1} / {content.conceptCards.length}</span>
         </div>
+
+        {/* 연속 오답으로 복귀한 경우 안내 배너 */}
+        {answers.length > 0 && consecWrong === 0 && (
+          <div className="bg-amber-500/20 border border-amber-400/40 rounded-2xl px-4 py-3 flex items-center gap-2">
+            <span className="text-xl">📖</span>
+            <div>
+              <p className="text-amber-200 text-sm font-bold">개념을 다시 확인해봐요!</p>
+              <p className="text-amber-300/60 text-xs">2문제 연속 오답으로 돌아왔어요. 개념 카드를 잘 읽고 다시 도전!</p>
+            </div>
+          </div>
+        )}
 
         {/* 진행 바 */}
         <div className="flex items-center gap-2">
@@ -743,15 +775,36 @@ export default function AICourseware({ studentCode }) {
 
         {/* 확인/다음 버튼 */}
         {!showResult ? (
-          <button onClick={confirmAnswer} disabled={selected === null}
-            className="w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xl rounded-2xl disabled:opacity-40 shadow-lg">
-            정답 확인
+          <button
+            onClick={confirmAnswer}
+            disabled={selected === null || minTimeLeft > 0}
+            className={`w-full py-5 font-extrabold text-xl rounded-2xl shadow-lg transition-all
+              ${minTimeLeft > 0
+                ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
+                : selected === null
+                  ? 'bg-emerald-500 text-white opacity-40'
+                  : 'bg-emerald-500 hover:bg-emerald-600 text-white'}`}>
+            {minTimeLeft > 0
+              ? `문제를 읽어보세요 (${minTimeLeft}초)`
+              : '정답 확인'}
           </button>
         ) : (
-          <button onClick={nextQuestion} disabled={saving}
-            className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xl rounded-2xl disabled:opacity-40 shadow-lg">
-            {saving ? '저장 중...' : qIdx < content.questions.length - 1 ? '다음 문제 →' : '결과 보기 →'}
-          </button>
+          <>
+            {/* 연속 2번 오답 경고 */}
+            {!answers[answers.length-1]?.correct && consecWrong >= 2 && (
+              <div className="bg-rose-900/40 border border-rose-500/50 rounded-2xl px-4 py-3 text-center">
+                <p className="text-rose-300 text-sm font-bold">⚠️ 연속 2번 틀렸어요</p>
+                <p className="text-rose-400/70 text-xs mt-0.5">개념 카드를 다시 읽어볼게요</p>
+              </div>
+            )}
+            <button onClick={nextQuestion} disabled={saving}
+              className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xl rounded-2xl disabled:opacity-40 shadow-lg">
+              {saving ? '저장 중...'
+                : !answers[answers.length-1]?.correct && consecWrong >= 2
+                  ? '📖 개념 카드 다시 보기'
+                  : qIdx < content.questions.length - 1 ? '다음 문제 →' : '결과 보기 →'}
+            </button>
+          </>
         )}
       </div>
     </div>
