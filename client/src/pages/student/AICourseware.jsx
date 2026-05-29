@@ -434,20 +434,34 @@ export default function AICourseware({ studentCode }) {
       await setDoc(doc(db, 'aiStudentProgress', progressId), pData, { merge: true });
       setMyProgress(pData);
 
-      // ── mastery 업데이트 ─────────────────────────────────────
-      const masteryId  = `${studentCode}_${key}`;
-      const prevMDoc   = await getDoc(doc(db, 'aiLessonMastery', masteryId));
-      const prev       = prevMDoc.exists() ? prevMDoc.data() : { bestScore: 0, attemptCount: 0 };
-      const newBest    = Math.max(prev.bestScore || 0, score);
-      const newCount   = (prev.attemptCount || 0) + 1;
-      const mastLevel  = getMasteryLevel(newBest);
-      const masteryData = {
+      // ── mastery 업데이트 (rolling best-5 평균) ───────────────
+      const masteryId = `${studentCode}_${key}`;
+      const prevMDoc  = await getDoc(doc(db, 'aiLessonMastery', masteryId));
+      const prevM     = prevMDoc.exists() ? prevMDoc.data() : { scores: [], attemptCount: 0 };
+
+      // 현재 보관 중인 점수 배열 (최대 5개)
+      let scores = Array.isArray(prevM.scores) ? [...prevM.scores] : [];
+      if (scores.length < 5) {
+        scores.push(score);
+      } else {
+        // 5개 꽉 참 → 최저 점수보다 높으면 최저를 교체 (평균 하락 방지)
+        const minScore = Math.min(...scores);
+        if (score > minScore) {
+          scores[scores.indexOf(minScore)] = score;
+        }
+      }
+
+      const newCount       = (prevM.attemptCount || 0) + 1;
+      const hasWindow      = scores.length === 5;
+      const masteryAvg     = hasWindow ? Math.round(scores.reduce((a, b) => a + b, 0) / 5) : null;
+      const mastLevel      = hasWindow ? getMasteryLevel(masteryAvg) : null;
+      const masteryData    = {
         studentCode, lessonKey: key,
         unitId: selectedUnit.id, unitName: selectedUnit.unitName,
         lessonTitle: selectedLesson.title,
-        bestScore: newBest, lastScore: score,
-        attemptCount: newCount, masteryLevel: mastLevel,
-        lastAttemptAt: serverTimestamp(),
+        scores, attemptCount: newCount,
+        masteryAvg, masteryLevel: mastLevel,
+        lastScore: score, lastAttemptAt: serverTimestamp(),
       };
       await setDoc(doc(db, 'aiLessonMastery', masteryId), masteryData, { merge: true });
       setMasteryMap(prev => ({ ...prev, [key]: masteryData }));
@@ -455,14 +469,13 @@ export default function AICourseware({ studentCode }) {
       // 일일 카운트 증가 (새로운 완료만)
       if (!alreadyRewarded) setDailyCount(prev => prev + 1);
 
-      const newAttempts  = prevAttempts + 1;
-      const newBestScore = Math.max(prevMastery?.bestScore || 0, score);
       setFR({
         correctCount, total, score, reward, rewarded: canReward, alreadyRewarded, overLimit,
-        attemptNo: newAttempts,
-        masteryLevel: getMasteryLevel(newBestScore),
-        bestScore: newBestScore,
-        rewardLeft: Math.max(0, DAILY_LIMIT - newAttempts),
+        attemptNo: newCount,
+        masteryLevel: mastLevel,
+        masteryAvg,
+        scores,
+        rewardLeft: Math.max(0, DAILY_LIMIT - newCount),
       });
       setStep('result');
     } catch (e) { console.error(e); showToast('저장 오류', 'error'); }
@@ -700,12 +713,26 @@ export default function AICourseware({ studentCode }) {
               {(() => {
                 const m = masteryMap[lessonKey(selectedUnit, lesson)];
                 if (!m) return <div className="mt-1 pl-[68px]"><span className="text-[10px] text-slate-600">미도전</span></div>;
+                const done = (m.scores?.length || 0);
+                if (done < 5) {
+                  // 5회 미만 — 진행 도트
+                  return (
+                    <div className="flex items-center gap-2 mt-1 pl-[68px]">
+                      <span className="text-[10px] text-slate-500">{done}/5 도전 중</span>
+                      <div className="flex gap-0.5">
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <div key={i} className={`w-2.5 h-1.5 rounded-full ${i < done ? 'bg-indigo-400' : 'bg-slate-600'}`} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
                 const cfg = MASTERY[m.masteryLevel] || MASTERY.retry;
                 return (
                   <div className="flex items-center gap-2 mt-1 pl-[68px]">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.emoji} {cfg.label}</span>
-                    <span className="text-[10px] text-slate-500">{m.attemptCount}회 도전</span>
-                    <span className="text-[10px] text-slate-500">최고 {m.bestScore}점</span>
+                    <span className="text-[10px] text-slate-400">평균 {m.masteryAvg}점</span>
+                    <span className="text-[10px] text-slate-500">{m.attemptCount}회</span>
                   </div>
                 );
               })()}
@@ -971,20 +998,45 @@ export default function AICourseware({ studentCode }) {
               </p>
             </div>
           )}
-          {/* 수준 배지 + 도전 기록 */}
-          {finalResult.masteryLevel && (() => {
-            const cfg = MASTERY[finalResult.masteryLevel];
+          {/* 숙달도 + 도전 기록 */}
+          {(() => {
+            const done = finalResult.scores?.length || 0;
+            if (done < 5) {
+              return (
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
+                  <div className="text-xs text-slate-500 mb-2">{finalResult.attemptNo}번째 도전 · 숙달도 평가까지 <span className="font-bold text-indigo-600">{5 - done}회</span> 남음</div>
+                  <div className="flex justify-center gap-1.5">
+                    {(finalResult.scores || []).map((s, i) => (
+                      <div key={i} className="text-center">
+                        <div className="w-8 h-8 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">{s}</div>
+                        <div className="text-[9px] text-slate-400 mt-0.5">{i + 1}회</div>
+                      </div>
+                    ))}
+                    {Array.from({ length: 5 - done }, (_, i) => (
+                      <div key={`empty-${i}`} className="text-center">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center">?</div>
+                        <div className="text-[9px] text-slate-400 mt-0.5">{done + i + 1}회</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+            const cfg = MASTERY[finalResult.masteryLevel] || MASTERY.retry;
             return (
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
-                <div className="text-xs text-slate-500 mb-1.5">{finalResult.attemptNo}번째 도전 결과</div>
+                <div className="text-xs text-slate-500 mb-1.5">{finalResult.attemptNo}번째 도전 · 5회 점수 평균</div>
                 <span className={`inline-flex items-center gap-1 text-sm font-extrabold px-3 py-1 rounded-full ${cfg.cls}`}>
                   {cfg.emoji} {cfg.label}
                 </span>
-                <div className="text-[11px] text-slate-400 mt-1.5">
-                  최고 점수 <span className="font-bold text-slate-600">{finalResult.bestScore}점</span>
-                  {finalResult.rewardLeft > 0
-                    ? ` · 보상 ${finalResult.rewardLeft}회 남음`
-                    : ' · 보상 획득 완료 (계속 도전 가능)'}
+                <div className="text-base font-extrabold text-slate-700 mt-2">{finalResult.masteryAvg}점</div>
+                <div className="flex justify-center gap-1 mt-2">
+                  {(finalResult.scores || []).map((s, i) => (
+                    <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${s === score ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-600'}`}>{s}</span>
+                  ))}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1.5">
+                  {finalResult.rewardLeft > 0 ? `보상 ${finalResult.rewardLeft}회 남음` : '보상 획득 완료 · 계속 도전 가능!'}
                 </div>
               </div>
             );
