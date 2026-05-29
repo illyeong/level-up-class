@@ -743,22 +743,14 @@ export default function LearningBoard({ studentCode }) {
                 </button>
               ))}
             </div>
-            {/* 검색 + 정렬 */}
-            <div className="flex gap-2 flex-wrap">
-              <div className="relative flex-1 min-w-32">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
-                <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="검색..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 bg-slate-50" />
-              </div>
-              <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-white text-xs">
-                {[['newest','최신'],['oldest','오래된'],['popular','인기']].map(([val, label]) => (
-                  <button key={val} onClick={() => setSort(val)}
-                    className={`px-3 py-1.5 font-bold transition-colors ${sort === val ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
+            {/* 정렬 */}
+            <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-white text-xs w-fit">
+              {[['newest','최신'],['oldest','오래된'],['popular','인기']].map(([val, label]) => (
+                <button key={val} onClick={() => setSort(val)}
+                  className={`px-3 py-1.5 font-bold transition-colors ${sort === val ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         )}

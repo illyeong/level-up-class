@@ -8,9 +8,22 @@ import { db } from '../../firebase';
 const SUBJECTS = ['국어', '수학', '사회', '과학', '영어', '도덕', '체육', '음악', '미술', '실과', '창체'];
 
 const STATUS_BADGE = {
-  pending:  { label: '🕐 승인 대기', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
-  approved: { label: '✅ 승인 완료', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  rejected: { label: '❌ 반려',      cls: 'bg-rose-100 text-rose-700 border-rose-200' },
+  pending:  { label: '🕐 대기',   cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+  approved: { label: '✅ 승인',   cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  rejected: { label: '❌ 반려',   cls: 'bg-rose-100 text-rose-700 border-rose-200' },
+  partial:  { label: '🔶 일부승인', cls: 'bg-orange-100 text-orange-700 border-orange-200' },
+};
+
+// 과목별 상태: subject 객체에 status 없으면 pending으로 간주
+const subjectStatus = (s) => s.status || 'pending';
+
+// 노트 전체 상태 계산
+const calcOverallStatus = (subjects) => {
+  const statuses = subjects.map(subjectStatus);
+  if (statuses.every(s => s === 'approved')) return 'approved';
+  if (statuses.every(s => s === 'rejected')) return 'rejected';
+  if (statuses.every(s => s === 'pending'))  return 'pending';
+  return 'partial';
 };
 
 const DEFAULT_SETTINGS = { minCoreLength: 10, minThoughtLength: 20, rewardGold: 10, rewardExp: 30, rewardDiamond: 10 };
@@ -35,8 +48,8 @@ export default function LearningNoteManage({ selectedClass }) {
   const [filterTo, setFilterTo]           = useState('');
   const [filterStatus, setFilterStatus]   = useState('pending');
 
-  // approve/reject modal
-  const [modal, setModal]       = useState(null); // { type: 'approve'|'reject', note }
+  // approve/reject modal — subjectIdx: 과목 인덱스 (-1이면 전체 승인)
+  const [modal, setModal]       = useState(null); // { type: 'approve'|'reject', note, subjectIdx }
   const [comment, setComment]   = useState('');
   const [processing, setProcessing] = useState(false);
 
@@ -88,82 +101,136 @@ export default function LearningNoteManage({ selectedClass }) {
     return true;
   });
 
-  // ── approve one (reusable) ────────────────────────────────────
-  const approveNote = async (note, teacherComment = '') => {
-    await updateDoc(doc(db, 'learningNotes', note.id), {
-      status:         'approved',
-      teacherComment: teacherComment.trim(),
-      approvedAt:     serverTimestamp(),
-      rewardPaid:     true,
-      studentSeen:    false,
-    });
+  // ── 과목 1개 보상 지급 ────────────────────────────────────────
+  const paySubjectReward = async (note) => {
     const studentRef  = doc(db, 'students', note.studentId);
     const studentSnap = await getDoc(studentRef);
-    if (!studentSnap.exists()) return {};
+    if (!studentSnap.exists()) return { rewardGold: 0, rewardDia: 0, rewardExp: 0 };
     const sd = studentSnap.data();
-    const rewardGold = settings.rewardGold    * note.subjectCount;
-    const rewardDia  = settings.rewardDiamond * note.subjectCount;
-    const rewardExp  = settings.rewardExp     * note.subjectCount;
+    const rewardGold = settings.rewardGold;
+    const rewardDia  = settings.rewardDiamond;
+    const rewardExp  = settings.rewardExp;
     let newExp = (sd.exp || 0) + rewardExp;
     let newLv  = sd.level || 1;
     while (newExp >= getMaxExp(newLv)) { newExp -= getMaxExp(newLv); newLv++; }
     await updateDoc(studentRef, {
-      gold:     (sd.gold     || 0) + rewardGold,
-      diamonds: (sd.diamonds || 0) + rewardDia,
+      gold: (sd.gold || 0) + rewardGold, diamonds: (sd.diamonds || 0) + rewardDia,
       exp: newExp, level: newLv,
     });
     return { rewardGold, rewardDia, rewardExp };
   };
 
-  // ── approve (modal confirm) ───────────────────────────────────
+  // ── 과목 승인 ─────────────────────────────────────────────────
+  const approveSubject = async (note, subjectIdx, teacherComment = '') => {
+    const updatedSubjects = (note.subjects || []).map((s, i) =>
+      i === subjectIdx && subjectStatus(s) === 'pending'
+        ? { ...s, status: 'approved', comment: teacherComment.trim(), rewardPaid: true }
+        : s
+    );
+    const overall = calcOverallStatus(updatedSubjects);
+    await updateDoc(doc(db, 'learningNotes', note.id), {
+      subjects: updatedSubjects, status: overall,
+      studentSeen: false,
+      ...(overall === 'approved' ? { approvedAt: serverTimestamp() } : {}),
+    });
+    return await paySubjectReward(note);
+  };
+
+  // ── 과목 반려 ─────────────────────────────────────────────────
+  const rejectSubject = async (note, subjectIdx, teacherComment = '') => {
+    const updatedSubjects = (note.subjects || []).map((s, i) =>
+      i === subjectIdx && subjectStatus(s) === 'pending'
+        ? { ...s, status: 'rejected', comment: teacherComment.trim() }
+        : s
+    );
+    const overall = calcOverallStatus(updatedSubjects);
+    await updateDoc(doc(db, 'learningNotes', note.id), {
+      subjects: updatedSubjects, status: overall, studentSeen: false,
+    });
+  };
+
+  // ── 모달 확인 (승인) ──────────────────────────────────────────
   const approve = async () => {
-    const note = modal.note;
+    const { note, subjectIdx } = modal;
     setProcessing(true);
     try {
-      const reward = await approveNote(note, comment);
-      setNotes(prev => prev.map(n => n.id === note.id
-        ? { ...n, status: 'approved', teacherComment: comment.trim(), rewardPaid: true }
-        : n
-      ));
+      let reward;
+      if (subjectIdx === -1) {
+        // 전체 미결 과목 한번에 승인
+        let updatedSubjects = note.subjects || [];
+        let totalReward = { rewardGold: 0, rewardDia: 0, rewardExp: 0 };
+        const pendingIdxs = updatedSubjects.map((s, i) => subjectStatus(s) === 'pending' ? i : -1).filter(i => i >= 0);
+        updatedSubjects = updatedSubjects.map(s => subjectStatus(s) === 'pending' ? { ...s, status: 'approved', comment: comment.trim(), rewardPaid: true } : s);
+        const overall = calcOverallStatus(updatedSubjects);
+        await updateDoc(doc(db, 'learningNotes', note.id), {
+          subjects: updatedSubjects, status: overall, studentSeen: false,
+          ...(overall === 'approved' ? { approvedAt: serverTimestamp() } : {}),
+        });
+        for (let i = 0; i < pendingIdxs.length; i++) {
+          const r = await paySubjectReward(note);
+          totalReward.rewardGold += r.rewardGold;
+          totalReward.rewardDia  += r.rewardDia;
+          totalReward.rewardExp  += r.rewardExp;
+        }
+        reward = totalReward;
+        setNotes(prev => prev.map(n => n.id === note.id ? { ...n, subjects: updatedSubjects, status: overall } : n));
+      } else {
+        reward = await approveSubject(note, subjectIdx, comment);
+        setNotes(prev => prev.map(n => {
+          if (n.id !== note.id) return n;
+          const updatedSubjects = (n.subjects || []).map((s, i) =>
+            i === subjectIdx ? { ...s, status: 'approved', comment: comment.trim(), rewardPaid: true } : s
+          );
+          return { ...n, subjects: updatedSubjects, status: calcOverallStatus(updatedSubjects) };
+        }));
+      }
       showToast(`✅ 승인 · 골드 +${reward.rewardGold}, 다이아 +${reward.rewardDia}, 경험치 +${reward.rewardExp}`);
       setModal(null); setComment('');
     } catch (e) { showToast('오류가 발생했습니다.', 'error'); console.error(e); }
     finally { setProcessing(false); }
   };
 
-  // ── reject ────────────────────────────────────────────────────
+  // ── 모달 확인 (반려) ──────────────────────────────────────────
   const reject = async () => {
-    const note = modal.note;
+    const { note, subjectIdx } = modal;
     setProcessing(true);
     try {
-      await updateDoc(doc(db, 'learningNotes', note.id), {
-        status: 'rejected', teacherComment: comment.trim(), studentSeen: false,
-      });
-      setNotes(prev => prev.map(n => n.id === note.id
-        ? { ...n, status: 'rejected', teacherComment: comment.trim() }
-        : n
-      ));
+      await rejectSubject(note, subjectIdx, comment);
+      setNotes(prev => prev.map(n => {
+        if (n.id !== note.id) return n;
+        const updatedSubjects = (n.subjects || []).map((s, i) =>
+          i === subjectIdx ? { ...s, status: 'rejected', comment: comment.trim() } : s
+        );
+        return { ...n, subjects: updatedSubjects, status: calcOverallStatus(updatedSubjects) };
+      }));
       showToast('반려 처리되었습니다.');
       setModal(null); setComment('');
     } catch { showToast('오류가 발생했습니다.', 'error'); }
     finally { setProcessing(false); }
   };
 
-  // ── bulk approve ──────────────────────────────────────────────
+  // ── 일괄 승인 (모든 pending 노트의 모든 pending 과목) ─────────
   const approveAll = async () => {
-    const pendingList = filtered.filter(n => n.status === 'pending');
+    const pendingList = filtered.filter(n => ['pending', 'partial'].includes(n.status));
     if (!pendingList.length) return;
-    if (!window.confirm(`승인 대기 ${pendingList.length}건을 모두 승인하시겠습니까?\n보상이 각 학생에게 자동 지급됩니다.`)) return;
+    if (!window.confirm(`대기 중인 과목을 모두 승인하시겠습니까?\n보상이 각 학생에게 자동 지급됩니다.`)) return;
     setBulkApproving(true);
     let ok = 0;
     try {
       for (const note of pendingList) {
         try {
-          await approveNote(note, '');
-          setNotes(prev => prev.map(n => n.id === note.id
-            ? { ...n, status: 'approved', rewardPaid: true }
-            : n
-          ));
+          const pendingSubjects = (note.subjects || []).filter(s => subjectStatus(s) === 'pending');
+          if (!pendingSubjects.length) continue;
+          const updatedSubjects = (note.subjects || []).map(s =>
+            subjectStatus(s) === 'pending' ? { ...s, status: 'approved', rewardPaid: true } : s
+          );
+          const overall = calcOverallStatus(updatedSubjects);
+          await updateDoc(doc(db, 'learningNotes', note.id), {
+            subjects: updatedSubjects, status: overall, studentSeen: false,
+            ...(overall === 'approved' ? { approvedAt: serverTimestamp() } : {}),
+          });
+          for (let i = 0; i < pendingSubjects.length; i++) await paySubjectReward(note);
+          setNotes(prev => prev.map(n => n.id === note.id ? { ...n, subjects: updatedSubjects, status: overall } : n));
           ok++;
         } catch (e) { console.error('bulk approve error:', note.id, e); }
       }
@@ -184,76 +251,91 @@ export default function LearningNoteManage({ selectedClass }) {
 
   const pendingCount = notes.filter(n => n.status === 'pending').length;
 
-  // ── NoteCard (컴팩트 5열 카드) ───────────────────────────────
+  // ── NoteCard (과목별 개별 승인/반려) ────────────────────────────
   const renderNoteCard = (note) => {
-    const badge    = STATUS_BADGE[note.status] || STATUS_BADGE.pending;
-    const stripCls = note.status === 'approved' ? 'bg-emerald-400'
-                   : note.status === 'rejected'  ? 'bg-rose-400'
+    const overallStatus = note.status || 'pending';
+    const stripCls = overallStatus === 'approved' ? 'bg-emerald-400'
+                   : overallStatus === 'rejected'  ? 'bg-rose-400'
+                   : overallStatus === 'partial'   ? 'bg-orange-400'
                    : 'bg-amber-400';
+    const badge = STATUS_BADGE[overallStatus] || STATUS_BADGE.pending;
+    const hasPending = (note.subjects || []).some(s => subjectStatus(s) === 'pending');
+
     return (
       <div key={note.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className={`h-1.5 ${stripCls}`} />
         <div className="p-3 flex-1 flex flex-col gap-2">
           {/* 헤더 */}
-          <div>
-            <div className="flex items-start justify-between gap-1 mb-0.5">
-              <span className="font-extrabold text-slate-800 text-xs leading-tight truncate">{note.studentName}</span>
-              {note.status === 'pending' && (
-                <button onClick={() => { setModal({ type: 'approve', note }); setComment(''); }}
-                  className="shrink-0 text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1.5 py-0.5 rounded-lg transition-colors">
-                  ✓ 승인
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-[9px] text-slate-400">{note.date}</span>
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${badge.cls}`}>
-                {note.status === 'approved' ? '✅완료' : note.status === 'rejected' ? '❌반려' : '🕐대기'}
-              </span>
-              <span className="text-[9px] text-slate-400">·{note.subjectCount}과목</span>
-            </div>
-          </div>
-
-          {/* 과목 태그 */}
-          <div className="flex flex-wrap gap-0.5">
-            {(note.subjects || []).map((s, i) => (
-              <span key={i} className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.5 rounded border border-indigo-100">{s.subject}</span>
-            ))}
-          </div>
-
-          {/* 과목별 내용 (line-clamp) */}
-          <div className="space-y-1.5 flex-1">
-            {(note.subjects || []).map((s, i) => (
-              <div key={i} className="bg-slate-50 rounded-lg p-2 border border-slate-100">
-                <div className="text-xs font-extrabold text-indigo-700 mb-1">{s.subject}</div>
-                <p className="text-xs text-slate-700 line-clamp-3 leading-relaxed">{s.coreContent}</p>
-                <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mt-1 italic">{s.myThought}</p>
-                {s.imageBase64 && (
-                  <img src={s.imageBase64} alt="" className="w-full rounded mt-1 max-h-16 object-contain bg-white" />
-                )}
+          <div className="flex items-start justify-between gap-1">
+            <div>
+              <span className="font-extrabold text-slate-800 text-xs leading-tight block truncate">{note.studentName}</span>
+              <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                <span className="text-[9px] text-slate-400">{note.date}</span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${badge.cls}`}>{badge.label}</span>
+                <span className="text-[9px] text-slate-400">·{note.subjectCount}과목</span>
               </div>
-            ))}
+            </div>
+            {/* 미결 과목 전체 승인 버튼 */}
+            {hasPending && (
+              <button onClick={() => { setModal({ type: 'approve', note, subjectIdx: -1 }); setComment(''); }}
+                className="shrink-0 text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1.5 py-0.5 rounded-lg transition-colors">
+                ✓ 전체승인
+              </button>
+            )}
           </div>
 
-          {/* 코멘트 */}
-          {note.teacherComment && (
-            <p className="text-[9px] text-slate-500 italic bg-slate-50 rounded px-1.5 py-1 border border-slate-100">💬 {note.teacherComment}</p>
-          )}
-
-          {/* 반려 버튼 */}
-          {note.status === 'pending' && (
-            <button onClick={() => { setModal({ type: 'reject', note }); setComment(''); }}
-              className="w-full py-1 text-[9px] text-rose-600 bg-rose-50 hover:bg-rose-100 font-bold rounded-lg border border-rose-200 transition-colors mt-auto">
-              반려
-            </button>
-          )}
+          {/* 과목별 내용 + 개별 버튼 */}
+          <div className="space-y-1.5 flex-1">
+            {(note.subjects || []).map((s, i) => {
+              const st = subjectStatus(s);
+              const subBg = st === 'approved' ? 'bg-emerald-50 border-emerald-200'
+                          : st === 'rejected'  ? 'bg-rose-50 border-rose-200'
+                          : 'bg-slate-50 border-slate-100';
+              return (
+                <div key={i} className={`rounded-lg p-2 border ${subBg}`}>
+                  {/* 과목 헤더 */}
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="text-xs font-extrabold text-indigo-700">{s.subject}</span>
+                    <div className="flex items-center gap-1">
+                      {st === 'approved' && <span className="text-[9px] text-emerald-600 font-bold">✅ 승인</span>}
+                      {st === 'rejected' && <span className="text-[9px] text-rose-600 font-bold">❌ 반려</span>}
+                      {st === 'pending' && (
+                        <>
+                          <button onClick={() => { setModal({ type: 'approve', note, subjectIdx: i }); setComment(''); }}
+                            className="text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1.5 py-0.5 rounded transition-colors">
+                            ✓
+                          </button>
+                          <button onClick={() => { setModal({ type: 'reject', note, subjectIdx: i }); setComment(''); }}
+                            className="text-[9px] bg-rose-500 hover:bg-rose-600 text-white font-bold px-1.5 py-0.5 rounded transition-colors">
+                            ✕
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-700 line-clamp-3 leading-relaxed">{s.coreContent}</p>
+                  <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mt-0.5 italic">{s.myThought}</p>
+                  {s.imageBase64 && (
+                    <img src={s.imageBase64} alt="" className="w-full rounded mt-1 max-h-16 object-contain bg-white" />
+                  )}
+                  {/* 과목별 선생님 코멘트 */}
+                  {s.comment && (
+                    <p className="text-[9px] text-slate-500 italic mt-1">💬 {s.comment}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
           {/* 보상 안내 */}
-          <p className="text-[9px] text-slate-400">
-            {note.status === 'approved'
-              ? '✅ 지급완료'
-              : `지급예정: 🪙${settings.rewardGold * note.subjectCount} 💎${settings.rewardDiamond * note.subjectCount}`}
-          </p>
+          {hasPending && (
+            <p className="text-[9px] text-slate-400">
+              대기과목 보상: 🪙{settings.rewardGold}/과목 💎{settings.rewardDiamond}/과목
+            </p>
+          )}
+          {!hasPending && overallStatus === 'approved' && (
+            <p className="text-[9px] text-emerald-600 font-bold">✅ 전체 지급완료</p>
+          )}
         </div>
       </div>
     );
@@ -544,43 +626,55 @@ export default function LearningNoteManage({ selectedClass }) {
       </div>
 
       {/* 승인/반려 모달 */}
-      {modal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm space-y-4">
-            <h3 className="font-extrabold text-slate-800">
-              {modal.type === 'approve' ? '✅ 승인하기' : '❌ 반려하기'}
-            </h3>
-            <div className="text-sm text-slate-600">
-              <span className="font-bold">{modal.note.studentName}</span> · {modal.note.date} · {modal.note.subjectCount}과목
-            </div>
-            {modal.type === 'approve' && (
-              <div className="bg-emerald-50 rounded-xl p-3 text-xs text-emerald-700 font-bold">
-                지급: 골드 +{settings.rewardGold * modal.note.subjectCount} /
-                다이아 +{settings.rewardDiamond * modal.note.subjectCount} /
-                경험치 +{settings.rewardExp * modal.note.subjectCount}
+      {modal && (() => {
+        const { note, subjectIdx, type } = modal;
+        const isAll = subjectIdx === -1;
+        const targetSubject = !isAll ? (note.subjects || [])[subjectIdx] : null;
+        const pendingCount = isAll ? (note.subjects || []).filter(s => subjectStatus(s) === 'pending').length : 1;
+        const totalGold = settings.rewardGold    * (type === 'approve' ? pendingCount : 0);
+        const totalDia  = settings.rewardDiamond * (type === 'approve' ? pendingCount : 0);
+        const totalExp  = settings.rewardExp     * (type === 'approve' ? pendingCount : 0);
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm space-y-4">
+              <h3 className="font-extrabold text-slate-800">
+                {type === 'approve' ? '✅ 승인하기' : '❌ 반려하기'}
+              </h3>
+              <div className="bg-slate-50 rounded-xl px-3 py-2 text-sm text-slate-700 border border-slate-100">
+                <span className="font-bold">{note.studentName}</span> · {note.date}
+                <div className="text-xs text-indigo-600 font-bold mt-0.5">
+                  {isAll
+                    ? `미결 ${pendingCount}과목 전체`
+                    : `${targetSubject?.subject} 과목`}
+                </div>
               </div>
-            )}
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">
-                {modal.type === 'approve' ? '코멘트 (선택)' : '반려 사유 (선택)'}
-              </label>
-              <textarea value={comment} onChange={e => setComment(e.target.value)}
-                placeholder={modal.type === 'approve' ? '잘했어요! (생략 가능)' : '반려 사유 (생략 가능)'}
-                rows={3}
-                className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-indigo-400" />
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => { setModal(null); setComment(''); }}
-                className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm">취소</button>
-              <button onClick={modal.type === 'approve' ? approve : reject} disabled={processing}
-                className={`flex-1 py-2.5 text-white font-bold rounded-xl text-sm disabled:opacity-40 transition-colors
-                  ${modal.type === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-500 hover:bg-rose-600'}`}>
-                {processing ? '처리 중...' : modal.type === 'approve' ? '승인' : '반려'}
-              </button>
+              {type === 'approve' && (
+                <div className="bg-emerald-50 rounded-xl p-3 text-xs text-emerald-700 font-bold">
+                  지급: 골드 +{totalGold} / 다이아 +{totalDia} / 경험치 +{totalExp}
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-bold text-slate-600 block mb-1">
+                  {type === 'approve' ? '코멘트 (선택)' : '반려 사유 (선택)'}
+                </label>
+                <textarea value={comment} onChange={e => setComment(e.target.value)}
+                  placeholder={type === 'approve' ? '잘했어요! (생략 가능)' : '반려 사유를 적어주세요 (생략 가능)'}
+                  rows={3}
+                  className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-indigo-400" />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => { setModal(null); setComment(''); }}
+                  className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm">취소</button>
+                <button onClick={type === 'approve' ? approve : reject} disabled={processing}
+                  className={`flex-1 py-2.5 text-white font-bold rounded-xl text-sm disabled:opacity-40 transition-colors
+                    ${type === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-500 hover:bg-rose-600'}`}>
+                  {processing ? '처리 중...' : type === 'approve' ? '승인' : '반려'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Toast */}
       {toast && (

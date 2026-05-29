@@ -141,6 +141,9 @@ export default function BoardManage({ selectedClass, user }) {
   const [selectedSheetId, setSelectedSheetId] = useState(null);
   const [editingSheetId, setEditingSheetId] = useState(null);
   const [editingSheetTitle, setEditingSheetTitle] = useState('');
+  const [editingPageId, setEditingPageId] = useState(null);
+  const [editingPageTitle, setEditingPageTitle] = useState('');
+  const [expandedPost, setExpandedPost] = useState(null); // 더보기 팝업
   const [isRenamingSheet, setIsRenamingSheet] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(false);
 
@@ -242,6 +245,21 @@ export default function BoardManage({ selectedClass, user }) {
     if (!selectedBoard) return;
     const newPage = { id: `page_${Date.now()}`, title: `그룹 ${pages.length + 1}` };
     const updated = [...pages, newPage];
+    await updateDoc(doc(db, 'boards', selectedBoard.id), { pages: updated });
+    setPages(updated);
+  };
+
+  const renamePage = async (pageId, nextTitle) => {
+    if (!selectedBoard || !nextTitle.trim()) return;
+    const updated = pages.map(p => p.id === pageId ? { ...p, title: nextTitle.trim() } : p);
+    await updateDoc(doc(db, 'boards', selectedBoard.id), { pages: updated });
+    setPages(updated);
+  };
+
+  const deletePage = async (pageId) => {
+    if (!selectedBoard) return;
+    if (!window.confirm('이 그룹을 삭제하시겠습니까?\n그룹 안의 게시물은 "그룹 없음"으로 이동합니다.')) return;
+    const updated = pages.filter(p => p.id !== pageId);
     await updateDoc(doc(db, 'boards', selectedBoard.id), { pages: updated });
     setPages(updated);
   };
@@ -457,7 +475,21 @@ export default function BoardManage({ selectedClass, user }) {
           {post.studentName}
         </span>
       </div>
-      {post.content && <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-2 line-clamp-6">{post.content}</p>}
+      {post.content && (() => {
+        const LIMIT = 120;
+        const isLong = post.content.length > LIMIT || post.content.split('\n').length > 5;
+        return (
+          <>
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 line-clamp-5">{post.content}</p>
+            {isLong && (
+              <button onClick={() => setExpandedPost(post)}
+                className="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold mb-1 transition-colors">
+                더보기 ▾
+              </button>
+            )}
+          </>
+        );
+      })()}
       {post.imageBase64 && <img src={post.imageBase64} alt="" className="w-full rounded-xl object-cover max-h-40 mb-2 border border-slate-200" />}
       {post.attachment?.dataUrl && (
         <a
@@ -471,23 +503,25 @@ export default function BoardManage({ selectedClass, user }) {
       <div className="text-[10px] text-slate-400 mt-1">
         {post.createdAt?.toDate?.()?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || ''}
       </div>
-      {(Object.keys(post.reactions || {}).length > 0 || (post.comments || []).length > 0) && (
-        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-          {Object.entries(post.reactions || {}).map(([emoji, users]) => {
-            const count = Array.isArray(users) ? users.length : (typeof users === 'number' ? users : 0);
-            return count ? (
-              <span key={emoji} className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200">
-                {emoji} <span className="font-bold text-slate-600">{count}</span>
-              </span>
-            ) : null;
-          })}
-          {(post.comments || []).length > 0 && (
-            <span className="flex items-center gap-0.5 text-xs text-slate-500 bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200">
-              💬 <span className="font-bold">{(post.comments || []).length}</span>
+      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+        {Object.entries(post.reactions || {}).map(([emoji, users]) => {
+          const count = Array.isArray(users) ? users.length : (typeof users === 'number' ? users : 0);
+          return count ? (
+            <span key={emoji} className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200">
+              {emoji} <span className="font-bold text-slate-600">{count}</span>
             </span>
-          )}
-        </div>
-      )}
+          ) : null;
+        })}
+        {/* 댓글 버튼 — 항상 표시 */}
+        <button
+          onClick={() => setExpandedPost(post)}
+          className="flex items-center gap-0.5 text-xs text-slate-500 bg-white/70 hover:bg-white rounded-full px-1.5 py-0.5 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 transition-colors font-bold"
+        >
+          💬 {(post.comments || []).length > 0
+            ? <span>{(post.comments || []).length}</span>
+            : <span className="opacity-60">댓글</span>}
+        </button>
+      </div>
     </div>
   );
 
@@ -536,8 +570,33 @@ export default function BoardManage({ selectedClass, user }) {
                 style={{ borderLeftWidth: '6px' }}>
                 <div className={`${gc.header} px-5 py-3 flex items-center gap-3`}>
                   <div className="w-2 h-2 rounded-full bg-white/70 shrink-0" />
-                  <span className={`${gc.text} font-extrabold text-sm`}>{page.title}</span>
+                  {editingPageId === page.id ? (
+                    <input
+                      autoFocus
+                      value={editingPageTitle}
+                      onChange={e => setEditingPageTitle(e.target.value)}
+                      onBlur={async () => { await renamePage(page.id, editingPageTitle); setEditingPageId(null); }}
+                      onKeyDown={e => { if (e.key === 'Enter') { renamePage(page.id, editingPageTitle); setEditingPageId(null); } if (e.key === 'Escape') setEditingPageId(null); }}
+                      className="flex-1 bg-white/20 text-white font-extrabold text-sm rounded-lg px-2 py-0.5 focus:outline-none focus:bg-white/30 border border-white/40"
+                    />
+                  ) : (
+                    <span
+                      className={`${gc.text} font-extrabold text-sm cursor-pointer hover:underline`}
+                      onDoubleClick={() => { setEditingPageId(page.id); setEditingPageTitle(page.title); }}
+                      title="더블클릭하여 이름 수정"
+                    >{page.title}</span>
+                  )}
                   <span className={`${gc.text} text-xs bg-black/10 px-2 py-0.5 rounded-full opacity-80`}>{pagePosts.length}개</span>
+                  <button
+                    onClick={() => { setEditingPageId(page.id); setEditingPageTitle(page.title); }}
+                    className={`text-[10px] bg-white/20 hover:bg-white/35 ${gc.text} px-1.5 py-0.5 rounded-lg border border-white/30 font-bold transition-colors`}
+                    title="이름 수정"
+                  >✏️</button>
+                  <button
+                    onClick={() => deletePage(page.id)}
+                    className="text-[10px] bg-white/20 hover:bg-rose-500/70 text-white px-1.5 py-0.5 rounded-lg border border-white/30 font-bold transition-colors"
+                    title="그룹 삭제"
+                  >🗑</button>
                   <button
                     onClick={() => { setWritePageId(page.id); setShowWrite(true); setTimeout(() => textRef.current?.focus(), 50); }}
                     className={`ml-auto px-3 py-1.5 text-xs font-bold rounded-xl bg-white/20 hover:bg-white/35 ${gc.text} border border-white/30 transition-colors`}
@@ -594,13 +653,40 @@ export default function BoardManage({ selectedClass, user }) {
                 <div key={col.id} style={{ width: 252, flexShrink: 0 }}
                   className={`rounded-2xl border-2 ${gc.border} ${gc.bg} overflow-hidden shadow-sm flex flex-col`}>
                   <div className={`${gc.header} px-4 py-3 flex items-center gap-2 shrink-0`}>
-                    <span className={`font-extrabold text-sm ${gc.text} flex-1 truncate`}>{col.title}</span>
+                    {col.id !== 'ungrouped' && editingPageId === col.id ? (
+                      <input
+                        autoFocus
+                        value={editingPageTitle}
+                        onChange={e => setEditingPageTitle(e.target.value)}
+                        onBlur={async () => { await renamePage(col.id, editingPageTitle); setEditingPageId(null); }}
+                        onKeyDown={e => { if (e.key === 'Enter') { renamePage(col.id, editingPageTitle); setEditingPageId(null); } if (e.key === 'Escape') setEditingPageId(null); }}
+                        className="flex-1 bg-white/20 text-white font-extrabold text-sm rounded-lg px-2 py-0.5 focus:outline-none focus:bg-white/30 border border-white/40"
+                      />
+                    ) : (
+                      <span
+                        className={`font-extrabold text-sm ${gc.text} flex-1 truncate ${col.id !== 'ungrouped' ? 'cursor-pointer hover:underline' : ''}`}
+                        onDoubleClick={() => col.id !== 'ungrouped' && (setEditingPageId(col.id), setEditingPageTitle(col.title))}
+                        title={col.id !== 'ungrouped' ? '더블클릭하여 이름 수정' : ''}
+                      >{col.title}</span>
+                    )}
                     <span className={`text-xs ${gc.text} opacity-80 bg-black/10 px-2 py-0.5 rounded-full shrink-0`}>{col.posts.length}</span>
                     {col.id !== 'ungrouped' && (
-                      <button
-                        onClick={() => { setWritePageId(col.id); setShowWrite(true); setTimeout(() => textRef.current?.focus(), 50); }}
-                        className={`w-7 h-7 rounded-lg bg-white/20 hover:bg-white/35 ${gc.text} font-black text-xl leading-none flex items-center justify-center border border-white/20 transition-colors shrink-0`}
-                      >+</button>
+                      <>
+                        <button
+                          onClick={() => { setEditingPageId(col.id); setEditingPageTitle(col.title); }}
+                          className={`text-[10px] bg-white/20 hover:bg-white/35 ${gc.text} px-1 py-0.5 rounded border border-white/20 font-bold transition-colors shrink-0`}
+                          title="이름 수정"
+                        >✏️</button>
+                        <button
+                          onClick={() => deletePage(col.id)}
+                          className="text-[10px] bg-white/20 hover:bg-rose-500/70 text-white px-1 py-0.5 rounded border border-white/20 font-bold transition-colors shrink-0"
+                          title="그룹 삭제"
+                        >🗑</button>
+                        <button
+                          onClick={() => { setWritePageId(col.id); setShowWrite(true); setTimeout(() => textRef.current?.focus(), 50); }}
+                          className={`w-7 h-7 rounded-lg bg-white/20 hover:bg-white/35 ${gc.text} font-black text-xl leading-none flex items-center justify-center border border-white/20 transition-colors shrink-0`}
+                        >+</button>
+                      </>
                     )}
                   </div>
                   <div className="p-3 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
@@ -1011,6 +1097,90 @@ export default function BoardManage({ selectedClass, user }) {
 
         {showWrite && <WriteModal />}
         <Modals />
+
+        {/* 더보기 팝업 */}
+        {expandedPost && (
+          <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4"
+            onClick={() => setExpandedPost(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-200 shrink-0">
+                  {expandedPost.isTeacher ? <span className="text-xl">👑</span>
+                    : expandedPost.characterImage
+                      ? <img src={expandedPost.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
+                      : <span className="text-xl">🧑‍🎓</span>}
+                </div>
+                <div>
+                  <div className="font-extrabold text-slate-800 text-sm">{expandedPost.studentName}</div>
+                  <div className="text-[10px] text-slate-400">
+                    {expandedPost.createdAt?.toDate?.()?.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || ''}
+                  </div>
+                </div>
+                <button onClick={() => setExpandedPost(null)}
+                  className="ml-auto text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+              </div>
+              <div className="overflow-y-auto p-5 space-y-3">
+                {expandedPost.content && (
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{expandedPost.content}</p>
+                )}
+                {expandedPost.imageBase64 && (
+                  <img src={expandedPost.imageBase64} alt="" className="w-full rounded-xl object-contain border border-slate-200" />
+                )}
+                {expandedPost.attachment?.dataUrl && (
+                  <a href={expandedPost.attachment.dataUrl} download={expandedPost.attachment.name || 'attachment'}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">
+                    📎 {expandedPost.attachment.name || '첨부파일'}
+                  </a>
+                )}
+
+                {/* 이모지 반응 */}
+                {Object.keys(expandedPost.reactions || {}).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
+                    {Object.entries(expandedPost.reactions || {}).map(([emoji, users]) => {
+                      const count = Array.isArray(users) ? users.length : (typeof users === 'number' ? users : 0);
+                      return count ? (
+                        <span key={emoji} className="flex items-center gap-0.5 text-sm bg-slate-100 rounded-full px-2.5 py-1 border border-slate-200">
+                          {emoji} <span className="font-bold text-slate-600 text-xs">{count}</span>
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+
+                {/* 댓글 목록 */}
+                {(expandedPost.comments || []).length > 0 && (
+                  <div className="border-t border-slate-100 pt-3 space-y-2">
+                    <div className="text-xs font-extrabold text-slate-500">💬 댓글 {expandedPost.comments.length}개</div>
+                    {expandedPost.comments.map(c => (
+                      <div key={c.id} className="flex items-start gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                          {c.characterImage
+                            ? <img src={c.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
+                            : <span className="text-sm">🧑</span>}
+                        </div>
+                        <div className="flex-1 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-xs font-extrabold text-slate-700">{c.authorName}</span>
+                            <span className="text-[10px] text-slate-400">
+                              {c.createdAt ? new Date(c.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{c.text}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(expandedPost.comments || []).length === 0 && (
+                  <div className="text-center py-3 text-slate-400 text-xs border-t border-slate-100 pt-3">
+                    아직 댓글이 없습니다.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
