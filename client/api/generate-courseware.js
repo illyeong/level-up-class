@@ -45,9 +45,11 @@ export default async function handler(req, res) {
 - 오답: 학생들이 실제로 하는 실수 반영 (뻔한 오답 금지)
 
 [JSON 형식만 반환 - 반드시 완전한 JSON]
-{"title":"20자 이내 제목","conceptCards":[{"title":"개념명","body":"쉬운 설명 3문장","example":"구체적 예시"}],"commonMistakes":["자주 하는 실수1","자주 하는 실수2"],"questions":[{"question":"문제 텍스트","options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"해설"}]}
+{"title":"20자 이내 제목","conceptCards":[{"title":"개념명","body":"쉬운 설명 3문장","example":"구체적 예시"}],"commonMistakes":["자주 하는 실수1","자주 하는 실수2"],"questions":[{"question":"문제 텍스트","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"해설"}]}
 
-규칙: options는 기호 없이 내용만 | answerIndex는 0~3 | conceptCards 2~3개 | questions ${questionCount}개`;
+shape 규칙: 도형(둘레/넓이/각도) 문제면 {"type":"rectangle","dimensions":{"width":5,"height":3},"unit":"cm"} 아니면 null
+지원 type: rectangle, square, circle, right_triangle, equilateral_triangle, isosceles_triangle, parallelogram, rhombus, trapezoid
+options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2~3개 | questions ${questionCount}개`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {

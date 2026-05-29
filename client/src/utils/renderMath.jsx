@@ -103,7 +103,8 @@ export function renderMath(text) {
     if (match.type === 'mixed') {
       result.push(
         <span key={i} style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', margin: '0 1px' }}>
-          <span>{match.whole}</span>
+          {/* alignSelf:stretch → 자연수 span이 VertFrac 높이만큼 늘어남, 내부 flex center로 분수선 높이에 정렬 */}
+          <span style={{ display: 'flex', alignItems: 'center', alignSelf: 'stretch', paddingRight: '1px' }}>{match.whole}</span>
           <VertFrac num={match.num} den={match.den} keyProp={`m${i}`} />
         </span>
       );
