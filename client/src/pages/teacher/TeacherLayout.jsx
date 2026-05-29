@@ -171,10 +171,18 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
     localStorage.setItem('teacherThemeMode', teacherThemeMode);
   }, [teacherThemeMode]);
 
+  // 학급별 UI 설정 경로 (전역 문서 대신 학급 문서에 저장)
+  const uiPrefsRef = selectedClass?.id
+    ? doc(db, 'classes', selectedClass.id)
+    : selectedClass?.teacherUid
+      ? doc(db, 'systemConfig', `uiPreferences_${selectedClass.teacherUid}`)
+      : null;
+
   useEffect(() => {
     const loadUiPrefs = async () => {
+      if (!uiPrefsRef) return;
       try {
-        const snap = await getDoc(doc(db, 'systemConfig', 'uiPreferences'));
+        const snap = await getDoc(uiPrefsRef);
         const data = snap.exists() ? (snap.data() || {}) : {};
         setHideTeacherNav(data.hideTeacherNav === true);
         setHideStudentNav(data.hideStudentNav === true);
@@ -186,7 +194,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
       }
     };
     loadUiPrefs();
-  }, []);
+  }, [selectedClass?.id, selectedClass?.teacherUid]);
 
   useEffect(() => {
     const initialView = localStorage.getItem('teacherInitialView');
@@ -278,20 +286,21 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   const teacherMenuLabelMap = { ...teacherMenuLabels, ...KOREAN_TEACHER_MENU_LABELS };
 
   const toggleHiddenMenu = async (scope, id) => {
+    if (!uiPrefsRef) return;
     setOperationMode('custom');
     if (scope === 'student') {
       const next = hiddenStudentMenuIds.includes(id)
         ? hiddenStudentMenuIds.filter((x) => x !== id)
         : [...hiddenStudentMenuIds, id];
       setHiddenStudentMenuIds(next);
-      await setDoc(doc(db, 'systemConfig', 'uiPreferences'), { hiddenStudentMenuIds: next, operationMode: 'custom' }, { merge: true });
+      await setDoc(uiPrefsRef, { hiddenStudentMenuIds: next, operationMode: 'custom' }, { merge: true });
       return;
     }
     const next = hiddenTeacherMenuIds.includes(id)
       ? hiddenTeacherMenuIds.filter((x) => x !== id)
       : [...hiddenTeacherMenuIds, id];
     setHiddenTeacherMenuIds(next);
-    await setDoc(doc(db, 'systemConfig', 'uiPreferences'), { hiddenTeacherMenuIds: next, operationMode: 'custom' }, { merge: true });
+    await setDoc(uiPrefsRef, { hiddenTeacherMenuIds: next, operationMode: 'custom' }, { merge: true });
   };
 
   const applyOperationMode = async (mode) => {
@@ -300,11 +309,13 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
     setOperationMode(mode);
     setHiddenStudentMenuIds(preset.studentHidden);
     setHiddenTeacherMenuIds(preset.teacherHidden);
-    await setDoc(doc(db, 'systemConfig', 'uiPreferences'), {
-      operationMode: mode,
-      hiddenStudentMenuIds: preset.studentHidden,
-      hiddenTeacherMenuIds: preset.teacherHidden,
-    }, { merge: true });
+    if (uiPrefsRef) {
+      await setDoc(uiPrefsRef, {
+        operationMode: mode,
+        hiddenStudentMenuIds: preset.studentHidden,
+        hiddenTeacherMenuIds: preset.teacherHidden,
+      }, { merge: true });
+    }
   };
 
   return (

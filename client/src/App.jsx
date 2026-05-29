@@ -76,8 +76,13 @@ function App() {
 
   useEffect(() => {
     const loadUiPrefs = async () => {
+      // 학급별 설정 읽기: classes/{classId} → 없으면 전역 fallback
+      const classId = studentInfo?.classId;
+      const uiRef = classId
+        ? doc(db, 'classes', classId)
+        : doc(db, 'systemConfig', 'uiPreferences');
       try {
-        const snap = await getDoc(doc(db, 'systemConfig', 'uiPreferences'));
+        const snap = await getDoc(uiRef);
         const data = snap.exists() ? (snap.data() || {}) : {};
         setHideStudentNav(data.hideStudentNav === true);
         setHiddenStudentMenuIds(Array.isArray(data.hiddenStudentMenuIds) ? data.hiddenStudentMenuIds : []);
@@ -87,7 +92,7 @@ function App() {
       }
     };
     loadUiPrefs();
-  }, []);
+  }, [studentInfo?.classId]);
 
   // ── Firebase Auth 상태 감지 (교사 로그인 유지) ─────────────────
   useEffect(() => {
