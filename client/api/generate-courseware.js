@@ -114,7 +114,7 @@ ${questionCount}개 문제 필수, conceptCards 2~3개 필수`;
       },
       body: JSON.stringify({
         model:      'claude-sonnet-4-6',
-        max_tokens: 4000,
+        max_tokens: 2500,
         messages:   [{ role: 'user', content: prompt }],
       }),
     });
