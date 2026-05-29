@@ -9,6 +9,15 @@ import ShapeRenderer from '../../components/ShapeRenderer';
 
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
 const DAILY_LIMIT = 5;                                   // 하루 최대 횟수
+
+const MASTERY = {
+  excellent: { label: '매우 훌륭', emoji: '🏆', min: 90, cls: 'bg-amber-100 text-amber-700 border border-amber-300' },
+  good:      { label: '훌륭',     emoji: '⭐', min: 75, cls: 'bg-sky-100 text-sky-700 border border-sky-300' },
+  normal:    { label: '보통',     emoji: '👍', min: 60, cls: 'bg-emerald-100 text-emerald-700 border border-emerald-300' },
+  retry:     { label: '재도전',   emoji: '🔄', min: 0,  cls: 'bg-rose-100 text-rose-600 border border-rose-200' },
+};
+const getMasteryLevel = (score) =>
+  score >= 90 ? 'excellent' : score >= 75 ? 'good' : score >= 60 ? 'normal' : 'retry';
 const getMaxExp = (lv) => lv <= 10 ? 100 : lv <= 30 ? 500 : lv <= 40 ? 700 : lv <= 50 ? 900 : lv <= 60 ? 1100 : lv <= 70 ? 1300 : lv <= 80 ? 1500 : lv <= 90 ? 1700 : 1900;
 
 // 결과 화면 confetti 파티클 효과
@@ -147,6 +156,7 @@ export default function AICourseware({ studentCode }) {
   const [showResult, setShowResult] = useState(false);
   const [finalResult, setFR]    = useState(null);
   const [saving, setSaving]     = useState(false);
+  const [masteryMap, setMasteryMap] = useState({});  // lessonKey → mastery 데이터
   const [minTimeLeft, setMinTimeLeft] = useState(0);  // 최소 응답 시간 남은 초 (5→0)
   const [consecWrong, setConsecWrong] = useState(0); // 연속 오답 횟수
   const [loadingElapsed, setLoadingElapsed]  = useState(0);  // 경과 시간(초)
@@ -199,6 +209,20 @@ export default function AICourseware({ studentCode }) {
       setUnits(list);
     }).finally(() => setLU(false));
   }, [filterGrade, filterSem, filterPub]);
+
+  // ── 차시 목록 진입 시 mastery 데이터 로드 ────────────────────
+  useEffect(() => {
+    if (step !== 'lessons' || !selectedUnit || !studentCode) return;
+    const lessons = selectedUnit.lessons || [];
+    if (!lessons.length) return;
+    Promise.all(
+      lessons.map(l => getDoc(doc(db, 'aiLessonMastery', `${studentCode}_${lessonKey(selectedUnit, l)}`)))
+    ).then(docs => {
+      const map = {};
+      docs.forEach((d, i) => { if (d.exists()) map[lessonKey(selectedUnit, lessons[i])] = d.data(); });
+      setMasteryMap(map);
+    });
+  }, [step, selectedUnit, studentCode]);
 
   // ── 차시 목록 진입 시 첫 번째 차시 프리로딩 (컴포넌트 내부 처리) ──
   useEffect(() => {
@@ -369,8 +393,11 @@ export default function AICourseware({ studentCode }) {
     const today        = new Date().toISOString().slice(0, 10);
     // 오늘 이미 보상 받은 차시인지 (같은 차시 재도전 시 보상 없음)
     const alreadyRewarded = myProgress?.date === today && myProgress?.rewarded;
-    // 하루 한도 초과 시 보상 없음
-    const overLimit = dailyCount >= DAILY_LIMIT;
+    // 이 차시 누적 도전 횟수 (mastery 기준) - 5회까지만 보상
+    const masteryKey  = lessonKey(selectedUnit, selectedLesson);
+    const prevMastery = masteryMap[masteryKey];
+    const prevAttempts = prevMastery?.attemptCount || 0;
+    const overLimit = prevAttempts >= DAILY_LIMIT; // 5회 누적 도전 시 더 이상 보상 없음
     const canReward = !alreadyRewarded && !overLimit;
 
     // 정답 수에 따른 차등 보상
@@ -407,10 +434,36 @@ export default function AICourseware({ studentCode }) {
       await setDoc(doc(db, 'aiStudentProgress', progressId), pData, { merge: true });
       setMyProgress(pData);
 
+      // ── mastery 업데이트 ─────────────────────────────────────
+      const masteryId  = `${studentCode}_${key}`;
+      const prevMDoc   = await getDoc(doc(db, 'aiLessonMastery', masteryId));
+      const prev       = prevMDoc.exists() ? prevMDoc.data() : { bestScore: 0, attemptCount: 0 };
+      const newBest    = Math.max(prev.bestScore || 0, score);
+      const newCount   = (prev.attemptCount || 0) + 1;
+      const mastLevel  = getMasteryLevel(newBest);
+      const masteryData = {
+        studentCode, lessonKey: key,
+        unitId: selectedUnit.id, unitName: selectedUnit.unitName,
+        lessonTitle: selectedLesson.title,
+        bestScore: newBest, lastScore: score,
+        attemptCount: newCount, masteryLevel: mastLevel,
+        lastAttemptAt: serverTimestamp(),
+      };
+      await setDoc(doc(db, 'aiLessonMastery', masteryId), masteryData, { merge: true });
+      setMasteryMap(prev => ({ ...prev, [key]: masteryData }));
+
       // 일일 카운트 증가 (새로운 완료만)
       if (!alreadyRewarded) setDailyCount(prev => prev + 1);
 
-      setFR({ correctCount, total, score, reward, rewarded: canReward, alreadyRewarded, overLimit });
+      const newAttempts  = prevAttempts + 1;
+      const newBestScore = Math.max(prevMastery?.bestScore || 0, score);
+      setFR({
+        correctCount, total, score, reward, rewarded: canReward, alreadyRewarded, overLimit,
+        attemptNo: newAttempts,
+        masteryLevel: getMasteryLevel(newBestScore),
+        bestScore: newBestScore,
+        rewardLeft: Math.max(0, DAILY_LIMIT - newAttempts),
+      });
       setStep('result');
     } catch (e) { console.error(e); showToast('저장 오류', 'error'); }
     finally { setSaving(false); }
@@ -643,6 +696,19 @@ export default function AICourseware({ studentCode }) {
                   ))}
                 </div>
               )}
+              {/* mastery 배지 */}
+              {(() => {
+                const m = masteryMap[lessonKey(selectedUnit, lesson)];
+                if (!m) return <div className="mt-1 pl-[68px]"><span className="text-[10px] text-slate-600">미도전</span></div>;
+                const cfg = MASTERY[m.masteryLevel] || MASTERY.retry;
+                return (
+                  <div className="flex items-center gap-2 mt-1 pl-[68px]">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.emoji} {cfg.label}</span>
+                    <span className="text-[10px] text-slate-500">{m.attemptCount}회 도전</span>
+                    <span className="text-[10px] text-slate-500">최고 {m.bestScore}점</span>
+                  </div>
+                );
+              })()}
             </button>
             {/* 캐시 삭제 후 재생성 버튼 */}
             <button
@@ -905,11 +971,29 @@ export default function AICourseware({ studentCode }) {
               </p>
             </div>
           )}
+          {/* 수준 배지 + 도전 기록 */}
+          {finalResult.masteryLevel && (() => {
+            const cfg = MASTERY[finalResult.masteryLevel];
+            return (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
+                <div className="text-xs text-slate-500 mb-1.5">{finalResult.attemptNo}번째 도전 결과</div>
+                <span className={`inline-flex items-center gap-1 text-sm font-extrabold px-3 py-1 rounded-full ${cfg.cls}`}>
+                  {cfg.emoji} {cfg.label}
+                </span>
+                <div className="text-[11px] text-slate-400 mt-1.5">
+                  최고 점수 <span className="font-bold text-slate-600">{finalResult.bestScore}점</span>
+                  {finalResult.rewardLeft > 0
+                    ? ` · 보상 ${finalResult.rewardLeft}회 남음`
+                    : ' · 보상 획득 완료 (계속 도전 가능)'}
+                </div>
+              </div>
+            );
+          })()}
           {finalResult.alreadyRewarded && (
             <p className="text-center text-xs text-slate-400">오늘 이미 이 차시 보상을 받았습니다.</p>
           )}
           {finalResult.overLimit && !finalResult.alreadyRewarded && (
-            <p className="text-center text-xs text-rose-400">오늘 {DAILY_LIMIT}회 한도를 모두 사용했습니다.</p>
+            <p className="text-center text-xs text-slate-400">5회 보상을 모두 받았습니다. 계속 도전은 가능합니다!</p>
           )}
 
           <div className="space-y-1.5">
