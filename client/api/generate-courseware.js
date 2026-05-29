@@ -47,8 +47,11 @@ export default async function handler(req, res) {
 [JSON 형식만 반환 - 반드시 완전한 JSON]
 {"title":"20자 이내 제목","conceptCards":[{"title":"개념명","body":"쉬운 설명 3문장","example":"구체적 예시"}],"commonMistakes":["자주 하는 실수1","자주 하는 실수2"],"questions":[{"question":"문제 텍스트","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"해설"}]}
 
-shape 규칙: 도형(둘레/넓이/각도) 문제면 {"type":"rectangle","dimensions":{"width":5,"height":3},"unit":"cm"} 아니면 null
-지원 type: rectangle, square, circle, right_triangle, equilateral_triangle, isosceles_triangle, parallelogram, rhombus, trapezoid
+shape 규칙: 도형(둘레/넓이/각도) 문제면 반드시 생성, 아니면 null
+- 문제에 나온 치수를 dimensions에 포함 (예: "한 변이 6cm" → {"type":"equilateral_triangle","dimensions":{"side":6},"unit":"cm"})
+- rectangle: {width,height} / square: {side} / circle: {radius} or {diameter}
+- equilateral_triangle: {side} / isosceles_triangle: {base,side} / right_triangle: {base,height}
+- parallelogram,trapezoid: {base,height} / rhombus: {diagonal1,diagonal2}
 options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2~3개 | questions ${questionCount}개`;
 
   try {

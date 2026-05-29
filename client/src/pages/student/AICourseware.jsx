@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, doc, getDoc, setDoc, addDoc, updateDoc,
+  collection, getDocs, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc,
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -575,26 +575,40 @@ export default function AICourseware({ studentCode }) {
             <p className="font-bold">이 단원에 등록된 차시가 없습니다</p>
           </div>
         ) : (selectedUnit.lessons || []).map(lesson => (
-          <button key={lesson.no}
-            onClick={() => openLesson(selectedUnit, lesson)}
-            className="w-full text-left rounded-xl border-2 border-slate-700 bg-slate-800/50 hover:border-indigo-500 hover:bg-indigo-900/40 px-4 py-3.5 transition-all group">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-extrabold w-14 shrink-0 text-indigo-400 group-hover:text-indigo-300">
-                {lesson.no}차시
-              </span>
-              <span className="text-sm font-bold flex-1 text-slate-200 group-hover:text-white">
-                {lesson.title}
-              </span>
-              <span className="text-indigo-500 group-hover:text-indigo-300 text-sm font-bold shrink-0">▶</span>
-            </div>
-            {(lesson.keywords || []).length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1.5 pl-[68px]">
-                {lesson.keywords.slice(0, 3).map(k => (
-                  <span key={k} className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-full">{k}</span>
-                ))}
+          <div key={lesson.no} className="relative group/row">
+            <button
+              onClick={() => openLesson(selectedUnit, lesson)}
+              className="w-full text-left rounded-xl border-2 border-slate-700 bg-slate-800/50 hover:border-indigo-500 hover:bg-indigo-900/40 px-4 py-3.5 transition-all group pr-12">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-extrabold w-14 shrink-0 text-indigo-400 group-hover:text-indigo-300">
+                  {lesson.no}차시
+                </span>
+                <span className="text-sm font-bold flex-1 text-slate-200 group-hover:text-white">
+                  {lesson.title}
+                </span>
+                <span className="text-indigo-500 group-hover:text-indigo-300 text-sm font-bold shrink-0">▶</span>
               </div>
-            )}
-          </button>
+              {(lesson.keywords || []).length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5 pl-[68px]">
+                  {lesson.keywords.slice(0, 3).map(k => (
+                    <span key={k} className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-full">{k}</span>
+                  ))}
+                </div>
+              )}
+            </button>
+            {/* 캐시 삭제 후 재생성 버튼 */}
+            <button
+              onClick={async (e) => {
+                e.stopPropagation();
+                const key = lessonKey(selectedUnit, lesson);
+                try { await deleteDoc(doc(db, 'aiLessonContent', key)); } catch {}
+                preloadMap.delete(key);
+                openLesson(selectedUnit, lesson);
+              }}
+              title="콘텐츠 다시 생성"
+              className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity w-8 h-8 flex items-center justify-center rounded-lg bg-slate-700 hover:bg-amber-600 text-slate-300 hover:text-white text-base"
+            >↻</button>
+          </div>
         ))}
       </div>
 
