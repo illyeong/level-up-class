@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import JSZip from 'jszip';
+import { renderMath } from '../../utils/renderMath';
 
 // ─── PPTX 텍스트 추출 ────────────────────────────────────────────
 const extractPptxText = async (file) => {
@@ -352,12 +353,12 @@ function PreviewModal({ set, onClose }) {
                 {(q.type === 'sa' || q.type === 'short') ? '주관식' : '객관식'}
               </span>
             </div>
-            <div className="text-sm font-bold text-slate-800 leading-relaxed">{q.question}</div>
+            <div className="text-base font-bold text-slate-800 leading-relaxed">{renderMath(q.question)}</div>
             {!(q.type === 'sa' || q.type === 'short') && (
               <div className="space-y-2">
                 {(q.options || []).map((opt, oi) => (
                   <div key={oi} className={`px-4 py-2 rounded-xl text-sm border ${q.answer === oi ? 'bg-emerald-50 border-emerald-400 text-emerald-800 font-bold' : 'border-slate-200 text-slate-700'}`}>
-                    {oi + 1}. {opt}
+                    {oi + 1}. {renderMath(opt)}
                   </div>
                 ))}
               </div>

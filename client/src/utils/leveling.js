@@ -1,9 +1,15 @@
 export const getMaxExpForLevel = (lv) => {
   const level = Math.max(1, Number(lv) || 1);
   if (level <= 10) return 100;
-  if (level <= 30) return 300;
-  if (level <= 60) return 800;
-  return 2000;
+  if (level <= 20) return 300;
+  if (level <= 30) return 500;
+  if (level <= 40) return 700;
+  if (level <= 50) return 900;
+  if (level <= 60) return 1100;
+  if (level <= 70) return 1300;
+  if (level <= 80) return 1500;
+  if (level <= 90) return 1700;
+  return 1900;
 };
 
 export const normalizeLevelProgress = (level, exp) => {

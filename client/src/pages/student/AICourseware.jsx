@@ -4,6 +4,7 @@ import {
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { renderMath } from '../../utils/renderMath';
 
 const DEFAULT_REWARD = { exp: 30, gold: 20, diamonds: 0 };
 const BONUS_REWARD   = { exp: 15, gold: 5 };
@@ -422,8 +423,8 @@ export default function AICourseware({ studentCode }) {
 
         <div className="bg-white rounded-3xl shadow-2xl p-6 space-y-4">
           <div className="flex items-start gap-2">
-            <span className="text-lg font-extrabold text-emerald-600 shrink-0">Q{qIdx + 1}.</span>
-            <p className="text-slate-800 font-bold text-base leading-snug">{currentQ.question}</p>
+            <span className="text-xl font-extrabold text-emerald-600 shrink-0">Q{qIdx + 1}.</span>
+            <p className="text-slate-800 font-bold text-xl leading-snug">{renderMath(currentQ.question)}</p>
           </div>
           <div className="space-y-2">
             {currentQ.options.map((opt, oi) => {
@@ -437,8 +438,8 @@ export default function AICourseware({ studentCode }) {
               } else if (isSelected) cls = 'border-2 border-indigo-500 bg-indigo-50 text-indigo-800 font-extrabold';
               return (
                 <button key={oi} onClick={() => !showResult && setSelected(oi)}
-                  className={`w-full text-left px-4 py-3 rounded-2xl text-sm transition-all ${cls}`}>
-                  {opt}
+                  className={`w-full text-left px-4 py-3.5 rounded-2xl text-base transition-all ${cls}`}>
+                  {renderMath(opt)}
                 </button>
               );
             })}
@@ -446,7 +447,7 @@ export default function AICourseware({ studentCode }) {
           {showResult && (
             <div className={`rounded-2xl px-4 py-3 text-sm ${(answers[answers.length-1]?.correct || selected === currentQ.answerIndex) ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-rose-50 border border-rose-200 text-rose-800'}`}>
               <div className="font-bold mb-1">{(answers[answers.length-1]?.correct || selected === currentQ.answerIndex) ? '✅ 정답!' : '❌ 오답'}</div>
-              <p className="text-xs leading-relaxed">{currentQ.explanation}</p>
+              <p className="text-sm leading-relaxed">{renderMath(currentQ.explanation)}</p>
             </div>
           )}
         </div>

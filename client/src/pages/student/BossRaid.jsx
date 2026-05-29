@@ -20,6 +20,7 @@ import { db } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg as resolveBossBackground } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 import { applyExpDelta } from '../../utils/leveling';
+import { renderMath } from '../../utils/renderMath';
 
 const LEGACY_BOSS_ID_ALIASES = {
   highdemon: 'demon03',
@@ -630,7 +631,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
 
         {/* 문제 */}
         <div className="bg-slate-800 rounded-2xl p-4 border border-slate-700">
-          <p className="font-bold text-white text-base leading-relaxed">{q.question}</p>
+          <p className="font-bold text-white text-xl leading-relaxed">{renderMath(q.question)}</p>
         </div>
 
         {/* 보기 */}
@@ -645,9 +646,9 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
             return (
               <button key={oi} onClick={() => onAnswer(oi)}
                 disabled={alreadyAnswered}
-                className={`py-3 px-3 rounded-2xl font-bold text-sm text-left transition-all ${cls}`}>
+                className={`py-3.5 px-3 rounded-2xl font-bold text-base text-left transition-all ${cls}`}>
                 <span className="text-xs opacity-60 mr-1">{['①','②','③','④'][oi]}</span>
-                {opt}
+                {renderMath(opt)}
               </button>
             );
           })}
