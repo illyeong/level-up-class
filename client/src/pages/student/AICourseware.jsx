@@ -10,6 +10,13 @@ import ShapeRenderer from '../../components/ShapeRenderer';
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
 const DAILY_LIMIT = 5;                                   // 하루 최대 횟수
 
+// KST 오전 8시 기준 세션 날짜 (매일 8시 초기화)
+const getSessionDate = () => {
+  const kst = new Date(Date.now() + 9 * 3_600_000); // UTC+9
+  if (kst.getUTCHours() < 8) kst.setUTCDate(kst.getUTCDate() - 1);
+  return kst.toISOString().slice(0, 10);
+};
+
 const MASTERY = {
   excellent: { label: '매우 훌륭', emoji: '🏆', min: 90, cls: 'bg-amber-100 text-amber-700 border border-amber-300' },
   good:      { label: '훌륭',     emoji: '⭐', min: 75, cls: 'bg-sky-100 text-sky-700 border border-sky-300' },
@@ -199,7 +206,7 @@ export default function AICourseware({ studentCode }) {
     const detectedGrade = gradeFromCode(studentCode);
     if (detectedGrade) setFG(detectedGrade);
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getSessionDate();
     Promise.all([
       getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode))),
       getDocs(query(
@@ -422,14 +429,11 @@ export default function AICourseware({ studentCode }) {
     const correctCount = allAns.filter(a => a.correct).length;
     const total        = content.questions.length;
     const score        = Math.round((correctCount / total) * 100);
-    const today        = new Date().toISOString().slice(0, 10);
+    const today        = getSessionDate(); // KST 오전 8시 기준
     // 오늘 이미 보상 받은 차시인지 (같은 차시 재도전 시 보상 없음)
     const alreadyRewarded = myProgress?.date === today && myProgress?.rewarded;
-    // 이 차시 누적 도전 횟수 (mastery 기준) - 5회까지만 보상
-    const masteryKey  = lessonKey(selectedUnit, selectedLesson);
-    const prevMastery = masteryMap[masteryKey];
-    const prevAttempts = prevMastery?.attemptCount || 0;
-    const overLimit = prevAttempts >= DAILY_LIMIT; // 5회 누적 도전 시 더 이상 보상 없음
+    // 오늘 일일 한도 초과 여부
+    const overLimit = dailyCount >= DAILY_LIMIT;
     const canReward = !alreadyRewarded && !overLimit;
 
     // 정답 수에 따른 차등 보상
@@ -532,12 +536,22 @@ export default function AICourseware({ studentCode }) {
             <p className="text-sm text-slate-400">단원을 선택하면 AI가 개념 카드와 미니퀴즈를 바로 만들어줍니다.</p>
           </div>
         </div>
-        {/* 오늘 남은 횟수 */}
-        <div className={`shrink-0 px-3 py-2 rounded-2xl text-center border ${dailyCount >= DAILY_LIMIT ? 'bg-rose-500/20 border-rose-500/30' : 'bg-indigo-500/20 border-indigo-500/30'}`}>
-          <div className={`text-lg font-extrabold ${dailyCount >= DAILY_LIMIT ? 'text-rose-300' : 'text-indigo-300'}`}>
-            {DAILY_LIMIT - dailyCount}/{DAILY_LIMIT}
+        {/* 오늘 남은 보상횟수 */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className={`px-3 py-2 rounded-2xl text-center border ${dailyCount >= DAILY_LIMIT ? 'bg-rose-500/20 border-rose-500/30' : 'bg-indigo-500/20 border-indigo-500/30'}`}>
+            <div className={`text-lg font-extrabold ${dailyCount >= DAILY_LIMIT ? 'text-rose-300' : 'text-indigo-300'}`}>
+              {DAILY_LIMIT - dailyCount}/{DAILY_LIMIT}
+            </div>
+            <div className="text-[10px] text-slate-400">오늘 남은 보상횟수</div>
           </div>
-          <div className="text-[10px] text-slate-400">오늘 남은 보상횟수</div>
+          {dailyCount > 0 && (
+            <button
+              onClick={() => { if (window.confirm('오늘 보상 횟수를 초기화할까요?')) setDailyCount(0); }}
+              title="보상 횟수 초기화"
+              className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-700/50 text-slate-400 hover:bg-slate-600 hover:text-white text-xs">
+              ↺
+            </button>
+          )}
         </div>
       </div>
 

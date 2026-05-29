@@ -58,8 +58,14 @@ export default function AICoursewareManage({ selectedClass }) {
   const [loadingData, setLoadingData] = useState(false);
 
   // ── 단원별 현황 상태 ──────────────────────────────────────────
-  const [unitGrade,   setUnitGrade]   = useState('');
+  // 학급 학년 자동 설정
+  const classGrade = selectedClass?.grade ? String(selectedClass.grade) : '';
+  const [unitGrade,   setUnitGrade]   = useState(classGrade);
   const [unitSem,     setUnitSem]     = useState('all');
+
+  useEffect(() => {
+    if (classGrade && !unitGrade) setUnitGrade(classGrade);
+  }, [classGrade]);
   const [units,       setUnits]       = useState([]);
   const [loadingUnits, setLoadingUnits] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState(null);
@@ -157,6 +163,52 @@ export default function AICoursewareManage({ selectedClass }) {
 
   // ── 단원별 현황 렌더 ──────────────────────────────────────────
   const filteredUnits = units.filter(u => unitSem === 'all' || String(u.semester || '') === unitSem);
+
+  // 단원 카드 컴포넌트 (전체/학기별 공용)
+  const UnitCard = ({ unit }) => {
+    const stats = getUnitClassStats(unit);
+    const mastCfg = stats.classAvg != null ? (MASTERY[getMasteryLevel(stats.classAvg)] || MASTERY.retry) : null;
+    return (
+      <button
+        onClick={() => { setSelectedUnit(unit); setExpandedLesson(null); }}
+        className="w-full bg-white rounded-2xl p-4 border border-slate-200 shadow-sm hover:border-indigo-400 hover:shadow-md text-left transition-all">
+        <div className="flex items-start justify-between mb-1.5">
+          <div className="flex items-baseline gap-1.5 flex-1 min-w-0 pr-2">
+            <span className="text-xl font-black text-slate-200 shrink-0">{unit.unitNumber}</span>
+            <span className="font-extrabold text-slate-800 text-sm leading-snug">{unit.unitName}</span>
+          </div>
+          <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full shrink-0">
+            {(unit.lessons || []).length}차시
+          </span>
+        </div>
+        <div className="mb-2">
+          <div className="flex justify-between mb-1">
+            <span className="text-[10px] text-slate-500">{stats.progressPct}% 진행</span>
+            <span className="text-[10px] text-slate-400">완료 {stats.completedStudents}/{stats.totalStudents}명</span>
+          </div>
+          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${stats.completedStudents > 0 ? 'bg-indigo-500' : 'bg-slate-300'}`}
+              style={{ width: `${stats.progressPct}%` }} />
+          </div>
+        </div>
+        {mastCfg ? (
+          <div className="flex items-center gap-1.5">
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${mastCfg.bg}`}>
+              {mastCfg.emoji} {mastCfg.label}
+            </span>
+            <span className="text-[10px] text-slate-500 font-bold">{stats.classAvg}점</span>
+            <span className="text-[10px] text-slate-400">{stats.completedStudents}명 기준</span>
+          </div>
+        ) : (
+          <div className="text-[10px] text-slate-400">
+            {stats.progressPct > 0
+              ? `${stats.needed}개 차시 모두 완료 학생 없음`
+              : `${stats.needed}개 차시 완료 시 숙달도 표시`}
+          </div>
+        )}
+      </button>
+    );
+  };
 
   // 단원 학급 통계: 모든 차시(도입 제외) 완료한 학생 기준으로만 숙달도 표시
   const getUnitClassStats = (unit) => {
@@ -275,56 +327,36 @@ export default function AICoursewareManage({ selectedClass }) {
 
               /* 단원 선택 안 됐을 때: 단원 카드 목록 */
               !selectedUnit ? (
-                filteredUnits.length === 0 ? (
-                  <div className="text-center py-16 text-slate-400 text-sm">해당 학년/학기 단원이 없습니다</div>
+                units.length === 0 ? (
+                  <div className="text-center py-16 text-slate-400 text-sm">해당 학년 단원이 없습니다</div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {filteredUnits.map(unit => {
-                      const stats = getUnitClassStats(unit);
-                      const mastCfg = stats.classAvg != null ? (MASTERY[getMasteryLevel(stats.classAvg)] || MASTERY.retry) : null;
-                      return (
-                        <button key={unit.id}
-                          onClick={() => { setSelectedUnit(unit); setExpandedLesson(null); }}
-                          className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm hover:border-indigo-400 hover:shadow-md text-left transition-all">
-                          <div className="flex items-start justify-between mb-2">
-                            <span className="text-2xl font-black text-slate-200">{unit.unitNumber}</span>
-                            <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">
-                              {unit.semester}학기 · {(unit.lessons || []).length}차시
-                            </span>
-                          </div>
-                          <div className="font-extrabold text-slate-800 text-sm mb-2 leading-snug">{unit.unitName}</div>
-
-                          {/* 진행률 바 */}
-                          <div className="mb-2">
-                            <div className="flex justify-between mb-1">
-                              <span className="text-[10px] text-slate-500">{stats.progressPct}% 진행</span>
-                              <span className="text-[10px] text-slate-400">완료 {stats.completedStudents}/{stats.totalStudents}명</span>
+                  // 전체 학기: 좌=1학기 / 우=2학기 나란히
+                  unitSem === 'all' ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      {['1','2'].map(sem => {
+                        const semUnits = units.filter(u => String(u.semester || '') === sem);
+                        return (
+                          <div key={sem}>
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className={`w-2 h-5 rounded-full ${sem === '1' ? 'bg-indigo-500' : 'bg-emerald-500'}`} />
+                              <span className="font-extrabold text-slate-700 text-sm">{sem}학기</span>
+                              <span className="text-slate-400 text-xs">{semUnits.length}단원</span>
                             </div>
-                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full transition-all ${stats.completedStudents > 0 ? 'bg-indigo-500' : 'bg-slate-300'}`}
-                                style={{ width: `${stats.progressPct}%` }} />
+                            <div className="space-y-2">
+                              {semUnits.length === 0 ? (
+                                <div className="text-slate-400 text-xs text-center py-6">단원 없음</div>
+                              ) : semUnits.map(unit => <UnitCard key={unit.id} unit={unit} />)}
                             </div>
                           </div>
-
-                          {mastCfg ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${mastCfg.bg}`}>
-                                {mastCfg.emoji} {mastCfg.label}
-                              </span>
-                              <span className="text-[10px] text-slate-500 font-bold">{stats.classAvg}점</span>
-                              <span className="text-[10px] text-slate-400">완료 {stats.completedStudents}명 기준</span>
-                            </div>
-                          ) : (
-                            <div className="text-[10px] text-slate-400">
-                              {stats.progressPct > 0
-                                ? `${stats.needed}개 차시 모두 완료한 학생 없음`
-                                : `${stats.needed}개 차시 완료 시 숙달도 표시`}
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    // 특정 학기 선택: 3열 그리드
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {filteredUnits.map(unit => <UnitCard key={unit.id} unit={unit} />)}
+                    </div>
+                  )
                 )
               ) : (
                 /* 단원 선택됨: 차시별 상세 */
