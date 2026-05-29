@@ -144,6 +144,9 @@ export default function BoardManage({ selectedClass, user }) {
   const [editingPageId, setEditingPageId] = useState(null);
   const [editingPageTitle, setEditingPageTitle] = useState('');
   const [expandedPost, setExpandedPost] = useState(null); // 더보기 팝업
+  const [pageSizes, setPageSizes] = useState({}); // { [pageId]: number }
+  const pageSizesRef = useRef({});
+  const resizeDragRef = useRef(null); // { pageId, startCoord, startSize, axis }
   const [isRenamingSheet, setIsRenamingSheet] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(false);
 
@@ -263,6 +266,60 @@ export default function BoardManage({ selectedClass, user }) {
     await updateDoc(doc(db, 'boards', selectedBoard.id), { pages: updated });
     setPages(updated);
   };
+
+  // ── 그룹 크기 조정 ────────────────────────────────────────────
+  // pages 변경 시 크기 초기화 (저장된 size 또는 기본값)
+  useEffect(() => {
+    const init = {};
+    pages.forEach(p => { init[p.id] = p.size || 252; });
+    setPageSizes(init);
+    pageSizesRef.current = init;
+  }, [pages]);
+
+  useEffect(() => { pageSizesRef.current = pageSizes; }, [pageSizes]);
+
+  const startResize = (e, pageId, axis) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeDragRef.current = {
+      pageId, axis,
+      startCoord: axis === 'x' ? e.clientX : e.clientY,
+      startSize: pageSizesRef.current[pageId] || (axis === 'x' ? 252 : 320),
+    };
+  };
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!resizeDragRef.current) return;
+      const { pageId, startCoord, startSize, axis } = resizeDragRef.current;
+      const delta = (axis === 'x' ? e.clientX : e.clientY) - startCoord;
+      const min = axis === 'x' ? 180 : 160;
+      const max = axis === 'x' ? 600 : 800;
+      const newSize = Math.max(min, Math.min(max, startSize + delta));
+      setPageSizes(prev => ({ ...prev, [pageId]: newSize }));
+    };
+
+    const onUp = async () => {
+      if (!resizeDragRef.current) return;
+      const { pageId } = resizeDragRef.current;
+      resizeDragRef.current = null;
+      const size = pageSizesRef.current[pageId];
+      if (size != null && selectedBoard) {
+        const updated = pages.map(p => p.id === pageId ? { ...p, size } : p);
+        try {
+          await updateDoc(doc(db, 'boards', selectedBoard.id), { pages: updated });
+          setPages(updated);
+        } catch (e) { console.error(e); }
+      }
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, [selectedBoard, pages]);
 
   const addSheet = async () => {
     if (!selectedBoard) return;
@@ -504,14 +561,16 @@ export default function BoardManage({ selectedClass, user }) {
         {post.createdAt?.toDate?.()?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || ''}
       </div>
       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-        {Object.entries(post.reactions || {}).map(([emoji, users]) => {
-          const count = Array.isArray(users) ? users.length : (typeof users === 'number' ? users : 0);
-          return count ? (
+        {(() => {
+          // reactions 구조: { studentId: emoji } → emoji별 카운트로 변환
+          const counts = {};
+          Object.values(post.reactions || {}).forEach(e => { if (e) counts[e] = (counts[e] || 0) + 1; });
+          return Object.entries(counts).map(([emoji, count]) => (
             <span key={emoji} className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200">
               {emoji} <span className="font-bold text-slate-600">{count}</span>
             </span>
-          ) : null;
-        })}
+          ));
+        })()}
         {/* 댓글 버튼 — 항상 표시 */}
         <button
           onClick={() => setExpandedPost(post)}
@@ -566,7 +625,7 @@ export default function BoardManage({ selectedClass, user }) {
             const pagePosts = sorted.filter(p => p.pageId === page.id);
             return (
               <div key={page.id}
-                className={`rounded-2xl border-2 ${gc.bg} ${gc.border} overflow-hidden shadow-sm`}
+                className={`rounded-2xl border-2 ${gc.bg} ${gc.border} overflow-hidden shadow-sm relative`}
                 style={{ borderLeftWidth: '6px' }}>
                 <div className={`${gc.header} px-5 py-3 flex items-center gap-3`}>
                   <div className="w-2 h-2 rounded-full bg-white/70 shrink-0" />
@@ -604,7 +663,10 @@ export default function BoardManage({ selectedClass, user }) {
                     + 게시물 추가
                   </button>
                 </div>
-                <div className="p-4 flex gap-4 flex-wrap">
+                <div
+                  className="p-4 flex gap-4 flex-wrap overflow-auto"
+                  style={{ maxHeight: pageSizes[page.id] && pageSizes[page.id] !== 252 ? pageSizes[page.id] : undefined }}
+                >
                   {pagePosts.length === 0 ? (
                     <div className="w-full flex items-center justify-center gap-2 py-8 text-sm text-slate-400 opacity-60">
                       <span>📭</span> 게시물이 없습니다.
@@ -612,6 +674,14 @@ export default function BoardManage({ selectedClass, user }) {
                   ) : pagePosts.map((p, i) => (
                     <div key={p.id} style={{ width: 200, flexShrink: 0 }}><PostCard post={p} idx={i} /></div>
                   ))}
+                </div>
+                {/* 아래쪽 드래그 핸들 */}
+                <div
+                  className="w-full h-2.5 cursor-row-resize flex items-center justify-center group/rh hover:bg-black/5 transition-colors"
+                  onMouseDown={(e) => startResize(e, page.id, 'y')}
+                  title="드래그하여 높이 조절"
+                >
+                  <div className="w-10 h-1 rounded-full bg-slate-300 group-hover/rh:bg-indigo-400 transition-colors" />
                 </div>
               </div>
             );
@@ -650,7 +720,8 @@ export default function BoardManage({ selectedClass, user }) {
             {cols.map(col => {
               const gc = GROUP_COLORS[col.colorIdx % GROUP_COLORS.length];
               return (
-                <div key={col.id} style={{ width: 252, flexShrink: 0 }}
+                <div key={col.id}
+                  style={{ width: pageSizes[col.id] || 252, flexShrink: 0, position: 'relative' }}
                   className={`rounded-2xl border-2 ${gc.border} ${gc.bg} overflow-hidden shadow-sm flex flex-col`}>
                   <div className={`${gc.header} px-4 py-3 flex items-center gap-2 shrink-0`}>
                     {col.id !== 'ungrouped' && editingPageId === col.id ? (
@@ -697,6 +768,15 @@ export default function BoardManage({ selectedClass, user }) {
                       </div>
                     ) : col.posts.map((p, i) => <PostCard key={p.id} post={p} idx={i} />)}
                   </div>
+                  {/* 오른쪽 드래그 핸들 */}
+                  {col.id !== 'ungrouped' && (
+                    <div
+                      className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize flex items-center justify-center z-20 group/rh"
+                      onMouseDown={(e) => startResize(e, col.id, 'x')}
+                    >
+                      <div className="w-1 h-10 rounded-full bg-white/20 group-hover/rh:bg-white/60 transition-colors" />
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -1135,18 +1215,20 @@ export default function BoardManage({ selectedClass, user }) {
                 )}
 
                 {/* 이모지 반응 */}
-                {Object.keys(expandedPost.reactions || {}).length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
-                    {Object.entries(expandedPost.reactions || {}).map(([emoji, users]) => {
-                      const count = Array.isArray(users) ? users.length : (typeof users === 'number' ? users : 0);
-                      return count ? (
+                {Object.keys(expandedPost.reactions || {}).length > 0 && (() => {
+                  const counts = {};
+                  Object.values(expandedPost.reactions || {}).forEach(e => { if (e) counts[e] = (counts[e] || 0) + 1; });
+                  const entries = Object.entries(counts);
+                  return entries.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
+                      {entries.map(([emoji, count]) => (
                         <span key={emoji} className="flex items-center gap-0.5 text-sm bg-slate-100 rounded-full px-2.5 py-1 border border-slate-200">
                           {emoji} <span className="font-bold text-slate-600 text-xs">{count}</span>
                         </span>
-                      ) : null;
-                    })}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
 
                 {/* 댓글 목록 */}
                 {(expandedPost.comments || []).length > 0 && (
