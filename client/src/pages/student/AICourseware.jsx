@@ -152,7 +152,7 @@ export default function AICourseware({ studentCode }) {
             lessonNo: lesson.no, lessonTitle: lesson.title,
             learningGoal: lesson.learningGoal || '',
             keywords: lesson.keywords || [],
-            difficulty: 'normal', questionCount: 4,
+            difficulty: 'normal', questionCount: 5,
           }),
         });
         data = await res.json();
@@ -406,50 +406,61 @@ export default function AICourseware({ studentCode }) {
   const currentQ    = content.questions?.[qIdx];
 
   // ══════════════════════════════════════════════════════════════
-  // ── 개념 카드 화면 ────────────────────────────────────────────
+  // ── 개념 카드 화면 (2배 크기) ─────────────────────────────────
   if (step === 'concept') return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-950 to-slate-900 flex items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-4">
-        <button onClick={backToLessons} className="text-white/50 hover:text-white text-xs font-bold">← {selectedLesson.no}차시 목록</button>
-        <div className="flex items-center gap-2 mb-1">
+    <div className="min-h-screen bg-gradient-to-b from-sky-950 to-slate-900 flex flex-col p-4 md:p-8">
+      <div className="max-w-3xl w-full mx-auto flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <button onClick={backToLessons} className="text-white/50 hover:text-white text-sm font-bold">← {selectedLesson.no}차시 목록</button>
+          <span className="text-white/40 text-sm">{cardIdx + 1} / {content.conceptCards.length}</span>
+        </div>
+
+        {/* 진행 바 */}
+        <div className="flex items-center gap-2">
           {content.conceptCards.map((_, i) => (
-            <div key={i} className={`flex-1 h-1.5 rounded-full ${i <= cardIdx ? 'bg-sky-400' : 'bg-white/20'}`} />
+            <div key={i} className={`flex-1 h-2 rounded-full transition-colors ${i <= cardIdx ? 'bg-sky-400' : 'bg-white/20'}`} />
           ))}
         </div>
-        <div className="text-white/50 text-xs text-center">{cardIdx + 1} / {content.conceptCards.length}</div>
 
-        <div className="bg-white rounded-3xl shadow-2xl p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">📖</span>
-            <h3 className="font-extrabold text-sky-800 text-lg">{currentCard.title}</h3>
+        {/* 개념 카드 — 크게 */}
+        <div className="bg-white rounded-3xl shadow-2xl p-8 space-y-6">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">📖</span>
+            <h3 className="font-extrabold text-sky-800 text-2xl leading-snug">{currentCard.title}</h3>
           </div>
-          <p className="text-slate-700 text-sm leading-relaxed">{currentCard.body}</p>
+          <p className="text-slate-700 text-lg leading-relaxed">{currentCard.body}</p>
           {currentCard.example && (
-            <div className="bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3">
-              <div className="text-xs font-bold text-sky-600 mb-1">💡 예시</div>
-              <p className="text-sm text-slate-700">{currentCard.example}</p>
+            <div className="bg-sky-50 border-2 border-sky-200 rounded-2xl px-6 py-5">
+              <div className="text-sm font-bold text-sky-600 mb-2">💡 예시</div>
+              <p className="text-base text-slate-700 leading-relaxed">{currentCard.example}</p>
             </div>
           )}
         </div>
 
+        {/* 자주 틀리는 포인트 (마지막 카드) */}
         {cardIdx === content.conceptCards.length - 1 && content.commonMistakes?.length > 0 && (
-          <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4">
-            <div className="font-bold text-amber-700 text-sm mb-1.5">⚠️ 자주 틀리는 포인트</div>
-            {content.commonMistakes.map((m, i) => <p key={i} className="text-sm text-amber-800">• {m}</p>)}
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6">
+            <div className="font-extrabold text-amber-700 text-base mb-2">⚠️ 자주 틀리는 포인트</div>
+            {content.commonMistakes.map((m, i) => (
+              <p key={i} className="text-base text-amber-800 mt-1">• {m}</p>
+            ))}
           </div>
         )}
 
+        {/* 이전/다음 버튼 */}
         <div className="flex gap-3">
           {cardIdx > 0 && (
             <button onClick={() => setCardIdx(i => i - 1)}
-              className="flex-1 py-3 bg-white/20 hover:bg-white/30 text-white font-bold rounded-2xl border border-white/30">← 이전</button>
+              className="flex-1 py-5 bg-white/20 hover:bg-white/30 text-white font-bold text-lg rounded-2xl border border-white/30">
+              ← 이전
+            </button>
           )}
           <button
             onClick={() => {
               if (cardIdx < content.conceptCards.length - 1) setCardIdx(i => i + 1);
               else { setStep('quiz'); setQIdx(0); setSelected(null); setShowResult(false); }
             }}
-            className="flex-1 py-3 bg-sky-500 hover:bg-sky-600 text-white font-extrabold rounded-2xl">
+            className="flex-1 py-5 bg-sky-500 hover:bg-sky-600 text-white font-extrabold text-xl rounded-2xl shadow-lg">
             {cardIdx < content.conceptCards.length - 1 ? '다음 →' : '퀴즈 풀기 →'}
           </button>
         </div>
