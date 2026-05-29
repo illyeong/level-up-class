@@ -2,6 +2,7 @@
  * Vercel Serverless Function — AI 코스웨어 학습 세트 생성
  * claude-sonnet-4-6 사용 (고품질)
  */
+export const config = { maxDuration: 60 }; // Vercel Pro: 최대 60초 허용
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -112,14 +113,33 @@ ${questionCount}개 문제 필수, conceptCards 2~3개 필수`;
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model:      'claude-sonnet-4-6',  // haiku → sonnet (품질 대폭 향상)
+        model:      'claude-sonnet-4-6',
         max_tokens: 4000,
         messages:   [{ role: 'user', content: prompt }],
       }),
     });
 
+    // Sonnet 실패 시 Haiku로 자동 재시도 (타임아웃 등)
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
+      if (response.status === 529 || response.status === 503) {
+        // 과부하 → Haiku로 폴백
+        const fallback = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 3000, messages: [{ role: 'user', content: prompt }] }),
+        });
+        if (fallback.ok) {
+          const fallbackData = await fallback.json();
+          const fallbackText = fallbackData.content?.[0]?.text || '';
+          const fallbackMatch = fallbackText.match(/\{[\s\S]*\}/);
+          if (fallbackMatch) {
+            const result = JSON.parse(fallbackMatch[0]);
+            if (result.conceptCards?.length && result.questions?.length)
+              return res.status(200).json({ ...result, context, generatedBy: 'ai-fallback' });
+          }
+        }
+      }
       return res.status(response.status).json({ error: `Claude API 오류: ${err.error?.message || response.statusText}` });
     }
 

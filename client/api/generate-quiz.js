@@ -1,6 +1,9 @@
 /**
  * Vercel Serverless Function — 퀴즈 자동 생성
  * Claude API (Anthropic) 사용
+ */
+export const config = { maxDuration: 60 };
+/**
  *
  * 환경변수:
  *   ANTHROPIC_API_KEY = sk-ant-...

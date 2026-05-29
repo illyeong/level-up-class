@@ -60,22 +60,8 @@ const fetchLessonContent = async (unit, lesson) => {
   return data;
 };
 
-const preloadLesson = (unit, lesson) => {
-  const key = lessonKey(unit, lesson);
-  if (preloadMap.has(key)) return; // 이미 로딩 중
-  const promise = (async () => {
-    try {
-      // Firestore 캐시 먼저 확인
-      const { getDoc, doc } = await import('firebase/firestore');
-      const { db } = await import('../../firebase');
-      const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
-      if (cacheDoc.exists()) return cacheDoc.data();
-      // 없으면 API 호출
-      return await fetchLessonContent(unit, lesson);
-    } catch { return null; }
-  })();
-  preloadMap.set(key, promise);
-};
+// preloadLesson은 컴포넌트 외부에 있어 db/getDoc/doc을 직접 사용 불가
+// → openLesson 내부에서 호출하는 방식으로 변경 (아래 useEffect에서 처리)
 
 // 로딩 순환 메시지 (끝이 없이 반복)
 const LOADING_MSGS = [
@@ -166,18 +152,31 @@ export default function AICourseware({ studentCode }) {
     }).finally(() => setLU(false));
   }, [filterGrade, filterSem, filterPub]);
 
-  // ── 차시 목록 진입 시 첫 번째 차시 프리로딩 ──────────────────
+  // ── 차시 목록 진입 시 첫 번째 차시 프리로딩 (컴포넌트 내부 처리) ──
   useEffect(() => {
     if (step !== 'lessons' || !selectedUnit) return;
     const lessons = selectedUnit.lessons || [];
     if (lessons.length === 0) return;
-    // 첫 번째 차시를 백그라운드에서 미리 로드
-    preloadLesson(selectedUnit, lessons[0]);
-    // 두 번째도 살짝 딜레이 후 로드 (첫 번째 우선)
+
+    const runPreload = async (unit, lesson) => {
+      const key = lessonKey(unit, lesson);
+      if (preloadMap.has(key)) return;
+      const promise = (async () => {
+        try {
+          const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
+          if (cacheDoc.exists()) return cacheDoc.data();
+          return await fetchLessonContent(unit, lesson);
+        } catch { return null; }
+      })();
+      preloadMap.set(key, promise);
+    };
+
+    runPreload(selectedUnit, lessons[0]);
+    let t;
     if (lessons.length > 1) {
-      const t = setTimeout(() => preloadLesson(selectedUnit, lessons[1]), 2000);
-      return () => clearTimeout(t);
+      t = setTimeout(() => runPreload(selectedUnit, lessons[1]), 3000);
     }
+    return () => clearTimeout(t);
   }, [step, selectedUnit]);
 
   // ── 차시 선택 → AI 콘텐츠 로드/생성 후 바로 학습 시작 ──────
