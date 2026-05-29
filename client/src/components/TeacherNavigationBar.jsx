@@ -49,8 +49,11 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
     {
       id: 'boardManage', icon: '📋', title: '게시판 및 배움노트', isReady: true,
       subMenus: [
-        { title: '공유 게시판',      id: 'boardManage' },
-        { title: '📚 배움노트 관리', id: 'learningNoteManage' },
+        { title: '공유 게시판',       id: 'boardManage' },
+        { title: '📚 배움노트 관리',  id: 'learningNoteManage' },
+        { title: '📋 자유 게시판',    id: 'freeBoard' },
+        { title: '🏆 명예의 전당',    id: 'hallOfFame' },
+        { title: '📊 학급 투표 관리', id: 'classVoteManage' },
       ]
     },
     {
@@ -59,14 +62,6 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
         { title: '학급 상점 관리', id: 'classShopManage' },
         { title: '은행 관리',     id: 'bankManage' },
         { title: '주식etf 관리',  id: 'stockManage' },
-      ]
-    },
-    {
-      id: 'townManage', icon: '📢', title: '마을 광장 관리', isReady: true,
-      subMenus: [
-        { title: '📋 자유 게시판',   id: 'freeBoard' },
-        { title: '🏆 명예의 전당',   id: 'hallOfFame' },
-        { title: '📊 학급 투표 관리', id: 'classVoteManage' },
       ]
     },
     {
