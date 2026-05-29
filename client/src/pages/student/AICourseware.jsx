@@ -20,6 +20,31 @@ const getMasteryLevel = (score) =>
   score >= 90 ? 'excellent' : score >= 75 ? 'good' : score >= 60 ? 'normal' : 'retry';
 const getMaxExp = (lv) => lv <= 10 ? 100 : lv <= 30 ? 500 : lv <= 40 ? 700 : lv <= 50 ? 900 : lv <= 60 ? 1100 : lv <= 70 ? 1300 : lv <= 80 ? 1500 : lv <= 90 ? 1700 : 1900;
 
+// 단원 카드 원형 진행 그래프
+function UnitCircleProgress({ started, done, total, size = 50 }) {
+  const cx = size / 2, cy = size / 2, r = size / 2 - 5;
+  const circ = 2 * Math.PI * r;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="4" />
+        {started > 0 && (
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="4" strokeLinecap="round"
+            strokeDasharray={`${circ * started / total} ${circ}`} />
+        )}
+        {done > 0 && (
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="4" strokeLinecap="round"
+            strokeDasharray={`${circ * done / total} ${circ}`} />
+        )}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none gap-0.5">
+        <span className="text-white font-extrabold" style={{ fontSize: size * 0.23 }}>{started}</span>
+        <span className="text-white/40" style={{ fontSize: size * 0.15 }}>/{total}</span>
+      </div>
+    </div>
+  );
+}
+
 // 결과 화면 confetti 파티클 효과
 function ConfettiCanvas() {
   const ref = useRef(null);
@@ -586,8 +611,8 @@ export default function AICourseware({ studentCode }) {
               const done = rated.length, total = countable.length;
               const complete = done === total && total > 0;
               const avg = complete ? Math.round(rated.reduce((s, m) => s + m.masteryAvg, 0) / rated.length) : null;
-              return { done, total, complete, avg, level: avg != null ? getMasteryLevel(avg) : null,
-                started: lessons.filter(l => allMastery[lessonKey(unit, l)]).length };
+              const started = countable.filter(l => allMastery[lessonKey(unit, l)]?.attemptCount > 0).length;
+              return { done, total, complete, avg, level: avg != null ? getMasteryLevel(avg) : null, started };
             })();
             const mastCfg = unitMastery.complete ? (MASTERY[unitMastery.level] || MASTERY.retry) : null;
             return (
@@ -630,19 +655,16 @@ export default function AICourseware({ studentCode }) {
                       </div>
                       <div className="text-white/40 text-[9px] mt-0.5">{unitMastery.total}개 차시 완료</div>
                     </div>
-                  ) : unitMastery.done > 0 ? (
-                    // 일부 완료 → 진행바 + 안내 메시지
-                    <div className="mt-2">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-white/70 text-[10px] font-bold">{unitMastery.done}/{unitMastery.total}차시 완료</span>
-                        <span className="text-white/40 text-[9px]">{unitMastery.total - unitMastery.done}개 남음</span>
-                      </div>
-                      <div className="h-1 bg-white/20 rounded-full overflow-hidden">
-                        <div className="h-full bg-white/70 rounded-full transition-all"
-                          style={{ width: `${Math.round((unitMastery.done / unitMastery.total) * 100)}%` }} />
-                      </div>
-                      <div className="text-white/40 text-[9px] mt-0.5">
-                        {unitMastery.total - unitMastery.done}개 차시 더 완료하면 숙달도 표시
+                  ) : unitMastery.started > 0 ? (
+                    // 진행중 → 원그래프
+                    <div className="mt-2 flex items-center gap-2.5">
+                      <UnitCircleProgress started={unitMastery.started} done={unitMastery.done} total={unitMastery.total} size={50} />
+                      <div>
+                        <div className="text-white/80 text-[10px] font-bold">{unitMastery.started}/{unitMastery.total}차시 진행중</div>
+                        {unitMastery.done > 0 && (
+                          <div className="text-white/50 text-[9px]">{unitMastery.done}개 숙달도 완료</div>
+                        )}
+                        <div className="text-white/35 text-[9px]">{unitMastery.total - unitMastery.done}개 더 완료 시 수준 표시</div>
                       </div>
                     </div>
                   ) : (
@@ -693,7 +715,8 @@ export default function AICourseware({ studentCode }) {
                       const done = rated.length, total = countable.length;
                       const complete = done === total && total > 0;
                       const avg = complete ? Math.round(rated.reduce((s, m) => s + m.masteryAvg, 0) / rated.length) : null;
-                      return { done, total, complete, avg, level: avg != null ? getMasteryLevel(avg) : null };
+                      const started = countable.filter(l => allMastery[lessonKey(unit, l)]?.attemptCount > 0).length;
+                      return { done, total, complete, avg, level: avg != null ? getMasteryLevel(avg) : null, started };
                     })();
                     const mCfg2 = unitMastery2.complete ? (MASTERY[unitMastery2.level] || MASTERY.retry) : null;
                     return (
@@ -717,15 +740,12 @@ export default function AICourseware({ studentCode }) {
                               <div className="text-white/90 text-[10px] font-extrabold">{mCfg2.emoji} {mCfg2.label} · {unitMastery2.avg}점</div>
                               <div className="text-white/40 text-[9px]">{unitMastery2.total}개 차시 완료</div>
                             </div>
-                          ) : unitMastery2.done > 0 ? (
-                            <div className="mt-1">
-                              <div className="flex justify-between mb-0.5">
-                                <span className="text-white/70 text-[9px] font-bold">{unitMastery2.done}/{unitMastery2.total}차시</span>
-                                <span className="text-white/40 text-[9px]">{unitMastery2.total - unitMastery2.done}개 남음</span>
-                              </div>
-                              <div className="h-0.5 bg-white/20 rounded-full overflow-hidden">
-                                <div className="h-full bg-white/60 rounded-full"
-                                  style={{ width: `${Math.round((unitMastery2.done / unitMastery2.total) * 100)}%` }} />
+                          ) : unitMastery2.started > 0 ? (
+                            <div className="mt-1 flex items-center gap-1.5">
+                              <UnitCircleProgress started={unitMastery2.started} done={unitMastery2.done} total={unitMastery2.total} size={36} />
+                              <div>
+                                <div className="text-white/70 text-[9px] font-bold">{unitMastery2.started}/{unitMastery2.total} 진행중</div>
+                                {unitMastery2.done > 0 && <div className="text-white/40 text-[8px]">{unitMastery2.done}개 완료</div>}
                               </div>
                             </div>
                           ) : (
