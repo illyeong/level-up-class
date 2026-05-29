@@ -76,62 +76,66 @@ export default function AICourseware({ studentCode }) {
     }).finally(() => setLU(false));
   }, [filterGrade, filterSem, filterPub]);
 
-  // ── 차시 선택 → AI 콘텐츠 로드/생성 ──────────────────────────
+  // ── 차시 선택 → AI 콘텐츠 로드/생성 후 바로 학습 시작 ──────
   const openLesson = async (unit, lesson) => {
     setUnit(unit); setLesson(lesson);
+    setCardIdx(0); setQIdx(0);
+    setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
     setCL(true); setContent(null); setMyProgress(null);
+    setStep('loading'); // 로딩 전용 화면으로 먼저 이동
     const key = lessonKey(unit, lesson);
 
     try {
       // 1. 내 오늘 진행 기록 확인
       const today = new Date().toISOString().slice(0, 10);
       const progressId = `${studentCode}_${key}`;
-      const progDoc = await getDoc(doc(db, 'aiStudentProgress', progressId));
+      const [progDoc, cacheDoc] = await Promise.all([
+        getDoc(doc(db, 'aiStudentProgress', progressId)),
+        getDoc(doc(db, 'aiLessonContent', key)),
+      ]);
       if (progDoc.exists()) setMyProgress(progDoc.data());
 
-      // 2. 캐시된 콘텐츠 확인
-      const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
+      let data;
       if (cacheDoc.exists()) {
-        setContent(cacheDoc.data());
-        setStep('lessons'); // 차시 목록에서 선택된 상태로 대기
-        setCL(false);
-        return;
+        // 2. 캐시 있으면 바로 사용
+        data = cacheDoc.data();
+      } else {
+        // 3. 캐시 없으면 AI 생성
+        const res = await fetch('/api/generate-courseware', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            grade: unit.grade, semester: unit.semester,
+            publisher: unit.publisher || '국정',
+            unitName: unit.unitName,
+            lessonNo: lesson.no, lessonTitle: lesson.title,
+            learningGoal: lesson.learningGoal || '',
+            keywords: lesson.keywords || [],
+            difficulty: 'normal', questionCount: 4,
+          }),
+        });
+        data = await res.json();
+        if (!res.ok) throw new Error(data.error || '생성 실패');
+
+        // 4. 캐시 저장
+        await setDoc(doc(db, 'aiLessonContent', key), {
+          ...data, lessonKey: key,
+          grade: unit.grade, semester: unit.semester,
+          publisher: unit.publisher, unitId: unit.id, unitName: unit.unitName,
+          lessonNo: lesson.no, lessonTitle: lesson.title,
+          createdAt: serverTimestamp(),
+        });
       }
 
-      // 3. 없으면 AI 생성
-      const res = await fetch('/api/generate-courseware', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          grade: unit.grade, semester: unit.semester,
-          publisher: unit.publisher || '국정',
-          unitName: unit.unitName,
-          lessonNo: lesson.no, lessonTitle: lesson.title,
-          learningGoal: lesson.learningGoal || '',
-          keywords: lesson.keywords || [],
-          difficulty: 'normal', questionCount: 4,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '생성 실패');
-
-      // 4. 캐시 저장
-      await setDoc(doc(db, 'aiLessonContent', key), {
-        ...data, lessonKey: key,
-        grade: unit.grade, semester: unit.semester,
-        publisher: unit.publisher, unitId: unit.id, unitName: unit.unitName,
-        lessonNo: lesson.no, lessonTitle: lesson.title,
-        createdAt: serverTimestamp(),
-      });
       setContent(data);
-      setStep('lessons');
+      setStep('concept'); // 바로 개념 카드로!
     } catch (e) {
       showToast('콘텐츠 로드에 실패했습니다. 다시 시도해주세요.', 'error');
+      setStep('lessons');
       console.error(e);
     } finally { setCL(false); }
   };
 
-  // ── 학습 시작 ──────────────────────────────────────────────────
   const startLearning = () => {
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
@@ -206,27 +210,27 @@ export default function AICourseware({ studentCode }) {
       <div className="flex items-center gap-3 mb-5">
         <span className="text-3xl">🤖</span>
         <div>
-          <h1 className="text-xl font-extrabold text-slate-800">AI 학습관</h1>
-          <p className="text-sm text-slate-500">단원을 선택하면 AI가 개념 카드와 미니퀴즈를 바로 만들어줍니다.</p>
+          <h1 className="text-xl font-extrabold text-slate-100">AI 학습관</h1>
+          <p className="text-sm text-slate-400">단원을 선택하면 AI가 개념 카드와 미니퀴즈를 바로 만들어줍니다.</p>
         </div>
       </div>
 
-      {/* 필터 */}
+      {/* 필터 — 명시적 배경/글자색 */}
       <div className="flex gap-2 flex-wrap mb-5">
         <select value={filterGrade} onChange={e => { setFG(e.target.value); setFP(''); }}
-          className="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
+          className="bg-white text-slate-800 border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
           <option value="">학년 선택</option>
           {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}학년</option>)}
         </select>
         <select value={filterSem} onChange={e => setFS(e.target.value)}
-          className="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
+          className="bg-white text-slate-800 border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
           <option value="">전체 학기</option>
           <option value="1">1학기</option>
           <option value="2">2학기</option>
         </select>
         {publishers.length > 1 && (
           <select value={filterPub} onChange={e => setFP(e.target.value)}
-            className="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
+            className="bg-white text-slate-800 border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
             <option value="">전체 출판사</option>
             {publishers.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
@@ -234,33 +238,34 @@ export default function AICourseware({ studentCode }) {
       </div>
 
       {!filterGrade ? (
-        <div className="text-center py-20 text-slate-400">
+        <div className="text-center py-20">
           <div className="text-5xl mb-3">📚</div>
-          <p className="font-bold text-slate-600">학년을 선택해주세요</p>
+          <p className="font-bold text-slate-300">학년을 선택해주세요</p>
         </div>
       ) : loadingUnits ? (
         <div className="flex items-center justify-center py-20 gap-2">
-          <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-slate-600 border-t-indigo-400 rounded-full animate-spin" />
           <span className="text-sm text-slate-400">단원 불러오는 중...</span>
         </div>
       ) : units.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
           <div className="text-4xl mb-2">📭</div>
-          <p className="font-bold">등록된 단원이 없습니다</p>
+          <p className="font-bold text-slate-300">등록된 단원이 없습니다</p>
+          <p className="text-xs mt-1 text-slate-500">관리자 페이지에서 수학 데이터를 추가해주세요</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {units.map(unit => (
             <button key={unit.id}
               onClick={() => { setUnit(unit); setStep('lessons'); setLesson(null); setContent(null); }}
-              className="bg-white rounded-2xl border-2 border-slate-200 hover:border-indigo-400 hover:shadow-md p-4 text-left transition-all group">
+              className="bg-slate-800/60 border-2 border-slate-700 hover:border-indigo-400 hover:bg-indigo-900/40 hover:shadow-lg p-4 text-left transition-all group rounded-2xl">
               <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">
                 {['📐','📏','➗','✖️','📍','🔢','📊','🔷','🔵','🔶','🟰','📉'][((unit.unitNumber || 1) - 1) % 12]}
               </div>
-              <div className="text-[10px] font-bold text-slate-400 mb-0.5">
+              <div className="text-[10px] font-bold text-indigo-400 mb-0.5">
                 {unit.unitNumber ? `${unit.unitNumber}단원` : ''} {unit.semester ? `${unit.semester}학기` : ''}
               </div>
-              <div className="font-extrabold text-slate-800 text-sm leading-snug">{unit.unitName}</div>
+              <div className="font-extrabold text-white text-sm leading-snug">{unit.unitName}</div>
               <div className="text-[10px] text-slate-400 mt-1">{(unit.lessons || []).length}차시</div>
             </button>
           ))}
@@ -275,79 +280,60 @@ export default function AICourseware({ studentCode }) {
   // ── 차시 목록 화면 ────────────────────────────────────────────
   if (step === 'lessons' && selectedUnit) return (
     <div className="p-6 max-w-2xl mx-auto">
-      <button onClick={backToBrowse} className="flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-800 mb-5">
+      <button onClick={backToBrowse} className="flex items-center gap-1.5 text-sm font-bold text-indigo-400 hover:text-indigo-200 mb-5">
         ← {filterGrade}학년 수학 단원 목록
       </button>
-      <div className="bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4 mb-5">
-        <div className="text-xs font-bold text-indigo-500 mb-0.5">{selectedUnit.grade}학년 {selectedUnit.semester ? `${selectedUnit.semester}학기 ` : ''}수학</div>
-        <h2 className="text-xl font-extrabold text-indigo-800">{selectedUnit.unitNumber ? `${selectedUnit.unitNumber}단원 ` : ''}{selectedUnit.unitName}</h2>
-        <p className="text-xs text-indigo-500 mt-0.5">{(selectedUnit.lessons || []).length}개 차시 · AI가 개념 카드와 미니퀴즈를 생성합니다</p>
+      <div className="bg-indigo-900/40 border border-indigo-700 rounded-2xl px-5 py-4 mb-5">
+        <div className="text-xs font-bold text-indigo-400 mb-0.5">{selectedUnit.grade}학년 {selectedUnit.semester ? `${selectedUnit.semester}학기 ` : ''}수학</div>
+        <h2 className="text-xl font-extrabold text-white">{selectedUnit.unitNumber ? `${selectedUnit.unitNumber}단원 ` : ''}{selectedUnit.unitName}</h2>
+        <p className="text-xs text-indigo-300 mt-0.5">{(selectedUnit.lessons || []).length}개 차시 · 차시를 눌러 AI 학습을 시작하세요</p>
       </div>
 
-      {/* 선택된 차시 미리보기 + 시작 버튼 */}
-      {selectedLesson && content && (
-        <div className="mb-4 bg-white rounded-2xl border-2 border-indigo-300 p-4 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-xs font-bold text-indigo-500">{selectedLesson.no}차시</div>
-              <div className="font-extrabold text-slate-800">{selectedLesson.title}</div>
-              <div className="flex flex-wrap gap-1 mt-1.5">
-                {(selectedLesson.keywords || []).map(k => (
-                  <span key={k} className="text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-200 px-2 py-0.5 rounded-full font-bold">{k}</span>
+      {/* 차시 목록 — 클릭 즉시 학습 시작 */}
+      <div className="space-y-2">
+        {(selectedUnit.lessons || []).length === 0 ? (
+          <div className="text-center py-10 text-slate-400">
+            <p className="font-bold">이 단원에 등록된 차시가 없습니다</p>
+          </div>
+        ) : (selectedUnit.lessons || []).map(lesson => (
+          <button key={lesson.no}
+            onClick={() => openLesson(selectedUnit, lesson)}
+            className="w-full text-left rounded-xl border-2 border-slate-700 bg-slate-800/50 hover:border-indigo-500 hover:bg-indigo-900/40 px-4 py-3.5 transition-all group">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-extrabold w-14 shrink-0 text-indigo-400 group-hover:text-indigo-300">
+                {lesson.no}차시
+              </span>
+              <span className="text-sm font-bold flex-1 text-slate-200 group-hover:text-white">
+                {lesson.title}
+              </span>
+              <span className="text-indigo-500 group-hover:text-indigo-300 text-sm font-bold shrink-0">▶</span>
+            </div>
+            {(lesson.keywords || []).length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5 pl-[68px]">
+                {lesson.keywords.slice(0, 3).map(k => (
+                  <span key={k} className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-full">{k}</span>
                 ))}
               </div>
-              <div className="text-xs text-slate-500 mt-2">
-                📖 개념카드 {content.conceptCards?.length}장 · 📝 미니퀴즈 {content.questions?.length}문항
-              </div>
-              {myProgress?.date === new Date().toISOString().slice(0,10) && myProgress?.rewarded && (
-                <div className="text-[10px] text-emerald-600 font-bold mt-1">✅ 오늘 완료 {myProgress.score}점 · 보상 지급 완료</div>
-              )}
-            </div>
-            <button onClick={startLearning}
-              className="shrink-0 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm">
-              {myProgress?.date === new Date().toISOString().slice(0,10) && myProgress?.rewarded ? '다시 풀기' : '학습 시작'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {contentLoading && (
-        <div className="mb-4 bg-white rounded-2xl border border-slate-200 p-6 flex items-center gap-3 shadow-sm">
-          <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin shrink-0" />
-          <div>
-            <p className="font-bold text-slate-700 text-sm">AI가 학습 콘텐츠를 만드는 중...</p>
-            <p className="text-xs text-slate-400">처음 요청 시 10~15초가 걸릴 수 있습니다</p>
-          </div>
-        </div>
-      )}
-
-      {/* 차시 목록 */}
-      <div className="space-y-2">
-        {(selectedUnit.lessons || []).map(lesson => {
-          const isCurrent = selectedLesson?.no === lesson.no;
-          return (
-            <button key={lesson.no}
-              onClick={() => openLesson(selectedUnit, lesson)}
-              disabled={contentLoading}
-              className={`w-full text-left rounded-xl border-2 px-4 py-3.5 transition-all disabled:opacity-50
-                ${isCurrent ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50'}`}>
-              <div className="flex items-center gap-3">
-                <span className={`text-xs font-extrabold w-14 shrink-0 ${isCurrent ? 'text-indigo-600' : 'text-slate-400'}`}>
-                  {lesson.no}차시
-                </span>
-                <span className={`text-sm font-bold flex-1 ${isCurrent ? 'text-indigo-800' : 'text-slate-700'}`}>
-                  {lesson.title}
-                </span>
-                <span className={`text-[10px] font-bold shrink-0 ${isCurrent ? 'text-indigo-500' : 'text-slate-300'}`}>
-                  {isCurrent ? '선택됨 ▶' : '▶'}
-                </span>
-              </div>
-            </button>
-          );
-        })}
+            )}
+          </button>
+        ))}
       </div>
 
       {toast && <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} text-white`} style={{ whiteSpace: 'nowrap' }}>{toast.msg}</div>}
+    </div>
+  );
+
+  // ── 로딩 화면 ────────────────────────────────────────────────
+  if (step === 'loading') return (
+    <div className="min-h-screen bg-gradient-to-b from-indigo-950 to-slate-900 flex items-center justify-center p-6">
+      <div className="text-center space-y-5">
+        <div className="w-16 h-16 border-4 border-indigo-300/30 border-t-indigo-400 rounded-full animate-spin mx-auto" />
+        <div>
+          <p className="text-white font-extrabold text-lg">AI가 학습 콘텐츠를 만드는 중...</p>
+          <p className="text-indigo-300 text-sm mt-1">{selectedUnit?.unitName} · {selectedLesson?.title}</p>
+          <p className="text-indigo-400/60 text-xs mt-2">처음 학습은 10~15초가 걸릴 수 있습니다</p>
+        </div>
+      </div>
     </div>
   );
 
