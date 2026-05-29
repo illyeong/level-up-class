@@ -6,8 +6,19 @@ import {
 import { db } from '../../firebase';
 
 const DEFAULT_REWARD = { exp: 30, gold: 20, diamonds: 0 };
-const BONUS_REWARD   = { exp: 15, gold: 5 };          // 80점 이상 추가
+const BONUS_REWARD   = { exp: 15, gold: 5 };
 const getMaxExp = (lv) => lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
+
+// studentCode에서 학년 추출 (예: "SINSEOK-5-01" → "5")
+const gradeFromCode = (code) => {
+  if (!code) return '';
+  const parts = code.split('-');
+  if (parts.length >= 2) {
+    const g = parseInt(parts[1]);
+    if (g >= 1 && g <= 6) return String(g);
+  }
+  return '';
+};
 
 // 차시별 캐시 키
 const lessonKey = (unit, lesson) =>
@@ -43,20 +54,23 @@ export default function AICourseware({ studentCode }) {
   const [toast, setToast] = useState(null);
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
-  // ── 학생 로드 ──────────────────────────────────────────────────
+  // ── 학생 로드 + 학년 즉시 자동 설정 ─────────────────────────
   useEffect(() => {
     if (!studentCode) return;
-    getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)))
-      .then(snap => { if (!snap.empty) setStudent({ id: snap.docs[0].id, ...snap.docs[0].data() }); });
-  }, [studentCode]);
+    // studentCode에서 학년 추출 (예: SINSEOK-5-01 → 5학년)
+    const detectedGrade = gradeFromCode(studentCode);
+    if (detectedGrade) setFG(detectedGrade);
 
-  // 학생 학년 자동 설정
-  useEffect(() => {
-    if (!student || filterGrade) return;
-    // 학급 정보에서 학년 추론 (없으면 3학년 기본)
-    const grade = student.grade || '';
-    if (grade) setFG(String(grade));
-  }, [student]);
+    getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)))
+      .then(snap => {
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          setStudent({ id: snap.docs[0].id, ...data });
+          // student.grade 필드가 있으면 우선 사용
+          if (data.grade && !detectedGrade) setFG(String(data.grade));
+        }
+      });
+  }, [studentCode]);
 
   // ── 단원 로드 ──────────────────────────────────────────────────
   useEffect(() => {
