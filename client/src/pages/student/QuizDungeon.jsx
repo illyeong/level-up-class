@@ -7,7 +7,7 @@ import { db } from '../../firebase';
 import SpriteMonster from '../../components/SpriteMonster';
 import { MONSTERS_DB, DIFF_MONSTER, TIER_LABEL, TIER_COST, generateWaves } from '../../data/monsterData';
 import { fireProjectile } from '../../utils/projectile';
-import { renderMath, TableRenderer } from '../../utils/renderMath';
+import { renderMath, TableRenderer, stripOptionPrefix } from '../../utils/renderMath';
 import ShapeRenderer from '../../components/ShapeRenderer';
 
 const PROJECTILE_TYPE = { easy: 'ice', normal: 'magic', hard: 'fire' };
@@ -892,7 +892,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
                     onClick={() => handleAnswer(oi)}
                     disabled={answered !== null}
                     className={`py-3.5 px-3 rounded-2xl font-bold text-base text-left transition-all active:scale-95 ${cls}`}>
-                    <span className="text-slate-500 mr-1.5">{['①','②','③','④'][oi]}</span>{renderMath(opt)}
+                    <span className="text-slate-500 mr-1.5">{['①','②','③','④'][oi]}</span>{renderMath(stripOptionPrefix(opt))}
                   </button>
                 );
               })}

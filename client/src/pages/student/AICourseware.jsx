@@ -4,7 +4,7 @@ import {
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { renderMath, TableRenderer } from '../../utils/renderMath';
+import { renderMath, TableRenderer, stripOptionPrefix } from '../../utils/renderMath';
 import ShapeRenderer from '../../components/ShapeRenderer';
 
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
@@ -506,7 +506,7 @@ export default function AICourseware({ studentCode }) {
                 <button key={oi} onClick={() => !showResult && setSelected(oi)}
                   className={`w-full text-left px-6 py-4 rounded-2xl text-lg transition-all ${cls}`}>
                   <span className="text-slate-400 mr-2 font-bold">{['①','②','③','④'][oi]}</span>
-                  {renderMath(opt)}
+                  {renderMath(stripOptionPrefix(opt))}
                 </button>
               );
             })}

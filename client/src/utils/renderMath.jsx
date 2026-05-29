@@ -1,5 +1,11 @@
 import React from 'react';
 
+/** 보기 앞의 ①②③④ 제거 (AI가 붙여서 생성하므로 렌더 시 중복 방지) */
+export const stripOptionPrefix = (text) => {
+  if (!text || typeof text !== 'string') return text;
+  return text.replace(/^[①②③④⑤⑥]\s*/, '').trimStart();
+};
+
 /**
  * 표 렌더러
  * table: { headers: string[], rows: string[][] }
