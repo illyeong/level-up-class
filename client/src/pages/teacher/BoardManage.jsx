@@ -1042,33 +1042,41 @@ export default function BoardManage({ selectedClass, user }) {
             : <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {boards.map(board => {
                   const typeInfo = BOARD_TYPES.find(t => t.id === board.boardType);
+                  const fmtCreatedAt = board.createdAt?.toDate
+                    ? board.createdAt.toDate().toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : board.createdAt?.seconds
+                      ? new Date(board.createdAt.seconds * 1000).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
+                      : '날짜 없음';
                   return (
                     <div key={board.id}
                       className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all cursor-pointer group
                         ${board.active ? 'border-slate-200 hover:shadow-lg hover:-translate-y-0.5' : 'border-slate-100 opacity-60'}`}
                       onClick={() => openBoard(board)}>
-                      {/* 배경색 헤더 */}
-                      <div className="px-4 py-3 flex items-center justify-between"
-                        style={{ backgroundColor: board.bgColor || '#f8fafc' }}>
-                        <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border ${
-                          typeInfo ? `${typeInfo.color} ${typeInfo.bg} ${typeInfo.border}` : 'text-slate-500 bg-slate-100 border-slate-200'
-                        }`}>
-                          {typeInfo?.label || '기본형'}
-                        </span>
+                      {/* 공통 헤더 — 배경 항상 흰색, 색상은 왼쪽 점으로만 표시 */}
+                      <div className="px-4 py-3 flex items-center justify-between bg-white border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          {/* 배경색 스와치 */}
+                          <span className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0"
+                            style={{ backgroundColor: board.bgColor || '#ffffff' }} />
+                          {/* 타입 배지 — 모든 타입 동일한 스타일 */}
+                          <span className="text-xs font-extrabold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
+                            {typeInfo?.label || '기본형'}
+                          </span>
+                        </div>
                         <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${board.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>
                           {board.active ? '🟢 공개' : '⏸ 비공개'}
                         </span>
+                      </div>
+                      {/* 아이콘 미리보기 영역 */}
+                      <div className="flex items-center justify-center py-4 border-b border-slate-50"
+                        style={{ backgroundColor: board.bgColor || '#f8fafc' }}>
+                        {typeInfo?.icon}
                       </div>
                       <div className="p-4">
                         <h3 className="font-extrabold text-slate-800 text-base mb-1 group-hover:text-indigo-700 transition-colors">{board.title}</h3>
                         {board.description && <p className="text-xs text-slate-500 mb-2 line-clamp-2">{board.description}</p>}
                         <div className="text-[11px] text-slate-400 mb-3 flex items-center gap-1">
-                          🗓
-                          {board.createdAt?.toDate
-                            ? board.createdAt.toDate().toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
-                            : board.createdAt?.seconds
-                              ? new Date(board.createdAt.seconds * 1000).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
-                              : '날짜 없음'}
+                          🗓 {fmtCreatedAt}
                         </div>
                         <div className="flex gap-2 mt-1" onClick={e => e.stopPropagation()}>
                           <button onClick={() => openBoard(board)}
