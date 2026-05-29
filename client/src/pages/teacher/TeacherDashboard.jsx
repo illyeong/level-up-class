@@ -1,8 +1,9 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
-import { collection, getDocs, doc, getDoc, writeBatch, serverTimestamp, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, updateDoc, writeBatch, serverTimestamp, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import LevelUpEffect from '../../components/LevelUpEffect';
 import { applyClassQuickSetup, QUICK_SETUP_VERSION } from '../../utils/classQuickSetup';
+import { applyExpDelta } from '../../utils/leveling';
 
 import iconGold from '../../assets/images/icon-gold.png';
 import iconDiamond from '../../assets/images/icon-diamond.png';
@@ -40,6 +41,126 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   const [showQrPrintGuide, setShowQrPrintGuide] = useState(false);
   const [aiSummary, setAiSummary] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [approvingQuests, setApprovingQuests] = useState(false);
+  const [approvingNotes,  setApprovingNotes]  = useState(false);
+
+  // ── 퀘스트 체크 학생 일괄 승인 ──────────────────────────────
+  const approveAllCheckedQuests = async () => {
+    const teacherUid = selectedClass?.teacherUid;
+    if (!teacherUid || approvingQuests) return;
+    if (!window.confirm('오늘 퀘스트를 체크한 학생 전원에게 보상을 지급합니다.\n이미 보상을 받은 학생은 건너뜁니다.')) return;
+    setApprovingQuests(true);
+    let totalRewarded = 0;
+    try {
+      // 활성 퀘스트 조회
+      const questsSnap = await getDocs(query(
+        collection(db, 'quests'),
+        where('teacherUid', '==', teacherUid),
+        where('active', '!=', false),
+      ));
+      const activeQuests = questsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+
+      // 학생 목록
+      const stuSnap = await getDocs(query(collection(db, 'students'), where('teacherUid', '==', teacherUid)));
+      const studentMap = {};
+      stuSnap.docs.forEach(d => { studentMap[d.id] = { id: d.id, ...d.data() }; });
+
+      const batch = writeBatch(db);
+      let batchCount = 0;
+
+      for (const quest of activeQuests) {
+        const compSnap = await getDocs(collection(db, 'quests', quest.id, 'completions'));
+        const compMap = {};
+        compSnap.docs.forEach(d => { compMap[d.id] = d.data(); });
+
+        for (const [sid, comp] of Object.entries(compMap)) {
+          if (!comp.checked || comp.rewarded) continue;
+          // 일일퀘스트는 오늘 체크한 것만
+          if (quest.type === 'daily' || quest.repeatDaily) {
+            const ts = comp.checkedAt;
+            const checkedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
+            if (!checkedAt || checkedAt < todayMidnight) continue;
+          }
+          const student = studentMap[sid];
+          if (!student) continue;
+          const nextProgress = applyExpDelta(student.level ?? 1, student.exp ?? 0, quest.rewards?.exp || 0);
+          batch.update(doc(db, 'students', sid), {
+            gold:     (student.gold     || 0) + (quest.rewards?.gold    || 0),
+            diamonds: (student.diamonds || 0) + (quest.rewards?.diamond || 0),
+            level: nextProgress.level, exp: nextProgress.exp, maxExp: nextProgress.maxExp,
+          });
+          batch.update(doc(db, 'quests', quest.id, 'completions', sid), {
+            rewarded: true, rewardedAt: serverTimestamp(), rewardedBy: 'teacher_ai_bulk',
+          });
+          // 학생 데이터 갱신 (batch 내에서 누적 계산)
+          studentMap[sid] = { ...student, gold: (student.gold||0)+(quest.rewards?.gold||0), diamonds: (student.diamonds||0)+(quest.rewards?.diamond||0), level: nextProgress.level, exp: nextProgress.exp };
+          totalRewarded++;
+          batchCount++;
+          if (batchCount >= 400) { await batch.commit(); batchCount = 0; }
+        }
+      }
+      if (batchCount > 0) await batch.commit();
+      showToast(totalRewarded > 0 ? `✅ ${totalRewarded}건 퀘스트 보상 지급 완료!` : '승인할 퀘스트가 없습니다.');
+      await fetchAiSummary(students, questStats);
+    } catch (e) {
+      console.error(e);
+      showToast('퀘스트 일괄 승인 중 오류가 발생했습니다.', 'error');
+    } finally { setApprovingQuests(false); }
+  };
+
+  // ── 배움노트 일괄 승인 ────────────────────────────────────────
+  const approveAllNotes = async () => {
+    const teacherUid = selectedClass?.teacherUid;
+    if (!teacherUid || approvingNotes) return;
+    const pending = aiSummary?.pendingNotes || 0;
+    if (pending === 0) { showToast('승인 대기 중인 배움노트가 없습니다.'); return; }
+    if (!window.confirm(`배움노트 승인 대기 ${pending}건을 모두 승인합니다.\n보상이 각 학생에게 자동 지급됩니다.`)) return;
+    setApprovingNotes(true);
+    let ok = 0;
+    try {
+      const notesSnap = await getDocs(query(
+        collection(db, 'learningNotes'),
+        where('teacherUid', '==', teacherUid),
+        where('status', '==', 'pending'),
+      ));
+      const settSnap = await getDoc(doc(db, 'learningSettings', teacherUid));
+      const settings = settSnap.exists() ? { rewardGold: 10, rewardDiamond: 10, rewardExp: 30, ...settSnap.data() } : { rewardGold: 10, rewardDiamond: 10, rewardExp: 30 };
+      const getMaxExp = (lv) => lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
+
+      for (const noteDoc of notesSnap.docs) {
+        const note = { id: noteDoc.id, ...noteDoc.data() };
+        try {
+          // 과목별 status 모두 approved로 업데이트
+          const updatedSubjects = (note.subjects || []).map(s => ({ ...s, status: 'approved', rewardPaid: true }));
+          await updateDoc(doc(db, 'learningNotes', note.id), {
+            subjects: updatedSubjects, status: 'approved',
+            approvedAt: serverTimestamp(), studentSeen: false, rewardPaid: true,
+          });
+          // 보상 지급
+          const stuRef = doc(db, 'students', note.studentId);
+          const stuSnap = await getDoc(stuRef);
+          if (stuSnap.exists()) {
+            const sd = stuSnap.data();
+            const subjectCount = (note.subjects || []).length || note.subjectCount || 1;
+            const rewardGold = settings.rewardGold    * subjectCount;
+            const rewardDia  = settings.rewardDiamond * subjectCount;
+            const rewardExp  = settings.rewardExp     * subjectCount;
+            let newExp = (sd.exp || 0) + rewardExp;
+            let newLv  = sd.level || 1;
+            while (newExp >= getMaxExp(newLv)) { newExp -= getMaxExp(newLv); newLv++; }
+            await updateDoc(stuRef, { gold: (sd.gold||0)+rewardGold, diamonds: (sd.diamonds||0)+rewardDia, exp: newExp, level: newLv });
+          }
+          ok++;
+        } catch (e) { console.error(e); }
+      }
+      showToast(`✅ 배움노트 ${ok}건 승인 완료!`);
+      await fetchAiSummary(students, questStats);
+    } catch (e) {
+      console.error(e);
+      showToast('배움노트 일괄 승인 중 오류가 발생했습니다.', 'error');
+    } finally { setApprovingNotes(false); }
+  };
 
   // ── AI 요약 데이터 수집 ──────────────────────────────────────
   const fetchAiSummary = useCallback(async (currentStudents, currentQuestStats) => {
@@ -516,20 +637,46 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                 {/* 요약 텍스트 */}
                 <p className="text-slate-100 text-sm leading-relaxed mb-4">{aiSummary.text}</p>
 
-                {/* 지표 칩 */}
+                {/* 지표 칩 + 빠른 승인 버튼 */}
                 <div className="flex flex-wrap gap-2 mb-4">
                   {aiSummary.questRate !== null && (
-                    <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
-                      ${aiSummary.questRate >= 70 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : aiSummary.questRate >= 40 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
-                      ⚔️ 퀘스트 완료율 {aiSummary.questRate}%
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
+                        ${aiSummary.questRate >= 70 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : aiSummary.questRate >= 40 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
+                        ⚔️ 퀘스트 완료율 {aiSummary.questRate}%
+                      </span>
+                      <button
+                        onClick={approveAllCheckedQuests}
+                        disabled={approvingQuests}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold bg-emerald-500/25 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/40 transition-colors disabled:opacity-50"
+                        title="체크한 학생 전원에게 퀘스트 보상 지급"
+                      >
+                        {approvingQuests
+                          ? <span className="inline-block w-3 h-3 border-2 border-emerald-300/30 border-t-emerald-300 rounded-full animate-spin" />
+                          : '✓'}
+                        전체 승인
+                      </button>
+                    </div>
                   )}
                   {aiSummary.pendingNotes > 0 && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      📚 승인 대기 {aiSummary.pendingNotes}건
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        📚 승인 대기 {aiSummary.pendingNotes}건
+                      </span>
+                      <button
+                        onClick={approveAllNotes}
+                        disabled={approvingNotes}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold bg-amber-500/25 hover:bg-amber-500/40 text-amber-300 border border-amber-500/40 transition-colors disabled:opacity-50"
+                        title="배움노트 대기 건 전체 승인"
+                      >
+                        {approvingNotes
+                          ? <span className="inline-block w-3 h-3 border-2 border-amber-300/30 border-t-amber-300 rounded-full animate-spin" />
+                          : '✓'}
+                        모두 승인
+                      </button>
+                    </div>
                   )}
                   {aiSummary.goldIssued > 0 && (
                     <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">

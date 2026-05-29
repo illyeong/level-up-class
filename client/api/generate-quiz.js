@@ -31,12 +31,18 @@ export default async function handler(req, res) {
 
   const {
     sourceText, pdfBase64, grade, semester,
-    subject, publisher, unit, count = 5, difficulty = 'normal',
+    subject, publisher, unit,
+    lessonNo, lessonTitle, lessonKeywords,   // 차시 정보 (선택)
+    count = 5, difficulty = 'normal',
     saCount: bodySaCount,
   } = req.body || {};
 
-  if (!sourceText?.trim() && !pdfBase64)
-    return res.status(400).json({ error: '수업 자료를 입력하거나 PDF를 업로드해주세요.' });
+  const hasLesson   = !!(lessonTitle?.trim() || (Array.isArray(lessonKeywords) && lessonKeywords.length));
+  const hasSource   = !!(sourceText?.trim() || pdfBase64);
+
+  // 차시 정보 또는 수업 자료 중 하나 이상 필요
+  if (!hasSource && !hasLesson)
+    return res.status(400).json({ error: '차시를 선택하거나 수업 자료를 입력해주세요.' });
   if (!grade || !subject)
     return res.status(400).json({ error: '학년과 과목을 선택해주세요.' });
 
@@ -67,24 +73,40 @@ answer(주관식): 정답 문자열 (짧은 단어/구문)
     : `[{"question":"문제","options":["①보기1","②보기2","③보기3","④보기4"],"answer":0,"explanation":"해설"}]
 answer 값은 0~3 사이 정수 (0=①, 1=②, 2=③, 3=④)`;
 
+  // ── 차시 정보 기반 프롬프트 구성 ──────────────────────────────
+  const lessonContext = hasLesson
+    ? `\n【차시 정보】
+${lessonNo ? `차시: ${lessonNo}차시` : ''}
+${lessonTitle ? `학습 주제: ${lessonTitle}` : ''}
+${Array.isArray(lessonKeywords) && lessonKeywords.length ? `핵심 키워드: ${lessonKeywords.join(', ')}` : ''}
+`
+    : '';
+
+  const sourceSection = hasSource
+    ? `\n【수업 자료】\n${sourceText?.trim() || '(PDF 파일에서 자료 참고)'}`
+    : '';
+
+  const basisDesc = hasLesson && !hasSource
+    ? '위 차시 학습 주제와 핵심 키워드를 바탕으로'
+    : hasLesson
+      ? '차시 학습 주제와 수업 자료를 함께 참고하여'
+      : '다음 수업 자료를 바탕으로';
+
   const prompt = `당신은 초등학교 교사의 퀴즈 생성 도우미입니다.
 
-다음 수업 자료를 바탕으로 ${contextParts} 수준의 퀴즈 ${count}개를 만들어주세요.${hasSA ? ` (객관식 ${mcCount}개 + 주관식 ${saCount}개)` : ''}
-
+${basisDesc} ${contextParts} 수준의 퀴즈 ${count}개를 만들어주세요.${hasSA ? ` (객관식 ${mcCount}개 + 주관식 ${saCount}개)` : ''}
+${lessonContext}
 【난이도】: ${DIFFICULTY_MAP[difficulty] || DIFFICULTY_MAP.normal}
 
 【규칙】
 ${typeRules}
 - ${grade}학년 학생이 이해할 수 있는 쉬운 언어 사용
 - 각 문제마다 정답은 반드시 하나만 존재
-- 정답과 해설은 수업 자료 내용에 근거
-- 해설은 정답이 왜 맞는지 개념 중심으로 간결하게 작성 (슬라이드 번호, 페이지, 출처, 자료 위치 절대 언급 금지)
+- 해설은 정답이 왜 맞는지 개념 중심으로 간결하게 작성 (페이지, 출처, 자료 위치 언급 금지)
 
 【반드시 JSON 배열 형식으로만 응답】 (설명 없이 JSON만)
 ${jsonExample}
-
-【수업 자료】
-${sourceText?.trim() || '(PDF 파일에서 자료 참고)'}`;
+${sourceSection}`;
 
   try {
     // PDF 포함 여부에 따라 메시지 구성

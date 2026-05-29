@@ -196,14 +196,15 @@ function UnitRequestModal({ grade, semester, subject, publisher, currentUid, onC
   );
 }
 
-// ─── 공통 단원 선택기 ─────────────────────────────────────────────
-function UnitSelector({ grade, semester, subject, publisher, unitId, topic, onUnitChange, onTopicChange, currentUid }) {
+// ─── 공통 단원 선택기 (단원 + 차시) ─────────────────────────────
+function UnitSelector({ grade, semester, subject, publisher, unitId, topic, onUnitChange, onTopicChange, onLessonChange, currentUid }) {
   const [units, setUnits]             = useState([]);
   const [loading, setLoading]         = useState(false);
   const [showRequest, setShowRequest] = useState(false);
+  const [selectedLesson, setSelectedLesson] = useState('');
 
   useEffect(() => {
-    if (!grade || !subject) { setUnits([]); return; }
+    if (!grade || !subject) { setUnits([]); setSelectedLesson(''); return; }
     setLoading(true);
     getDocs(query(
       collection(db, 'curriculumUnits'),
@@ -220,7 +221,13 @@ function UnitSelector({ grade, semester, subject, publisher, unitId, topic, onUn
     }).catch(() => setUnits([])).finally(() => setLoading(false));
   }, [grade, semester, subject, publisher]);
 
+  // 단원 바뀌면 차시 초기화
+  useEffect(() => { setSelectedLesson(''); onLessonChange?.('', ''); }, [unitId]);
+
   if (!grade || !subject) return null;
+
+  const selectedUnit = units.find(u => u.id === unitId);
+  const lessons = selectedUnit?.lessons || [];
 
   return (
     <div className="md:col-span-3 space-y-3">
@@ -233,6 +240,7 @@ function UnitSelector({ grade, semester, subject, publisher, unitId, topic, onUn
         <select value={unitId} onChange={e => {
             const sel = units.find(u => u.id === e.target.value);
             onUnitChange(e.target.value, sel?.unitName || '');
+            setSelectedLesson('');
           }}
           className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
           <option value="">단원 선택 (선택사항)</option>
@@ -246,16 +254,56 @@ function UnitSelector({ grade, semester, subject, publisher, unitId, topic, onUn
         {!loading && units.length === 0 && (
           <p className="text-[10px] text-slate-400 mt-1">등록된 단원이 없습니다.</p>
         )}
-        {/* 단원 추가 요청 버튼 — 크게 */}
         <button type="button" onClick={() => setShowRequest(true)}
           className="mt-2 w-full py-2 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border-2 border-dashed border-indigo-300 hover:border-indigo-400 rounded-xl transition-colors">
           + 단원 추가 요청
         </button>
       </div>
 
+      {/* 차시 선택 — 단원에 lessons가 있을 때만 표시 */}
+      {unitId && lessons.length > 0 && (
+        <div>
+          <label className="text-xs font-bold text-slate-500 mb-1.5 block">
+            차시 <span className="font-normal text-slate-400">(선택 시 AI가 해당 차시 기준으로 출제)</span>
+          </label>
+          <select
+            value={selectedLesson}
+            onChange={e => {
+              const val = e.target.value;
+              setSelectedLesson(val);
+              const lesson = lessons.find(l => String(l.no) === val);
+              // no, title, keywords 세 인자로 전달
+              onLessonChange?.(val, lesson?.title || '', lesson?.keywords || []);
+              // 차시 키워드를 topic에 자동 반영
+              if (lesson?.keywords?.length) {
+                onTopicChange(lesson.keywords.slice(0, 3).join(', '));
+              }
+            }}
+            className="w-full border-2 border-indigo-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 bg-indigo-50/30"
+          >
+            <option value="">차시 선택 (선택사항)</option>
+            {lessons.map(l => (
+              <option key={l.no} value={String(l.no)}>
+                {l.no}차시 — {l.title}
+              </option>
+            ))}
+          </select>
+          {selectedLesson && (() => {
+            const lesson = lessons.find(l => String(l.no) === selectedLesson);
+            return lesson?.keywords?.length ? (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {lesson.keywords.map(k => (
+                  <span key={k} className="text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-200 px-2 py-0.5 rounded-full font-bold">{k}</span>
+                ))}
+              </div>
+            ) : null;
+          })()}
+        </div>
+      )}
+
       {/* 주제 입력 (선택) */}
       <div>
-        <label className="text-xs font-bold text-slate-500 mb-1.5 block">주제 <span className="font-normal text-slate-400">(선택)</span></label>
+        <label className="text-xs font-bold text-slate-500 mb-1.5 block">주제 <span className="font-normal text-slate-400">(선택 — 차시 선택 시 자동 입력)</span></label>
         <input
           value={topic}
           onChange={e => onTopicChange(e.target.value)}
@@ -454,6 +502,7 @@ export default function QuizBank({ selectedClass = null }) {
   // 공통 단원 선택 (AI탭 / 직접출제탭)
   const [aiUnitId, setAiUnitId]     = useState('');
   const [aiTopic,  setAiTopic]      = useState('');
+  const [aiLesson, setAiLesson]     = useState({ no: '', title: '', keywords: [] });
   const [mUnitId,  setMUnitId]      = useState('');
   const [mTopic,   setMTopic]       = useState('');
 
@@ -573,7 +622,10 @@ export default function QuizBank({ selectedClass = null }) {
 
   // ── AI 퀴즈 생성 ─────────────────────────────────────────────────
   const handleGenerate = async () => {
-    if (!sourceText.trim() && !pdfBase64) { showToast('수업 자료를 입력하거나 PDF를 업로드해주세요.', 'error'); return; }
+    const hasLesson = !!(aiLesson.title || aiLesson.keywords?.length);
+    if (!sourceText.trim() && !pdfBase64 && !hasLesson) {
+      showToast('차시를 선택하거나 수업 자료를 입력해주세요.', 'error'); return;
+    }
     if (!grade || !subject) { showToast('학년과 과목을 선택해주세요.', 'error'); return; }
     setIsGenerating(true); setGenError('');
     try {
@@ -584,6 +636,9 @@ export default function QuizBank({ selectedClass = null }) {
           sourceText: sourceText || undefined, pdfBase64: pdfBase64 || undefined,
           grade: parseInt(grade), semester: parseInt(semester) || null,
           subject, publisher, unit: [part, unit].filter(Boolean).join(' '),
+          lessonNo: aiLesson.no || undefined,
+          lessonTitle: aiLesson.title || undefined,
+          lessonKeywords: aiLesson.keywords?.length ? aiLesson.keywords : undefined,
           count, difficulty, saCount,
         }),
       });
@@ -648,7 +703,7 @@ export default function QuizBank({ selectedClass = null }) {
   };
 
   const resetAiForm = () => {
-    setGrade(''); setSemester(''); setSubject(''); setPublisher(''); setPart(''); setUnit(''); setAiUnitId(''); setAiTopic('');
+    setGrade(''); setSemester(''); setSubject(''); setPublisher(''); setPart(''); setUnit(''); setAiUnitId(''); setAiTopic(''); setAiLesson({ no: '', title: '', keywords: [] });
     setSourceText(''); setPdfBase64(''); setPdfName(''); setCount(5); setSaCount(0);
     setDifficulty('normal'); setCustomTitle(''); setAiQuestions([]); setAiStep('form'); setGenError('');
   };
@@ -1014,8 +1069,9 @@ export default function QuizBank({ selectedClass = null }) {
                     <UnitSelector
                       grade={grade} semester={semester} subject={subject} publisher={publisher}
                       unitId={aiUnitId} topic={aiTopic}
-                      onUnitChange={(id, name) => { setAiUnitId(id); setUnit(name || ''); }}
+                      onUnitChange={(id, name) => { setAiUnitId(id); setUnit(name || ''); setAiLesson({ no: '', title: '', keywords: [] }); }}
                       onTopicChange={setAiTopic}
+                      onLessonChange={(no, title, keywords) => setAiLesson({ no, title, keywords: keywords || [] })}
                       currentUid={currentUid}
                     />
                   </div>
@@ -1115,7 +1171,7 @@ export default function QuizBank({ selectedClass = null }) {
                 )}
 
                 <button onClick={handleGenerate}
-                  disabled={isGenerating || (!sourceText.trim() && !pdfBase64) || !grade || !subject}
+                  disabled={isGenerating || (!sourceText.trim() && !pdfBase64 && !aiLesson.title && !aiLesson.keywords?.length) || !grade || !subject}
                   className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-lg rounded-2xl shadow-md transition-all active:scale-[0.99] disabled:opacity-40">
                   {isGenerating ? '🤖 AI가 퀴즈를 만드는 중...' : '🤖 AI 퀴즈 생성하기'}
                 </button>
@@ -1224,6 +1280,7 @@ export default function QuizBank({ selectedClass = null }) {
                   unitId={mUnitId} topic={mTopic}
                   onUnitChange={(id, name) => { setMUnitId(id); setMUnit(name || ''); }}
                   onTopicChange={setMTopic}
+                  onLessonChange={(no, desc) => { if (desc) setMUnit(prev => prev || desc); }}
                   currentUid={currentUid}
                 />
                 <div>
