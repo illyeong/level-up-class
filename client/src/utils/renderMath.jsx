@@ -60,43 +60,41 @@ function VertFrac({ num, den, keyProp }) {
 }
 
 /**
- * 텍스트에서 수식 패턴을 감지해 렌더링합니다.
- * - 대분수: "1과 2/3" → 1 + 세로분수
- * - 진분수: "3/4" → 세로분수
+ * 수식 렌더러
+ * - 대분수: "2 3/5" (공백) 또는 "2과 3/5" (과/와) → 자연수 + 세로분수
+ * - 진분수: "3/5" → 세로분수
  */
 export function renderMath(text) {
   if (!text || typeof text !== 'string') return text;
+  if (!text.includes('/')) return text;
 
-  // 대분수 패턴 먼저 처리: "N과 A/B" 또는 "N과A/B"
-  const MIXED = /(\d+)\s*과\s*(\d+)\/(\d+)/g;
-  // 일반 분수 패턴
-  const FRAC  = /(\d+)\/(\d+)/g;
-
-  // 대분수와 분수가 하나도 없으면 바로 반환
-  if (!MIXED.test(text) && !FRAC.test(text)) return text;
-  MIXED.lastIndex = 0; FRAC.lastIndex = 0;
-
-  // 대분수 → 세로분수 치환 후 분수 처리
-  const tokens = [];
-  let last = 0;
-  let idx = 0;
-
-  // 1단계: 대분수 추출
   const allMatches = [];
   let m;
-  MIXED.lastIndex = 0;
-  while ((m = MIXED.exec(text)) !== null) {
+
+  // 대분수 패턴 1: "2과 3/5" 또는 "2와 3/5"
+  const rKorean = /(\d+)\s*[과와]\s*(\d+)\/(\d+)/g;
+  while ((m = rKorean.exec(text)) !== null) {
     allMatches.push({ start: m.index, end: m.index + m[0].length, type: 'mixed', whole: m[1], num: m[2], den: m[3] });
   }
-  FRAC.lastIndex = 0;
-  while ((m = FRAC.exec(text)) !== null) {
-    // 대분수에 포함된 분수는 건너뜀
-    const inside = allMatches.some(mx => m.index >= mx.start && m.index < mx.end);
-    if (!inside) allMatches.push({ start: m.index, end: m.index + m[0].length, type: 'frac', num: m[1], den: m[2] });
+
+  // 대분수 패턴 2: "2 3/5" (공백 1칸 이상 구분) — 과/와 없는 경우
+  const rSpace = /(\d+) +(\d+)\/(\d+)/g;
+  while ((m = rSpace.exec(text)) !== null) {
+    const inKorean = allMatches.some(mx => m.index >= mx.start && m.index < mx.end);
+    if (!inKorean) {
+      allMatches.push({ start: m.index, end: m.index + m[0].length, type: 'mixed', whole: m[1], num: m[2], den: m[3] });
+    }
   }
-  allMatches.sort((a, b) => a.start - b.start);
+
+  // 진분수: "3/5" (대분수에 포함된 것 제외)
+  const rFrac = /(\d+)\/(\d+)/g;
+  while ((m = rFrac.exec(text)) !== null) {
+    const inMixed = allMatches.some(mx => m.index >= mx.start && m.index < mx.end);
+    if (!inMixed) allMatches.push({ start: m.index, end: m.index + m[0].length, type: 'frac', num: m[1], den: m[2] });
+  }
 
   if (allMatches.length === 0) return text;
+  allMatches.sort((a, b) => a.start - b.start);
 
   const result = [];
   let pos = 0;
@@ -104,9 +102,9 @@ export function renderMath(text) {
     if (match.start > pos) result.push(text.slice(pos, match.start));
     if (match.type === 'mixed') {
       result.push(
-        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
-          <span style={{ marginRight: '2px' }}>{match.whole}</span>
-          <VertFrac num={match.num} den={match.den} keyProp={`f${i}`} />
+        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', margin: '0 1px' }}>
+          <span>{match.whole}</span>
+          <VertFrac num={match.num} den={match.den} keyProp={`m${i}`} />
         </span>
       );
     } else {
@@ -115,6 +113,5 @@ export function renderMath(text) {
     pos = match.end;
   });
   if (pos < text.length) result.push(text.slice(pos));
-
   return <>{result}</>;
 }
