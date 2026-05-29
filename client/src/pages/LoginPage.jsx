@@ -493,7 +493,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
             alt="LevelUp Class"
             className="w-full object-contain drop-shadow-lg"
           />
-          <p className="text-indigo-300 mt-3 font-medium">게임형 학급 경제 관리 시스템</p>
+          <p className="text-indigo-300 mt-3 font-medium">게임처럼 배우고, AI와 함께 성장하는 스마트 학급경영</p>
         </div>
 
         {mode === null && (

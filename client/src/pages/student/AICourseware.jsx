@@ -38,6 +38,55 @@ const CACHE_VER = 'v2';
 const lessonKey = (unit, lesson) =>
   `${CACHE_VER}_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
 
+// ── 백그라운드 프리로딩 캐시 ─────────────────────────────────
+// 차시 목록 열릴 때 첫 번째 차시를 미리 API 호출 → 클릭 시 즉시 사용
+const preloadMap = new Map(); // key → Promise<data>
+
+const fetchLessonContent = async (unit, lesson) => {
+  const res = await fetch('/api/generate-courseware', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      grade: unit.grade, semester: unit.semester,
+      publisher: unit.publisher || '국정',
+      unitName: unit.unitName,
+      lessonNo: lesson.no, lessonTitle: lesson.title,
+      learningGoal: '', keywords: lesson.keywords || [],
+      difficulty: 'normal', questionCount: 5,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '생성 실패');
+  return data;
+};
+
+const preloadLesson = (unit, lesson) => {
+  const key = lessonKey(unit, lesson);
+  if (preloadMap.has(key)) return; // 이미 로딩 중
+  const promise = (async () => {
+    try {
+      // Firestore 캐시 먼저 확인
+      const { getDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('../../firebase');
+      const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
+      if (cacheDoc.exists()) return cacheDoc.data();
+      // 없으면 API 호출
+      return await fetchLessonContent(unit, lesson);
+    } catch { return null; }
+  })();
+  preloadMap.set(key, promise);
+};
+
+// 로딩 단계 메시지
+const LOADING_STEPS = [
+  '차시 내용을 분석하는 중...',
+  'AI 선생님이 개념 카드 작성 중...',
+  '핵심 개념 정리 중...',
+  '퀴즈 문제 만드는 중...',
+  '오답 보기 설계 중...',
+  '거의 다 됐어요! 🎉',
+];
+
 export default function AICourseware({ studentCode }) {
   const [student, setStudent]   = useState(null);
 
@@ -64,6 +113,7 @@ export default function AICourseware({ studentCode }) {
   const [showResult, setShowResult] = useState(false);
   const [finalResult, setFR]    = useState(null);
   const [saving, setSaving]     = useState(false);
+  const [loadingStepIdx, setLoadingStepIdx] = useState(0); // 로딩 단계 표시
 
   const [dailyCount, setDailyCount] = useState(0); // 오늘 완료 횟수
   const [toast, setToast] = useState(null);
@@ -113,6 +163,20 @@ export default function AICourseware({ studentCode }) {
     }).finally(() => setLU(false));
   }, [filterGrade, filterSem, filterPub]);
 
+  // ── 차시 목록 진입 시 첫 번째 차시 프리로딩 ──────────────────
+  useEffect(() => {
+    if (step !== 'lessons' || !selectedUnit) return;
+    const lessons = selectedUnit.lessons || [];
+    if (lessons.length === 0) return;
+    // 첫 번째 차시를 백그라운드에서 미리 로드
+    preloadLesson(selectedUnit, lessons[0]);
+    // 두 번째도 살짝 딜레이 후 로드 (첫 번째 우선)
+    if (lessons.length > 1) {
+      const t = setTimeout(() => preloadLesson(selectedUnit, lessons[1]), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [step, selectedUnit]);
+
   // ── 차시 선택 → AI 콘텐츠 로드/생성 후 바로 학습 시작 ──────
   const openLesson = async (unit, lesson) => {
     // 하루 최대 횟수 체크
@@ -124,54 +188,67 @@ export default function AICourseware({ studentCode }) {
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
     setCL(true); setContent(null); setMyProgress(null);
-    setStep('loading'); // 로딩 전용 화면으로 먼저 이동
+    setLoadingStepIdx(0);
+    setStep('loading');
     const key = lessonKey(unit, lesson);
 
+    // 로딩 단계 메시지 순환
+    const stepTimer = setInterval(() => {
+      setLoadingStepIdx(prev => Math.min(prev + 1, LOADING_STEPS.length - 1));
+    }, 2500);
+
     try {
-      // 1. 내 오늘 진행 기록 확인
       const today = new Date().toISOString().slice(0, 10);
       const progressId = `${studentCode}_${key}`;
-      const [progDoc, cacheDoc] = await Promise.all([
+
+      // 1. 프리로드된 데이터 있으면 즉시 사용
+      const preloaded = preloadMap.get(key);
+      const [progDoc, preloadResult] = await Promise.all([
         getDoc(doc(db, 'aiStudentProgress', progressId)),
-        getDoc(doc(db, 'aiLessonContent', key)),
+        preloaded || Promise.resolve(null),
       ]);
       if (progDoc.exists()) setMyProgress(progDoc.data());
 
       let data;
-      if (cacheDoc.exists()) {
-        // 2. 캐시 있으면 바로 사용
-        data = cacheDoc.data();
-      } else {
-        // 3. 캐시 없으면 AI 생성
-        const res = await fetch('/api/generate-courseware', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+      if (preloadResult) {
+        // 프리로드 성공 — 즉시 사용
+        data = preloadResult;
+        // Firestore에 없으면 저장
+        const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
+        if (!cacheDoc.exists() && data) {
+          setDoc(doc(db, 'aiLessonContent', key), {
+            ...data, lessonKey: key,
             grade: unit.grade, semester: unit.semester,
-            publisher: unit.publisher || '국정',
-            unitName: unit.unitName,
+            publisher: unit.publisher, unitId: unit.id, unitName: unit.unitName,
             lessonNo: lesson.no, lessonTitle: lesson.title,
-            learningGoal: lesson.learningGoal || '',
-            keywords: lesson.keywords || [],
-            difficulty: 'normal', questionCount: 5,
-          }),
-        });
-        data = await res.json();
-        if (!res.ok) throw new Error(data.error || '생성 실패');
-
-        // 4. 캐시 저장
-        await setDoc(doc(db, 'aiLessonContent', key), {
-          ...data, lessonKey: key,
-          grade: unit.grade, semester: unit.semester,
-          publisher: unit.publisher, unitId: unit.id, unitName: unit.unitName,
-          lessonNo: lesson.no, lessonTitle: lesson.title,
-          createdAt: serverTimestamp(),
-        });
+            createdAt: serverTimestamp(),
+          }).catch(() => {});
+        }
+      } else {
+        // 2. Firestore 캐시 확인
+        const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
+        if (cacheDoc.exists()) {
+          data = cacheDoc.data();
+        } else {
+          // 3. 캐시 없으면 API 생성
+          data = await fetchLessonContent(unit, lesson);
+          if (!data) throw new Error('생성 실패');
+          // 캐시 저장
+          setDoc(doc(db, 'aiLessonContent', key), {
+            ...data, lessonKey: key,
+            grade: unit.grade, semester: unit.semester,
+            publisher: unit.publisher, unitId: unit.id, unitName: unit.unitName,
+            lessonNo: lesson.no, lessonTitle: lesson.title,
+            createdAt: serverTimestamp(),
+          }).catch(() => {});
+        }
       }
 
+      clearInterval(stepTimer);
       setContent(data);
-      setStep('concept'); // 바로 개념 카드로!
+      setStep('concept');
     } catch (e) {
+      clearInterval(stepTimer);
       showToast('콘텐츠 로드에 실패했습니다. 다시 시도해주세요.', 'error');
       setStep('lessons');
       console.error(e);
@@ -489,19 +566,60 @@ export default function AICourseware({ studentCode }) {
     </div>
   );
 
-  // ── 로딩 화면 ────────────────────────────────────────────────
-  if (step === 'loading') return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-950 to-slate-900 flex items-center justify-center p-6">
-      <div className="text-center space-y-5">
-        <div className="w-16 h-16 border-4 border-indigo-300/30 border-t-indigo-400 rounded-full animate-spin mx-auto" />
-        <div>
-          <p className="text-white font-extrabold text-lg">AI가 학습 콘텐츠를 만드는 중...</p>
-          <p className="text-indigo-300 text-sm mt-1">{selectedUnit?.unitName} · {selectedLesson?.title}</p>
-          <p className="text-indigo-400/60 text-xs mt-2">처음 학습은 10~15초가 걸릴 수 있습니다</p>
+  // ── 로딩 화면 (단계별 메시지 + 진행바) ──────────────────────
+  if (step === 'loading') {
+    const progress = Math.round(((loadingStepIdx + 1) / LOADING_STEPS.length) * 100);
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-indigo-950 to-slate-900 flex items-center justify-center p-6">
+        <div className="w-full max-w-sm space-y-6 text-center">
+          {/* 아이콘 애니메이션 */}
+          <div className="relative w-20 h-20 mx-auto">
+            <div className="absolute inset-0 rounded-full border-4 border-indigo-300/20 border-t-indigo-400 animate-spin" />
+            <div className="absolute inset-3 rounded-full bg-indigo-500/20 flex items-center justify-center text-2xl">
+              🤖
+            </div>
+          </div>
+
+          {/* 차시 정보 */}
+          <div>
+            <p className="text-white font-extrabold text-lg leading-snug">
+              {selectedUnit?.unitName}
+            </p>
+            <p className="text-indigo-300 text-sm mt-1">
+              {selectedLesson?.no}차시 · {selectedLesson?.title}
+            </p>
+          </div>
+
+          {/* 단계별 메시지 */}
+          <div className="bg-white/5 rounded-2xl px-5 py-4 min-h-[56px] flex items-center justify-center">
+            <p className="text-indigo-200 text-sm font-bold transition-all duration-500">
+              {LOADING_STEPS[loadingStepIdx]}
+            </p>
+          </div>
+
+          {/* 진행바 */}
+          <div className="space-y-1.5">
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-indigo-400/60">
+              <span>AI 생성 중...</span>
+              <span>{loadingStepIdx < LOADING_STEPS.length - 1 ? `${progress}%` : '완료!'}</span>
+            </div>
+          </div>
+
+          {loadingStepIdx < 2 && (
+            <p className="text-indigo-400/50 text-xs">
+              처음 방문하는 차시는 10~15초가 걸려요
+            </p>
+          )}
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   if (!content || !selectedUnit || !selectedLesson) return null;
   const currentCard = content.conceptCards?.[cardIdx];
