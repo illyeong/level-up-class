@@ -1,6 +1,45 @@
 import React from 'react';
 
 /**
+ * 표 렌더러
+ * table: { headers: string[], rows: string[][] }
+ */
+export function TableRenderer({ table, dark = false }) {
+  if (!table?.headers?.length) return null;
+  return (
+    <div className="my-3 overflow-x-auto">
+      <table className="mx-auto border-collapse text-sm min-w-fit">
+        <thead>
+          <tr>
+            {table.headers.map((h, i) => (
+              <th key={i}
+                className="border-2 border-blue-400 bg-blue-500 text-white px-3 py-2 text-center font-bold whitespace-nowrap">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {(table.rows || []).map((row, ri) => (
+            <tr key={ri}>
+              {row.map((cell, ci) => (
+                <td key={ci}
+                  className={`border-2 border-blue-300 px-3 py-2 text-center whitespace-nowrap
+                    ${ci === 0
+                      ? 'bg-blue-50 font-bold text-blue-800'
+                      : dark ? 'bg-slate-700 text-slate-100' : 'bg-white text-slate-700'}`}>
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
  * 텍스트에서 분수 패턴(숫자/숫자)을 감지해 세로 분수로 렌더링합니다.
  * 예: "3/4" → 분자/분모 세로 표시
  */

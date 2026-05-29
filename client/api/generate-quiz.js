@@ -64,14 +64,17 @@ export default async function handler(req, res) {
     : `- 4지 선다형 객관식 (보기 4개), 보기는 모두 비슷한 길이와 형식`;
 
   const jsonExample = hasSA
-    ? `객관식 예시: {"type":"mc","question":"문제","options":["①보기1","②보기2","③보기3","④보기4"],"answer":0,"explanation":"해설"}
-주관식 예시: {"type":"sa","question":"문제","answer":"정답단어","explanation":"해설"}
+    ? `객관식 예시: {"type":"mc","question":"문제","table":null,"shape":null,"options":["①보기1","②보기2","③보기3","④보기4"],"answer":0,"explanation":"해설"}
+주관식 예시: {"type":"sa","question":"문제","table":null,"shape":null,"answer":"정답단어","explanation":"해설"}
 
 answer(객관식): 0~3 사이 정수 (0=①, 1=②, 2=③, 3=④)
 answer(주관식): 정답 문자열 (짧은 단어/구문)
 배열 순서: 객관식 ${mcCount}개 먼저, 주관식 ${saCount}개 나중에`
-    : `[{"question":"문제","options":["①보기1","②보기2","③보기3","④보기4"],"answer":0,"explanation":"해설"}]
-answer 값은 0~3 사이 정수 (0=①, 1=②, 2=③, 3=④)`;
+    : `[{"question":"문제","table":null,"shape":null,"options":["①보기1","②보기2","③보기3","④보기4"],"answer":0,"explanation":"해설"}]
+answer 값은 0~3 사이 정수 (0=①, 1=②, 2=③, 3=④)
+
+table 규칙: 표가 필요한 문제면 {"headers":["열1","열2",...],"rows":[["행1값1","행1값2",...],...]}, 없으면 null
+shape 규칙: 도형 문제면 {"type":"rectangle","dimensions":{"width":5,"height":3},"unit":"cm"}, 없으면 null`;
 
   // ── 차시 정보 기반 프롬프트 구성 ──────────────────────────────
   const lessonContext = hasLesson

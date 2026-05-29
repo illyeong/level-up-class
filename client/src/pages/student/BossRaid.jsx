@@ -20,7 +20,8 @@ import { db } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg as resolveBossBackground } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 import { applyExpDelta } from '../../utils/leveling';
-import { renderMath } from '../../utils/renderMath';
+import { renderMath, TableRenderer } from '../../utils/renderMath';
+import ShapeRenderer from '../../components/ShapeRenderer';
 
 const LEGACY_BOSS_ID_ALIASES = {
   highdemon: 'demon03',
@@ -632,6 +633,8 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
         {/* 문제 */}
         <div className="bg-slate-800 rounded-2xl p-4 border border-slate-700">
           <p className="font-bold text-white text-xl leading-relaxed">{renderMath(q.question)}</p>
+          <TableRenderer table={q.table} dark />
+          <ShapeRenderer shape={q.shape} />
         </div>
 
         {/* 보기 */}

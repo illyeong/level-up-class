@@ -4,11 +4,23 @@ import {
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { renderMath } from '../../utils/renderMath';
+import { renderMath, TableRenderer } from '../../utils/renderMath';
+import ShapeRenderer from '../../components/ShapeRenderer';
 
-const DEFAULT_REWARD = { exp: 30, gold: 20, diamonds: 0 };
-const BONUS_REWARD   = { exp: 15, gold: 5 };
-const getMaxExp = (lv) => lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
+const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
+const DAILY_LIMIT = 5;                                   // 하루 최대 횟수
+const getMaxExp = (lv) => lv <= 10 ? 100 : lv <= 30 ? 500 : lv <= 40 ? 700 : lv <= 50 ? 900 : lv <= 60 ? 1100 : lv <= 70 ? 1300 : lv <= 80 ? 1500 : lv <= 90 ? 1700 : 1900;
+
+// 정답 수에 따른 차등 보상 계산
+const calcReward = (correctCount, total) => {
+  if (total === 0) return { exp: 0, gold: 0, diamonds: 0 };
+  const ratio = correctCount / total;
+  return {
+    exp:      Math.round(MAX_REWARD.exp      * ratio),
+    gold:     Math.round(MAX_REWARD.gold     * ratio),
+    diamonds: Math.round(MAX_REWARD.diamonds * ratio),
+  };
+};
 
 // studentCode에서 학년 추출 (예: "SINSEOK-5-01" → "5")
 const gradeFromCode = (code) => {
@@ -52,6 +64,7 @@ export default function AICourseware({ studentCode }) {
   const [finalResult, setFR]    = useState(null);
   const [saving, setSaving]     = useState(false);
 
+  const [dailyCount, setDailyCount] = useState(0); // 오늘 완료 횟수
   const [toast, setToast] = useState(null);
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -62,15 +75,23 @@ export default function AICourseware({ studentCode }) {
     const detectedGrade = gradeFromCode(studentCode);
     if (detectedGrade) setFG(detectedGrade);
 
-    getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)))
-      .then(snap => {
-        if (!snap.empty) {
-          const data = snap.docs[0].data();
-          setStudent({ id: snap.docs[0].id, ...data });
-          // student.grade 필드가 있으면 우선 사용
-          if (data.grade && !detectedGrade) setFG(String(data.grade));
-        }
-      });
+    const today = new Date().toISOString().slice(0, 10);
+    Promise.all([
+      getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode))),
+      getDocs(query(
+        collection(db, 'aiStudentProgress'),
+        where('studentCode', '==', studentCode),
+        where('date', '==', today),
+        where('status', '==', 'completed'),
+      )),
+    ]).then(([stuSnap, progSnap]) => {
+      if (!stuSnap.empty) {
+        const data = stuSnap.docs[0].data();
+        setStudent({ id: stuSnap.docs[0].id, ...data });
+        if (data.grade && !detectedGrade) setFG(String(data.grade));
+      }
+      setDailyCount(progSnap.size);
+    });
   }, [studentCode]);
 
   // ── 단원 로드 ──────────────────────────────────────────────────
@@ -93,6 +114,11 @@ export default function AICourseware({ studentCode }) {
 
   // ── 차시 선택 → AI 콘텐츠 로드/생성 후 바로 학습 시작 ──────
   const openLesson = async (unit, lesson) => {
+    // 하루 최대 횟수 체크
+    if (dailyCount >= DAILY_LIMIT) {
+      showToast(`오늘 AI 학습은 최대 ${DAILY_LIMIT}번까지 가능합니다. 내일 다시 도전하세요!`, 'error');
+      return;
+    }
     setUnit(unit); setLesson(lesson);
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
@@ -171,27 +197,38 @@ export default function AICourseware({ studentCode }) {
     } else { finishQuiz(); }
   };
 
-  // ── 완료 + 보상 ───────────────────────────────────────────────
+  // ── 완료 + 차등 보상 ──────────────────────────────────────────
   const finishQuiz = async () => {
     const allAns = [...answers, { questionIndex: qIdx, selectedIndex: selected, correct: selected === content.questions[qIdx].answerIndex }];
     const correctCount = allAns.filter(a => a.correct).length;
     const total        = content.questions.length;
     const score        = Math.round((correctCount / total) * 100);
     const today        = new Date().toISOString().slice(0, 10);
-    const alreadyDone  = myProgress?.date === today && myProgress?.rewarded;
-    const bonus        = score >= 80 && !alreadyDone;
+    // 오늘 이미 보상 받은 차시인지 (같은 차시 재도전 시 보상 없음)
+    const alreadyRewarded = myProgress?.date === today && myProgress?.rewarded;
+    // 하루 한도 초과 시 보상 없음
+    const overLimit = dailyCount >= DAILY_LIMIT;
+    const canReward = !alreadyRewarded && !overLimit;
+
+    // 정답 수에 따른 차등 보상
+    const reward = canReward ? calcReward(correctCount, total) : { exp: 0, gold: 0, diamonds: 0 };
 
     setSaving(true);
     try {
-      if (!alreadyDone && student) {
-        const addExp  = DEFAULT_REWARD.exp  + (bonus ? BONUS_REWARD.exp  : 0);
-        const addGold = DEFAULT_REWARD.gold + (bonus ? BONUS_REWARD.gold : 0);
-        let newExp = (student.exp || 0) + addExp, newLv = student.level || 1;
+      if (canReward && student && (reward.exp > 0 || reward.gold > 0 || reward.diamonds > 0)) {
+        let newExp = (student.exp || 0) + reward.exp, newLv = student.level || 1;
         while (newExp >= getMaxExp(newLv)) { newExp -= getMaxExp(newLv); newLv++; }
         await updateDoc(doc(db, 'students', student.id), {
-          gold: (student.gold || 0) + addGold, exp: newExp, level: newLv,
+          gold:     (student.gold     || 0) + reward.gold,
+          diamonds: (student.diamonds || 0) + reward.diamonds,
+          exp: newExp, level: newLv,
         });
-        setStudent(prev => ({ ...prev, gold: (prev.gold || 0) + addGold, exp: newExp, level: newLv }));
+        setStudent(prev => ({
+          ...prev,
+          gold:     (prev.gold     || 0) + reward.gold,
+          diamonds: (prev.diamonds || 0) + reward.diamonds,
+          exp: newExp, level: newLv,
+        }));
       }
 
       const key = lessonKey(selectedUnit, selectedLesson);
@@ -201,13 +238,16 @@ export default function AICourseware({ studentCode }) {
         lessonKey: key, unitName: selectedUnit.unitName, lessonTitle: selectedLesson.title,
         grade: selectedUnit.grade, semester: selectedUnit.semester,
         correctCount, totalCount: total, score,
-        status: 'completed', rewarded: !alreadyDone,
+        status: 'completed', rewarded: canReward,
         date: today, completedAt: serverTimestamp(), answers: allAns,
       };
       await setDoc(doc(db, 'aiStudentProgress', progressId), pData, { merge: true });
       setMyProgress(pData);
 
-      setFR({ correctCount, total, score, rewarded: !alreadyDone, bonus, alreadyDone });
+      // 일일 카운트 증가 (새로운 완료만)
+      if (!alreadyRewarded) setDailyCount(prev => prev + 1);
+
+      setFR({ correctCount, total, score, reward, rewarded: canReward, alreadyRewarded, overLimit });
       setStep('result');
     } catch (e) { console.error(e); showToast('저장 오류', 'error'); }
     finally { setSaving(false); }
@@ -222,11 +262,20 @@ export default function AICourseware({ studentCode }) {
   // ── 단원 브라우즈 화면 ────────────────────────────────────────
   if (step === 'browse') return (
     <div className="p-6 max-w-3xl mx-auto">
-      <div className="flex items-center gap-3 mb-5">
-        <span className="text-3xl">🤖</span>
-        <div>
-          <h1 className="text-xl font-extrabold text-slate-100">AI 학습관</h1>
-          <p className="text-sm text-slate-400">단원을 선택하면 AI가 개념 카드와 미니퀴즈를 바로 만들어줍니다.</p>
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">🤖</span>
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-100">AI 학습관</h1>
+            <p className="text-sm text-slate-400">단원을 선택하면 AI가 개념 카드와 미니퀴즈를 바로 만들어줍니다.</p>
+          </div>
+        </div>
+        {/* 오늘 남은 횟수 */}
+        <div className={`shrink-0 px-3 py-2 rounded-2xl text-center border ${dailyCount >= DAILY_LIMIT ? 'bg-rose-500/20 border-rose-500/30' : 'bg-indigo-500/20 border-indigo-500/30'}`}>
+          <div className={`text-lg font-extrabold ${dailyCount >= DAILY_LIMIT ? 'text-rose-300' : 'text-indigo-300'}`}>
+            {DAILY_LIMIT - dailyCount}/{DAILY_LIMIT}
+          </div>
+          <div className="text-[10px] text-slate-400">오늘 남은 횟수</div>
         </div>
       </div>
 
@@ -409,28 +458,34 @@ export default function AICourseware({ studentCode }) {
   );
 
   // ══════════════════════════════════════════════════════════════
-  // ── 퀴즈 화면 ────────────────────────────────────────────────
+  // ── 퀴즈 화면 (2배 크기) ─────────────────────────────────────
   if (step === 'quiz') return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-950 to-slate-900 flex items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-4">
-        <div className="flex items-center gap-2">
-          {content.questions.map((_, i) => (
-            <div key={i} className={`flex-1 h-1.5 rounded-full transition-colors
-              ${i < answers.length ? (answers[i]?.correct ? 'bg-emerald-400' : 'bg-rose-400') : i === qIdx ? 'bg-white/60' : 'bg-white/20'}`} />
-          ))}
-        </div>
-        <div className="text-white/50 text-xs text-center">{qIdx + 1} / {content.questions.length}</div>
+    <div className="min-h-screen bg-gradient-to-b from-emerald-950 to-slate-900 flex flex-col p-4 md:p-8">
+      {/* 진행 바 */}
+      <div className="flex items-center gap-2 mb-2 max-w-3xl w-full mx-auto">
+        {content.questions.map((_, i) => (
+          <div key={i} className={`flex-1 h-2 rounded-full transition-colors
+            ${i < answers.length ? (answers[i]?.correct ? 'bg-emerald-400' : 'bg-rose-400') : i === qIdx ? 'bg-white/60' : 'bg-white/20'}`} />
+        ))}
+      </div>
+      <div className="text-white/50 text-sm text-center mb-4">{qIdx + 1} / {content.questions.length}문항</div>
 
-        <div className="bg-white rounded-3xl shadow-2xl p-6 space-y-4">
-          <div className="flex items-start gap-2">
-            <span className="text-xl font-extrabold text-emerald-600 shrink-0">Q{qIdx + 1}.</span>
-            <p className="text-slate-800 font-bold text-xl leading-snug">{renderMath(currentQ.question)}</p>
+      <div className="max-w-3xl w-full mx-auto flex-1 flex flex-col gap-4">
+        {/* 문제 카드 — 크게 */}
+        <div className="bg-white rounded-3xl shadow-2xl p-8 space-y-5">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl font-extrabold text-emerald-600 shrink-0 mt-0.5">Q{qIdx + 1}.</span>
+            <p className="text-slate-800 font-bold text-2xl leading-snug">{renderMath(currentQ.question)}</p>
           </div>
-          <div className="space-y-2">
+          <TableRenderer table={currentQ.table} />
+          <ShapeRenderer shape={currentQ.shape} />
+
+          {/* 보기 — 세로 배치, 크게 */}
+          <div className="space-y-3">
             {currentQ.options.map((opt, oi) => {
               const isSelected = selected === oi;
               const isCorrect  = oi === currentQ.answerIndex;
-              let cls = 'border-2 border-slate-200 bg-white text-slate-700 hover:border-indigo-400';
+              let cls = 'border-2 border-slate-200 bg-white text-slate-700 hover:border-indigo-400 hover:bg-indigo-50';
               if (showResult) {
                 if (isCorrect) cls = 'border-2 border-emerald-500 bg-emerald-50 text-emerald-800 font-extrabold';
                 else if (isSelected) cls = 'border-2 border-rose-400 bg-rose-50 text-rose-700';
@@ -438,26 +493,32 @@ export default function AICourseware({ studentCode }) {
               } else if (isSelected) cls = 'border-2 border-indigo-500 bg-indigo-50 text-indigo-800 font-extrabold';
               return (
                 <button key={oi} onClick={() => !showResult && setSelected(oi)}
-                  className={`w-full text-left px-4 py-3.5 rounded-2xl text-base transition-all ${cls}`}>
+                  className={`w-full text-left px-6 py-4 rounded-2xl text-lg transition-all ${cls}`}>
+                  <span className="text-slate-400 mr-2 font-bold">{['①','②','③','④'][oi]}</span>
                   {renderMath(opt)}
                 </button>
               );
             })}
           </div>
+
+          {/* 해설 */}
           {showResult && (
-            <div className={`rounded-2xl px-4 py-3 text-sm ${(answers[answers.length-1]?.correct || selected === currentQ.answerIndex) ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-rose-50 border border-rose-200 text-rose-800'}`}>
-              <div className="font-bold mb-1">{(answers[answers.length-1]?.correct || selected === currentQ.answerIndex) ? '✅ 정답!' : '❌ 오답'}</div>
+            <div className={`rounded-2xl px-5 py-4 text-base ${(answers[answers.length-1]?.correct || selected === currentQ.answerIndex) ? 'bg-emerald-50 border-2 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-2 border-rose-200 text-rose-800'}`}>
+              <div className="font-extrabold text-lg mb-1">{(answers[answers.length-1]?.correct || selected === currentQ.answerIndex) ? '✅ 정답!' : '❌ 오답'}</div>
               <p className="text-sm leading-relaxed">{renderMath(currentQ.explanation)}</p>
             </div>
           )}
         </div>
 
+        {/* 확인/다음 버튼 */}
         {!showResult ? (
           <button onClick={confirmAnswer} disabled={selected === null}
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg rounded-2xl disabled:opacity-40">정답 확인</button>
+            className="w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xl rounded-2xl disabled:opacity-40 shadow-lg">
+            정답 확인
+          </button>
         ) : (
           <button onClick={nextQuestion} disabled={saving}
-            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-lg rounded-2xl disabled:opacity-40">
+            className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xl rounded-2xl disabled:opacity-40 shadow-lg">
             {saving ? '저장 중...' : qIdx < content.questions.length - 1 ? '다음 문제 →' : '결과 보기 →'}
           </button>
         )}
@@ -477,17 +538,33 @@ export default function AICourseware({ studentCode }) {
           <p className="text-white/60 text-xs mt-0.5">{selectedUnit.unitName} · {selectedLesson.title}</p>
         </div>
         <div className="p-6 space-y-4">
-          {finalResult.rewarded && (
+          {finalResult.rewarded && finalResult.reward && (
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
-              <div className="font-bold text-amber-700 text-sm mb-2">🎁 보상 획득!</div>
-              <div className="flex justify-center gap-5">
-                <div><div className="text-xl">⭐</div><div className="text-xs font-bold text-amber-700">+{DEFAULT_REWARD.exp + (finalResult.bonus ? BONUS_REWARD.exp : 0)} EXP</div></div>
-                <div><div className="text-xl">🪙</div><div className="text-xs font-bold text-amber-700">+{DEFAULT_REWARD.gold + (finalResult.bonus ? BONUS_REWARD.gold : 0)}G</div></div>
+              <div className="font-bold text-amber-700 text-sm mb-2">
+                🎁 보상 획득! ({finalResult.correctCount}/{finalResult.total} 정답)
               </div>
-              {finalResult.bonus && <p className="text-xs text-amber-600 mt-1 font-bold">🌟 80점 이상 추가 보상!</p>}
+              <div className="flex justify-center gap-5">
+                {finalResult.reward.exp > 0 && (
+                  <div><div className="text-xl">⭐</div><div className="text-xs font-bold text-amber-700">+{finalResult.reward.exp} EXP</div></div>
+                )}
+                {finalResult.reward.gold > 0 && (
+                  <div><div className="text-xl">🪙</div><div className="text-xs font-bold text-amber-700">+{finalResult.reward.gold}G</div></div>
+                )}
+                {finalResult.reward.diamonds > 0 && (
+                  <div><div className="text-xl">💎</div><div className="text-xs font-bold text-amber-700">+{finalResult.reward.diamonds}</div></div>
+                )}
+              </div>
+              <p className="text-[10px] text-amber-500 mt-1.5">
+                정답률 {finalResult.score}% → 최대 보상의 {finalResult.score}%
+              </p>
             </div>
           )}
-          {finalResult.alreadyDone && <p className="text-center text-xs text-slate-400">오늘 이미 이 차시 보상을 받았습니다.</p>}
+          {finalResult.alreadyRewarded && (
+            <p className="text-center text-xs text-slate-400">오늘 이미 이 차시 보상을 받았습니다.</p>
+          )}
+          {finalResult.overLimit && !finalResult.alreadyRewarded && (
+            <p className="text-center text-xs text-rose-400">오늘 {DAILY_LIMIT}회 한도를 모두 사용했습니다.</p>
+          )}
 
           <div className="space-y-1.5">
             {content.questions.map((q, i) => {

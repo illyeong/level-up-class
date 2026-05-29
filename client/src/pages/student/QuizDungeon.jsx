@@ -7,7 +7,8 @@ import { db } from '../../firebase';
 import SpriteMonster from '../../components/SpriteMonster';
 import { MONSTERS_DB, DIFF_MONSTER, TIER_LABEL, TIER_COST, generateWaves } from '../../data/monsterData';
 import { fireProjectile } from '../../utils/projectile';
-import { renderMath } from '../../utils/renderMath';
+import { renderMath, TableRenderer } from '../../utils/renderMath';
+import ShapeRenderer from '../../components/ShapeRenderer';
 
 const PROJECTILE_TYPE = { easy: 'ice', normal: 'magic', hard: 'fire' };
 
@@ -846,6 +847,8 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
           {/* 문제 */}
           <div className="bg-slate-800 rounded-2xl border border-slate-700 p-4">
             <p className="font-bold text-white text-xl leading-relaxed">{renderMath(q.question)}</p>
+            <TableRenderer table={q.table} dark />
+            <ShapeRenderer shape={q.shape} />
           </div>
 
           {/* 보기 (객관식) / 입력창 (주관식) */}

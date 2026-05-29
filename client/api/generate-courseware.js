@@ -65,6 +65,8 @@ export default async function handler(req, res) {
   "questions": [
     {
       "question": "문제 내용",
+      "shape": null,
+      "table": null,
       "options": ["①보기1", "②보기2", "③보기3", "④보기4"],
       "answerIndex": 0,
       "explanation": "정답 해설 (왜 맞는지 개념 중심으로)",
@@ -72,6 +74,28 @@ export default async function handler(req, res) {
     }
   ]
 }
+
+table 필드 규칙:
+- 표가 필요한 문제에만 포함, 나머지는 null
+- headers: 첫 번째 행 (예: ["상자 개수", "1", "2", "3", "4"])
+- rows: 나머지 행들 (예: [["상자 무게(kg)", "5", "10", "15", "20"]])
+- 표와 shape는 동시에 사용 가능 (null로 비워두기)
+
+shape 필드 규칙:
+- 도형과 관련된 문제(삼각형, 사각형, 원, 평행사변형, 마름모, 사다리꼴 등)에만 포함
+- 도형 문제가 아니면 반드시 null
+- 사용 가능한 type: equilateral_triangle, isosceles_triangle, right_triangle, square, rectangle, circle, semicircle, parallelogram, rhombus, trapezoid
+- dimensions 예시:
+  - equilateral_triangle: {"side": 8}
+  - isosceles_triangle: {"base": 6, "side": 5}
+  - right_triangle: {"base": 6, "height": 8}
+  - square: {"side": 5}
+  - rectangle: {"width": 8, "height": 4}
+  - circle: {"radius": 5} 또는 {"diameter": 10}
+  - semicircle: {"radius": 6}
+  - parallelogram: {"base": 8, "height": 5}
+  - rhombus: {"diagonal1": 10, "diagonal2": 8} 또는 {"side": 6}
+  - trapezoid: {"topBase": 4, "bottomBase": 8, "height": 5}
 
 조건:
 - conceptCards: 2~3개, 핵심 개념을 단계적으로 설명
