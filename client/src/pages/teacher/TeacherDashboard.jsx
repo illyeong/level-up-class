@@ -52,13 +52,14 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
     setApprovingQuests(true);
     let totalRewarded = 0;
     try {
-      // 활성 퀘스트 조회
+      // teacherUid로만 쿼리 후 클라이언트 필터 (inequality 인덱스 불필요)
       const questsSnap = await getDocs(query(
         collection(db, 'quests'),
         where('teacherUid', '==', teacherUid),
-        where('active', '!=', false),
       ));
-      const activeQuests = questsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const activeQuests = questsSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(q => q.active !== false); // active 없는 문서도 활성으로 처리
       const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
 
       // 학생 목록
@@ -66,7 +67,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       const studentMap = {};
       stuSnap.docs.forEach(d => { studentMap[d.id] = { id: d.id, ...d.data() }; });
 
-      const batch = writeBatch(db);
+      let batch = writeBatch(db); // const → let (commit 후 새 batch 생성)
       let batchCount = 0;
 
       for (const quest of activeQuests) {
@@ -93,11 +94,15 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
           batch.update(doc(db, 'quests', quest.id, 'completions', sid), {
             rewarded: true, rewardedAt: serverTimestamp(), rewardedBy: 'teacher_ai_bulk',
           });
-          // 학생 데이터 갱신 (batch 내에서 누적 계산)
+          // 학생 데이터 갱신 (다음 퀘스트에서 누적 계산용)
           studentMap[sid] = { ...student, gold: (student.gold||0)+(quest.rewards?.gold||0), diamonds: (student.diamonds||0)+(quest.rewards?.diamond||0), level: nextProgress.level, exp: nextProgress.exp };
           totalRewarded++;
-          batchCount++;
-          if (batchCount >= 400) { await batch.commit(); batchCount = 0; }
+          batchCount += 2; // student + completion 각 1건
+          if (batchCount >= 480) {
+            await batch.commit();
+            batch = writeBatch(db); // 새 batch 생성
+            batchCount = 0;
+          }
         }
       }
       if (batchCount > 0) await batch.commit();

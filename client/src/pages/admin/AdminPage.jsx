@@ -6,6 +6,7 @@ import {
   setDoc, getDoc, query, orderBy, serverTimestamp, writeBatch,
 } from 'firebase/firestore';
 import { MATH_CURRICULUM_1_2 } from '../../data/mathCurriculum';
+import { MATH_CURRICULUM_3_6_ICREAM } from '../../data/mathCurriculum_3_6_icream';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../../firebase';
 import { useIsAdmin } from '../../hooks/useIsAdmin';
@@ -1753,13 +1754,12 @@ function CurriculumUnitsTab() {
   useEffect(() => { load(); }, []);
 
   // ── 1~2학년 수학 데이터 시딩 ─────────────────────────────────
-  const seedMathData = async () => {
-    if (!window.confirm(`초등 1~2학년 수학 국정교과서 데이터(${MATH_CURRICULUM_1_2.length}개 단원)를 Firestore에 추가합니다.\n이미 같은 단원이 있으면 건너뜁니다. 계속하시겠습니까?`)) return;
+  const runSeed = async (dataList, label) => {
+    if (!window.confirm(`${label} 데이터(${dataList.length}개 단원)를 Firestore에 추가합니다.\n이미 같은 단원이 있으면 건너뜁니다. 계속하시겠습니까?`)) return;
     setSeeding(true);
     setSeedResult(null);
     let added = 0, skipped = 0;
     try {
-      // 기존 단원 목록 로드 (중복 방지)
       const existSnap = await getDocs(collection(db, 'curriculumUnits'));
       const existing = existSnap.docs.map(d => d.data());
       const isDuplicate = (item) => existing.some(
@@ -1767,14 +1767,10 @@ function CurriculumUnitsTab() {
              e.subject === item.subject && e.publisher === item.publisher &&
              e.unitNumber === item.unitNumber
       );
-
-      for (const item of MATH_CURRICULUM_1_2) {
+      for (const item of dataList) {
         if (isDuplicate(item)) { skipped++; continue; }
         await addDoc(collection(db, 'curriculumUnits'), {
-          ...item,
-          status: 'approved',
-          createdBy: 'system',
-          createdAt: serverTimestamp(),
+          ...item, status: 'approved', createdBy: 'system', createdAt: serverTimestamp(),
         });
         added++;
       }
@@ -1783,10 +1779,11 @@ function CurriculumUnitsTab() {
     } catch (e) {
       console.error(e);
       setSeedResult({ error: e.message });
-    } finally {
-      setSeeding(false);
-    }
+    } finally { setSeeding(false); }
   };
+
+  const seedMathData     = () => runSeed(MATH_CURRICULUM_1_2,        '1~2학년 수학 국정교과서');
+  const seedIcreamData   = () => runSeed(MATH_CURRICULUM_3_6_ICREAM,  '3~6학년 수학 아이스크림');
 
   const approve = async (unit) => {
     setSaving(true);
@@ -1878,13 +1875,14 @@ function CurriculumUnitsTab() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-extrabold text-slate-800">📚 공통 단원 관리</h2>
         <div className="flex gap-2 text-sm font-bold flex-wrap">
-          {/* 1~2학년 수학 시딩 버튼 */}
-          <button
-            onClick={seedMathData}
-            disabled={seeding}
-            className="px-4 py-2 rounded-xl border bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 disabled:opacity-50 transition-colors"
-          >
-            {seeding ? '⏳ 추가 중...' : '📥 1~2학년 수학 데이터 추가'}
+          {/* 데이터 시딩 버튼 */}
+          <button onClick={seedMathData} disabled={seeding}
+            className="px-4 py-2 rounded-xl border bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 disabled:opacity-50 transition-colors text-sm font-bold">
+            {seeding ? '⏳ 추가 중...' : '📥 1~2학년 수학(국정) 추가'}
+          </button>
+          <button onClick={seedIcreamData} disabled={seeding}
+            className="px-4 py-2 rounded-xl border bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100 disabled:opacity-50 transition-colors text-sm font-bold">
+            {seeding ? '⏳ 추가 중...' : '📥 3~6학년 수학(아이스크림) 추가'}
           </button>
           <button onClick={() => setSubtab('pending')}
             className={`px-4 py-2 rounded-xl border transition-colors ${subtab === 'pending' ? 'bg-amber-500 text-white border-amber-400' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
