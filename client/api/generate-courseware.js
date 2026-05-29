@@ -2,7 +2,7 @@
  * Vercel Serverless Function — AI 코스웨어 학습 세트 생성
  * claude-sonnet-4-6 사용 (고품질)
  */
-export const config = { maxDuration: 60 }; // Vercel Pro 60초 허용
+export const config = { maxDuration: 30 };
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -113,8 +113,8 @@ ${questionCount}개 문제 필수, conceptCards 2~3개 필수`;
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model:      'claude-sonnet-4-6',
-        max_tokens: 2500,
+        model:      'claude-haiku-4-5-20251001',
+        max_tokens: 3000,
         messages:   [{ role: 'user', content: prompt }],
       }),
     });
