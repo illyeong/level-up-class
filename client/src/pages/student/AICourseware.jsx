@@ -796,13 +796,18 @@ export default function AICourseware({ studentCode }) {
                 if (!m) return <div className="mt-1 pl-[68px]"><span className="text-[10px] text-slate-600">미도전</span></div>;
                 const done = (m.scores?.length || 0);
                 if (done < 5) {
-                  // 5회 미만 — 진행 도트
                   return (
-                    <div className="flex items-center gap-2 mt-1 pl-[68px]">
-                      <span className="text-[10px] text-slate-500">{done}/5 도전 중</span>
-                      <div className="flex gap-0.5">
-                        {Array.from({ length: 5 }, (_, i) => (
-                          <div key={i} className={`w-2.5 h-1.5 rounded-full ${i < done ? 'bg-indigo-400' : 'bg-slate-600'}`} />
+                    <div className="flex items-center gap-2 mt-1 pl-[68px] flex-wrap">
+                      <span className="text-[10px] text-slate-500 shrink-0">{done}/5 도전 중</span>
+                      <div className="flex gap-1 items-center">
+                        {(m.scores || []).map((s, i) => (
+                          <span key={i} className={`text-[10px] font-bold px-1.5 py-0.5 rounded
+                            ${s >= 90 ? 'bg-amber-100 text-amber-700' : s >= 75 ? 'bg-sky-100 text-sky-700' : s >= 60 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
+                            {s}
+                          </span>
+                        ))}
+                        {Array.from({ length: 5 - done }, (_, i) => (
+                          <span key={`e${i}`} className="text-[10px] text-slate-500 px-1.5 py-0.5 rounded bg-slate-700">?</span>
                         ))}
                       </div>
                     </div>
