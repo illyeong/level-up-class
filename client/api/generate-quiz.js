@@ -90,25 +90,43 @@ ${Array.isArray(lessonKeywords) && lessonKeywords.length ? `핵심 키워드: ${
     : '';
 
   const basisDesc = hasLesson && !hasSource
-    ? '위 차시 학습 주제와 핵심 키워드를 바탕으로'
+    ? '아래 차시 학습 목표와 핵심 키워드를 바탕으로'
     : hasLesson
-      ? '차시 학습 주제와 수업 자료를 함께 참고하여'
-      : '다음 수업 자료를 바탕으로';
+      ? '차시 정보와 수업 자료를 함께 참고하여'
+      : '아래 수업 자료를 바탕으로';
 
-  const prompt = `당신은 초등학교 교사의 퀴즈 생성 도우미입니다.
-
-${basisDesc} ${contextParts} 수준의 퀴즈 ${count}개를 만들어주세요.${hasSA ? ` (객관식 ${mcCount}개 + 주관식 ${saCount}개)` : ''}
+  const prompt = `당신은 15년 경력의 초등학교 수학 교사이자 교육과정 전문가입니다.
+${basisDesc} ${contextParts} 수준의 고품질 퀴즈 ${count}개를 만들어주세요.${hasSA ? ` (객관식 ${mcCount}개 + 주관식 ${saCount}개)` : ''}
 ${lessonContext}
+═══ 품질 기준 ═══
+
 【난이도】: ${DIFFICULTY_MAP[difficulty] || DIFFICULTY_MAP.normal}
 
-【규칙】
+【문제 유형 균형】
 ${typeRules}
-- ${grade}학년 학생이 이해할 수 있는 쉬운 언어 사용
-- 각 문제마다 정답은 반드시 하나만 존재
-- 해설은 정답이 왜 맞는지 개념 중심으로 간결하게 작성 (페이지, 출처, 자료 위치 언급 금지)
+- 단순 암기로 풀 수 있는 문제 금지 — 반드시 계산하거나 개념을 적용해야 풀 수 있도록
+- ${count}개 중 최소 2개는 실생활 맥락의 문장제 (이름, 상황 포함)
+- 같은 유형 반복 금지
 
-【반드시 JSON 배열 형식으로만 응답】 (설명 없이 JSON만)
+【오답 설계 원칙 — 핵심】
+각 오답은 학생들이 실제로 저지르는 "의미 있는 실수"를 반영:
+  - 자릿값 혼동 (십의 자리 ↔ 일의 자리)
+  - 받아올림/받아내림 누락
+  - 연산 방향 오류
+  - 단위 혼동
+  - 절반만 계산하고 끝낸 경우
+❌ 금지: 정답이 383인데 보기가 1, 2, 3 같이 터무니없이 다른 숫자
+✅ 권장: 정답 383 → 373(받아올림 누락), 393(십의 자리 오류), 284(더하기/빼기 혼동)
+
+【언어 수준】
+- ${grade}학년 학생의 어휘 수준 사용
+- 교과서 문장 복사 금지
+- 해설에서 오답이 왜 틀렸는지 1줄씩 설명
+
+【JSON 배열로만 응답】 (설명 없이 JSON만)
 ${jsonExample}
+
+options 주의: ①②③④ 기호 없이 보기 내용만 (기호는 자동 추가됨)
 ${sourceSection}`;
 
   try {
@@ -131,8 +149,8 @@ ${sourceSection}`;
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model:      'claude-haiku-4-5-20251001',
-        max_tokens: 3000,
+        model:      'claude-sonnet-4-6',
+        max_tokens: 4000,
         messages:   [{ role: 'user', content: messageContent }],
       }),
     });

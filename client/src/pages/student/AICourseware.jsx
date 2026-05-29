@@ -33,9 +33,10 @@ const gradeFromCode = (code) => {
   return '';
 };
 
-// 차시별 캐시 키
+// 차시별 캐시 키 (v2: sonnet 모델로 재생성된 고품질 콘텐츠)
+const CACHE_VER = 'v2';
 const lessonKey = (unit, lesson) =>
-  `${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
+  `${CACHE_VER}_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
 
 export default function AICourseware({ studentCode }) {
   const [student, setStudent]   = useState(null);
@@ -280,19 +281,28 @@ export default function AICourseware({ studentCode }) {
         </div>
       </div>
 
-      {/* 필터 — 명시적 배경/글자색 */}
-      <div className="flex gap-2 flex-wrap mb-5">
+      {/* 필터 */}
+      <div className="flex items-center gap-3 flex-wrap mb-5">
+        {/* 학년 select */}
         <select value={filterGrade} onChange={e => { setFG(e.target.value); setFP(''); }}
           className="bg-white text-slate-800 border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
           <option value="">학년 선택</option>
           {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}학년</option>)}
         </select>
-        <select value={filterSem} onChange={e => setFS(e.target.value)}
-          className="bg-white text-slate-800 border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
-          <option value="">전체 학기</option>
-          <option value="1">1학기</option>
-          <option value="2">2학기</option>
-        </select>
+
+        {/* 학기 — 버튼 3개 */}
+        <div className="flex rounded-xl overflow-hidden border-2 border-slate-700">
+          {[['','전체학기'],['1','1학기'],['2','2학기']].map(([val, label]) => (
+            <button key={val} onClick={() => setFS(val)}
+              className={`px-4 py-2 text-sm font-bold transition-colors
+                ${filterSem === val
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+
         {publishers.length > 1 && (
           <select value={filterPub} onChange={e => setFP(e.target.value)}
             className="bg-white text-slate-800 border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
@@ -318,7 +328,8 @@ export default function AICourseware({ studentCode }) {
           <p className="font-bold text-slate-300">등록된 단원이 없습니다</p>
           <p className="text-xs mt-1 text-slate-500">관리자 페이지에서 수학 데이터를 추가해주세요</p>
         </div>
-      ) : (
+      ) : filterSem !== '' ? (
+        /* 특정 학기 선택 시: 단순 그리드 */
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {units.map((unit, idx) => {
             // 단원별 고정 그라디언트 색상
@@ -369,6 +380,59 @@ export default function AICourseware({ studentCode }) {
                   </div>
                 </div>
               </button>
+            );
+          })}
+        </div>
+      ) : (
+        /* 전체 학기: 좌 1학기 / 우 2학기 */
+        <div className="grid grid-cols-2 gap-4">
+          {['1','2'].map(sem => {
+            const semUnits = units.filter(u => !u.semester || String(u.semester) === sem);
+            return (
+              <div key={sem}>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className={`w-2 h-6 rounded-full ${sem === '1' ? 'bg-indigo-500' : 'bg-emerald-500'}`} />
+                  <span className="font-extrabold text-white text-base">{sem}학기</span>
+                  <span className="text-slate-500 text-xs">{semUnits.length}단원</span>
+                </div>
+                <div className="space-y-2">
+                  {semUnits.length === 0 ? (
+                    <div className="text-center py-8 text-slate-600 text-sm">단원 없음</div>
+                  ) : semUnits.map((unit, idx) => {
+                    const palettes = [
+                      { from: 'from-blue-600',    to: 'to-indigo-700',   ring: 'ring-blue-500/30',    tag: 'bg-blue-500/30 text-blue-200' },
+                      { from: 'from-violet-600',  to: 'to-purple-700',   ring: 'ring-violet-500/30',  tag: 'bg-violet-500/30 text-violet-200' },
+                      { from: 'from-emerald-600', to: 'to-teal-700',     ring: 'ring-emerald-500/30', tag: 'bg-emerald-500/30 text-emerald-200' },
+                      { from: 'from-rose-600',    to: 'to-pink-700',     ring: 'ring-rose-500/30',    tag: 'bg-rose-500/30 text-rose-200' },
+                      { from: 'from-amber-500',   to: 'to-orange-600',   ring: 'ring-amber-500/30',   tag: 'bg-amber-500/30 text-amber-100' },
+                      { from: 'from-sky-600',     to: 'to-cyan-700',     ring: 'ring-sky-500/30',     tag: 'bg-sky-500/30 text-sky-200' },
+                    ];
+                    const p = palettes[idx % palettes.length];
+                    const lessonCount = (unit.lessons || []).length;
+                    return (
+                      <button key={unit.id}
+                        onClick={() => { setUnit(unit); setStep('lessons'); setLesson(null); setContent(null); }}
+                        className={`w-full relative overflow-hidden rounded-xl text-left transition-all duration-200
+                          bg-gradient-to-br ${p.from} ${p.to}
+                          hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]
+                          ring-2 ${p.ring} shadow-md`}>
+                        <div className="absolute -right-3 -top-3 w-14 h-14 rounded-full bg-white/10" />
+                        <div className="relative p-3.5">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-white/30 font-black text-2xl leading-none">{unit.unitNumber}</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.tag}`}>{lessonCount}차시</span>
+                          </div>
+                          <div className="text-white font-extrabold text-sm leading-snug">{unit.unitName}</div>
+                          <div className="text-white/50 text-[10px] mt-1.5 flex justify-between">
+                            <span>{filterGrade}학년 {sem}학기</span>
+                            <span>→</span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </div>
