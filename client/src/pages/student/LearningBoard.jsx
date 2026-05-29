@@ -176,7 +176,7 @@ function CommentSection({ post, boardId, student }) {
 }
 
 // ── 게시물 카드 ────────────────────────────────────────────────
-function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDelete, onEdit }) {
+function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDelete, onEdit, onImageClick }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content || '');
   const [editSaving, setEditSaving]   = useState(false);
@@ -246,8 +246,8 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
         ) : null}
         {post.imageBase64 && (
           <img src={post.imageBase64} alt=""
-            className="w-full rounded-xl object-cover mb-2 max-h-40 border border-slate-200/80 cursor-zoom-in"
-            onClick={() => window.open(post.imageBase64, '_blank')} />
+            className="w-full rounded-xl object-cover mb-2 max-h-40 border border-slate-200/80 cursor-zoom-in hover:opacity-90 transition-opacity"
+            onClick={() => onImageClick?.(post.imageBase64)} />
         )}
         {post.attachment?.dataUrl && (
           <a
@@ -302,6 +302,8 @@ export default function LearningBoard({ studentCode }) {
   const [writePageId, setWritePageId]     = useState(null);
   const [writeLat, setWriteLat]           = useState(null);
   const [writeLng, setWriteLng]           = useState(null);
+
+  const [lightboxSrc, setLightboxSrc] = useState(null); // 이미지 라이트박스
 
   // 필터
   const [sort, setSort]               = useState('newest');
@@ -537,6 +539,7 @@ export default function LearningBoard({ studentCode }) {
   const postCardProps = (post) => ({
     post, studentId: student?.id, student, boardId: selectedBoard?.id,
     onReact: handleReact, isPinned: post.pinned, onDelete: handleDeletePost, onEdit: handleEditPost,
+    onImageClick: setLightboxSrc,
   });
 
   // ── 게시판 유형별 레이아웃 렌더링 ────────────────────────────
@@ -922,6 +925,25 @@ export default function LearningBoard({ studentCode }) {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* 이미지 라이트박스 */}
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 bg-black/90 z-[300] flex items-center justify-center p-4 cursor-zoom-out"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <img
+            src={lightboxSrc}
+            alt=""
+            className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxSrc(null)}
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/20 hover:bg-white/40 text-white text-lg font-bold flex items-center justify-center transition-colors"
+          >✕</button>
         </div>
       )}
     </div>
