@@ -32,7 +32,7 @@ export default function AICoursewareManage({ selectedClass }) {
   const teacherUid = selectedClass?.teacherUid;
   const classId    = selectedClass?.id || null;
 
-  const [tab, setTab] = useState('create'); // 'create' | 'list' | 'progress'
+  const [tab, setTab] = useState('create'); // 'create' | 'list' | 'progress' | 'analysis'
   const [toast, setToast] = useState(null);
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -64,6 +64,10 @@ export default function AICoursewareManage({ selectedClass }) {
   const [progressData, setProgressData] = useState([]);
   const [loadingProgress, setLoadingProgress] = useState(false);
   const [progressSetId, setProgressSetId] = useState('');
+
+  // ── 분석 탭 ──────────────────────────────────────────────────
+  const [analysisData, setAnalysisData] = useState([]); // [{ setId, title, unitName, lessonTitle, avgScore, count, weakStudents }]
+  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
 
   // ── 단원 로드 ─────────────────────────────────────────────────
   useEffect(() => {
@@ -104,7 +108,46 @@ export default function AICoursewareManage({ selectedClass }) {
     finally { setLoadingSets(false); }
   };
 
-  useEffect(() => { if (tab === 'list' || tab === 'progress') loadSets(); }, [tab, teacherUid]);
+  useEffect(() => {
+    if (tab === 'list' || tab === 'progress') loadSets();
+    if (tab === 'analysis') loadAnalysis();
+  }, [tab, teacherUid]);
+
+  // ── 취약 단원 분석 로드 ───────────────────────────────────────
+  const loadAnalysis = async () => {
+    if (!teacherUid) return;
+    setLoadingAnalysis(true);
+    try {
+      // 모든 학습 세트 + 진행 기록 병렬 조회
+      const [setsSnap, progressSnap] = await Promise.all([
+        getDocs(query(collection(db, 'aiCourseSets'), where('teacherUid', '==', teacherUid))),
+        getDocs(query(collection(db, 'aiCourseProgress'), where('courseSetId', '!=', ''))),
+      ]);
+      const allSets = setsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const allProgress = progressSnap.docs.map(d => d.data()).filter(p => {
+        // 내 학급 학습 세트의 기록만
+        return allSets.some(s => s.id === p.courseSetId);
+      });
+
+      // 세트별 통계 계산
+      const stats = allSets.filter(s => s.status !== 'draft').map(s => {
+        const progs = allProgress.filter(p => p.courseSetId === s.id && p.status === 'completed');
+        const scores = progs.map(p => p.score || 0);
+        const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+        const weakStudents = progs.filter(p => (p.score || 0) < 70).length;
+        return {
+          setId: s.id, title: s.title,
+          unitName: s.unitName, lessonTitle: s.lessonTitle,
+          grade: s.grade, semester: s.semester,
+          avgScore, count: progs.length, weakStudents,
+          status: s.status,
+        };
+      }).filter(s => s.count > 0).sort((a, b) => (a.avgScore || 100) - (b.avgScore || 100));
+
+      setAnalysisData(stats);
+    } catch (e) { console.error(e); }
+    finally { setLoadingAnalysis(false); }
+  };
 
   // ── AI 생성 ──────────────────────────────────────────────────
   const generate = async () => {
@@ -233,7 +276,7 @@ export default function AICoursewareManage({ selectedClass }) {
 
         {/* 탭 */}
         <div className="flex gap-2 mb-5">
-          {[['create','✨ 새 학습 만들기'],['list','📋 학습 목록'],['progress','📊 학생 현황']].map(([id,label]) => (
+          {[['create','✨ 새 학습 만들기'],['list','📋 학습 목록'],['progress','📊 학생 현황'],['analysis','🔍 취약 분석']].map(([id,label]) => (
             <button key={id} onClick={() => setTab(id)}
               className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors
                 ${tab === id ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
@@ -613,6 +656,109 @@ export default function AICoursewareManage({ selectedClass }) {
                   </table>
                 </div>
               )
+            )}
+          </div>
+        )}
+        {/* ── 취약 분석 탭 ───────────────────────────────────── */}
+        {tab === 'analysis' && (
+          <div className="space-y-4">
+            {loadingAnalysis ? (
+              <div className="flex items-center justify-center py-20 gap-2">
+                <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+                <span className="text-sm text-slate-400">분석 중...</span>
+              </div>
+            ) : analysisData.length === 0 ? (
+              <div className="text-center py-20 text-slate-400">
+                <div className="text-5xl mb-3">📊</div>
+                <p className="font-bold text-slate-600">분석할 학습 데이터가 없습니다</p>
+                <p className="text-sm mt-1">학생들이 AI 학습을 완료하면 취약 단원 분석이 표시됩니다.</p>
+              </div>
+            ) : (
+              <>
+                {/* 요약 통계 */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+                    <div className="text-2xl font-extrabold text-slate-800">{analysisData.length}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">분석된 학습 세트</div>
+                  </div>
+                  <div className="bg-rose-50 rounded-2xl p-4 border border-rose-200 shadow-sm text-center">
+                    <div className="text-2xl font-extrabold text-rose-600">
+                      {analysisData.filter(d => (d.avgScore || 0) < 60).length}
+                    </div>
+                    <div className="text-xs text-rose-500 mt-0.5">취약 세트 (60점 미만)</div>
+                  </div>
+                  <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200 shadow-sm text-center">
+                    <div className="text-2xl font-extrabold text-amber-600">
+                      {analysisData.reduce((s, d) => s + d.weakStudents, 0)}
+                    </div>
+                    <div className="text-xs text-amber-500 mt-0.5">70점 미만 학생 수</div>
+                  </div>
+                </div>
+
+                {/* 세트별 정답률 바 차트 */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+                  <h3 className="font-bold text-slate-700 text-sm mb-4">📉 학습 세트별 평균 정답률 (낮은 순)</h3>
+                  <div className="space-y-3">
+                    {analysisData.map((d, i) => {
+                      const score = d.avgScore || 0;
+                      const barColor = score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-rose-500';
+                      return (
+                        <div key={d.setId}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded shrink-0 ${score >= 80 ? 'bg-emerald-100 text-emerald-700' : score >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-600'}`}>
+                                {i + 1}위
+                              </span>
+                              <span className="text-sm font-bold text-slate-700 truncate">{d.title}</span>
+                              <span className="text-[10px] text-slate-400 shrink-0">{d.unitName}{d.lessonTitle ? ` · ${d.lessonTitle}` : ''}</span>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0 ml-2">
+                              <span className="text-xs text-slate-500">{d.count}명 참여</span>
+                              {d.weakStudents > 0 && (
+                                <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full border border-rose-200">
+                                  ⚠️ {d.weakStudents}명 취약
+                                </span>
+                              )}
+                              <span className={`text-sm font-extrabold ${score >= 80 ? 'text-emerald-600' : score >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
+                                {score}점
+                              </span>
+                            </div>
+                          </div>
+                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${barColor}`}
+                              style={{ width: `${Math.max(2, score)}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 취약 세트 → 보충 학습 빠른 생성 */}
+                {analysisData.filter(d => (d.avgScore || 0) < 70).length > 0 && (
+                  <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5">
+                    <h3 className="font-bold text-rose-700 text-sm mb-3">🎯 취약 단원 보충 학습 추천</h3>
+                    <div className="space-y-2">
+                      {analysisData.filter(d => (d.avgScore || 0) < 70).slice(0, 3).map(d => (
+                        <div key={d.setId} className="bg-white rounded-xl p-3 border border-rose-100 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-slate-700 truncate">{d.title}</p>
+                            <p className="text-xs text-slate-400">{d.unitName} · 평균 {d.avgScore}점 · {d.weakStudents}명 취약</p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setTab('create');
+                              showToast(`"${d.title}" 보충 학습 세트를 만들어보세요!`);
+                            }}
+                            className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors">
+                            보충 만들기
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

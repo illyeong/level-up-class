@@ -11,6 +11,69 @@ import iconQuest from '../../assets/images/icon-quest.png';
 
 const getSeatNum = (code) => parseInt(code?.slice(-2)) || 0;
 
+// ── AI 코스웨어 현황 미니 카드 ────────────────────────────────
+function AICoursewareCard({ teacherUid, onNavigate }) {
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    if (!teacherUid) return;
+    (async () => {
+      try {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const [setsSnap, progressSnap] = await Promise.all([
+          getDocs(query(collection(db, 'aiCourseSets'), where('teacherUid', '==', teacherUid))),
+          getDocs(query(collection(db, 'aiCourseProgress'), where('completedAt', '>=', Timestamp.fromDate(today)))),
+        ]);
+        const allSets = setsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const publishedIds = new Set(allSets.filter(s => s.status === 'published').map(s => s.id));
+        const draftCount   = allSets.filter(s => s.status === 'draft').length;
+        const publishedCount = publishedIds.size;
+
+        const todayProgress = progressSnap.docs.map(d => d.data()).filter(p => publishedIds.has(p.courseSetId));
+        const todayDone     = todayProgress.filter(p => p.status === 'completed').length;
+        const scores        = todayProgress.filter(p => p.score != null).map(p => p.score);
+        const avgScore      = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+
+        setStats({ publishedCount, draftCount, todayDone, avgScore });
+      } catch (e) { console.error(e); }
+    })();
+  }, [teacherUid]);
+
+  if (!stats && stats !== null) return null;
+  if (!stats) return null;
+  if (stats.publishedCount === 0 && stats.draftCount === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <div className="rounded-2xl border border-violet-800/40 bg-gradient-to-br from-violet-950/80 via-slate-900 to-slate-900 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">🤖</span>
+            <span className="text-white font-extrabold text-sm">AI 코스웨어 현황</span>
+          </div>
+          <button onClick={() => onNavigate?.('aiCourseware')}
+            className="text-[11px] font-bold text-violet-300 hover:text-white border border-violet-600/50 px-2.5 py-1 rounded-lg hover:bg-violet-500/20 transition-colors">
+            관리하기 →
+          </button>
+        </div>
+        <div className="px-5 pb-4 grid grid-cols-4 gap-3">
+          {[
+            { label: '발행 중',       value: stats.publishedCount, color: 'text-emerald-300' },
+            { label: '오늘 완료',      value: `${stats.todayDone}명`, color: 'text-sky-300' },
+            { label: '평균 정답률',    value: stats.avgScore !== null ? `${stats.avgScore}%` : '-', color: stats.avgScore >= 70 ? 'text-emerald-300' : stats.avgScore !== null ? 'text-amber-300' : 'text-slate-400' },
+            { label: '검토 필요',      value: stats.draftCount, color: stats.draftCount > 0 ? 'text-amber-300' : 'text-slate-500' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="bg-white/5 rounded-xl px-3 py-2.5 text-center">
+              <div className={`text-lg font-extrabold ${color}`}>{value}</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -734,6 +797,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
           </div>
         </div>
       </div>
+
+      {/* ── AI 코스웨어 현황 카드 ── */}
+      <AICoursewareCard teacherUid={selectedClass?.teacherUid} onNavigate={(view) => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view } }))} />
 
       {/* 퀘스트 현황 */}
       <div className="mb-6">

@@ -1,297 +1,373 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, addDoc, updateDoc, doc,
-  query, where, serverTimestamp, getDoc,
+  collection, getDocs, doc, getDoc, setDoc, addDoc, updateDoc,
+  query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
+const DEFAULT_REWARD = { exp: 30, gold: 20, diamonds: 0 };
+const BONUS_REWARD   = { exp: 15, gold: 5 };          // 80점 이상 추가
 const getMaxExp = (lv) => lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
 
-export default function AICourseware({ studentCode }) {
-  const [student, setStudent]       = useState(null);
-  const [sets, setSets]             = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [activeSet, setActiveSet]   = useState(null);  // 현재 학습 중인 세트
-  const [contents, setContents]     = useState(null);  // aiCourseContents
-  const [progress, setProgress]     = useState(null);  // 기존 진행 기록
+// 차시별 캐시 키
+const lessonKey = (unit, lesson) =>
+  `${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
 
-  // 학습 진행 상태
-  const [step, setStep]     = useState('list'); // 'list' | 'intro' | 'concept' | 'quiz' | 'result'
+export default function AICourseware({ studentCode }) {
+  const [student, setStudent]   = useState(null);
+
+  // 브라우징 상태
+  const [step, setStep]         = useState('browse'); // 'browse' | 'lessons' | 'concept' | 'quiz' | 'result'
+  const [filterGrade, setFG]    = useState('');
+  const [filterSem, setFS]      = useState('');
+  const [filterPub, setFP]      = useState('');
+  const [units, setUnits]       = useState([]);
+  const [loadingUnits, setLU]   = useState(false);
+  const [selectedUnit, setUnit] = useState(null);
+
+  // 학습 상태
+  const [selectedLesson, setLesson] = useState(null);
+  const [content, setContent]       = useState(null);   // AI 콘텐츠 (캐시 or 신규)
+  const [contentLoading, setCL]     = useState(false);
+  const [myProgress, setMyProgress] = useState(null);   // 오늘 이미 완료했는지
+
+  // 퀴즈 진행
   const [cardIdx, setCardIdx]   = useState(0);
   const [qIdx, setQIdx]         = useState(0);
   const [answers, setAnswers]   = useState([]);
   const [selected, setSelected] = useState(null);
   const [showResult, setShowResult] = useState(false);
-  const [finalResult, setFinalResult] = useState(null);
+  const [finalResult, setFR]    = useState(null);
   const [saving, setSaving]     = useState(false);
-  const [toast, setToast]       = useState(null);
 
+  const [toast, setToast] = useState(null);
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
-  // ── 학생 데이터 로드 ──────────────────────────────────────────
+  // ── 학생 로드 ──────────────────────────────────────────────────
   useEffect(() => {
     if (!studentCode) return;
-    (async () => {
-      setLoading(true);
-      try {
-        const snap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)));
-        if (!snap.empty) setStudent({ id: snap.docs[0].id, ...snap.docs[0].data() });
-      } catch (e) { console.error(e); }
-    })();
+    getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)))
+      .then(snap => { if (!snap.empty) setStudent({ id: snap.docs[0].id, ...snap.docs[0].data() }); });
   }, [studentCode]);
 
-  // ── 발행된 학습 세트 로드 ──────────────────────────────────────
+  // 학생 학년 자동 설정
   useEffect(() => {
-    if (!student) return;
-    (async () => {
-      try {
-        const setsSnap = await getDocs(query(
-          collection(db, 'aiCourseSets'),
-          where('teacherUid', '==', student.teacherUid),
-          where('status', '==', 'published'),
-        ));
-        const allSets = setsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-        // 내 진행 기록 조회
-        const progressSnap = await getDocs(query(
-          collection(db, 'aiCourseProgress'),
-          where('studentCode', '==', studentCode),
-        ));
-        const myProgress = {};
-        progressSnap.docs.forEach(d => { myProgress[d.data().courseSetId] = { id: d.id, ...d.data() }; });
-
-        setSets(allSets.map(s => ({ ...s, myProgress: myProgress[s.id] || null })));
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
-    })();
+    if (!student || filterGrade) return;
+    // 학급 정보에서 학년 추론 (없으면 3학년 기본)
+    const grade = student.grade || '';
+    if (grade) setFG(String(grade));
   }, [student]);
 
-  // ── 학습 시작 ─────────────────────────────────────────────────
-  const startLearning = async (set) => {
+  // ── 단원 로드 ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!filterGrade) { setUnits([]); return; }
+    setLU(true);
+    getDocs(query(
+      collection(db, 'curriculumUnits'),
+      where('grade', '==', parseInt(filterGrade)),
+      where('subject', '==', '수학'),
+      where('status', '==', 'approved'),
+    )).then(snap => {
+      let list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .filter(u => !filterSem || !u.semester || String(u.semester) === String(filterSem))
+        .filter(u => !filterPub || u.publisher === filterPub || u.publisher === '공통')
+        .sort((a, b) => (a.unitNumber || 99) - (b.unitNumber || 99));
+      setUnits(list);
+    }).finally(() => setLU(false));
+  }, [filterGrade, filterSem, filterPub]);
+
+  // ── 차시 선택 → AI 콘텐츠 로드/생성 ──────────────────────────
+  const openLesson = async (unit, lesson) => {
+    setUnit(unit); setLesson(lesson);
+    setCL(true); setContent(null); setMyProgress(null);
+    const key = lessonKey(unit, lesson);
+
     try {
-      const contSnap = await getDocs(query(collection(db, 'aiCourseContents'), where('courseSetId', '==', set.id)));
-      if (contSnap.empty) { showToast('학습 콘텐츠를 불러올 수 없습니다.', 'error'); return; }
-      const cont = { id: contSnap.docs[0].id, ...contSnap.docs[0].data() };
-      setContents(cont);
-      setActiveSet(set);
-      setProgress(set.myProgress);
-      setCardIdx(0); setQIdx(0);
-      setAnswers([]); setSelected(null); setShowResult(false); setFinalResult(null);
-      setStep('intro');
-    } catch (e) { showToast('오류가 발생했습니다.', 'error'); console.error(e); }
+      // 1. 내 오늘 진행 기록 확인
+      const today = new Date().toISOString().slice(0, 10);
+      const progressId = `${studentCode}_${key}`;
+      const progDoc = await getDoc(doc(db, 'aiStudentProgress', progressId));
+      if (progDoc.exists()) setMyProgress(progDoc.data());
+
+      // 2. 캐시된 콘텐츠 확인
+      const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
+      if (cacheDoc.exists()) {
+        setContent(cacheDoc.data());
+        setStep('lessons'); // 차시 목록에서 선택된 상태로 대기
+        setCL(false);
+        return;
+      }
+
+      // 3. 없으면 AI 생성
+      const res = await fetch('/api/generate-courseware', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grade: unit.grade, semester: unit.semester,
+          publisher: unit.publisher || '국정',
+          unitName: unit.unitName,
+          lessonNo: lesson.no, lessonTitle: lesson.title,
+          learningGoal: lesson.learningGoal || '',
+          keywords: lesson.keywords || [],
+          difficulty: 'normal', questionCount: 4,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '생성 실패');
+
+      // 4. 캐시 저장
+      await setDoc(doc(db, 'aiLessonContent', key), {
+        ...data, lessonKey: key,
+        grade: unit.grade, semester: unit.semester,
+        publisher: unit.publisher, unitId: unit.id, unitName: unit.unitName,
+        lessonNo: lesson.no, lessonTitle: lesson.title,
+        createdAt: serverTimestamp(),
+      });
+      setContent(data);
+      setStep('lessons');
+    } catch (e) {
+      showToast('콘텐츠 로드에 실패했습니다. 다시 시도해주세요.', 'error');
+      console.error(e);
+    } finally { setCL(false); }
   };
 
-  // ── 퀴즈 답 선택 ─────────────────────────────────────────────
-  const selectAnswer = (optIdx) => {
-    if (showResult) return;
-    setSelected(optIdx);
+  // ── 학습 시작 ──────────────────────────────────────────────────
+  const startLearning = () => {
+    setCardIdx(0); setQIdx(0);
+    setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
+    setStep('concept');
   };
 
+  // ── 퀴즈 ──────────────────────────────────────────────────────
   const confirmAnswer = () => {
     if (selected === null) return;
-    const correct = selected === contents.questions[qIdx].answerIndex;
+    const correct = selected === content.questions[qIdx].answerIndex;
     setAnswers(prev => [...prev, { questionIndex: qIdx, selectedIndex: selected, correct }]);
     setShowResult(true);
   };
 
   const nextQuestion = () => {
-    if (qIdx < contents.questions.length - 1) {
-      setQIdx(q => q + 1);
-      setSelected(null);
-      setShowResult(false);
-    } else {
-      finishQuiz();
-    }
+    if (qIdx < content.questions.length - 1) {
+      setQIdx(q => q + 1); setSelected(null); setShowResult(false);
+    } else { finishQuiz(); }
   };
 
-  // ── 퀴즈 완료 + 보상 ─────────────────────────────────────────
+  // ── 완료 + 보상 ───────────────────────────────────────────────
   const finishQuiz = async () => {
-    const allAnswers = [...answers, { questionIndex: qIdx, selectedIndex: selected, correct: selected === contents.questions[qIdx].answerIndex }];
-    const correctCount = allAnswers.filter(a => a.correct).length;
-    const totalCount   = contents.questions.length;
-    const score        = Math.round((correctCount / totalCount) * 100);
-    const reward       = activeSet.reward || { exp: 30, gold: 20, diamonds: 0 };
-    const bonusGold    = score >= 80 ? 10 : 0;
-    const bonusExp     = score >= 80 ? 20 : 0;
+    const allAns = [...answers, { questionIndex: qIdx, selectedIndex: selected, correct: selected === content.questions[qIdx].answerIndex }];
+    const correctCount = allAns.filter(a => a.correct).length;
+    const total        = content.questions.length;
+    const score        = Math.round((correctCount / total) * 100);
+    const today        = new Date().toISOString().slice(0, 10);
+    const alreadyDone  = myProgress?.date === today && myProgress?.rewarded;
+    const bonus        = score >= 80 && !alreadyDone;
 
     setSaving(true);
     try {
-      // 이미 보상 받은 경우 보상 미지급
-      const alreadyRewarded = progress?.rewarded;
-
-      if (!alreadyRewarded && student) {
-        let newExp = (student.exp || 0) + reward.exp + bonusExp;
-        let newLv  = student.level || 1;
+      if (!alreadyDone && student) {
+        const addExp  = DEFAULT_REWARD.exp  + (bonus ? BONUS_REWARD.exp  : 0);
+        const addGold = DEFAULT_REWARD.gold + (bonus ? BONUS_REWARD.gold : 0);
+        let newExp = (student.exp || 0) + addExp, newLv = student.level || 1;
         while (newExp >= getMaxExp(newLv)) { newExp -= getMaxExp(newLv); newLv++; }
         await updateDoc(doc(db, 'students', student.id), {
-          gold:     (student.gold     || 0) + reward.gold + bonusGold,
-          diamonds: (student.diamonds || 0) + (reward.diamonds || 0),
-          exp: newExp, level: newLv,
+          gold: (student.gold || 0) + addGold, exp: newExp, level: newLv,
         });
-        setStudent(prev => ({ ...prev, gold: (prev.gold||0)+reward.gold+bonusGold, diamonds: (prev.diamonds||0)+(reward.diamonds||0), exp: newExp, level: newLv }));
+        setStudent(prev => ({ ...prev, gold: (prev.gold || 0) + addGold, exp: newExp, level: newLv }));
       }
 
-      // 진행 기록 저장/업데이트
-      const progressData = {
-        courseSetId: activeSet.id, studentCode,
-        studentId: student?.id, status: 'completed',
-        correctCount, totalCount, score,
-        rewarded: !alreadyRewarded,
-        completedAt: serverTimestamp(),
-        answers: allAnswers,
+      const key = lessonKey(selectedUnit, selectedLesson);
+      const progressId = `${studentCode}_${key}`;
+      const pData = {
+        studentCode, studentId: student?.id,
+        lessonKey: key, unitName: selectedUnit.unitName, lessonTitle: selectedLesson.title,
+        grade: selectedUnit.grade, semester: selectedUnit.semester,
+        correctCount, totalCount: total, score,
+        status: 'completed', rewarded: !alreadyDone,
+        date: today, completedAt: serverTimestamp(), answers: allAns,
       };
+      await setDoc(doc(db, 'aiStudentProgress', progressId), pData, { merge: true });
+      setMyProgress(pData);
 
-      if (progress?.id) {
-        await updateDoc(doc(db, 'aiCourseProgress', progress.id), { ...progressData, rewarded: !alreadyRewarded });
-      } else {
-        await addDoc(collection(db, 'aiCourseProgress'), progressData);
-      }
-
-      setFinalResult({ correctCount, totalCount, score, rewarded: !alreadyRewarded, reward, bonusGold, bonusExp });
+      setFR({ correctCount, total, score, rewarded: !alreadyDone, bonus, alreadyDone });
       setStep('result');
-
-      // 목록 업데이트
-      setSets(prev => prev.map(s => s.id === activeSet.id
-        ? { ...s, myProgress: { ...progressData, rewarded: !alreadyRewarded } } : s
-      ));
-    } catch (e) { console.error(e); showToast('저장 중 오류가 발생했습니다.', 'error'); }
+    } catch (e) { console.error(e); showToast('저장 오류', 'error'); }
     finally { setSaving(false); }
   };
 
-  const backToList = () => { setStep('list'); setActiveSet(null); setContents(null); };
+  const backToBrowse = () => { setStep('browse'); setUnit(null); setLesson(null); setContent(null); };
+  const backToLessons = () => { setStep('lessons'); setCardIdx(0); setQIdx(0); setAnswers([]); setSelected(null); setShowResult(false); };
 
-  // ── 목록 화면 ─────────────────────────────────────────────────
-  if (step === 'list') return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
+  const publishers = [...new Set(units.map(u => u.publisher).filter(Boolean))];
+
+  // ══════════════════════════════════════════════════════════════
+  // ── 단원 브라우즈 화면 ────────────────────────────────────────
+  if (step === 'browse') return (
+    <div className="p-6 max-w-3xl mx-auto">
+      <div className="flex items-center gap-3 mb-5">
         <span className="text-3xl">🤖</span>
         <div>
           <h1 className="text-xl font-extrabold text-slate-800">AI 학습관</h1>
-          <p className="text-sm text-slate-500">AI가 만든 맞춤 학습 세트로 개념을 익히고 퀴즈를 풀어보세요!</p>
+          <p className="text-sm text-slate-500">단원을 선택하면 AI가 개념 카드와 미니퀴즈를 바로 만들어줍니다.</p>
         </div>
       </div>
 
-      {loading ? (
+      {/* 필터 */}
+      <div className="flex gap-2 flex-wrap mb-5">
+        <select value={filterGrade} onChange={e => { setFG(e.target.value); setFP(''); }}
+          className="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
+          <option value="">학년 선택</option>
+          {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}학년</option>)}
+        </select>
+        <select value={filterSem} onChange={e => setFS(e.target.value)}
+          className="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
+          <option value="">전체 학기</option>
+          <option value="1">1학기</option>
+          <option value="2">2학기</option>
+        </select>
+        {publishers.length > 1 && (
+          <select value={filterPub} onChange={e => setFP(e.target.value)}
+            className="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
+            <option value="">전체 출판사</option>
+            {publishers.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        )}
+      </div>
+
+      {!filterGrade ? (
+        <div className="text-center py-20 text-slate-400">
+          <div className="text-5xl mb-3">📚</div>
+          <p className="font-bold text-slate-600">학년을 선택해주세요</p>
+        </div>
+      ) : loadingUnits ? (
         <div className="flex items-center justify-center py-20 gap-2">
           <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
-          <span className="text-sm text-slate-400">불러오는 중...</span>
+          <span className="text-sm text-slate-400">단원 불러오는 중...</span>
         </div>
-      ) : sets.length === 0 ? (
-        <div className="text-center py-20 text-slate-400">
-          <div className="text-5xl mb-3">📭</div>
-          <p className="font-bold text-slate-600">아직 발행된 AI 학습이 없습니다</p>
-          <p className="text-sm mt-1">선생님이 AI 학습 세트를 발행하면 여기에 표시됩니다.</p>
+      ) : units.length === 0 ? (
+        <div className="text-center py-16 text-slate-400">
+          <div className="text-4xl mb-2">📭</div>
+          <p className="font-bold">등록된 단원이 없습니다</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {sets.map(set => {
-            const done = set.myProgress?.status === 'completed';
-            const score = set.myProgress?.score;
-            return (
-              <div key={set.id} className={`rounded-2xl border-2 p-4 shadow-sm transition-all
-                ${done ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md'}`}>
-                <div className="flex items-start gap-3">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0
-                    ${done ? 'bg-emerald-100' : 'bg-indigo-100'}`}>
-                    {done ? '✅' : '🤖'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                      <span className="font-extrabold text-slate-800">{set.title}</span>
-                      {done && score !== undefined && (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full
-                          ${score >= 80 ? 'bg-emerald-100 text-emerald-700' : score >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-600'}`}>
-                          {score}점
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-500">{set.grade}학년 {set.semester ? `${set.semester}학기 ` : ''}수학 · {set.unitName}</p>
-                    {set.lessonTitle && <p className="text-xs text-indigo-500 font-bold mt-0.5">{set.lessonTitle}</p>}
-                    <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
-                      <span>⭐ {set.reward?.exp} EXP</span>
-                      <span>🪙 {set.reward?.gold}G</span>
-                      {set.reward?.diamonds > 0 && <span>💎 {set.reward?.diamonds}</span>}
-                      {done && <span className="text-slate-400">· 재도전 가능 (보상 1회)</span>}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => startLearning(set)}
-                    className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-colors
-                      ${done ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>
-                    {done ? '다시 풀기' : '학습 시작'}
-                  </button>
-                </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {units.map(unit => (
+            <button key={unit.id}
+              onClick={() => { setUnit(unit); setStep('lessons'); setLesson(null); setContent(null); }}
+              className="bg-white rounded-2xl border-2 border-slate-200 hover:border-indigo-400 hover:shadow-md p-4 text-left transition-all group">
+              <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">
+                {['📐','📏','➗','✖️','📍','🔢','📊','🔷','🔵','🔶','🟰','📉'][((unit.unitNumber || 1) - 1) % 12]}
               </div>
-            );
-          })}
+              <div className="text-[10px] font-bold text-slate-400 mb-0.5">
+                {unit.unitNumber ? `${unit.unitNumber}단원` : ''} {unit.semester ? `${unit.semester}학기` : ''}
+              </div>
+              <div className="font-extrabold text-slate-800 text-sm leading-snug">{unit.unitName}</div>
+              <div className="text-[10px] text-slate-400 mt-1">{(unit.lessons || []).length}차시</div>
+            </button>
+          ))}
         </div>
       )}
 
-      {toast && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
-          ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
-          style={{ whiteSpace: 'nowrap' }}>{toast.msg}</div>
-      )}
+      {toast && <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} text-white`} style={{ whiteSpace: 'nowrap' }}>{toast.msg}</div>}
     </div>
   );
 
-  if (!activeSet || !contents) return null;
-
-  const currentCard = contents.conceptCards?.[cardIdx];
-  const currentQ    = contents.questions?.[qIdx];
-
-  // ── 인트로 화면 ──────────────────────────────────────────────
-  if (step === 'intro') return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-950 to-slate-900 flex items-center justify-center p-6">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-8 text-center">
-          <div className="text-5xl mb-3">🤖</div>
-          <h2 className="text-xl font-extrabold text-white mb-1">{activeSet.title}</h2>
-          <p className="text-indigo-200 text-sm">{activeSet.grade}학년 {activeSet.semester ? `${activeSet.semester}학기 ` : ''}수학</p>
-          <p className="text-indigo-100 text-sm mt-0.5">{activeSet.unitName} {activeSet.lessonTitle ? `· ${activeSet.lessonTitle}` : ''}</p>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="flex items-center gap-4 text-center">
-            <div className="flex-1 bg-sky-50 rounded-2xl p-4 border border-sky-200">
-              <div className="text-2xl mb-1">📖</div>
-              <div className="text-xs font-bold text-sky-700">개념 카드</div>
-              <div className="text-lg font-extrabold text-sky-800">{contents.conceptCards?.length}장</div>
-            </div>
-            <div className="flex-1 bg-emerald-50 rounded-2xl p-4 border border-emerald-200">
-              <div className="text-2xl mb-1">📝</div>
-              <div className="text-xs font-bold text-emerald-700">미니퀴즈</div>
-              <div className="text-lg font-extrabold text-emerald-800">{contents.questions?.length}문항</div>
-            </div>
-            <div className="flex-1 bg-amber-50 rounded-2xl p-4 border border-amber-200">
-              <div className="text-2xl mb-1">⭐</div>
-              <div className="text-xs font-bold text-amber-700">보상</div>
-              <div className="text-sm font-extrabold text-amber-800">{activeSet.reward?.exp}EXP</div>
-            </div>
-          </div>
-          <p className="text-xs text-slate-400 text-center">80점 이상 시 추가 보상 +20EXP / +10G</p>
-          <button onClick={() => setStep('concept')}
-            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-lg rounded-2xl">
-            개념 카드 보기 →
-          </button>
-          <button onClick={backToList} className="w-full py-2 text-slate-400 hover:text-slate-600 text-sm font-bold">← 목록으로</button>
-        </div>
+  // ══════════════════════════════════════════════════════════════
+  // ── 차시 목록 화면 ────────────────────────────────────────────
+  if (step === 'lessons' && selectedUnit) return (
+    <div className="p-6 max-w-2xl mx-auto">
+      <button onClick={backToBrowse} className="flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-800 mb-5">
+        ← {filterGrade}학년 수학 단원 목록
+      </button>
+      <div className="bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4 mb-5">
+        <div className="text-xs font-bold text-indigo-500 mb-0.5">{selectedUnit.grade}학년 {selectedUnit.semester ? `${selectedUnit.semester}학기 ` : ''}수학</div>
+        <h2 className="text-xl font-extrabold text-indigo-800">{selectedUnit.unitNumber ? `${selectedUnit.unitNumber}단원 ` : ''}{selectedUnit.unitName}</h2>
+        <p className="text-xs text-indigo-500 mt-0.5">{(selectedUnit.lessons || []).length}개 차시 · AI가 개념 카드와 미니퀴즈를 생성합니다</p>
       </div>
+
+      {/* 선택된 차시 미리보기 + 시작 버튼 */}
+      {selectedLesson && content && (
+        <div className="mb-4 bg-white rounded-2xl border-2 border-indigo-300 p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-bold text-indigo-500">{selectedLesson.no}차시</div>
+              <div className="font-extrabold text-slate-800">{selectedLesson.title}</div>
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {(selectedLesson.keywords || []).map(k => (
+                  <span key={k} className="text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-200 px-2 py-0.5 rounded-full font-bold">{k}</span>
+                ))}
+              </div>
+              <div className="text-xs text-slate-500 mt-2">
+                📖 개념카드 {content.conceptCards?.length}장 · 📝 미니퀴즈 {content.questions?.length}문항
+              </div>
+              {myProgress?.date === new Date().toISOString().slice(0,10) && myProgress?.rewarded && (
+                <div className="text-[10px] text-emerald-600 font-bold mt-1">✅ 오늘 완료 {myProgress.score}점 · 보상 지급 완료</div>
+              )}
+            </div>
+            <button onClick={startLearning}
+              className="shrink-0 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm">
+              {myProgress?.date === new Date().toISOString().slice(0,10) && myProgress?.rewarded ? '다시 풀기' : '학습 시작'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {contentLoading && (
+        <div className="mb-4 bg-white rounded-2xl border border-slate-200 p-6 flex items-center gap-3 shadow-sm">
+          <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin shrink-0" />
+          <div>
+            <p className="font-bold text-slate-700 text-sm">AI가 학습 콘텐츠를 만드는 중...</p>
+            <p className="text-xs text-slate-400">처음 요청 시 10~15초가 걸릴 수 있습니다</p>
+          </div>
+        </div>
+      )}
+
+      {/* 차시 목록 */}
+      <div className="space-y-2">
+        {(selectedUnit.lessons || []).map(lesson => {
+          const isCurrent = selectedLesson?.no === lesson.no;
+          return (
+            <button key={lesson.no}
+              onClick={() => openLesson(selectedUnit, lesson)}
+              disabled={contentLoading}
+              className={`w-full text-left rounded-xl border-2 px-4 py-3.5 transition-all disabled:opacity-50
+                ${isCurrent ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50'}`}>
+              <div className="flex items-center gap-3">
+                <span className={`text-xs font-extrabold w-14 shrink-0 ${isCurrent ? 'text-indigo-600' : 'text-slate-400'}`}>
+                  {lesson.no}차시
+                </span>
+                <span className={`text-sm font-bold flex-1 ${isCurrent ? 'text-indigo-800' : 'text-slate-700'}`}>
+                  {lesson.title}
+                </span>
+                <span className={`text-[10px] font-bold shrink-0 ${isCurrent ? 'text-indigo-500' : 'text-slate-300'}`}>
+                  {isCurrent ? '선택됨 ▶' : '▶'}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {toast && <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} text-white`} style={{ whiteSpace: 'nowrap' }}>{toast.msg}</div>}
     </div>
   );
 
+  if (!content || !selectedUnit || !selectedLesson) return null;
+  const currentCard = content.conceptCards?.[cardIdx];
+  const currentQ    = content.questions?.[qIdx];
+
+  // ══════════════════════════════════════════════════════════════
   // ── 개념 카드 화면 ────────────────────────────────────────────
   if (step === 'concept') return (
     <div className="min-h-screen bg-gradient-to-b from-sky-950 to-slate-900 flex items-center justify-center p-6">
       <div className="w-full max-w-md space-y-4">
-        {/* 진행 표시 */}
-        <div className="flex items-center gap-2 mb-2">
-          {contents.conceptCards.map((_, i) => (
-            <div key={i} className={`flex-1 h-1.5 rounded-full transition-colors ${i <= cardIdx ? 'bg-sky-400' : 'bg-white/20'}`} />
+        <button onClick={backToLessons} className="text-white/50 hover:text-white text-xs font-bold">← {selectedLesson.no}차시 목록</button>
+        <div className="flex items-center gap-2 mb-1">
+          {content.conceptCards.map((_, i) => (
+            <div key={i} className={`flex-1 h-1.5 rounded-full ${i <= cardIdx ? 'bg-sky-400' : 'bg-white/20'}`} />
           ))}
         </div>
-        <div className="text-white/60 text-xs text-center">{cardIdx + 1} / {contents.conceptCards.length}</div>
+        <div className="text-white/50 text-xs text-center">{cardIdx + 1} / {content.conceptCards.length}</div>
 
-        {/* 카드 */}
         <div className="bg-white rounded-3xl shadow-2xl p-6 space-y-4">
           <div className="flex items-center gap-2">
             <span className="text-2xl">📖</span>
@@ -306,82 +382,70 @@ export default function AICourseware({ studentCode }) {
           )}
         </div>
 
-        {/* 자주 틀리는 포인트 (마지막 카드) */}
-        {cardIdx === contents.conceptCards.length - 1 && contents.commonMistakes?.length > 0 && (
+        {cardIdx === content.conceptCards.length - 1 && content.commonMistakes?.length > 0 && (
           <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4">
-            <div className="font-bold text-amber-700 text-sm mb-2">⚠️ 자주 틀리는 포인트</div>
-            {contents.commonMistakes.map((m, i) => (
-              <p key={i} className="text-sm text-amber-800">• {m}</p>
-            ))}
+            <div className="font-bold text-amber-700 text-sm mb-1.5">⚠️ 자주 틀리는 포인트</div>
+            {content.commonMistakes.map((m, i) => <p key={i} className="text-sm text-amber-800">• {m}</p>)}
           </div>
         )}
 
         <div className="flex gap-3">
           {cardIdx > 0 && (
             <button onClick={() => setCardIdx(i => i - 1)}
-              className="flex-1 py-3 bg-white/20 hover:bg-white/30 text-white font-bold rounded-2xl border border-white/30">
-              ← 이전
-            </button>
+              className="flex-1 py-3 bg-white/20 hover:bg-white/30 text-white font-bold rounded-2xl border border-white/30">← 이전</button>
           )}
           <button
             onClick={() => {
-              if (cardIdx < contents.conceptCards.length - 1) setCardIdx(i => i + 1);
+              if (cardIdx < content.conceptCards.length - 1) setCardIdx(i => i + 1);
               else { setStep('quiz'); setQIdx(0); setSelected(null); setShowResult(false); }
             }}
             className="flex-1 py-3 bg-sky-500 hover:bg-sky-600 text-white font-extrabold rounded-2xl">
-            {cardIdx < contents.conceptCards.length - 1 ? '다음 →' : '퀴즈 풀기 →'}
+            {cardIdx < content.conceptCards.length - 1 ? '다음 →' : '퀴즈 풀기 →'}
           </button>
         </div>
-        <button onClick={backToList} className="w-full text-white/40 hover:text-white/70 text-xs font-bold py-1">← 목록으로</button>
       </div>
     </div>
   );
 
+  // ══════════════════════════════════════════════════════════════
   // ── 퀴즈 화면 ────────────────────────────────────────────────
   if (step === 'quiz') return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-950 to-slate-900 flex items-center justify-center p-6">
       <div className="w-full max-w-md space-y-4">
-        {/* 진행 표시 */}
         <div className="flex items-center gap-2">
-          {contents.questions.map((_, i) => (
+          {content.questions.map((_, i) => (
             <div key={i} className={`flex-1 h-1.5 rounded-full transition-colors
               ${i < answers.length ? (answers[i]?.correct ? 'bg-emerald-400' : 'bg-rose-400') : i === qIdx ? 'bg-white/60' : 'bg-white/20'}`} />
           ))}
         </div>
-        <div className="text-white/60 text-xs text-center">{qIdx + 1} / {contents.questions.length}문항</div>
+        <div className="text-white/50 text-xs text-center">{qIdx + 1} / {content.questions.length}</div>
 
-        {/* 문제 */}
         <div className="bg-white rounded-3xl shadow-2xl p-6 space-y-4">
           <div className="flex items-start gap-2">
             <span className="text-lg font-extrabold text-emerald-600 shrink-0">Q{qIdx + 1}.</span>
             <p className="text-slate-800 font-bold text-base leading-snug">{currentQ.question}</p>
           </div>
-
           <div className="space-y-2">
             {currentQ.options.map((opt, oi) => {
               const isSelected = selected === oi;
               const isCorrect  = oi === currentQ.answerIndex;
-              let cls = 'border-2 border-slate-200 bg-white text-slate-700 hover:border-indigo-400 hover:bg-indigo-50';
+              let cls = 'border-2 border-slate-200 bg-white text-slate-700 hover:border-indigo-400';
               if (showResult) {
                 if (isCorrect) cls = 'border-2 border-emerald-500 bg-emerald-50 text-emerald-800 font-extrabold';
-                else if (isSelected && !isCorrect) cls = 'border-2 border-rose-400 bg-rose-50 text-rose-700';
+                else if (isSelected) cls = 'border-2 border-rose-400 bg-rose-50 text-rose-700';
                 else cls = 'border-2 border-slate-200 bg-white text-slate-400';
-              } else if (isSelected) {
-                cls = 'border-2 border-indigo-500 bg-indigo-50 text-indigo-800 font-extrabold';
-              }
+              } else if (isSelected) cls = 'border-2 border-indigo-500 bg-indigo-50 text-indigo-800 font-extrabold';
               return (
-                <button key={oi} onClick={() => selectAnswer(oi)} disabled={showResult}
+                <button key={oi} onClick={() => !showResult && setSelected(oi)}
                   className={`w-full text-left px-4 py-3 rounded-2xl text-sm transition-all ${cls}`}>
                   {opt}
                 </button>
               );
             })}
           </div>
-
-          {/* 해설 */}
           {showResult && (
-            <div className={`rounded-2xl px-4 py-3 text-sm ${answers[answers.length - 1]?.correct || selected === currentQ.answerIndex ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-rose-50 border border-rose-200 text-rose-800'}`}>
-              <div className="font-bold mb-1">{(answers[answers.length - 1]?.correct || selected === currentQ.answerIndex) ? '✅ 정답!' : '❌ 오답'}</div>
+            <div className={`rounded-2xl px-4 py-3 text-sm ${(answers[answers.length-1]?.correct || selected === currentQ.answerIndex) ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-rose-50 border border-rose-200 text-rose-800'}`}>
+              <div className="font-bold mb-1">{(answers[answers.length-1]?.correct || selected === currentQ.answerIndex) ? '✅ 정답!' : '❌ 오답'}</div>
               <p className="text-xs leading-relaxed">{currentQ.explanation}</p>
             </div>
           )}
@@ -389,19 +453,18 @@ export default function AICourseware({ studentCode }) {
 
         {!showResult ? (
           <button onClick={confirmAnswer} disabled={selected === null}
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg rounded-2xl disabled:opacity-40">
-            정답 확인
-          </button>
+            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg rounded-2xl disabled:opacity-40">정답 확인</button>
         ) : (
           <button onClick={nextQuestion} disabled={saving}
             className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-lg rounded-2xl disabled:opacity-40">
-            {saving ? '저장 중...' : qIdx < contents.questions.length - 1 ? '다음 문제 →' : '결과 보기 →'}
+            {saving ? '저장 중...' : qIdx < content.questions.length - 1 ? '다음 문제 →' : '결과 보기 →'}
           </button>
         )}
       </div>
     </div>
   );
 
+  // ══════════════════════════════════════════════════════════════
   // ── 결과 화면 ────────────────────────────────────────────────
   if (step === 'result' && finalResult) return (
     <div className="min-h-screen bg-gradient-to-b from-violet-950 to-slate-900 flex items-center justify-center p-6">
@@ -409,31 +472,24 @@ export default function AICourseware({ studentCode }) {
         <div className={`px-6 py-8 text-center ${finalResult.score >= 80 ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : finalResult.score >= 60 ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gradient-to-r from-slate-600 to-slate-700'}`}>
           <div className="text-5xl mb-2">{finalResult.score >= 80 ? '🏆' : finalResult.score >= 60 ? '👍' : '💪'}</div>
           <div className="text-4xl font-extrabold text-white mb-1">{finalResult.score}점</div>
-          <p className="text-white/80 text-sm">{finalResult.correctCount}/{finalResult.totalCount}문항 정답</p>
+          <p className="text-white/80 text-sm">{finalResult.correctCount}/{finalResult.total}문항 정답</p>
+          <p className="text-white/60 text-xs mt-0.5">{selectedUnit.unitName} · {selectedLesson.title}</p>
         </div>
         <div className="p-6 space-y-4">
           {finalResult.rewarded && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-              <div className="font-bold text-amber-700 text-sm mb-2 text-center">🎁 보상 획득!</div>
-              <div className="flex justify-center gap-5 text-center">
-                <div><div className="text-xl">⭐</div><div className="text-xs font-bold text-amber-700">+{finalResult.reward.exp + finalResult.bonusExp} EXP</div></div>
-                <div><div className="text-xl">🪙</div><div className="text-xs font-bold text-amber-700">+{finalResult.reward.gold + finalResult.bonusGold}G</div></div>
-                {finalResult.reward.diamonds > 0 && (
-                  <div><div className="text-xl">💎</div><div className="text-xs font-bold text-amber-700">+{finalResult.reward.diamonds}</div></div>
-                )}
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
+              <div className="font-bold text-amber-700 text-sm mb-2">🎁 보상 획득!</div>
+              <div className="flex justify-center gap-5">
+                <div><div className="text-xl">⭐</div><div className="text-xs font-bold text-amber-700">+{DEFAULT_REWARD.exp + (finalResult.bonus ? BONUS_REWARD.exp : 0)} EXP</div></div>
+                <div><div className="text-xl">🪙</div><div className="text-xs font-bold text-amber-700">+{DEFAULT_REWARD.gold + (finalResult.bonus ? BONUS_REWARD.gold : 0)}G</div></div>
               </div>
-              {finalResult.bonusGold > 0 && (
-                <p className="text-center text-xs text-amber-600 mt-1 font-bold">🌟 80점 이상 추가 보상!</p>
-              )}
+              {finalResult.bonus && <p className="text-xs text-amber-600 mt-1 font-bold">🌟 80점 이상 추가 보상!</p>}
             </div>
           )}
-          {!finalResult.rewarded && (
-            <p className="text-center text-xs text-slate-400">이미 보상을 받은 학습입니다. (재도전 시 보상 미지급)</p>
-          )}
+          {finalResult.alreadyDone && <p className="text-center text-xs text-slate-400">오늘 이미 이 차시 보상을 받았습니다.</p>}
 
-          {/* 문항별 결과 */}
           <div className="space-y-1.5">
-            {contents.questions.map((q, i) => {
+            {content.questions.map((q, i) => {
               const ans = answers[i] || { correct: selected === q.answerIndex };
               return (
                 <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${ans.correct ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'}`}>
@@ -444,10 +500,16 @@ export default function AICourseware({ studentCode }) {
             })}
           </div>
 
-          <button onClick={backToList}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl">
-            AI 학습관으로 →
-          </button>
+          <div className="flex gap-3">
+            <button onClick={backToLessons}
+              className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-sm">
+              다른 차시 보기
+            </button>
+            <button onClick={startLearning}
+              className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-sm">
+              다시 풀기
+            </button>
+          </div>
         </div>
       </div>
     </div>
