@@ -1785,15 +1785,20 @@ function CurriculumUnitsTab() {
   const seedMathData     = () => runSeed(MATH_CURRICULUM_1_2,        '1~2학년 수학 국정교과서');
   const seedIcreamData   = () => runSeed(MATH_CURRICULUM_3_6_ICREAM,  '3~6학년 수학 아이스크림');
 
-  // ── 1~2학년 lessons 정리 마이그레이션 ────────────────────────
+  // ── 전 학년 lessons 정리 마이그레이션 ────────────────────────
   const [migrating, setMigrating] = useState(false);
   const migrateLessons = async () => {
-    if (!window.confirm('1~2학년 수학 단원의 "수학이랑 확인해요", "수학이랑 만들어요" 차시를 삭제하고 단원평가를 추가합니다.\n계속하시겠습니까?')) return;
+    if (!window.confirm(
+      '전 학년 수학 단원의 불필요 차시를 정리합니다:\n' +
+      '• 1~2학년: "수학이랑 확인해요", "수학이랑 만들어요" 제거\n' +
+      '• 3~6학년: "생각을 더하다", "놀이를 더하다" 제거\n' +
+      '• 전 학년: "공부한 내용을 확인해요" → "단원평가" 변경\n' +
+      '• 전 학년: 단원평가 없으면 자동 추가\n\n계속하시겠습니까?'
+    )) return;
     setMigrating(true);
     try {
       const snap = await getDocs(query(
         collection(db, 'curriculumUnits'),
-        where('grade', 'in', [1, 2]),
         where('subject', '==', '수학'),
       ));
       let updated = 0;
@@ -1801,10 +1806,16 @@ function CurriculumUnitsTab() {
         const data = d.data();
         const lessons = data.lessons || [];
 
-        // 불필요 차시 제거
-        let filtered = lessons.filter(l =>
-          !l.title?.includes('수학이랑 확인해요') && !l.title?.includes('수학이랑 만들어요')
-        );
+        let filtered = lessons
+          // 1~2학년: 수학이랑 확인해요/만들어요 제거
+          .filter(l => !l.title?.includes('수학이랑 확인해요') && !l.title?.includes('수학이랑 만들어요'))
+          // 3~6학년: 생각을 더하다 / 놀이를 더하다 제거
+          .filter(l => !l.title?.includes('생각을 더하다') && !l.title?.includes('놀이를 더하다'))
+          // 공부한 내용을 확인해요 → 단원평가
+          .map(l => l.title?.includes('공부한 내용을 확인해요')
+            ? { ...l, title: '단원평가' }
+            : l
+          );
 
         // 단원평가 없으면 추가
         if (!filtered.some(l => l.title === '단원평가')) {
@@ -1818,7 +1829,7 @@ function CurriculumUnitsTab() {
         }
       }
       setSeedResult({ added: updated, skipped: snap.docs.length - updated });
-      await load(); // 목록 새로고침
+      await load();
     } catch (e) {
       setSeedResult({ error: e.message });
     } finally { setMigrating(false); }
@@ -1925,7 +1936,7 @@ function CurriculumUnitsTab() {
           </button>
           <button onClick={migrateLessons} disabled={migrating || seeding}
             className="px-4 py-2 rounded-xl border bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 disabled:opacity-50 transition-colors text-sm font-bold">
-            {migrating ? '⏳ 정리 중...' : '🔧 1~2학년 차시 정리 (확인해요/만들어요 제거)'}
+            {migrating ? '⏳ 정리 중...' : '🔧 전 학년 차시 정리 (생각/놀이/확인해요 제거 + 단원평가)'}
           </button>
           <button onClick={() => setSubtab('pending')}
             className={`px-4 py-2 rounded-xl border transition-colors ${subtab === 'pending' ? 'bg-amber-500 text-white border-amber-400' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
