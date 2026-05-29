@@ -1,8 +1,19 @@
-/**
- * Vercel Serverless Function — AI 코스웨어 학습 세트 생성
- * claude-sonnet-4-6 사용 (고품질)
- */
-export const config = { maxDuration: 30 };
+export const config = { maxDuration: 60 };
+
+// JSON 추출 시도 — 잘린 경우 null 반환
+function tryParseJson(text) {
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try { return JSON.parse(m[0]); } catch {}
+  // 잘린 경우: 마지막 완전한 question 뒤에서 닫기 시도
+  try {
+    const truncated = m[0];
+    const lastBrace = truncated.lastIndexOf('"}');
+    if (lastBrace < 0) return null;
+    const repaired = truncated.slice(0, lastBrace + 2) + ']}]}';
+    return JSON.parse(repaired);
+  } catch { return null; }
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -40,19 +51,17 @@ export default async function handler(req, res) {
 
 [품질 요건]
 - 교과서 문장 복사 금지, ${grade}학년 수준 언어 사용
-- 문제는 실제 계산/적용이 필요한 것 (암기 금지)
-- ${questionCount}개 중 2개 이상 실생활 문장제
-- 오답: 학생들이 실제로 하는 실수 반영 (뻔한 오답 금지)
+- 문제는 개념 적용이 필요한 것 (단순 암기 금지), 최소 1개 이상 실생활 문장제
+- 오답: 학생들이 실제로 하는 실수 반영
 
-[JSON 형식만 반환 - 반드시 완전한 JSON]
-{"title":"20자 이내 제목","conceptCards":[{"title":"개념명","body":"쉬운 설명 3문장","example":"구체적 예시"}],"commonMistakes":["자주 하는 실수1","자주 하는 실수2"],"questions":[{"question":"문제 텍스트","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"해설"}]}
+[JSON 형식만 반환 - 반드시 완전한 JSON, 모든 텍스트는 간결하게]
+{"title":"15자 이내","conceptCards":[{"title":"개념명","body":"핵심만 2문장","example":"짧은 예시"}],"commonMistakes":["실수1","실수2"],"questions":[{"question":"문제","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"1문장 해설"}]}
 
-shape 규칙: 도형(둘레/넓이/각도) 문제면 반드시 생성, 아니면 null
-- 문제에 나온 치수를 dimensions에 포함 (예: "한 변이 6cm" → {"type":"equilateral_triangle","dimensions":{"side":6},"unit":"cm"})
-- rectangle: {width,height} / square: {side} / circle: {radius} or {diameter}
-- equilateral_triangle: {side} / isosceles_triangle: {base,side} / right_triangle: {base,height}
-- parallelogram,trapezoid: {base,height} / rhombus: {diagonal1,diagonal2}
-options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2~3개 | questions ${questionCount}개`;
+shape 규칙: 넓이/둘레/각도 계산 문제에만 생성(대칭·분류·개념 문제는 null), 문제 수치 포함
+- rectangle:{width,height} / square:{side} / circle:{radius} / equilateral_triangle:{side}
+- isosceles_triangle:{base,side} / right_triangle:{base,height} / parallelogram:{base,height}
+- rhombus:{diagonal1,diagonal2} / trapezoid:{bottomBase,topBase,height} | unit:"cm"
+options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2개 | questions ${questionCount}개`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -64,7 +73,7 @@ options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2~3개 | ques
       },
       body: JSON.stringify({
         model:      'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
+        max_tokens: 2500,
         messages:   [{ role: 'user', content: prompt }],
       }),
     });
@@ -77,12 +86,29 @@ options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2~3개 | ques
     const data    = await response.json();
     const rawText = data.content?.[0]?.text || '';
 
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return res.status(500).json({ error: '생성 형식이 올바르지 않습니다.', raw: rawText });
+    // JSON 파싱 시도 (잘린 경우 fallback 프롬프트로 재시도)
+    let result = tryParseJson(rawText);
 
-    const result = JSON.parse(jsonMatch[0]);
+    if (!result) {
+      // Fallback: shape 없이 더 짧은 포맷으로 재시도
+      const fallbackPrompt = `초등학교 ${grade}학년 수학 퀴즈를 JSON으로 생성하세요.
+단원: ${unitName} | 차시: ${lessonTitle}
+반드시 완전한 JSON만 반환:
+{"title":"제목","conceptCards":[{"title":"개념1","body":"설명","example":"예시"},{"title":"개념2","body":"설명","example":"예시"}],"commonMistakes":["실수1","실수2"],"questions":[{"question":"문제","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"해설"}]}
+questions ${questionCount}개, options 기호 없이, 모든 텍스트 간결하게`;
 
-    if (!result.conceptCards?.length || !result.questions?.length)
+      const fb = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 2500, messages: [{ role: 'user', content: fallbackPrompt }] }),
+      });
+      if (fb.ok) {
+        const fbData = await fb.json();
+        result = tryParseJson(fbData.content?.[0]?.text || '');
+      }
+    }
+
+    if (!result?.conceptCards?.length || !result?.questions?.length)
       return res.status(500).json({ error: '콘텐츠 생성에 실패했습니다. 다시 시도해주세요.' });
 
     return res.status(200).json({ ...result, context, generatedBy: 'ai' });
