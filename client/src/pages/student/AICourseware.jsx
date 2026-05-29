@@ -199,7 +199,8 @@ export default function AICourseware({ studentCode }) {
 
   // ── 완료 + 차등 보상 ──────────────────────────────────────────
   const finishQuiz = async () => {
-    const allAns = [...answers, { questionIndex: qIdx, selectedIndex: selected, correct: selected === content.questions[qIdx].answerIndex }];
+    // answers에 이미 모든 답이 들어있음 (confirmAnswer가 마지막 답도 추가했으므로 중복 추가 X)
+    const allAns = answers;
     const correctCount = allAns.filter(a => a.correct).length;
     const total        = content.questions.length;
     const score        = Math.round((correctCount / total) * 100);
@@ -318,21 +319,58 @@ export default function AICourseware({ studentCode }) {
           <p className="text-xs mt-1 text-slate-500">관리자 페이지에서 수학 데이터를 추가해주세요</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {units.map(unit => (
-            <button key={unit.id}
-              onClick={() => { setUnit(unit); setStep('lessons'); setLesson(null); setContent(null); }}
-              className="bg-slate-800/60 border-2 border-slate-700 hover:border-indigo-400 hover:bg-indigo-900/40 hover:shadow-lg p-4 text-left transition-all group rounded-2xl">
-              <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">
-                {['📐','📏','➗','✖️','📍','🔢','📊','🔷','🔵','🔶','🟰','📉'][((unit.unitNumber || 1) - 1) % 12]}
-              </div>
-              <div className="text-[10px] font-bold text-indigo-400 mb-0.5">
-                {unit.unitNumber ? `${unit.unitNumber}단원` : ''} {unit.semester ? `${unit.semester}학기` : ''}
-              </div>
-              <div className="font-extrabold text-white text-sm leading-snug">{unit.unitName}</div>
-              <div className="text-[10px] text-slate-400 mt-1">{(unit.lessons || []).length}차시</div>
-            </button>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {units.map((unit, idx) => {
+            // 단원별 고정 그라디언트 색상
+            const palettes = [
+              { from: 'from-blue-600',   to: 'to-indigo-700',  ring: 'ring-blue-500/30',   num: 'text-blue-200',   tag: 'bg-blue-500/30 text-blue-200' },
+              { from: 'from-violet-600', to: 'to-purple-700',  ring: 'ring-violet-500/30', num: 'text-violet-200', tag: 'bg-violet-500/30 text-violet-200' },
+              { from: 'from-emerald-600',to: 'to-teal-700',    ring: 'ring-emerald-500/30',num: 'text-emerald-200',tag: 'bg-emerald-500/30 text-emerald-200' },
+              { from: 'from-rose-600',   to: 'to-pink-700',    ring: 'ring-rose-500/30',   num: 'text-rose-200',   tag: 'bg-rose-500/30 text-rose-200' },
+              { from: 'from-amber-500',  to: 'to-orange-600',  ring: 'ring-amber-500/30',  num: 'text-amber-100',  tag: 'bg-amber-500/30 text-amber-100' },
+              { from: 'from-sky-600',    to: 'to-cyan-700',    ring: 'ring-sky-500/30',    num: 'text-sky-200',    tag: 'bg-sky-500/30 text-sky-200' },
+            ];
+            const p = palettes[idx % palettes.length];
+            const lessonCount = (unit.lessons || []).length;
+            return (
+              <button key={unit.id}
+                onClick={() => { setUnit(unit); setStep('lessons'); setLesson(null); setContent(null); }}
+                className={`relative overflow-hidden rounded-2xl text-left transition-all duration-200
+                  bg-gradient-to-br ${p.from} ${p.to}
+                  hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]
+                  ring-2 ${p.ring} shadow-lg`}>
+
+                {/* 배경 장식 */}
+                <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-white/10" />
+                <div className="absolute -right-1 -bottom-3 w-12 h-12 rounded-full bg-white/10" />
+
+                <div className="relative p-5">
+                  {/* 단원 번호 + 차시 수 */}
+                  <div className="flex items-start justify-between mb-3">
+                    <span className={`text-4xl font-black opacity-30 leading-none ${p.num}`}>
+                      {unit.unitNumber || '?'}
+                    </span>
+                    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${p.tag}`}>
+                      {lessonCount}차시
+                    </span>
+                  </div>
+
+                  {/* 단원명 */}
+                  <div className="text-white font-extrabold text-lg leading-snug mb-1">
+                    {unit.unitName}
+                  </div>
+
+                  {/* 하단 정보 */}
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-white/50 text-xs font-medium">
+                      {unit.grade}학년 {unit.semester ? `${unit.semester}학기` : ''} 수학
+                    </span>
+                    <span className="text-white/70 text-sm font-bold">→</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -579,7 +617,7 @@ export default function AICourseware({ studentCode }) {
 
           <div className="space-y-1.5">
             {content.questions.map((q, i) => {
-              const ans = answers[i] || { correct: selected === q.answerIndex };
+              const ans = answers[i] || { correct: false };
               return (
                 <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${ans.correct ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'}`}>
                   <span className="font-extrabold shrink-0">{ans.correct ? '✅' : '❌'} Q{i+1}</span>
