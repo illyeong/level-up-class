@@ -1,23 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { doc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
+import SpriteMonster from '../../components/SpriteMonster';
+import { MONSTERS_DB } from '../../data/monsterData';
+
+const RARITY_BADGE = {
+  common: '⚪', rare: '🔵', epic: '🟣', legendary: '🟡',
+};
+const SKILL_ICONS = { luck: '🍀', sharpEye: '👁️', warrior: '⚔️', king: '👑' };
 
 const StudentDashboard = ({ studentCode }) => {
   const [student, setStudent] = useState(null);
+  const [activePet, setActivePet]     = useState(null); // 대표 펫 데이터
+  const [activePetAnim, setActivePetAnim] = useState('idle');
 
   useEffect(() => {
     const load = async () => {
       try {
+        let stuData = null;
         if (studentCode) {
-          const q = query(collection(db, 'students'), where('studentCode', '==', studentCode));
-          const snap = await getDocs(q);
-          if (!snap.empty) setStudent(snap.docs[0].data());
+          const snap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)));
+          if (!snap.empty) stuData = snap.docs[0].data();
         } else {
           const uid = localStorage.getItem('currentStudentUid');
-          if (uid) {
-            const snap = await getDoc(doc(db, 'students', uid));
-            if (snap.exists()) setStudent(snap.data());
-          }
+          if (uid) { const snap = await getDoc(doc(db, 'students', uid)); if (snap.exists()) stuData = snap.data(); }
+        }
+        if (!stuData) return;
+        setStudent(stuData);
+
+        // 대표 펫 로드
+        if (stuData.activePetId) {
+          const petSnap = await getDoc(doc(db, 'studentPets', stuData.activePetId));
+          if (petSnap.exists()) setActivePet(petSnap.data());
         }
       } catch (e) { console.error(e); }
     };
@@ -44,7 +58,24 @@ const StudentDashboard = ({ studentCode }) => {
             }
           </div>
           <h2 className="text-2xl font-bold">{name}</h2>
-          <p className="text-indigo-600 font-bold mb-4">Lv. {level}</p>
+          <p className="text-indigo-600 font-bold mb-2">Lv. {level}</p>
+
+          {/* 대표 펫 */}
+          {activePet && MONSTERS_DB[activePet.monsterId] && (() => {
+            const md = MONSTERS_DB[activePet.monsterId];
+            return (
+              <div className="flex items-center justify-center gap-3 mb-3 bg-indigo-50 rounded-2xl px-3 py-2 border border-indigo-100">
+                <div className="cursor-pointer" onClick={() => setActivePetAnim(a => a === 'idle' ? 'attack' : 'idle')}>
+                  <SpriteMonster data={md} anim={activePetAnim} scale={md.scale * 1.6} onAnimEnd={() => setActivePetAnim('idle')} />
+                </div>
+                <div className="text-left min-w-0">
+                  <p className="text-xs font-extrabold text-slate-700 truncate">{activePet.nickname || md.name}</p>
+                  <p className="text-[10px] text-indigo-500 font-bold">{RARITY_BADGE[activePet.rarity]} {activePet.rarity === 'legendary' ? '전설' : activePet.rarity === 'epic' ? '영웅' : activePet.rarity === 'rare' ? '희귀' : '일반'}</p>
+                  <p className="text-[10px] text-slate-400">{SKILL_ICONS[activePet.passiveSkillId]} 패시브 활성</p>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="w-full bg-gray-200 h-3 rounded-full mb-6">
             <div className="bg-indigo-500 h-3 rounded-full" style={{width: '45%'}}></div>

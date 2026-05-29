@@ -24,6 +24,7 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] 
       subMenus: [
         { title: t('submenu.avatarRoom', '🎨 아바타 룸'), id: 'avatarRoom' },
         { title: '⚔️ 장비', id: 'equipment' },
+        { title: '🐾 펫 하우스', id: 'petHouse' },
         { title: '📦 보물상자', id: 'gachaBox' }
       ]
     },

@@ -526,7 +526,7 @@ function App() {
         {currentView === 'freeBoard'  && <FreeBoard    studentCode={activeStudentCode} />}
         {currentView === 'hallOfFame' && <HallOfFame   studentCode={activeStudentCode} />}
         {currentView === 'classVote'  && <ClassVote    studentCode={activeStudentCode} />}
-        {currentView === 'petHouse'  && <PetHouse />}
+        {currentView === 'petHouse'  && <PetHouse studentCode={activeStudentCode} />}
         {currentView === 'equipment' && <Equipment studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'gachaBox'     && <GachaBox     studentCode={activeStudentCode} />}
         {currentView === 'aiCourseware' && <AICourseware studentCode={activeStudentCode} />}
