@@ -109,7 +109,7 @@ const fetchLessonContent = async (unit, lesson) => {
       unitName: unit.unitName,
       lessonNo: lesson.no, lessonTitle: lesson.title,
       learningGoal: '', keywords: lesson.keywords || [],
-      difficulty: 'normal', questionCount: 5,
+      difficulty: 'normal', questionCount: lesson.title === '단원평가' ? 10 : 5,
     }),
   });
   const data = await res.json();
@@ -156,7 +156,8 @@ export default function AICourseware({ studentCode }) {
   const [showResult, setShowResult] = useState(false);
   const [finalResult, setFR]    = useState(null);
   const [saving, setSaving]     = useState(false);
-  const [masteryMap, setMasteryMap] = useState({});  // lessonKey → mastery 데이터
+  const [masteryMap, setMasteryMap]   = useState({});  // lessonKey → mastery 데이터
+  const [allMastery, setAllMastery]   = useState({});  // 전체 mastery 캐시 (browse 화면용)
   const [minTimeLeft, setMinTimeLeft] = useState(0);  // 최소 응답 시간 남은 초 (5→0)
   const [consecWrong, setConsecWrong] = useState(0); // 연속 오답 횟수
   const [loadingElapsed, setLoadingElapsed]  = useState(0);  // 경과 시간(초)
@@ -209,6 +210,17 @@ export default function AICourseware({ studentCode }) {
       setUnits(list);
     }).finally(() => setLU(false));
   }, [filterGrade, filterSem, filterPub]);
+
+  // ── 브라우즈 화면용: 학생 전체 mastery 일괄 로드 ──────────────
+  useEffect(() => {
+    if (!studentCode) return;
+    getDocs(query(collection(db, 'aiLessonMastery'), where('studentCode', '==', studentCode)))
+      .then(snap => {
+        const map = {};
+        snap.forEach(d => { map[d.data().lessonKey] = d.data(); });
+        setAllMastery(map);
+      });
+  }, [studentCode]);
 
   // ── 차시 목록 진입 시 mastery 데이터 로드 ────────────────────
   useEffect(() => {
@@ -465,6 +477,7 @@ export default function AICourseware({ studentCode }) {
       };
       await setDoc(doc(db, 'aiLessonMastery', masteryId), masteryData, { merge: true });
       setMasteryMap(prev => ({ ...prev, [key]: masteryData }));
+      setAllMastery(prev => ({ ...prev, [key]: masteryData }));
 
       // 일일 카운트 증가 (새로운 완료만)
       if (!alreadyRewarded) setDailyCount(prev => prev + 1);
@@ -569,7 +582,16 @@ export default function AICourseware({ studentCode }) {
               { from: 'from-sky-600',    to: 'to-cyan-700',    ring: 'ring-sky-500/30',    num: 'text-sky-200',    tag: 'bg-sky-500/30 text-sky-200' },
             ];
             const p = palettes[idx % palettes.length];
-            const lessonCount = (unit.lessons || []).length;
+            const lessons = unit.lessons || [];
+            const lessonCount = lessons.length;
+            // 단원 숙달도 계산 (5회 완료된 차시들의 masteryAvg 평균)
+            const unitMastery = (() => {
+              const rated = lessons.map(l => allMastery[lessonKey(unit, l)]).filter(m => m?.masteryAvg != null);
+              if (!rated.length) return null;
+              const avg = Math.round(rated.reduce((s, m) => s + m.masteryAvg, 0) / rated.length);
+              return { avg, level: getMasteryLevel(avg), done: rated.length, total: lessonCount };
+            })();
+            const mastCfg = unitMastery ? (MASTERY[unitMastery.level] || MASTERY.retry) : null;
             return (
               <button key={unit.id}
                 onClick={() => { setUnit(unit); setStep('lessons'); setLesson(null); setContent(null); }}
@@ -598,8 +620,27 @@ export default function AICourseware({ studentCode }) {
                     {unit.unitName}
                   </div>
 
+                  {/* 단원 숙달도 뱃지 */}
+                  {mastCfg ? (
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        {mastCfg.emoji} {mastCfg.label}
+                      </span>
+                      <span className="text-white/60 text-[10px]">{unitMastery.avg}점 ({unitMastery.done}/{unitMastery.total}차시)</span>
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      {(() => {
+                        const started = lessons.filter(l => allMastery[lessonKey(unit, l)]).length;
+                        return started > 0
+                          ? <span className="text-white/60 text-[10px]">{started}/{lessonCount}차시 학습중</span>
+                          : <span className="text-white/40 text-[10px]">미시작</span>;
+                      })()}
+                    </div>
+                  )}
+
                   {/* 하단 정보 */}
-                  <div className="flex items-center justify-between mt-3">
+                  <div className="flex items-center justify-between mt-2">
                     <span className="text-white/50 text-xs font-medium">
                       {unit.grade}학년 {unit.semester ? `${unit.semester}학기` : ''} 수학
                     </span>
@@ -635,7 +676,14 @@ export default function AICourseware({ studentCode }) {
                       { from: 'from-sky-600',     to: 'to-cyan-700',     ring: 'ring-sky-500/30',     tag: 'bg-sky-500/30 text-sky-200' },
                     ];
                     const p = palettes[idx % palettes.length];
-                    const lessonCount = (unit.lessons || []).length;
+                    const uLessons = unit.lessons || [];
+                    const unitMastery2 = (() => {
+                      const rated = uLessons.map(l => allMastery[lessonKey(unit, l)]).filter(m => m?.masteryAvg != null);
+                      if (!rated.length) return null;
+                      const avg = Math.round(rated.reduce((s, m) => s + m.masteryAvg, 0) / rated.length);
+                      return { avg, level: getMasteryLevel(avg), done: rated.length, total: uLessons.length };
+                    })();
+                    const mCfg2 = unitMastery2 ? (MASTERY[unitMastery2.level] || MASTERY.retry) : null;
                     return (
                       <button key={unit.id}
                         onClick={() => { setUnit(unit); setStep('lessons'); setLesson(null); setContent(null); }}
@@ -647,10 +695,21 @@ export default function AICourseware({ studentCode }) {
                         <div className="relative p-3.5">
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-white/30 font-black text-2xl leading-none">{unit.unitNumber}</span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.tag}`}>{lessonCount}차시</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.tag}`}>{uLessons.length}차시</span>
                           </div>
                           <div className="text-white font-extrabold text-sm leading-snug">{unit.unitName}</div>
-                          <div className="text-white/50 text-[10px] mt-1.5 flex justify-between">
+                          {mCfg2 ? (
+                            <div className="text-white/80 text-[10px] mt-1 font-bold">
+                              {mCfg2.emoji} {mCfg2.label} · {unitMastery2.avg}점
+                            </div>
+                          ) : (
+                            <div className="text-white/40 text-[10px] mt-1">
+                              {uLessons.filter(l => allMastery[lessonKey(unit, l)]).length > 0
+                                ? `${uLessons.filter(l => allMastery[lessonKey(unit, l)]).length}/${uLessons.length}차시 학습중`
+                                : '미시작'}
+                            </div>
+                          )}
+                          <div className="text-white/50 text-[10px] mt-1 flex justify-between">
                             <span>{filterGrade}학년 {sem}학기</span>
                             <span>→</span>
                           </div>

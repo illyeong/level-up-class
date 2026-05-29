@@ -43,19 +43,27 @@ export default async function handler(req, res) {
 
   const diffLabel = difficulty === 'easy' ? '기초' : difficulty === 'hard' ? '심화' : '기본';
 
+  const isUnitTest = lessonTitle === '단원평가';
+
   const prompt = `초등학교 ${grade}학년 수학 학습 콘텐츠를 JSON으로 생성하세요.
 
 [수업 정보]
-단원: ${unitName} | 차시: ${lessonNo ? lessonNo + '차시 ' : ''}${lessonTitle}
+단원: ${unitName} | 차시: ${isUnitTest ? '단원평가 (종합)' : (lessonNo ? lessonNo + '차시 ' : '') + lessonTitle}
 키워드: ${keywordStr} | 난이도: ${diffLabel}
 
 [품질 요건]
-- 교과서 문장 복사 금지, ${grade}학년 수준 언어 사용
-- 문제는 개념 적용이 필요한 것 (단순 암기 금지), 최소 1개 이상 실생활 문장제
+${isUnitTest
+  ? `- 이 단원 전체 학습 내용을 종합 평가하는 문제 ${questionCount}개
+- 단원의 핵심 개념과 계산, 실생활 문장제를 고르게 출제 (최소 3개 문장제)
+- 난이도를 균형 있게: 기초 40% / 응용 40% / 심화 20%`
+  : `- 문제는 개념 적용이 필요한 것 (단순 암기 금지), 최소 1개 이상 실생활 문장제`}
 - 오답: 학생들이 실제로 하는 실수 반영
 
 [JSON 형식만 반환 - 반드시 완전한 JSON, 모든 텍스트는 간결하게]
-{"title":"15자 이내","conceptCards":[{"title":"개념명","body":"핵심만 2문장","example":"짧은 예시"}],"commonMistakes":["실수1","실수2"],"questions":[{"question":"문제","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"1문장 해설"}]}
+${isUnitTest
+  ? `{"title":"단원평가","conceptCards":[],"commonMistakes":[],"questions":[{"question":"문제","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"1문장 해설"}]}`
+  : `{"title":"15자 이내","conceptCards":[{"title":"개념명","body":"핵심만 2문장","example":"짧은 예시"}],"commonMistakes":["실수1","실수2"],"questions":[{"question":"문제","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"1문장 해설"}]}`
+}
 
 shape 규칙: 도형이 등장하는 문제(넓이/둘레/각도/대칭)에는 반드시 생성, 순수 개념·암산 문제만 null
 - 대칭 단원 문제 작성 규칙 (반드시 준수):
@@ -80,7 +88,7 @@ options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2개 | questi
       },
       body: JSON.stringify({
         model:      'claude-haiku-4-5-20251001',
-        max_tokens: 2500,
+        max_tokens: isUnitTest ? 3500 : 2500,
         messages:   [{ role: 'user', content: prompt }],
       }),
     });
