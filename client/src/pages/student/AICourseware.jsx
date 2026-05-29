@@ -517,7 +517,7 @@ export default function AICourseware({ studentCode }) {
           <div className={`text-lg font-extrabold ${dailyCount >= DAILY_LIMIT ? 'text-rose-300' : 'text-indigo-300'}`}>
             {DAILY_LIMIT - dailyCount}/{DAILY_LIMIT}
           </div>
-          <div className="text-[10px] text-slate-400">오늘 남은 횟수</div>
+          <div className="text-[10px] text-slate-400">오늘 남은 보상횟수</div>
         </div>
       </div>
 
