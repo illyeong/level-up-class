@@ -634,7 +634,7 @@ export default function AICourseware({ studentCode }) {
         <div className="flex items-center justify-center gap-2 text-indigo-400/70 text-sm">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
           <span>{loadingElapsed}초 경과</span>
-          {loadingElapsed < 5 && <span className="text-xs">(20~30초 소요돼요)</span>}
+          {loadingElapsed < 5 && <span className="text-xs">(첫 방문 시 15~25초 소요돼요)</span>}
         </div>
 
       </div>
