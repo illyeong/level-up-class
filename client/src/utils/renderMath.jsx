@@ -45,62 +45,76 @@ export function TableRenderer({ table, dark = false }) {
   );
 }
 
+// 세로 분수 컴포넌트 (재사용)
+function VertFrac({ num, den, keyProp }) {
+  return (
+    <span key={keyProp} style={{
+      display: 'inline-flex', flexDirection: 'column',
+      alignItems: 'center', verticalAlign: 'middle',
+      margin: '0 2px', lineHeight: 1.1,
+    }}>
+      <span style={{ borderBottom: '1.5px solid currentColor', padding: '0 4px', fontSize: '0.88em', minWidth: '12px', textAlign: 'center' }}>{num}</span>
+      <span style={{ padding: '0 4px', fontSize: '0.88em', minWidth: '12px', textAlign: 'center' }}>{den}</span>
+    </span>
+  );
+}
+
 /**
- * 텍스트에서 분수 패턴(숫자/숫자)을 감지해 세로 분수로 렌더링합니다.
- * 예: "3/4" → 분자/분모 세로 표시
+ * 텍스트에서 수식 패턴을 감지해 렌더링합니다.
+ * - 대분수: "1과 2/3" → 1 + 세로분수
+ * - 진분수: "3/4" → 세로분수
  */
 export function renderMath(text) {
   if (!text || typeof text !== 'string') return text;
 
-  // 분수 패턴: 숫자/숫자 (앞뒤에 다른 숫자가 붙지 않는 경우)
-  const FRAC = /(\d+)\/(\d+)/g;
-  const parts = text.split(FRAC);
+  // 대분수 패턴 먼저 처리: "N과 A/B" 또는 "N과A/B"
+  const MIXED = /(\d+)\s*과\s*(\d+)\/(\d+)/g;
+  // 일반 분수 패턴
+  const FRAC  = /(\d+)\/(\d+)/g;
 
-  if (parts.length === 1) return text; // 분수 없으면 그냥 반환
+  // 대분수와 분수가 하나도 없으면 바로 반환
+  if (!MIXED.test(text) && !FRAC.test(text)) return text;
+  MIXED.lastIndex = 0; FRAC.lastIndex = 0;
+
+  // 대분수 → 세로분수 치환 후 분수 처리
+  const tokens = [];
+  let last = 0;
+  let idx = 0;
+
+  // 1단계: 대분수 추출
+  const allMatches = [];
+  let m;
+  MIXED.lastIndex = 0;
+  while ((m = MIXED.exec(text)) !== null) {
+    allMatches.push({ start: m.index, end: m.index + m[0].length, type: 'mixed', whole: m[1], num: m[2], den: m[3] });
+  }
+  FRAC.lastIndex = 0;
+  while ((m = FRAC.exec(text)) !== null) {
+    // 대분수에 포함된 분수는 건너뜀
+    const inside = allMatches.some(mx => m.index >= mx.start && m.index < mx.end);
+    if (!inside) allMatches.push({ start: m.index, end: m.index + m[0].length, type: 'frac', num: m[1], den: m[2] });
+  }
+  allMatches.sort((a, b) => a.start - b.start);
+
+  if (allMatches.length === 0) return text;
 
   const result = [];
-  for (let i = 0; i < parts.length; i++) {
-    if (i % 3 === 0) {
-      // 일반 텍스트
-      if (parts[i]) result.push(parts[i]);
-    } else if (i % 3 === 1) {
-      // 분자 (다음 parts[i+1]이 분모)
-      const num = parts[i];
-      const den = parts[i + 1];
+  let pos = 0;
+  allMatches.forEach((match, i) => {
+    if (match.start > pos) result.push(text.slice(pos, match.start));
+    if (match.type === 'mixed') {
       result.push(
-        <span
-          key={i}
-          style={{
-            display: 'inline-flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            verticalAlign: 'middle',
-            margin: '0 3px',
-            lineHeight: 1.1,
-          }}
-        >
-          <span style={{
-            borderBottom: '1.5px solid currentColor',
-            padding: '0 4px',
-            fontSize: '0.88em',
-            minWidth: '12px',
-            textAlign: 'center',
-          }}>
-            {num}
-          </span>
-          <span style={{
-            padding: '0 4px',
-            fontSize: '0.88em',
-            minWidth: '12px',
-            textAlign: 'center',
-          }}>
-            {den}
-          </span>
+        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+          <span style={{ marginRight: '2px' }}>{match.whole}</span>
+          <VertFrac num={match.num} den={match.den} keyProp={`f${i}`} />
         </span>
       );
-      i++; // 분모는 이미 처리했으므로 skip
+    } else {
+      result.push(<VertFrac key={i} num={match.num} den={match.den} keyProp={`f${i}`} />);
     }
-  }
+    pos = match.end;
+  });
+  if (pos < text.length) result.push(text.slice(pos));
 
   return <>{result}</>;
 }
