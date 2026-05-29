@@ -29,6 +29,7 @@ import Arena          from './pages/student/Arena.jsx';
 import FreeBoard      from './pages/student/FreeBoard.jsx';
 import HallOfFame     from './pages/student/HallOfFame.jsx';
 import ClassVote      from './pages/student/ClassVote.jsx';
+import AICourseware  from './pages/student/AICourseware.jsx';
 
 const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','miniGame'];
 const THEMEABLE_VIEWS = new Set(['dashboard', 'classAll', 'quest', 'learningNote', 'myCharacter']);
@@ -527,7 +528,8 @@ function App() {
         {currentView === 'classVote'  && <ClassVote    studentCode={activeStudentCode} />}
         {currentView === 'petHouse'  && <PetHouse />}
         {currentView === 'equipment' && <Equipment studentCode={activeStudentCode} themeMode={themeMode} />}
-        {currentView === 'gachaBox'  && <GachaBox  studentCode={activeStudentCode} />}
+        {currentView === 'gachaBox'     && <GachaBox     studentCode={activeStudentCode} />}
+        {currentView === 'aiCourseware' && <AICourseware studentCode={activeStudentCode} />}
         {currentView === 'academy' && (
           <div className="p-8 text-2xl font-bold text-slate-800">아카데미 화면 (준비 중 📚)</div>
         )}

@@ -24,8 +24,9 @@ import BossRaid from '../student/BossRaid';
 import QuizDungeon from '../student/QuizDungeon';
 import ExplorationDungeon from '../student/ExplorationDungeon';
 import ClassVoteManage from './ClassVoteManage';
-import FreeBoard      from '../student/FreeBoard';
-import HallOfFame     from '../student/HallOfFame';
+import FreeBoard          from '../student/FreeBoard';
+import HallOfFame         from '../student/HallOfFame';
+import AICoursewareManage from './AICoursewareManage';
 
 const STUDENT_MENU_IDS = [
   'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement',
@@ -395,6 +396,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'adventureManage' && <AdventureManage selectedClass={selectedClass} />}
         {currentView === 'boardManage'        && <BoardManage selectedClass={selectedClass} user={user} />}
         {currentView === 'learningNoteManage' && <LearningNoteManage selectedClass={selectedClass} />}
+        {currentView === 'aiCourseware'       && <AICoursewareManage selectedClass={selectedClass} />}
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
         {currentView === 'dataReset'       && <DataReset selectedClass={selectedClass} onClassDeleted={onChangeClass} />}
         {currentView === 'systemSettings'  && (
