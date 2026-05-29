@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc,
   query, where, serverTimestamp,
@@ -10,6 +10,54 @@ import ShapeRenderer from '../../components/ShapeRenderer';
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
 const DAILY_LIMIT = 5;                                   // 하루 최대 횟수
 const getMaxExp = (lv) => lv <= 10 ? 100 : lv <= 30 ? 500 : lv <= 40 ? 700 : lv <= 50 ? 900 : lv <= 60 ? 1100 : lv <= 70 ? 1300 : lv <= 80 ? 1500 : lv <= 90 ? 1700 : 1900;
+
+// 결과 화면 confetti 파티클 효과
+function ConfettiCanvas() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const COLORS = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#f43f5e','#facc15'];
+    const particles = Array.from({ length: 90 }, () => ({
+      x:    Math.random() * canvas.width,
+      y:    -20 - Math.random() * 300,
+      w:    7  + Math.random() * 7,
+      h:    3  + Math.random() * 4,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      vy:   2.5 + Math.random() * 2.5,
+      vx:   (Math.random() - 0.5) * 1.8,
+      rot:  Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 0.15,
+      alpha: 1,
+    }));
+    let raf;
+    const tick = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let alive = false;
+      particles.forEach(p => {
+        p.y += p.vy; p.x += p.vx; p.rot += p.rotV;
+        if (p.y > canvas.height * 0.75) p.alpha -= 0.018;
+        if (p.alpha > 0 && p.y < canvas.height) {
+          alive = true;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, p.alpha);
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+        }
+      });
+      if (alive) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return <canvas ref={ref} style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:9999 }} />;
+}
 
 // 정답 수에 따른 차등 보상 계산
 const calcReward = (correctCount, total) => {
@@ -827,6 +875,7 @@ export default function AICourseware({ studentCode }) {
   // ── 결과 화면 ────────────────────────────────────────────────
   if (step === 'result' && finalResult) return (
     <div className="min-h-screen bg-gradient-to-b from-violet-950 to-slate-900 flex items-center justify-center p-6">
+      {finalResult.score >= 60 && <ConfettiCanvas />}
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className={`px-6 py-8 text-center ${finalResult.score >= 80 ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : finalResult.score >= 60 ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gradient-to-r from-slate-600 to-slate-700'}`}>
           <div className="text-5xl mb-2">{finalResult.score >= 80 ? '🏆' : finalResult.score >= 60 ? '👍' : '💪'}</div>
