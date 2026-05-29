@@ -4,23 +4,68 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
-const fmtDateShort = (str) => {
-  if (!str) return '-';
-  const d = new Date(str);
-  return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+// ── 숙달도 설정 (학생 페이지와 동일) ────────────────────────────
+const MASTERY = {
+  excellent: { label: '매우 훌륭', emoji: '🏆', bg: 'bg-amber-100 text-amber-700 border border-amber-200' },
+  good:      { label: '훌륭',     emoji: '⭐', bg: 'bg-sky-100 text-sky-700 border border-sky-200' },
+  normal:    { label: '보통',     emoji: '👍', bg: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
+  retry:     { label: '재도전',   emoji: '🔄', bg: 'bg-rose-100 text-rose-600 border border-rose-200' },
 };
+const getMasteryLevel = (avg) =>
+  avg >= 90 ? 'excellent' : avg >= 75 ? 'good' : avg >= 60 ? 'normal' : 'retry';
+
+const lessonKey = (unit, lesson) =>
+  `v2_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
+
+const fmtDate = (str) => {
+  if (!str) return '-';
+  return new Date(str).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+};
+
+// 숙달도 분포 뱃지
+function MasteryBadge({ level, size = 'sm' }) {
+  if (!level) return null;
+  const cfg = MASTERY[level] || MASTERY.retry;
+  return (
+    <span className={`inline-flex items-center gap-0.5 font-bold rounded-full border
+      ${size === 'xs' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5'}
+      ${cfg.bg}`}>
+      {cfg.emoji} {cfg.label}
+    </span>
+  );
+}
+
+// 점수 → 색상 클래스
+const scoreColor = (s) => s >= 90 ? 'text-amber-600' : s >= 75 ? 'text-sky-600' : s >= 60 ? 'text-emerald-600' : 'text-rose-600';
+
+// 로딩
+const Spinner = () => (
+  <div className="flex justify-center items-center py-16 gap-2 text-slate-400 text-sm">
+    <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+    불러오는 중...
+  </div>
+);
 
 export default function AICoursewareManage({ selectedClass }) {
   const teacherUid = selectedClass?.teacherUid;
 
-  const [tab, setTab] = useState('dashboard');
+  const [tab, setTab] = useState('units'); // 'units' | 'students' | 'dashboard' | 'analysis'
 
-  // ── 데이터 ───────────────────────────────────────────────────
-  const [students, setStudents]     = useState([]);
+  // ── 공통 데이터 ────────────────────────────────────────────────
+  const [students,    setStudents]    = useState([]);
   const [allProgress, setAllProgress] = useState([]);
-  const [lessonContentMap, setLessonContentMap] = useState({}); // lessonKey → title
+  const [allMastery,  setAllMastery]  = useState({}); // lessonKey → {studentCode → masteryData}
   const [loadingData, setLoadingData] = useState(false);
 
+  // ── 단원별 현황 상태 ──────────────────────────────────────────
+  const [unitGrade,   setUnitGrade]   = useState('');
+  const [unitSem,     setUnitSem]     = useState('all');
+  const [units,       setUnits]       = useState([]);
+  const [loadingUnits, setLoadingUnits] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState(null);
+  const [expandedLesson, setExpandedLesson] = useState(null); // lessonKey
+
+  // ── 데이터 로드 ───────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     if (!teacherUid) return;
     setLoadingData(true);
@@ -33,189 +78,427 @@ export default function AICoursewareManage({ selectedClass }) {
         .sort((a, b) => parseInt(a.studentCode?.slice(-2) || 0) - parseInt(b.studentCode?.slice(-2) || 0));
       setStudents(stuList);
 
-      // 진행 기록 전체 로드 (이 학급 학생들만)
-      const codes = new Set(stuList.map(s => s.studentCode));
-      if (codes.size === 0) { setAllProgress([]); return; }
+      const codes = stuList.map(s => s.studentCode).filter(Boolean);
+      if (!codes.length) return;
 
+      // aiStudentProgress 로드
       const progSnap = await getDocs(collection(db, 'aiStudentProgress'));
-      const progs = progSnap.docs
-        .map(d => d.data())
-        .filter(p => codes.has(p.studentCode) && p.status === 'completed');
+      const progs = progSnap.docs.map(d => d.data())
+        .filter(p => codes.includes(p.studentCode) && p.status === 'completed');
       setAllProgress(progs);
 
-      // lessonKey → title 매핑 (캐시된 AI 콘텐츠에서)
-      const keys = [...new Set(progs.map(p => p.lessonKey).filter(Boolean))];
-      if (keys.length > 0) {
-        const cacheSnap = await getDocs(collection(db, 'aiLessonContent'));
-        const map = {};
-        cacheSnap.docs.forEach(d => {
-          const data = d.data();
-          if (data.lessonKey) map[data.lessonKey] = data.lessonTitle || data.unitName || data.lessonKey;
+      // aiLessonMastery 로드 (in 쿼리, 10개씩 배치)
+      const batches = [];
+      for (let i = 0; i < codes.length; i += 10) batches.push(codes.slice(i, i + 10));
+      const snapshots = await Promise.all(
+        batches.map(batch => getDocs(query(
+          collection(db, 'aiLessonMastery'), where('studentCode', 'in', batch)
+        )))
+      );
+      const masteryMap = {};
+      snapshots.forEach(snap => {
+        snap.forEach(d => {
+          const m = d.data();
+          if (!masteryMap[m.lessonKey]) masteryMap[m.lessonKey] = {};
+          masteryMap[m.lessonKey][m.studentCode] = m;
         });
-        setLessonContentMap(map);
-      }
+      });
+      setAllMastery(masteryMap);
+
     } catch (e) { console.error(e); }
     finally { setLoadingData(false); }
   }, [teacherUid]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // ── 파생 통계 ─────────────────────────────────────────────────
-  const today = new Date().toISOString().slice(0, 10);
-  const todayProgress = allProgress.filter(p => p.date === today);
-  const scores        = allProgress.map(p => p.score).filter(s => s != null);
-  const avgScore      = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  // 단원 로드
+  useEffect(() => {
+    if (!unitGrade) { setUnits([]); setSelectedUnit(null); return; }
+    setLoadingUnits(true);
+    const q = query(
+      collection(db, 'curriculumUnits'),
+      where('grade', '==', parseInt(unitGrade)),
+      where('subject', '==', '수학'),
+      where('status', '==', 'approved'),
+    );
+    getDocs(q).then(snap => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (a.semester || 0) - (b.semester || 0) || (a.unitNumber || 0) - (b.unitNumber || 0));
+      setUnits(list);
+    }).finally(() => setLoadingUnits(false));
+    setSelectedUnit(null);
+    setExpandedLesson(null);
+  }, [unitGrade]);
 
-  // 학생별 통계
+  // ── 파생 통계 (대시보드) ──────────────────────────────────────
+  const today = new Date().toISOString().slice(0, 10);
+  const todayProg = allProgress.filter(p => p.date === today);
+  const scores = allProgress.map(p => p.score).filter(s => s != null);
+  const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+
   const studentStats = students.map(stu => {
     const progs = allProgress.filter(p => p.studentCode === stu.studentCode);
-    const sc    = progs.map(p => p.score).filter(s => s != null);
+    const sc = progs.map(p => p.score).filter(s => s != null);
     return {
       ...stu,
       completions: progs.length,
       avgScore: sc.length ? Math.round(sc.reduce((a, b) => a + b, 0) / sc.length) : null,
       lastDate: progs.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0))[0]?.date || null,
-      todayCount: allProgress.filter(p => p.studentCode === stu.studentCode && p.date === today).length,
+      todayCount: progs.filter(p => p.date === today).length,
+      masteryCount: Object.values(allMastery).filter(m => m[stu.studentCode]?.masteryLevel).length,
     };
-  }).sort((a, b) => (b.completions || 0) - (a.completions || 0));
-
-  // 차시별 통계 (취약 분석)
-  const lessonStats = (() => {
-    const map = {};
-    allProgress.forEach(p => {
-      const key = p.lessonKey || `${p.unitName}_${p.lessonTitle}`;
-      if (!map[key]) {
-        map[key] = {
-          key,
-          label: p.lessonTitle || lessonContentMap[p.lessonKey] || p.unitName || key,
-          unitName: p.unitName || '',
-          scores: [], weakCount: 0, count: 0,
-        };
-      }
-      map[key].count++;
-      if (p.score != null) map[key].scores.push(p.score);
-      if ((p.score || 0) < 70) map[key].weakCount++;
-    });
-    return Object.values(map)
-      .map(s => ({ ...s, avgScore: s.scores.length ? Math.round(s.scores.reduce((a, b) => a + b, 0) / s.scores.length) : null }))
-      .filter(s => s.count >= 2) // 2명 이상 참여한 차시만
-      .sort((a, b) => (a.avgScore || 100) - (b.avgScore || 100));
-  })();
-
-  // 오늘의 활동 (최근 15건)
-  const recentActivity = allProgress
-    .filter(p => p.date === today)
-    .sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0))
-    .slice(0, 15);
+  });
 
   const TABS = [
-    { id: 'dashboard', label: '📊 종합 현황' },
+    { id: 'units',     label: '📚 단원별 현황' },
     { id: 'students',  label: '👥 학생별 분석' },
-    { id: 'analysis',  label: '🔍 취약 분석' },
+    { id: 'dashboard', label: '📊 종합 현황' },
   ];
 
-  const Loading = () => (
-    <div className="flex justify-center py-20 gap-2">
-      <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
-      <span className="text-sm text-slate-400">불러오는 중...</span>
-    </div>
-  );
+  // ── 단원별 현황 렌더 ──────────────────────────────────────────
+  const filteredUnits = units.filter(u => unitSem === 'all' || String(u.semester || '') === unitSem);
+
+  // 단원에서 숙달도 판정 완료(5회) 학생 수 계산
+  const getUnitClassStats = (unit) => {
+    const lessons = unit.lessons || [];
+    let ratedCount = 0, ratedStudents = new Set();
+    lessons.forEach(l => {
+      const lk = lessonKey(unit, l);
+      const lm = allMastery[lk] || {};
+      Object.entries(lm).forEach(([sc, m]) => {
+        if (m.masteryAvg != null) ratedStudents.add(sc);
+      });
+      ratedCount++;
+    });
+    const avgs = [];
+    Object.values(allMastery).forEach(lm => {
+      Object.entries(lm).forEach(([sc, m]) => {
+        if (m.unitId === unit.id && m.masteryAvg != null) avgs.push(m.masteryAvg);
+      });
+    });
+    const classAvg = avgs.length ? Math.round(avgs.reduce((a, b) => a + b, 0) / avgs.length) : null;
+    return { ratedStudents: ratedStudents.size, classAvg };
+  };
+
+  // 차시 숙달도 분포
+  const getLessonStats = (lk) => {
+    const lm = allMastery[lk] || {};
+    const entries = Object.values(lm);
+    const rated = entries.filter(m => m.masteryAvg != null);
+    const dist = { excellent: 0, good: 0, normal: 0, retry: 0 };
+    rated.forEach(m => { if (dist[m.masteryLevel] !== undefined) dist[m.masteryLevel]++; });
+    const avgs = rated.map(m => m.masteryAvg);
+    const classAvg = avgs.length ? Math.round(avgs.reduce((a, b) => a + b, 0) / avgs.length) : null;
+    return { rated: rated.length, total: students.length, dist, classAvg };
+  };
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-slate-100 p-4 md:p-6">
+      <div className="max-w-6xl mx-auto">
 
         {/* 헤더 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-5">
-          <h1 className="text-2xl font-extrabold text-slate-800">🤖 AI 학습관 현황</h1>
-          <p className="text-slate-500 text-sm mt-0.5">학생들의 AI 자율 학습 데이터를 분석합니다</p>
+        <div className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-200 mb-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-800">🤖 AI 학습관 현황</h1>
+            <p className="text-slate-400 text-xs mt-0.5">단원별 차시별 숙달도 · 학생 학습 데이터 분석</p>
+          </div>
+          <button onClick={loadAll} disabled={loadingData}
+            className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl">
+            {loadingData ? <span className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin inline-block" /> : '↻'} 새로고침
+          </button>
         </div>
 
         {/* 탭 */}
-        <div className="flex gap-2 mb-5">
+        <div className="flex gap-2 mb-4 overflow-x-auto">
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-colors
-                ${tab === t.id ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-colors
+                ${tab === t.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
               {t.label}
             </button>
           ))}
         </div>
 
-        {/* ── 종합 현황 ──────────────────────────────────────── */}
-        {tab === 'dashboard' && (
-          <div className="space-y-5">
-            {/* 지표 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                { label: '총 학습 완료', value: allProgress.length, unit: '건', icon: '✅', color: 'emerald' },
-                { label: '오늘 완료', value: todayProgress.length, unit: '건', icon: '📅', color: 'sky' },
-                { label: '전체 평균 점수', value: avgScore !== null ? `${avgScore}점` : '-', unit: '', icon: '📈', color: avgScore >= 70 ? 'emerald' : avgScore !== null ? 'amber' : 'slate' },
-                { label: '참여 학생', value: studentStats.filter(s => s.completions > 0).length, unit: `/${students.length}명`, icon: '👥', color: 'indigo' },
-              ].map(({ label, value, unit, icon, color }) => (
-                <div key={label} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
-                  <div className="text-xl mb-1">{icon}</div>
-                  <div className={`text-2xl font-extrabold text-${color}-600`}>{value}<span className="text-base font-bold text-slate-400">{unit}</span></div>
-                  <div className="text-xs text-slate-500 mt-0.5">{label}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* 오늘 학습 활동 */}
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-              <h3 className="font-extrabold text-slate-700 text-sm mb-3">📅 오늘 학습 활동</h3>
-              {recentActivity.length === 0 ? (
-                <p className="text-slate-400 text-sm py-6 text-center">오늘 완료된 학습이 없습니다</p>
-              ) : (
-                <div className="space-y-2">
-                  {recentActivity.map((p, i) => (
-                    <div key={i} className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-xl">
-                      <span className="text-sm font-bold text-slate-700 w-20 shrink-0">
-                        {students.find(s => s.studentCode === p.studentCode)?.name || p.studentCode?.slice(-5)}
-                      </span>
-                      <span className="flex-1 text-xs text-slate-500 truncate">
-                        {p.unitName} · {p.lessonTitle}
-                      </span>
-                      <span className={`text-sm font-extrabold shrink-0 ${(p.score || 0) >= 70 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                        {p.score}점
-                      </span>
-                      <span className="text-xs text-slate-400 shrink-0">{p.correctCount}/{p.totalCount}</span>
-                    </div>
+        {/* ══════════════════════════════════════════
+            탭 1: 단원별 현황
+        ══════════════════════════════════════════ */}
+        {tab === 'units' && (
+          <div>
+            {/* 학년 선택 */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-bold text-slate-600">학년 선택</span>
+                <div className="flex gap-1.5 flex-wrap">
+                  {['1','2','3','4','5','6'].map(g => (
+                    <button key={g} onClick={() => { setUnitGrade(g); setSelectedUnit(null); }}
+                      className={`w-9 h-9 rounded-xl font-extrabold text-sm transition-colors
+                        ${unitGrade === g ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-indigo-50'}`}>
+                      {g}
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
-
-            {/* 인기 차시 TOP 5 */}
-            {lessonStats.length > 0 && (
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-                <h3 className="font-extrabold text-slate-700 text-sm mb-3">🔥 학습 참여 TOP 5 차시</h3>
-                <div className="space-y-2">
-                  {[...lessonStats].sort((a, b) => b.count - a.count).slice(0, 5).map((s, i) => (
-                    <div key={s.key} className="flex items-center gap-3 px-3 py-2 bg-slate-50 rounded-xl">
-                      <span className="text-xs font-extrabold text-slate-400 w-5">{i + 1}</span>
-                      <span className="flex-1 text-sm font-bold text-slate-700 truncate">{s.label}</span>
-                      <span className="text-xs text-slate-400">{s.count}명</span>
-                      <span className={`text-sm font-extrabold ${(s.avgScore || 0) >= 70 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                        {s.avgScore !== null ? `${s.avgScore}점` : '-'}
-                      </span>
+                {unitGrade && (
+                  <>
+                    <div className="w-px h-5 bg-slate-200" />
+                    <div className="flex gap-1.5">
+                      {['all','1','2'].map(s => (
+                        <button key={s} onClick={() => { setUnitSem(s); setSelectedUnit(null); }}
+                          className={`px-3 h-8 rounded-xl font-bold text-xs transition-colors
+                            ${unitSem === s ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-indigo-50'}`}>
+                          {s === 'all' ? '전체' : `${s}학기`}
+                        </button>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
               </div>
+            </div>
+
+            {!unitGrade ? (
+              <div className="text-center py-20 text-slate-400">
+                <div className="text-4xl mb-3">📚</div>
+                <p className="font-bold">학년을 선택하세요</p>
+              </div>
+            ) : loadingUnits ? <Spinner /> : (
+
+              /* 단원 선택 안 됐을 때: 단원 카드 목록 */
+              !selectedUnit ? (
+                filteredUnits.length === 0 ? (
+                  <div className="text-center py-16 text-slate-400 text-sm">해당 학년/학기 단원이 없습니다</div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {filteredUnits.map(unit => {
+                      const { ratedStudents, classAvg } = getUnitClassStats(unit);
+                      const level = classAvg != null ? getMasteryLevel(classAvg) : null;
+                      const cfg = level ? MASTERY[level] : null;
+                      return (
+                        <button key={unit.id}
+                          onClick={() => { setSelectedUnit(unit); setExpandedLesson(null); }}
+                          className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm hover:border-indigo-400 hover:shadow-md text-left transition-all">
+                          <div className="flex items-start justify-between mb-2">
+                            <span className="text-2xl font-black text-slate-200">{unit.unitNumber}</span>
+                            <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">
+                              {unit.semester}학기 · {(unit.lessons || []).length}차시
+                            </span>
+                          </div>
+                          <div className="font-extrabold text-slate-800 text-sm mb-2 leading-snug">{unit.unitName}</div>
+                          {cfg ? (
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${cfg.bg}`}>
+                                {cfg.emoji} {cfg.label}
+                              </span>
+                              <span className="text-[10px] text-slate-400">평균 {classAvg}점</span>
+                              <span className="text-[10px] text-slate-400">{ratedStudents}명 평가</span>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-slate-400">
+                              {ratedStudents > 0 ? `${ratedStudents}명 학습중` : '아직 학습 기록 없음'}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )
+              ) : (
+                /* 단원 선택됨: 차시별 상세 */
+                <div>
+                  {/* 브레드크럼 */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <button onClick={() => { setSelectedUnit(null); setExpandedLesson(null); }}
+                      className="flex items-center gap-1 text-sm font-bold text-indigo-600 hover:text-indigo-800">
+                      ← 단원 목록
+                    </button>
+                    <span className="text-slate-300">/</span>
+                    <span className="text-sm font-extrabold text-slate-700">
+                      {selectedUnit.unitNumber}단원 · {selectedUnit.unitName}
+                    </span>
+                  </div>
+
+                  {/* 단원 요약 카드 */}
+                  <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm mb-4">
+                    {(() => {
+                      const allAvgs = [];
+                      (selectedUnit.lessons || []).forEach(l => {
+                        const lk = lessonKey(selectedUnit, l);
+                        Object.values(allMastery[lk] || {}).forEach(m => {
+                          if (m.masteryAvg != null) allAvgs.push(m.masteryAvg);
+                        });
+                      });
+                      const unitAvg = allAvgs.length ? Math.round(allAvgs.reduce((a, b) => a + b, 0) / allAvgs.length) : null;
+                      const dist = { excellent: 0, good: 0, normal: 0, retry: 0 };
+                      allAvgs.forEach(a => { const lv = getMasteryLevel(a); if (dist[lv] !== undefined) dist[lv]++; });
+                      return (
+                        <div className="flex items-center gap-6 flex-wrap">
+                          <div>
+                            <div className="text-xs text-slate-400 mb-0.5">단원 평균</div>
+                            <div className={`text-2xl font-extrabold ${unitAvg != null ? scoreColor(unitAvg) : 'text-slate-300'}`}>
+                              {unitAvg != null ? `${unitAvg}점` : '-'}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            {Object.entries(MASTERY).map(([lv, cfg]) => (
+                              <div key={lv} className="text-center">
+                                <div className="text-lg">{cfg.emoji}</div>
+                                <div className="text-sm font-extrabold text-slate-700">{dist[lv]}</div>
+                                <div className="text-[9px] text-slate-400">명</div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="text-xs text-slate-400">
+                            {allAvgs.length}건 숙달도 판정 완료
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* 차시별 테이블 */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    {(selectedUnit.lessons || []).map((lesson, li) => {
+                      const lk = lessonKey(selectedUnit, lesson);
+                      const { rated, total, dist, classAvg } = getLessonStats(lk);
+                      const isUnitTest = lesson.title === '단원평가';
+                      const isExpanded = expandedLesson === lk;
+                      const stuMastery = Object.entries(allMastery[lk] || {});
+
+                      return (
+                        <div key={lk}>
+                          {/* 차시 행 */}
+                          <button
+                            onClick={() => setExpandedLesson(isExpanded ? null : lk)}
+                            className={`w-full text-left px-4 py-3.5 flex items-center gap-3 hover:bg-slate-50 transition-colors
+                              ${li > 0 ? 'border-t border-slate-100' : ''}
+                              ${isExpanded ? 'bg-indigo-50 border-l-4 border-l-indigo-500' : ''}
+                              ${isUnitTest ? 'bg-amber-50/50' : ''}`}>
+                            {/* 차시 번호 */}
+                            <span className={`text-xs font-extrabold w-12 shrink-0
+                              ${isUnitTest ? 'text-amber-600' : 'text-slate-400'}`}>
+                              {isUnitTest ? '📝 평가' : `${lesson.no}차시`}
+                            </span>
+                            {/* 차시명 */}
+                            <span className={`flex-1 text-sm font-bold truncate
+                              ${isUnitTest ? 'text-amber-700' : 'text-slate-700'}`}>
+                              {lesson.title}
+                            </span>
+                            {/* 숙달도 분포 미니 */}
+                            {rated > 0 && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                {Object.entries(MASTERY).map(([lv, cfg]) =>
+                                  dist[lv] > 0 ? (
+                                    <span key={lv} className="text-xs text-slate-600 font-bold">
+                                      {cfg.emoji}{dist[lv]}
+                                    </span>
+                                  ) : null
+                                )}
+                              </div>
+                            )}
+                            {/* 참여 수 */}
+                            <span className="text-xs text-slate-400 shrink-0 w-14 text-right">
+                              {rated}/{total}명
+                            </span>
+                            {/* 평균 점수 */}
+                            <span className={`text-sm font-extrabold shrink-0 w-14 text-right
+                              ${classAvg != null ? scoreColor(classAvg) : 'text-slate-300'}`}>
+                              {classAvg != null ? `${classAvg}점` : '-'}
+                            </span>
+                            <span className={`text-xs shrink-0 text-slate-400 ${isExpanded ? 'rotate-180' : ''} transition-transform`}>▼</span>
+                          </button>
+
+                          {/* 학생 상세 (아코디언) */}
+                          {isExpanded && (
+                            <div className="bg-slate-50 border-t border-slate-200 px-4 py-3">
+                              <div className="text-xs font-bold text-slate-500 mb-2">
+                                학생별 숙달도 현황 ({students.length}명)
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="text-slate-400">
+                                      <th className="text-left py-1.5 pr-3 font-semibold">이름</th>
+                                      <th className="text-center py-1.5 px-2 font-semibold">도전</th>
+                                      <th className="text-center py-1.5 px-2 font-semibold">점수 기록</th>
+                                      <th className="text-center py-1.5 px-2 font-semibold">숙달도</th>
+                                      <th className="text-center py-1.5 px-2 font-semibold">평균</th>
+                                      <th className="text-center py-1.5 px-2 font-semibold">마지막 점수</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-200">
+                                    {students.map(stu => {
+                                      const m = (allMastery[lk] || {})[stu.studentCode];
+                                      if (!m) return (
+                                        <tr key={stu.id} className="opacity-40">
+                                          <td className="py-1.5 pr-3 font-bold text-slate-600">{stu.name || stu.studentCode}</td>
+                                          <td className="text-center px-2 text-slate-300">-</td>
+                                          <td className="text-center px-2 text-slate-300">미도전</td>
+                                          <td className="text-center px-2 text-slate-300">-</td>
+                                          <td className="text-center px-2 text-slate-300">-</td>
+                                          <td className="text-center px-2 text-slate-300">-</td>
+                                        </tr>
+                                      );
+                                      const done = (m.scores || []).length;
+                                      return (
+                                        <tr key={stu.id} className="hover:bg-white">
+                                          <td className="py-2 pr-3 font-extrabold text-slate-700">{stu.name || stu.studentCode}</td>
+                                          <td className="text-center px-2">
+                                            <span className={`font-bold ${done >= 5 ? 'text-indigo-600' : 'text-slate-500'}`}>
+                                              {m.attemptCount || done}회
+                                            </span>
+                                          </td>
+                                          <td className="text-center px-2">
+                                            <div className="flex justify-center gap-0.5 flex-wrap">
+                                              {(m.scores || []).map((s, i) => (
+                                                <span key={i} className={`inline-block px-1 py-0.5 rounded font-bold ${scoreColor(s)} bg-white border border-slate-200`}>
+                                                  {s}
+                                                </span>
+                                              ))}
+                                              {done < 5 && Array.from({ length: 5 - done }, (_, i) => (
+                                                <span key={`e${i}`} className="inline-block px-1 py-0.5 rounded bg-slate-100 text-slate-300">?</span>
+                                              ))}
+                                            </div>
+                                          </td>
+                                          <td className="text-center px-2">
+                                            {m.masteryLevel ? (
+                                              <MasteryBadge level={m.masteryLevel} size="xs" />
+                                            ) : (
+                                              <span className="text-slate-400">{done}/5 도전중</span>
+                                            )}
+                                          </td>
+                                          <td className={`text-center px-2 font-extrabold ${m.masteryAvg != null ? scoreColor(m.masteryAvg) : 'text-slate-300'}`}>
+                                            {m.masteryAvg != null ? `${m.masteryAvg}점` : '-'}
+                                          </td>
+                                          <td className={`text-center px-2 font-bold ${m.lastScore != null ? scoreColor(m.lastScore) : 'text-slate-300'}`}>
+                                            {m.lastScore != null ? `${m.lastScore}점` : '-'}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )
             )}
           </div>
         )}
 
-        {/* ── 학생별 분석 ──────────────────────────────────────── */}
+        {/* ══════════════════════════════════════════
+            탭 2: 학생별 분석
+        ══════════════════════════════════════════ */}
         {tab === 'students' && (
-          loadingData ? <Loading /> : (
+          loadingData ? <Spinner /> : (
             <div className="space-y-4">
               <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-wrap gap-4 text-sm font-bold">
                 <span className="text-slate-600">전체 <span className="text-slate-800">{students.length}명</span></span>
                 <span className="text-emerald-600">활동 {studentStats.filter(s => s.completions > 0).length}명</span>
                 <span className="text-slate-400">미활동 {studentStats.filter(s => s.completions === 0).length}명</span>
-                <span className="text-sky-600">오늘 {studentStats.filter(s => s.todayCount > 0).length}명 활동</span>
+                <span className="text-sky-600">오늘 {studentStats.filter(s => s.todayCount > 0).length}명</span>
               </div>
 
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
@@ -225,125 +508,104 @@ export default function AICoursewareManage({ selectedClass }) {
                       <th className="px-4 py-3 text-left font-semibold">학생</th>
                       <th className="px-4 py-3 text-center font-semibold">총 완료</th>
                       <th className="px-4 py-3 text-center font-semibold">평균 점수</th>
+                      <th className="px-4 py-3 text-center font-semibold">숙달도 판정</th>
                       <th className="px-4 py-3 text-center font-semibold">오늘</th>
                       <th className="px-4 py-3 text-center font-semibold">마지막 활동</th>
-                      <th className="px-4 py-3 text-center font-semibold">상태</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {studentStats.map(stu => (
-                      <tr key={stu.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3">
-                          <div className="font-bold text-slate-800">{stu.name || stu.studentCode}</div>
-                          <div className="text-[10px] text-slate-400">{stu.studentCode}</div>
-                        </td>
-                        <td className="px-4 py-3 text-center font-extrabold text-indigo-600">{stu.completions}</td>
-                        <td className="px-4 py-3 text-center">
-                          {stu.avgScore !== null
-                            ? <span className={`font-extrabold ${stu.avgScore >= 80 ? 'text-emerald-600' : stu.avgScore >= 60 ? 'text-amber-600' : 'text-rose-500'}`}>{stu.avgScore}점</span>
-                            : <span className="text-slate-300">-</span>}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {stu.todayCount > 0
-                            ? <span className="text-[10px] font-bold bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full">{stu.todayCount}회</span>
-                            : <span className="text-slate-300">-</span>}
-                        </td>
-                        <td className="px-4 py-3 text-center text-slate-500 text-xs">{fmtDateShort(stu.lastDate)}</td>
-                        <td className="px-4 py-3 text-center">
-                          {stu.completions === 0
-                            ? <span className="text-[10px] bg-slate-100 text-slate-400 font-bold px-2 py-0.5 rounded-full">미활동</span>
-                            : stu.avgScore >= 70
-                              ? <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full">양호</span>
-                              : <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full">복습 필요</span>}
-                        </td>
-                      </tr>
-                    ))}
+                    {studentStats.sort((a, b) => (b.masteryCount || 0) - (a.masteryCount || 0)).map(stu => {
+                      // 이 학생의 숙달도 판정 현황
+                      const stuMasteries = Object.values(allMastery)
+                        .map(lm => lm[stu.studentCode])
+                        .filter(m => m?.masteryLevel);
+                      const dist = { excellent: 0, good: 0, normal: 0, retry: 0 };
+                      stuMasteries.forEach(m => { if (dist[m.masteryLevel] !== undefined) dist[m.masteryLevel]++; });
+
+                      return (
+                        <tr key={stu.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3">
+                            <div className="font-bold text-slate-800">{stu.name || stu.studentCode}</div>
+                            <div className="text-[10px] text-slate-400">{stu.studentCode}</div>
+                          </td>
+                          <td className="px-4 py-3 text-center font-extrabold text-indigo-600">{stu.completions}</td>
+                          <td className="px-4 py-3 text-center">
+                            {stu.avgScore != null
+                              ? <span className={`font-extrabold ${scoreColor(stu.avgScore)}`}>{stu.avgScore}점</span>
+                              : <span className="text-slate-300">-</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex justify-center gap-1 flex-wrap">
+                              {stuMasteries.length === 0
+                                ? <span className="text-slate-300 text-xs">-</span>
+                                : Object.entries(MASTERY).map(([lv, cfg]) =>
+                                    dist[lv] > 0 ? (
+                                      <span key={lv} className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${cfg.bg}`}>
+                                        {cfg.emoji}{dist[lv]}
+                                      </span>
+                                    ) : null
+                                  )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {stu.todayCount > 0
+                              ? <span className="text-[10px] font-bold bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full">{stu.todayCount}회</span>
+                              : <span className="text-slate-300">-</span>}
+                          </td>
+                          <td className="px-4 py-3 text-center text-slate-500 text-xs">{fmtDate(stu.lastDate)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
-
-              {/* 최근 기록 20건 */}
-              {allProgress.length > 0 && (
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-                  <h3 className="font-bold text-slate-700 text-sm mb-3">📋 최근 학습 기록 (20건)</h3>
-                  <div className="space-y-1.5">
-                    {[...allProgress]
-                      .sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0))
-                      .slice(0, 20)
-                      .map((p, i) => (
-                        <div key={i} className="flex items-center gap-3 px-3 py-2 bg-slate-50 rounded-xl text-xs">
-                          <span className="font-bold text-slate-600 w-20 shrink-0">
-                            {students.find(s => s.studentCode === p.studentCode)?.name || p.studentCode?.slice(-5)}
-                          </span>
-                          <span className="flex-1 text-slate-500 truncate">{p.unitName} · {p.lessonTitle}</span>
-                          <span className={`font-extrabold ${(p.score || 0) >= 70 ? 'text-emerald-600' : 'text-amber-600'}`}>{p.score}점</span>
-                          <span className="text-slate-400">{p.correctCount}/{p.totalCount}</span>
-                          <span className="text-slate-400 shrink-0">{fmtDateShort(p.date)}</span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
             </div>
           )
         )}
 
-        {/* ── 취약 분석 ──────────────────────────────────────── */}
-        {tab === 'analysis' && (
-          loadingData ? <Loading /> : lessonStats.length === 0 ? (
-            <div className="text-center py-20 text-slate-400">
-              <div className="text-5xl mb-3">📊</div>
-              <p className="font-bold text-slate-600">분석할 데이터가 부족합니다</p>
-              <p className="text-sm mt-1">차시당 2명 이상 학습하면 분석이 표시됩니다.</p>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: '분석된 차시', value: lessonStats.length, color: 'indigo' },
-                  { label: '취약 차시 (60점↓)', value: lessonStats.filter(d => (d.avgScore || 0) < 60).length, color: 'rose' },
-                  { label: '70점 미만 건수', value: lessonStats.reduce((s, d) => s + d.weakCount, 0), color: 'amber' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className={`bg-${color}-50 rounded-2xl p-4 border border-${color}-200 text-center`}>
-                    <div className={`text-2xl font-extrabold text-${color}-600`}>{value}</div>
-                    <div className={`text-xs text-${color}-500 mt-0.5`}>{label}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-                <h3 className="font-bold text-slate-700 text-sm mb-4">📉 차시별 평균 점수 (낮은 순)</h3>
-                <div className="space-y-3">
-                  {lessonStats.map((d, i) => {
-                    const score = d.avgScore || 0;
-                    const bar = score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-rose-500';
-                    return (
-                      <div key={d.key}>
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded shrink-0 ${score >= 80 ? 'bg-emerald-100 text-emerald-700' : score >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-600'}`}>
-                              {i + 1}위
-                            </span>
-                            <span className="text-sm font-bold text-slate-700 truncate">{d.label}</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0 ml-2">
-                            <span className="text-xs text-slate-400">{d.count}명</span>
-                            {d.weakCount > 0 && (
-                              <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full border border-rose-200">⚠️ {d.weakCount}명</span>
-                            )}
-                            <span className={`text-sm font-extrabold ${score >= 80 ? 'text-emerald-600' : score >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>{score}점</span>
-                          </div>
-                        </div>
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${bar}`} style={{ width: `${Math.max(2, score)}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
+        {/* ══════════════════════════════════════════
+            탭 3: 종합 현황
+        ══════════════════════════════════════════ */}
+        {tab === 'dashboard' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: '총 학습 완료', value: allProgress.length, unit: '건', icon: '✅', color: 'emerald' },
+                { label: '오늘 완료',   value: todayProg.length,   unit: '건', icon: '📅', color: 'sky' },
+                { label: '전체 평균',   value: avgScore != null ? `${avgScore}점` : '-', unit: '', icon: '📈', color: avgScore >= 70 ? 'emerald' : avgScore != null ? 'amber' : 'slate' },
+                { label: '참여 학생',   value: studentStats.filter(s => s.completions > 0).length, unit: `/${students.length}명`, icon: '👥', color: 'indigo' },
+              ].map(({ label, value, unit, icon, color }) => (
+                <div key={label} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                  <div className="text-xl mb-1">{icon}</div>
+                  <div className={`text-2xl font-extrabold text-${color}-600`}>{value}<span className="text-sm font-bold text-slate-400">{unit}</span></div>
+                  <div className="text-xs text-slate-500 mt-0.5">{label}</div>
                 </div>
-              </div>
+              ))}
             </div>
-          )
+
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+              <h3 className="font-extrabold text-slate-700 text-sm mb-3">📅 오늘 학습 활동</h3>
+              {todayProg.length === 0 ? (
+                <p className="text-slate-400 text-sm py-6 text-center">오늘 완료된 학습이 없습니다</p>
+              ) : (
+                <div className="space-y-2">
+                  {[...todayProg]
+                    .sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0))
+                    .slice(0, 20)
+                    .map((p, i) => (
+                    <div key={i} className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-xl text-sm">
+                      <span className="font-bold text-slate-700 w-20 shrink-0">
+                        {students.find(s => s.studentCode === p.studentCode)?.name || p.studentCode?.slice(-5)}
+                      </span>
+                      <span className="flex-1 text-xs text-slate-500 truncate">{p.unitName} · {p.lessonTitle}</span>
+                      <span className={`font-extrabold shrink-0 ${scoreColor(p.score || 0)}`}>{p.score}점</span>
+                      <span className="text-xs text-slate-400 shrink-0">{p.correctCount}/{p.totalCount}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
       </div>
