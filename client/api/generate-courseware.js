@@ -57,7 +57,10 @@ export default async function handler(req, res) {
 [JSON 형식만 반환 - 반드시 완전한 JSON, 모든 텍스트는 간결하게]
 {"title":"15자 이내","conceptCards":[{"title":"개념명","body":"핵심만 2문장","example":"짧은 예시"}],"commonMistakes":["실수1","실수2"],"questions":[{"question":"문제","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"1문장 해설"}]}
 
-shape 규칙: 넓이/둘레/각도 계산 문제에만 생성(대칭·분류·개념 문제는 null), 문제 수치 포함
+shape 규칙: 도형이 등장하는 문제(넓이/둘레/각도/대칭)에는 반드시 생성, 순수 개념·암산 문제만 null
+- 대칭 단원 주의: "목록에서 고르기" 형식 금지 → 하나의 도형을 직접 보여주고 묻는 형식으로
+  예) "이 이등변삼각형의 선대칭축은 몇 개?" / "이 평행사변형은 점대칭도형입니까?"
+- 치수: 계산 문제는 dimensions에 수치 포함, 대칭 문제는 dimensions 생략 가능({}도 가능)
 - rectangle:{width,height} / square:{side} / circle:{radius} / equilateral_triangle:{side}
 - isosceles_triangle:{base,side} / right_triangle:{base,height} / parallelogram:{base,height}
 - rhombus:{diagonal1,diagonal2} / trapezoid:{bottomBase,topBase,height} | unit:"cm"
