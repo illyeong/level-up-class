@@ -60,12 +60,14 @@ export default async function handler(req, res) {
 shape 규칙: 도형이 등장하는 문제(넓이/둘레/각도/대칭)에는 반드시 생성, 순수 개념·암산 문제만 null
 - 대칭 단원 문제 작성 규칙 (반드시 준수):
   패턴A: 도형 하나를 shape로 보여주고 → "이 이등변삼각형의 선대칭축은 몇 개?"
-  패턴B: 도형 목록을 문제 텍스트에 직접 명시 → "원, 정삼각형, 사다리꼴, 마름모 중 선대칭도형은 몇 개?" (shape:null)
-  ❌ 금지: "다음 중" 이라고만 쓰고 도형 목록 없는 질문 (학생이 뭘 보고 답해야 할지 모름)
+  패턴B: 여러 도형 비교 문제 → shape에 multi 타입 사용 (최대 4개)
+    예) "다음 도형 중 선대칭도형은 몇 개?" + {"type":"multi","dimensions":{"items":["circle","rhombus","isosceles_triangle","square"]},"unit":""}
+  ❌ 금지: "다음 중" 이라고만 쓰고 도형 목록도 shape도 없는 질문
 - 치수: 계산 문제는 dimensions에 수치 포함, 대칭 문제는 dimensions 생략 가능({}도 가능)
 - rectangle:{width,height} / square:{side} / circle:{radius} / equilateral_triangle:{side}
 - isosceles_triangle:{base,side} / right_triangle:{base,height} / parallelogram:{base,height}
 - rhombus:{diagonal1,diagonal2} / trapezoid:{bottomBase,topBase,height} | unit:"cm"
+- multi:{items:["type1","type2","type3","type4"]} (2~4개) — 여러 도형 비교 문제용
 options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2개 | questions ${questionCount}개`;
 
   try {

@@ -196,8 +196,8 @@ const renderers = {
 
   // ── 마름모 ───────────────────────────────────────────────────
   rhombus({ d, u }) {
-    const d1h = 60, d2h = 42;
-    const cx = W/2, cy = H/2;
+    const d1h = 55, d2h = 40;
+    const cx = W/2, cy = H/2 + 5;
     const pts = `${cx},${cy-d2h} ${cx+d1h},${cy} ${cx},${cy+d2h} ${cx-d1h},${cy}`;
     const d1Lbl = d.diagonal1 ? `${d.diagonal1}${u}` : '';
     const d2Lbl = d.diagonal2 ? `${d.diagonal2}${u}` : '';
@@ -208,10 +208,70 @@ const renderers = {
         {(d1Lbl || d2Lbl) && <>
           <line x1={cx-d1h} y1={cy} x2={cx+d1h} y2={cy} stroke="#93c5fd" strokeWidth="1.5" strokeDasharray="3,3" />
           <line x1={cx} y1={cy-d2h} x2={cx} y2={cy+d2h} stroke="#93c5fd" strokeWidth="1.5" strokeDasharray="3,3" />
-          {d1Lbl && <Label x={cx} y={cy+d2h+18} text={`대각선 ${d1Lbl}`} small />}
-          {d2Lbl && <Label x={cx+d1h+6} y={cy+8} text={`대각선 ${d2Lbl}`} anchor="start" small />}
+          {/* 두 레이블 모두 마름모 아래에 나란히 배치 → 잘림 방지 */}
+          {d1Lbl && <Label x={cx - (d2Lbl ? 30 : 0)} y={cy+d2h+16} text={`대각선 ${d1Lbl}`} small />}
+          {d2Lbl && <Label x={cx + (d1Lbl ? 30 : 0)} y={cy+d2h+28} text={`대각선 ${d2Lbl}`} small />}
         </>}
-        {sLbl && <Label x={cx+d1h/2+12} y={cy-d2h/2-4} text={sLbl} anchor="start" />}
+        {sLbl && <Label x={cx+d1h/2+10} y={cy-d2h/2-4} text={sLbl} anchor="start" />}
+      </>
+    );
+  },
+
+  // ── 여러 도형 2×2 그리드 ─────────────────────────────────────
+  multi({ d }) {
+    const items = (d.items || []).slice(0, 4);
+    const KO = {
+      rectangle:'직사각형', square:'정사각형', circle:'원',
+      equilateral_triangle:'정삼각형', isosceles_triangle:'이등변삼각형',
+      right_triangle:'직각삼각형', parallelogram:'평행사변형',
+      rhombus:'마름모', trapezoid:'사다리꼴', semicircle:'반원',
+    };
+    const positions = [
+      { cx: W*0.25, cy: H*0.38 }, { cx: W*0.75, cy: H*0.38 },
+      { cx: W*0.25, cy: H*0.78 }, { cx: W*0.75, cy: H*0.78 },
+    ];
+    const miniShape = (type, cx, cy) => {
+      const s = 32;
+      switch (type) {
+        case 'circle':     return <circle cx={cx} cy={cy} r={s/2} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
+        case 'square':     return <rect x={cx-s/2} y={cy-s/2} width={s} height={s} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
+        case 'rectangle':  return <rect x={cx-s*0.75} y={cy-s*0.4} width={s*1.5} height={s*0.8} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
+        case 'rhombus': {
+          const dh=s*0.65, dv=s*0.45;
+          return <polygon points={`${cx},${cy-dv} ${cx+dh},${cy} ${cx},${cy+dv} ${cx-dh},${cy}`} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
+        }
+        case 'parallelogram': {
+          const off=s*0.2;
+          return <polygon points={`${cx-s*0.6+off},${cy-s*0.35} ${cx+s*0.6+off},${cy-s*0.35} ${cx+s*0.6-off},${cy+s*0.35} ${cx-s*0.6-off},${cy+s*0.35}`} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
+        }
+        case 'trapezoid':  return <polygon points={`${cx-s*0.35},${cy-s*0.35} ${cx+s*0.35},${cy-s*0.35} ${cx+s*0.6},${cy+s*0.35} ${cx-s*0.6},${cy+s*0.35}`} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
+        case 'equilateral_triangle': {
+          const h=s*Math.sqrt(3)/2;
+          return <polygon points={`${cx},${cy-h*0.6} ${cx-s/2},${cy+h*0.4} ${cx+s/2},${cy+h*0.4}`} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
+        }
+        case 'isosceles_triangle': return <polygon points={`${cx},${cy-s*0.55} ${cx-s*0.6},${cy+s*0.45} ${cx+s*0.6},${cy+s*0.45}`} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
+        case 'right_triangle':     return <polygon points={`${cx-s*0.5},${cy+s*0.45} ${cx+s*0.5},${cy+s*0.45} ${cx-s*0.5},${cy-s*0.45}`} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
+        case 'semicircle': return <path d={`M ${cx-s/2} ${cy+5} A ${s/2} ${s/2} 0 0 1 ${cx+s/2} ${cy+5} Z`} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
+        default:           return <rect x={cx-s/2} y={cy-s/2} width={s} height={s} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
+      }
+    };
+    return (
+      <>
+        {/* 구분선 */}
+        <line x1={W/2} y1={8} x2={W/2} y2={H-8} stroke="#e2e8f0" strokeWidth="1" />
+        <line x1={8} y1={H/2} x2={W-8} y2={H/2} stroke="#e2e8f0" strokeWidth="1" />
+        {items.map((type, i) => {
+          const { cx, cy } = positions[i];
+          const name = KO[type] || type;
+          return (
+            <React.Fragment key={i}>
+              {miniShape(type, cx, cy)}
+              <text x={cx} y={cy + 26} textAnchor="middle" fontSize={9} fill="#475569" fontFamily="sans-serif">
+                ({i+1}) {name}
+              </text>
+            </React.Fragment>
+          );
+        })}
       </>
     );
   },
