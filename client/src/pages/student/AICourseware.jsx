@@ -584,14 +584,17 @@ export default function AICourseware({ studentCode }) {
             const p = palettes[idx % palettes.length];
             const lessons = unit.lessons || [];
             const lessonCount = lessons.length;
-            // 단원 숙달도 계산 (5회 완료된 차시들의 masteryAvg 평균)
+            // 단원 도입 제외 카운트 가능한 차시 기준으로 숙달도 계산
             const unitMastery = (() => {
-              const rated = lessons.map(l => allMastery[lessonKey(unit, l)]).filter(m => m?.masteryAvg != null);
-              if (!rated.length) return null;
-              const avg = Math.round(rated.reduce((s, m) => s + m.masteryAvg, 0) / rated.length);
-              return { avg, level: getMasteryLevel(avg), done: rated.length, total: lessonCount };
+              const countable = lessons.filter(l => l.title !== '단원 도입');
+              const rated = countable.map(l => allMastery[lessonKey(unit, l)]).filter(m => m?.masteryAvg != null);
+              const done = rated.length, total = countable.length;
+              const complete = done === total && total > 0;
+              const avg = complete ? Math.round(rated.reduce((s, m) => s + m.masteryAvg, 0) / rated.length) : null;
+              return { done, total, complete, avg, level: avg != null ? getMasteryLevel(avg) : null,
+                started: lessons.filter(l => allMastery[lessonKey(unit, l)]).length };
             })();
-            const mastCfg = unitMastery ? (MASTERY[unitMastery.level] || MASTERY.retry) : null;
+            const mastCfg = unitMastery.complete ? (MASTERY[unitMastery.level] || MASTERY.retry) : null;
             return (
               <button key={unit.id}
                 onClick={() => { setUnit(unit); setStep('lessons'); setLesson(null); setContent(null); }}
@@ -620,23 +623,35 @@ export default function AICourseware({ studentCode }) {
                     {unit.unitName}
                   </div>
 
-                  {/* 단원 숙달도 뱃지 */}
+                  {/* 단원 숙달도 / 완료도 */}
                   {mastCfg ? (
-                    <div className="flex items-center gap-1.5 mt-2">
-                      <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        {mastCfg.emoji} {mastCfg.label}
-                      </span>
-                      <span className="text-white/60 text-[10px]">{unitMastery.avg}점 ({unitMastery.done}/{unitMastery.total}차시)</span>
+                    // 모든 차시 완료 → 숙달도 표시
+                    <div className="mt-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="bg-white/25 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                          {mastCfg.emoji} {mastCfg.label}
+                        </span>
+                        <span className="text-white/70 text-[10px] font-bold">{unitMastery.avg}점</span>
+                      </div>
+                      <div className="text-white/40 text-[9px] mt-0.5">{unitMastery.total}개 차시 완료</div>
+                    </div>
+                  ) : unitMastery.done > 0 ? (
+                    // 일부 완료 → 진행바 + 안내 메시지
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-white/70 text-[10px] font-bold">{unitMastery.done}/{unitMastery.total}차시 완료</span>
+                        <span className="text-white/40 text-[9px]">{unitMastery.total - unitMastery.done}개 남음</span>
+                      </div>
+                      <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                        <div className="h-full bg-white/70 rounded-full transition-all"
+                          style={{ width: `${Math.round((unitMastery.done / unitMastery.total) * 100)}%` }} />
+                      </div>
+                      <div className="text-white/40 text-[9px] mt-0.5">
+                        {unitMastery.total - unitMastery.done}개 차시 더 완료하면 숙달도 표시
+                      </div>
                     </div>
                   ) : (
-                    <div className="mt-2">
-                      {(() => {
-                        const started = lessons.filter(l => allMastery[lessonKey(unit, l)]).length;
-                        return started > 0
-                          ? <span className="text-white/60 text-[10px]">{started}/{lessonCount}차시 학습중</span>
-                          : <span className="text-white/40 text-[10px]">미시작</span>;
-                      })()}
-                    </div>
+                    <div className="mt-2"><span className="text-white/30 text-[10px]">미시작</span></div>
                   )}
 
                   {/* 하단 정보 */}
@@ -678,12 +693,14 @@ export default function AICourseware({ studentCode }) {
                     const p = palettes[idx % palettes.length];
                     const uLessons = unit.lessons || [];
                     const unitMastery2 = (() => {
-                      const rated = uLessons.map(l => allMastery[lessonKey(unit, l)]).filter(m => m?.masteryAvg != null);
-                      if (!rated.length) return null;
-                      const avg = Math.round(rated.reduce((s, m) => s + m.masteryAvg, 0) / rated.length);
-                      return { avg, level: getMasteryLevel(avg), done: rated.length, total: uLessons.length };
+                      const countable = uLessons.filter(l => l.title !== '단원 도입');
+                      const rated = countable.map(l => allMastery[lessonKey(unit, l)]).filter(m => m?.masteryAvg != null);
+                      const done = rated.length, total = countable.length;
+                      const complete = done === total && total > 0;
+                      const avg = complete ? Math.round(rated.reduce((s, m) => s + m.masteryAvg, 0) / rated.length) : null;
+                      return { done, total, complete, avg, level: avg != null ? getMasteryLevel(avg) : null };
                     })();
-                    const mCfg2 = unitMastery2 ? (MASTERY[unitMastery2.level] || MASTERY.retry) : null;
+                    const mCfg2 = unitMastery2.complete ? (MASTERY[unitMastery2.level] || MASTERY.retry) : null;
                     return (
                       <button key={unit.id}
                         onClick={() => { setUnit(unit); setStep('lessons'); setLesson(null); setContent(null); }}
@@ -699,15 +716,23 @@ export default function AICourseware({ studentCode }) {
                           </div>
                           <div className="text-white font-extrabold text-sm leading-snug">{unit.unitName}</div>
                           {mCfg2 ? (
-                            <div className="text-white/80 text-[10px] mt-1 font-bold">
-                              {mCfg2.emoji} {mCfg2.label} · {unitMastery2.avg}점
+                            <div className="mt-1">
+                              <div className="text-white/90 text-[10px] font-extrabold">{mCfg2.emoji} {mCfg2.label} · {unitMastery2.avg}점</div>
+                              <div className="text-white/40 text-[9px]">{unitMastery2.total}개 차시 완료</div>
+                            </div>
+                          ) : unitMastery2.done > 0 ? (
+                            <div className="mt-1">
+                              <div className="flex justify-between mb-0.5">
+                                <span className="text-white/70 text-[9px] font-bold">{unitMastery2.done}/{unitMastery2.total}차시</span>
+                                <span className="text-white/40 text-[9px]">{unitMastery2.total - unitMastery2.done}개 남음</span>
+                              </div>
+                              <div className="h-0.5 bg-white/20 rounded-full overflow-hidden">
+                                <div className="h-full bg-white/60 rounded-full"
+                                  style={{ width: `${Math.round((unitMastery2.done / unitMastery2.total) * 100)}%` }} />
+                              </div>
                             </div>
                           ) : (
-                            <div className="text-white/40 text-[10px] mt-1">
-                              {uLessons.filter(l => allMastery[lessonKey(unit, l)]).length > 0
-                                ? `${uLessons.filter(l => allMastery[lessonKey(unit, l)]).length}/${uLessons.length}차시 학습중`
-                                : '미시작'}
-                            </div>
+                            <div className="text-white/30 text-[9px] mt-1">미시작</div>
                           )}
                           <div className="text-white/50 text-[10px] mt-1 flex justify-between">
                             <span>{filterGrade}학년 {sem}학기</span>

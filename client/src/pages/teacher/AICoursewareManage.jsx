@@ -158,26 +158,38 @@ export default function AICoursewareManage({ selectedClass }) {
   // ── 단원별 현황 렌더 ──────────────────────────────────────────
   const filteredUnits = units.filter(u => unitSem === 'all' || String(u.semester || '') === unitSem);
 
-  // 단원에서 숙달도 판정 완료(5회) 학생 수 계산
+  // 단원 학급 통계: 모든 차시(도입 제외) 완료한 학생 기준으로만 숙달도 표시
   const getUnitClassStats = (unit) => {
-    const lessons = unit.lessons || [];
-    let ratedCount = 0, ratedStudents = new Set();
-    lessons.forEach(l => {
-      const lk = lessonKey(unit, l);
-      const lm = allMastery[lk] || {};
-      Object.entries(lm).forEach(([sc, m]) => {
-        if (m.masteryAvg != null) ratedStudents.add(sc);
-      });
-      ratedCount++;
+    const countable = (unit.lessons || []).filter(l => l.title !== '단원 도입');
+    if (!countable.length) return { completedStudents: 0, totalStudents: students.length, classAvg: null, progressPct: 0, needed: 0 };
+
+    // 학생별 완료 차시 수 집계
+    let completedStudents = 0;
+    const completedAvgs = [];
+    let totalRated = 0;
+
+    students.forEach(stu => {
+      const rated = countable.filter(l => (allMastery[lessonKey(unit, l)] || {})[stu.studentCode]?.masteryAvg != null);
+      totalRated += rated.length;
+      if (rated.length === countable.length) {
+        // 이 학생은 단원 전 차시 완료
+        completedStudents++;
+        const avg = Math.round(rated.reduce((s, l) => {
+          const m = (allMastery[lessonKey(unit, l)] || {})[stu.studentCode];
+          return s + m.masteryAvg;
+        }, 0) / rated.length);
+        completedAvgs.push(avg);
+      }
     });
-    const avgs = [];
-    Object.values(allMastery).forEach(lm => {
-      Object.entries(lm).forEach(([sc, m]) => {
-        if (m.unitId === unit.id && m.masteryAvg != null) avgs.push(m.masteryAvg);
-      });
-    });
-    const classAvg = avgs.length ? Math.round(avgs.reduce((a, b) => a + b, 0) / avgs.length) : null;
-    return { ratedStudents: ratedStudents.size, classAvg };
+
+    const classAvg = completedAvgs.length ? Math.round(completedAvgs.reduce((a, b) => a + b, 0) / completedAvgs.length) : null;
+    const progressPct = students.length ? Math.round((totalRated / (countable.length * students.length)) * 100) : 0;
+
+    return {
+      completedStudents, totalStudents: students.length,
+      classAvg, progressPct,
+      needed: countable.length,
+    };
   };
 
   // 차시 숙달도 분포
@@ -268,9 +280,8 @@ export default function AICoursewareManage({ selectedClass }) {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredUnits.map(unit => {
-                      const { ratedStudents, classAvg } = getUnitClassStats(unit);
-                      const level = classAvg != null ? getMasteryLevel(classAvg) : null;
-                      const cfg = level ? MASTERY[level] : null;
+                      const stats = getUnitClassStats(unit);
+                      const mastCfg = stats.classAvg != null ? (MASTERY[getMasteryLevel(stats.classAvg)] || MASTERY.retry) : null;
                       return (
                         <button key={unit.id}
                           onClick={() => { setSelectedUnit(unit); setExpandedLesson(null); }}
@@ -282,17 +293,32 @@ export default function AICoursewareManage({ selectedClass }) {
                             </span>
                           </div>
                           <div className="font-extrabold text-slate-800 text-sm mb-2 leading-snug">{unit.unitName}</div>
-                          {cfg ? (
-                            <div className="flex items-center gap-2">
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${cfg.bg}`}>
-                                {cfg.emoji} {cfg.label}
+
+                          {/* 진행률 바 */}
+                          <div className="mb-2">
+                            <div className="flex justify-between mb-1">
+                              <span className="text-[10px] text-slate-500">{stats.progressPct}% 진행</span>
+                              <span className="text-[10px] text-slate-400">완료 {stats.completedStudents}/{stats.totalStudents}명</span>
+                            </div>
+                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full transition-all ${stats.completedStudents > 0 ? 'bg-indigo-500' : 'bg-slate-300'}`}
+                                style={{ width: `${stats.progressPct}%` }} />
+                            </div>
+                          </div>
+
+                          {mastCfg ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${mastCfg.bg}`}>
+                                {mastCfg.emoji} {mastCfg.label}
                               </span>
-                              <span className="text-[10px] text-slate-400">평균 {classAvg}점</span>
-                              <span className="text-[10px] text-slate-400">{ratedStudents}명 평가</span>
+                              <span className="text-[10px] text-slate-500 font-bold">{stats.classAvg}점</span>
+                              <span className="text-[10px] text-slate-400">완료 {stats.completedStudents}명 기준</span>
                             </div>
                           ) : (
                             <div className="text-[10px] text-slate-400">
-                              {ratedStudents > 0 ? `${ratedStudents}명 학습중` : '아직 학습 기록 없음'}
+                              {stats.progressPct > 0
+                                ? `${stats.needed}개 차시 모두 완료한 학생 없음`
+                                : `${stats.needed}개 차시 완료 시 숙달도 표시`}
                             </div>
                           )}
                         </button>
