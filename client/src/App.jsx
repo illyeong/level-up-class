@@ -33,26 +33,37 @@ import AICourseware  from './pages/student/AICourseware.jsx';
 import SpriteMonster from './components/SpriteMonster';
 import { MONSTERS_DB } from './data/monsterData';
 
-// ── 전역 걷는 펫 (학생 모드 전 페이지 표시) ──────────────────
+// ── 전역 걷는 펫 (우측 하단 영역) ───────────────────────────
 function WalkingPet({ monsterData }) {
   const wrapRef = useRef(null);
-  const posRef  = useRef({ x: window.innerWidth * 0.3, goRight: true });
   const rafRef  = useRef(null);
+  // 우측 30% 영역에서만 왕복
+  const getRange = () => {
+    const PET_W = Math.round((monsterData?.frameWidth || 80) * (monsterData?.scale || 0.5) * 2);
+    const minX = Math.floor(window.innerWidth * 0.60);
+    const maxX = window.innerWidth - PET_W - 16;
+    return { minX, maxX };
+  };
+  const posRef = useRef({ x: getRange().minX, goRight: true });
 
   useEffect(() => {
     if (!monsterData) return;
     const SPEED = 1.4;
-    const PET_W = Math.round((monsterData.frameWidth || 80) * monsterData.scale * 2);
+    // 스프라이트 자체 방향: flip=true면 기본이 왼쪽 방향
+    const naturalRight = !monsterData.flip;
 
     const loop = () => {
       const p = posRef.current;
       p.x += p.goRight ? SPEED : -SPEED;
-      const maxX = window.innerWidth - PET_W - 16;
+      const { minX, maxX } = getRange();
       if (p.x >= maxX) { p.x = maxX; p.goRight = false; }
-      if (p.x <= 16)   { p.x = 16;   p.goRight = true;  }
+      if (p.x <= minX) { p.x = minX; p.goRight = true;  }
+
       if (wrapRef.current) {
-        wrapRef.current.style.left      = p.x + 'px';
-        wrapRef.current.style.transform = `scaleX(${p.goRight ? 1 : -1})`;
+        wrapRef.current.style.left = p.x + 'px';
+        // 이동 방향과 스프라이트 방향 일치시켜 문워크 방지
+        const shouldFlip = p.goRight !== naturalRight;
+        wrapRef.current.style.transform = `scaleX(${shouldFlip ? -1 : 1})`;
       }
       rafRef.current = requestAnimationFrame(loop);
     };
