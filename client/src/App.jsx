@@ -34,9 +34,11 @@ import SpriteMonster from './components/SpriteMonster';
 import { MONSTERS_DB } from './data/monsterData';
 
 // ── 전역 걷는 펫 (우측 하단 영역) ───────────────────────────
-function WalkingPet({ monsterData }) {
-  const wrapRef = useRef(null);
-  const rafRef  = useRef(null);
+function WalkingPet({ monsterData, isDead }) {
+  const wrapRef  = useRef(null);
+  const rafRef   = useRef(null);
+  const animRef  = useRef('run'); // 현재 애니: run | idle
+  const timerRef = useRef(null);
 
   const getRange = () => {
     const PET_W = Math.round((monsterData?.frameWidth || 80) * (monsterData?.scale || 0.5) * 2);
@@ -76,7 +78,29 @@ function WalkingPet({ monsterData }) {
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [monsterData]);
+  }, [monsterData, isDead]);
+
+  // ── run↔idle 불규칙 전환 (death가 아닐 때) ───────────────────
+  const [anim, setAnim] = useState('run');
+  useEffect(() => {
+    if (isDead) { setAnim('death'); return; }
+    const schedule = () => {
+      const isRunning = animRef.current === 'run';
+      const delay = isRunning
+        ? 3000 + Math.random() * 4000   // 3~7초 run 후 idle
+        : 1500 + Math.random() * 2500;  // 1.5~4초 idle 후 run
+      timerRef.current = setTimeout(() => {
+        const next = isRunning ? 'idle' : 'run';
+        animRef.current = next;
+        setAnim(next);
+        schedule();
+      }, delay);
+    };
+    animRef.current = 'run';
+    setAnim('run');
+    schedule();
+    return () => clearTimeout(timerRef.current);
+  }, [monsterData, isDead]);
 
   if (!monsterData) return null;
   return (
@@ -84,10 +108,11 @@ function WalkingPet({ monsterData }) {
       position: 'fixed', bottom: 2, zIndex: 20,
       pointerEvents: 'none',
       transformOrigin: 'center bottom',
-      willChange: 'transform, left',   /* GPU 레이어 고정 → 깜빡임 방지 */
+      willChange: 'transform, left',
       imageRendering: 'pixelated',
+      opacity: isDead ? 0.4 : 1,
     }}>
-      <SpriteMonster data={monsterData} anim="run" scale={monsterData.scale * 2} />
+      <SpriteMonster data={monsterData} anim={anim} scale={monsterData.scale * 2} />
     </div>
   );
 }
@@ -121,6 +146,7 @@ function App() {
   const [selectedClass,  setSelectedClass]  = useState(null);
   const [studentInfo,    setStudentInfo]    = useState(null);
   const [activePetMonster, setActivePetMonster] = useState(null);
+  const [activePetHunger,  setActivePetHunger]  = useState(100);
   const [petVisible, setPetVisible] = useState(true);
   const [currentView,    setCurrentView]    = useState('dashboard');
   const [testStudentCode, setTestStudentCode] = useState(null);
@@ -421,9 +447,11 @@ function App() {
       try {
         const petSnap = await getDoc(doc(db, 'studentPets', pid));
         if (petSnap.exists()) {
-          const md = MONSTERS_DB[petSnap.data().monsterId];
+          const petData = petSnap.data();
+          const md = MONSTERS_DB[petData.monsterId];
           setActivePetMonster(md || null);
-        } else { setActivePetMonster(null); }
+          setActivePetHunger(petData.hunger ?? 100);
+        } else { setActivePetMonster(null); setActivePetHunger(100); }
       } catch { setActivePetMonster(null); }
     });
     return () => unsub();
@@ -537,7 +565,7 @@ function App() {
   return (
     <div className={`flex h-screen relative ${themeMode === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
       {/* 전역 걷는 펫 */}
-      {activePetMonster && petVisible && <WalkingPet monsterData={activePetMonster} />}
+      {activePetMonster && petVisible && <WalkingPet monsterData={activePetMonster} isDead={activePetHunger <= 0} />}
       {/* 펫 토글 버튼 */}
       {activePetMonster && (
         <button

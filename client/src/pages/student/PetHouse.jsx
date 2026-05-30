@@ -507,7 +507,7 @@ export default function PetHouse({ studentCode }) {
         if (lastFed >= today) return pet; // 오늘 이미 처리
         const daysPassed = Math.max(0, Math.floor((Date.now() - new Date(lastFed).getTime()) / 86400000));
         if (daysPassed === 0) return pet;
-        const newHunger = Math.max(0, (pet.hunger ?? 100) - daysPassed * 10);
+        const newHunger = Math.max(0, (pet.hunger ?? 100) - daysPassed * 34); // 3일 방치 시 0
         if (newHunger !== (pet.hunger ?? 100)) {
           await updateDoc(doc(db, 'studentPets', pet.id), { hunger: newHunger, lastFedAt: serverTimestamp() });
           return { ...pet, hunger: newHunger };
@@ -541,16 +541,10 @@ export default function PetHouse({ studentCode }) {
   // 먹이주기 (하루 1회, 300G, 배고픔 +50)
   const FEED_COST    = 300;
   const FEED_RESTORE = 50;
-  const todayStr = new Date().toISOString().slice(0, 10);
-
-  const canFeedToday = (pet) => {
-    const lastFedDate = pet.lastFedAt?.toDate?.()?.toISOString?.()?.slice(0, 10) || '';
-    return lastFedDate !== todayStr;
-  };
 
   const feedPet = async (pet) => {
-    if (!canFeedToday(pet)) {
-      showToast('오늘은 이미 먹이를 줬습니다! 내일 다시 주세요.', 'error'); return;
+    if ((pet.hunger ?? 100) >= 100) {
+      showToast('이미 배가 부릅니다! 🐾', 'error'); return;
     }
     if ((student?.gold || 0) < FEED_COST) {
       showToast(`골드 부족! 필요: ${FEED_COST}G`, 'error'); return;
@@ -931,30 +925,29 @@ export default function PetHouse({ studentCode }) {
                       {/* 배고픔 + 먹이주기 */}
                       {(() => {
                         const hunger   = sp.hunger ?? 100;
-                        const fedToday = !canFeedToday(sp);
-                        const hColor   = hunger >= 70 ? 'bg-emerald-400' : hunger >= 40 ? 'bg-amber-400' : 'bg-rose-500';
-                        const hLabel   = hunger >= 70 ? '든든함 😊' : hunger >= 40 ? '배고픔 😐' : '매우 배고픔 😢';
+                        const full = hunger >= 100;
+                        const hColor = hunger >= 70 ? 'bg-emerald-400' : hunger >= 40 ? 'bg-amber-400' : 'bg-rose-500';
+                        const hLabel = hunger >= 70 ? '든든함 😊' : hunger >= 40 ? '배고픔 😐' : hunger > 0 ? '매우 배고픔 😢' : '굶주림 💀';
+                        const noGold = (student?.gold || 0) < FEED_COST;
                         return (
                           <div className="w-full mt-3 border-t border-slate-700 pt-3">
                             <div className="flex items-center justify-between mb-1.5">
                               <span className="text-xs text-slate-300 font-extrabold">🍖 배고픔</span>
-                              <span className={`text-xs font-bold ${hunger < 40 ? 'text-rose-400' : hunger < 70 ? 'text-amber-400' : 'text-emerald-400'}`}>{hLabel}</span>
+                              <span className={`text-xs font-bold ${hunger <= 0 ? 'text-rose-500 animate-pulse' : hunger < 40 ? 'text-amber-400' : 'text-emerald-400'}`}>{hLabel} {hunger}/100</span>
                             </div>
                             <div className="h-3 bg-slate-700 rounded-full overflow-hidden mb-3">
                               <div className={`h-full rounded-full transition-all ${hColor}`} style={{ width: `${hunger}%` }} />
                             </div>
                             <button
                               onClick={() => feedPet(sp)}
-                              disabled={fedToday || (student?.gold || 0) < FEED_COST}
+                              disabled={full || noGold}
                               className={`w-full py-3 rounded-xl font-extrabold text-sm transition-all
-                                ${fedToday
+                                ${full || noGold
                                   ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                  : (student?.gold || 0) < FEED_COST
-                                    ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                    : 'bg-amber-500 hover:bg-amber-400 text-white shadow-lg'}`}>
-                              {fedToday ? '✅ 오늘 먹이 완료' : `🍖 먹이주기 (${FEED_COST.toLocaleString()}G)`}
+                                  : 'bg-amber-500 hover:bg-amber-400 text-white shadow-lg'}`}>
+                              {full ? '😊 배가 불러요!' : noGold ? `💰 골드 부족 (${FEED_COST}G 필요)` : `🍖 먹이주기 (${FEED_COST.toLocaleString()}G)`}
                             </button>
-                            {fedToday && <p className="text-[10px] text-slate-500 text-center mt-1">내일 다시 먹이를 줄 수 있습니다</p>}
+                            <p className="text-[10px] text-slate-500 text-center mt-1">3일 방치 시 허기 0 · 매일 먹이면 든든</p>
                           </div>
                         );
                       })()}
