@@ -870,10 +870,10 @@ export default function PetHouse({ studentCode }) {
           );
 
           return (
-            <div className="flex gap-4" style={{ minHeight: 580 }}>
+            <div className="flex gap-4" style={{ minHeight: 720 }}>
 
               {/* ── 왼쪽: 상세 패널 (고정 너비) ──────────────────── */}
-              <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl p-4 flex flex-col items-center overflow-y-auto" style={{ width: 260, maxHeight: 580 }}>
+              <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl p-4 flex flex-col items-center overflow-y-auto" style={{ width: 260, maxHeight: 720 }}>
                 {sp && spMd ? (() => {
                   const r = RARITY[sp.rarity] || RARITY.common;
                   const isMythic = sp.rarity === 'mythic';
@@ -888,12 +888,21 @@ export default function PetHouse({ studentCode }) {
                           ★ 대표 펫
                         </span>
                       )}
-                      {/* 대형 스프라이트 */}
-                      <div className="flex justify-center items-end mb-3 cursor-pointer"
-                        style={{ height: dh + 10, filter: isMythic ? 'drop-shadow(0 0 12px #f43f5e)' : `drop-shadow(0 0 8px ${RARITY_THEME[sp.rarity]?.glow || '#60a5fa'})` }}
-                        onClick={() => setDetailAnim(a => a === 'idle' ? 'attack' : 'idle')}>
-                        <SpriteMonster data={spMd} anim={detailAnim} scale={dScale} onAnimEnd={() => setDetailAnim('idle')} />
-                      </div>
+                      {/* 대형 스프라이트 — 허기 0이면 death 애니메이션 */}
+                      {(() => {
+                        const isDead = (sp.hunger ?? 100) <= 0;
+                        const currentAnim = isDead ? 'death' : detailAnim;
+                        return (
+                          <div className="flex justify-center items-end mb-3 cursor-pointer"
+                            style={{ height: dh + 10, filter: isMythic ? 'drop-shadow(0 0 12px #f43f5e)' : `drop-shadow(0 0 8px ${RARITY_THEME[sp.rarity]?.glow || '#60a5fa'})`, opacity: isDead ? 0.5 : 1 }}
+                            onClick={() => !isDead && setDetailAnim(a => a === 'idle' ? 'attack' : 'idle')}>
+                            <SpriteMonster data={spMd} anim={currentAnim} scale={dScale} onAnimEnd={() => !isDead && setDetailAnim('idle')} />
+                          </div>
+                        );
+                      })()}
+                      {(sp.hunger ?? 100) <= 0 && (
+                        <div className="text-rose-400 text-xs font-bold text-center mb-1 animate-pulse">💀 굶주림... 먹이를 주세요!</div>
+                      )}
                       {/* 이름 + 등급 */}
                       <p className="text-white font-extrabold text-lg mb-0.5">{sp.nickname || spMd.name}</p>
                       <p className={`text-xs font-bold ${r.text} mb-3`}>{r.badge} {r.label}</p>
@@ -958,7 +967,7 @@ export default function PetHouse({ studentCode }) {
               </div>
 
               {/* ── 오른쪽: 3열 그리드 목록 ─────────────────────── */}
-              <div className="flex-1 overflow-y-auto" style={{ maxHeight: 580 }}>
+              <div className="flex-1 overflow-y-auto" style={{ maxHeight: 720 }}>
                 <div className="grid grid-cols-3 gap-2">
                   {pets.map(pet => {
                     const md    = MONSTERS_DB[pet.monsterId];

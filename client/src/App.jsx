@@ -84,7 +84,10 @@ function WalkingPet({ monsterData }) {
   return (
     <div ref={wrapRef} style={{
       position: 'fixed', bottom: 2, zIndex: 20,
-      pointerEvents: 'none', transformOrigin: 'center bottom',
+      pointerEvents: 'none',
+      transformOrigin: 'center bottom',
+      willChange: 'transform, left',   /* GPU 레이어 고정 → 깜빡임 방지 */
+      imageRendering: 'pixelated',
     }}>
       <SpriteMonster data={monsterData} anim="run" scale={monsterData.scale * 2} />
     </div>
