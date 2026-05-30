@@ -593,7 +593,7 @@ export default function LearningBoard({ studentCode }) {
                       <span>📭</span> 게시물이 없습니다.
                     </div>
                   ) : pagePosts.map(post => (
-                    <div key={post.id} style={{ width: 200, flexShrink: 0 }}>
+                    <div key={post.id} style={{ width: page.size || 200, flexShrink: 0 }}>
                       <PostCard {...postCardProps(post)} />
                     </div>
                   ))}
@@ -632,11 +632,12 @@ export default function LearningBoard({ studentCode }) {
       return (
         <div style={{ ...wrap, overflowX: 'auto', padding: '1.25rem' }}>
           <div className="flex gap-4 items-start pb-4"
-            style={{ minWidth: `${Math.max(cols.length, 1) * 268}px` }}>
+            style={{ minWidth: `${cols.reduce((s, c) => s + (c.size || 252) + 16, 0)}px` }}>
             {cols.map(col => {
               const gc = GROUP_COLORS[col.colorIdx % GROUP_COLORS.length];
+              const colW = col.size || 252;
               return (
-                <div key={col.id} style={{ width: 252, flexShrink: 0 }}
+                <div key={col.id} style={{ width: colW, flexShrink: 0 }}
                   className={`rounded-2xl border-2 ${gc.border} ${gc.bg} overflow-hidden shadow-sm flex flex-col`}>
                   <div className={`${gc.header} px-4 py-3 flex items-center gap-2 shrink-0`}>
                     <span className={`font-extrabold text-sm ${gc.text} flex-1 truncate`}>{col.title}</span>
@@ -743,15 +744,6 @@ export default function LearningBoard({ studentCode }) {
                   }`}
                 >
                   {sheet.title}
-                </button>
-              ))}
-            </div>
-            {/* 정렬 */}
-            <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-white text-xs w-fit">
-              {[['newest','최신'],['oldest','오래된'],['popular','인기']].map(([val, label]) => (
-                <button key={val} onClick={() => setSort(val)}
-                  className={`px-3 py-1.5 font-bold transition-colors ${sort === val ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                  {label}
                 </button>
               ))}
             </div>
