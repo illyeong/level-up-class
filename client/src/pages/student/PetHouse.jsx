@@ -358,7 +358,7 @@ function HatchAnim({ egg, rarity, eggFrameImg, onDone }) {
       {stage < 5 && (
         <div className="relative z-10 select-none" style={{ ...eggStyle, width: 140, height: 140 }}>
           <img
-            src={egg.img} {/* 애니 전체에서 구매한 알만 표시 - 결과는 result 화면에서만 */}
+            src={egg.img}
             alt={egg.name}
             className="w-full h-full object-contain" draggable={false} />
           {/* 균열 이모지 오버레이 */}

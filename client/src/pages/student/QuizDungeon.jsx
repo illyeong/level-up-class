@@ -1473,10 +1473,17 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
         const REQUIRED_CLEARS_MAP = { common:10, rare:20, epic:30, legendary:40, mythic:50 };
         const edt = EGG_DROP[accuracy === 100 ? 'perfect' : accuracy >= 90 ? 'high' : accuracy >= 75 ? 'mid' : accuracy >= 60 ? 'low' : null];
         if (edt && Math.random() < edt.chance) {
+          // 등급에 맞는 512x512 프레임 이미지 선택
+          const EGG_FRAME_CFG = { common:{path:'Egg_Common',total:20}, rare:{path:'Egg_Rare',total:30}, epic:{path:'Egg_Epic',total:16}, legendary:{path:'Egg_Legendary',total:30}, mythic:{path:'Egg_Mythic',total:30} };
+          const fCfg = EGG_FRAME_CFG[edt.type] || EGG_FRAME_CFG.common;
+          const fMax = Math.max(1, Math.floor(fCfg.total * 0.5));
+          const fNum = 1 + Math.floor(Math.random() * fMax);
+          const frameImg = `/images/Eggs/${fCfg.path}/512x512/${encodeURIComponent(`Egg ${fNum}.png`)}`;
           await addDoc(collection(db, 'studentEggs'), {
             studentCode: studentData.studentCode,
             teacherUid: studentData.teacherUid || '',
             eggType: edt.type,
+            frameImg,
             currentClears: 0,
             requiredClears: REQUIRED_CLEARS_MAP[edt.type],
             isIncubating: false,
