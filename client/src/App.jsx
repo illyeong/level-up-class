@@ -64,11 +64,11 @@ function WalkingPet({ monsterData }) {
 
       if (wrapRef.current) {
         wrapRef.current.style.left = p.x + 'px';
-        // isBoss=false, goRight=true  → -1 (LEFT→RIGHT 반전)
-        // isBoss=false, goRight=false → 1  (LEFT 그대로)
-        // isBoss=true,  goRight=true  → 1  (RIGHT 그대로)
-        // isBoss=true,  goRight=false → -1 (RIGHT→LEFT 반전)
-        const sx = (isBoss !== p.goRight) ? -1 : 1;
+        // isBoss=false, goRight=true  → 1  (그대로)
+        // isBoss=false, goRight=false → -1 (반전)
+        // isBoss=true,  goRight=true  → -1 (반전)
+        // isBoss=true,  goRight=false → 1  (그대로)
+        const sx = (isBoss !== p.goRight) ? 1 : -1;
         if (sx !== lastSx) {
           wrapRef.current.style.transform = `scaleX(${sx})`;
           lastSx = sx;
