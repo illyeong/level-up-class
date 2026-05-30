@@ -274,10 +274,11 @@ function ParticleBurst({ color, count = 48, cx = '50%', cy = '50%' }) {
 }
 
 // ── 부화 애니메이션 (개선판) ─────────────────────────────────
-function HatchAnim({ egg, rarity, onDone }) {
-  // stage 0→1→2→3→4→5
-  // 0: 대기   1: 약한 흔들기(0-1.2s)  2: 강한 흔들기(1.2-2.8s)
-  // 3: 균열(2.8-3.4s)  4: 폭발(3.4-4.0s)  5: 등장(4.0s+, onDone 1.5s후)
+// eggFrameImg: 랜덤 선택된 512x512 프레임 이미지
+function HatchAnim({ egg, rarity, eggFrameImg, onDone }) {
+  // stage 0→1→2→3→4→5  (전체 ~8초)
+  // 0: 대기  1: 약한 흔들기(2s)  2: 강한 흔들기(2s)
+  // 3: 균열(1s)  4: 폭발(1s)  5: 등장(onDone 2s후)
   const [stage, setStage] = useState(0);
   const [tick, setTick]   = useState(0);
   const [flash, setFlash] = useState(false);
@@ -286,14 +287,14 @@ function HatchAnim({ egg, rarity, onDone }) {
   useEffect(() => {
     const T = [
       setTimeout(() => setStage(1), 100),
-      setTimeout(() => setStage(2), 1200),
-      setTimeout(() => setStage(3), 2800),
+      setTimeout(() => setStage(2), 2100),  // 약한 흔들기 2s
+      setTimeout(() => setStage(3), 4100),  // 강한 흔들기 2s
       setTimeout(() => {
         setStage(4);
         setFlash(true);
-        setTimeout(() => setFlash(false), 400);
-      }, 3400),
-      setTimeout(() => { setStage(5); setTimeout(onDone, 1600); }, 4000),
+        setTimeout(() => setFlash(false), 600);
+      }, 5200),                              // 균열 1.1s
+      setTimeout(() => { setStage(5); setTimeout(onDone, 2200); }, 6300), // 폭발 1.1s
     ];
     return () => T.forEach(clearTimeout);
   }, []);
@@ -347,11 +348,11 @@ function HatchAnim({ egg, rarity, onDone }) {
           : <span className="animate-pulse">{msgs[stage]}</span>}
       </p>
 
-      {/* 알 — 결과 등급 이미지 사용 (stage 2부터 결과 알로 교체) */}
+      {/* 알 — stage 2부터 랜덤 선택된 결과 등급 알 이미지 */}
       {stage < 5 && (
-        <div className="relative z-10 select-none" style={{ ...eggStyle, width: 120, height: 120 }}>
+        <div className="relative z-10 select-none" style={{ ...eggStyle, width: 140, height: 140 }}>
           <img
-            src={stage >= 2 && RARITY_EGG_IMG[rarity] ? RARITY_EGG_IMG[rarity] : egg.img}
+            src={stage >= 2 ? (eggFrameImg || RARITY_EGG_IMG[rarity] || egg.img) : egg.img}
             alt={egg.name}
             className="w-full h-full object-contain" draggable={false} />
           {/* 균열 이모지 오버레이 */}
@@ -577,8 +578,14 @@ export default function PetHouse({ studentCode }) {
     // 1. 결과 등급 결정 (동기)
     const rarity = rollRarity(selectedEgg);
 
+    // 랜덤 프레임 이미지 선택 (등급별 512x512 폴더에서)
+    const cfg = EGG_FRAMES[rarity] || EGG_FRAMES.common;
+    const safeMax = Math.max(1, Math.floor(cfg.total * 0.5)); // 앞쪽 50% 프레임 (알이 온전한 단계)
+    const randFrame = 1 + Math.floor(Math.random() * safeMax);
+    const eggFrameImg = `/images/Eggs/${cfg.path}/512x512/Egg ${randFrame}.png`;
+
     // 2. 애니메이션 시작
-    setGachaResult({ rarity, eggId: null });
+    setGachaResult({ rarity, eggId: null, eggFrameImg });
     setHatchDone(false);
     setGachaPhase('hatching');
 
@@ -688,6 +695,7 @@ export default function PetHouse({ studentCode }) {
             <HatchAnim
               egg={selectedEgg}
               rarity={gachaResult?.rarity || 'common'}
+              eggFrameImg={gachaResult?.eggFrameImg}
               onDone={() => setHatchDone(true)}
             />
           )}
@@ -897,6 +905,18 @@ export default function PetHouse({ studentCode }) {
           return (
             <div className="space-y-4">
               {/* 인큐베이터 슬롯 */}
+              <>
+              <style>{`
+                @keyframes eggWobble {
+                  0%,100%{transform:rotate(0deg) scale(1)}
+                  15%{transform:rotate(-10deg) scale(1.06)}
+                  30%{transform:rotate(10deg) scale(0.97)}
+                  50%{transform:rotate(-7deg) scale(1.04)}
+                  70%{transform:rotate(7deg) scale(0.98)}
+                  85%{transform:rotate(-4deg) scale(1.02)}
+                }
+                .egg-wobble { animation: eggWobble 1.6s ease-in-out infinite; }
+              `}</style>
               <div className="bg-slate-800/60 border border-slate-600 rounded-2xl p-4">
                 <p className="text-white font-extrabold text-sm mb-3">🔮 인큐베이터 슬롯 (1/1)</p>
                 {incubating ? (() => {
@@ -908,7 +928,7 @@ export default function PetHouse({ studentCode }) {
                   const gImg = `/images/Eggs/Egg_${incubating.eggType.charAt(0).toUpperCase() + incubating.eggType.slice(1)}_Gacha.png`;
                   return (
                     <div className="flex items-center gap-4">
-                      <img src={gImg} alt="" className="w-16 h-16 object-contain shrink-0" />
+                      <img src={gImg} alt="" className={`w-16 h-16 object-contain shrink-0 ${ready ? 'animate-bounce' : 'egg-wobble'}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-white font-bold text-sm">{r.badge} {r.label} 알 부화 중</p>
                         <div className="flex items-center gap-2 mt-1 mb-1">
@@ -939,6 +959,7 @@ export default function PetHouse({ studentCode }) {
                   </div>
                 )}
               </div>
+              </>
 
               {/* 알 인벤토리 */}
               <div>
