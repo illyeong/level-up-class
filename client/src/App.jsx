@@ -49,10 +49,13 @@ function WalkingPet({ monsterData }) {
   useEffect(() => {
     if (!monsterData) return;
     const SPEED = 0.45;
-    // 보스 티어는 스프라이트 방향이 일반 몬스터와 반대 → flip 논리 반전
+    // 일반 몬스터: sprite가 기본 LEFT방향 → goRight 시 flip 필요 → effectiveFlip = !flip
+    // 보스 몬스터: sprite가 기본 RIGHT방향 → goRight 시 flip 불필요 → effectiveFlip = flip
     const effectiveFlip = monsterData.tier === 'boss'
-      ? !monsterData.flip
-      : monsterData.flip;
+      ? monsterData.flip
+      : !monsterData.flip;
+
+    let lastSx = null; // 깜빡임 방지: 방향 변경 시만 transform 업데이트
 
     const loop = () => {
       const p = posRef.current;
@@ -64,7 +67,10 @@ function WalkingPet({ monsterData }) {
       if (wrapRef.current) {
         wrapRef.current.style.left = p.x + 'px';
         const sx = (p.goRight !== effectiveFlip) ? 1 : -1;
-        wrapRef.current.style.transform = `scaleX(${sx})`;
+        if (sx !== lastSx) {
+          wrapRef.current.style.transform = `scaleX(${sx})`;
+          lastSx = sx;
+        }
       }
       rafRef.current = requestAnimationFrame(loop);
     };

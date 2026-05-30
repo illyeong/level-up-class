@@ -111,7 +111,7 @@ function EggHatchAnim({ eggType, onComplete }) {
     <div className="flex flex-col items-center justify-center py-8">
       {phase === 'anim' && (
         <img
-          src={`/images/Eggs/${cfg.path}/512x512/Egg%20${frame}.png`}
+          src={`/images/Eggs/${cfg.path}/512x512/${encodeURIComponent(`Egg ${frame}.png`)}`}
           alt="부화 중"
           className="w-48 h-48 object-contain"
           onError={e => { e.target.style.opacity = '0'; }}
@@ -356,7 +356,7 @@ function HatchAnim({ egg, rarity, eggFrameImg, onDone }) {
       {stage < 5 && (
         <div className="relative z-10 select-none" style={{ ...eggStyle, width: 140, height: 140 }}>
           <img
-            src={stage >= 4 ? (eggFrameImg || RARITY_EGG_IMG[rarity]) : egg.img}
+            src={egg.img} {/* 애니 전체에서 구매한 알만 표시 - 결과는 result 화면에서만 */}
             alt={egg.name}
             className="w-full h-full object-contain" draggable={false} />
           {/* 균열 이모지 오버레이 */}
@@ -603,7 +603,7 @@ export default function PetHouse({ studentCode }) {
     const cfg = EGG_FRAMES[rarity] || EGG_FRAMES.common;
     const safeMax = Math.max(1, Math.floor(cfg.total * 0.5)); // 앞쪽 50% 프레임 (알이 온전한 단계)
     const randFrame = 1 + Math.floor(Math.random() * safeMax);
-    const eggFrameImg = `/images/Eggs/${cfg.path}/512x512/Egg%20${randFrame}.png`;
+    const eggFrameImg = `/images/Eggs/${cfg.path}/512x512/${encodeURIComponent(`Egg ${randFrame}.png`)}`;
 
     // 2. 애니메이션 시작
     setGachaResult({ rarity, eggId: null, eggFrameImg });
