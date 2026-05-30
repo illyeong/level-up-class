@@ -49,11 +49,10 @@ function WalkingPet({ monsterData }) {
   useEffect(() => {
     if (!monsterData) return;
     const SPEED = 0.45;
-    // 일반 몬스터: sprite가 기본 LEFT방향 → goRight 시 flip 필요 → effectiveFlip = !flip
-    // 보스 몬스터: sprite가 기본 RIGHT방향 → goRight 시 flip 불필요 → effectiveFlip = flip
-    const effectiveFlip = monsterData.tier === 'boss'
-      ? monsterData.flip
-      : !monsterData.flip;
+    // large/boss: sprite 기본 RIGHT방향 → effectiveFlip = flip
+    // tiny/small/medium: sprite 기본 LEFT방향 → effectiveFlip = !flip
+    const bigTier = monsterData.tier === 'large' || monsterData.tier === 'boss';
+    const effectiveFlip = bigTier ? monsterData.flip : !monsterData.flip;
 
     let lastSx = null; // 깜빡임 방지: 방향 변경 시만 transform 업데이트
 
