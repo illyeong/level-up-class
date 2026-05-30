@@ -985,6 +985,113 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
   );
 }
 
+// ── 펫 드롭 이벤트 팝업 ──────────────────────────────────────
+function PetDropPopup({ pet, onClose }) {
+  const [anim, setAnim] = useState('idle');
+  const [stage, setStage] = useState(0); // 0:진입 1:표시 2:닫힘
+
+  const md = pet?.monsterData;
+  const rarity = pet?.rarity || 'common';
+
+  const RARITY_COLOR = {
+    common: '#94a3b8', rare: '#3b82f6', epic: '#8b5cf6',
+    legendary: '#f59e0b', mythic: '#f43f5e',
+  };
+  const glowColor = RARITY_COLOR[rarity] || '#94a3b8';
+
+  useEffect(() => {
+    // 짧은 딜레이 후 등장
+    const t1 = setTimeout(() => setStage(1), 80);
+    return () => clearTimeout(t1);
+  }, []);
+
+  if (!md) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center p-6"
+      style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div
+        className="relative w-full max-w-xs rounded-3xl overflow-hidden shadow-2xl text-center transition-all duration-500"
+        style={{
+          background: `radial-gradient(ellipse at 50% 30%, ${glowColor}30, #0f172a 70%)`,
+          border: `2px solid ${glowColor}80`,
+          transform: stage === 1 ? 'scale(1) translateY(0)' : 'scale(0.7) translateY(30px)',
+          opacity: stage === 1 ? 1 : 0,
+        }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* 반짝이 배경 */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {Array.from({ length: 8 }, (_, i) => (
+            <div key={i} className="absolute text-lg animate-ping"
+              style={{
+                left: `${10 + Math.random() * 80}%`,
+                top: `${10 + Math.random() * 60}%`,
+                color: glowColor,
+                animationDelay: `${i * 200}ms`,
+                animationDuration: '1.2s',
+                opacity: 0.5,
+              }}>✦</div>
+          ))}
+        </div>
+
+        <div className="relative p-6">
+          {/* 헤더 */}
+          <div className="mb-1">
+            <span className="text-2xl font-extrabold text-white">🐾 펫 드롭!</span>
+          </div>
+          <div className="text-xs font-bold mb-4" style={{ color: glowColor }}>
+            던전을 클리어하다 야생 펫을 발견했습니다!
+          </div>
+
+          {/* 등급 배지 */}
+          <span className="inline-block text-sm font-extrabold px-4 py-1 rounded-full mb-4"
+            style={{ backgroundColor: `${glowColor}20`, color: glowColor, border: `1px solid ${glowColor}60` }}>
+            {RARITY_BADGE_MAP[rarity]} {RARITY_LABEL_MAP[rarity]}
+          </span>
+
+          {/* 스프라이트 */}
+          <div className="flex justify-center items-end mb-3 cursor-pointer"
+            style={{ height: 100, filter: `drop-shadow(0 0 12px ${glowColor})` }}
+            onClick={() => setAnim(a => a === 'idle' ? 'attack' : 'idle')}>
+            <SpriteMonster data={md} anim={anim} scale={md.scale * 2.4} onAnimEnd={() => setAnim('idle')} />
+          </div>
+
+          {/* 이름 */}
+          <p className="text-white font-extrabold text-lg mb-1">{pet.nickname}</p>
+          <p className="text-slate-400 text-xs mb-4">터치하면 애니메이션이 재생됩니다</p>
+
+          {/* 스탯 */}
+          {pet.stats && Object.keys(pet.stats).length > 0 && (
+            <div className="flex flex-wrap justify-center gap-1.5 mb-5">
+              {Object.entries(pet.stats).map(([k, v]) => {
+                const ICONS = { atk:'⚔️', hp:'❤️', def:'🛡️', crit:'💥' };
+                const NAMES = { atk:'공격력', hp:'체력', def:'방어력', crit:'크리' };
+                const UNITS = { crit:'%' };
+                return (
+                  <span key={k} className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                    style={{ backgroundColor: `${glowColor}20`, color: glowColor }}>
+                    {ICONS[k]} {NAMES[k]} +{v}{UNITS[k] || ''}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 확인 버튼 */}
+          <button onClick={onClose}
+            className="w-full py-3 rounded-2xl font-extrabold text-white text-sm transition-all active:scale-95"
+            style={{ background: `linear-gradient(to right, ${glowColor}, ${glowColor}cc)` }}>
+            펫 하우스에서 확인하기 →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 결과 화면 ──────────────────────────────────────────────────
 function ResultScreen({
   dungeon, score, totalQ, wrongIdxs, cleared,
@@ -996,6 +1103,14 @@ function ResultScreen({
   const stars     = toStars(accuracy);
   const successByStars = stars >= 2;
   const [visStars, setVisStars] = useState(0);
+  const [showPetPopup, setShowPetPopup] = useState(false);
+
+  // 저장 완료 후 펫 드롭됐으면 잠시 뒤 팝업 표시
+  useEffect(() => {
+    if (!petDropped || isSaving) return;
+    const t = setTimeout(() => setShowPetPopup(true), 800);
+    return () => clearTimeout(t);
+  }, [petDropped, isSaving]);
 
   useEffect(() => {
     if (stars === 0) return;
@@ -1016,6 +1131,11 @@ function ResultScreen({
   ];
 
   return (
+    <>
+    {/* 펫 드롭 이벤트 팝업 */}
+    {showPetPopup && petDropped && (
+      <PetDropPopup pet={petDropped} onClose={() => setShowPetPopup(false)} />
+    )}
     <div className="flex flex-col items-center min-h-full p-5 bg-slate-50">
       <div className="text-6xl mt-4 mb-2">{successByStars ? '🏆' : '💀'}</div>
       <h2 className="text-2xl font-extrabold text-slate-800 mb-1">
@@ -1090,33 +1210,6 @@ function ResultScreen({
         </div>
       ) : null}
 
-      {/* 펫 드롭 */}
-      {petDropped && petDropped.monsterData && (
-        <div className="border-2 border-rose-300 bg-gradient-to-b from-rose-50 to-purple-50 rounded-2xl p-4 w-full max-w-xs mb-4 text-center animate-bounce">
-          <p className="font-extrabold text-rose-600 text-sm mb-1">
-            🐾 펫 드롭!
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <SpriteMonster
-              data={petDropped.monsterData}
-              anim="idle"
-              scale={petDropped.monsterData.scale * 1.6}
-            />
-            <div className="text-left">
-              <p className="font-extrabold text-slate-800 text-sm">{petDropped.nickname}</p>
-              <p className="text-xs font-bold" style={{ color:
-                petDropped.rarity === 'mythic' ? '#f43f5e' :
-                petDropped.rarity === 'legendary' ? '#d97706' :
-                petDropped.rarity === 'epic' ? '#7c3aed' :
-                petDropped.rarity === 'rare' ? '#2563eb' : '#64748b' }}>
-                {RARITY_BADGE_MAP[petDropped.rarity]} {RARITY_LABEL_MAP[petDropped.rarity]}
-              </p>
-              <p className="text-[10px] text-slate-500">펫 하우스에서 확인하세요!</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 오답 복습 */}
       {wrongIdxs.length > 0 && (
         <div className="bg-white border border-rose-200 rounded-2xl p-4 w-full max-w-sm mb-4 text-left">
@@ -1157,6 +1250,7 @@ function ResultScreen({
         </button>
       </div>
     </div>
+    </>
   );
 }
 
