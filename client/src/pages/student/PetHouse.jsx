@@ -352,7 +352,7 @@ function HatchAnim({ egg, rarity, eggFrameImg, onDone }) {
       {stage < 5 && (
         <div className="relative z-10 select-none" style={{ ...eggStyle, width: 140, height: 140 }}>
           <img
-            src={stage >= 2 ? (eggFrameImg || RARITY_EGG_IMG[rarity] || egg.img) : egg.img}
+            src={stage >= 4 ? (eggFrameImg || RARITY_EGG_IMG[rarity]) : egg.img}
             alt={egg.name}
             className="w-full h-full object-contain" draggable={false} />
           {/* 균열 이모지 오버레이 */}
