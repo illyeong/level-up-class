@@ -381,6 +381,7 @@ export default function AICourseware({ studentCode }) {
   };
 
   const startLearning = () => {
+    setContent(prev => prev ? pickSessionQuestions(prev) : prev); // 재도전 시 새 문제 조합
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
     setConsecWrong(0); setMinTimeLeft(0);
