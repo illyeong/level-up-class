@@ -8,7 +8,17 @@ import { renderMath, TableRenderer, stripOptionPrefix } from '../../utils/render
 import ShapeRenderer from '../../components/ShapeRenderer';
 
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
-const DAILY_LIMIT = 5;                                   // 하루 최대 횟수
+const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
+const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
+
+// 캐시된 풀(10개)에서 매 세션 SESSION_Q_NUM개를 랜덤 선택
+function pickSessionQuestions(data) {
+  if (!data?.questions?.length) return data;
+  const pool = data.questions;
+  if (pool.length <= SESSION_Q_NUM) return data;
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return { ...data, questions: shuffled.slice(0, SESSION_Q_NUM) };
+}
 
 // KST 오전 8시 기준 세션 날짜 (매일 8시 초기화)
 const getSessionDate = () => {
@@ -360,7 +370,7 @@ export default function AICourseware({ studentCode }) {
       }
 
       stepTimer.clear();
-      setContent(data);
+      setContent(pickSessionQuestions(data)); // 풀에서 랜덤 선택
       setStep('concept');
     } catch (e) {
       stepTimer.clear();

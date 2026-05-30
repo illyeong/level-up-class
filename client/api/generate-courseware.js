@@ -44,6 +44,8 @@ export default async function handler(req, res) {
   const diffLabel = difficulty === 'easy' ? '기초' : difficulty === 'hard' ? '심화' : '기본';
 
   const isUnitTest = lessonTitle === '단원평가';
+  // 풀 크기: 일반 차시는 2배(10개), 단원평가는 1.5배(15개) 생성 → 매 세션 랜덤 선택
+  const poolSize = isUnitTest ? Math.min(questionCount + 5, 15) : questionCount * 2;
 
   const prompt = `초등학교 ${grade}학년 수학 학습 콘텐츠를 JSON으로 생성하세요.
 
@@ -51,13 +53,15 @@ export default async function handler(req, res) {
 단원: ${unitName} | 차시: ${isUnitTest ? '단원평가 (종합)' : (lessonNo ? lessonNo + '차시 ' : '') + lessonTitle}
 키워드: ${keywordStr} | 난이도: ${diffLabel}
 
-[품질 요건]
+[품질 요건 — 고품질 필수]
 ${isUnitTest
-  ? `- 이 단원 전체 학습 내용을 종합 평가하는 문제 ${questionCount}개
-- 단원의 핵심 개념과 계산, 실생활 문장제를 고르게 출제 (최소 3개 문장제)
-- 난이도를 균형 있게: 기초 40% / 응용 40% / 심화 20%`
-  : `- 문제는 개념 적용이 필요한 것 (단순 암기 금지), 최소 1개 이상 실생활 문장제`}
-- 오답: 학생들이 실제로 하는 실수 반영
+  ? `- 이 단원 전체 학습 내용을 종합 평가하는 문제 ${poolSize}개
+- 핵심 개념·계산·실생활 문장제 균형 (문장제 최소 4개)
+- 난이도: 기초 30% / 응용 50% / 심화 20%`
+  : `- 실제 계산·추론이 필요한 문제 (단순 암기 금지), 문장제 최소 2개
+- 같은 개념도 다른 맥락·수치·상황으로 ${poolSize}개 생성`}
+- 오답: 학생이 실제로 하는 계산 실수 (자릿값 혼동, 받아올림 누락 등) 반영
+- 보기 4개의 수치 범위를 비슷하게 (터무니없는 오답 금지)
 
 [JSON 형식만 반환 - 반드시 완전한 JSON, 모든 텍스트는 간결하게]
 ${isUnitTest
@@ -83,7 +87,8 @@ shape 규칙: 도형·각도·분수·그래프·수직선 문제에는 반드�
 - rectangle:{width,height} / square:{side} / circle:{radius} / equilateral_triangle:{side}
 - isosceles_triangle:{base,side} / right_triangle:{base,height} / parallelogram:{base,height}
 - rhombus:{diagonal1,diagonal2} / trapezoid:{bottomBase,topBase,height} | unit:"cm"
-options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2개 | questions ${questionCount}개`;
+options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2개 | questions ${poolSize}개 (풀)
+※ 매 학습 세션에서 이 풀에서 ${questionCount}개를 무작위 선택해 출제합니다`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -94,8 +99,8 @@ options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2개 | questi
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model:      'claude-haiku-4-5-20251001',
-        max_tokens: isUnitTest ? 3500 : 2500,
+        model:      'claude-sonnet-4-6',   // 고품질 + 풀 사이즈 대응
+        max_tokens: isUnitTest ? 5000 : 4000,
         messages:   [{ role: 'user', content: prompt }],
       }),
     });
