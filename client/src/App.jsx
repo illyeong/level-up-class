@@ -49,12 +49,11 @@ function WalkingPet({ monsterData }) {
   useEffect(() => {
     if (!monsterData) return;
     const SPEED = 0.45;
-    // large/boss: sprite 기본 RIGHT방향 → effectiveFlip = flip
-    // tiny/small/medium: sprite 기본 LEFT방향 → effectiveFlip = !flip
-    const bigTier = monsterData.tier === 'large' || monsterData.tier === 'boss';
-    const effectiveFlip = bigTier ? monsterData.flip : !monsterData.flip;
+    // 보스: sprite RIGHT방향 → goRight 시 1(정방향), goLeft 시 -1
+    // 나머지 전체: sprite LEFT방향 → goRight 시 -1(반전), goLeft 시 1
+    const isBoss = monsterData.tier === 'boss';
 
-    let lastSx = null; // 깜빡임 방지: 방향 변경 시만 transform 업데이트
+    let lastSx = null;
 
     const loop = () => {
       const p = posRef.current;
@@ -65,7 +64,11 @@ function WalkingPet({ monsterData }) {
 
       if (wrapRef.current) {
         wrapRef.current.style.left = p.x + 'px';
-        const sx = (p.goRight !== effectiveFlip) ? 1 : -1;
+        // isBoss=false, goRight=true  → -1 (LEFT→RIGHT 반전)
+        // isBoss=false, goRight=false → 1  (LEFT 그대로)
+        // isBoss=true,  goRight=true  → 1  (RIGHT 그대로)
+        // isBoss=true,  goRight=false → -1 (RIGHT→LEFT 반전)
+        const sx = (isBoss !== p.goRight) ? -1 : 1;
         if (sx !== lastSx) {
           wrapRef.current.style.transform = `scaleX(${sx})`;
           lastSx = sx;

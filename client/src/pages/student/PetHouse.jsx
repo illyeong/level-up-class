@@ -538,25 +538,31 @@ export default function PetHouse({ studentCode }) {
     showToast('알을 버렸습니다.');
   };
 
-  // 먹이주기 (배고픔 회복, 50G 소모)
-  const FEED_COST = 50;
+  // 먹이주기 (하루 1회, 300G, 배고픔 +50)
+  const FEED_COST    = 300;
   const FEED_RESTORE = 50;
-  const feedPet = async (petId) => {
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const canFeedToday = (pet) => {
+    const lastFedDate = pet.lastFedAt?.toDate?.()?.toISOString?.()?.slice(0, 10) || '';
+    return lastFedDate !== todayStr;
+  };
+
+  const feedPet = async (pet) => {
+    if (!canFeedToday(pet)) {
+      showToast('오늘은 이미 먹이를 줬습니다! 내일 다시 주세요.', 'error'); return;
+    }
     if ((student?.gold || 0) < FEED_COST) {
       showToast(`골드 부족! 필요: ${FEED_COST}G`, 'error'); return;
     }
-    const newGold = (student.gold || 0) - FEED_COST;
-    const petDoc = await import('firebase/firestore').then(m =>
-      m.getDoc(m.doc(db, 'studentPets', petId))
-    );
-    if (!petDoc.exists()) return;
-    const newHunger = Math.min(100, (petDoc.data().hunger || 50) + FEED_RESTORE);
-    await updateDoc(doc(db, 'studentPets', petId), { hunger: newHunger, lastFedAt: serverTimestamp() });
+    const newGold   = (student.gold || 0) - FEED_COST;
+    const newHunger = Math.min(100, (pet.hunger ?? 50) + FEED_RESTORE);
+    await updateDoc(doc(db, 'studentPets', pet.id), { hunger: newHunger, lastFedAt: serverTimestamp() });
     await updateDoc(doc(db, 'students', student.id), { gold: newGold });
     setStudent(p => ({ ...p, gold: newGold }));
-    setPets(prev => prev.map(p => p.id === petId ? { ...p, hunger: newHunger } : p));
-    if (selectedPet?.id === petId) setSelectedPet(prev => ({ ...prev, hunger: newHunger }));
-    showToast(`먹이를 줬습니다! 배고픔 +${FEED_RESTORE} (${FEED_COST}G 사용)`);
+    setPets(prev => prev.map(p => p.id === pet.id ? { ...p, hunger: newHunger, lastFedAt: { toDate: () => new Date() } } : p));
+    if (selectedPet?.id === pet.id) setSelectedPet(prev => ({ ...prev, hunger: newHunger, lastFedAt: { toDate: () => new Date() } }));
+    showToast(`먹이를 줬습니다! 배고픔 +${FEED_RESTORE} 🍖 (${FEED_COST}G 사용)`);
   };
 
   // 인큐베이터에서 알 꺼내기
@@ -867,7 +873,7 @@ export default function PetHouse({ studentCode }) {
             <div className="flex gap-4" style={{ minHeight: 580 }}>
 
               {/* ── 왼쪽: 상세 패널 (고정 너비) ──────────────────── */}
-              <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl p-4 flex flex-col items-center" style={{ width: 260 }}>
+              <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl p-4 flex flex-col items-center overflow-y-auto" style={{ width: 260, maxHeight: 580 }}>
                 {sp && spMd ? (() => {
                   const r = RARITY[sp.rarity] || RARITY.common;
                   const isMythic = sp.rarity === 'mythic';
@@ -913,24 +919,33 @@ export default function PetHouse({ studentCode }) {
                           ✏️ 이름 변경
                         </button>
                       </div>
-                      {/* 배고픔 */}
+                      {/* 배고픔 + 먹이주기 */}
                       {(() => {
-                        const hunger = sp.hunger ?? 100;
-                        const hColor = hunger >= 70 ? 'bg-emerald-400' : hunger >= 40 ? 'bg-amber-400' : 'bg-rose-500';
-                        const hLabel = hunger >= 70 ? '든든함' : hunger >= 40 ? '배고픔' : '매우 배고픔';
+                        const hunger   = sp.hunger ?? 100;
+                        const fedToday = !canFeedToday(sp);
+                        const hColor   = hunger >= 70 ? 'bg-emerald-400' : hunger >= 40 ? 'bg-amber-400' : 'bg-rose-500';
+                        const hLabel   = hunger >= 70 ? '든든함 😊' : hunger >= 40 ? '배고픔 😐' : '매우 배고픔 😢';
                         return (
-                          <div className="w-full mt-2">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] text-slate-400 font-bold">🍖 배고픔</span>
-                              <span className={`text-[10px] font-bold ${hunger < 40 ? 'text-rose-400' : 'text-slate-400'}`}>{hLabel} {hunger}/100</span>
+                          <div className="w-full mt-3 border-t border-slate-700 pt-3">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs text-slate-300 font-extrabold">🍖 배고픔</span>
+                              <span className={`text-xs font-bold ${hunger < 40 ? 'text-rose-400' : hunger < 70 ? 'text-amber-400' : 'text-emerald-400'}`}>{hLabel}</span>
                             </div>
-                            <div className="h-2 bg-slate-700 rounded-full overflow-hidden mb-2">
+                            <div className="h-3 bg-slate-700 rounded-full overflow-hidden mb-3">
                               <div className={`h-full rounded-full transition-all ${hColor}`} style={{ width: `${hunger}%` }} />
                             </div>
-                            <button onClick={() => feedPet(sp.id)}
-                              className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs">
-                              🍖 먹이주기 ({FEED_COST}G)
+                            <button
+                              onClick={() => feedPet(sp)}
+                              disabled={fedToday || (student?.gold || 0) < FEED_COST}
+                              className={`w-full py-3 rounded-xl font-extrabold text-sm transition-all
+                                ${fedToday
+                                  ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                                  : (student?.gold || 0) < FEED_COST
+                                    ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                                    : 'bg-amber-500 hover:bg-amber-400 text-white shadow-lg'}`}>
+                              {fedToday ? '✅ 오늘 먹이 완료' : `🍖 먹이주기 (${FEED_COST.toLocaleString()}G)`}
                             </button>
+                            {fedToday && <p className="text-[10px] text-slate-500 text-center mt-1">내일 다시 먹이를 줄 수 있습니다</p>}
                           </div>
                         );
                       })()}
