@@ -129,24 +129,37 @@ const RARITY_THEME = {
   mythic:    { glow: '#f43f5e', flash: 'rgba(244,63,94,0.70)',   label: '🌈 신화 등장!!!', stars: '🌈💥🌈' },
 };
 
-// ── 파티클 ───────────────────────────────────────────────────
-function Particles({ color }) {
-  const pts = Array.from({ length: 16 }, (_, i) => ({
-    id: i,
-    x: 10 + Math.random() * 80,
-    y: 5  + Math.random() * 80,
-    size: 14 + Math.floor(Math.random() * 18),
-    delay: i * 60,
-    dur: 400 + Math.floor(Math.random() * 400),
-  }));
+// ── 폭발형 파티클 버스트 ─────────────────────────────────────
+const SHAPES = ['✦', '★', '✸', '◆', '●', '✿', '⬟', '✵'];
+function ParticleBurst({ color, count = 48, cx = '50%', cy = '50%' }) {
+  const [fired, setFired] = useState(false);
+  const pts = useState(() => Array.from({ length: count }, (_, i) => {
+    const angle  = (i / count) * 360 + (Math.random() - 0.5) * (360 / count) * 2;
+    const dist   = 60 + Math.random() * 140;
+    const rad    = (angle * Math.PI) / 180;
+    const tx     = Math.cos(rad) * dist;
+    const ty     = Math.sin(rad) * dist;
+    const size   = 10 + Math.random() * 20;
+    const dur    = 700 + Math.random() * 600;
+    const delay  = Math.random() * 120;
+    return { id: i, tx, ty, size, dur, delay, shape: SHAPES[i % SHAPES.length] };
+  }))[0];
+
+  useEffect(() => { const t = setTimeout(() => setFired(true), 30); return () => clearTimeout(t); }, []);
+
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+    <div className="absolute inset-0 pointer-events-none overflow-hidden"
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {pts.map(p => (
-        <div key={p.id} className="absolute animate-ping"
-          style={{ left: `${p.x}%`, top: `${p.y}%`, fontSize: p.size, color,
-            animationDelay: `${p.delay}ms`, animationDuration: `${p.dur}ms` }}>
-          ✦
-        </div>
+        <div key={p.id} style={{
+          position: 'absolute',
+          fontSize: p.size,
+          color,
+          transition: `transform ${p.dur}ms cubic-bezier(0.05,0.9,0.3,1) ${p.delay}ms, opacity ${p.dur * 0.7}ms ease-in ${p.delay + p.dur * 0.4}ms`,
+          transform: fired ? `translate(${p.tx}px, ${p.ty}px) scale(0) rotate(${p.tx > 0 ? 180 : -180}deg)` : 'translate(0,0) scale(1) rotate(0deg)',
+          opacity: fired ? 0 : 1,
+          left: cx, top: cy, marginLeft: -p.size / 2, marginTop: -p.size / 2,
+        }}>{p.shape}</div>
       ))}
     </div>
   );
@@ -209,8 +222,8 @@ function HatchAnim({ egg, rarity, onDone }) {
           style={{ background: theme.flash }} />
       )}
 
-      {/* 파티클 (stage 4+) */}
-      {stage >= 4 && <Particles color={theme.glow} />}
+      {/* 파티클 (stage 4+) — 중심에서 방사형 폭발 */}
+      {stage >= 4 && <ParticleBurst color={theme.glow} count={52} />}
 
       {/* 글로우 링 (stage 2-3) */}
       {(stage === 2 || stage === 3) && (
@@ -435,9 +448,15 @@ export default function PetHouse({ studentCode }) {
             const { pet, monsterData: md, rarity } = gachaResult;
             const r = RARITY[rarity];
             const theme = RARITY_THEME[rarity] || RARITY_THEME.common;
+            // 전설·신화는 파티클 더 많이
+            const burstCount = rarity === 'mythic' ? 80 : rarity === 'legendary' ? 64 : rarity === 'epic' ? 52 : 40;
             return (
-              <>
-                <p className="text-white font-extrabold text-3xl mb-2 animate-bounce">✨ 획득!</p>
+              <div className="relative">
+                {/* 획득 순간 파티클 폭발 */}
+                <ParticleBurst color={theme.glow} count={burstCount} />
+                {/* 2차 파티클 (흰색) */}
+                <ParticleBurst color="#ffffff" count={Math.floor(burstCount / 3)} />
+                <p className="relative text-white font-extrabold text-3xl mb-2 animate-bounce">✨ 획득!</p>
                 <span className={`inline-block text-sm font-extrabold px-4 py-1.5 rounded-full mb-4 ${r.bg} ${r.text} border ${r.border}`}
                   style={{ boxShadow: `0 0 12px ${theme.glow}60` }}>
                   {r.badge} {r.label}
@@ -463,7 +482,7 @@ export default function PetHouse({ studentCode }) {
                     펫 목록 보기
                   </button>
                 </div>
-              </>
+              </div>
             );
           })()}
         </div>
