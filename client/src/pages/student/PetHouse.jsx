@@ -756,7 +756,7 @@ export default function PetHouse({ studentCode }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-950 to-slate-900 p-4 pb-24">
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-3xl mx-auto">
 
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4">
@@ -810,10 +810,10 @@ export default function PetHouse({ studentCode }) {
           );
 
           return (
-            <div className="flex gap-3" style={{ minHeight: 480 }}>
+            <div className="flex gap-4" style={{ minHeight: 580 }}>
 
-              {/* ── 왼쪽: 상세 패널 ───────────────────────────── */}
-              <div className="flex-1 bg-slate-800/70 border border-slate-700 rounded-2xl p-4 flex flex-col items-center">
+              {/* ── 왼쪽: 상세 패널 (고정 너비) ──────────────────── */}
+              <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl p-4 flex flex-col items-center" style={{ width: 260 }}>
                 {sp && spMd ? (() => {
                   const r = RARITY[sp.rarity] || RARITY.common;
                   const isMythic = sp.rarity === 'mythic';
@@ -867,41 +867,38 @@ export default function PetHouse({ studentCode }) {
                 )}
               </div>
 
-              {/* ── 오른쪽: 컴팩트 목록 ──────────────────────── */}
-              <div className="w-44 overflow-y-auto space-y-1.5" style={{ maxHeight: 520 }}>
-                {pets.map(pet => {
-                  const md = MONSTERS_DB[pet.monsterId];
-                  const r  = RARITY[pet.rarity] || RARITY.common;
-                  const lh = LIST_H[md?.tier] || 36;
-                  const lScale = md ? lh / (md.frameHeight || 120) : 0.3;
-                  const isSel = sp?.id === pet.id;
-                  const isAct = pet.id === activePetId;
-                  return (
-                    <button key={pet.id}
-                      onClick={() => setSelectedPet(pet)}
-                      className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl border transition-all text-left
-                        ${isSel ? `border-indigo-500 bg-indigo-900/50` : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}>
-                      {/* 티어별 크기 스프라이트 */}
-                      <div className="shrink-0 flex items-end justify-center"
-                        style={{ width: 36, height: LIST_H.boss + 4 }}>
-                        {md && <SpriteMonster data={md} anim="idle" scale={lScale} />}
-                      </div>
-                      {/* 이름 + 스탯 */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1 mb-0.5">
-                          {isAct && <span className="text-[8px] text-indigo-400 font-bold">★</span>}
-                          <p className="text-slate-200 text-[11px] font-extrabold truncate">{pet.nickname || md?.name}</p>
+              {/* ── 오른쪽: 3열 그리드 목록 ─────────────────────── */}
+              <div className="flex-1 overflow-y-auto" style={{ maxHeight: 580 }}>
+                <div className="grid grid-cols-3 gap-2">
+                  {pets.map(pet => {
+                    const md    = MONSTERS_DB[pet.monsterId];
+                    const r     = RARITY[pet.rarity] || RARITY.common;
+                    const lh    = LIST_H[md?.tier] || 36;
+                    const lScale = md ? lh / (md.frameHeight || 120) : 0.3;
+                    const isSel = sp?.id === pet.id;
+                    const isAct = pet.id === activePetId;
+                    return (
+                      <button key={pet.id}
+                        onClick={() => { setSelectedPet(pet); setDetailAnim('idle'); }}
+                        className={`flex flex-col items-center px-2 py-3 rounded-xl border transition-all
+                          ${isSel ? 'border-indigo-500 bg-indigo-900/50 shadow-md' : 'border-slate-700 bg-slate-800/50 hover:border-slate-500 hover:bg-slate-700/50'}`}>
+                        {/* 티어별 크기 스프라이트 */}
+                        <div className="flex items-end justify-center mb-1.5 overflow-hidden"
+                          style={{ height: LIST_H.boss + 4, width: '100%' }}>
+                          {md && <SpriteMonster data={md} anim="idle" scale={lScale} />}
                         </div>
-                        <p className={`text-[9px] font-bold ${r.text} mb-0.5`}>{r.badge}</p>
-                        <div className="space-y-0.5">
-                          {formatStats(pet.stats || {}).slice(0, 2).map((line, i) => (
-                            <p key={i} className="text-[9px] text-slate-400 truncate">{line}</p>
-                          ))}
+                        {/* 이름 + 등급 */}
+                        <div className="w-full text-center">
+                          <div className="flex items-center justify-center gap-0.5 mb-0.5">
+                            {isAct && <span className="text-[9px] text-indigo-400 font-bold">★</span>}
+                            <p className="text-slate-200 text-[10px] font-extrabold truncate max-w-full">{pet.nickname || md?.name}</p>
+                          </div>
+                          <p className={`text-[9px] font-bold ${r.text}`}>{r.badge} {r.label}</p>
                         </div>
-                      </div>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           );
