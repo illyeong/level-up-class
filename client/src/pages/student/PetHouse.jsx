@@ -378,28 +378,31 @@ function PetCard({ pet, isActive, onSetActive, onRename }) {
   const r = RARITY[pet.rarity] || RARITY.common;
   const statLines = formatStats(pet.stats || {});
   const isMythic = pet.rarity === 'mythic';
-  // 카드 높이에 맞는 스케일: 최대 60px 높이 기준
-  const cardScale = Math.min(md.scale * 1.5, 60 / (md.frameHeight || 120));
+  // 티어별 표시 높이 목표 (크기 비교가 확실히 되도록)
+  const TIER_H = { tiny: 38, small: 54, medium: 76, large: 100, boss: 100 };
+  const targetH   = TIER_H[md.tier] || 60;
+  const cardScale = targetH / (md.frameHeight || 120);
+  const slotH     = targetH + 14; // 스프라이트 컨테이너 높이 (여유 포함)
   if (!md) return null;
   return (
-    <div className={`relative rounded-2xl p-3 transition-all overflow-hidden
+    <div className={`relative rounded-2xl p-3 pt-5 transition-all
       ${isMythic
         ? 'border-2 border-rose-400 bg-gradient-to-b from-rose-950/50 to-purple-950/50 shadow-[0_0_16px_#f43f5e60]'
         : isActive
-          ? `border-2 ${r.border} bg-slate-800 shadow-lg`   /* 배경은 항상 어둡게 유지 */
+          ? `border-2 ${r.border} bg-slate-800 shadow-lg`
           : 'border-2 border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}>
 
-      {/* 대표 펫 배지 — 색상 배지만 (배경은 건드리지 않음) */}
+      {/* 대표 펫 배지 — pt-5로 공간 확보 후 내부에 표시 */}
       {isActive && (
-        <span className={`absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-extrabold px-2 py-0.5 rounded-full border whitespace-nowrap
+        <span className={`absolute top-1 left-1/2 -translate-x-1/2 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border whitespace-nowrap
           ${r.bg} ${r.text} ${r.border}`}>
           ★ 대표 펫
         </span>
       )}
 
-      {/* 스프라이트 — 높이 고정 + 넘침 방지 */}
+      {/* 스프라이트 — 티어별 높이 */}
       <div className="flex justify-center items-end mb-2 cursor-pointer overflow-hidden"
-        style={{ height: 64 }}
+        style={{ height: slotH }}
         onClick={() => setAnim(a => a === 'idle' ? 'attack' : 'idle')}>
         <SpriteMonster data={md} anim={anim} scale={cardScale} onAnimEnd={() => setAnim('idle')} />
       </div>
