@@ -107,42 +107,140 @@ function pickMonster(rarity) {
   return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
 }
 
-// ── 부화 애니메이션 ──────────────────────────────────────────
-function HatchAnim({ egg, onDone }) {
-  const [phase, setPhase] = useState('shake');
-  const [tilt, setTilt] = useState(false);
+// ── 등급별 테마 ──────────────────────────────────────────────
+const RARITY_THEME = {
+  common:    { glow: '#94a3b8', flash: 'rgba(255,255,255,0.35)', label: '',          stars: '✦✧✦' },
+  rare:      { glow: '#60a5fa', flash: 'rgba(96,165,250,0.45)', label: '',          stars: '✦★✦' },
+  epic:      { glow: '#c084fc', flash: 'rgba(192,132,252,0.55)', label: '✨ 영웅 등장!', stars: '★✦★' },
+  legendary: { glow: '#fbbf24', flash: 'rgba(251,191,36,0.65)', label: '🌟 전설 등장!!', stars: '🌟★🌟' },
+};
+
+// ── 파티클 ───────────────────────────────────────────────────
+function Particles({ color }) {
+  const pts = Array.from({ length: 16 }, (_, i) => ({
+    id: i,
+    x: 10 + Math.random() * 80,
+    y: 5  + Math.random() * 80,
+    size: 14 + Math.floor(Math.random() * 18),
+    delay: i * 60,
+    dur: 400 + Math.floor(Math.random() * 400),
+  }));
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {pts.map(p => (
+        <div key={p.id} className="absolute animate-ping"
+          style={{ left: `${p.x}%`, top: `${p.y}%`, fontSize: p.size, color,
+            animationDelay: `${p.delay}ms`, animationDuration: `${p.dur}ms` }}>
+          ✦
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── 부화 애니메이션 (개선판) ─────────────────────────────────
+function HatchAnim({ egg, rarity, onDone }) {
+  // stage 0→1→2→3→4→5
+  // 0: 대기   1: 약한 흔들기(0-1.2s)  2: 강한 흔들기(1.2-2.8s)
+  // 3: 균열(2.8-3.4s)  4: 폭발(3.4-4.0s)  5: 등장(4.0s+, onDone 1.5s후)
+  const [stage, setStage] = useState(0);
+  const [tick, setTick]   = useState(0);
+  const [flash, setFlash] = useState(false);
+  const theme = RARITY_THEME[rarity] || RARITY_THEME.common;
 
   useEffect(() => {
-    const iv = setInterval(() => setTilt(t => !t), 350);
-    const t1 = setTimeout(() => {
-      clearInterval(iv);
-      setPhase('crack');
-      const t2 = setTimeout(() => { setPhase('reveal'); setTimeout(onDone, 1500); }, 700);
-      return () => clearTimeout(t2);
-    }, 2000);
-    return () => { clearInterval(iv); clearTimeout(t1); };
+    const T = [
+      setTimeout(() => setStage(1), 100),
+      setTimeout(() => setStage(2), 1200),
+      setTimeout(() => setStage(3), 2800),
+      setTimeout(() => {
+        setStage(4);
+        setFlash(true);
+        setTimeout(() => setFlash(false), 400);
+      }, 3400),
+      setTimeout(() => { setStage(5); setTimeout(onDone, 1600); }, 4000),
+    ];
+    return () => T.forEach(clearTimeout);
   }, []);
 
+  // 흔들기 틱
+  useEffect(() => {
+    if (stage !== 1 && stage !== 2 && stage !== 3) return;
+    const spd = stage === 1 ? 280 : stage === 2 ? 130 : 90;
+    const iv = setInterval(() => setTick(t => t + 1), spd);
+    return () => clearInterval(iv);
+  }, [stage]);
+
+  const eggStyle = (() => {
+    if (stage === 0) return {};
+    const deg = stage === 1 ? 6 : stage === 2 ? 14 : stage === 3 ? 18 : 0;
+    const sc  = stage === 4 ? 1.4 : stage === 5 ? 0 : (tick % 2 === 0 ? 1.04 : 0.97);
+    const rot = tick % 2 === 0 ? -deg : deg;
+    return {
+      transform: `rotate(${rot}deg) scale(${sc})`,
+      transition: stage >= 4 ? 'transform 0.3s ease' : `transform ${stage === 1 ? 220 : 100}ms ease`,
+      filter: stage >= 2 ? `drop-shadow(0 0 ${stage >= 3 ? 28 : 14}px ${theme.glow})` : 'none',
+    };
+  })();
+
+  const msgs = ['', '부화 중...', '🔥 곧 나온다!', '💢 균열 발생!', '💥 CRACK!', theme.label];
+
   return (
-    <div className="flex flex-col items-center justify-center py-12 gap-6">
-      {phase === 'shake' && (
-        <>
-          <p className="text-indigo-200 font-extrabold text-xl animate-pulse">부화 중...</p>
-          <div className="text-[110px] transition-transform duration-150"
-            style={{ transform: tilt ? 'rotate(-10deg) scale(1.06)' : 'rotate(10deg) scale(0.96)' }}>
-            {egg.icon}
-          </div>
-        </>
+    <div className="relative flex flex-col items-center justify-center min-h-[360px] gap-4 overflow-hidden rounded-3xl"
+      style={{ background: `radial-gradient(ellipse at center, ${theme.glow}22 0%, #0f172a 70%)` }}>
+
+      {/* 플래시 오버레이 */}
+      {flash && (
+        <div className="absolute inset-0 rounded-3xl z-20 transition-opacity duration-300"
+          style={{ background: theme.flash }} />
       )}
-      {phase === 'crack' && (
-        <div className="text-center">
-          <div className="text-[110px] animate-bounce">💥</div>
-          <p className="text-white font-extrabold text-2xl animate-pulse">CRACK!</p>
+
+      {/* 파티클 (stage 4+) */}
+      {stage >= 4 && <Particles color={theme.glow} />}
+
+      {/* 글로우 링 (stage 2-3) */}
+      {(stage === 2 || stage === 3) && (
+        <div className="absolute w-52 h-52 rounded-full animate-ping opacity-20"
+          style={{ backgroundColor: theme.glow }} />
+      )}
+
+      {/* 메시지 */}
+      <p className="relative z-10 font-extrabold text-xl min-h-[32px] transition-all"
+        style={{ color: stage >= 4 ? theme.glow : '#e2e8f0' }}>
+        {stage >= 4
+          ? <span className="animate-bounce inline-block">{msgs[stage]}</span>
+          : <span className="animate-pulse">{msgs[stage]}</span>}
+      </p>
+
+      {/* 알 */}
+      {stage < 5 && (
+        <div className="relative z-10 text-[110px] select-none" style={eggStyle}>
+          {egg.icon}
+          {/* 균열 이모지 오버레이 */}
+          {stage === 3 && (
+            <span className="absolute -top-2 -right-2 text-3xl animate-ping">💢</span>
+          )}
         </div>
       )}
-      {phase === 'reveal' && (
-        <p className="text-4xl font-extrabold text-white animate-bounce">✨ 등장! ✨</p>
+
+      {/* 별 파티클 텍스트 (stage 3) */}
+      {stage === 3 && (
+        <p className="text-2xl animate-spin" style={{ color: theme.glow }}>{theme.stars}</p>
       )}
+
+      {/* 등장 텍스트 (stage 5) */}
+      {stage === 5 && !theme.label && (
+        <p className="text-3xl font-extrabold text-white animate-bounce">✨ 등장! ✨</p>
+      )}
+
+      {/* 진행 바 */}
+      <div className="relative z-10 w-48 h-1.5 bg-white/10 rounded-full overflow-hidden mt-2">
+        <div className="h-full rounded-full transition-all duration-300"
+          style={{
+            backgroundColor: theme.glow,
+            width: `${[0,20,50,70,90,100][stage] ?? 0}%`,
+          }} />
+      </div>
     </div>
   );
 }
@@ -203,6 +301,15 @@ export default function PetHouse({ studentCode }) {
   const [gachaPhase, setGachaPhase]   = useState('idle'); // idle|confirm|hatching|result
   const [selectedEgg, setSelectedEgg] = useState(null);
   const [gachaResult, setGachaResult] = useState(null);
+  const [hatchDone, setHatchDone]     = useState(false);  // 애니 완료 여부
+
+  // 애니 완료 + 데이터 준비 둘 다 됐을 때 result로 전환
+  useEffect(() => {
+    if (hatchDone && gachaResult?.pet) {
+      setGachaPhase('result');
+      setHatchDone(false);
+    }
+  }, [hatchDone, gachaResult]);
 
   const [renamePet, setRenamePet]   = useState(null);
   const [renameInput, setRenameInput] = useState('');
@@ -243,43 +350,55 @@ export default function PetHouse({ studentCode }) {
     showToast('이름이 변경됐습니다!');
   };
 
-  // 가챠 실행
+  // 가챠 실행 — rarity를 먼저 동기 계산 후 애니 시작, Firestore 저장은 백그라운드
   const runGacha = async () => {
     if (!selectedEgg || !student) return;
     if ((student.diamonds || 0) < selectedEgg.cost) {
       showToast(`다이아 부족! 필요: ${selectedEgg.cost}💎`, 'error');
-      setGachaPhase('idle');
       return;
     }
-    setGachaPhase('hatching');
 
-    const newDiamonds = (student.diamonds || 0) - selectedEgg.cost;
-    await updateDoc(doc(db, 'students', student.id), { diamonds: newDiamonds });
-    setStudent(p => ({ ...p, diamonds: newDiamonds }));
-
+    // 1. 결과를 동기로 먼저 결정
     const rarity = rollRarity(selectedEgg);
     const md = pickMonster(rarity);
-    if (!md) { showToast('오류: 몬스터 없음', 'error'); setGachaPhase('idle'); return; }
+    if (!md) { showToast('오류: 몬스터를 찾을 수 없습니다', 'error'); return; }
 
-    const petData = {
-      studentCode, teacherUid: student.teacherUid || '',
-      monsterId: md.id, nickname: md.name, rarity, tier: md.tier,
-      level: 1, exp: 0, hunger: 100, happiness: 100,
-      stats: generateStats(rarity),
-      isActive: false, obtainedFrom: 'gacha', obtainedAt: serverTimestamp(),
-    };
-    const ref = await addDoc(collection(db, 'studentPets'), petData);
-    const newPet = { id: ref.id, ...petData };
-    setPets(p => [...p, newPet]);
+    // 2. 애니메이션 시작 (rarity 정보 전달 → 테마 적용)
+    setGachaResult({ rarity, monsterData: md, pet: null }); // pet은 아직 null
+    setHatchDone(false);
+    setGachaPhase('hatching');
 
-    addDoc(collection(db, 'petGachaLogs'), {
-      studentCode, teacherUid: student.teacherUid || '',
-      eggType: selectedEgg.id, costDiamonds: selectedEgg.cost,
-      resultPetId: ref.id, resultMonsterId: md.id, resultRarity: rarity,
-      createdAt: serverTimestamp(),
-    });
+    // 3. 백그라운드에서 Firestore 저장 (애니 중에 끝남)
+    try {
+      const newDiamonds = (student.diamonds || 0) - selectedEgg.cost;
+      await updateDoc(doc(db, 'students', student.id), { diamonds: newDiamonds });
+      setStudent(p => ({ ...p, diamonds: newDiamonds }));
 
-    setGachaResult({ pet: newPet, monsterData: md, rarity });
+      const petData = {
+        studentCode, teacherUid: student.teacherUid || '',
+        monsterId: md.id, nickname: md.name, rarity, tier: md.tier,
+        level: 1, exp: 0, hunger: 100, happiness: 100,
+        stats: generateStats(rarity),
+        isActive: false, obtainedFrom: 'gacha', obtainedAt: serverTimestamp(),
+      };
+      const ref = await addDoc(collection(db, 'studentPets'), petData);
+      const newPet = { id: ref.id, ...petData };
+      setPets(p => [...p, newPet]);
+
+      addDoc(collection(db, 'petGachaLogs'), {
+        studentCode, teacherUid: student.teacherUid || '',
+        eggType: selectedEgg.id, costDiamonds: selectedEgg.cost,
+        resultPetId: ref.id, resultMonsterId: md.id, resultRarity: rarity,
+        createdAt: serverTimestamp(),
+      });
+
+      // pet 저장 완료 → effect에서 hatchDone과 조합해 result로 전환
+      setGachaResult({ rarity, monsterData: md, pet: newPet });
+    } catch (e) {
+      console.error('가챠 저장 오류:', e);
+      showToast('저장 오류가 발생했습니다', 'error');
+      setGachaPhase('idle');
+    }
   };
 
   const closeGacha = () => { setGachaPhase('idle'); setSelectedEgg(null); setGachaResult(null); setTab('myPets'); };
@@ -290,20 +409,27 @@ export default function PetHouse({ studentCode }) {
       <div className="min-h-screen bg-gradient-to-b from-indigo-950 via-purple-900 to-slate-900 flex items-center justify-center p-6">
         <div className="w-full max-w-sm text-center">
           {gachaPhase === 'hatching' && (
-            <HatchAnim egg={selectedEgg} onDone={() => setGachaPhase('result')} />
+            <HatchAnim
+              egg={selectedEgg}
+              rarity={gachaResult?.rarity || 'common'}
+              onDone={() => setHatchDone(true)}
+            />
           )}
-          {gachaPhase === 'result' && gachaResult && (() => {
+          {gachaPhase === 'result' && gachaResult?.pet && (() => {
             const { pet, monsterData: md, rarity } = gachaResult;
             const r = RARITY[rarity];
-            const skill = SKILLS[pet.passiveSkillId] || SKILLS.luck;
+            const theme = RARITY_THEME[rarity] || RARITY_THEME.common;
             return (
               <>
-                <p className="text-white font-extrabold text-2xl mb-2">✨ 획득!</p>
-                <span className={`inline-block text-sm font-extrabold px-4 py-1 rounded-full mb-5 ${r.bg} ${r.text}`}>
+                <p className="text-white font-extrabold text-3xl mb-2 animate-bounce">✨ 획득!</p>
+                <span className={`inline-block text-sm font-extrabold px-4 py-1.5 rounded-full mb-4 ${r.bg} ${r.text} border ${r.border}`}
+                  style={{ boxShadow: `0 0 12px ${theme.glow}60` }}>
                   {r.badge} {r.label}
                 </span>
-                <div className="flex justify-center items-end h-36 mb-3">
-                  <SpriteMonster data={md} anim="idle" scale={md.scale * 2.8} />
+                <div className="flex justify-center items-end h-40 mb-3 relative">
+                  <div style={{ filter: `drop-shadow(0 0 16px ${theme.glow})` }}>
+                    <SpriteMonster data={md} anim="idle" scale={md.scale * 3} />
+                  </div>
                 </div>
                 <p className="text-white font-extrabold text-xl mb-1">{md.name}</p>
                 <div className="flex flex-wrap justify-center gap-1.5 mb-6">
