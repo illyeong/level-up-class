@@ -40,7 +40,7 @@ function WalkingPet({ monsterData }) {
 
   const getRange = () => {
     const PET_W = Math.round((monsterData?.frameWidth || 80) * (monsterData?.scale || 0.5) * 2);
-    const minX = Math.floor(window.innerWidth * 0.55); // 우측 45% 구간
+    const minX = Math.floor(window.innerWidth * 0.75); // 우측 25% 구간
     const maxX = window.innerWidth - PET_W - 2;        // 오른쪽 벽까지 최대한
     return { minX, maxX };
   };
@@ -112,6 +112,7 @@ function App() {
   const [selectedClass,  setSelectedClass]  = useState(null);
   const [studentInfo,    setStudentInfo]    = useState(null);
   const [activePetMonster, setActivePetMonster] = useState(null);
+  const [petVisible, setPetVisible] = useState(true);
   const [currentView,    setCurrentView]    = useState('dashboard');
   const [testStudentCode, setTestStudentCode] = useState(null);
   const [studentClassInfo, setStudentClassInfo] = useState(null);
@@ -527,7 +528,18 @@ function App() {
   return (
     <div className={`flex h-screen relative ${themeMode === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
       {/* 전역 걷는 펫 */}
-      {activePetMonster && <WalkingPet monsterData={activePetMonster} />}
+      {activePetMonster && petVisible && <WalkingPet monsterData={activePetMonster} />}
+      {/* 펫 토글 버튼 */}
+      {activePetMonster && (
+        <button
+          onClick={() => setPetVisible(v => !v)}
+          style={{ position: 'fixed', bottom: 4, right: 4, zIndex: 30 }}
+          className="w-7 h-7 rounded-full bg-black/30 hover:bg-black/50 text-white text-xs flex items-center justify-center transition-all"
+          title={petVisible ? '펫 숨기기' : '펫 보이기'}
+        >
+          {petVisible ? '🐾' : '👁'}
+        </button>
+      )}
 
       {showStudentNav && (
         <NavigationBar changeView={setCurrentView} currentView={currentView} classInfo={studentClassInfo} hiddenMenuIds={effectiveHiddenStudentMenuIds} />
