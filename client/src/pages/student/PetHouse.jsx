@@ -15,14 +15,59 @@ const RARITY = {
   legendary: { label: '전설',   badge: '🟡', bg: 'bg-amber-50',   text: 'text-amber-700',  border: 'border-amber-300',  tierKey: 'large'  },
 };
 
-// ── 패시브 스킬 ───────────────────────────────────────────────
-const SKILLS = {
-  luck:     { name: '행운',        desc: '골드 획득 +3%',    icon: '🍀' },
-  sharpEye: { name: '날카로운 눈',  desc: '퀴즈 힌트 1회/일', icon: '👁️' },
-  warrior:  { name: '투사의 기운', desc: 'EXP 획득 +3%',     icon: '⚔️' },
-  king:     { name: '왕의 위엄',   desc: '전체 보너스 +2%',   icon: '👑' },
+// ── 스탯 메타 (전투 스탯 기반) ───────────────────────────────
+export const STATS_META = {
+  atk:  { label: '공격력',    icon: '⚔️',  unit: '' },
+  hp:   { label: '체력',      icon: '❤️',  unit: '' },
+  def:  { label: '방어력',    icon: '🛡️',  unit: '' },
+  crit: { label: '크리 확률', icon: '💥',  unit: '%' },
 };
-const TIER_SKILL = { tiny: 'luck', small: 'sharpEye', medium: 'warrior', large: 'king' };
+
+// 등급별 스탯 풀 ([stat, min, max])
+const STAT_POOLS = {
+  common: [
+    [['hp',  5, 15]],
+    [['atk', 3, 8]],
+    [['def', 3, 8]],
+  ],
+  rare: [
+    [['atk', 8,  15]],
+    [['hp',  15, 30]],
+    [['def', 8,  15]],
+    [['crit', 3,  7]],
+  ],
+  epic: [
+    [['atk', 15, 25], ['hp',   20, 40]],
+    [['atk', 15, 25], ['crit',  5, 10]],
+    [['def', 15, 25], ['hp',   25, 45]],
+    [['hp',  30, 50], ['crit',  5, 10]],
+  ],
+  legendary: [
+    [['atk', 25, 40], ['hp',   40, 70], ['crit', 8, 15]],
+    [['atk', 30, 50], ['def',  20, 35], ['hp',  40, 60]],
+    [['hp',  50, 80], ['def',  25, 40], ['crit', 8, 15]],
+    [['atk', 30, 50], ['crit', 10, 20]],
+  ],
+};
+
+function rand(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+function generateStats(rarity) {
+  const pool = STAT_POOLS[rarity];
+  if (!pool?.length) return { goldBonus: 2 };
+  const combo = pool[Math.floor(Math.random() * pool.length)];
+  return Object.fromEntries(combo.map(([stat, min, max]) => [stat, rand(min, max)]));
+}
+
+// 스탯 표시용 문자열 배열
+export function formatStats(stats = {}) {
+  return Object.entries(stats)
+    .filter(([, v]) => v > 0)
+    .map(([k, v]) => {
+      const m = STATS_META[k];
+      return m ? `${m.icon} ${m.label} +${v}${m.unit}` : null;
+    })
+    .filter(Boolean);
+}
 
 // ── 가챠 알 설정 ─────────────────────────────────────────────
 const EGGS = [
@@ -107,7 +152,7 @@ function PetCard({ pet, isActive, onSetActive, onRename }) {
   const [anim, setAnim] = useState('idle');
   const md = MONSTERS_DB[pet.monsterId];
   const r = RARITY[pet.rarity] || RARITY.common;
-  const skill = SKILLS[pet.passiveSkillId] || SKILLS.luck;
+  const statLines = formatStats(pet.stats || {});
   if (!md) return null;
   return (
     <div className={`relative rounded-2xl border-2 p-3 transition-all
@@ -123,7 +168,14 @@ function PetCard({ pet, isActive, onSetActive, onRename }) {
       </div>
       <p className="text-center text-xs font-extrabold text-slate-200 truncate">{pet.nickname || md.name}</p>
       <p className={`text-center text-[10px] font-bold ${r.text} mb-1.5`}>{r.badge} {r.label}</p>
-      <p className="text-center text-[9px] text-slate-400 mb-2">{skill.icon} {skill.name}</p>
+
+      {/* 스탯 보너스 */}
+      <div className="space-y-0.5 mb-2 min-h-[28px]">
+        {statLines.map((line, i) => (
+          <p key={i} className="text-center text-[9px] text-slate-300 bg-slate-700/60 rounded px-1.5 py-0.5 font-bold">{line}</p>
+        ))}
+      </div>
+
       <div className="flex gap-1">
         {!isActive && (
           <button onClick={() => onSetActive(pet.id)}
@@ -213,7 +265,7 @@ export default function PetHouse({ studentCode }) {
       studentCode, teacherUid: student.teacherUid || '',
       monsterId: md.id, nickname: md.name, rarity, tier: md.tier,
       level: 1, exp: 0, hunger: 100, happiness: 100,
-      passiveSkillId: TIER_SKILL[md.tier] || 'luck',
+      stats: generateStats(rarity),
       isActive: false, obtainedFrom: 'gacha', obtainedAt: serverTimestamp(),
     };
     const ref = await addDoc(collection(db, 'studentPets'), petData);
@@ -254,7 +306,11 @@ export default function PetHouse({ studentCode }) {
                   <SpriteMonster data={md} anim="idle" scale={md.scale * 2.8} />
                 </div>
                 <p className="text-white font-extrabold text-xl mb-1">{md.name}</p>
-                <p className="text-indigo-300 text-sm mb-6">{skill.icon} {skill.name} — {skill.desc}</p>
+                <div className="flex flex-wrap justify-center gap-1.5 mb-6">
+                  {formatStats(pet.stats || {}).map((line, i) => (
+                    <span key={i} className="text-[11px] bg-white/15 text-white px-2.5 py-1 rounded-full font-bold">{line}</span>
+                  ))}
+                </div>
                 <div className="flex gap-3">
                   <button onClick={() => { handleSetActive(pet.id); closeGacha(); }}
                     className="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold rounded-2xl">

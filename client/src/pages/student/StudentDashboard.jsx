@@ -3,11 +3,10 @@ import { doc, getDoc, getDocs, collection, query, where } from 'firebase/firesto
 import { db } from '../../firebase';
 import SpriteMonster from '../../components/SpriteMonster';
 import { MONSTERS_DB } from '../../data/monsterData';
+import { STATS_META, formatStats } from './PetHouse';
 
-const RARITY_BADGE = {
-  common: '⚪', rare: '🔵', epic: '🟣', legendary: '🟡',
-};
-const SKILL_ICONS = { luck: '🍀', sharpEye: '👁️', warrior: '⚔️', king: '👑' };
+const RARITY_BADGE = { common: '⚪', rare: '🔵', epic: '🟣', legendary: '🟡' };
+const RARITY_LABEL = { common: '일반', rare: '희귀', epic: '영웅', legendary: '전설' };
 
 const StudentDashboard = ({ studentCode }) => {
   const [student, setStudent] = useState(null);
@@ -70,8 +69,10 @@ const StudentDashboard = ({ studentCode }) => {
                 </div>
                 <div className="text-left min-w-0">
                   <p className="text-xs font-extrabold text-slate-700 truncate">{activePet.nickname || md.name}</p>
-                  <p className="text-[10px] text-indigo-500 font-bold">{RARITY_BADGE[activePet.rarity]} {activePet.rarity === 'legendary' ? '전설' : activePet.rarity === 'epic' ? '영웅' : activePet.rarity === 'rare' ? '희귀' : '일반'}</p>
-                  <p className="text-[10px] text-slate-400">{SKILL_ICONS[activePet.passiveSkillId]} 패시브 활성</p>
+                  <p className="text-[10px] text-indigo-500 font-bold">{RARITY_BADGE[activePet.rarity]} {RARITY_LABEL[activePet.rarity] || '일반'}</p>
+                  {formatStats(activePet.stats || {}).slice(0, 2).map((line, i) => (
+                    <p key={i} className="text-[9px] text-slate-500">{line}</p>
+                  ))}
                 </div>
               </div>
             );
