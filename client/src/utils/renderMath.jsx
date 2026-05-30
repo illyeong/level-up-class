@@ -1,15 +1,12 @@
 import React from 'react';
 
-/** 보기 앞의 ①②③④ 제거 (AI가 붙여서 생성하므로 렌더 시 중복 방지) */
+/** 보기 앞의 ①②③④ 제거 */
 export const stripOptionPrefix = (text) => {
   if (!text || typeof text !== 'string') return text;
   return text.replace(/^[①②③④⑤⑥]\s*/, '').trimStart();
 };
 
-/**
- * 표 렌더러
- * table: { headers: string[], rows: string[][] }
- */
+/** 표 렌더러 */
 export function TableRenderer({ table, dark = false }) {
   if (!table?.headers?.length) return null;
   return (
@@ -18,8 +15,7 @@ export function TableRenderer({ table, dark = false }) {
         <thead>
           <tr>
             {table.headers.map((h, i) => (
-              <th key={i}
-                className="border-2 border-blue-400 bg-blue-500 text-white px-3 py-2 text-center font-bold whitespace-nowrap">
+              <th key={i} className="border-2 border-blue-400 bg-blue-500 text-white px-3 py-2 text-center font-bold whitespace-nowrap">
                 {h}
               </th>
             ))}
@@ -31,9 +27,7 @@ export function TableRenderer({ table, dark = false }) {
               {row.map((cell, ci) => (
                 <td key={ci}
                   className={`border-2 border-blue-300 px-3 py-2 text-center whitespace-nowrap
-                    ${ci === 0
-                      ? 'bg-blue-50 font-bold text-blue-800'
-                      : dark ? 'bg-slate-700 text-slate-100' : 'bg-white text-slate-700'}`}>
+                    ${ci === 0 ? 'bg-blue-50 font-bold text-blue-800' : dark ? 'bg-slate-700 text-slate-100' : 'bg-white text-slate-700'}`}>
                   {cell}
                 </td>
               ))}
@@ -45,71 +39,84 @@ export function TableRenderer({ table, dark = false }) {
   );
 }
 
-// 세로 분수 컴포넌트 (재사용)
-function VertFrac({ num, den, keyProp }) {
+// ── 세로 분수 (진분수/가분수) ──────────────────────────────────
+function VertFrac({ num, den }) {
   return (
-    <span key={keyProp} style={{
-      display: 'inline-flex', flexDirection: 'column',
-      alignItems: 'center', verticalAlign: 'middle',
-      margin: '0 2px', lineHeight: 1.1,
+    <span style={{
+      display: 'inline-flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      verticalAlign: 'middle',
+      fontSize: '0.82em',
+      lineHeight: '1.25',
+      margin: '0 1px',
     }}>
-      <span style={{ borderBottom: '1.5px solid currentColor', padding: '0 4px', fontSize: '0.88em', minWidth: '12px', textAlign: 'center' }}>{num}</span>
-      <span style={{ padding: '0 4px', fontSize: '0.88em', minWidth: '12px', textAlign: 'center' }}>{den}</span>
+      <span style={{ borderBottom: '1.5px solid currentColor', padding: '0 3px', textAlign: 'center', minWidth: '10px' }}>{num}</span>
+      <span style={{ padding: '0 3px', textAlign: 'center', minWidth: '10px' }}>{den}</span>
+    </span>
+  );
+}
+
+// ── 대분수 (자연수 + 세로분수) ────────────────────────────────
+function MixedNumber({ whole, num, den }) {
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      verticalAlign: 'middle',
+      gap: '1px',
+    }}>
+      <span style={{ lineHeight: '1' }}>{whole}</span>
+      <VertFrac num={num} den={den} />
     </span>
   );
 }
 
 /**
  * 수식 렌더러
- * - 대분수: "2 3/5" (공백) 또는 "2과 3/5" (과/와) → 자연수 + 세로분수
- * - 진분수: "3/5" → 세로분수
+ * 대분수: "2 3/5" / "2과 3/5" / "2와 3/5"
+ * 진분수: "3/5"
  */
 export function renderMath(text) {
   if (!text || typeof text !== 'string') return text;
   if (!text.includes('/')) return text;
 
-  const allMatches = [];
+  const matches = [];
   let m;
 
-  // 대분수 패턴 1: "2과 3/5" 또는 "2와 3/5"
-  const rKorean = /(\d+)\s*[과와]\s*(\d+)\/(\d+)/g;
-  while ((m = rKorean.exec(text)) !== null) {
-    allMatches.push({ start: m.index, end: m.index + m[0].length, type: 'mixed', whole: m[1], num: m[2], den: m[3] });
+  // 대분수: 한국어 (과/와) — 공백 여부 무관
+  const rKor = /(\d+)\s*[과와]\s*(\d+)\/(\d+)/g;
+  while ((m = rKor.exec(text)) !== null) {
+    matches.push({ start: m.index, end: m.index + m[0].length, type: 'mixed', whole: m[1], num: m[2], den: m[3] });
   }
 
-  // 대분수 패턴 2: "2 3/5" (공백 1칸 이상 구분) — 과/와 없는 경우
-  const rSpace = /(\d+) +(\d+)\/(\d+)/g;
-  while ((m = rSpace.exec(text)) !== null) {
-    const inKorean = allMatches.some(mx => m.index >= mx.start && m.index < mx.end);
-    if (!inKorean) {
-      allMatches.push({ start: m.index, end: m.index + m[0].length, type: 'mixed', whole: m[1], num: m[2], den: m[3] });
+  // 대분수: 공백 구분 "2 3/5" (1칸 이상)
+  const rSpc = /(\d+)[ \t]+(\d+)\/(\d+)/g;
+  while ((m = rSpc.exec(text)) !== null) {
+    if (!matches.some(mx => m.index >= mx.start && m.index < mx.end)) {
+      matches.push({ start: m.index, end: m.index + m[0].length, type: 'mixed', whole: m[1], num: m[2], den: m[3] });
     }
   }
 
-  // 진분수: "3/5" (대분수에 포함된 것 제외)
+  // 진분수: "3/5" (대분수 범위 제외)
   const rFrac = /(\d+)\/(\d+)/g;
   while ((m = rFrac.exec(text)) !== null) {
-    const inMixed = allMatches.some(mx => m.index >= mx.start && m.index < mx.end);
-    if (!inMixed) allMatches.push({ start: m.index, end: m.index + m[0].length, type: 'frac', num: m[1], den: m[2] });
+    if (!matches.some(mx => m.index >= mx.start && m.index < mx.end)) {
+      matches.push({ start: m.index, end: m.index + m[0].length, type: 'frac', num: m[1], den: m[2] });
+    }
   }
 
-  if (allMatches.length === 0) return text;
-  allMatches.sort((a, b) => a.start - b.start);
+  if (matches.length === 0) return text;
+  matches.sort((a, b) => a.start - b.start);
 
   const result = [];
   let pos = 0;
-  allMatches.forEach((match, i) => {
+  matches.forEach((match, i) => {
     if (match.start > pos) result.push(text.slice(pos, match.start));
     if (match.type === 'mixed') {
-      result.push(
-        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', margin: '0 1px' }}>
-          {/* alignSelf:stretch → 자연수 span이 VertFrac 높이만큼 늘어남, 내부 flex center로 분수선 높이에 정렬 */}
-          <span style={{ display: 'flex', alignItems: 'center', alignSelf: 'stretch', paddingRight: '1px' }}>{match.whole}</span>
-          <VertFrac num={match.num} den={match.den} keyProp={`m${i}`} />
-        </span>
-      );
+      result.push(<MixedNumber key={i} whole={match.whole} num={match.num} den={match.den} />);
     } else {
-      result.push(<VertFrac key={i} num={match.num} den={match.den} keyProp={`f${i}`} />);
+      result.push(<VertFrac key={i} num={match.num} den={match.den} />);
     }
     pos = match.end;
   });

@@ -123,7 +123,7 @@ const gradeFromCode = (code) => {
 };
 
 // 차시별 캐시 키 (v2: sonnet 모델로 재생성된 고품질 콘텐츠)
-const CACHE_VER = 'v2';
+const CACHE_VER = 'v3'; // 대분수 렌더링 수정 후 캐시 버전 업
 const lessonKey = (unit, lesson) =>
   `${CACHE_VER}_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
 
