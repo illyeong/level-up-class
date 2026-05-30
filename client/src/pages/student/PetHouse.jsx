@@ -392,7 +392,7 @@ function PetCard({ pet, isActive, onSetActive, onRename }) {
   const statLines = formatStats(pet.stats || {});
   const isMythic = pet.rarity === 'mythic';
   // 티어별 표시 높이 목표 (크기 비교가 확실히 되도록)
-  const TIER_H = { tiny: 38, small: 54, medium: 76, large: 100, boss: 124 };
+  const TIER_H = { tiny: 38, small: 54, medium: 76, large: 120, boss: 148 };
   const targetH   = TIER_H[md.tier] || 60;
   const cardScale = targetH / (md.frameHeight || 120);
   const slotH     = targetH + 14; // 스프라이트 컨테이너 높이 (여유 포함)
@@ -784,9 +784,9 @@ export default function PetHouse({ studentCode }) {
         {/* 내 펫 */}
         {tab === 'myPets' && (() => {
           // 티어별 상세 패널 표시 높이
-          const DETAIL_H = { tiny:80, small:115, medium:160, large:210, boss:255 };
+          const DETAIL_H = { tiny:80, small:115, medium:160, large:240, boss:290 };
           // 티어별 목록 썸네일 높이
-          const LIST_H   = { tiny:26, small:36,  medium:50,  large:64,  boss:78  };
+          const LIST_H   = { tiny:26, small:36,  medium:50,  large:80,  boss:98  };
 
           const sp = selectedPet ? pets.find(p => p.id === selectedPet.id) || selectedPet : pets[0] || null;
           const spMd = sp ? MONSTERS_DB[sp.monsterId] : null;
