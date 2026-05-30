@@ -1462,6 +1462,29 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
             setPetDropped({ id: petRef.id, ...petData, monsterData: md });
           }
         }
+
+        // ── 알 드롭 (펫 드롭과 별개, 낮은 확률) ──────────────
+        const EGG_DROP = {
+          low:    { chance: 0.05, type: 'common'    },
+          mid:    { chance: 0.04, type: 'rare'      },
+          high:   { chance: 0.03, type: 'epic'      },
+          perfect:{ chance: 0.05, type: 'legendary' },
+        };
+        const REQUIRED_CLEARS_MAP = { common:10, rare:20, epic:30, legendary:40, mythic:50 };
+        const edt = EGG_DROP[accuracy === 100 ? 'perfect' : accuracy >= 90 ? 'high' : accuracy >= 75 ? 'mid' : accuracy >= 60 ? 'low' : null];
+        if (edt && Math.random() < edt.chance) {
+          await addDoc(collection(db, 'studentEggs'), {
+            studentCode: studentData.studentCode,
+            teacherUid: studentData.teacherUid || '',
+            eggType: edt.type,
+            currentClears: 0,
+            requiredClears: REQUIRED_CLEARS_MAP[edt.type],
+            isIncubating: false,
+            hatched: false,
+            obtainedFrom: 'dungeonDrop',
+            obtainedAt: serverTimestamp(),
+          });
+        }
       }
 
       setStudentData(prev => ({

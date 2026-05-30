@@ -503,6 +503,24 @@ export default function AICourseware({ studentCode }) {
       setMasteryMap(prev => ({ ...prev, [key]: masteryData }));
       setAllMastery(prev => ({ ...prev, [key]: masteryData }));
 
+      // ── 알 부화 카운터 증가 ─────────────────────────────────
+      try {
+        const eggSnap = await getDocs(query(
+          collection(db, 'studentEggs'),
+          where('studentCode', '==', studentCode),
+          where('isIncubating', '==', true),
+          where('hatched', '==', false),
+        ));
+        if (!eggSnap.empty) {
+          const eggDoc = eggSnap.docs[0];
+          const eggData = eggDoc.data();
+          const REQUIRED = { common: 10, rare: 20, epic: 30, legendary: 40, mythic: 50 };
+          const required = REQUIRED[eggData.eggType] || 10;
+          const newClears = Math.min((eggData.currentClears || 0) + 1, required);
+          await updateDoc(doc(db, 'studentEggs', eggDoc.id), { currentClears: newClears });
+        }
+      } catch (eggErr) { console.error('알 카운터 오류:', eggErr); }
+
       // 일일 카운트 증가 (새로운 완료만)
       if (!alreadyRewarded) setDailyCount(prev => prev + 1);
 

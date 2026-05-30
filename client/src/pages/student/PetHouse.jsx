@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   collection, getDocs, doc, addDoc, updateDoc,
-  query, where, serverTimestamp,
+  query, where, serverTimestamp, orderBy,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import SpriteMonster from '../../components/SpriteMonster';
@@ -74,6 +74,94 @@ export function formatStats(stats = {}) {
       return m ? `${m.icon} ${m.label} +${v}${m.unit}` : null;
     })
     .filter(Boolean);
+}
+
+// ── 알 부화 시스템 ───────────────────────────────────────────
+export const REQUIRED_CLEARS = { common: 10, rare: 20, epic: 30, legendary: 40, mythic: 50 };
+
+const EGG_FRAMES = {
+  common:    { path: 'Egg_Common',    total: 20 },
+  rare:      { path: 'Egg_Rare',      total: 30 },
+  epic:      { path: 'Egg_Epic',      total: 16 },
+  legendary: { path: 'Egg_Legendary', total: 30 },
+  mythic:    { path: 'Egg_Mythic',    total: 30 },
+};
+
+// 알 부화 프레임 애니메이션
+function EggHatchAnim({ eggType, onComplete }) {
+  const [frame, setFrame] = useState(1);
+  const [phase, setPhase] = useState('anim'); // anim | flash | done
+  const cfg = EGG_FRAMES[eggType] || EGG_FRAMES.common;
+
+  useEffect(() => {
+    let f = 1;
+    const iv = setInterval(() => {
+      f++;
+      setFrame(f);
+      if (f >= cfg.total) {
+        clearInterval(iv);
+        setPhase('flash');
+        setTimeout(() => { setPhase('done'); setTimeout(onComplete, 800); }, 500);
+      }
+    }, 50); // ~20fps
+    return () => clearInterval(iv);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center justify-center py-8">
+      {phase === 'anim' && (
+        <img
+          src={`/images/Eggs/${cfg.path}/512x512/Egg ${frame}.png`}
+          alt="부화 중"
+          className="w-48 h-48 object-contain"
+          onError={e => { e.target.style.opacity = '0'; }}
+        />
+      )}
+      {phase === 'flash' && (
+        <div className="w-48 h-48 rounded-full bg-white/80 animate-ping" />
+      )}
+      {phase === 'done' && (
+        <p className="text-white font-extrabold text-3xl animate-bounce">✨ 부화 완료!</p>
+      )}
+    </div>
+  );
+}
+
+// 인벤토리 알 카드
+function EggInventoryCard({ egg, isIncubating, onIncubate, rarity }) {
+  const r = RARITY[egg.eggType] || RARITY.common;
+  const required = REQUIRED_CLEARS[egg.eggType] || 10;
+  const current  = egg.currentClears || 0;
+  const ready    = current >= required;
+  const cfg = EGG_FRAMES[egg.eggType] || EGG_FRAMES.common;
+  const gachaImg = `/images/Eggs/Egg_${egg.eggType.charAt(0).toUpperCase() + egg.eggType.slice(1)}_Gacha.png`;
+
+  return (
+    <div className={`rounded-2xl border-2 p-3 transition-all text-center
+      ${isIncubating ? `${r.border} bg-slate-800 shadow-lg` : 'border-slate-700 bg-slate-800/50'}`}>
+      <img src={gachaImg} alt={r.label} className="w-14 h-14 object-contain mx-auto mb-1"
+        onError={e => { e.target.style.display='none'; }} />
+      <p className={`text-[10px] font-bold ${r.text} mb-1`}>{r.badge} {r.label} 알</p>
+      {isIncubating ? (
+        <>
+          <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden mb-1">
+            <div className="h-full bg-indigo-400 rounded-full transition-all"
+              style={{ width: `${Math.min(100, (current / required) * 100)}%` }} />
+          </div>
+          <p className="text-[10px] text-slate-400">{current}/{required}회</p>
+          {ready && <p className="text-[10px] text-emerald-400 font-bold mt-0.5">부화 준비 완료!</p>}
+        </>
+      ) : (
+        <>
+          <p className="text-[10px] text-slate-500 mb-1.5">AI학습관 {required}회</p>
+          <button onClick={() => onIncubate(egg)}
+            className="w-full text-[10px] font-bold py-1 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600">
+            인큐베이터 넣기
+          </button>
+        </>
+      )}
+    </div>
+  );
 }
 
 // ── 가챠 알 설정 (5등급 포함) ────────────────────────────────
@@ -350,6 +438,12 @@ export default function PetHouse({ studentCode }) {
   const [loading, setLoading]   = useState(true);
   const [activePetId, setActivePetId] = useState(null);
 
+  // 알 부화 시스템
+  const [eggs,        setEggs]        = useState([]); // studentEggs 목록
+  const [hatchPhase,  setHatchPhase]  = useState('idle'); // idle|animating|result
+  const [hatchingEgg, setHatchingEgg] = useState(null);
+  const [hatchedPet,  setHatchedPet]  = useState(null);
+
   const [gachaPhase, setGachaPhase]   = useState('idle'); // idle|confirm|hatching|result
   const [selectedEgg, setSelectedEgg] = useState(null);
   const [gachaResult, setGachaResult] = useState(null);
@@ -381,9 +475,63 @@ export default function PetHouse({ studentCode }) {
       }
       const petSnap = await getDocs(query(collection(db, 'studentPets'), where('studentCode', '==', studentCode)));
       setPets(petSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+      // 알 인벤토리 로드
+      const eggSnap = await getDocs(query(
+        collection(db, 'studentEggs'),
+        where('studentCode', '==', studentCode),
+        where('hatched', '==', false),
+      ));
+      setEggs(eggSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
       setLoading(false);
     })();
   }, [studentCode]);
+
+  // 인큐베이터에 알 넣기
+  const startIncubating = async (egg) => {
+    // 이미 부화중인 알이 있으면 불가
+    if (eggs.some(e => e.isIncubating)) {
+      showToast('이미 부화 중인 알이 있습니다!', 'error'); return;
+    }
+    await updateDoc(doc(db, 'studentEggs', egg.id), { isIncubating: true });
+    setEggs(prev => prev.map(e => e.id === egg.id ? { ...e, isIncubating: true } : e));
+    showToast('인큐베이터에 넣었습니다! AI학습관에서 문제를 풀어보세요 🥚');
+  };
+
+  // 부화 실행
+  const hatchEgg = async (egg) => {
+    setHatchingEgg(egg);
+    setHatchPhase('animating');
+
+    // 부화 결과 결정
+    const rarity = egg.eggType;
+    const md = pickMonster(rarity);
+    if (!md) { showToast('오류', 'error'); setHatchPhase('idle'); return; }
+
+    const petData = {
+      studentCode, teacherUid: student?.teacherUid || '',
+      monsterId: md.id, nickname: md.name, rarity, tier: md.tier,
+      level: 1, exp: 0, hunger: 100, happiness: 100,
+      stats: generateStats(rarity),
+      isActive: false, obtainedFrom: 'hatch', obtainedAt: serverTimestamp(),
+    };
+    const ref = await addDoc(collection(db, 'studentPets'), petData);
+    const newPet = { id: ref.id, ...petData, monsterData: md };
+    setPets(prev => [...prev, newPet]);
+
+    // 알 부화 완료 처리
+    await updateDoc(doc(db, 'studentEggs', egg.id), { hatched: true, isIncubating: false, resultPetId: ref.id });
+    setEggs(prev => prev.filter(e => e.id !== egg.id));
+    setHatchedPet(newPet);
+  };
+
+  const closeHatch = () => {
+    setHatchPhase('idle');
+    setHatchingEgg(null);
+    setHatchedPet(null);
+    setTab('myPets');
+  };
 
   // 대표 설정
   const handleSetActive = async (petId) => {
@@ -456,6 +604,65 @@ export default function PetHouse({ studentCode }) {
   const closeGacha = () => { setGachaPhase('idle'); setSelectedEgg(null); setGachaResult(null); setTab('myPets'); };
 
   // ── 가챠 전체화면 ──────────────────────────────────────────
+  // ── 알 부화 애니메이션 전체화면 ──────────────────────────────
+  if (hatchPhase === 'animating' || hatchPhase === 'result') {
+    const theme = RARITY_THEME[hatchingEgg?.eggType] || RARITY_THEME.common;
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6"
+        style={{ background: `radial-gradient(ellipse at 50% 40%, ${theme.glow}30, #0f172a 65%)` }}>
+        <div className="w-full max-w-sm text-center">
+          {hatchPhase === 'animating' && (
+            <>
+              <p className="text-white font-extrabold text-xl mb-4 animate-pulse">부화 중...✨</p>
+              <EggHatchAnim eggType={hatchingEgg.eggType} onComplete={() => setHatchPhase('result')} />
+              <p className="text-slate-400 text-sm mt-2">
+                {(RARITY[hatchingEgg?.eggType] || RARITY.common).badge} {(RARITY[hatchingEgg?.eggType] || RARITY.common).label} 알
+              </p>
+            </>
+          )}
+          {hatchPhase === 'result' && hatchedPet && (() => {
+            const { monsterData: md, rarity } = hatchedPet;
+            const r = RARITY[rarity];
+            const burstCount = rarity === 'mythic' ? 80 : rarity === 'legendary' ? 64 : rarity === 'epic' ? 52 : 40;
+            return (
+              <div className="relative">
+                <ParticleBurst color={theme.glow} count={burstCount} />
+                <ParticleBurst color="#ffffff" count={Math.floor(burstCount / 3)} />
+                <p className="relative text-white font-extrabold text-3xl mb-2 animate-bounce">🐣 부화 성공!</p>
+                <span className={`inline-block text-sm font-extrabold px-4 py-1.5 rounded-full mb-4 ${r.bg} ${r.text} border ${r.border}`}
+                  style={{ boxShadow: `0 0 12px ${theme.glow}60` }}>
+                  {r.badge} {r.label}
+                </span>
+                <div className="flex justify-center items-end mb-3" style={{ height: 150 }}>
+                  <div style={{ filter: `drop-shadow(0 0 16px ${theme.glow})` }}>
+                    <SpriteMonster data={md} anim="idle"
+                      scale={Math.min(md.scale * 3, 150 / (md.frameHeight || 120))} />
+                  </div>
+                </div>
+                <p className="text-white font-extrabold text-xl mb-1">{hatchedPet.nickname}</p>
+                <div className="flex flex-wrap justify-center gap-1.5 mb-5">
+                  {formatStats(hatchedPet.stats || {}).map((line, i) => (
+                    <span key={i} className="text-[11px] bg-white/15 text-white px-2.5 py-1 rounded-full font-bold">{line}</span>
+                  ))}
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => { handleSetActive(hatchedPet.id); closeHatch(); }}
+                    className="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold rounded-2xl">
+                    대표 펫으로 설정
+                  </button>
+                  <button onClick={closeHatch}
+                    className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl">
+                    펫 목록 보기
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+    );
+  }
+
   if (gachaPhase === 'hatching' || gachaPhase === 'result') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-indigo-950 via-purple-900 to-slate-900 flex items-center justify-center p-6">
@@ -536,7 +743,7 @@ export default function PetHouse({ studentCode }) {
 
         {/* 탭 */}
         <div className="flex gap-2 mb-5">
-          {[{ id: 'myPets', label: '🐾 내 펫' }, { id: 'gacha', label: '🥚 펫 알 뽑기' }].map(t => (
+          {[{ id: 'myPets', label: '🐾 내 펫' }, { id: 'hatch', label: '🥚 알 부화' }, { id: 'gacha', label: '💎 펫 알 뽑기' }].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-5 py-2 rounded-xl font-extrabold text-sm transition-colors
                 ${tab === t.id ? 'bg-indigo-500 text-white shadow-md' : 'bg-indigo-900/40 text-indigo-300 hover:bg-indigo-900/60'}`}>
@@ -570,6 +777,82 @@ export default function PetHouse({ studentCode }) {
             </div>
           )
         )}
+
+        {/* 알 부화 탭 */}
+        {tab === 'hatch' && (() => {
+          const incubating = eggs.find(e => e.isIncubating);
+          const inventory  = eggs.filter(e => !e.isIncubating);
+
+          // 부화 애니메이션 전체화면은 return 상위에서 처리
+          return (
+            <div className="space-y-4">
+              {/* 인큐베이터 슬롯 */}
+              <div className="bg-slate-800/60 border border-slate-600 rounded-2xl p-4">
+                <p className="text-white font-extrabold text-sm mb-3">🔮 인큐베이터 슬롯 (1/1)</p>
+                {incubating ? (() => {
+                  const r = RARITY[incubating.eggType] || RARITY.common;
+                  const req = REQUIRED_CLEARS[incubating.eggType] || 10;
+                  const cur = incubating.currentClears || 0;
+                  const pct = Math.min(100, Math.round((cur / req) * 100));
+                  const ready = cur >= req;
+                  const gImg = `/images/Eggs/Egg_${incubating.eggType.charAt(0).toUpperCase() + incubating.eggType.slice(1)}_Gacha.png`;
+                  return (
+                    <div className="flex items-center gap-4">
+                      <img src={gImg} alt="" className="w-16 h-16 object-contain shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-bold text-sm">{r.badge} {r.label} 알 부화 중</p>
+                        <div className="flex items-center gap-2 mt-1 mb-1">
+                          <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${ready ? 'bg-emerald-400' : 'bg-indigo-400'}`}
+                              style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-xs text-slate-400 shrink-0">{cur}/{req}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400">AI학습관 문제 풀기로 진행</p>
+                        {ready ? (
+                          <button onClick={() => hatchEgg(incubating)}
+                            className="mt-2 w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold text-sm animate-pulse">
+                            ✨ 지금 부화하기!
+                          </button>
+                        ) : (
+                          <p className="text-[11px] text-emerald-400 mt-1">
+                            {req - cur}회 더 풀면 부화 가능!
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div className="text-center py-4 text-slate-500 text-sm">
+                    <p>슬롯이 비어 있습니다</p>
+                    <p className="text-xs mt-1">아래 알 인벤토리에서 알을 넣어주세요</p>
+                  </div>
+                )}
+              </div>
+
+              {/* 알 인벤토리 */}
+              <div>
+                <p className="text-slate-400 text-xs font-bold mb-2">알 인벤토리 ({inventory.length}개)</p>
+                {inventory.length === 0 ? (
+                  <div className="text-center py-8 text-slate-600 text-sm">
+                    <p>보유한 알이 없습니다</p>
+                    <p className="text-xs mt-1">퀴즈 던전 클리어 시 낮은 확률로 획득</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {inventory.map(egg => (
+                      <EggInventoryCard key={egg.id} egg={egg}
+                        isIncubating={false}
+                        onIncubate={startIncubating}
+                        rarity={RARITY[egg.eggType]}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 가챠 */}
         {tab === 'gacha' && (
