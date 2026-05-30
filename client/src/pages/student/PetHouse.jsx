@@ -464,9 +464,9 @@ export default function PetHouse({ studentCode }) {
   const [gachaResult, setGachaResult] = useState(null);
   const [hatchDone, setHatchDone]     = useState(false);  // 애니 완료 여부
 
-  // 애니 완료 + 데이터 준비 둘 다 됐을 때 result로 전환
+  // 애니 완료 + 알 저장 완료 둘 다 됐을 때 result로 전환
   useEffect(() => {
-    if (hatchDone && gachaResult?.pet) {
+    if (hatchDone && gachaResult?.eggId) {
       setGachaPhase('result');
       setHatchDone(false);
     }
@@ -565,7 +565,7 @@ export default function PetHouse({ studentCode }) {
     showToast('이름이 변경됐습니다!');
   };
 
-  // 가챠 실행 — rarity를 먼저 동기 계산 후 애니 시작, Firestore 저장은 백그라운드
+  // 가챠 실행 — 알 획득 방식 (펫 직접 지급 X)
   const runGacha = async () => {
     if (!selectedEgg || !student) return;
     if ((student.diamonds || 0) < selectedEgg.cost) {
@@ -573,42 +573,43 @@ export default function PetHouse({ studentCode }) {
       return;
     }
 
-    // 1. 결과를 동기로 먼저 결정
+    // 1. 결과 등급 결정 (동기)
     const rarity = rollRarity(selectedEgg);
-    const md = pickMonster(rarity);
-    if (!md) { showToast('오류: 몬스터를 찾을 수 없습니다', 'error'); return; }
 
-    // 2. 애니메이션 시작 (rarity 정보 전달 → 테마 적용)
-    setGachaResult({ rarity, monsterData: md, pet: null }); // pet은 아직 null
+    // 2. 애니메이션 시작
+    setGachaResult({ rarity, eggId: null });
     setHatchDone(false);
     setGachaPhase('hatching');
 
-    // 3. 백그라운드에서 Firestore 저장 (애니 중에 끝남)
+    // 3. 백그라운드 저장
     try {
       const newDiamonds = (student.diamonds || 0) - selectedEgg.cost;
       await updateDoc(doc(db, 'students', student.id), { diamonds: newDiamonds });
       setStudent(p => ({ ...p, diamonds: newDiamonds }));
 
-      const petData = {
+      const REQUIRED = { common:10, rare:20, epic:30, legendary:40, mythic:50 };
+      const eggData = {
         studentCode, teacherUid: student.teacherUid || '',
-        monsterId: md.id, nickname: md.name, rarity, tier: md.tier,
-        level: 1, exp: 0, hunger: 100, happiness: 100,
-        stats: generateStats(rarity),
-        isActive: false, obtainedFrom: 'gacha', obtainedAt: serverTimestamp(),
+        eggType: rarity,
+        currentClears: 0,
+        requiredClears: REQUIRED[rarity] || 10,
+        isIncubating: false,
+        hatched: false,
+        obtainedFrom: 'gacha',
+        obtainedAt: serverTimestamp(),
       };
-      const ref = await addDoc(collection(db, 'studentPets'), petData);
-      const newPet = { id: ref.id, ...petData };
-      setPets(p => [...p, newPet]);
+      const ref = await addDoc(collection(db, 'studentEggs'), eggData);
+      setEggs(prev => [...prev, { id: ref.id, ...eggData }]);
 
       addDoc(collection(db, 'petGachaLogs'), {
         studentCode, teacherUid: student.teacherUid || '',
         eggType: selectedEgg.id, costDiamonds: selectedEgg.cost,
-        resultPetId: ref.id, resultMonsterId: md.id, resultRarity: rarity,
+        resultEggId: ref.id, resultRarity: rarity,
         createdAt: serverTimestamp(),
       });
 
-      // pet 저장 완료 → effect에서 hatchDone과 조합해 result로 전환
-      setGachaResult({ rarity, monsterData: md, pet: newPet });
+      // eggId 저장 완료 → effect에서 hatchDone과 조합해 result 전환
+      setGachaResult({ rarity, eggId: ref.id });
     } catch (e) {
       console.error('가챠 저장 오류:', e);
       showToast('저장 오류가 발생했습니다', 'error');
@@ -616,7 +617,7 @@ export default function PetHouse({ studentCode }) {
     }
   };
 
-  const closeGacha = () => { setGachaPhase('idle'); setSelectedEgg(null); setGachaResult(null); setTab('myPets'); };
+  const closeGacha = () => { setGachaPhase('idle'); setSelectedEgg(null); setGachaResult(null); };
 
   // ── 가챠 전체화면 ──────────────────────────────────────────
   // ── 알 부화 애니메이션 전체화면 ──────────────────────────────
@@ -689,47 +690,39 @@ export default function PetHouse({ studentCode }) {
               onDone={() => setHatchDone(true)}
             />
           )}
-          {gachaPhase === 'result' && gachaResult?.pet && (() => {
-            const { pet, monsterData: md, rarity } = gachaResult;
+          {gachaPhase === 'result' && gachaResult?.eggId && (() => {
+            const { rarity } = gachaResult;
             const r = RARITY[rarity];
             const theme = RARITY_THEME[rarity] || RARITY_THEME.common;
-            // 전설·신화는 파티클 더 많이
             const burstCount = rarity === 'mythic' ? 80 : rarity === 'legendary' ? 64 : rarity === 'epic' ? 52 : 40;
+            const REQUIRED = { common:10, rare:20, epic:30, legendary:40, mythic:50 };
             return (
-              <div className="relative">
-                {/* 획득 순간 파티클 폭발 */}
+              <div className="relative text-center">
                 <ParticleBurst color={theme.glow} count={burstCount} />
-                {/* 2차 파티클 (흰색) */}
                 <ParticleBurst color="#ffffff" count={Math.floor(burstCount / 3)} />
-                <p className="relative text-white font-extrabold text-3xl mb-2 animate-bounce">✨ 획득!</p>
-                <span className={`inline-block text-sm font-extrabold px-4 py-1.5 rounded-full mb-4 ${r.bg} ${r.text} border ${r.border}`}
+                <p className="relative text-white font-extrabold text-3xl mb-2 animate-bounce">🥚 알 획득!</p>
+                <span className={`inline-block text-sm font-extrabold px-4 py-1.5 rounded-full mb-5 ${r.bg} ${r.text} border ${r.border}`}
                   style={{ boxShadow: `0 0 12px ${theme.glow}60` }}>
                   {r.badge} {r.label}
                 </span>
-                {/* 결과 스프라이트 — 최대 150px 높이 제한 */}
-                <div className="flex justify-center items-end mb-3 relative overflow-hidden"
-                  style={{ height: 150 }}>
-                  <div style={{ filter: `drop-shadow(0 0 16px ${theme.glow})` }}>
-                    <SpriteMonster
-                      data={md} anim="idle"
-                      scale={Math.min(md.scale * 3, 150 / (md.frameHeight || 120))}
-                    />
-                  </div>
+                {/* 알 이미지 */}
+                <div className="flex justify-center mb-4"
+                  style={{ filter: `drop-shadow(0 0 24px ${theme.glow})` }}>
+                  <img src={RARITY_EGG_IMG[rarity]} alt={r.label}
+                    className="w-40 h-40 object-contain animate-bounce" />
                 </div>
-                <p className="text-white font-extrabold text-xl mb-1">{md.name}</p>
-                <div className="flex flex-wrap justify-center gap-1.5 mb-6">
-                  {formatStats(pet.stats || {}).map((line, i) => (
-                    <span key={i} className="text-[11px] bg-white/15 text-white px-2.5 py-1 rounded-full font-bold">{line}</span>
-                  ))}
-                </div>
+                <p className="text-white/80 text-sm font-bold mb-1">알 인벤토리에 추가됐습니다!</p>
+                <p className="text-slate-400 text-xs mb-6">
+                  AI학습관 문제 {REQUIRED[rarity]}회 완료 후 부화 가능
+                </p>
                 <div className="flex gap-3">
-                  <button onClick={() => { handleSetActive(pet.id); closeGacha(); }}
-                    className="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold rounded-2xl">
-                    대표 펫으로 설정
+                  <button onClick={() => { setTab('hatch'); closeGacha(); }}
+                    className="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold rounded-2xl text-sm">
+                    🥚 알 부화 탭으로 →
                   </button>
                   <button onClick={closeGacha}
-                    className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl">
-                    펫 목록 보기
+                    className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-sm">
+                    계속 뽑기
                   </button>
                 </div>
               </div>
