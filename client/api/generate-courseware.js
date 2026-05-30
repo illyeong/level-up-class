@@ -65,17 +65,17 @@ ${isUnitTest
   : `{"title":"15자 이내","conceptCards":[{"title":"개념명","body":"핵심만 2문장","example":"짧은 예시"}],"commonMistakes":["실수1","실수2"],"questions":[{"question":"문제","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"1문장 해설"}]}`
 }
 
-shape 규칙: 도형이 등장하는 문제(넓이/둘레/각도/대칭)에는 반드시 생성, 순수 개념·암산 문제만 null
-- 대칭 단원 문제 작성 규칙 (반드시 준수):
-  패턴A: 도형 하나를 shape로 보여주고 → "이 이등변삼각형의 선대칭축은 몇 개?"
-  패턴B: 여러 도형 비교 문제 → shape에 multi 타입 사용 (최대 4개)
-    예) "다음 도형 중 선대칭도형은 몇 개?" + {"type":"multi","dimensions":{"items":["circle","rhombus","isosceles_triangle","square"]},"unit":""}
-  ❌ 금지: "다음 중" 이라고만 쓰고 도형 목록도 shape도 없는 질문
-- 치수: 계산 문제는 dimensions에 수치 포함, 대칭 문제는 dimensions 생략 가능({}도 가능)
+shape 규칙: 도형·각도·그래프 문제에는 반드시 생성, 순수 개념·암산만 null
+- 도형 종류 문제(직각삼각형·직사각형 등): shape로 보여주고 설명
+- 각도 문제: right_triangle에 angles 포함 예) {"type":"right_triangle","dimensions":{"base":3,"height":4,"angles":{"a":53,"b":37}},"unit":"cm"}
+  (90° 직각은 자동 표시, a=우측밑각, b=꼭짓점각)
+- 대칭 단원: 패턴A(도형 1개+shape) 또는 패턴B(multi) — "다음 중"만 쓰고 shape 없는 질문 금지
+- 그래프 단원: bar_chart 사용 예) {"type":"bar_chart","dimensions":{"title":"과목별 점수","labels":["국어","수학","영어"],"values":[80,90,75],"unit":"점"}}
 - rectangle:{width,height} / square:{side} / circle:{radius} / equilateral_triangle:{side}
-- isosceles_triangle:{base,side} / right_triangle:{base,height} / parallelogram:{base,height}
-- rhombus:{diagonal1,diagonal2} / trapezoid:{bottomBase,topBase,height} | unit:"cm"
-- multi:{items:["type1","type2","type3","type4"]} (2~4개) — 여러 도형 비교 문제용
+- isosceles_triangle:{base,side} / right_triangle:{base,height,angles:{a,b}} (단위: 도)
+- parallelogram:{base,height} / rhombus:{diagonal1,diagonal2} / trapezoid:{bottomBase,topBase,height}
+- multi:{items:["type1","type2",...]} (2~4개) / bar_chart:{title,labels:[],values:[],unit}
+- unit:"cm" (길이) or "도" (각도) or 기타
 options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2개 | questions ${questionCount}개`;
 
   try {

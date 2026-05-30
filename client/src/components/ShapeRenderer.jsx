@@ -81,6 +81,9 @@ const renderers = {
     const bLbl = d.base   ? `${d.base}${u}` : '';
     const hLbl = d.height ? `${d.height}${u}` : '';
     const hypLbl = d.hypotenuse ? `${d.hypotenuse}${u}` : '';
+    // angles: { a: 각도값, b: 각도값 } — 직각(90°)은 RightAngleMark으로 표시
+    const aA = d.angles?.a; // 밑변 우측 각 (x2)
+    const aB = d.angles?.b; // 빗변 꼭짓점 각 (x3)
     return (
       <>
         <polygon points={`${x1},${y1} ${x2},${y2} ${x3},${y3}`} fill={FILL} stroke={STROKE} strokeWidth={SW} />
@@ -88,6 +91,10 @@ const renderers = {
         <Label x={(x1+x2)/2} y={y1+18} text={bLbl} />
         <Label x={x1-18} y={(y1+y3)/2+4} text={hLbl} anchor="end" />
         {hypLbl && <Label x={(x2+x3)/2+14} y={(y2+y3)/2+4} text={hypLbl} anchor="start" />}
+        {/* 각도 표시 */}
+        {aA && <Label x={x2-14} y={y2-10} text={`${aA}°`} small anchor="end" />}
+        {aB && <Label x={x3+6}  y={y3+18} text={`${aB}°`} small anchor="start" />}
+        <Label x={x1+8} y={y1-6} text="90°" small />
       </>
     );
   },
@@ -276,6 +283,51 @@ const renderers = {
     );
   },
 
+  // ── 막대그래프 ───────────────────────────────────────────────
+  bar_chart({ d }) {
+    const labels = d.labels || [];
+    const values = d.values || [];
+    const unit   = d.unit   || '';
+    const maxVal = Math.max(...values, 1);
+    const n = Math.min(labels.length, values.length, 6);
+    const chartH = 100, chartY = 30, chartX = 28;
+    const barW = Math.floor((W - chartX - 16) / Math.max(n, 1));
+    return (
+      <>
+        {/* Y축 */}
+        <line x1={chartX} y1={chartY} x2={chartX} y2={chartY + chartH} stroke="#94a3b8" strokeWidth="1.5" />
+        {/* X축 */}
+        <line x1={chartX} y1={chartY + chartH} x2={W - 8} y2={chartY + chartH} stroke="#94a3b8" strokeWidth="1.5" />
+        {/* Y축 눈금 (0, 최댓값/2, 최댓값) */}
+        {[0, 0.5, 1].map((r, i) => {
+          const yPos = chartY + chartH - r * chartH;
+          const val = Math.round(maxVal * r);
+          return (
+            <React.Fragment key={i}>
+              <line x1={chartX - 3} y1={yPos} x2={chartX} y2={yPos} stroke="#94a3b8" strokeWidth="1" />
+              <text x={chartX - 5} y={yPos + 4} textAnchor="end" fontSize={8} fill="#64748b">{val}{unit}</text>
+            </React.Fragment>
+          );
+        })}
+        {/* 막대 */}
+        {Array.from({ length: n }, (_, i) => {
+          const bH = (values[i] / maxVal) * chartH;
+          const bX = chartX + i * barW + 4;
+          const bY = chartY + chartH - bH;
+          return (
+            <React.Fragment key={i}>
+              <rect x={bX} y={bY} width={barW - 6} height={bH} fill={FILL} stroke={STROKE} strokeWidth={1} rx={2} />
+              <text x={bX + (barW - 6) / 2} y={bY - 3} textAnchor="middle" fontSize={9} fill="#1e40af" fontWeight="600">{values[i]}</text>
+              <text x={bX + (barW - 6) / 2} y={chartY + chartH + 12} textAnchor="middle" fontSize={8} fill="#475569">{labels[i]}</text>
+            </React.Fragment>
+          );
+        })}
+        {/* 제목 */}
+        {d.title && <text x={W/2} y={15} textAnchor="middle" fontSize={10} fill="#1e293b" fontWeight="600">{d.title}</text>}
+      </>
+    );
+  },
+
   // ── 사다리꼴 ─────────────────────────────────────────────────
   trapezoid({ d, u }) {
     const bB = 120, tB = 70, hLen = 72;
@@ -310,12 +362,16 @@ export default function ShapeRenderer({ shape, className = '' }) {
   if (!renderer) return null;
 
   const element = renderer({ d: shape.dimensions || {}, u: shape.unit || '' });
+  // bar_chart는 세로로 더 넓게
+  const isChart = shape.type === 'bar_chart';
+  const vw = isChart ? 240 : W;
+  const vh = isChart ? 160 : H;
 
   return (
     <div className={`flex justify-center my-3 ${className}`}>
       <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="w-full max-w-[220px] h-auto"
+        viewBox={`0 0 ${vw} ${vh}`}
+        className={`w-full h-auto ${isChart ? 'max-w-[300px]' : 'max-w-[220px]'}`}
       >
         {element}
       </svg>
