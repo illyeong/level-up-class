@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from './firebase';
-import { doc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, updateDoc, onSnapshot } from 'firebase/firestore';
 import { useIsAdmin } from './hooks/useIsAdmin';
 import { normalizeLevelProgress } from './utils/leveling';
 
@@ -387,17 +387,25 @@ function App() {
     normalizeStudentProgress();
   }, [appMode, activeStudentCode]);
 
-  // 대표 펫 몬스터 데이터 로드
+  // 대표 펫 실시간 구독 — PetHouse에서 대표 설정 시 즉시 반영
   useEffect(() => {
-    const pid = studentInfo?.activePetId;
-    if (!pid) { setActivePetMonster(null); return; }
-    getDoc(doc(db, 'studentPets', pid)).then(snap => {
-      if (snap.exists()) {
-        const md = MONSTERS_DB[snap.data().monsterId];
-        setActivePetMonster(md || null);
-      } else { setActivePetMonster(null); }
-    }).catch(() => setActivePetMonster(null));
-  }, [studentInfo?.activePetId]);
+    if (!activeStudentCode) { setActivePetMonster(null); return; }
+
+    const q = query(collection(db, 'students'), where('studentCode', '==', activeStudentCode));
+    const unsub = onSnapshot(q, async (snap) => {
+      if (snap.empty) { setActivePetMonster(null); return; }
+      const pid = snap.docs[0].data().activePetId;
+      if (!pid) { setActivePetMonster(null); return; }
+      try {
+        const petSnap = await getDoc(doc(db, 'studentPets', pid));
+        if (petSnap.exists()) {
+          const md = MONSTERS_DB[petSnap.data().monsterId];
+          setActivePetMonster(md || null);
+        } else { setActivePetMonster(null); }
+      } catch { setActivePetMonster(null); }
+    });
+    return () => unsub();
+  }, [activeStudentCode]);
 
   // ── 렌더링 ───────────────────────────────────────────────────
 
