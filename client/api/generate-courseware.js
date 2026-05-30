@@ -65,17 +65,22 @@ ${isUnitTest
   : `{"title":"15자 이내","conceptCards":[{"title":"개념명","body":"핵심만 2문장","example":"짧은 예시"}],"commonMistakes":["실수1","실수2"],"questions":[{"question":"문제","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"1문장 해설"}]}`
 }
 
-shape 규칙: 도형·각도·그래프 문제에는 반드시 생성, 순수 개념·암산만 null
-- 도형 종류 문제(직각삼각형·직사각형 등): shape로 보여주고 설명
-- 각도 문제: right_triangle에 angles 포함 예) {"type":"right_triangle","dimensions":{"base":3,"height":4,"angles":{"a":53,"b":37}},"unit":"cm"}
-  (90° 직각은 자동 표시, a=우측밑각, b=꼭짓점각)
-- 대칭 단원: 패턴A(도형 1개+shape) 또는 패턴B(multi) — "다음 중"만 쓰고 shape 없는 질문 금지
-- 그래프 단원: bar_chart 사용 예) {"type":"bar_chart","dimensions":{"title":"과목별 점수","labels":["국어","수학","영어"],"values":[80,90,75],"unit":"점"}}
+shape 규칙: 도형·각도·분수·그래프·수직선 문제에는 반드시 생성, 순수 암산만 null
+▶ 도형: 직각삼각형/사각형/원/다각형 등 — 해당 shape 타입 사용
+▶ 각도: {"type":"angle","dimensions":{"degrees":120,"label":"둔각"},"unit":"°"}
+  right_triangle에 각도 포함: {"dimensions":{"base":3,"height":4,"angles":{"a":53,"b":37}},"unit":"cm"}
+▶ 분수: {"type":"fraction_bar","dimensions":{"total":5,"filled":3},"unit":""}
+  분수 비교: {"dimensions":{"total":4,"filled":1,"compare":{"total":3,"filled":2}}}
+▶ 막대그래프: {"type":"bar_chart","dimensions":{"title":"제목","labels":["A","B"],"values":[5,8],"unit":"명"}}
+▶ 꺾은선그래프: {"type":"line_chart","dimensions":{"title":"제목","labels":["1월","2월"],"values":[10,15],"unit":"°C"}}
+▶ 원그래프: {"type":"pie_chart","dimensions":{"title":"제목","labels":["A","B","C"],"values":[40,35,25],"unit":"%"}}
+▶ 수직선: {"type":"number_line","dimensions":{"min":0,"max":10,"marks":[3,7],"highlight":{"from":3,"to":7},"label":"3 이상 7 이하"}}
+▶ 다각형: {"type":"polygon","dimensions":{"sides":5,"side":4},"unit":"cm"}
+▶ 대칭: 패턴A(shape 1개) 또는 패턴B(multi) — "다음 중"만 쓰고 shape 없는 질문 금지
+▶ multi:{items:["circle","rhombus",...]} 2~4개 도형 비교용
 - rectangle:{width,height} / square:{side} / circle:{radius} / equilateral_triangle:{side}
-- isosceles_triangle:{base,side} / right_triangle:{base,height,angles:{a,b}} (단위: 도)
-- parallelogram:{base,height} / rhombus:{diagonal1,diagonal2} / trapezoid:{bottomBase,topBase,height}
-- multi:{items:["type1","type2",...]} (2~4개) / bar_chart:{title,labels:[],values:[],unit}
-- unit:"cm" (길이) or "도" (각도) or 기타
+- isosceles_triangle:{base,side} / right_triangle:{base,height} / parallelogram:{base,height}
+- rhombus:{diagonal1,diagonal2} / trapezoid:{bottomBase,topBase,height} | unit:"cm"
 options: 기호 없이 내용만 | answerIndex: 0~3 | conceptCards 2개 | questions ${questionCount}개`;
 
   try {
