@@ -67,7 +67,7 @@ function WalkingPet({ monsterData, isDead }) {
         if (p.x <= minX) { p.x = minX; p.goRight = true;  }
         if (wrapRef.current) {
           wrapRef.current.style.left = p.x + 'px';
-          const sx = isBoss ? (p.goRight ? 1 : -1) : (p.goRight ? -1 : 1);
+          const sx = p.goRight ? -1 : 1; // 전 티어 동일 (보스 포함 좌우반전)
           if (sx !== lastSx) {
             wrapRef.current.style.transform = `scaleX(${sx})`;
             lastSx = sx;
