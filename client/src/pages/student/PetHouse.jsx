@@ -7,12 +7,13 @@ import { db } from '../../firebase';
 import SpriteMonster from '../../components/SpriteMonster';
 import { MONSTERS_DB } from '../../data/monsterData';
 
-// ── 펫 등급 ──────────────────────────────────────────────────
+// ── 펫 등급 (5단계) ──────────────────────────────────────────
 const RARITY = {
-  common:    { label: '일반',   badge: '⚪', bg: 'bg-slate-100',  text: 'text-slate-600',  border: 'border-slate-300',  tierKey: 'tiny'   },
-  rare:      { label: '희귀',   badge: '🔵', bg: 'bg-blue-50',    text: 'text-blue-700',   border: 'border-blue-300',   tierKey: 'small'  },
-  epic:      { label: '영웅',   badge: '🟣', bg: 'bg-purple-50',  text: 'text-purple-700', border: 'border-purple-300', tierKey: 'medium' },
-  legendary: { label: '전설',   badge: '🟡', bg: 'bg-amber-50',   text: 'text-amber-700',  border: 'border-amber-300',  tierKey: 'large'  },
+  common:    { label: '일반',   badge: '⚪', bg: 'bg-slate-100',   text: 'text-slate-600',   border: 'border-slate-300',   tierKey: 'tiny'   },
+  rare:      { label: '희귀',   badge: '🔵', bg: 'bg-blue-50',     text: 'text-blue-700',    border: 'border-blue-300',    tierKey: 'small'  },
+  epic:      { label: '영웅',   badge: '🟣', bg: 'bg-purple-50',   text: 'text-purple-700',  border: 'border-purple-300',  tierKey: 'medium' },
+  legendary: { label: '전설',   badge: '🟡', bg: 'bg-amber-50',    text: 'text-amber-700',   border: 'border-amber-300',   tierKey: 'large'  },
+  mythic:    { label: '신화',   badge: '🌈', bg: 'bg-rose-50',     text: 'text-rose-600',    border: 'border-rose-400',    tierKey: 'boss'   },
 };
 
 // ── 스탯 메타 (전투 스탯 기반) ───────────────────────────────
@@ -48,12 +49,18 @@ const STAT_POOLS = {
     [['hp',  50, 80], ['def',  25, 40], ['crit', 8, 15]],
     [['atk', 30, 50], ['crit', 10, 20]],
   ],
+  mythic: [
+    [['atk', 60, 100], ['hp', 80, 140], ['crit', 15, 25]],
+    [['atk', 70, 110], ['def', 50, 80],  ['crit', 12, 22]],
+    [['hp', 100, 160], ['def', 60, 90],  ['atk', 50, 80]],
+    [['atk', 80, 130], ['hp', 90, 150],  ['def', 40, 70], ['crit', 15, 25]],
+  ],
 };
 
 function rand(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
 function generateStats(rarity) {
   const pool = STAT_POOLS[rarity];
-  if (!pool?.length) return { goldBonus: 2 };
+  if (!pool?.length) return { hp: 5 };
   const combo = pool[Math.floor(Math.random() * pool.length)];
   return Object.fromEntries(combo.map(([stat, min, max]) => [stat, rand(min, max)]));
 }
@@ -69,25 +76,31 @@ export function formatStats(stats = {}) {
     .filter(Boolean);
 }
 
-// ── 가챠 알 설정 ─────────────────────────────────────────────
+// ── 가챠 알 설정 (5등급 포함) ────────────────────────────────
 const EGGS = [
   {
     id: 'normal', name: '일반 펫 알', cost: 500, icon: '🥚',
     gradient: 'from-slate-400 to-slate-600',
-    rates: { common: 65, rare: 30, epic: 5, legendary: 0 },
+    rates: { common: 65, rare: 30, epic: 5, legendary: 0, mythic: 0 },
     rateRows: [{ label: '일반 ⚪', pct: 65 }, { label: '희귀 🔵', pct: 30 }, { label: '영웅 🟣', pct: 5 }],
   },
   {
     id: 'rare', name: '희귀 펫 알', cost: 1000, icon: '💙',
     gradient: 'from-blue-500 to-indigo-600',
-    rates: { common: 20, rare: 55, epic: 22, legendary: 3 },
-    rateRows: [{ label: '일반 ⚪', pct: 20 }, { label: '희귀 🔵', pct: 55 }, { label: '영웅 🟣', pct: 22 }, { label: '전설 🟡', pct: 3 }],
+    rates: { common: 20, rare: 54, epic: 22, legendary: 3, mythic: 1 },
+    rateRows: [{ label: '일반 ⚪', pct: 20 }, { label: '희귀 🔵', pct: 54 }, { label: '영웅 🟣', pct: 22 }, { label: '전설 🟡', pct: 3 }, { label: '신화 🌈', pct: 1 }],
   },
   {
     id: 'legendary', name: '전설 펫 알', cost: 2000, icon: '⭐',
     gradient: 'from-amber-400 to-orange-600',
-    rates: { common: 0, rare: 40, epic: 50, legendary: 10 },
-    rateRows: [{ label: '희귀 🔵', pct: 40 }, { label: '영웅 🟣', pct: 50 }, { label: '전설 🟡', pct: 10 }],
+    rates: { common: 0, rare: 37, epic: 50, legendary: 10, mythic: 3 },
+    rateRows: [{ label: '희귀 🔵', pct: 37 }, { label: '영웅 🟣', pct: 50 }, { label: '전설 🟡', pct: 10 }, { label: '신화 🌈', pct: 3 }],
+  },
+  {
+    id: 'mythic', name: '신화 펫 알', cost: 3000, icon: '🌈',
+    gradient: 'from-rose-500 via-purple-600 to-indigo-600',
+    rates: { common: 0, rare: 0, epic: 30, legendary: 55, mythic: 15 },
+    rateRows: [{ label: '영웅 🟣', pct: 30 }, { label: '전설 🟡', pct: 55 }, { label: '신화 🌈', pct: 15 }],
   },
 ];
 
@@ -109,10 +122,11 @@ function pickMonster(rarity) {
 
 // ── 등급별 테마 ──────────────────────────────────────────────
 const RARITY_THEME = {
-  common:    { glow: '#94a3b8', flash: 'rgba(255,255,255,0.35)', label: '',          stars: '✦✧✦' },
-  rare:      { glow: '#60a5fa', flash: 'rgba(96,165,250,0.45)', label: '',          stars: '✦★✦' },
-  epic:      { glow: '#c084fc', flash: 'rgba(192,132,252,0.55)', label: '✨ 영웅 등장!', stars: '★✦★' },
-  legendary: { glow: '#fbbf24', flash: 'rgba(251,191,36,0.65)', label: '🌟 전설 등장!!', stars: '🌟★🌟' },
+  common:    { glow: '#94a3b8', flash: 'rgba(255,255,255,0.35)', label: '',              stars: '✦✧✦' },
+  rare:      { glow: '#60a5fa', flash: 'rgba(96,165,250,0.45)',  label: '',              stars: '✦★✦' },
+  epic:      { glow: '#c084fc', flash: 'rgba(192,132,252,0.55)', label: '✨ 영웅 등장!',  stars: '★✦★' },
+  legendary: { glow: '#fbbf24', flash: 'rgba(251,191,36,0.65)',  label: '🌟 전설 등장!!', stars: '🌟★🌟' },
+  mythic:    { glow: '#f43f5e', flash: 'rgba(244,63,94,0.70)',   label: '🌈 신화 등장!!!', stars: '🌈💥🌈' },
 };
 
 // ── 파티클 ───────────────────────────────────────────────────
@@ -251,10 +265,12 @@ function PetCard({ pet, isActive, onSetActive, onRename }) {
   const md = MONSTERS_DB[pet.monsterId];
   const r = RARITY[pet.rarity] || RARITY.common;
   const statLines = formatStats(pet.stats || {});
+  const isMythic = pet.rarity === 'mythic';
   if (!md) return null;
   return (
-    <div className={`relative rounded-2xl border-2 p-3 transition-all
-      ${isActive ? `${r.border} ${r.bg} shadow-lg` : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}>
+    <div className={`relative rounded-2xl p-3 transition-all
+      ${isMythic ? 'border-2 border-rose-400 bg-gradient-to-b from-rose-950/50 to-purple-950/50 shadow-[0_0_16px_#f43f5e60]'
+        : isActive ? `border-2 ${r.border} ${r.bg} shadow-lg` : 'border-2 border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}>
       {isActive && (
         <span className={`absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${r.bg} ${r.text} ${r.border} border whitespace-nowrap`}>
           ★ 대표 펫

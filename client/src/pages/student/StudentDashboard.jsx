@@ -5,8 +5,8 @@ import SpriteMonster from '../../components/SpriteMonster';
 import { MONSTERS_DB } from '../../data/monsterData';
 import { STATS_META, formatStats } from './PetHouse';
 
-const RARITY_BADGE = { common: '⚪', rare: '🔵', epic: '🟣', legendary: '🟡' };
-const RARITY_LABEL = { common: '일반', rare: '희귀', epic: '영웅', legendary: '전설' };
+const RARITY_BADGE = { common: '⚪', rare: '🔵', epic: '🟣', legendary: '🟡', mythic: '🌈' };
+const RARITY_LABEL = { common: '일반', rare: '희귀', epic: '영웅', legendary: '전설', mythic: '신화' };
 
 const StudentDashboard = ({ studentCode }) => {
   const [student, setStudent] = useState(null);
