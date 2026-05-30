@@ -59,19 +59,19 @@ function WalkingPet({ monsterData, isDead }) {
 
     const loop = () => {
       const p = posRef.current;
-      p.x += p.goRight ? SPEED : -SPEED;
-      const { minX, maxX } = getRange();
-      if (p.x >= maxX) { p.x = maxX; p.goRight = false; }
-      if (p.x <= minX) { p.x = minX; p.goRight = true;  }
-
-      if (wrapRef.current) {
-        wrapRef.current.style.left = p.x + 'px';
-        // 1~4티어: goRight 시 scaleX(-1), goLeft 시 scaleX(1)
-        // boss: goRight 시 scaleX(1), goLeft 시 scaleX(-1)
-        const sx = isBoss ? (p.goRight ? 1 : -1) : (p.goRight ? -1 : 1);
-        if (sx !== lastSx) {
-          wrapRef.current.style.transform = `scaleX(${sx})`;
-          lastSx = sx;
+      // idle 상태일 때는 위치 고정 (미끄러짐 방지)
+      if (!isDead && animRef.current === 'run') {
+        p.x += p.goRight ? SPEED : -SPEED;
+        const { minX, maxX } = getRange();
+        if (p.x >= maxX) { p.x = maxX; p.goRight = false; }
+        if (p.x <= minX) { p.x = minX; p.goRight = true;  }
+        if (wrapRef.current) {
+          wrapRef.current.style.left = p.x + 'px';
+          const sx = isBoss ? (p.goRight ? 1 : -1) : (p.goRight ? -1 : 1);
+          if (sx !== lastSx) {
+            wrapRef.current.style.transform = `scaleX(${sx})`;
+            lastSx = sx;
+          }
         }
       }
       rafRef.current = requestAnimationFrame(loop);
