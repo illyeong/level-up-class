@@ -37,21 +37,23 @@ import { MONSTERS_DB } from './data/monsterData';
 function WalkingPet({ monsterData }) {
   const wrapRef = useRef(null);
   const rafRef  = useRef(null);
-  // 우측 30% 영역에서만 왕복
+
   const getRange = () => {
     const PET_W = Math.round((monsterData?.frameWidth || 80) * (monsterData?.scale || 0.5) * 2);
-    const minX = Math.floor(window.innerWidth * 0.60);
-    const maxX = window.innerWidth - PET_W - 16;
+    const minX = Math.floor(window.innerWidth * 0.55); // 우측 45% 구간
+    const maxX = window.innerWidth - PET_W - 2;        // 오른쪽 벽까지 최대한
     return { minX, maxX };
   };
   const posRef = useRef({ x: getRange().minX, goRight: true });
 
   useEffect(() => {
     if (!monsterData) return;
-    const SPEED = 0.45; // 아주 느리게
-    // SpriteMonster는 flip=true일 때 내부적으로 scaleX(-1) 적용
-    // → flip=false: 렌더 결과가 오른쪽 방향, flip=true: 왼쪽 방향
-    // 문워크 방지: goRight XOR flip → scaleX(-1) or (1)
+    const SPEED = 0.45;
+    // 보스 티어는 스프라이트 방향이 일반 몬스터와 반대 → flip 논리 반전
+    const effectiveFlip = monsterData.tier === 'boss'
+      ? !monsterData.flip
+      : monsterData.flip;
+
     const loop = () => {
       const p = posRef.current;
       p.x += p.goRight ? SPEED : -SPEED;
@@ -61,11 +63,7 @@ function WalkingPet({ monsterData }) {
 
       if (wrapRef.current) {
         wrapRef.current.style.left = p.x + 'px';
-        // p.goRight=T, flip=F → 1 (오른쪽 자연 방향 유지)
-        // p.goRight=F, flip=F → -1 (왼쪽으로 뒤집기)
-        // p.goRight=T, flip=T → -1 (내부 flip 상쇄 → 오른쪽)
-        // p.goRight=F, flip=T → 1 (내부 flip 유지 → 왼쪽)
-        const sx = (p.goRight !== monsterData.flip) ? 1 : -1;
+        const sx = (p.goRight !== effectiveFlip) ? 1 : -1;
         wrapRef.current.style.transform = `scaleX(${sx})`;
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -77,9 +75,8 @@ function WalkingPet({ monsterData }) {
   if (!monsterData) return null;
   return (
     <div ref={wrapRef} style={{
-      position: 'fixed', bottom: 16, zIndex: 20,
-      pointerEvents: 'none',
-      transformOrigin: 'center bottom', /* 중앙 기준 flip → 위치 이동 없음 */
+      position: 'fixed', bottom: 2, zIndex: 20,
+      pointerEvents: 'none', transformOrigin: 'center bottom',
     }}>
       <SpriteMonster data={monsterData} anim="run" scale={monsterData.scale * 2} />
     </div>
