@@ -3,11 +3,20 @@ import { useTranslation } from 'react-i18next';
 import { doc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { GRADE, SLOTS, STAT_LABEL } from '../constants/equipment';
+import SpriteMonster from './SpriteMonster';
+import { MONSTERS_DB } from '../data/monsterData';
+import { formatStats } from '../pages/student/PetHouse';
+
+const RARITY_BADGE = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟡', mythic:'🌈' };
+const RARITY_LABEL = { common:'일반', rare:'희귀', epic:'영웅', legendary:'전설', mythic:'신화' };
+const RARITY_COLOR = { common:'text-slate-500', rare:'text-blue-600', epic:'text-purple-600', legendary:'text-amber-600', mythic:'text-rose-600' };
 
 export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
   const { t } = useTranslation();
   const [studentData, setStudentData] = useState(null);
   const [allItems, setAllItems]       = useState([]);
+  const [activePet, setActivePet]     = useState(null);
+  const [petAnim,   setPetAnim]       = useState('idle');
 
   useEffect(() => {
     const load = async () => {
@@ -25,6 +34,12 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
           }
         }
         setStudentData(sd);
+
+        // 대표 펫 로드
+        if (sd?.activePetId) {
+          const petSnap = await getDoc(doc(db, 'studentPets', sd.activePetId));
+          if (petSnap.exists()) setActivePet(petSnap.data());
+        }
 
         const itemsSnap = await getDocs(
           query(collection(db, 'equipmentItems'), where('active', '==', true))
@@ -124,6 +139,36 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
             </div>
           </div>
         </div>
+
+        {/* ── 착용 펫 카드 ── */}
+        {activePet && MONSTERS_DB[activePet.monsterId] && (() => {
+          const md = MONSTERS_DB[activePet.monsterId];
+          const DETAIL_H = { tiny:60, small:85, medium:115, large:150, boss:185 };
+          const dh = DETAIL_H[md.tier] || 80;
+          const dScale = dh / (md.frameHeight || 120);
+          const statLines = formatStats(activePet.stats || {});
+          const rc = RARITY_COLOR[activePet.rarity] || 'text-slate-500';
+          return (
+            <div className="lg:col-span-1 bg-white rounded-3xl shadow-lg border border-slate-100 p-5 flex flex-col items-center">
+              <p className="text-xs font-extrabold text-slate-400 mb-3 tracking-wide">🐾 착용 펫</p>
+              <div className="flex justify-center items-end mb-3 cursor-pointer"
+                onClick={() => setPetAnim(a => a === 'idle' ? 'attack' : 'idle')}>
+                <SpriteMonster data={md} anim={petAnim} scale={dScale} onAnimEnd={() => setPetAnim('idle')} />
+              </div>
+              <p className="font-extrabold text-slate-800 text-base mb-0.5">{activePet.nickname || md.name}</p>
+              <p className={`text-xs font-bold ${rc} mb-3`}>{RARITY_BADGE[activePet.rarity]} {RARITY_LABEL[activePet.rarity]}</p>
+              <div className="w-full space-y-1.5">
+                {statLines.map((line, i) => (
+                  <div key={i} className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-1.5 text-sm">
+                    <span className="text-slate-500 font-bold">{line.split('+')[0].trim()}</span>
+                    <span className="text-indigo-600 font-extrabold">+{line.split('+')[1]}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[9px] text-slate-300 mt-2">클릭하면 애니메이션 재생</p>
+            </div>
+          );
+        })()}
 
         {/* ── 오른쪽 ── */}
         <div className="lg:col-span-2 flex flex-col gap-6">
