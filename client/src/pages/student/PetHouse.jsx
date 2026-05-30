@@ -625,7 +625,7 @@ export default function PetHouse({ studentCode }) {
       });
 
       // eggId 저장 완료 → effect에서 hatchDone과 조합해 result 전환
-      setGachaResult({ rarity, eggId: ref.id });
+      setGachaResult({ rarity, eggId: ref.id, eggFrameImg });
     } catch (e) {
       console.error('가챠 저장 오류:', e);
       showToast('저장 오류가 발생했습니다', 'error');
