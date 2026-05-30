@@ -111,7 +111,7 @@ function EggHatchAnim({ eggType, onComplete }) {
     <div className="flex flex-col items-center justify-center py-8">
       {phase === 'anim' && (
         <img
-          src={`/images/Eggs/${cfg.path}/512x512/Egg ${frame}.png`}
+          src={`/images/Eggs/${cfg.path}/512x512/Egg%20${frame}.png`}
           alt="부화 중"
           className="w-48 h-48 object-contain"
           onError={e => { e.target.style.opacity = '0'; }}
@@ -590,7 +590,7 @@ export default function PetHouse({ studentCode }) {
     const cfg = EGG_FRAMES[rarity] || EGG_FRAMES.common;
     const safeMax = Math.max(1, Math.floor(cfg.total * 0.5)); // 앞쪽 50% 프레임 (알이 온전한 단계)
     const randFrame = 1 + Math.floor(Math.random() * safeMax);
-    const eggFrameImg = `/images/Eggs/${cfg.path}/512x512/Egg ${randFrame}.png`;
+    const eggFrameImg = `/images/Eggs/${cfg.path}/512x512/Egg%20${randFrame}.png`;
 
     // 2. 애니메이션 시작
     setGachaResult({ rarity, eggId: null, eggFrameImg });
