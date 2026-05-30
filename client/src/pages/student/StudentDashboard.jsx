@@ -103,7 +103,7 @@ const StudentDashboard = ({ studentCode }) => {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="bg-blue-50 p-3 rounded-2xl text-center">
                 <p className="text-xs text-blue-500 font-bold">다이아</p>
                 <p className="font-bold text-lg">💎 {diamonds.toLocaleString()}</p>
@@ -113,6 +113,31 @@ const StudentDashboard = ({ studentCode }) => {
                 <p className="font-bold text-lg">🪙 {gold.toLocaleString()}</p>
               </div>
             </div>
+
+            {/* 대표 펫 + 능력치 */}
+            {petMd && activePet && (
+              <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="shrink-0">
+                    <SpriteMonster data={petMd} anim="idle" scale={petMd.scale * 1.4} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-extrabold text-slate-700 truncate">{activePet.nickname || petMd.name}</p>
+                    <p className="text-[10px] text-indigo-500 font-bold">
+                      {RARITY_BADGE[activePet.rarity]} {RARITY_LABEL[activePet.rarity]} 대표 펫
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-1">
+                  {Object.entries(petStats).filter(([, v]) => v > 0).map(([stat, val]) => (
+                    <div key={stat} className="flex items-center justify-between bg-white/70 rounded-lg px-2 py-1">
+                      <span className="text-[10px] text-slate-500 font-bold">{STAT_LABELS[stat]}</span>
+                      <span className="text-[10px] font-extrabold text-indigo-600">+{val}{STAT_UNITS[stat] || ''}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 퀘스트 */}

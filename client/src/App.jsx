@@ -48,10 +48,10 @@ function WalkingPet({ monsterData }) {
 
   useEffect(() => {
     if (!monsterData) return;
-    const SPEED = 1.4;
-    // 스프라이트 자체 방향: flip=true면 기본이 왼쪽 방향
-    const naturalRight = !monsterData.flip;
-
+    const SPEED = 0.45; // 아주 느리게
+    // SpriteMonster는 flip=true일 때 내부적으로 scaleX(-1) 적용
+    // → flip=false: 렌더 결과가 오른쪽 방향, flip=true: 왼쪽 방향
+    // 문워크 방지: goRight XOR flip → scaleX(-1) or (1)
     const loop = () => {
       const p = posRef.current;
       p.x += p.goRight ? SPEED : -SPEED;
@@ -61,9 +61,12 @@ function WalkingPet({ monsterData }) {
 
       if (wrapRef.current) {
         wrapRef.current.style.left = p.x + 'px';
-        // 이동 방향과 스프라이트 방향 일치시켜 문워크 방지
-        const shouldFlip = p.goRight !== naturalRight;
-        wrapRef.current.style.transform = `scaleX(${shouldFlip ? -1 : 1})`;
+        // p.goRight=T, flip=F → 1 (오른쪽 자연 방향 유지)
+        // p.goRight=F, flip=F → -1 (왼쪽으로 뒤집기)
+        // p.goRight=T, flip=T → -1 (내부 flip 상쇄 → 오른쪽)
+        // p.goRight=F, flip=T → 1 (내부 flip 유지 → 왼쪽)
+        const sx = (p.goRight !== monsterData.flip) ? 1 : -1;
+        wrapRef.current.style.transform = `scaleX(${sx})`;
       }
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -74,8 +77,9 @@ function WalkingPet({ monsterData }) {
   if (!monsterData) return null;
   return (
     <div ref={wrapRef} style={{
-      position: 'fixed', bottom: 72, zIndex: 20,
-      pointerEvents: 'none', transformOrigin: 'left bottom',
+      position: 'fixed', bottom: 16, zIndex: 20,
+      pointerEvents: 'none',
+      transformOrigin: 'center bottom', /* 중앙 기준 flip → 위치 이동 없음 */
     }}>
       <SpriteMonster data={monsterData} anim="run" scale={monsterData.scale * 2} />
     </div>
