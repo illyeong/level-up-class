@@ -951,6 +951,9 @@ export default function PetHouse({ studentCode }) {
                           </div>
                         );
                       })()}
+                      <div className="w-full mt-3 bg-indigo-900/40 border border-indigo-700/50 rounded-xl px-3 py-2 text-[10px] text-indigo-300 text-center">
+                        ⚔️ <span className="font-bold">대표 펫으로 설정</span>해야 능력치가 캐릭터에 적용됩니다
+                      </div>
                       <p className="text-slate-600 text-[9px] mt-1">클릭하면 애니메이션 재생</p>
                     </>
                   );
