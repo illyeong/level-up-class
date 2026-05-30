@@ -279,20 +279,32 @@ function PetCard({ pet, isActive, onSetActive, onRename }) {
   const r = RARITY[pet.rarity] || RARITY.common;
   const statLines = formatStats(pet.stats || {});
   const isMythic = pet.rarity === 'mythic';
+  // 카드 높이에 맞는 스케일: 최대 60px 높이 기준
+  const cardScale = Math.min(md.scale * 1.5, 60 / (md.frameHeight || 120));
   if (!md) return null;
   return (
-    <div className={`relative rounded-2xl p-3 transition-all
-      ${isMythic ? 'border-2 border-rose-400 bg-gradient-to-b from-rose-950/50 to-purple-950/50 shadow-[0_0_16px_#f43f5e60]'
-        : isActive ? `border-2 ${r.border} ${r.bg} shadow-lg` : 'border-2 border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}>
+    <div className={`relative rounded-2xl p-3 transition-all overflow-hidden
+      ${isMythic
+        ? 'border-2 border-rose-400 bg-gradient-to-b from-rose-950/50 to-purple-950/50 shadow-[0_0_16px_#f43f5e60]'
+        : isActive
+          ? `border-2 ${r.border} bg-slate-800 shadow-lg`   /* 배경은 항상 어둡게 유지 */
+          : 'border-2 border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}>
+
+      {/* 대표 펫 배지 — 색상 배지만 (배경은 건드리지 않음) */}
       {isActive && (
-        <span className={`absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${r.bg} ${r.text} ${r.border} border whitespace-nowrap`}>
+        <span className={`absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-extrabold px-2 py-0.5 rounded-full border whitespace-nowrap
+          ${r.bg} ${r.text} ${r.border}`}>
           ★ 대표 펫
         </span>
       )}
-      <div className="flex justify-center items-end h-16 mb-2 cursor-pointer"
+
+      {/* 스프라이트 — 높이 고정 + 넘침 방지 */}
+      <div className="flex justify-center items-end mb-2 cursor-pointer overflow-hidden"
+        style={{ height: 64 }}
         onClick={() => setAnim(a => a === 'idle' ? 'attack' : 'idle')}>
-        <SpriteMonster data={md} anim={anim} scale={md.scale * 1.5} onAnimEnd={() => setAnim('idle')} />
+        <SpriteMonster data={md} anim={anim} scale={cardScale} onAnimEnd={() => setAnim('idle')} />
       </div>
+
       <p className="text-center text-xs font-extrabold text-slate-200 truncate">{pet.nickname || md.name}</p>
       <p className={`text-center text-[10px] font-bold ${r.text} mb-1.5`}>{r.badge} {r.label}</p>
 
@@ -461,9 +473,14 @@ export default function PetHouse({ studentCode }) {
                   style={{ boxShadow: `0 0 12px ${theme.glow}60` }}>
                   {r.badge} {r.label}
                 </span>
-                <div className="flex justify-center items-end h-40 mb-3 relative">
+                {/* 결과 스프라이트 — 최대 150px 높이 제한 */}
+                <div className="flex justify-center items-end mb-3 relative overflow-hidden"
+                  style={{ height: 150 }}>
                   <div style={{ filter: `drop-shadow(0 0 16px ${theme.glow})` }}>
-                    <SpriteMonster data={md} anim="idle" scale={md.scale * 3} />
+                    <SpriteMonster
+                      data={md} anim="idle"
+                      scale={Math.min(md.scale * 3, 150 / (md.frameHeight || 120))}
+                    />
                   </div>
                 </div>
                 <p className="text-white font-extrabold text-xl mb-1">{md.name}</p>
