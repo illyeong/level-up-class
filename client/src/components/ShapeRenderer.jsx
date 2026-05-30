@@ -283,6 +283,115 @@ const renderers = {
     );
   },
 
+  // ── 아날로그 시계 ────────────────────────────────────────────
+  clock({ d }) {
+    const hour   = d.hour   ?? 3;
+    const minute = d.minute ?? 0;
+    const cx = W / 2, cy = H / 2 - 2, r = 68;
+
+    // 시침: 12시 기준 (−π/2), 시 + 분/60 에 해당하는 각도
+    const hAngle = ((hour % 12) + minute / 60) / 12 * 2 * Math.PI - Math.PI / 2;
+    const mAngle = (minute / 60) * 2 * Math.PI - Math.PI / 2;
+    const hLen = r * 0.55, mLen = r * 0.8;
+
+    return (
+      <>
+        {/* 시계 테두리 */}
+        <circle cx={cx} cy={cy} r={r} fill="white" stroke={STROKE} strokeWidth={2} />
+        {/* 눈금 (12개) */}
+        {Array.from({ length: 12 }, (_, i) => {
+          const a = (i / 12) * 2 * Math.PI - Math.PI / 2;
+          const isMajor = true;
+          const r1 = r - 8, r2 = r - 2;
+          return (
+            <line key={i}
+              x1={cx + r1 * Math.cos(a)} y1={cy + r1 * Math.sin(a)}
+              x2={cx + r2 * Math.cos(a)} y2={cy + r2 * Math.sin(a)}
+              stroke="#94a3b8" strokeWidth={i % 3 === 0 ? 2.5 : 1.2} />
+          );
+        })}
+        {/* 숫자 (12개) */}
+        {Array.from({ length: 12 }, (_, i) => {
+          const num = i === 0 ? 12 : i;
+          const a = (i / 12) * 2 * Math.PI - Math.PI / 2;
+          const nr = r - 18;
+          return (
+            <text key={i}
+              x={cx + nr * Math.cos(a)} y={cy + nr * Math.sin(a) + 4}
+              textAnchor="middle" fontSize={10} fill="#1e293b" fontWeight="600">
+              {num}
+            </text>
+          );
+        })}
+        {/* 시침 */}
+        <line x1={cx} y1={cy}
+          x2={cx + hLen * Math.cos(hAngle)} y2={cy + hLen * Math.sin(hAngle)}
+          stroke="#1e293b" strokeWidth={4} strokeLinecap="round" />
+        {/* 분침 */}
+        <line x1={cx} y1={cy}
+          x2={cx + mLen * Math.cos(mAngle)} y2={cy + mLen * Math.sin(mAngle)}
+          stroke="#3b82f6" strokeWidth={2.5} strokeLinecap="round" />
+        {/* 중심 점 */}
+        <circle cx={cx} cy={cy} r={4} fill="#1e293b" />
+        {/* 시각 텍스트 */}
+        <text x={cx} y={cy + r + 14} textAnchor="middle" fontSize={11} fill="#1e40af" fontWeight="bold">
+          {String(hour).padStart(2,'0')}:{String(minute).padStart(2,'0')}
+        </text>
+      </>
+    );
+  },
+
+  // ── 자 (길이 눈금) ───────────────────────────────────────────
+  ruler({ d }) {
+    const total    = d.total    || 10;   // 전체 cm
+    const highlight = d.highlight;       // {from, to} cm
+    const unit     = d.unit || 'cm';
+    const x0 = 18, y0 = H / 2 - 20;
+    const rW = W - 36, rH = 38;
+    const cmW = rW / total;
+
+    return (
+      <>
+        {/* 자 배경 */}
+        <rect x={x0} y={y0} width={rW} height={rH} fill="#fef9c3" stroke="#ca8a04" strokeWidth={1.5} rx={3} />
+        {/* 하이라이트 구간 */}
+        {highlight && (
+          <rect
+            x={x0 + highlight.from * cmW} y={y0}
+            width={(highlight.to - highlight.from) * cmW} height={rH}
+            fill="#bfdbfe" opacity={0.7} rx={2} />
+        )}
+        {/* cm 눈금 */}
+        {Array.from({ length: total + 1 }, (_, i) => {
+          const x = x0 + i * cmW;
+          const isMajor = i % 5 === 0 || total <= 5;
+          return (
+            <React.Fragment key={i}>
+              <line x1={x} y1={y0} x2={x} y2={y0 + (isMajor ? 14 : 8)} stroke="#92400e" strokeWidth={isMajor ? 1.5 : 0.8} />
+              {isMajor && (
+                <text x={x} y={y0 + 26} textAnchor="middle" fontSize={9} fill="#92400e" fontWeight="600">{i}</text>
+              )}
+            </React.Fragment>
+          );
+        })}
+        {/* mm 눈금 (cmW가 충분히 크면) */}
+        {cmW >= 18 && Array.from({ length: total * 10 + 1 }, (_, i) => {
+          if (i % 10 === 0) return null;
+          const x = x0 + i * (cmW / 10);
+          return <line key={`mm${i}`} x1={x} y1={y0} x2={x} y2={y0 + 5} stroke="#92400e" strokeWidth={0.5} />;
+        })}
+        {/* 단위 레이블 */}
+        <text x={x0 + rW / 2} y={y0 + rH + 12} textAnchor="middle" fontSize={9} fill="#64748b">(단위: {unit})</text>
+        {/* 길이 표시 */}
+        {highlight && (
+          <text x={x0 + (highlight.from + highlight.to) / 2 * cmW} y={y0 - 5} textAnchor="middle" fontSize={10} fill="#1e40af" fontWeight="bold">
+            {highlight.to - highlight.from}{unit}
+          </text>
+        )}
+      </>
+    );
+  },
+
   // ── 분수 막대 모델 ────────────────────────────────────────────
   fraction_bar({ d }) {
     const total  = Math.max(1, d.total  || 4);

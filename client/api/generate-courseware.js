@@ -66,6 +66,8 @@ ${isUnitTest
 }
 
 shape 규칙: 도형·각도·분수·그래프·수직선 문제에는 반드시 생성, 순수 암산만 null
+▶ 시계·시간: {"type":"clock","dimensions":{"hour":3,"minute":30}} — 시각 읽기·걸린시간·덧셈뺄셈 문제
+▶ 길이·자: {"type":"ruler","dimensions":{"total":10,"highlight":{"from":2,"to":7}},"unit":"cm"} — 길이 재기·비교 문제
 ▶ 도형: 직각삼각형/사각형/원/다각형 등 — 해당 shape 타입 사용
 ▶ 각도: {"type":"angle","dimensions":{"degrees":120,"label":"둔각"},"unit":"°"}
   right_triangle에 각도 포함: {"dimensions":{"base":3,"height":4,"angles":{"a":53,"b":37}},"unit":"cm"}
