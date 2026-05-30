@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  collection, getDocs, getDoc, doc, writeBatch,
+  collection, getDocs, getDoc, doc, writeBatch, addDoc,
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -11,6 +11,59 @@ import { renderMath, TableRenderer, stripOptionPrefix } from '../../utils/render
 import ShapeRenderer from '../../components/ShapeRenderer';
 
 const PROJECTILE_TYPE = { easy: 'ice', normal: 'magic', hard: 'fire' };
+
+// ── 퀴즈 던전 펫 드롭 테이블 ─────────────────────────────────
+const RARITY_TIER_KEY = { common:'tiny', rare:'small', epic:'medium', legendary:'large', mythic:'boss' };
+const RARITY_LABEL_MAP = { common:'일반', rare:'희귀', epic:'영웅', legendary:'전설', mythic:'신화' };
+const RARITY_BADGE_MAP = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟡', mythic:'🌈' };
+
+const PET_DROP = {
+  low:    { chance: 0.04, rates: { common:80, rare:20 } },
+  mid:    { chance: 0.04, rates: { common:50, rare:40, epic:10 } },
+  high:   { chance: 0.04, rates: { rare:50, epic:40, legendary:10 } },
+  perfect:{ chance: 0.05, rates: { rare:30, epic:50, legendary:18, mythic:2 } },
+};
+
+function getDropTable(accuracy) {
+  if (accuracy === 100) return PET_DROP.perfect;
+  if (accuracy >= 90)   return PET_DROP.high;
+  if (accuracy >= 75)   return PET_DROP.mid;
+  if (accuracy >= 60)   return PET_DROP.low;
+  return null;
+}
+
+function rollPetRarity(rates) {
+  const r = Math.random() * 100;
+  let acc = 0;
+  for (const [key, pct] of Object.entries(rates)) {
+    acc += pct;
+    if (r < acc) return key;
+  }
+  return Object.keys(rates)[0];
+}
+
+function pickPetMonster(rarity) {
+  const tierKey = RARITY_TIER_KEY[rarity];
+  const pool = Object.values(MONSTERS_DB).filter(m => m.tier === tierKey);
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+}
+
+function generatePetStats(rarity) {
+  const pools = {
+    common:    [{ hp:[5,15] }],
+    rare:      [{ atk:[8,15] }, { hp:[15,30] }, { def:[8,15] }, { crit:[3,7] }],
+    epic:      [{ atk:[15,25], hp:[20,40] }, { atk:[15,25], crit:[5,10] }, { def:[15,25], hp:[25,45] }],
+    legendary: [{ atk:[25,40], hp:[40,70], crit:[8,15] }, { atk:[30,50], def:[20,35], hp:[40,60] }],
+    mythic:    [{ atk:[60,100], hp:[80,140], crit:[15,25] }, { atk:[70,110], def:[50,80], crit:[12,22] }],
+  };
+  const pool = pools[rarity] || pools.common;
+  const combo = pool[Math.floor(Math.random() * pool.length)];
+  const result = {};
+  for (const [stat, [min, max]] of Object.entries(combo)) {
+    result[stat] = min + Math.floor(Math.random() * (max - min + 1));
+  }
+  return result;
+}
 
 // ── 유틸 ──────────────────────────────────────────────────────
 const getMaxExpForLevel = (lv) =>
@@ -936,6 +989,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
 function ResultScreen({
   dungeon, score, totalQ, wrongIdxs, cleared,
   earnedRewards, leveledUp, isSaving, maxCombo,
+  petDropped,
   canRetry, onRetry, onReturnLobby, isRetryAttempt = false,
 }) {
   const accuracy  = totalQ > 0 ? Math.round(score / totalQ * 100) : 0;
@@ -1036,6 +1090,33 @@ function ResultScreen({
         </div>
       ) : null}
 
+      {/* 펫 드롭 */}
+      {petDropped && petDropped.monsterData && (
+        <div className="border-2 border-rose-300 bg-gradient-to-b from-rose-50 to-purple-50 rounded-2xl p-4 w-full max-w-xs mb-4 text-center animate-bounce">
+          <p className="font-extrabold text-rose-600 text-sm mb-1">
+            🐾 펫 드롭!
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <SpriteMonster
+              data={petDropped.monsterData}
+              anim="idle"
+              scale={petDropped.monsterData.scale * 1.6}
+            />
+            <div className="text-left">
+              <p className="font-extrabold text-slate-800 text-sm">{petDropped.nickname}</p>
+              <p className="text-xs font-bold" style={{ color:
+                petDropped.rarity === 'mythic' ? '#f43f5e' :
+                petDropped.rarity === 'legendary' ? '#d97706' :
+                petDropped.rarity === 'epic' ? '#7c3aed' :
+                petDropped.rarity === 'rare' ? '#2563eb' : '#64748b' }}>
+                {RARITY_BADGE_MAP[petDropped.rarity]} {RARITY_LABEL_MAP[petDropped.rarity]}
+              </p>
+              <p className="text-[10px] text-slate-500">펫 하우스에서 확인하세요!</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 오답 복습 */}
       {wrongIdxs.length > 0 && (
         <div className="bg-white border border-rose-200 rounded-2xl p-4 w-full max-w-sm mb-4 text-left">
@@ -1104,6 +1185,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
   const [earnedRewards,   setEarnedRewards]  = useState(null);
   const [leveledUp,       setLeveledUp]      = useState(null);
   const [isSaving,        setIsSaving]       = useState(false);
+  const [petDropped,      setPetDropped]     = useState(null); // 펫 드롭 결과
   const [layoutCfg,       setLayoutCfg]      = useState(BATTLE_LAYOUT_DEFAULTS);
   const [isRetryAttempt,  setIsRetryAttempt] = useState(false);
 
@@ -1200,6 +1282,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
     setBattleRes(null);
     setEarnedRewards(null);
     setLeveledUp(null);
+    setPetDropped(null);
     setPreviewDungeon(null);
     setScreen('battle');
   };
@@ -1262,6 +1345,30 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
         playCount: (dungeon.playCount || 0) + 1,
       });
       await batch.commit();
+
+      // ── 펫 드롭 시도 ─────────────────────────────────────────
+      if (!isRetryAttempt) {
+        const dropTable = getDropTable(accuracy);
+        if (dropTable && Math.random() < dropTable.chance) {
+          const rarity = rollPetRarity(dropTable.rates);
+          const md     = pickPetMonster(rarity);
+          if (md) {
+            const petData = {
+              studentCode: studentData.studentCode,
+              teacherUid:  studentData.teacherUid || '',
+              monsterId:   md.id, nickname: md.name,
+              rarity, tier: md.tier,
+              level: 1, exp: 0, hunger: 100, happiness: 100,
+              stats: generatePetStats(rarity),
+              isActive: false,
+              obtainedFrom: 'dungeonDrop',
+              obtainedAt: serverTimestamp(),
+            };
+            const petRef = await addDoc(collection(db, 'studentPets'), petData);
+            setPetDropped({ id: petRef.id, ...petData, monsterData: md });
+          }
+        }
+      }
 
       setStudentData(prev => ({
         ...prev,
@@ -1345,6 +1452,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
       leveledUp={leveledUp}
       isSaving={isSaving}
       maxCombo={battleRes.maxCombo}
+      petDropped={petDropped}
       canRetry={true}
       onRetry={() => enterDungeon(selectedDungeon, true)}
       isRetryAttempt={isRetryAttempt}
@@ -1353,6 +1461,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
         setBattleRes(null);
         setEarnedRewards(null);
         setLeveledUp(null);
+        setPetDropped(null);
         setIsRetryAttempt(false);
       }}
     />
