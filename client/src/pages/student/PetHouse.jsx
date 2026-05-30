@@ -219,6 +219,15 @@ function pickMonster(rarity) {
   return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
 }
 
+// 등급별 알 이미지 (가챠 결과 표시용)
+const RARITY_EGG_IMG = {
+  common:    '/images/Eggs/Egg_Common_Gacha.png',
+  rare:      '/images/Eggs/Egg_Rare_Gacha.png',
+  epic:      '/images/Eggs/Egg_Epic_Gacha.png',
+  legendary: '/images/Eggs/Egg_Legendary_Gacha.png',
+  mythic:    '/images/Eggs/Egg_Mythic_Gacha.png',
+};
+
 // ── 등급별 테마 ──────────────────────────────────────────────
 const RARITY_THEME = {
   common:    { glow: '#94a3b8', flash: 'rgba(255,255,255,0.35)', label: '',              stars: '✦✧✦' },
@@ -338,10 +347,13 @@ function HatchAnim({ egg, rarity, onDone }) {
           : <span className="animate-pulse">{msgs[stage]}</span>}
       </p>
 
-      {/* 알 */}
+      {/* 알 — 결과 등급 이미지 사용 (stage 2부터 결과 알로 교체) */}
       {stage < 5 && (
         <div className="relative z-10 select-none" style={{ ...eggStyle, width: 120, height: 120 }}>
-          <img src={egg.img} alt={egg.name} className="w-full h-full object-contain" draggable={false} />
+          <img
+            src={stage >= 2 && RARITY_EGG_IMG[rarity] ? RARITY_EGG_IMG[rarity] : egg.img}
+            alt={egg.name}
+            className="w-full h-full object-contain" draggable={false} />
           {/* 균열 이모지 오버레이 */}
           {stage === 3 && (
             <span className="absolute -top-2 -right-2 text-3xl animate-ping">💢</span>
@@ -379,7 +391,7 @@ function PetCard({ pet, isActive, onSetActive, onRename }) {
   const statLines = formatStats(pet.stats || {});
   const isMythic = pet.rarity === 'mythic';
   // 티어별 표시 높이 목표 (크기 비교가 확실히 되도록)
-  const TIER_H = { tiny: 38, small: 54, medium: 76, large: 100, boss: 100 };
+  const TIER_H = { tiny: 38, small: 54, medium: 76, large: 100, boss: 124 };
   const targetH   = TIER_H[md.tier] || 60;
   const cardScale = targetH / (md.frameHeight || 120);
   const slotH     = targetH + 14; // 스프라이트 컨테이너 높이 (여유 포함)
