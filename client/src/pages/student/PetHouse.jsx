@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, doc, addDoc, updateDoc,
+  collection, getDocs, doc, addDoc, updateDoc, deleteDoc,
   query, where, serverTimestamp, orderBy,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -128,7 +128,7 @@ function EggHatchAnim({ eggType, onComplete }) {
 }
 
 // 인벤토리 알 카드
-function EggInventoryCard({ egg, isIncubating, onIncubate, rarity }) {
+function EggInventoryCard({ egg, isIncubating, onIncubate, onDiscard, rarity }) {
   const r = RARITY[egg.eggType] || RARITY.common;
   const required = REQUIRED_CLEARS[egg.eggType] || 10;
   const current  = egg.currentClears || 0;
@@ -155,8 +155,12 @@ function EggInventoryCard({ egg, isIncubating, onIncubate, rarity }) {
         <>
           <p className="text-[10px] text-slate-500 mb-1.5">AI학습관 {required}회</p>
           <button onClick={() => onIncubate(egg)}
-            className="w-full text-[10px] font-bold py-1 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600">
+            className="w-full text-[10px] font-bold py-1 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 mb-1">
             인큐베이터 넣기
+          </button>
+          <button onClick={() => onDiscard(egg)}
+            className="w-full text-[10px] font-bold py-1 rounded-lg bg-slate-700 text-rose-400 hover:bg-rose-700 hover:text-white">
+            버리기 🗑
           </button>
         </>
       )}
@@ -505,6 +509,15 @@ export default function PetHouse({ studentCode }) {
       setLoading(false);
     })();
   }, [studentCode]);
+
+  // 알 버리기
+  const discardEgg = async (egg) => {
+    const r = RARITY[egg.eggType] || RARITY.common;
+    if (!window.confirm(`${r.badge} ${r.label} 알을 버리시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    await deleteDoc(doc(db, 'studentEggs', egg.id));
+    setEggs(prev => prev.filter(e => e.id !== egg.id));
+    showToast('알을 버렸습니다.');
+  };
 
   // 인큐베이터에서 알 꺼내기
   const removeFromIncubator = async (egg) => {
@@ -992,6 +1005,7 @@ export default function PetHouse({ studentCode }) {
                       <EggInventoryCard key={egg.id} egg={egg}
                         isIncubating={false}
                         onIncubate={startIncubating}
+                        onDiscard={discardEgg}
                         rarity={RARITY[egg.eggType]}
                       />
                     ))}

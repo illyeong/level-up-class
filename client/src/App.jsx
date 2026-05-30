@@ -40,8 +40,8 @@ function WalkingPet({ monsterData }) {
 
   const getRange = () => {
     const PET_W = Math.round((monsterData?.frameWidth || 80) * (monsterData?.scale || 0.5) * 2);
-    const minX = Math.floor(window.innerWidth * 0.75); // 우측 25% 구간
-    const maxX = window.innerWidth - PET_W - 2;        // 오른쪽 벽까지 최대한
+    const minX = Math.floor(window.innerWidth * 0.65); // 우측 35% 구간 (더 넓게)
+    const maxX = window.innerWidth - PET_W - 2;        // 스크롤바 바로 옆까지
     return { minX, maxX };
   };
   const posRef = useRef({ x: getRange().minX, goRight: true });
@@ -533,11 +533,14 @@ function App() {
       {activePetMonster && (
         <button
           onClick={() => setPetVisible(v => !v)}
-          style={{ position: 'fixed', bottom: 4, right: 4, zIndex: 30 }}
-          className="w-7 h-7 rounded-full bg-black/30 hover:bg-black/50 text-white text-xs flex items-center justify-center transition-all"
+          style={{ position: 'fixed', bottom: 6, right: 6, zIndex: 30 }}
+          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-extrabold shadow-lg border transition-all
+            ${petVisible
+              ? 'bg-indigo-600 text-white border-indigo-400 hover:bg-indigo-700'
+              : 'bg-slate-700 text-slate-200 border-slate-500 hover:bg-slate-600'}`}
           title={petVisible ? '펫 숨기기' : '펫 보이기'}
         >
-          {petVisible ? '🐾' : '👁'}
+          {petVisible ? '🐾 숨기기' : '🐾 보이기'}
         </button>
       )}
 
