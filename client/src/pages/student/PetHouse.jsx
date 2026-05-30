@@ -907,7 +907,7 @@ export default function PetHouse({ studentCode }) {
                         ))}
                       </div>
                       {/* 버튼 */}
-                      <div className="w-full space-y-2 mt-auto">
+                      <div className="w-full space-y-2 mt-3">
                         {!isActive && (
                           <button onClick={() => handleSetActive(sp.id)}
                             className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold rounded-xl text-sm">
