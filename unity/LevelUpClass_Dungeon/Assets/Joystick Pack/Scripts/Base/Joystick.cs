@@ -57,6 +57,17 @@ public class Joystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoint
         handle.anchoredPosition = Vector2.zero;
     }
 
+    /// <summary>씬 전환 후 Canvas 레퍼런스를 재캐시합니다.</summary>
+    public void RefreshCanvas()
+    {
+        baseRect = GetComponent<RectTransform>();
+        canvas = GetComponentInParent<Canvas>();
+        if (canvas == null)
+            Debug.LogWarning("[Joystick] RefreshCanvas: Canvas not found in parent.");
+        else
+            Debug.Log("[Joystick] RefreshCanvas OK: " + canvas.name);
+    }
+
     public virtual void OnPointerDown(PointerEventData eventData)
     {
         OnDrag(eventData);

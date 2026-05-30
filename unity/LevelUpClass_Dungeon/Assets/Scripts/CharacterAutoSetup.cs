@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 /// <summary>
 /// Stage2, Stage2_Boss 씬에서 GameManager에 저장된 캐릭터 외형 + 스탯을 재적용.
@@ -10,6 +11,50 @@ public class CharacterAutoSetup : MonoBehaviour
     {
         ApplyStats();
         ApplyAppearance();
+        StartCoroutine(FixJoystickAfterSceneLoad());
+    }
+
+    /// <summary>
+    /// 씬 전환 후 조이스틱 Canvas 레퍼런스가 깨지는 문제 수정.
+    /// 1프레임 대기 후 Joystick + PlayerMovement 재연결.
+    /// </summary>
+    System.Collections.IEnumerator FixJoystickAfterSceneLoad()
+    {
+        // 1프레임 대기 (모든 Start() 완료 후 처리)
+        yield return null;
+
+        // EventSystem 활성화 확인
+        var es = FindFirstObjectByType<EventSystem>();
+        if (es != null && !es.enabled)
+        {
+            es.enabled = true;
+            Debug.Log("[CharacterAutoSetup] EventSystem 재활성화");
+        }
+
+        // Joystick Canvas 레퍼런스 재캐시
+        var joystick = FindFirstObjectByType<Joystick>();
+        if (joystick != null)
+        {
+            joystick.RefreshCanvas();
+            Debug.Log("[CharacterAutoSetup] Joystick RefreshCanvas 완료");
+
+            // PlayerMovement에 joystick 재연결 (Inspector 연결이 없을 경우 대비)
+            var movement = FindFirstObjectByType<LayerLab.ArtMaker.PlayerMovement>();
+            if (movement != null)
+            {
+                // SerializeField 접근 방법: 자체 public setter 또는 SetJoystick 메서드 필요
+                // PlayerMovement는 이미 FindFirstObjectByType으로 자동 탐색하므로
+                // 여기서는 Joystick을 disable→enable하여 Start()를 재실행
+                joystick.gameObject.SetActive(false);
+                yield return null;
+                joystick.gameObject.SetActive(true);
+                Debug.Log("[CharacterAutoSetup] Joystick 재활성화 완료");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[CharacterAutoSetup] Joystick을 씬에서 찾지 못함!");
+        }
     }
 
     void ApplyStats()
