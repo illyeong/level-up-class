@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { doc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import SpriteMonster from '../../components/SpriteMonster';
@@ -17,47 +17,6 @@ const baseStats = (level) => ({
   def: 5  + Math.floor(level / 5) * 3,
   crit: 2 + Math.floor(level / 10),
 });
-
-// 대시보드 걷는 펫 — DOM 직접 조작으로 60fps 성능 보장
-function WalkingPet({ monsterData }) {
-  const wrapRef = useRef(null);
-  const posRef  = useRef({ x: window.innerWidth * 0.3, goRight: true });
-  const rafRef  = useRef(null);
-
-  useEffect(() => {
-    if (!monsterData) return;
-    const SPEED  = 1.4;
-    const PET_W  = Math.round((monsterData.frameWidth || 80) * monsterData.scale * 2);
-    const BOTTOM = 72; // 네비게이션 바 위
-
-    const loop = () => {
-      const p = posRef.current;
-      p.x += p.goRight ? SPEED : -SPEED;
-      const maxX = window.innerWidth - PET_W - 16;
-      if (p.x >= maxX) { p.x = maxX; p.goRight = false; }
-      if (p.x <= 16)   { p.x = 16;   p.goRight = true;  }
-
-      if (wrapRef.current) {
-        wrapRef.current.style.left = p.x + 'px';
-        wrapRef.current.style.transform = `scaleX(${p.goRight ? 1 : -1})`;
-      }
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [monsterData]);
-
-  if (!monsterData) return null;
-  return (
-    <div ref={wrapRef} style={{
-      position: 'fixed', bottom: 72, zIndex: 20,
-      pointerEvents: 'none', transformOrigin: 'left bottom',
-    }}>
-      <SpriteMonster data={monsterData} anim="run" scale={monsterData.scale * 2} />
-    </div>
-  );
-}
-
 const StudentDashboard = ({ studentCode }) => {
   const [student, setStudent] = useState(null);
   const [activePet, setActivePet] = useState(null);
@@ -103,11 +62,7 @@ const StudentDashboard = ({ studentCode }) => {
   const petMd = activePet ? MONSTERS_DB[activePet.monsterId] : null;
 
   return (
-    <>
-      {/* 걷는 펫 */}
-      {petMd && <WalkingPet monsterData={petMd} />}
-
-      <div className="p-6 pb-24">
+    <div className="p-6 pb-24">
         <h1 className="text-2xl font-bold mb-6 text-gray-800">🏰 대시보드</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -182,7 +137,7 @@ const StudentDashboard = ({ studentCode }) => {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

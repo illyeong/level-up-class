@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
@@ -30,6 +30,46 @@ import FreeBoard      from './pages/student/FreeBoard.jsx';
 import HallOfFame     from './pages/student/HallOfFame.jsx';
 import ClassVote      from './pages/student/ClassVote.jsx';
 import AICourseware  from './pages/student/AICourseware.jsx';
+import SpriteMonster from './components/SpriteMonster';
+import { MONSTERS_DB } from './data/monsterData';
+
+// ── 전역 걷는 펫 (학생 모드 전 페이지 표시) ──────────────────
+function WalkingPet({ monsterData }) {
+  const wrapRef = useRef(null);
+  const posRef  = useRef({ x: window.innerWidth * 0.3, goRight: true });
+  const rafRef  = useRef(null);
+
+  useEffect(() => {
+    if (!monsterData) return;
+    const SPEED = 1.4;
+    const PET_W = Math.round((monsterData.frameWidth || 80) * monsterData.scale * 2);
+
+    const loop = () => {
+      const p = posRef.current;
+      p.x += p.goRight ? SPEED : -SPEED;
+      const maxX = window.innerWidth - PET_W - 16;
+      if (p.x >= maxX) { p.x = maxX; p.goRight = false; }
+      if (p.x <= 16)   { p.x = 16;   p.goRight = true;  }
+      if (wrapRef.current) {
+        wrapRef.current.style.left      = p.x + 'px';
+        wrapRef.current.style.transform = `scaleX(${p.goRight ? 1 : -1})`;
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [monsterData]);
+
+  if (!monsterData) return null;
+  return (
+    <div ref={wrapRef} style={{
+      position: 'fixed', bottom: 72, zIndex: 20,
+      pointerEvents: 'none', transformOrigin: 'left bottom',
+    }}>
+      <SpriteMonster data={monsterData} anim="run" scale={monsterData.scale * 2} />
+    </div>
+  );
+}
 
 const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','miniGame'];
 const THEMEABLE_VIEWS = new Set(['dashboard', 'classAll', 'quest', 'learningNote', 'myCharacter']);
@@ -59,6 +99,7 @@ function App() {
   const [teacherUser,    setTeacherUser]    = useState(null);
   const [selectedClass,  setSelectedClass]  = useState(null);
   const [studentInfo,    setStudentInfo]    = useState(null);
+  const [activePetMonster, setActivePetMonster] = useState(null);
   const [currentView,    setCurrentView]    = useState('dashboard');
   const [testStudentCode, setTestStudentCode] = useState(null);
   const [studentClassInfo, setStudentClassInfo] = useState(null);
@@ -346,6 +387,18 @@ function App() {
     normalizeStudentProgress();
   }, [appMode, activeStudentCode]);
 
+  // 대표 펫 몬스터 데이터 로드
+  useEffect(() => {
+    const pid = studentInfo?.activePetId;
+    if (!pid) { setActivePetMonster(null); return; }
+    getDoc(doc(db, 'studentPets', pid)).then(snap => {
+      if (snap.exists()) {
+        const md = MONSTERS_DB[snap.data().monsterId];
+        setActivePetMonster(md || null);
+      } else { setActivePetMonster(null); }
+    }).catch(() => setActivePetMonster(null));
+  }, [studentInfo?.activePetId]);
+
   // ── 렌더링 ───────────────────────────────────────────────────
 
   if (appMode === 'loading') {
@@ -453,6 +506,9 @@ function App() {
 
   return (
     <div className={`flex h-screen relative ${themeMode === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
+      {/* 전역 걷는 펫 */}
+      {activePetMonster && <WalkingPet monsterData={activePetMonster} />}
+
       {showStudentNav && (
         <NavigationBar changeView={setCurrentView} currentView={currentView} classInfo={studentClassInfo} hiddenMenuIds={effectiveHiddenStudentMenuIds} />
       )}
