@@ -505,6 +505,13 @@ export default function PetHouse({ studentCode }) {
     })();
   }, [studentCode]);
 
+  // 인큐베이터에서 알 꺼내기
+  const removeFromIncubator = async (egg) => {
+    await updateDoc(doc(db, 'studentEggs', egg.id), { isIncubating: false });
+    setEggs(prev => prev.map(e => e.id === egg.id ? { ...e, isIncubating: false } : e));
+    showToast('알을 인큐베이터에서 꺼냈습니다');
+  };
+
   // 인큐베이터에 알 넣기
   const startIncubating = async (egg) => {
     // 이미 부화중인 알이 있으면 불가
@@ -918,7 +925,16 @@ export default function PetHouse({ studentCode }) {
                 .egg-wobble { animation: eggWobble 1.6s ease-in-out infinite; }
               `}</style>
               <div className="bg-slate-800/60 border border-slate-600 rounded-2xl p-4">
-                <p className="text-white font-extrabold text-sm mb-3">🔮 인큐베이터 슬롯 (1/1)</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-white font-extrabold text-sm">🔮 인큐베이터 슬롯 (1/1)</p>
+                  {incubating && (
+                    <button
+                      onClick={() => removeFromIncubator(incubating)}
+                      className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-700 text-slate-300 hover:bg-rose-700 hover:text-white transition-colors">
+                      꺼내기 ✕
+                    </button>
+                  )}
+                </div>
                 {incubating ? (() => {
                   const r = RARITY[incubating.eggType] || RARITY.common;
                   const req = REQUIRED_CLEARS[incubating.eggType] || 10;
