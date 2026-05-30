@@ -79,26 +79,37 @@ export function formatStats(stats = {}) {
 // ── 가챠 알 설정 (5등급 포함) ────────────────────────────────
 const EGGS = [
   {
-    id: 'normal', name: '일반 펫 알', cost: 500, icon: '🥚',
-    gradient: 'from-slate-400 to-slate-600',
+    id: 'normal', name: '일반 펫 알', cost: 500,
+    img: '/images/Eggs/Egg_Common_Gacha.png',
+    gradient: 'from-slate-500 to-slate-700',
     rates: { common: 65, rare: 30, epic: 5, legendary: 0, mythic: 0 },
     rateRows: [{ label: '일반 ⚪', pct: 65 }, { label: '희귀 🔵', pct: 30 }, { label: '영웅 🟣', pct: 5 }],
   },
   {
-    id: 'rare', name: '희귀 펫 알', cost: 1000, icon: '💙',
-    gradient: 'from-blue-500 to-indigo-600',
+    id: 'rare', name: '희귀 펫 알', cost: 1000,
+    img: '/images/Eggs/Egg_Rare_Gacha.png',
+    gradient: 'from-blue-600 to-indigo-700',
     rates: { common: 20, rare: 54, epic: 22, legendary: 3, mythic: 1 },
     rateRows: [{ label: '일반 ⚪', pct: 20 }, { label: '희귀 🔵', pct: 54 }, { label: '영웅 🟣', pct: 22 }, { label: '전설 🟡', pct: 3 }, { label: '신화 🌈', pct: 1 }],
   },
   {
-    id: 'legendary', name: '전설 펫 알', cost: 2000, icon: '⭐',
-    gradient: 'from-amber-400 to-orange-600',
+    id: 'epic', name: '영웅 펫 알', cost: 1500,
+    img: '/images/Eggs/Egg_Epic_Gacha.png',
+    gradient: 'from-purple-600 to-violet-800',
+    rates: { common: 0, rare: 30, epic: 55, legendary: 12, mythic: 3 },
+    rateRows: [{ label: '희귀 🔵', pct: 30 }, { label: '영웅 🟣', pct: 55 }, { label: '전설 🟡', pct: 12 }, { label: '신화 🌈', pct: 3 }],
+  },
+  {
+    id: 'legendary', name: '전설 펫 알', cost: 2000,
+    img: '/images/Eggs/Egg_Legendary_Gacha.png',
+    gradient: 'from-amber-500 to-orange-700',
     rates: { common: 0, rare: 37, epic: 50, legendary: 10, mythic: 3 },
     rateRows: [{ label: '희귀 🔵', pct: 37 }, { label: '영웅 🟣', pct: 50 }, { label: '전설 🟡', pct: 10 }, { label: '신화 🌈', pct: 3 }],
   },
   {
-    id: 'mythic', name: '신화 펫 알', cost: 3000, icon: '🌈',
-    gradient: 'from-rose-500 via-purple-600 to-indigo-600',
+    id: 'mythic', name: '신화 펫 알', cost: 3000,
+    img: '/images/Eggs/Egg_Mythic_Gacha.png',
+    gradient: 'from-rose-600 via-purple-700 to-indigo-700',
     rates: { common: 0, rare: 0, epic: 30, legendary: 55, mythic: 15 },
     rateRows: [{ label: '영웅 🟣', pct: 30 }, { label: '전설 🟡', pct: 55 }, { label: '신화 🌈', pct: 15 }],
   },
@@ -241,8 +252,8 @@ function HatchAnim({ egg, rarity, onDone }) {
 
       {/* 알 */}
       {stage < 5 && (
-        <div className="relative z-10 text-[110px] select-none" style={eggStyle}>
-          {egg.icon}
+        <div className="relative z-10 select-none" style={{ ...eggStyle, width: 120, height: 120 }}>
+          <img src={egg.img} alt={egg.name} className="w-full h-full object-contain" draggable={false} />
           {/* 균열 이모지 오버레이 */}
           {stage === 3 && (
             <span className="absolute -top-2 -right-2 text-3xl animate-ping">💢</span>
@@ -566,7 +577,7 @@ export default function PetHouse({ studentCode }) {
             {EGGS.map(egg => (
               <div key={egg.id} className={`rounded-2xl bg-gradient-to-r ${egg.gradient} shadow-lg p-4`}>
                 <div className="flex items-center gap-4">
-                  <span className="text-5xl shrink-0">{egg.icon}</span>
+                  <img src={egg.img} alt={egg.name} className="w-14 h-14 object-contain shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-extrabold text-sm">{egg.name}</p>
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -603,7 +614,7 @@ export default function PetHouse({ studentCode }) {
       {gachaPhase === 'confirm' && selectedEgg && (
         <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50 p-4 pb-8">
           <div className="w-full max-w-sm bg-slate-800 border border-slate-600 rounded-3xl p-6 text-center">
-            <div className="text-6xl mb-2">{selectedEgg.icon}</div>
+            <img src={selectedEgg.img} alt={selectedEgg.name} className="w-20 h-20 object-contain mx-auto mb-2" />
             <p className="text-white font-extrabold text-lg mb-1">{selectedEgg.name}</p>
             <p className="text-indigo-300 text-sm mb-5">
               보유: {student?.diamonds ?? 0}💎 → 구매 후: {(student?.diamonds || 0) - selectedEgg.cost}💎
