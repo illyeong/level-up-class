@@ -457,6 +457,7 @@ export default function PetHouse({ studentCode }) {
   // 알 부화 시스템
   const [eggs,        setEggs]        = useState([]); // studentEggs 목록
   const [selectedPet, setSelectedPet] = useState(null); // 상세 패널 선택 펫
+  const [detailAnim,  setDetailAnim]  = useState('idle'); // 상세 패널 스프라이트 애니
   const [hatchPhase,  setHatchPhase]  = useState('idle'); // idle|animating|result
   const [hatchingEgg, setHatchingEgg] = useState(null);
   const [hatchedPet,  setHatchedPet]  = useState(null);
@@ -721,11 +722,15 @@ export default function PetHouse({ studentCode }) {
                   style={{ boxShadow: `0 0 12px ${theme.glow}60` }}>
                   {r.badge} {r.label}
                 </span>
-                {/* 알 이미지 */}
+                {/* 알 이미지 — 랜덤 프레임 (없으면 gacha 이미지 fallback) */}
                 <div className="flex justify-center mb-4"
                   style={{ filter: `drop-shadow(0 0 24px ${theme.glow})` }}>
-                  <img src={RARITY_EGG_IMG[rarity]} alt={r.label}
-                    className="w-40 h-40 object-contain animate-bounce" />
+                  <img
+                    src={gachaResult.eggFrameImg || RARITY_EGG_IMG[rarity]}
+                    alt={r.label}
+                    className="w-40 h-40 object-contain animate-bounce"
+                    onError={e => { e.target.src = RARITY_EGG_IMG[rarity]; }}
+                  />
                 </div>
                 <p className="text-white/80 text-sm font-bold mb-1">알 인벤토리에 추가됐습니다!</p>
                 <p className="text-slate-400 text-xs mb-6">
@@ -815,7 +820,6 @@ export default function PetHouse({ studentCode }) {
                   const isActive = sp.id === activePetId;
                   const dh = DETAIL_H[spMd.tier] || 100;
                   const dScale = dh / (spMd.frameHeight || 120);
-                  const [detailAnim, setDetailAnim] = useState('idle');
                   const statLines = formatStats(sp.stats || {});
                   return (
                     <>
