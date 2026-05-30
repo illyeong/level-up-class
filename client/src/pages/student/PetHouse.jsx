@@ -945,7 +945,9 @@ export default function PetHouse({ studentCode }) {
                                 ${full || noGold
                                   ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
                                   : 'bg-amber-500 hover:bg-amber-400 text-white shadow-lg'}`}>
-                              {full ? '😊 배가 불러요!' : noGold ? `💰 골드 부족 (${FEED_COST}G 필요)` : `🍖 먹이주기 (${FEED_COST.toLocaleString()}G)`}
+                              {full ? '😊 배가 불러요!' : noGold
+                                ? <span>💰 골드 부족 ({FEED_COST.toLocaleString()} 🪙 필요)</span>
+                                : <span>🍖 먹이주기 &nbsp;{FEED_COST.toLocaleString()} 🪙</span>}
                             </button>
                             <p className="text-[10px] text-slate-500 text-center mt-1">3일 방치 시 허기 0 · 매일 먹이면 든든</p>
                           </div>
