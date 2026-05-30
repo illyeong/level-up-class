@@ -455,6 +455,7 @@ export default function PetHouse({ studentCode }) {
 
   // 알 부화 시스템
   const [eggs,        setEggs]        = useState([]); // studentEggs 목록
+  const [selectedPet, setSelectedPet] = useState(null); // 상세 패널 선택 펫
   const [hatchPhase,  setHatchPhase]  = useState('idle'); // idle|animating|result
   const [hatchingEgg, setHatchingEgg] = useState(null);
   const [hatchedPet,  setHatchedPet]  = useState(null);
@@ -761,30 +762,131 @@ export default function PetHouse({ studentCode }) {
         </div>
 
         {/* 내 펫 */}
-        {tab === 'myPets' && (
-          loading ? (
-            <div className="text-center py-16 text-indigo-300 text-sm">불러오는 중...</div>
-          ) : pets.length === 0 ? (
+        {tab === 'myPets' && (() => {
+          // 티어별 상세 패널 표시 높이
+          const DETAIL_H = { tiny:80, small:115, medium:160, large:210, boss:255 };
+          // 티어별 목록 썸네일 높이
+          const LIST_H   = { tiny:26, small:36,  medium:50,  large:64,  boss:78  };
+
+          const sp = selectedPet ? pets.find(p => p.id === selectedPet.id) || selectedPet : pets[0] || null;
+          const spMd = sp ? MONSTERS_DB[sp.monsterId] : null;
+
+          // 목록에서 선택 없으면 첫 번째 자동 선택
+          if (!selectedPet && pets.length > 0 && !loading) {
+            setTimeout(() => setSelectedPet(pets[0]), 0);
+          }
+
+          if (loading) return <div className="text-center py-16 text-indigo-300 text-sm">불러오는 중...</div>;
+          if (pets.length === 0) return (
             <div className="text-center py-16">
               <div className="text-6xl mb-3">🥚</div>
               <p className="text-white font-extrabold text-lg mb-1">아직 펫이 없어요!</p>
-              <p className="text-indigo-300 text-sm mb-5">펫 알 뽑기에서 첫 번째 펫을 획득해보세요</p>
+              <p className="text-indigo-300 text-sm mb-5">펫 알 뽑기 또는 퀴즈 던전에서 획득하세요</p>
               <button onClick={() => setTab('gacha')}
                 className="px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold rounded-2xl">
                 펫 알 뽑기 →
               </button>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {pets.map(pet => (
-                <PetCard key={pet.id} pet={pet} isActive={pet.id === activePetId}
-                  onSetActive={handleSetActive}
-                  onRename={p => { setRenamePet(p); setRenameInput(p.nickname || ''); }}
-                />
-              ))}
+          );
+
+          return (
+            <div className="flex gap-3" style={{ minHeight: 480 }}>
+
+              {/* ── 왼쪽: 상세 패널 ───────────────────────────── */}
+              <div className="flex-1 bg-slate-800/70 border border-slate-700 rounded-2xl p-4 flex flex-col items-center">
+                {sp && spMd ? (() => {
+                  const r = RARITY[sp.rarity] || RARITY.common;
+                  const isMythic = sp.rarity === 'mythic';
+                  const isActive = sp.id === activePetId;
+                  const dh = DETAIL_H[spMd.tier] || 100;
+                  const dScale = dh / (spMd.frameHeight || 120);
+                  const [detailAnim, setDetailAnim] = useState('idle');
+                  const statLines = formatStats(sp.stats || {});
+                  return (
+                    <>
+                      {isActive && (
+                        <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border mb-2 ${r.bg} ${r.text} ${r.border}`}>
+                          ★ 대표 펫
+                        </span>
+                      )}
+                      {/* 대형 스프라이트 */}
+                      <div className="flex justify-center items-end mb-3 cursor-pointer"
+                        style={{ height: dh + 10, filter: isMythic ? 'drop-shadow(0 0 12px #f43f5e)' : `drop-shadow(0 0 8px ${RARITY_THEME[sp.rarity]?.glow || '#60a5fa'})` }}
+                        onClick={() => setDetailAnim(a => a === 'idle' ? 'attack' : 'idle')}>
+                        <SpriteMonster data={spMd} anim={detailAnim} scale={dScale} onAnimEnd={() => setDetailAnim('idle')} />
+                      </div>
+                      {/* 이름 + 등급 */}
+                      <p className="text-white font-extrabold text-lg mb-0.5">{sp.nickname || spMd.name}</p>
+                      <p className={`text-xs font-bold ${r.text} mb-3`}>{r.badge} {r.label}</p>
+                      {/* 스탯 */}
+                      <div className="w-full space-y-1 mb-4">
+                        {statLines.map((line, i) => (
+                          <div key={i} className="flex items-center justify-between bg-slate-700/60 rounded-lg px-3 py-1.5">
+                            <span className="text-slate-300 text-xs font-bold">{line.split('+')[0].trim()}</span>
+                            <span className="text-white text-xs font-extrabold">+{line.split('+')[1]}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {/* 버튼 */}
+                      <div className="w-full space-y-2 mt-auto">
+                        {!isActive && (
+                          <button onClick={() => handleSetActive(sp.id)}
+                            className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold rounded-xl text-sm">
+                            ⭐ 대표 펫으로 설정
+                          </button>
+                        )}
+                        <button onClick={() => { setRenamePet(sp); setRenameInput(sp.nickname || ''); }}
+                          className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold rounded-xl text-sm">
+                          ✏️ 이름 변경
+                        </button>
+                      </div>
+                      <p className="text-slate-600 text-[9px] mt-2">클릭하면 애니메이션 재생</p>
+                    </>
+                  );
+                })() : (
+                  <div className="text-slate-600 text-sm">펫을 선택하세요</div>
+                )}
+              </div>
+
+              {/* ── 오른쪽: 컴팩트 목록 ──────────────────────── */}
+              <div className="w-44 overflow-y-auto space-y-1.5" style={{ maxHeight: 520 }}>
+                {pets.map(pet => {
+                  const md = MONSTERS_DB[pet.monsterId];
+                  const r  = RARITY[pet.rarity] || RARITY.common;
+                  const lh = LIST_H[md?.tier] || 36;
+                  const lScale = md ? lh / (md.frameHeight || 120) : 0.3;
+                  const isSel = sp?.id === pet.id;
+                  const isAct = pet.id === activePetId;
+                  return (
+                    <button key={pet.id}
+                      onClick={() => setSelectedPet(pet)}
+                      className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl border transition-all text-left
+                        ${isSel ? `border-indigo-500 bg-indigo-900/50` : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'}`}>
+                      {/* 티어별 크기 스프라이트 */}
+                      <div className="shrink-0 flex items-end justify-center"
+                        style={{ width: 36, height: LIST_H.boss + 4 }}>
+                        {md && <SpriteMonster data={md} anim="idle" scale={lScale} />}
+                      </div>
+                      {/* 이름 + 스탯 */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 mb-0.5">
+                          {isAct && <span className="text-[8px] text-indigo-400 font-bold">★</span>}
+                          <p className="text-slate-200 text-[11px] font-extrabold truncate">{pet.nickname || md?.name}</p>
+                        </div>
+                        <p className={`text-[9px] font-bold ${r.text} mb-0.5`}>{r.badge}</p>
+                        <div className="space-y-0.5">
+                          {formatStats(pet.stats || {}).slice(0, 2).map((line, i) => (
+                            <p key={i} className="text-[9px] text-slate-400 truncate">{line}</p>
+                          ))}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )
-        )}
+          );
+        })()}
 
         {/* 알 부화 탭 */}
         {tab === 'hatch' && (() => {
