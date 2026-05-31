@@ -294,6 +294,7 @@ function RewardParticleBurst() {
 export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, isTeacher = false, teacherUid = null }) {
   const [phase, setPhase]             = useState('map');
   const [dungeonLaunchIndex, setDungeonLaunchIndex] = useState(1);
+  const launchTimestampRef = useRef(null); // 입장 시점 고정 — 리렌더 시 Date.now() 재생성 방지
   const [dungeonList, setDungeonList] = useState(DUNGEONS);
   const [isBusy, setIsBusy]           = useState(false);
   const [student, setStudent]         = useState(null);
@@ -543,6 +544,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
         launchIndex,
       });
       if (!isTeacher) await onUseTicket('dungeon');
+      launchTimestampRef.current = Date.now(); // 입장 시점 고정
       setPhase('playing');
       setSelectedDungeon(null);
       setDungeonReward(null);
@@ -552,7 +554,8 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
 
   // ── Unity 플레이 화면 ──────────────────────────────────────
   if (phase === 'playing') {
-    const unityUrl = `${DUNGEON_URL}?dungeonIndex=${encodeURIComponent(dungeonLaunchIndex)}&t=${Date.now()}`;
+    // launchTimestampRef: 입장 시점에 고정 → 리렌더 시 src 변경으로 iframe 리로드 방지
+    const unityUrl = `${DUNGEON_URL}?dungeonIndex=${encodeURIComponent(dungeonLaunchIndex)}&t=${launchTimestampRef.current || Date.now()}`;
     console.log('[ExplorationDungeon] unityUrl', unityUrl);
     return (
       <div className="relative w-full" style={{ height: 'calc(100vh - 88px)', touchAction: 'none' }}>
