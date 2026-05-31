@@ -123,6 +123,32 @@ function WalkingPet({ monsterData, isDead, energy = 100, onClick }) {
   );
 }
 
+// ── 펫 말풍선 대사 ────────────────────────────────────────────
+const PET_DIALOGUES = {
+  dead:        ['너무 배가 고파요... 😢', '밥 줘요... 제발...', '꼬르륵...'],
+  hungry:      ['배가 고파요... 🍖', '밥 줘요~ 🍖', '배꼽시계가 울려요!', '간식 없어요?'],
+  unhappy:     ['심심해요... 💭', '같이 놀아요!', '쓰다듬어 주세요 💝', '외로워요~'],
+  dirty:       ['씻겨주세요 🛁', '좀 더러운 것 같아요...', '목욕 하고 싶어요!'],
+  tired:       ['피곤해요... 😴', '조금만 쉬어도 될까요?'],
+  great:       ['오늘도 같이 공부하자! 📚', '행복해요~ 😊', '최고야! 🎉', '오늘도 잘 부탁해요!', '내가 항상 응원할게! ✨'],
+  normal:      ['안녕! 👋', '오늘 뭐 공부했어요?', '같이 있어서 좋아요!', '열심히 하자! 💪', '보고 싶었어! 🐾'],
+  study:       ['방금 문제 정말 잘 풀었어! 👏', 'AI 학습관 같이 가요! 🤖', '오늘도 한 문제씩!', '퀴즈 던전 도전해볼까요?'],
+  levelupNear: ['조금만 더 하면 성장할 수 있어! 🌟', '거의 다 왔어요! 화이팅!', '레벨업이 코앞이에요! ✨'],
+};
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const getPetLine = (hunger, happiness, cleanliness, energy) => {
+  if (hunger <= 0)       return pick(PET_DIALOGUES.dead);
+  if (hunger < 20)       return pick(PET_DIALOGUES.hungry);
+  if (happiness < 20)    return pick(PET_DIALOGUES.unhappy);
+  if (cleanliness < 20)  return pick(PET_DIALOGUES.dirty);
+  if (energy < 10)       return pick(PET_DIALOGUES.tired);
+  if (hunger >= 70 && happiness >= 70) return pick(PET_DIALOGUES.great);
+  const roll = Math.random();
+  if (roll < 0.25) return pick(PET_DIALOGUES.study);
+  if (roll < 0.35) return pick(PET_DIALOGUES.levelupNear);
+  return pick(PET_DIALOGUES.normal);
+};
+
 const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','miniGame'];
 const THEMEABLE_VIEWS = new Set(['dashboard', 'classAll', 'quest', 'learningNote', 'myCharacter']);
 const ADVENTURE_BG = 'linear-gradient(160deg, #020617 0%, #0f172a 50%, #1e1b4b 100%)';
@@ -157,8 +183,9 @@ function App() {
   const [activePetHappiness,   setActivePetHappiness]   = useState(100);
   const [activePetEnergy,      setActivePetEnergy]      = useState(100);
   const [activePetCleanliness, setActivePetCleanliness] = useState(100);
-  const [showPetPopup,         setShowPetPopup]         = useState(false); // 클릭 팝업
-  const [hasPoop,              setHasPoop]              = useState(false); // 똥 표시 여부
+  const [showPetPopup,         setShowPetPopup]         = useState(false);
+  const [petSpeech,            setPetSpeech]            = useState(null);  // 말풍선 텍스트
+  const [hasPoop,              setHasPoop]              = useState(false);
   const [petVisible, setPetVisible] = useState(true);
   const [currentView,    setCurrentView]    = useState('dashboard');
   const [testStudentCode, setTestStudentCode] = useState(null);
@@ -447,6 +474,22 @@ function App() {
     normalizeStudentProgress();
   }, [appMode, activeStudentCode]);
 
+  // 랜덤 말풍선 (30~90초마다)
+  useEffect(() => {
+    if (!activePetMonster || !petVisible) return;
+    const schedule = () => {
+      const delay = 30000 + Math.random() * 60000;
+      return setTimeout(() => {
+        const line = getPetLine(activePetHunger, activePetHappiness, activePetCleanliness, activePetEnergy);
+        setPetSpeech(line);
+        setTimeout(() => setPetSpeech(null), 3500);
+        timerRef.current = schedule();
+      }, delay);
+    };
+    const timerRef = { current: schedule() };
+    return () => clearTimeout(timerRef.current);
+  }, [activePetMonster, petVisible, activePetHunger, activePetHappiness]);
+
   // 대표 펫 실시간 구독 — PetHouse에서 대표 설정 시 즉시 반영
   useEffect(() => {
     if (!activeStudentCode) { setActivePetMonster(null); return; }
@@ -610,8 +653,25 @@ function App() {
             monsterData={activePetMonster}
             isDead={activePetHunger <= 0}
             energy={activePetEnergy}
-            onClick={() => setShowPetPopup(v => !v)}
+            onClick={() => {
+              const line = getPetLine(activePetHunger, activePetHappiness, activePetCleanliness, activePetEnergy);
+              setPetSpeech(line);
+              clearTimeout(window._petSpeechTimer);
+              window._petSpeechTimer = setTimeout(() => setPetSpeech(null), 3500);
+            }}
           />
+
+          {/* 말풍선 */}
+          {petSpeech && (
+            <div style={{ position:'fixed', bottom:85, right:30, zIndex:25, maxWidth:180 }}
+              className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-slate-200 text-sm font-bold text-slate-700 animate-[fadeIn_0.2s_ease] pointer-events-none select-none">
+              {petSpeech}
+              {/* 꼬리 */}
+              <div style={{ position:'absolute', bottom:-7, right:16, width:12, height:12,
+                background:'white', borderRight:'1px solid #e2e8f0', borderBottom:'1px solid #e2e8f0',
+                transform:'rotate(45deg)' }} />
+            </div>
+          )}
 
           {/* 💩 똥 */}
           {hasPoop && (
@@ -631,23 +691,21 @@ function App() {
             </button>
           )}
 
-          {/* 상태 말풍선 */}
-          {!showPetPopup && (() => {
-            const msgs = [
-              activePetHunger <= 0      && { text: '💀 배가 고파요...', urgent: true },
-              activePetHunger < 20      && { text: '🍖 배고파요!', urgent: true },
-              hasPoop                   && { text: '🛁 치워주세요~', urgent: false },
-              activePetHappiness < 20   && { text: '💭 너무 심심해요!', urgent: false },
-              activePetCleanliness < 20 && { text: '🛁 씻겨주세요~', urgent: false },
-              activePetEnergy < 10      && { text: '😴 너무 힘들어요...', urgent: false },
-            ].find(Boolean);
-            if (!msgs) return null;
+          {/* 상태 긴급 말풍선 (배고픔/청결 위급 시 — 클릭 말풍선과 별개) */}
+          {!petSpeech && (() => {
+            const urgent =
+              activePetHunger <= 0 ? '💀 배가 고파요...' :
+              activePetHunger < 20 ? '🍖 배고파요!' :
+              hasPoop ? '💩 치워주세요~' :
+              null;
+            if (!urgent) return null;
             return (
-              <div style={{ position:'fixed', bottom:90, right:20, zIndex:21 }}
-                className={`bg-white rounded-2xl px-3 py-1.5 shadow-lg border text-xs font-bold pointer-events-none
-                  ${msgs.urgent ? 'border-rose-200 text-rose-600 animate-bounce' : 'border-slate-200 text-slate-700 animate-pulse'}`}>
-                {msgs.text}
-                <div style={{ position:'absolute', bottom:-6, right:12, width:10, height:10, background:'white', borderRight:'1px solid #e2e8f0', borderBottom:'1px solid #e2e8f0', transform:'rotate(45deg)' }} />
+              <div style={{ position:'fixed', bottom:85, right:30, zIndex:24, maxWidth:180 }}
+                className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-rose-200 text-sm font-bold text-rose-600 animate-bounce pointer-events-none select-none">
+                {urgent}
+                <div style={{ position:'absolute', bottom:-7, right:16, width:12, height:12,
+                  background:'white', borderRight:'1px solid #fecaca', borderBottom:'1px solid #fecaca',
+                  transform:'rotate(45deg)' }} />
               </div>
             );
           })()}
