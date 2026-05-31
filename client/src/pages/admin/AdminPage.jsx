@@ -1670,33 +1670,58 @@ function GradeClassesTab() {
         <p className="text-sm text-slate-500 mt-1">학년별로 학급을 확인하고, 카드 클릭 시 상세 정보를 볼 수 있습니다.</p>
       </div>
 
+      {/* 학년별 학급 수 요약 */}
+      {grades.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {grades.map(g => (
+            <div key={g.gradeKey} className="bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-1.5 text-sm font-bold text-indigo-700">
+              {g.gradeKey === '기타' ? '기타' : `${g.gradeKey}학년`} {g.classes.length}학급
+            </div>
+          ))}
+          <div className="bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5 text-sm font-bold text-slate-600">
+            전체 {grades.reduce((s, g) => s + g.classes.length, 0)}학급
+          </div>
+        </div>
+      )}
+
       {grades.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-400">학급 데이터가 없습니다.</div>
       ) : (
         grades.map((gradeGroup) => (
           <section key={gradeGroup.gradeKey} className="space-y-3">
-            <h3 className="text-base font-extrabold text-slate-700">
+            <h3 className="text-base font-extrabold text-slate-700 flex items-center gap-2">
               {gradeGroup.gradeKey === '기타' ? '기타 학급' : `${gradeGroup.gradeKey}학년`}
+              <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                {gradeGroup.classes.length}학급
+              </span>
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {gradeGroup.classes.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setSelectedClass(c)}
-                  className={`text-left bg-white border rounded-2xl p-4 transition ${
-                    selectedClass?.id === c.id ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-extrabold text-slate-800 truncate">{c.schoolName || '학교 미설정'}</div>
-                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
-                      {c.grade || '-'}-{c.classNumber || '-'}반
-                    </span>
-                  </div>
-                  <div className="mt-2 text-sm text-slate-600">학생 {c.studentCountComputed}명</div>
-                  <div className="mt-1 text-xs text-slate-400 truncate">{c.teacherEmail || c.teacherUid || '교사 정보 없음'}</div>
-                </button>
-              ))}
+              {gradeGroup.classes.map((c) => {
+                const createdDate = c.createdAt?.toDate?.()
+                  ? c.createdAt.toDate().toLocaleDateString('ko-KR', { year:'numeric', month:'short', day:'numeric' })
+                  : null;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedClass(c)}
+                    className={`text-left bg-white border rounded-2xl p-4 transition ${
+                      selectedClass?.id === c.id ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-extrabold text-slate-800 truncate">{c.schoolName || '학교 미설정'}</div>
+                      <span className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full shrink-0">
+                        {c.grade || '-'}-{c.classNumber || '-'}반
+                      </span>
+                    </div>
+                    <div className="mt-2 text-sm text-slate-600">학생 <span className="font-bold">{c.studentCountComputed}명</span></div>
+                    <div className="mt-1 text-xs text-slate-400 truncate">{c.teacherEmail || c.teacherUid || '교사 정보 없음'}</div>
+                    {createdDate && (
+                      <div className="mt-1 text-[11px] text-slate-400">생성일: {createdDate}</div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </section>
         ))
@@ -1710,6 +1735,11 @@ function GradeClassesTab() {
             <div className="text-slate-600">학년/반: <span className="font-bold text-slate-800">{selectedClass.grade || '-'}학년 {selectedClass.classNumber || '-'}반</span></div>
             <div className="text-slate-600">학생 수: <span className="font-bold text-slate-800">{selectedClass.studentCountComputed}명</span></div>
             <div className="text-slate-600">교사 이메일: <span className="font-bold text-slate-800">{selectedClass.teacherEmail || '-'}</span></div>
+            <div className="text-slate-600">생성일: <span className="font-bold text-slate-800">
+              {selectedClass.createdAt?.toDate?.()
+                ? selectedClass.createdAt.toDate().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric' })
+                : '-'}
+            </span></div>
             <div className="text-slate-600 md:col-span-2">교사 UID: <span className="font-mono text-xs text-slate-500">{selectedClass.teacherUid || '-'}</span></div>
           </div>
         </section>

@@ -507,11 +507,10 @@ export default function PetHouse({ studentCode }) {
         if (lastCare >= today) return pet;
         const days = Math.max(0, Math.floor((Date.now() - new Date(lastCare).getTime()) / 86400000));
         if (days === 0) return pet;
-        // 3일 방치 = 배고픔 0 → 하루 감소량 34
-        // 학교 친화적: 행복·청결·기력은 더 천천히 감소
+        // 배고픔: 3일=0(-34/일), 행복도: 5일=0(-20/일), 청결도: 10일=0(-10/일)
         const newHunger      = Math.max(0,   (pet.hunger      ?? 100) - days * 34);
-        const newHappiness   = Math.max(0,   (pet.happiness   ?? 100) - days * 7);
-        const newCleanliness = Math.max(0,   (pet.cleanliness ?? 100) - days * 5);
+        const newHappiness   = Math.max(0,   (pet.happiness   ?? 100) - days * 20);
+        const newCleanliness = Math.max(0,   (pet.cleanliness ?? 100) - days * 10);
         const newEnergy      = Math.min(100, (pet.energy      ?? 100) + days * 20);
         const updates = { hunger: newHunger, happiness: newHappiness, cleanliness: newCleanliness, energy: newEnergy, lastCareAt: serverTimestamp() };
         await updateDoc(doc(db, 'studentPets', pet.id), updates);
