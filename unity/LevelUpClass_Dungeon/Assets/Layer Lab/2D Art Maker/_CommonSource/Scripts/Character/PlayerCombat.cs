@@ -119,6 +119,8 @@ namespace LayerLab.ArtMaker
 
         public void TakePlayerDamage(int damage, Vector3 monsterPos)
         {
+            if (isInvincible) return;
+
             int finalDamage = Mathf.Max(1, damage - (defense / 4)); // 방어력 1 = 피해 0.25 감소
             currentHealth -= finalDamage;
 
@@ -170,6 +172,16 @@ namespace LayerLab.ArtMaker
 
             Invoke("ResetHitState", 0.5f);
             Invoke("ResetInvincibility", invincibleTime);
+        }
+
+        public void GrantInvincibility(float duration)
+        {
+            if (duration <= 0f) return;
+            if (isInvincible) return;
+
+            isInvincible = true;
+            CancelInvoke(nameof(ResetInvincibility));
+            Invoke(nameof(ResetInvincibility), duration);
         }
 
         void ResetAttacking()

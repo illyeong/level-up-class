@@ -49,6 +49,13 @@ public class DungeonCharacterLoader : MonoBehaviour
             if (data.colors != null) ApplyColors(pm, data.colors);
         }
 
+        // 선택된 스킬 → SkillButtonUI에 전달
+        if (!string.IsNullOrEmpty(data.selectedSkill))
+        {
+            var skillUI = FindFirstObjectByType<SkillButtonUI>();
+            if (skillUI != null) skillUI.ShowSkill(data.selectedSkill);
+        }
+
         // 캐릭터 데이터 적용이 끝난 뒤에만 던전 씬으로 이동
         if (GameManager.Instance != null)
             GameManager.Instance.RouteToSelectedDungeon();
@@ -136,6 +143,7 @@ public class DungeonCharacterLoader : MonoBehaviour
         public PartsData parts;
         public ColorData colors;
         public StatsData stats;
+        public string    selectedSkill; // "thunder_god" 등
     }
 
     [System.Serializable]
