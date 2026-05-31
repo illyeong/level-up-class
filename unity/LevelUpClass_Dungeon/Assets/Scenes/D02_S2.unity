@@ -322,8 +322,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC14\uB2E4 \uACE0\uB465"
-  maxHealth: 80
-  attackPower: 20
+  maxHealth: 100
+  attackPower: 25
   currentHealth: 0
   goldDrop: 10
   hitEffectPrefab: {fileID: 1429954232896169633, guid: 83036083a4ebcd34f98131bd3cf6f4d2, type: 3}
@@ -344,6 +344,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &22064014 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 7649908166553930987, guid: dd544eaa02e2a0e438e645ebb308d3a3, type: 3}
@@ -1110,8 +1111,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC14\uB2E4 \uACE0\uB465"
-  maxHealth: 80
-  attackPower: 20
+  maxHealth: 100
+  attackPower: 25
   currentHealth: 0
   goldDrop: 10
   hitEffectPrefab: {fileID: 1429954232896169633, guid: 83036083a4ebcd34f98131bd3cf6f4d2, type: 3}
@@ -1132,6 +1133,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &257980719 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 7649908166553930987, guid: dd544eaa02e2a0e438e645ebb308d3a3, type: 3}
@@ -1594,8 +1596,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC14\uB2E4 \uACE0\uB465"
-  maxHealth: 80
-  attackPower: 20
+  maxHealth: 100
+  attackPower: 25
   currentHealth: 0
   goldDrop: 10
   hitEffectPrefab: {fileID: 1429954232896169633, guid: 83036083a4ebcd34f98131bd3cf6f4d2, type: 3}
@@ -1616,6 +1618,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &332207352 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 7649908166553930987, guid: dd544eaa02e2a0e438e645ebb308d3a3, type: 3}
@@ -2625,8 +2628,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC14\uB2E4 \uACE0\uB465"
-  maxHealth: 80
-  attackPower: 20
+  maxHealth: 100
+  attackPower: 25
   currentHealth: 0
   goldDrop: 10
   hitEffectPrefab: {fileID: 1429954232896169633, guid: 83036083a4ebcd34f98131bd3cf6f4d2, type: 3}
@@ -2647,6 +2650,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &474485979 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 7649908166553930987, guid: dd544eaa02e2a0e438e645ebb308d3a3, type: 3}
@@ -3029,6 +3033,7 @@ MonoBehaviour:
   sessionEarnedDiamond: 0
   dungeonIndex: 1
   hasReactDungeonIndex: 0
+  selectedSkill: 
   savedAvatarJson: 
 --- !u!4 &577946505
 Transform:
@@ -3993,8 +3998,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC14\uB2E4 \uACE0\uB465"
-  maxHealth: 80
-  attackPower: 20
+  maxHealth: 100
+  attackPower: 25
   currentHealth: 0
   goldDrop: 10
   hitEffectPrefab: {fileID: 1429954232896169633, guid: 83036083a4ebcd34f98131bd3cf6f4d2, type: 3}
@@ -4015,6 +4020,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &744728366 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 7649908166553930987, guid: dd544eaa02e2a0e438e645ebb308d3a3, type: 3}
@@ -4153,8 +4159,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC14\uB2E4 \uACE0\uB465"
-  maxHealth: 80
-  attackPower: 20
+  maxHealth: 100
+  attackPower: 25
   currentHealth: 0
   goldDrop: 10
   hitEffectPrefab: {fileID: 1429954232896169633, guid: 83036083a4ebcd34f98131bd3cf6f4d2, type: 3}
@@ -4175,6 +4181,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &768213086 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 7649908166553930987, guid: dd544eaa02e2a0e438e645ebb308d3a3, type: 3}
@@ -5547,6 +5554,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!61 &985455882
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -8571,7 +8579,6 @@ MonoBehaviour:
   dashSpeed: 22
   dashDistance: 14
   hitBoxHeight: 3.5
-  fxDelayAfterDash: 0.2
   hitDelayAfterFX: 0.1
   invincibleDuration: 0.5
   totalDamageMultiplier: 8
@@ -10724,8 +10731,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC14\uB2E4 \uACE0\uB465"
-  maxHealth: 80
-  attackPower: 20
+  maxHealth: 100
+  attackPower: 25
   currentHealth: 0
   goldDrop: 10
   hitEffectPrefab: {fileID: 1429954232896169633, guid: 83036083a4ebcd34f98131bd3cf6f4d2, type: 3}
@@ -10746,6 +10753,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &2067386562 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 7649908166553930987, guid: dd544eaa02e2a0e438e645ebb308d3a3, type: 3}

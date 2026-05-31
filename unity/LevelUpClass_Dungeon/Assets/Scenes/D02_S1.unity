@@ -1085,12 +1085,13 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   anim: {fileID: 111037525}
-  idleAnimName: Slime_Idle
-  walkAnimName: Slime_Walk
-  attackAnimName: Slime_Attack
-  hitAnimName: Slime_Hit
-  deadAnimName: Slime_Dead
+  idleAnimName: Snail_Idle
+  walkAnimName: Snail_Walk
+  attackAnimName: Snail_Attack
+  hitAnimName: Snail_Hit
+  deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!1 &112068994
 GameObject:
   m_ObjectHideFlags: 0
@@ -1908,12 +1909,13 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   anim: {fileID: 332207352}
-  idleAnimName: Slime_Idle
-  walkAnimName: Slime_Walk
-  attackAnimName: Slime_Attack
-  hitAnimName: Slime_Hit
-  deadAnimName: Slime_Dead
+  idleAnimName: Snail_Idle
+  walkAnimName: Snail_Walk
+  attackAnimName: Snail_Attack
+  hitAnimName: Snail_Hit
+  deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &332207352 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 8306600894769630255, guid: 46bb1660f70c7144c869cfff97de27f7, type: 3}
@@ -2808,6 +2810,7 @@ MonoBehaviour:
   sessionEarnedDiamond: 0
   dungeonIndex: 1
   hasReactDungeonIndex: 0
+  selectedSkill: 
   savedAvatarJson: 
 --- !u!4 &577946505
 Transform:
@@ -3304,12 +3307,13 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   anim: {fileID: 615100522}
-  idleAnimName: Slime_Idle
-  walkAnimName: Slime_Walk
-  attackAnimName: Slime_Attack
-  hitAnimName: Slime_Hit
-  deadAnimName: Slime_Dead
+  idleAnimName: Snail_Idle
+  walkAnimName: Snail_Walk
+  attackAnimName: Snail_Attack
+  hitAnimName: Snail_Hit
+  deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!1 &661290362
 GameObject:
   m_ObjectHideFlags: 0
@@ -3652,7 +3656,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6048616795054218728, guid: bb0b9484aa9ed264da0ee089c5416451, type: 3}
       propertyPath: m_Name
-      value: Character (1)
+      value: Character
       objectReference: {fileID: 0}
     - target: {fileID: 6048616795054218728, guid: bb0b9484aa9ed264da0ee089c5416451, type: 3}
       propertyPath: m_Layer
@@ -3795,7 +3799,6 @@ MonoBehaviour:
   dashSpeed: 22
   dashDistance: 14
   hitBoxHeight: 3.5
-  fxDelayAfterDash: 0.2
   hitDelayAfterFX: 0.1
   invincibleDuration: 0.5
   totalDamageMultiplier: 8
@@ -4852,6 +4855,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!61 &985455882
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -6554,12 +6558,13 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   anim: {fileID: 1385899485}
-  idleAnimName: Slime_Idle
-  walkAnimName: Slime_Walk
-  attackAnimName: Slime_Attack
-  hitAnimName: Slime_Hit
-  deadAnimName: Slime_Dead
+  idleAnimName: Snail_Idle
+  walkAnimName: Snail_Walk
+  attackAnimName: Snail_Attack
+  hitAnimName: Snail_Hit
+  deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!1 &1396708166
 GameObject:
   m_ObjectHideFlags: 0
@@ -7152,12 +7157,13 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   anim: {fileID: 1444474414}
-  idleAnimName: Slime_Idle
-  walkAnimName: Slime_Walk
-  attackAnimName: Slime_Attack
-  hitAnimName: Slime_Hit
-  deadAnimName: Slime_Dead
+  idleAnimName: Snail_Idle
+  walkAnimName: Snail_Walk
+  attackAnimName: Snail_Attack
+  hitAnimName: Snail_Hit
+  deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!1001 &1480759638
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7427,12 +7433,13 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   anim: {fileID: 1480759640}
-  idleAnimName: Slime_Idle
-  walkAnimName: Slime_Walk
-  attackAnimName: Slime_Attack
-  hitAnimName: Slime_Hit
-  deadAnimName: Slime_Dead
+  idleAnimName: Snail_Idle
+  walkAnimName: Snail_Walk
+  attackAnimName: Snail_Attack
+  hitAnimName: Snail_Hit
+  deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!1001 &1501856333
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10684,12 +10691,13 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   anim: {fileID: 1998908996}
-  idleAnimName: Slime_Idle
-  walkAnimName: Slime_Walk
-  attackAnimName: Slime_Attack
-  hitAnimName: Slime_Hit
-  deadAnimName: Slime_Dead
+  idleAnimName: Snail_Idle
+  walkAnimName: Snail_Walk
+  attackAnimName: Snail_Attack
+  hitAnimName: Snail_Hit
+  deadAnimName: Snail_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!1 &2024512510
 GameObject:
   m_ObjectHideFlags: 0

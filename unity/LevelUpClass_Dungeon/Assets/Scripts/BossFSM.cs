@@ -104,6 +104,7 @@ public class BossFSM : MonoBehaviour
 
     public int CurrentHealth => currentHealth;
     public bool isDead { get; private set; } = false;
+    [HideInInspector] public bool frozen = false;
     private bool isHit           = false;
     private bool isAttacking     = false;
     private bool isCharging      = false;
@@ -152,6 +153,7 @@ public class BossFSM : MonoBehaviour
     void Update()
     {
         if (isDead || isHit || isAttacking || isCharging) return;
+        if (frozen) { if (rb) rb.linearVelocity = Vector2.zero; return; }
         if (playerTarget == null) return;
 
         // Phase 2 전환 감지

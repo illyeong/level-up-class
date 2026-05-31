@@ -39,6 +39,7 @@ public class MonsterFSM : MonoBehaviour
     public string deadAnimName   = "Slime_Dead";
 
     public bool isDead = false;
+    [HideInInspector] public bool frozen = false; // 스킬로 일시 정지
     private bool isHit       = false;
     private bool isAttacking = false;
     private bool isAggro     = false;
@@ -61,6 +62,7 @@ public class MonsterFSM : MonoBehaviour
     void Update()
     {
         if (isDead || isHit || isAttacking) return;
+        if (frozen) { if (rb) rb.linearVelocity = Vector2.zero; return; }
 
         float currentSpeed = 0f;
 

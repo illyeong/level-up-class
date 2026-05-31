@@ -753,7 +753,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6048616795054218728, guid: bb0b9484aa9ed264da0ee089c5416451, type: 3}
       propertyPath: m_Name
-      value: Character (1)
+      value: Character
       objectReference: {fileID: 0}
     - target: {fileID: 6048616795054218728, guid: bb0b9484aa9ed264da0ee089c5416451, type: 3}
       propertyPath: m_Layer
@@ -896,7 +896,6 @@ MonoBehaviour:
   dashSpeed: 22
   dashDistance: 14
   hitBoxHeight: 3.5
-  fxDelayAfterDash: 0.2
   hitDelayAfterFX: 0.1
   invincibleDuration: 0.5
   totalDamageMultiplier: 8
@@ -1715,6 +1714,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!1 &284657749
 GameObject:
   m_ObjectHideFlags: 0
@@ -2065,6 +2065,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!1 &347322699
 GameObject:
   m_ObjectHideFlags: 0
@@ -2966,6 +2967,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &478867210 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 299893550816836935, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
@@ -3326,6 +3328,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!1 &492118721
 GameObject:
   m_ObjectHideFlags: 0
@@ -8067,6 +8070,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!1001 &1613005767
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8342,6 +8346,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!1 &1623448043
 GameObject:
   m_ObjectHideFlags: 0
@@ -10352,6 +10357,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!1 &2080987170
 GameObject:
   m_ObjectHideFlags: 0

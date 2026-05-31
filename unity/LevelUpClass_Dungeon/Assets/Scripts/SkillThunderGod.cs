@@ -83,9 +83,24 @@ public class SkillThunderGod : MonoBehaviour
             yield break;
         }
 
-        yield return new WaitForSeconds(hitDelayAfterFX);
+        // ④ 몬스터 즉시 정지
+        SetTargetsFrozen(targets, true);
+
+        // ⑤ 0.5초 대기 (몬스터 멈춤 상태)
+        yield return new WaitForSeconds(0.5f);
+
+        // ⑥ 대쉬 후 캐릭터 이펙트
+        SpawnAttachedFX(playerFXPrefab);
+
+        // ⑦ 0.3초 대기
+        yield return new WaitForSeconds(0.3f);
+
+        // ⑧ 6연타 + 사망 판정
         _combat?.GrantInvincibility(invincibleDuration);
         yield return StrikeTargets(targets);
+
+        // ⑨ 몬스터 정지 해제
+        SetTargetsFrozen(targets, false);
 
         SetPlayerControl(true);
         _running = false;
@@ -204,17 +219,20 @@ public class SkillThunderGod : MonoBehaviour
 
     private IEnumerator StrikeTargets(List<StrikeTarget> targets)
     {
-        int baseAttack   = _combat != null ? _combat.attackPower : 10;
-        int perHitDamage = Mathf.Max(1, Mathf.RoundToInt(baseAttack * totalDamageMultiplier / Mathf.Max(1, hitCount)));
+        int   baseAttack  = _combat != null ? _combat.attackPower          : 10;
+        int   critChance  = _combat != null ? _combat.critChance           : 20;
+        float critMult    = _combat != null ? _combat.critDamageMultiplier : 1.5f;
+        // 타격당 데미지 = 공격력 / 2
+        int   baseDmg     = Mathf.Max(1, baseAttack / 2);
 
-        // ① 6연타 시작 전 — 모든 타겟의 사망 판정 지연
+        // ① 6연타 시작 전 — 모든 타겟 사망 판정 지연
         foreach (var t in targets)
         {
             if (t.monster != null) t.monster.suppressDeath = true;
             if (t.boss    != null) t.boss.suppressDeath    = true;
         }
 
-        // ② 6연타 — isDead가 아직 false이므로 HP 0 이하여도 피격모션+이펙트 모두 재생
+        // ② 6연타 — 타격마다 크리확률 독립 적용
         for (int i = 0; i < hitCount; i++)
         {
             for (int t = 0; t < targets.Count; t++)
@@ -222,12 +240,15 @@ public class SkillThunderGod : MonoBehaviour
                 StrikeTarget target = targets[t];
                 if (target.transform == null) continue;
 
+                bool isCrit  = Random.Range(0, 200) < Mathf.Min(critChance, 160);
+                int  dmg     = isCrit ? Mathf.RoundToInt(baseDmg * critMult) : baseDmg;
+
                 SpawnFX(monsterFXPrefab, target.transform.position + Vector3.up * 0.6f);
 
                 if (target.monster != null && !target.monster.isDead)
-                    target.monster.TakeDamage(perHitDamage, false);
+                    target.monster.TakeDamage(dmg, isCrit);
                 else if (target.boss != null && !target.boss.isDead)
-                    target.boss.TakeDamage(perHitDamage, false);
+                    target.boss.TakeDamage(dmg, isCrit);
             }
 
             if (i < hitCount - 1)
@@ -240,6 +261,15 @@ public class SkillThunderGod : MonoBehaviour
         {
             t.monster?.ReleaseSuppressDeath();
             t.boss?.ReleaseSuppressDeath();
+        }
+    }
+
+    private void SetTargetsFrozen(List<StrikeTarget> targets, bool freeze)
+    {
+        foreach (var t in targets)
+        {
+            if (t.monster != null) { t.monster.frozen = freeze; if (freeze && t.monster.TryGetComponent<Rigidbody2D>(out var rb)) rb.linearVelocity = Vector2.zero; }
+            if (t.boss    != null) { t.boss.frozen    = freeze; if (freeze && t.boss.TryGetComponent<Rigidbody2D>(out var rb)) rb.linearVelocity = Vector2.zero; }
         }
     }
 

@@ -1082,6 +1082,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!61 &210506499
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1356,7 +1357,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6048616795054218728, guid: bb0b9484aa9ed264da0ee089c5416451, type: 3}
       propertyPath: m_Name
-      value: Character (1)
+      value: Character
       objectReference: {fileID: 0}
     - target: {fileID: 6048616795054218728, guid: bb0b9484aa9ed264da0ee089c5416451, type: 3}
       propertyPath: m_Layer
@@ -1499,7 +1500,6 @@ MonoBehaviour:
   dashSpeed: 22
   dashDistance: 14
   hitBoxHeight: 3.5
-  fxDelayAfterDash: 0.2
   hitDelayAfterFX: 0.1
   invincibleDuration: 0.5
   totalDamageMultiplier: 8
@@ -4516,7 +4516,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GreenWormBossFSM
   bossHpBar: {fileID: 0}
   bossName: "\uCD08\uB85D \uAC70\uB300\uBC8C\uB808"
-  maxHealth: 500
+  maxHealth: 550
   attackPower: 35
   goldDrop: 0
   chaseSpeed: 2.5
@@ -4566,6 +4566,7 @@ MonoBehaviour:
   deadAnimName: Death
   rageAnimName: 
   playerTarget: {fileID: 0}
+  suppressDeath: 0
   applyPresetOnAwake: 1
 --- !u!95 &1396648670 stripped
 Animator:

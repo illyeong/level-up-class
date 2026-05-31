@@ -1037,9 +1037,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 1768241891}
   groundLayer:
     serializedVersion: 2
@@ -1051,6 +1051,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &131423496 stripped
 Animator:
@@ -2638,9 +2639,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 782493431}
   groundLayer:
     serializedVersion: 2
@@ -2652,6 +2653,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &332207352 stripped
 Animator:
@@ -2791,7 +2793,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC84\uC12F\uBC40"
-  maxHealth: 220
+  maxHealth: 240
   attackPower: 43
   currentHealth: 0
   goldDrop: 10
@@ -2799,9 +2801,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 264447053}
   groundLayer:
     serializedVersion: 2
@@ -2813,6 +2815,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &359804344 stripped
 Animator:
@@ -3304,7 +3307,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6048616795054218728, guid: bb0b9484aa9ed264da0ee089c5416451, type: 3}
       propertyPath: m_Name
-      value: Character (1)
+      value: Character
       objectReference: {fileID: 0}
     - target: {fileID: 6048616795054218728, guid: bb0b9484aa9ed264da0ee089c5416451, type: 3}
       propertyPath: m_Layer
@@ -4338,9 +4341,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 2115058414}
   groundLayer:
     serializedVersion: 2
@@ -4352,6 +4355,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &528206605 stripped
 Animator:
@@ -5570,7 +5574,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC84\uC12F\uBC40"
-  maxHealth: 220
+  maxHealth: 240
   attackPower: 43
   currentHealth: 0
   goldDrop: 10
@@ -5578,9 +5582,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 1640342541}
   groundLayer:
     serializedVersion: 2
@@ -5592,6 +5596,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &749972248 stripped
 Animator:
@@ -6674,9 +6679,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 2079370649}
   groundLayer:
     serializedVersion: 2
@@ -6688,6 +6693,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &904174258 stripped
 Animator:
@@ -6835,9 +6841,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 2083554182}
   groundLayer:
     serializedVersion: 2
@@ -6849,6 +6855,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &904601446 stripped
 Animator:
@@ -7112,6 +7119,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!61 &985455882
 BoxCollider2D:
@@ -7601,9 +7609,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 504675775}
   groundLayer:
     serializedVersion: 2
@@ -7615,6 +7623,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &1012017688 stripped
 Animator:
@@ -11161,9 +11170,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 1182957192}
   groundLayer:
     serializedVersion: 2
@@ -11175,6 +11184,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &1397523294 stripped
 Animator:
@@ -12783,7 +12793,7 @@ MonoBehaviour:
   cooldownText: {fileID: 1937232919}
   thunderGodSprite: {fileID: -7589766553326730375, guid: 4b995ee6d536f8e41904b96a9f1ca6c0, type: 3}
   thunderGod: {fileID: 0}
-  testThunderGod: 0
+  testThunderGod: 1
 --- !u!114 &1558672311
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12950,7 +12960,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC84\uC12F\uBC40"
-  maxHealth: 220
+  maxHealth: 240
   attackPower: 43
   currentHealth: 0
   goldDrop: 10
@@ -12958,9 +12968,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 1513843681}
   groundLayer:
     serializedVersion: 2
@@ -12972,6 +12982,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &1564113942 stripped
 Animator:
@@ -13111,7 +13122,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC84\uC12F\uBC40"
-  maxHealth: 220
+  maxHealth: 240
   attackPower: 43
   currentHealth: 0
   goldDrop: 10
@@ -13119,9 +13130,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 499372225}
   groundLayer:
     serializedVersion: 2
@@ -13133,6 +13144,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &1573100586 stripped
 Animator:
@@ -13572,7 +13584,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC84\uC12F\uBC40"
-  maxHealth: 220
+  maxHealth: 240
   attackPower: 43
   currentHealth: 0
   goldDrop: 10
@@ -13580,9 +13592,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 329479339}
   groundLayer:
     serializedVersion: 2
@@ -13594,6 +13606,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &1595645457 stripped
 Animator:
@@ -14383,7 +14396,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC84\uC12F\uBC40"
-  maxHealth: 220
+  maxHealth: 240
   attackPower: 43
   currentHealth: 0
   goldDrop: 10
@@ -14391,9 +14404,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 771046410}
   groundLayer:
     serializedVersion: 2
@@ -14405,6 +14418,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &1775751826 stripped
 Animator:
@@ -14983,7 +14997,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MonsterFSM
   monsterName: "\uBC84\uC12F\uBC40"
-  maxHealth: 220
+  maxHealth: 240
   attackPower: 43
   currentHealth: 0
   goldDrop: 10
@@ -14991,9 +15005,9 @@ MonoBehaviour:
   critHitEffectPrefab: {fileID: 5880797563127281583, guid: 265d3a5ba69981a4698ceabcedf368b0, type: 3}
   critBoomEffectPrefab: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
   moveSpeed: 2
-  chaseSpeed: 3.5
+  chaseSpeed: 3.8
   attackRange: 1.2
-  attackCooldown: 0.5
+  attackCooldown: 0.4
   frontCheck: {fileID: 1121192244}
   groundLayer:
     serializedVersion: 2
@@ -15005,6 +15019,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &1865922107 stripped
 Animator:
