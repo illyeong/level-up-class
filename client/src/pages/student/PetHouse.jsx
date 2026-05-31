@@ -16,6 +16,26 @@ const RARITY = {
   mythic:    { label: '신화',   badge: '🌈', bg: 'bg-rose-50',     text: 'text-rose-600',    border: 'border-rose-400',    tierKey: 'boss'   },
 };
 
+// ── 펫 레벨 시스템 ───────────────────────────────────────────
+const MAX_PET_LEVEL = 30;
+const EXP_PER_LEVEL = 100; // 레벨당 100 EXP
+const getPetLevel   = (exp) => Math.min(MAX_PET_LEVEL, Math.floor((exp || 0) / EXP_PER_LEVEL) + 1);
+const getLevelProgress = (exp) => {
+  const lv = getPetLevel(exp);
+  if (lv >= MAX_PET_LEVEL) return { level: lv, current: EXP_PER_LEVEL, needed: EXP_PER_LEVEL, pct: 100 };
+  const base = (lv - 1) * EXP_PER_LEVEL;
+  const current = (exp || 0) - base;
+  return { level: lv, current, needed: EXP_PER_LEVEL, pct: Math.round((current / EXP_PER_LEVEL) * 100) };
+};
+
+// ── 친밀도 칭호 ─────────────────────────────────────────────
+const getAffectionTitle = (aff) =>
+  aff >= 500 ? '💖 소울메이트' :
+  aff >= 300 ? '💛 베스트 프렌드' :
+  aff >= 200 ? '🤝 단짝' :
+  aff >= 100 ? '😊 친한 친구' :
+  aff >= 50  ? '👋 새 친구' : null;
+
 // ── 스탯 메타 (전투 스탯 기반) ───────────────────────────────
 export const STATS_META = {
   atk:  { label: '공격력',    icon: '⚔️',  unit: '' },
@@ -540,6 +560,23 @@ export default function PetHouse({ studentCode }) {
     showToast('알을 버렸습니다.');
   };
 
+  // EXP 추가 + 레벨업 체크
+  const addPetExp = async (pet, expGain) => {
+    const oldExp   = pet.petExp ?? 0;
+    const newExp   = oldExp + expGain;
+    const oldLevel = getPetLevel(oldExp);
+    const newLevel = getPetLevel(newExp);
+    const updates  = { petExp: newExp };
+    if (newLevel !== oldLevel) {
+      updates.petLevel = newLevel;
+      showToast(`🎉 레벨업! Lv.${newLevel} 달성!`);
+    }
+    await updateDoc(doc(db, 'studentPets', pet.id), updates);
+    const patched = { ...pet, petExp: newExp, petLevel: newLevel };
+    setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
+    if (selectedPet?.id === pet.id) setSelectedPet(patched);
+  };
+
   // ── 펫 케어 시스템 ─────────────────────────────────────────────
   const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -605,6 +642,7 @@ export default function PetHouse({ studentCode }) {
     setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
     if (selectedPet?.id === pet.id) setSelectedPet(patched);
     showToast(`${food.emoji} ${food.name} 줬습니다! 배고픔 +${food.hunger}${food.happiness ? `, 행복 +${food.happiness}` : ''}`);
+    addPetExp(patched, 10);
   };
 
   // 쓰다듬기 (하루 3회, 무료)
@@ -620,6 +658,7 @@ export default function PetHouse({ studentCode }) {
     if (selectedPet?.id === pet.id) setSelectedPet(patched);
     setDetailAnim('attack');
     showToast('💝 쓰다듬었습니다! 행복도 +15');
+    addPetExp(patched, 5);
   };
 
   // 친밀도 마일스톤
@@ -645,6 +684,7 @@ export default function PetHouse({ studentCode }) {
     setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
     if (selectedPet?.id === pet.id) setSelectedPet(patched);
     showToast('🛁 깨끗하게 씻었습니다! 청결+30, 행복+5');
+    addPetExp(patched, 8);
   };
 
   // 놀아주기 (하루 2회)
@@ -664,6 +704,7 @@ export default function PetHouse({ studentCode }) {
     setDetailAnim('run');
     setTimeout(() => setDetailAnim('idle'), 2000);
     showToast('🎮 신나게 놀았습니다! 행복+25, 기력-15, 친밀도+5');
+    addPetExp(patched, 10);
   };
 
   // 인큐베이터에서 알 꺼내기
@@ -1016,6 +1057,32 @@ export default function PetHouse({ studentCode }) {
                           </div>
                         ))}
                       </div>
+                      {/* 레벨 + EXP */}
+                      {(() => {
+                        const { level, current, needed, pct } = getLevelProgress(sp.petExp ?? 0);
+                        const aff   = sp.affection ?? 0;
+                        const title = getAffectionTitle(aff);
+                        return (
+                          <div className="w-full mt-2 bg-slate-800/60 rounded-xl p-2.5">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-extrabold text-indigo-300">Lv.{level}</span>
+                                {title && <span className="text-[10px] font-bold text-amber-400 bg-amber-900/30 px-1.5 py-0.5 rounded-full">{title}</span>}
+                              </div>
+                              {level < MAX_PET_LEVEL && (
+                                <span className="text-[10px] text-slate-400">{current}/{needed} EXP</span>
+                              )}
+                            </div>
+                            {level < MAX_PET_LEVEL && (
+                              <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-full bg-indigo-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                              </div>
+                            )}
+                            {level >= MAX_PET_LEVEL && <p className="text-[10px] text-amber-400 text-center">✨ 최고 레벨 달성!</p>}
+                          </div>
+                        );
+                      })()}
+
                       {/* 버튼 */}
                       <div className="w-full space-y-2 mt-3">
                         {!isActive && (
@@ -1024,10 +1091,17 @@ export default function PetHouse({ studentCode }) {
                             ⭐ 대표 펫으로 설정
                           </button>
                         )}
-                        <button onClick={() => { setRenamePet(sp); setRenameInput(sp.nickname || ''); }}
-                          className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold rounded-xl text-sm">
-                          ✏️ 이름 변경
-                        </button>
+                        {/* 이름 변경: 친밀도 50+ 필요 */}
+                        {(sp.affection ?? 0) >= 50 ? (
+                          <button onClick={() => { setRenamePet(sp); setRenameInput(sp.nickname || ''); }}
+                            className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold rounded-xl text-sm">
+                            ✏️ 이름 변경
+                          </button>
+                        ) : (
+                          <div className="w-full py-2 rounded-xl bg-slate-800 text-slate-600 text-xs text-center font-bold">
+                            ✏️ 이름 변경 (친밀도 {50 - (sp.affection ?? 0)} 남음)
+                          </div>
+                        )}
                       </div>
                       {/* 케어 패널 */}
                       {(() => {
@@ -1213,7 +1287,10 @@ export default function PetHouse({ studentCode }) {
                             {isAct && <span className="text-[9px] text-indigo-400 font-bold">★</span>}
                             <p className="text-slate-200 text-[10px] font-extrabold truncate max-w-full">{pet.nickname || md?.name}</p>
                           </div>
-                          <p className={`text-[9px] font-bold ${r.text}`}>{r.badge} {r.label}</p>
+                          <div className="flex items-center justify-center gap-1">
+                            <p className={`text-[9px] font-bold ${r.text}`}>{r.badge} {r.label}</p>
+                            <span className="text-[9px] text-indigo-300 font-bold">Lv.{getPetLevel(pet.petExp ?? 0)}</span>
+                          </div>
                         </div>
                       </button>
                     );
