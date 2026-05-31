@@ -107,6 +107,7 @@ export const DUNGEON_SKILLS = [
     id: 'thunder_god',
     name: '벽력일섬',
     emoji: '⚡',
+    image: '/images/Skills/Skill_ThunderGod.png',
     rarity: 'mythic',
     rarityLabel: '신화',
     rarityColor: 'text-yellow-300',
@@ -288,7 +289,9 @@ function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets
           {/* 선택된 스킬 */}
           {activeSkill ? (
             <div className={`rounded-2xl border-2 p-3 flex items-center gap-3 ${activeSkill.rarityBg}`}>
-              <span className="text-3xl">{activeSkill.emoji}</span>
+              {activeSkill.image
+                ? <img src={activeSkill.image} alt={activeSkill.name} className="w-12 h-12 rounded-xl object-cover shrink-0 border border-slate-600" />
+                : <span className="text-3xl">{activeSkill.emoji}</span>}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className={`font-extrabold text-sm text-white`}>{activeSkill.name}</span>
@@ -756,7 +759,9 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
                   <div key={skill.id} className={`rounded-2xl border-2 p-4 transition-all
                     ${selected ? 'border-yellow-400 bg-yellow-900/20' : owned ? `${skill.rarityBg}` : 'border-slate-700 bg-slate-800/60'}`}>
                     <div className="flex items-start gap-3">
-                      <span className="text-4xl shrink-0">{skill.emoji}</span>
+                      {skill.image
+                        ? <img src={skill.image} alt={skill.name} className="w-14 h-14 rounded-xl object-cover shrink-0 border border-slate-600" />
+                        : <span className="text-4xl shrink-0">{skill.emoji}</span>}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-white font-extrabold text-base">{skill.name}</span>
