@@ -1,5 +1,28 @@
 export const config = { maxDuration: 60 };
 
+// ── 자동 유효성 검증 ──────────────────────────────────────────
+function validateContent(result) {
+  const issues = [];
+  if (!result.questions?.length) { issues.push('문제가 없습니다'); return issues; }
+  result.questions.forEach((q, i) => {
+    const n = i + 1;
+    if (!q.question || q.question.length < 5) issues.push(`Q${n}: 문제 텍스트가 너무 짧습니다`);
+    if (typeof q.answerIndex !== 'number' || q.answerIndex < 0 || q.answerIndex > 3)
+      issues.push(`Q${n}: 정답 인덱스 오류 (${q.answerIndex})`);
+    if (!Array.isArray(q.options) || q.options.length !== 4)
+      issues.push(`Q${n}: 보기가 4개가 아닙니다 (${q.options?.length}개)`);
+    else {
+      const trimmed = q.options.map(o => String(o).trim());
+      const uniqueSet = new Set(trimmed);
+      if (uniqueSet.size < 4) issues.push(`Q${n}: 중복 보기 존재`);
+      // 정답 보기가 비어있지 않은지
+      if (!trimmed[q.answerIndex]) issues.push(`Q${n}: 정답 보기가 비어있습니다`);
+    }
+    if (!q.explanation) issues.push(`Q${n}: 해설이 없습니다`);
+  });
+  return issues;
+}
+
 // JSON 추출 시도 — 잘린 경우 null 반환
 function tryParseJson(text) {
   const m = text.match(/\{[\s\S]*\}/);
@@ -138,7 +161,13 @@ questions ${questionCount}개, options 기호 없이, 모든 텍스트 간결하
     if (!result?.conceptCards?.length || !result?.questions?.length)
       return res.status(500).json({ error: '콘텐츠 생성에 실패했습니다. 다시 시도해주세요.' });
 
-    return res.status(200).json({ ...result, context, generatedBy: 'ai' });
+    // 자동 유효성 검증
+    const validationIssues = validateContent(result);
+    return res.status(200).json({
+      ...result, context, generatedBy: 'ai',
+      validationIssues: validationIssues.length > 0 ? validationIssues : null,
+      validatedAt: new Date().toISOString(),
+    });
   } catch (err) {
     console.error('generate-courseware 에러:', err);
     return res.status(500).json({ error: err.message || '서버 오류가 발생했습니다.' });

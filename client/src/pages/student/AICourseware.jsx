@@ -547,6 +547,24 @@ export default function AICourseware({ studentCode }) {
         }
       } catch (eggErr) { console.error('알 카운터 오류:', eggErr); }
 
+      // ── 오답 기록 저장 (교사 취약 분석용) ───────────────────────
+      const wrongAnswers = allAns
+        .filter(a => !a.correct)
+        .map(a => ({
+          studentCode, grade: selectedUnit.grade, semester: selectedUnit.semester,
+          unitName: selectedUnit.unitName, lessonTitle: selectedLesson.title,
+          lessonKey: key,
+          questionIdx: a.questionIndex,
+          questionText: (content.questions[a.questionIndex]?.question || '').slice(0, 120),
+          selectedIdx: a.selectedIndex,
+          correctIdx: content.questions[a.questionIndex]?.answerIndex,
+          completedAt: serverTimestamp(),
+          date: today,
+        }));
+      if (wrongAnswers.length > 0) {
+        wrongAnswers.forEach(wa => addDoc(collection(db, 'aiWrongAnswers'), wa).catch(() => {}));
+      }
+
       // 일일 카운트 증가 (새로운 완료만)
       if (!alreadyRewarded) setDailyCount(prev => prev + 1);
 
