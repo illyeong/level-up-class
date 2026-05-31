@@ -442,7 +442,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     return () => window.removeEventListener('message', handler);
   }, [phase]);
 
-  // 플레이 중 학생/장비 데이터가 늦게 로드되면 Unity로 다시 전송
+  // 플레이 시작 시 한 번만 전송 (gold/exp/diamonds 변경 시 재전송 금지 — RouteToSelectedDungeon 재호출 방지)
   useEffect(() => {
     if (phase !== 'playing') return;
     const cd = characterDataRef.current;
@@ -451,14 +451,11 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     const t = setTimeout(sendCharacterData, 400);
     return () => clearTimeout(t);
   }, [
-    phase,
-    student?.id,
-    student?.level,
-    student?.exp,
-    student?.gold,
-    student?.diamonds,
-    equipmentItems.length,
-    dungeonLaunchIndex,
+    phase,          // playing 진입 시에만
+    student?.id,    // 학생 변경 시 (로그인/전환)
+    equipmentItems.length, // 장비 로드 완료 시
+    dungeonLaunchIndex,    // 던전 선택 변경 시
+    // ※ student.exp / gold / diamonds 제거 — 플레이 중 변경 시 RouteToSelectedDungeon 재호출 방지
   ]);
 
   const sendCharacterData = () => {
