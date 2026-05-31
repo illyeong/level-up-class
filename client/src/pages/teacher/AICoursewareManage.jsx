@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { collection, getDocs, getDoc, doc, setDoc, updateDoc, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, setDoc, deleteDoc, updateDoc, query, where, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 // ── 상수 ─────────────────────────────────────────────────────
@@ -181,6 +181,7 @@ export default function AICoursewareManage({ selectedClass }) {
   // ── 렌더 ────────────────────────────────────────────────────
   const TABS = [
     { id: 'units',     label: '📚 단원별 현황', desc: '차시별 숙달도 분석' },
+    { id: 'textbook',  label: '📖 교과서 등록',  desc: 'RAG 교과서 내용 등록' },
     { id: 'review',    label: '📝 문제 검토',   desc: '문제 수정·검증' },
     { id: 'weakness',  label: '🔍 취약 분석',   desc: '오답 기록 리포트' },
     { id: 'students',  label: '👥 학생별 분석', desc: '개인 학습 현황' },
@@ -470,6 +471,16 @@ export default function AICoursewareManage({ selectedClass }) {
           </div>
         )}
 
+        {/* ═══════════════ 교과서 내용 등록 (RAG) ═══════════════ */}
+        {tab === 'textbook' && (
+          <TextbookContextTab
+            teacherUid={teacherUid}
+            units={units} loadingUnits={loadingUnits}
+            unitGrade={unitGrade} setUnitGrade={setUnitGrade}
+            unitSem={unitSem} setUnitSem={setUnitSem}
+          />
+        )}
+
         {/* ═══════════════ 문제 검토 ═══════════════ */}
         {tab === 'review' && (
           <QuestionReviewTab teacherUid={teacherUid} students={students} unitGrade={unitGrade} setUnitGrade={setUnitGrade} unitSem={unitSem} setUnitSem={setUnitSem} units={units} loadingUnits={loadingUnits} />
@@ -590,6 +601,218 @@ export default function AICoursewareManage({ selectedClass }) {
         )}
 
       </div>
+    </div>
+  );
+}
+
+// ── 교과서 내용 등록 탭 (RAG) ─────────────────────────────────
+function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade, setUnitGrade, unitSem, setUnitSem }) {
+  const [selectedUnit,    setSelectedUnit]    = useState(null);
+  const [selectedLesson,  setSelectedLesson]  = useState(null);
+  const [text,            setText]            = useState('');
+  const [existing,        setExisting]        = useState(null); // 기존 등록 내용
+  const [saving,          setSaving]          = useState(false);
+  const [extracting,      setExtracting]      = useState(false);
+  const [toast,           setToast]           = useState(null);
+  const fileRef = React.useRef(null);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const loadContext = async (unit, lesson) => {
+    const key = lkey(unit, lesson);
+    const snap = await getDoc(doc(db, 'aiLessonContext', key));
+    if (snap.exists()) { setExisting(snap.data()); setText(snap.data().text || ''); }
+    else { setExisting(null); setText(''); }
+  };
+
+  const saveContext = async () => {
+    if (!selectedUnit || !selectedLesson) return;
+    if (!text.trim()) { showToast('내용을 입력해주세요', 'error'); return; }
+    setSaving(true);
+    const key = lkey(selectedUnit, selectedLesson);
+    const data = {
+      text: text.trim(), lessonKey: key,
+      grade: selectedUnit.grade, semester: selectedUnit.semester,
+      unitName: selectedUnit.unitName, lessonTitle: selectedLesson.title,
+      teacherUid, uploadedAt: serverTimestamp(),
+    };
+    await setDoc(doc(db, 'aiLessonContext', key), data);
+    setExisting(data);
+    setSaving(false);
+    showToast('✅ 교과서 내용이 저장됐습니다! 이제 AI가 이 내용으로 문제를 생성합니다.');
+  };
+
+  const deleteContext = async () => {
+    if (!window.confirm('교과서 내용을 삭제하시겠습니까?')) return;
+    await deleteDoc(doc(db, 'aiLessonContext', lkey(selectedUnit, selectedLesson)));
+    setExisting(null); setText('');
+    showToast('삭제됐습니다');
+  };
+
+  const extractFromPdf = async (file) => {
+    setExtracting(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const base64 = e.target.result.split(',')[1];
+        const res = await fetch('/api/extract-lesson-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pdfBase64: base64, lessonTitle: selectedLesson?.title }),
+        });
+        const data = await res.json();
+        if (data.text) { setText(data.text); showToast(`📄 PDF 추출 완료 (${data.chars}자)`); }
+        else showToast('추출 실패: ' + (data.error || '알 수 없는 오류'), 'error');
+      } catch (err) { showToast('추출 실패: ' + err.message, 'error'); }
+      finally { setExtracting(false); if (fileRef.current) fileRef.current.value = ''; }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const filteredUnits = units.filter(u => unitSem === 'all' || String(u.semester || '') === unitSem);
+
+  return (
+    <div className="flex gap-4">
+      {/* 왼쪽: 차시 트리 */}
+      <div className="w-56 shrink-0 space-y-3">
+        <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
+          <p className="text-xs font-bold text-slate-500 mb-2">학년</p>
+          <div className="flex flex-wrap gap-1">
+            {['1','2','3','4','5','6'].map(g => (
+              <button key={g} onClick={() => { setUnitGrade(g); setSelectedUnit(null); setExisting(null); setText(''); }}
+                className={`w-8 h-8 rounded-lg text-sm font-extrabold transition-all
+                  ${unitGrade === g ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-indigo-50'}`}>{g}</button>
+            ))}
+          </div>
+          <div className="flex gap-1 mt-2">
+            {['all','1','2'].map(s => (
+              <button key={s} onClick={() => setUnitSem(s)}
+                className={`px-2 h-7 rounded-lg text-xs font-bold transition-all
+                  ${unitSem === s ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                {s === 'all' ? '전체' : `${s}학기`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden max-h-[500px] overflow-y-auto">
+          {loadingUnits ? <div className="p-4 text-slate-400 text-xs text-center">로딩중...</div>
+            : filteredUnits.map(unit => (
+            <div key={unit.id}>
+              <button onClick={() => { setSelectedUnit(u => u?.id === unit.id ? null : unit); setExisting(null); setText(''); }}
+                className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-100 transition-colors
+                  ${selectedUnit?.id === unit.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'}`}>
+                {unit.unitNumber}. {unit.unitName}
+              </button>
+              {selectedUnit?.id === unit.id && (unit.lessons || []).map(lesson => (
+                <button key={lesson.no}
+                  onClick={() => { setSelectedLesson(lesson); loadContext(unit, lesson); }}
+                  className={`w-full text-left pl-5 pr-3 py-1.5 text-[11px] border-t border-slate-100 transition-colors
+                    ${selectedLesson?.no === lesson.no ? 'bg-indigo-100 text-indigo-700 font-bold' : 'text-slate-600 hover:bg-slate-50'}`}>
+                  {lesson.no}차시 {lesson.title}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 오른쪽: 에디터 */}
+      <div className="flex-1 min-w-0">
+        {!selectedLesson ? (
+          <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400">
+            <div className="text-4xl mb-3">📖</div>
+            <p className="font-bold text-slate-600">차시를 선택하세요</p>
+            <p className="text-sm mt-1">교과서 내용을 등록하면 AI가 이를 기반으로<br/>더 정확한 문제를 생성합니다</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* 헤더 */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-extrabold text-slate-800">{selectedLesson.title}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{selectedUnit.unitName} · {selectedUnit.grade}학년</p>
+                </div>
+                {existing && (
+                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+                    ✅ 교과서 내용 등록됨
+                  </span>
+                )}
+              </div>
+              {existing?.uploadedAt?.seconds && (
+                <p className="text-[10px] text-slate-400 mt-1">
+                  등록일: {new Date(existing.uploadedAt.seconds * 1000).toLocaleDateString('ko-KR')}
+                </p>
+              )}
+            </div>
+
+            {/* PDF 업로드 */}
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+              <p className="text-sm font-bold text-blue-800 mb-2">📄 교과서 PDF에서 자동 추출</p>
+              <p className="text-xs text-blue-600 mb-3">PDF를 업로드하면 Claude AI가 텍스트를 자동 추출합니다</p>
+              <div className="flex items-center gap-3">
+                <input ref={fileRef} type="file" accept=".pdf"
+                  onChange={e => { if (e.target.files[0]) extractFromPdf(e.target.files[0]); }}
+                  className="hidden" />
+                <button onClick={() => fileRef.current?.click()} disabled={extracting}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl disabled:opacity-50 transition-colors">
+                  {extracting ? '⏳ 추출 중...' : '📄 PDF 업로드'}
+                </button>
+                {extracting && <p className="text-xs text-blue-600 animate-pulse">AI가 텍스트 추출 중...</p>}
+              </div>
+            </div>
+
+            {/* 텍스트 에디터 */}
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <p className="text-sm font-bold text-slate-700">교과서 내용 입력</p>
+                <p className="text-xs text-slate-400">{text.length}자 / 최대 3,000자</p>
+              </div>
+              <textarea
+                value={text}
+                onChange={e => setText(e.target.value.slice(0, 3000))}
+                placeholder={`이 차시의 교과서 내용을 입력하거나 PDF를 업로드하세요.\n\n예시:\n분모가 같은 분수의 덧셈을 알아볼까요?\n\n3/5와 1/5를 더하면?\n→ 분모는 그대로 두고 분자끼리만 더합니다\n→ 3/5 + 1/5 = (3+1)/5 = 4/5\n\n핵심: 분모가 같으면 분자끼리 더하고, 분모는 변하지 않습니다.`}
+                className="w-full h-64 px-4 py-3 text-sm text-slate-700 resize-none focus:outline-none"
+              />
+            </div>
+
+            {/* 저장/삭제 버튼 */}
+            <div className="flex gap-3">
+              <button onClick={saveContext} disabled={saving || !text.trim()}
+                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl text-sm disabled:opacity-50 transition-colors shadow-md">
+                {saving ? '저장 중...' : '💾 교과서 내용 저장'}
+              </button>
+              {existing && (
+                <button onClick={deleteContext}
+                  className="px-5 py-3 border border-rose-300 text-rose-500 hover:bg-rose-50 font-bold rounded-xl text-sm transition-colors">
+                  삭제
+                </button>
+              )}
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800">
+              <p className="font-bold mb-1">💡 활용 방법</p>
+              <ul className="space-y-0.5 list-disc list-inside">
+                <li>교과서 핵심 개념, 예제 문제, 공식을 입력하세요</li>
+                <li>등록 후 학생이 이 차시에 접속하면 입력한 내용 기반으로 문제가 생성됩니다</li>
+                <li>기존 캐시가 있다면 ↻ 버튼으로 재생성해야 적용됩니다</li>
+                <li>최대 3,000자까지 입력 가능합니다</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 토스트 */}
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl
+          ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} text-white`}
+          style={{ whiteSpace: 'nowrap' }}>{toast.msg}</div>
+      )}
     </div>
   );
 }

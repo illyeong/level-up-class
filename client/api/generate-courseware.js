@@ -52,6 +52,7 @@ export default async function handler(req, res) {
     grade, semester, publisher, unitName,
     lessonNo, lessonTitle, learningGoal, keywords,
     difficulty = 'normal', questionCount = 5,
+    lessonContext, // RAG: 교사가 등록한 교과서 내용
   } = req.body || {};
 
   if (!grade || !unitName || !lessonTitle)
@@ -70,7 +71,12 @@ export default async function handler(req, res) {
   // 풀 크기: 일반 차시는 2배(10개), 단원평가는 1.5배(15개) 생성 → 매 세션 랜덤 선택
   const poolSize = isUnitTest ? Math.min(questionCount + 5, 15) : questionCount * 2;
 
-  const prompt = `초등학교 ${grade}학년 수학 학습 콘텐츠를 JSON으로 생성하세요.
+  // RAG: 교과서 내용이 있으면 앞에 삽입 (최대 3000자)
+  const ragSection = lessonContext
+    ? `\n[📚 실제 교과서 내용 — 반드시 이 내용을 기반으로 문제를 생성하세요]\n${lessonContext.slice(0, 3000)}\n`
+    : '';
+
+  const prompt = `초등학교 ${grade}학년 수학 학습 콘텐츠를 JSON으로 생성하세요.${ragSection}
 
 [수업 정보]
 단원: ${unitName} | 차시: ${isUnitTest ? '단원평가 (종합)' : (lessonNo ? lessonNo + '차시 ' : '') + lessonTitle}

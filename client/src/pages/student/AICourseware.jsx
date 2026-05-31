@@ -142,6 +142,14 @@ const lessonKey = (unit, lesson) =>
 const preloadMap = new Map(); // key → Promise<data>
 
 const fetchLessonContent = async (unit, lesson) => {
+  // RAG: 교사가 등록한 교과서 내용이 있으면 가져와서 프롬프트에 포함
+  const lKey = `v3_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
+  let lessonContext = null;
+  try {
+    const ctxSnap = await getDoc(doc(db, 'aiLessonContext', lKey));
+    if (ctxSnap.exists()) lessonContext = ctxSnap.data().text || null;
+  } catch {}
+
   const res = await fetch('/api/generate-courseware', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -152,6 +160,7 @@ const fetchLessonContent = async (unit, lesson) => {
       lessonNo: lesson.no, lessonTitle: lesson.title,
       learningGoal: '', keywords: lesson.keywords || [],
       difficulty: 'normal', questionCount: lesson.title === '단원평가' ? 10 : 5,
+      lessonContext, // RAG 교과서 내용
     }),
   });
   const data = await res.json();
