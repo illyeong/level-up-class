@@ -974,7 +974,7 @@ export default function PetHouse({ studentCode }) {
             <div className="flex gap-4" style={{ minHeight: 720 }}>
 
               {/* ── 왼쪽: 상세 패널 (고정 너비) ──────────────────── */}
-              <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl p-4 flex flex-col items-center overflow-y-auto" style={{ width: 260, maxHeight: 720 }}>
+              <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl p-4 flex flex-col items-center overflow-y-auto" style={{ width: 340, maxHeight: 720 }}>
                 {sp && spMd ? (() => {
                   const r = RARITY[sp.rarity] || RARITY.common;
                   const isMythic = sp.rarity === 'mythic';
