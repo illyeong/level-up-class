@@ -584,8 +584,9 @@ export default function PetHouse({ studentCode }) {
   const TODAY = new Date().toISOString().slice(0, 10);
 
   const getDailyCare = (pet) => {
-    if (!pet.dailyCare || pet.dailyCare.date !== TODAY) return { date: TODAY, feedCount: 0, petCount: 0 };
-    return pet.dailyCare;
+    const base = { date: TODAY, feedCount: 0, petCount: 0, washCount: 0, playCount: 0 };
+    if (!pet.dailyCare || pet.dailyCare.date !== TODAY) return base;
+    return { ...base, ...pet.dailyCare }; // 누락된 필드 기본값으로 채움
   };
 
   // 상태 단계 (0-19/20-49/50-79/80-100)
