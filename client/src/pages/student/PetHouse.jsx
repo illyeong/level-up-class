@@ -984,6 +984,38 @@ export default function PetHouse({ studentCode }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-950 to-slate-900 p-4 pb-24">
+      {/* ── 케어 이펙트 fixed 오버레이 (항상 화면 중앙에 표시) ── */}
+      {(petBubble || showHearts) && (
+        <div className="fixed inset-0 pointer-events-none z-[9999] flex items-center justify-center">
+          <div className="relative flex flex-col items-center">
+            {petBubble && (
+              <div className="bg-white text-slate-800 text-lg font-extrabold px-6 py-3 rounded-3xl shadow-2xl border-2 border-slate-200 animate-bounce mb-4">
+                {petBubble}
+                <div style={{ position:'absolute', bottom:-8, left:'50%', transform:'translateX(-50%) rotate(45deg)', width:14, height:14, background:'white', borderRight:'2px solid #e2e8f0', borderBottom:'2px solid #e2e8f0' }} />
+              </div>
+            )}
+            {showHearts && (
+              <div className="relative w-32 h-32">
+                {['💕','❤️','💖','✨','💝','🌟'].map((h, i) => (
+                  <span key={i} style={{
+                    position:'absolute',
+                    left: `${10 + i * 15}%`,
+                    bottom: 0,
+                    fontSize: 20 + (i % 3) * 6,
+                    animation: `petFloatUp${i % 3} 1.5s ease-out ${i * 0.18}s forwards`,
+                    opacity: 0,
+                  }}>{h}</span>
+                ))}
+                <style>{`
+                  @keyframes petFloatUp0 { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-80px) scale(1.2) rotate(-12deg)} }
+                  @keyframes petFloatUp1 { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-95px) scale(1.3) rotate(10deg)} }
+                  @keyframes petFloatUp2 { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-65px) scale(1.1) rotate(-6deg)} }
+                `}</style>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div className="max-w-3xl mx-auto">
 
         {/* 헤더 */}
@@ -1063,16 +1095,6 @@ export default function PetHouse({ studentCode }) {
                           ★ 대표 펫
                         </span>
                       )}
-                      {/* 쓰다듬기 말풍선 */}
-                      {petBubble && (
-                        <div className="relative w-full flex justify-center mb-1">
-                          <div className="bg-white text-slate-700 text-sm font-bold px-3.5 py-1.5 rounded-2xl shadow-md border border-slate-200 animate-bounce">
-                            {petBubble}
-                            <div style={{ position:'absolute', bottom:-6, left:'50%', transform:'translateX(-50%) rotate(45deg)', width:10, height:10, background:'white', borderRight:'1px solid #e2e8f0', borderBottom:'1px solid #e2e8f0' }} />
-                          </div>
-                        </div>
-                      )}
-
                       {/* 대형 스프라이트 — 허기 0이면 death 애니메이션 */}
                       {(() => {
                         const isDead = (sp.hunger ?? 100) <= 0;
@@ -1082,26 +1104,6 @@ export default function PetHouse({ studentCode }) {
                             style={{ height: dh + 10, filter: isMythic ? 'drop-shadow(0 0 12px #f43f5e)' : `drop-shadow(0 0 8px ${RARITY_THEME[sp.rarity]?.glow || '#60a5fa'})`, opacity: isDead ? 0.5 : 1 }}
                             onClick={() => !isDead && setDetailAnim(a => a === 'idle' ? 'attack' : 'idle')}>
                             <SpriteMonster data={spMd} anim={currentAnim} scale={dScale} onAnimEnd={() => !isDead && setDetailAnim('idle')} />
-                            {/* 하트 이펙트 */}
-                            {showHearts && (
-                              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                                {['💕','❤️','💖','✨','💝'].map((h, i) => (
-                                  <span key={i} style={{
-                                    position:'absolute',
-                                    left: `${15 + i * 18}%`,
-                                    bottom: '10%',
-                                    fontSize: 16 + (i % 3) * 4,
-                                    animation: `floatUp${i % 3} 1.5s ease-out ${i * 0.15}s forwards`,
-                                    opacity: 0,
-                                  }}>{h}</span>
-                                ))}
-                                <style>{`
-                                  @keyframes floatUp0 { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-60px) rotate(-10deg)} }
-                                  @keyframes floatUp1 { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-75px) rotate(8deg)} }
-                                  @keyframes floatUp2 { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-50px) rotate(-5deg)} }
-                                `}</style>
-                              </div>
-                            )}
                           </div>
                         );
                       })()}
