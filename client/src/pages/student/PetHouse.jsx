@@ -500,23 +500,20 @@ export default function PetHouse({ studentCode }) {
       const petSnap = await getDocs(query(collection(db, 'studentPets'), where('studentCode', '==', studentCode)));
       const petList = petSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // 상태 일일 감소 (배고픔 -34/일, 행복도 -10/일)
+      // 상태 일일 감소 (배고픔-34, 행복-10, 청결-8, 기력 +20 회복)
       const today = new Date().toISOString().slice(0, 10);
       const stateUpdates = petList.map(async pet => {
         const lastCare = pet.lastCareAt?.toDate?.()?.toISOString?.()?.slice(0, 10) || '1970-01-01';
         if (lastCare >= today) return pet;
         const days = Math.max(0, Math.floor((Date.now() - new Date(lastCare).getTime()) / 86400000));
         if (days === 0) return pet;
-        const newHunger    = Math.max(0, (pet.hunger    ?? 100) - days * 34);
-        const newHappiness = Math.max(0, (pet.happiness ?? 100) - days * 10);
-        const changed = newHunger !== (pet.hunger ?? 100) || newHappiness !== (pet.happiness ?? 100);
-        if (changed) {
-          await updateDoc(doc(db, 'studentPets', pet.id), {
-            hunger: newHunger, happiness: newHappiness, lastCareAt: serverTimestamp(),
-          });
-          return { ...pet, hunger: newHunger, happiness: newHappiness };
-        }
-        return pet;
+        const newHunger      = Math.max(0,   (pet.hunger      ?? 100) - days * 34);
+        const newHappiness   = Math.max(0,   (pet.happiness   ?? 100) - days * 10);
+        const newCleanliness = Math.max(0,   (pet.cleanliness ?? 100) - days * 8);
+        const newEnergy      = Math.min(100, (pet.energy      ?? 100) + days * 20); // 기력은 회복
+        const updates = { hunger: newHunger, happiness: newHappiness, cleanliness: newCleanliness, energy: newEnergy, lastCareAt: serverTimestamp() };
+        await updateDoc(doc(db, 'studentPets', pet.id), updates);
+        return { ...pet, ...updates };
       });
       const updatedPets = await Promise.all(stateUpdates);
       setPets(updatedPets);
@@ -622,6 +619,50 @@ export default function PetHouse({ studentCode }) {
     if (selectedPet?.id === pet.id) setSelectedPet(patched);
     setDetailAnim('attack');
     showToast('💝 쓰다듬었습니다! 행복도 +15');
+  };
+
+  // 친밀도 마일스톤
+  const AFFECTION_MILESTONES = [
+    { val: 50,  label: '이름 변경권',   emoji: '✏️' },
+    { val: 100, label: '대시보드 특별모션', emoji: '💫' },
+    { val: 200, label: '펫 칭호',       emoji: '🎖️' },
+    { val: 300, label: '배경 장식',     emoji: '🌸' },
+    { val: 500, label: '특기 강화',     emoji: '⚡' },
+  ];
+
+  // 씻기기 (하루 1회)
+  const washPet = async (pet) => {
+    const care = getDailyCare(pet);
+    if (care.washCount >= 1) { showToast('오늘은 이미 씻겼습니다!', 'error'); return; }
+    const newClean = Math.min(100, (pet.cleanliness ?? 100) + 30);
+    const newHap   = Math.min(100, (pet.happiness   ?? 100) + 5);
+    const newAff   = (pet.affection ?? 0) + 3;
+    const newCare  = { ...care, washCount: (care.washCount || 0) + 1 };
+    const updates  = { cleanliness: newClean, happiness: newHap, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp() };
+    await updateDoc(doc(db, 'studentPets', pet.id), updates);
+    const patched = { ...pet, ...updates, dailyCare: newCare };
+    setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
+    if (selectedPet?.id === pet.id) setSelectedPet(patched);
+    showToast('🛁 깨끗하게 씻었습니다! 청결+30, 행복+5');
+  };
+
+  // 놀아주기 (하루 2회)
+  const playWithPet = async (pet) => {
+    const care = getDailyCare(pet);
+    if (care.playCount >= 2) { showToast('오늘 놀아주기를 이미 2번 했습니다!', 'error'); return; }
+    if ((pet.energy ?? 100) < 15) { showToast('기력이 부족합니다! 내일 다시 시도하세요.', 'error'); return; }
+    const newHap   = Math.min(100, (pet.happiness ?? 100) + 25);
+    const newEng   = Math.max(0,   (pet.energy    ?? 100) - 15);
+    const newAff   = (pet.affection ?? 0) + 5;
+    const newCare  = { ...care, playCount: (care.playCount || 0) + 1 };
+    const updates  = { happiness: newHap, energy: newEng, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp() };
+    await updateDoc(doc(db, 'studentPets', pet.id), updates);
+    const patched = { ...pet, ...updates, dailyCare: newCare };
+    setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
+    if (selectedPet?.id === pet.id) setSelectedPet(patched);
+    setDetailAnim('run');
+    setTimeout(() => setDetailAnim('idle'), 2000);
+    showToast('🎮 신나게 놀았습니다! 행복+25, 기력-15, 친밀도+5');
   };
 
   // 인큐베이터에서 알 꺼내기
@@ -1051,10 +1092,85 @@ export default function PetHouse({ studentCode }) {
                             {/* 쓰다듬기 */}
                             <button onClick={() => petThePet(sp)}
                               disabled={care.petCount >= 3 || happiness >= 100}
-                              className={`w-full py-2.5 rounded-xl font-extrabold text-sm transition-all
+                              className={`w-full py-2 rounded-xl font-extrabold text-sm transition-all
                                 ${care.petCount >= 3 || happiness >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg'}`}>
                               {care.petCount >= 3 ? '💝 오늘 쓰다듬기 완료' : `💝 쓰다듬기 (행복+15) — ${3 - care.petCount}회 남음`}
                             </button>
+
+                            {/* Phase 2: 청결도·기력·친밀도 */}
+                            {(() => {
+                              const clean = sp.cleanliness ?? 100;
+                              const energy = sp.energy    ?? 100;
+                              const aff    = sp.affection ?? 0;
+                              const nextMs = AFFECTION_MILESTONES.find(m => m.val > aff);
+                              const lastMs = [...AFFECTION_MILESTONES].reverse().find(m => m.val <= aff);
+                              return (
+                                <>
+                                  <div className="grid grid-cols-2 gap-1.5">
+                                    {/* 청결도 */}
+                                    <div className="bg-slate-800/60 rounded-xl p-2">
+                                      <div className="flex justify-between mb-1">
+                                        <span className="text-[10px] text-slate-300 font-bold">🛁 청결</span>
+                                        <span className="text-[10px] text-slate-400">{clean}/100</span>
+                                      </div>
+                                      <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                        <div className="h-full bg-cyan-400 rounded-full" style={{ width: `${clean}%` }} />
+                                      </div>
+                                    </div>
+                                    {/* 기력 */}
+                                    <div className="bg-slate-800/60 rounded-xl p-2">
+                                      <div className="flex justify-between mb-1">
+                                        <span className="text-[10px] text-slate-300 font-bold">⚡ 기력</span>
+                                        <span className="text-[10px] text-slate-400">{energy}/100</span>
+                                      </div>
+                                      <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                        <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${energy}%` }} />
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* 씻기기 / 놀아주기 */}
+                                  <div className="grid grid-cols-2 gap-1.5">
+                                    <button onClick={() => washPet(sp)}
+                                      disabled={care.washCount >= 1 || clean >= 100}
+                                      className={`py-2 rounded-xl font-bold text-xs transition-all
+                                        ${care.washCount >= 1 || clean >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-white'}`}>
+                                      {care.washCount >= 1 ? '🛁 오늘 완료' : '🛁 씻기기 (청결+30)'}
+                                    </button>
+                                    <button onClick={() => playWithPet(sp)}
+                                      disabled={care.playCount >= 2 || energy < 15}
+                                      className={`py-2 rounded-xl font-bold text-xs transition-all
+                                        ${care.playCount >= 2 || energy < 15 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-violet-500 hover:bg-violet-400 text-white'}`}>
+                                      {care.playCount >= 2 ? '🎮 오늘 완료' : `🎮 놀아주기 (${2 - care.playCount}회 남음)`}
+                                    </button>
+                                  </div>
+
+                                  {/* 친밀도 */}
+                                  <div className="bg-slate-800/60 rounded-xl p-2.5">
+                                    <div className="flex justify-between mb-1">
+                                      <span className="text-[10px] text-slate-300 font-bold">🤝 친밀도</span>
+                                      <span className="text-[10px] text-amber-400 font-bold">{aff}</span>
+                                    </div>
+                                    {nextMs && (
+                                      <div className="h-2 bg-slate-700 rounded-full overflow-hidden mb-1">
+                                        <div className="h-full bg-amber-400 rounded-full transition-all"
+                                          style={{ width: `${Math.min(100, (aff / nextMs.val) * 100)}%` }} />
+                                      </div>
+                                    )}
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {AFFECTION_MILESTONES.map(m => (
+                                        <span key={m.val} className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold
+                                          ${aff >= m.val ? 'bg-amber-500 text-white' : 'bg-slate-700 text-slate-500'}`}>
+                                          {m.emoji}{m.val}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    {nextMs && <p className="text-[9px] text-slate-500 mt-1">다음: {nextMs.emoji} {nextMs.label} ({nextMs.val - aff} 남음)</p>}
+                                    {lastMs && aff > 0 && <p className="text-[9px] text-amber-400 mt-0.5">✅ {lastMs.emoji} {lastMs.label} 달성!</p>}
+                                  </div>
+                                </>
+                              );
+                            })()}
 
                             <div className="text-[9px] text-slate-600 text-center">
                               ⚔️ 대표 펫 설정 시 능력치 적용 · 행복80+ = 특기 100%

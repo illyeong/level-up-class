@@ -34,7 +34,7 @@ import SpriteMonster from './components/SpriteMonster';
 import { MONSTERS_DB } from './data/monsterData';
 
 // ── 전역 걷는 펫 (우측 하단 영역) ───────────────────────────
-function WalkingPet({ monsterData, isDead }) {
+function WalkingPet({ monsterData, isDead, energy = 100 }) {
   const wrapRef  = useRef(null);
   const rafRef   = useRef(null);
   const animRef  = useRef('run'); // 현재 애니: run | idle
@@ -50,7 +50,8 @@ function WalkingPet({ monsterData, isDead }) {
 
   useEffect(() => {
     if (!monsterData) return;
-    const SPEED = 0.45;
+    // 기력에 따른 속도 (기력 낮으면 느리게)
+    const SPEED = isDead ? 0 : energy >= 50 ? 0.45 : energy >= 20 ? 0.25 : 0.12;
     // 보스: sprite RIGHT방향 → goRight 시 1(정방향), goLeft 시 -1
     // 나머지 전체: sprite LEFT방향 → goRight 시 -1(반전), goLeft 시 1
     const isBoss = monsterData.tier === 'boss';
@@ -86,9 +87,10 @@ function WalkingPet({ monsterData, isDead }) {
     if (isDead) { setAnim('death'); return; }
     const schedule = () => {
       const isRunning = animRef.current === 'run';
-      const delay = isRunning
-        ? 3000 + Math.random() * 4000   // 3~7초 run 후 idle
-        : 1500 + Math.random() * 2500;  // 1.5~4초 idle 후 run
+      // 기력 낮으면 idle 시간 길어짐
+      const runTime  = energy >= 50 ? 3000 + Math.random() * 4000 : 1500 + Math.random() * 2000;
+      const idleTime = energy >= 50 ? 1500 + Math.random() * 2500 : 3000 + Math.random() * 4000;
+      const delay = isRunning ? runTime : idleTime;
       timerRef.current = setTimeout(() => {
         const next = isRunning ? 'idle' : 'run';
         animRef.current = next;
@@ -147,7 +149,9 @@ function App() {
   const [studentInfo,    setStudentInfo]    = useState(null);
   const [activePetMonster,   setActivePetMonster]   = useState(null);
   const [activePetHunger,    setActivePetHunger]    = useState(100);
-  const [activePetHappiness, setActivePetHappiness] = useState(100);
+  const [activePetHappiness,   setActivePetHappiness]   = useState(100);
+  const [activePetEnergy,      setActivePetEnergy]      = useState(100);
+  const [activePetCleanliness, setActivePetCleanliness] = useState(100);
   const [petVisible, setPetVisible] = useState(true);
   const [currentView,    setCurrentView]    = useState('dashboard');
   const [testStudentCode, setTestStudentCode] = useState(null);
@@ -453,7 +457,12 @@ function App() {
           setActivePetMonster(md || null);
           setActivePetHunger(petData.hunger ?? 100);
           setActivePetHappiness(petData.happiness ?? 100);
-        } else { setActivePetMonster(null); setActivePetHunger(100); setActivePetHappiness(100); }
+          setActivePetEnergy(petData.energy ?? 100);
+          setActivePetCleanliness(petData.cleanliness ?? 100);
+        } else {
+          setActivePetMonster(null); setActivePetHunger(100);
+          setActivePetHappiness(100); setActivePetEnergy(100); setActivePetCleanliness(100);
+        }
       } catch { setActivePetMonster(null); }
     });
     return () => unsub();
@@ -569,18 +578,26 @@ function App() {
       {/* 전역 걷는 펫 */}
       {activePetMonster && petVisible && (
         <>
-          <WalkingPet monsterData={activePetMonster} isDead={activePetHunger <= 0} />
-          {/* 상태 말풍선 */}
+          <WalkingPet
+            monsterData={activePetMonster}
+            isDead={activePetHunger <= 0}
+            energy={activePetEnergy}
+          />
+          {/* 상태 말풍선 (우선순위 순) */}
           {(() => {
-            const msg = activePetHunger <= 0 ? '💀 배가 고파요...'
-              : activePetHunger < 20 ? '🍖 배고파요!'
-              : activePetHappiness < 20 ? '💭 심심해요!'
-              : null;
-            if (!msg) return null;
+            const msgs = [
+              activePetHunger <= 0      && { text: '💀 배가 고파요...', urgent: true },
+              activePetHunger < 20      && { text: '🍖 배고파요!', urgent: true },
+              activePetHappiness < 20   && { text: '💭 너무 심심해요!', urgent: false },
+              activePetCleanliness < 20 && { text: '🛁 씻겨주세요~', urgent: false },
+              activePetEnergy < 10      && { text: '😴 너무 힘들어요...', urgent: false },
+            ].find(Boolean);
+            if (!msgs) return null;
             return (
               <div style={{ position:'fixed', bottom:90, right:20, zIndex:21 }}
-                className="bg-white rounded-2xl px-3 py-1.5 shadow-lg border border-slate-200 text-xs font-bold text-slate-700 animate-bounce pointer-events-none">
-                {msg}
+                className={`bg-white rounded-2xl px-3 py-1.5 shadow-lg border text-xs font-bold pointer-events-none
+                  ${msgs.urgent ? 'border-rose-200 text-rose-600 animate-bounce' : 'border-slate-200 text-slate-700 animate-pulse'}`}>
+                {msgs.text}
                 <div style={{ position:'absolute', bottom:-6, right:12, width:10, height:10, background:'white', borderRight:'1px solid #e2e8f0', borderBottom:'1px solid #e2e8f0', transform:'rotate(45deg)' }} />
               </div>
             );
