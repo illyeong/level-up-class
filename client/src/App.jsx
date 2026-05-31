@@ -788,59 +788,97 @@ function App() {
                 </div>
               ))}
 
-              {/* 먹이주기 미니 (3종) */}
-              <div className="mt-2 space-y-1">
-                {[
-                  { name:'작은 먹이', cost:'100🪙', hunger:20, happiness:0 },
-                  { name:'맛있는 먹이', cost:'300🪙', hunger:50, happiness:5 },
-                ].map(f => (
-                  <button key={f.name}
-                    onClick={async () => {
-                      const stuSnap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', activeStudentCode)));
-                      if (stuSnap.empty) return;
-                      const stuDoc = stuSnap.docs[0];
-                      const gold = stuDoc.data().gold || 0;
-                      const cost = parseInt(f.cost);
-                      if (gold < cost) return;
-                      await updateDoc(doc(db, 'students', stuDoc.id), { gold: gold - cost });
-                      const newH = Math.min(100, activePetHunger + f.hunger);
-                      setActivePetHunger(newH);
-                      const updates = { hunger: newH, lastCareAt: serverTimestamp() };
-                      if (f.happiness > 0) {
-                        const newHap = Math.min(100, activePetHappiness + f.happiness);
-                        setActivePetHappiness(newHap);
-                        updates.happiness = newHap;
-                        // 행복도 오를 때 이펙트
-                        const lines = ['냠냠~ 맛있어요! 😋', '고마워요! 🥰', '배부르다~ 😊'];
-                        setPetSpeech(lines[Math.floor(Math.random() * lines.length)]);
-                        setShowPetHearts(true);
-                        clearTimeout(window._petSpeechTimer);
-                        window._petSpeechTimer = setTimeout(() => { setPetSpeech(null); setShowPetHearts(false); }, 2500);
-                        setShowPetPopup(false);
-                      }
-                      await updateDoc(doc(db, 'studentPets', activePetData.id), updates);
-                    }}
-                    className="w-full flex justify-between items-center px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-amber-600 text-[10px] font-bold transition-colors">
-                    <span>🍖 {f.name}</span><span className="text-slate-400">{f.cost}</span>
-                  </button>
-                ))}
-                {/* 쓰다듬기 */}
-                <button
-                  onClick={async () => {
-                    const newH = Math.min(100, activePetHappiness + 15);
-                    setActivePetHappiness(newH);
-                    await updateDoc(doc(db, 'studentPets', activePetData.id), { happiness: newH, lastCareAt: serverTimestamp() });
-                    const petLines = ['기분 좋아요~ 💕', '더 해줘요! 🥰', '행복해요! ✨', '좋아요~ 💝', '이게 최고야! 💖'];
-                    setPetSpeech(petLines[Math.floor(Math.random() * petLines.length)]);
-                    setShowPetHearts(true);
+              {/* 먹이주기 + 쓰다듬기 */}
+              {(() => {
+                const TODAY = new Date().toISOString().slice(0, 10);
+                const care  = activePetData?.dailyCare?.date === TODAY ? activePetData.dailyCare : { date: TODAY, feedCount:0, petCount:0, washCount:0, playCount:0 };
+                const isDead = activePetHunger <= 0;
+
+                const showEffect = (speech, hearts) => {
+                  // 팝업 먼저 닫고 다음 프레임에 이펙트 — 팝업이 하트를 가리는 문제 해결
+                  setShowPetPopup(false);
+                  requestAnimationFrame(() => {
+                    setPetSpeech(speech);
+                    if (hearts) setShowPetHearts(true);
                     clearTimeout(window._petSpeechTimer);
                     window._petSpeechTimer = setTimeout(() => { setPetSpeech(null); setShowPetHearts(false); }, 2800);
-                    setShowPetPopup(false);
-                  }}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-pink-500 hover:bg-pink-400 text-[10px] font-bold transition-colors">
-                  💝 쓰다듬기 (행복+15)
-                </button>
-              </div>
+                  });
+                };
+
+                return (
+                  <div className="mt-2 space-y-1">
+                    {[
+                      { name:'작은 먹이', cost:100, hunger:20, happiness:0, emoji:'🌾' },
+                      { name:'맛있는 먹이', cost:300, hunger:50, happiness:5, emoji:'🍖' },
+                    ].map(f => {
+                      const full  = activePetHunger >= 100;
+                      const maxed = care.feedCount >= 3;
+                      const noGold = (activePetData?.gold ?? 0) < f.cost;
+                      return (
+                        <button key={f.name}
+                          disabled={full || maxed}
+                          onClick={async () => {
+                            if (full || maxed) return;
+                            // 골드 확인
+                            const stuSnap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', activeStudentCode)));
+                            if (stuSnap.empty) return;
+                            const stuDoc = stuSnap.docs[0];
+                            const gold = stuDoc.data().gold || 0;
+                            if (gold < f.cost) return;
+                            // 반영
+                            const newHunger = Math.min(100, activePetHunger + f.hunger);
+                            const newCare   = { ...care, feedCount: (care.feedCount||0) + 1 };
+                            const petUpdates = { hunger: newHunger, dailyCare: newCare, lastCareAt: serverTimestamp() };
+                            if (f.happiness > 0) {
+                              const newHap = Math.min(100, activePetHappiness + f.happiness);
+                              setActivePetHappiness(newHap);
+                              petUpdates.happiness = newHap;
+                            }
+                            setActivePetHunger(newHunger);
+                            setActivePetData(p => ({ ...p, dailyCare: newCare }));
+                            await Promise.all([
+                              updateDoc(doc(db, 'students', stuDoc.id), { gold: gold - f.cost }),
+                              updateDoc(doc(db, 'studentPets', activePetData.id), petUpdates),
+                            ]);
+                            if (f.happiness > 0) {
+                              showEffect(['냠냠~ 맛있어요! 😋','고마워요! 🥰','배부르다~ 😊'][Math.floor(Math.random()*3)], true);
+                            }
+                          }}
+                          className={`w-full flex justify-between items-center px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors
+                            ${full || maxed ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-amber-600'}`}>
+                          <span>{f.emoji} {f.name}</span>
+                          <span className={full||maxed ? 'text-slate-600' : 'text-slate-400'}>
+                            {maxed ? '오늘 완료' : full ? '배부름' : `${f.cost}🪙`}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {/* 쓰다듬기 */}
+                    {(() => {
+                      const petDone = care.petCount >= 3;
+                      const hapFull = activePetHappiness >= 100;
+                      return (
+                        <button
+                          disabled={isDead || petDone || hapFull}
+                          onClick={async () => {
+                            if (isDead || petDone || hapFull) return;
+                            const newHap  = Math.min(100, activePetHappiness + 15);
+                            const newCare = { ...care, petCount: (care.petCount||0) + 1 };
+                            setActivePetHappiness(newHap);
+                            setActivePetData(p => ({ ...p, dailyCare: newCare }));
+                            await updateDoc(doc(db, 'studentPets', activePetData.id), { happiness: newHap, dailyCare: newCare, lastCareAt: serverTimestamp() });
+                            const lines = ['기분 좋아요~ 💕','더 해줘요! 🥰','행복해요! ✨','좋아요~ 💝','이게 최고야! 💖'];
+                            showEffect(lines[Math.floor(Math.random()*lines.length)], true);
+                          }}
+                          className={`w-full px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors
+                            ${isDead || petDone || hapFull ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400'}`}>
+                          {isDead ? '💀 밥 먼저' : petDone ? '💝 오늘 완료' : hapFull ? '💝 행복 최대' : `💝 쓰다듬기 (행복+15) · ${3 - care.petCount}회`}
+                        </button>
+                      );
+                    })()}
+                  </div>
+                );
+              })()}
 
               {/* 펫 목록 보기 */}
               <button
