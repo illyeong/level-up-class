@@ -3,7 +3,7 @@ import { doc, getDoc, getDocs, collection, query, where } from 'firebase/firesto
 import { db } from '../../firebase';
 import SpriteMonster from '../../components/SpriteMonster';
 import { MONSTERS_DB } from '../../data/monsterData';
-import { formatStats } from './PetHouse';
+import { formatStats, getPetStatMultiplier, getPetLevel } from './PetHouse';
 
 const RARITY_BADGE = { common: '⚪', rare: '🔵', epic: '🟣', legendary: '🟡', mythic: '🌈' };
 const RARITY_LABEL = { common: '일반', rare: '희귀', epic: '영웅', legendary: '전설', mythic: '신화' };
@@ -51,7 +51,12 @@ const StudentDashboard = ({ studentCode }) => {
 
   // 캐릭터 기본 스탯 + 펫 보너스 합산
   const base = baseStats(level);
-  const petStats = activePet?.stats || {};
+  // 레벨 배율 적용 펫 스탯
+  const petLv    = getPetLevel(activePet?.petExp ?? 0);
+  const petMult  = getPetStatMultiplier(petLv);
+  const petStats = Object.fromEntries(
+    Object.entries(activePet?.stats || {}).map(([k, v]) => [k, Math.floor(v * petMult)])
+  );
   const total = {
     atk:  base.atk  + (petStats.atk  || 0),
     hp:   base.hp   + (petStats.hp   || 0),

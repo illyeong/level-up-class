@@ -28,6 +28,9 @@ const getLevelProgress = (exp) => {
   return { level: lv, current, needed: EXP_PER_LEVEL, pct: Math.round((current / EXP_PER_LEVEL) * 100) };
 };
 
+// 레벨별 스탯 배율: 레벨당 +5% (Lv1=1.0, Lv10=1.45, Lv20=1.95, Lv30=2.45)
+export const getPetStatMultiplier = (level) => 1 + (Math.max(1, level) - 1) * 0.05;
+
 // ── 친밀도 칭호 ─────────────────────────────────────────────
 const getAffectionTitle = (aff) =>
   aff >= 500 ? '💖 소울메이트' :
@@ -1022,7 +1025,14 @@ export default function PetHouse({ studentCode }) {
                   const isActive = sp.id === activePetId;
                   const dh = DETAIL_H[spMd.tier] || 100;
                   const dScale = dh / (spMd.frameHeight || 120);
-                  const statLines = formatStats(sp.stats || {});
+                  const lv         = getPetLevel(sp.petExp ?? 0);
+                  const mult       = getPetStatMultiplier(lv);
+                  const baseStats  = sp.stats || {};
+                  // 레벨 적용 스탯 (소수점 버림)
+                  const effStats   = Object.fromEntries(
+                    Object.entries(baseStats).map(([k, v]) => [k, Math.floor(v * mult)])
+                  );
+                  const statLines  = formatStats(effStats);
                   return (
                     <>
                       {isActive && (
@@ -1048,15 +1058,29 @@ export default function PetHouse({ studentCode }) {
                       {/* 이름 + 등급 */}
                       <p className="text-white font-extrabold text-lg mb-0.5">{sp.nickname || spMd.name}</p>
                       <p className={`text-xs font-bold ${r.text} mb-3`}>{r.badge} {r.label}</p>
-                      {/* 스탯 */}
-                      <div className="w-full space-y-1 mb-4">
-                        {statLines.map((line, i) => (
-                          <div key={i} className="flex items-center justify-between bg-slate-700/60 rounded-lg px-3 py-1.5">
-                            <span className="text-slate-300 text-xs font-bold">{line.split('+')[0].trim()}</span>
-                            <span className="text-white text-xs font-extrabold">+{line.split('+')[1]}</span>
-                          </div>
-                        ))}
+                      {/* 스탯 (레벨 배율 적용) */}
+                      <div className="w-full space-y-1 mb-2">
+                        {Object.entries(baseStats).filter(([,v]) => v > 0).map(([k, base], i) => {
+                          const eff  = effStats[k] || 0;
+                          const meta = STATS_META[k];
+                          const unit = k === 'crit' ? '%' : '';
+                          return (
+                            <div key={i} className="flex items-center justify-between bg-slate-700/60 rounded-lg px-3 py-1.5">
+                              <span className="text-slate-300 text-xs font-bold">{meta?.icon} {meta?.label}</span>
+                              <span className="flex items-center gap-1">
+                                <span className="text-slate-400 text-[10px]">+{base}{unit}</span>
+                                <span className="text-indigo-300 text-[10px]">→</span>
+                                <span className="text-white text-xs font-extrabold">+{eff}{unit}</span>
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
+                      {lv > 1 && (
+                        <p className="text-[10px] text-indigo-400 text-right mb-3">
+                          Lv.{lv} 배율 ×{mult.toFixed(2)} 적용됨
+                        </p>
+                      )}
                       {/* 레벨 + EXP */}
                       {(() => {
                         const { level, current, needed, pct } = getLevelProgress(sp.petExp ?? 0);
