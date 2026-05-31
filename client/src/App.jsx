@@ -660,11 +660,13 @@ function App() {
             energy={activePetEnergy}
             bubbleRef={petBubbleRef}
             onClick={() => {
-              // 클릭: 말풍선만 (팝업 없음)
+              // 말풍선 표시
               const line = getPetLine(activePetHunger, activePetHappiness, activePetCleanliness, activePetEnergy);
               setPetSpeech(line);
               clearTimeout(window._petSpeechTimer);
               window._petSpeechTimer = setTimeout(() => setPetSpeech(null), 3500);
+              // 팝업 토글
+              setShowPetPopup(v => !v);
             }}
           />
 
