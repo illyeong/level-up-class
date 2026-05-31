@@ -1245,28 +1245,53 @@ export default function PetHouse({ studentCode }) {
                                     </button>
                                   </div>
 
-                                  {/* 친밀도 */}
-                                  <div className="bg-slate-800/60 rounded-xl p-2.5">
-                                    <div className="flex justify-between mb-1">
-                                      <span className="text-[10px] text-slate-300 font-bold">🤝 친밀도</span>
-                                      <span className="text-[10px] text-amber-400 font-bold">{aff}</span>
+                                  {/* 친밀도 보상 목록 */}
+                                  <div className="bg-slate-800/60 rounded-xl p-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-xs text-slate-300 font-extrabold">🤝 친밀도 보상</span>
+                                      <span className="text-xs text-amber-400 font-extrabold">{aff} / {nextMs?.val || '최대'}</span>
                                     </div>
+
+                                    {/* 전체 진행 바 */}
                                     {nextMs && (
-                                      <div className="h-2 bg-slate-700 rounded-full overflow-hidden mb-1">
+                                      <div className="h-2 bg-slate-700 rounded-full overflow-hidden mb-3">
                                         <div className="h-full bg-amber-400 rounded-full transition-all"
                                           style={{ width: `${Math.min(100, (aff / nextMs.val) * 100)}%` }} />
                                       </div>
                                     )}
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {AFFECTION_MILESTONES.map(m => (
-                                        <span key={m.val} className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold
-                                          ${aff >= m.val ? 'bg-amber-500 text-white' : 'bg-slate-700 text-slate-500'}`}>
-                                          {m.emoji}{m.val}
-                                        </span>
-                                      ))}
+
+                                    {/* 보상 목록 */}
+                                    <div className="space-y-1.5">
+                                      {AFFECTION_MILESTONES.map(m => {
+                                        const unlocked = aff >= m.val;
+                                        const isCurrent = nextMs?.val === m.val; // 다음 목표
+                                        return (
+                                          <div key={m.val} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all
+                                            ${unlocked
+                                              ? 'bg-amber-500/20 border border-amber-500/40'
+                                              : isCurrent
+                                                ? 'bg-slate-700/50 border border-slate-500 border-dashed'
+                                                : 'bg-slate-800/40 border border-slate-700/50'}`}>
+                                            <span className={`text-base shrink-0 ${unlocked ? '' : 'opacity-40'}`}>{m.emoji}</span>
+                                            <div className="flex-1 min-w-0">
+                                              <p className={`text-xs font-bold truncate ${unlocked ? 'text-amber-300' : 'text-slate-400'}`}>
+                                                {m.label}
+                                              </p>
+                                            </div>
+                                            <span className={`text-[10px] font-extrabold shrink-0
+                                              ${unlocked ? 'text-amber-400' : isCurrent ? 'text-slate-400' : 'text-slate-600'}`}>
+                                              {unlocked ? '✅' : `${m.val}`}
+                                            </span>
+                                          </div>
+                                        );
+                                      })}
                                     </div>
-                                    {nextMs && <p className="text-[9px] text-slate-500 mt-1">다음: {nextMs.emoji} {nextMs.label} ({nextMs.val - aff} 남음)</p>}
-                                    {lastMs && aff > 0 && <p className="text-[9px] text-amber-400 mt-0.5">✅ {lastMs.emoji} {lastMs.label} 달성!</p>}
+
+                                    {nextMs && (
+                                      <p className="text-[10px] text-slate-400 text-center mt-2">
+                                        다음 보상까지 <span className="text-amber-400 font-bold">{nextMs.val - aff}</span> 더 필요
+                                      </p>
+                                    )}
                                   </div>
                                 </>
                               );
