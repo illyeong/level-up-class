@@ -1103,7 +1103,7 @@ export default function PetHouse({ studentCode }) {
                 return (
                   <>
                     {/* 정보 카드 */}
-                    <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl flex flex-col overflow-y-auto p-3 items-center" style={{ width: 165, maxHeight: 720 }}>
+                    <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl flex flex-col overflow-y-auto p-3 items-center" style={{ width: 195, maxHeight: 720 }}>
                       {isActive && <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border mb-2 ${r.bg} ${r.text} ${r.border}`}>★ 대표 펫</span>}
                       <div className="flex justify-center items-end mb-2 cursor-pointer"
                         style={{ height: dh + 10, filter: isMythic ? 'drop-shadow(0 0 10px #f43f5e)' : `drop-shadow(0 0 8px ${RARITY_THEME[sp.rarity]?.glow || '#60a5fa'})`, opacity: isDead ? 0.5 : 1 }}
@@ -1278,7 +1278,7 @@ export default function PetHouse({ studentCode }) {
                 );
               })() : (
                 <>
-                  <div className="shrink-0 bg-slate-800/40 border border-slate-700 rounded-2xl flex items-center justify-center" style={{ width: 165, minHeight: 200 }}>
+                  <div className="shrink-0 bg-slate-800/40 border border-slate-700 rounded-2xl flex items-center justify-center" style={{ width: 195, minHeight: 200 }}>
                     <p className="text-slate-600 text-xs text-center p-4">펫을 선택하세요</p>
                   </div>
                   <div className="shrink-0 bg-slate-800/40 border border-slate-700 rounded-2xl" style={{ width: 210 }} />

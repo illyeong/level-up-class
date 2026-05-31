@@ -189,6 +189,7 @@ function App() {
   const [showPetPopup,         setShowPetPopup]         = useState(false);
   const [petSpeech,            setPetSpeech]            = useState(null);
   const [showPetHearts,        setShowPetHearts]        = useState(false); // 쓰다듬기 하트 이펙트
+  const [heartsKey,            setHeartsKey]            = useState(0);     // 리마운트용
   const petBubbleRef = useRef(null); // 말풍선 DOM ref (펫 따라다니기용)
   const petPosRef    = useRef({ x: Math.floor(window.innerWidth * 0.75) }); // 펫 실시간 X 위치
   const [hasPoop,              setHasPoop]              = useState(false);
@@ -688,29 +689,28 @@ function App() {
             ) : null;
           })()}
 
-          {/* 하트 이펙트 — petPosRef로 정확한 펫 위치 사용 */}
-          {showPetHearts && (() => {
-            const petH = Math.round((activePetMonster?.frameHeight || 80) * (activePetMonster?.scale || 0.5) * 2);
-            const bottom = 4 + petH;
-            const left   = petPosRef.current.x; // RAF가 항상 최신 위치 유지
-            return (
-              <div style={{ position:'fixed', bottom, left, width:130, height:110, zIndex:26, pointerEvents:'none' }}>
-                {['💕','❤️','💖','✨','💝'].map((h, i) => (
-                  <span key={i} style={{
-                    position:'absolute', left:`${6 + i*20}%`, bottom:0,
-                    fontSize: 16 + (i%3)*5,
-                    animation:`wpHeart${i%3} 1.5s ease-out ${i*0.18}s forwards`,
-                    opacity:0,
-                  }}>{h}</span>
-                ))}
-                <style>{`
-                  @keyframes wpHeart0{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(1.2) rotate(-12deg)}}
-                  @keyframes wpHeart1{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-95px) scale(1.3) rotate(9deg)}}
-                  @keyframes wpHeart2{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-65px) scale(1.1) rotate(-6deg)}}
-                `}</style>
-              </div>
-            );
-          })()}
+          {/* 하트 이펙트 — key로 매번 리마운트해 CSS 애니메이션 재시작 */}
+          {showPetHearts && (
+            <div key={heartsKey} style={{
+              position:'fixed',
+              bottom: 4 + Math.round((activePetMonster?.frameHeight||80)*(activePetMonster?.scale||0.5)*2),
+              left: petPosRef.current.x,
+              width:130, height:110, zIndex:26, pointerEvents:'none'
+            }}>
+              <style>{`
+                @keyframes wpHeart0{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(1.2) rotate(-12deg)}}
+                @keyframes wpHeart1{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-95px) scale(1.3) rotate(9deg)}}
+                @keyframes wpHeart2{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-65px) scale(1.1) rotate(-6deg)}}
+              `}</style>
+              {['💕','❤️','💖','✨','💝'].map((h, i) => (
+                <span key={i} style={{
+                  position:'absolute', left:`${6 + i*20}%`, bottom:0,
+                  fontSize: 16 + (i%3)*5,
+                  animation:`wpHeart${i%3} 1.5s ease-out ${i*0.18}s both`,
+                }}>{h}</span>
+              ))}
+            </div>
+          )}
 
           {/* 💩 똥 */}
           {hasPoop && (
@@ -795,11 +795,13 @@ function App() {
                 const isDead = activePetHunger <= 0;
 
                 const showEffect = (speech, hearts) => {
-                  // 팝업 먼저 닫고 다음 프레임에 이펙트 — 팝업이 하트를 가리는 문제 해결
                   setShowPetPopup(false);
                   requestAnimationFrame(() => {
                     setPetSpeech(speech);
-                    if (hearts) setShowPetHearts(true);
+                    if (hearts) {
+                      setHeartsKey(k => k + 1); // 매번 새 key → CSS 애니메이션 리마운트
+                      setShowPetHearts(true);
+                    }
                     clearTimeout(window._petSpeechTimer);
                     window._petSpeechTimer = setTimeout(() => { setPetSpeech(null); setShowPetHearts(false); }, 2800);
                   });
@@ -811,9 +813,8 @@ function App() {
                       { name:'작은 먹이', cost:100, hunger:20, happiness:0, emoji:'🌾' },
                       { name:'맛있는 먹이', cost:300, hunger:50, happiness:5, emoji:'🍖' },
                     ].map(f => {
-                      const full  = activePetHunger >= 100;
+                      const full  = !isDead && activePetHunger >= 100; // 죽었을 땐 배부름 무시
                       const maxed = care.feedCount >= 3;
-                      const noGold = (activePetData?.gold ?? 0) < f.cost;
                       return (
                         <button key={f.name}
                           disabled={full || maxed}
