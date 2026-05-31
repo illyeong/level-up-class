@@ -1034,8 +1034,8 @@ export default function PetHouse({ studentCode }) {
           return (
             <div className="flex gap-4" style={{ minHeight: 720 }}>
 
-              {/* ── 왼쪽: 상세 패널 (고정 너비) ──────────────────── */}
-              <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl p-4 flex flex-col items-center overflow-y-auto" style={{ width: 340, maxHeight: 720 }}>
+              {/* ── 왼쪽: 상세 패널 ──────────────────── */}
+              <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl flex flex-col overflow-y-auto p-4 items-center" style={{ width: 340, maxHeight: 720 }}>
                 {sp && spMd ? (() => {
                   const r = RARITY[sp.rarity] || RARITY.common;
                   const isMythic = sp.rarity === 'mythic';
@@ -1174,7 +1174,9 @@ export default function PetHouse({ studentCode }) {
                           </div>
                         )}
                       </div>
-                      {/* 케어 패널 */}
+                      {/* 구분선 */}
+                      <div className="w-full border-t border-slate-600/60 my-3" />
+                      {/* 조작 UI */}
                       {(() => {
                         const hunger    = sp.hunger    ?? 100;
                         const happiness = sp.happiness ?? 100;
@@ -1349,13 +1351,13 @@ export default function PetHouse({ studentCode }) {
                           </div>
                         );
                       })()}
-                      <p className="text-slate-600 text-[9px] mt-1">클릭하면 애니메이션 재생</p>
+                      <p className="text-slate-600 text-[9px] text-center mt-1">스프라이트 클릭 시 애니메이션 재생</p>
                     </>
                   );
                 })() : (
-                  <div className="text-slate-600 text-sm">펫을 선택하세요</div>
+                  <div className="p-8 text-slate-600 text-sm text-center">펫을 선택하세요</div>
                 )}
-              </div>
+              </div>{/* 왼쪽 상세 패널 끝 */}
 
               {/* ── 오른쪽: 3열 그리드 목록 ─────────────────────── */}
               <div className="flex-1 overflow-y-auto" style={{ maxHeight: 720 }}>

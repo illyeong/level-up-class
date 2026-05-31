@@ -660,9 +660,14 @@ function App() {
             energy={activePetEnergy}
             bubbleRef={petBubbleRef}
             onClick={() => {
-              // 말풍선 표시
+              // 쓰다듬기: 상태에 따라 쓰다듬기 대사 또는 일반 대사
+              const petLines = ['기분 좋아요~ 💕', '더 해줘요! 🥰', '행복해요! ✨', '좋아요~ 💝', '이게 최고야! 💖'];
               const line = getPetLine(activePetHunger, activePetHappiness, activePetCleanliness, activePetEnergy);
-              setPetSpeech(line);
+              // 70% 확률로 쓰다듬 대사, 30% 일반 대사
+              const speech = Math.random() < 0.7
+                ? petLines[Math.floor(Math.random() * petLines.length)]
+                : line;
+              setPetSpeech(speech);
               clearTimeout(window._petSpeechTimer);
               window._petSpeechTimer = setTimeout(() => setPetSpeech(null), 3500);
               // 팝업 토글
