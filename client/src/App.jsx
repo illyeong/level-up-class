@@ -34,7 +34,7 @@ import SpriteMonster from './components/SpriteMonster';
 import { MONSTERS_DB } from './data/monsterData';
 
 // ── 전역 걷는 펫 (우측 하단 영역) ───────────────────────────
-function WalkingPet({ monsterData, isDead, energy = 100 }) {
+function WalkingPet({ monsterData, isDead, energy = 100, onClick }) {
   const wrapRef  = useRef(null);
   const rafRef   = useRef(null);
   const animRef  = useRef('run'); // 현재 애니: run | idle
@@ -107,14 +107,17 @@ function WalkingPet({ monsterData, isDead, energy = 100 }) {
   const initX = Math.floor(window.innerWidth * 0.75); // 초기 위치 명시
   if (!monsterData) return null;
   return (
-    <div ref={wrapRef} style={{
-      position: 'fixed', bottom: 2, left: initX, zIndex: 20,
-      pointerEvents: 'none',
-      transformOrigin: 'center bottom',
-      willChange: 'transform, left',
-      imageRendering: 'pixelated',
-      opacity: isDead ? 0.4 : 1,
-    }}>
+    <div ref={wrapRef}
+      onClick={onClick}
+      style={{
+        position: 'fixed', bottom: 2, left: initX, zIndex: 20,
+        pointerEvents: onClick ? 'auto' : 'none',
+        cursor: onClick ? 'pointer' : 'default',
+        transformOrigin: 'center bottom',
+        willChange: 'transform, left',
+        imageRendering: 'pixelated',
+        opacity: isDead ? 0.4 : 1,
+      }}>
       <SpriteMonster data={monsterData} anim={anim} scale={monsterData.scale * 2} />
     </div>
   );
@@ -603,14 +606,12 @@ function App() {
       {/* 전역 걷는 펫 */}
       {activePetMonster && petVisible && (
         <>
-          {/* 클릭하면 팝업 */}
-          <div onClick={() => setShowPetPopup(v => !v)} style={{ cursor:'pointer' }}>
-            <WalkingPet
-              monsterData={activePetMonster}
-              isDead={activePetHunger <= 0}
-              energy={activePetEnergy}
-            />
-          </div>
+          <WalkingPet
+            monsterData={activePetMonster}
+            isDead={activePetHunger <= 0}
+            energy={activePetEnergy}
+            onClick={() => setShowPetPopup(v => !v)}
+          />
 
           {/* 💩 똥 */}
           {hasPoop && (
