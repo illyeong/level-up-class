@@ -544,6 +544,9 @@ export default function QuizBank({ selectedClass = null }) {
 
   const currentUid = auth.currentUser?.uid || 'admin_master_001';
   const currentClassId = selectedClass?.id || null;
+  // 관리자 모드: VITE_ADMIN_EMAILS에 포함된 이메일만 토글 버튼 노출 (미설정 시 아무도 불가)
+  const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean);
+  const canAdminMode = adminEmails.includes(auth.currentUser?.email || '');
 
   // ── 데이터 로드 ──────────────────────────────────────────────────
   useEffect(() => {
@@ -1429,11 +1432,13 @@ export default function QuizBank({ selectedClass = null }) {
                   className="text-xs text-slate-400 hover:text-slate-600 font-bold px-2 py-1.5">초기화</button>
                 <div className="ml-auto flex items-center gap-2 self-center">
                   <span className="text-xs text-slate-400">{filteredBankSets.length}개 퀴즈</span>
-                  <button onClick={() => setIsAdminMode(v => !v)}
-                    className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors
-                      ${isAdminMode ? 'bg-rose-500 text-white border-rose-500' : 'border-slate-200 text-slate-500 hover:border-slate-400'}`}>
-                    {isAdminMode ? '🔒 관리자 모드 ON' : '🔑 관리자 모드'}
-                  </button>
+                  {canAdminMode && (
+                    <button onClick={() => setIsAdminMode(v => !v)}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors
+                        ${isAdminMode ? 'bg-rose-500 text-white border-rose-500' : 'border-slate-200 text-slate-500 hover:border-slate-400'}`}>
+                      {isAdminMode ? '🔒 관리자 모드 ON' : '🔑 관리자 모드'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
