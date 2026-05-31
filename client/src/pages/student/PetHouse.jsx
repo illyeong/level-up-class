@@ -799,8 +799,12 @@ export default function PetHouse({ studentCode }) {
   // 가챠 실행 — 알 획득 방식 (펫 직접 지급 X)
   const runGacha = async () => {
     if (!selectedEgg || !student) return;
-    if ((student.diamonds || 0) < selectedEgg.cost) {
-      showToast(`다이아 부족! 필요: ${selectedEgg.cost}💎`, 'error');
+    // 일반 알: 첫 구매 100💎, 이후 500💎
+    const isNormal     = selectedEgg.id === 'normal';
+    const firstBuy     = isNormal && !student.firstNormalEggPurchased;
+    const actualCost   = firstBuy ? 100 : selectedEgg.cost;
+    if ((student.diamonds || 0) < actualCost) {
+      showToast(`다이아 부족! 필요: ${actualCost}💎`, 'error');
       return;
     }
 
@@ -820,9 +824,11 @@ export default function PetHouse({ studentCode }) {
 
     // 3. 백그라운드 저장
     try {
-      const newDiamonds = (student.diamonds || 0) - selectedEgg.cost;
-      await updateDoc(doc(db, 'students', student.id), { diamonds: newDiamonds });
-      setStudent(p => ({ ...p, diamonds: newDiamonds }));
+      const newDiamonds = (student.diamonds || 0) - actualCost;
+      const stuUpdates = { diamonds: newDiamonds };
+      if (firstBuy) stuUpdates.firstNormalEggPurchased = true; // 첫 구매 기록
+      await updateDoc(doc(db, 'students', student.id), stuUpdates);
+      setStudent(p => ({ ...p, diamonds: newDiamonds, ...(firstBuy ? { firstNormalEggPurchased: true } : {}) }));
 
       const REQUIRED = { common:10, rare:20, epic:30, legendary:40, mythic:50 };
       const eggData = {
@@ -1503,12 +1509,20 @@ export default function PetHouse({ studentCode }) {
         {/* 가챠 */}
         {tab === 'gacha' && (
           <div className="space-y-3">
-            {EGGS.map(egg => (
+            {EGGS.map(egg => {
+              const isNormalFirst = egg.id === 'normal' && !student?.firstNormalEggPurchased;
+              const displayCost   = isNormalFirst ? 100 : egg.cost;
+              return (
               <div key={egg.id} className={`rounded-2xl bg-gradient-to-r ${egg.gradient} shadow-lg p-4`}>
                 <div className="flex items-center gap-4">
                   <img src={egg.img} alt={egg.name} className="w-14 h-14 object-contain shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-extrabold text-sm">{egg.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-white font-extrabold text-sm">{egg.name}</p>
+                      {isNormalFirst && (
+                        <span className="text-[10px] font-extrabold bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full">첫 구매 특가!</span>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {egg.rateRows.map(row => (
                         <span key={row.label} className="text-[10px] bg-white/20 text-white px-1.5 py-0.5 rounded-full font-bold">
@@ -1518,20 +1532,24 @@ export default function PetHouse({ studentCode }) {
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-white font-extrabold text-lg">{egg.cost.toLocaleString()}</p>
+                    {isNormalFirst && (
+                      <p className="text-white/50 text-xs line-through">{egg.cost.toLocaleString()}</p>
+                    )}
+                    <p className="text-white font-extrabold text-lg">{displayCost.toLocaleString()}</p>
                     <p className="text-white/60 text-xs">💎 다이아</p>
                   </div>
                 </div>
                 <button
                   onClick={() => { setSelectedEgg(egg); setGachaPhase('confirm'); }}
-                  disabled={(student?.diamonds || 0) < egg.cost}
+                  disabled={(student?.diamonds || 0) < displayCost}
                   className="w-full mt-3 py-2.5 bg-white/25 hover:bg-white/35 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-sm transition-colors">
-                  {(student?.diamonds || 0) < egg.cost
-                    ? `💎 ${egg.cost - (student?.diamonds || 0)} 부족`
+                  {(student?.diamonds || 0) < displayCost
+                    ? `💎 ${displayCost - (student?.diamonds || 0)} 부족`
                     : '🥚 뽑기!'}
                 </button>
               </div>
-            ))}
+              );
+            })}
             <p className="text-center text-indigo-400/50 text-xs pt-2">
               다이아는 퀘스트·퀴즈 던전에서 획득 가능합니다
             </p>
@@ -1545,17 +1563,26 @@ export default function PetHouse({ studentCode }) {
           <div className="w-full max-w-sm bg-slate-800 border border-slate-600 rounded-3xl p-6 text-center">
             <img src={selectedEgg.img} alt={selectedEgg.name} className="w-20 h-20 object-contain mx-auto mb-2" />
             <p className="text-white font-extrabold text-lg mb-1">{selectedEgg.name}</p>
-            <p className="text-indigo-300 text-sm mb-5">
-              보유: {student?.diamonds ?? 0}💎 → 구매 후: {(student?.diamonds || 0) - selectedEgg.cost}💎
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setGachaPhase('idle')}
-                className="flex-1 py-3 bg-slate-700 text-slate-300 font-bold rounded-2xl">취소</button>
-              <button onClick={runGacha}
-                className={`flex-1 py-3 bg-gradient-to-r ${selectedEgg.gradient} text-white font-extrabold rounded-2xl`}>
-                {selectedEgg.cost.toLocaleString()}💎 사용
-              </button>
-            </div>
+            {(() => {
+              const isFirst = selectedEgg.id === 'normal' && !student?.firstNormalEggPurchased;
+              const cost    = isFirst ? 100 : selectedEgg.cost;
+              return (
+                <>
+                  {isFirst && <p className="text-yellow-400 text-xs font-extrabold mb-1">🎉 첫 구매 특가 100💎!</p>}
+                  <p className="text-indigo-300 text-sm mb-5">
+                    보유: {student?.diamonds ?? 0}💎 → 구매 후: {(student?.diamonds || 0) - cost}💎
+                  </p>
+                  <div className="flex gap-3">
+                    <button onClick={() => setGachaPhase('idle')}
+                      className="flex-1 py-3 bg-slate-700 text-slate-300 font-bold rounded-2xl">취소</button>
+                    <button onClick={runGacha}
+                      className={`flex-1 py-3 bg-gradient-to-r ${selectedEgg.gradient} text-white font-extrabold rounded-2xl`}>
+                      {cost.toLocaleString()}💎 사용
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
