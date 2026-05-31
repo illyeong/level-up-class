@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from './firebase';
-import { doc, getDoc, collection, query, where, getDocs, updateDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { useIsAdmin } from './hooks/useIsAdmin';
 import { normalizeLevelProgress } from './utils/leveling';
 
@@ -34,11 +34,12 @@ import SpriteMonster from './components/SpriteMonster';
 import { MONSTERS_DB } from './data/monsterData';
 
 // ── 전역 걷는 펫 (우측 하단 영역) ───────────────────────────
-function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef, posOutRef }) {
+function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef, posOutRef, actionAnim, actionKey = 0 }) {
   const wrapRef  = useRef(null);
   const rafRef   = useRef(null);
   const animRef  = useRef('run'); // 현재 애니: run | idle
   const timerRef = useRef(null);
+  const actionLockRef = useRef(false);
 
   const getRange = () => {
     const PET_W = Math.round((monsterData?.frameWidth || 80) * (monsterData?.scale || 0.5) * 2);
@@ -54,8 +55,6 @@ function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef, pos
     const SPEED = isDead ? 0 : energy >= 50 ? 0.45 : energy >= 20 ? 0.25 : 0.12;
     // 보스: sprite RIGHT방향 → goRight 시 1(정방향), goLeft 시 -1
     // 나머지 전체: sprite LEFT방향 → goRight 시 -1(반전), goLeft 시 1
-    const isBoss = monsterData.tier === 'boss';
-
     let lastSx = null;
 
     const loop = () => {
@@ -82,7 +81,7 @@ function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef, pos
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [monsterData, isDead]);
+  }, [monsterData, isDead, energy]);
 
   // ── run↔idle 불규칙 전환 (death가 아닐 때) ───────────────────
   const [anim, setAnim] = useState('run');
@@ -95,6 +94,10 @@ function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef, pos
       const idleTime = energy >= 50 ? 1500 + Math.random() * 2500 : 3000 + Math.random() * 4000;
       const delay = isRunning ? runTime : idleTime;
       timerRef.current = setTimeout(() => {
+        if (actionLockRef.current) {
+          timerRef.current = setTimeout(schedule, 150);
+          return;
+        }
         const next = isRunning ? 'idle' : 'run';
         animRef.current = next;
         setAnim(next);
@@ -105,7 +108,23 @@ function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef, pos
     setAnim('run');
     schedule();
     return () => clearTimeout(timerRef.current);
-  }, [monsterData, isDead]);
+  }, [monsterData, isDead, energy]);
+
+  useEffect(() => {
+    if (!actionKey || !actionAnim || isDead) return;
+    actionLockRef.current = true;
+    animRef.current = 'idle';
+    setAnim(actionAnim);
+    const t = setTimeout(() => {
+      actionLockRef.current = false;
+      animRef.current = 'run';
+      setAnim('run');
+    }, 900);
+    return () => {
+      clearTimeout(t);
+      actionLockRef.current = false;
+    };
+  }, [actionKey, actionAnim, isDead]);
 
   const initX = Math.floor(window.innerWidth * 0.75); // 초기 위치 명시
   if (!monsterData) return null;
@@ -190,8 +209,11 @@ function App() {
   const [petSpeech,            setPetSpeech]            = useState(null);
   const [showPetHearts,        setShowPetHearts]        = useState(false); // 쓰다듬기 하트 이펙트
   const [heartsKey,            setHeartsKey]            = useState(0);     // 리마운트용
+  const [petActionAnim,        setPetActionAnim]        = useState(null);
+  const [petActionKey,         setPetActionKey]         = useState(0);
   const petBubbleRef = useRef(null); // 말풍선 DOM ref (펫 따라다니기용)
   const petPosRef    = useRef({ x: Math.floor(window.innerWidth * 0.75) }); // 펫 실시간 X 위치
+  const activePetUnsubRef = useRef(null);
   const [hasPoop,              setHasPoop]              = useState(false);
   const [petVisible, setPetVisible] = useState(true);
   const [currentView,    setCurrentView]    = useState('dashboard');
@@ -499,15 +521,38 @@ function App() {
 
   // 대표 펫 실시간 구독 — PetHouse에서 대표 설정 시 즉시 반영
   useEffect(() => {
-    if (!activeStudentCode) { setActivePetMonster(null); return; }
+    if (!activeStudentCode) {
+      activePetUnsubRef.current?.();
+      activePetUnsubRef.current = null;
+      setActivePetMonster(null);
+      setActivePetData(null);
+      setHasPoop(false);
+      return;
+    }
 
     const q = query(collection(db, 'students'), where('studentCode', '==', activeStudentCode));
-    const unsub = onSnapshot(q, async (snap) => {
-      if (snap.empty) { setActivePetMonster(null); return; }
+    const unsub = onSnapshot(q, (snap) => {
+      if (snap.empty) {
+        activePetUnsubRef.current?.();
+        activePetUnsubRef.current = null;
+        setActivePetMonster(null);
+        setActivePetData(null);
+        setHasPoop(false);
+        return;
+      }
+
       const pid = snap.docs[0].data().activePetId;
-      if (!pid) { setActivePetMonster(null); return; }
-      try {
-        const petSnap = await getDoc(doc(db, 'studentPets', pid));
+      if (!pid) {
+        activePetUnsubRef.current?.();
+        activePetUnsubRef.current = null;
+        setActivePetMonster(null);
+        setActivePetData(null);
+        setHasPoop(false);
+        return;
+      }
+
+      activePetUnsubRef.current?.();
+      activePetUnsubRef.current = onSnapshot(doc(db, 'studentPets', pid), (petSnap) => {
         if (!petSnap.exists()) {
           setActivePetMonster(null); setActivePetData(null); setHasPoop(false); return;
         }
@@ -540,10 +585,18 @@ function App() {
             }
           }
         } catch { setHasPoop(false); }
-
-      } catch (e) { console.error('펫 로드 오류:', e); setActivePetMonster(null); }
+      }, (e) => {
+        console.error('펫 로드 오류:', e);
+        setActivePetMonster(null);
+        setActivePetData(null);
+        setHasPoop(false);
+      });
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      activePetUnsubRef.current?.();
+      activePetUnsubRef.current = null;
+    };
   }, [activeStudentCode]);
 
   // ── 렌더링 ───────────────────────────────────────────────────
@@ -662,24 +715,23 @@ function App() {
             energy={activePetEnergy}
             bubbleRef={petBubbleRef}
             posOutRef={petPosRef}
+            actionAnim={petActionAnim}
+            actionKey={petActionKey}
             onClick={() => {
-              // 클릭: 상태 기반 대사만 표시 (쓰다듬기 대사 X)
               const line = getPetLine(activePetHunger, activePetHappiness, activePetCleanliness, activePetEnergy);
               setPetSpeech(line);
               clearTimeout(window._petSpeechTimer);
               window._petSpeechTimer = setTimeout(() => setPetSpeech(null), 3500);
-              // 팝업 토글
               setShowPetPopup(v => !v);
             }}
           />
 
-          {/* 말풍선 — 펫 크기에 맞춰 bottom 계산, RAF로 left 동기화 */}
           {(() => {
             const petH = Math.round((activePetMonster?.frameHeight || 80) * (activePetMonster?.scale || 0.5) * 2);
             const bubbleBottom = 4 + petH;
             return petSpeech ? (
               <div ref={petBubbleRef}
-                style={{ position:'fixed', bottom: bubbleBottom, left: -9999, zIndex:25, maxWidth:200, pointerEvents:'none' }}
+                style={{ position:'fixed', bottom: bubbleBottom, left: -9999, zIndex:25, maxWidth:220, pointerEvents:'none' }}
                 className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-slate-200 text-sm font-bold text-slate-700 select-none whitespace-nowrap">
                 {petSpeech}
                 <div style={{ position:'absolute', bottom:-7, left:14, width:12, height:12,
@@ -689,7 +741,6 @@ function App() {
             ) : null;
           })()}
 
-          {/* 하트 이펙트 — key로 매번 리마운트해 CSS 애니메이션 재시작 */}
           {showPetHearts && (
             <div key={heartsKey} style={{
               position:'fixed',
@@ -712,25 +763,24 @@ function App() {
             </div>
           )}
 
-          {/* 💩 똥 */}
           {hasPoop && (
             <button
               onClick={async () => {
                 if (!activePetData?.id) return;
                 await updateDoc(doc(db, 'studentPets', activePetData.id), { poop: { createdAt: serverTimestamp(), cleaned: true } });
                 setHasPoop(false);
-                // 청결도 +5 보너스
-                const newClean = Math.min(100, (activePetCleanliness) + 5);
+                const newClean = Math.min(100, activePetCleanliness + 5);
                 setActivePetCleanliness(newClean);
+                setActivePetData(p => ({ ...p, cleanliness: newClean }));
                 await updateDoc(doc(db, 'studentPets', activePetData.id), { cleanliness: newClean });
               }}
               style={{ position:'fixed', bottom:45, right:30, zIndex:22, fontSize:28, background:'none', border:'none', cursor:'pointer', animation:'bounce 1s infinite' }}
-              title="클릭해서 치우기">
+              title="클릭해서 치우기"
+            >
               💩
             </button>
           )}
 
-          {/* 긴급 상태 말풍선 (클릭 말풍선 없을 때만) */}
           {!petSpeech && (() => {
             const urgent =
               activePetHunger <= 0 ? '💀 배가 고파요...' :
@@ -739,7 +789,7 @@ function App() {
             if (!urgent) return null;
             return (
               <div ref={petBubbleRef}
-                style={{ position:'fixed', bottom: 4 + Math.round((activePetMonster?.frameHeight||80)*(activePetMonster?.scale||0.5)*2), left:-9999, zIndex:24, maxWidth:200, pointerEvents:'none' }}
+                style={{ position:'fixed', bottom: 4 + Math.round((activePetMonster?.frameHeight||80)*(activePetMonster?.scale||0.5)*2), left:-9999, zIndex:24, maxWidth:220, pointerEvents:'none' }}
                 className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-rose-200 text-sm font-bold text-rose-600 animate-bounce select-none whitespace-nowrap">
                 {urgent}
                 <div style={{ position:'absolute', bottom:-7, left:14, width:12, height:12,
@@ -749,49 +799,52 @@ function App() {
             );
           })()}
 
-          {/* 펫 클릭 팝업 */}
           {showPetPopup && activePetData && activePetMonster && (
-            <div style={{ position:'fixed', bottom:90, right:10, zIndex:50, width:220 }}
-              className="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl p-4 text-white">
-              {/* 닫기 */}
-              <button onClick={() => setShowPetPopup(false)}
-                className="absolute top-2 right-2 text-slate-400 hover:text-white text-sm">✕</button>
+            <div style={{ position:'fixed', bottom:90, right:12, zIndex:80, width:280 }}
+              className="bg-slate-900/95 border border-indigo-400/40 rounded-2xl shadow-2xl p-4 text-white backdrop-blur">
+              <button
+                onClick={() => setShowPetPopup(false)}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-sm font-extrabold"
+                aria-label="펫 팝업 닫기"
+              >
+                ×
+              </button>
 
-              {/* 펫 정보 */}
-              <div className="flex items-center gap-2 mb-3">
-                <div style={{ width:40, height:40 }}>
+              <div className="flex items-center gap-3 mb-3 pr-6">
+                <div className="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-end justify-center overflow-hidden">
                   <SpriteMonster data={activePetMonster} anim="idle"
-                    scale={Math.min(activePetMonster.scale*1.8, 40/(activePetMonster.frameHeight||120))} />
+                    scale={Math.min(activePetMonster.scale * 1.8, 44 / (activePetMonster.frameHeight || 120))} />
                 </div>
-                <div>
-                  <p className="font-extrabold text-sm">{activePetData.nickname || activePetMonster.name}</p>
-                  <p className="text-[10px] text-slate-400">
+                <div className="min-w-0">
+                  <p className="font-extrabold text-sm truncate">{activePetData.nickname || activePetMonster.name}</p>
+                  <p className="text-[11px] text-indigo-200 font-bold">
                     {activePetData.rarity === 'mythic' ? '🌈 신화' : activePetData.rarity === 'legendary' ? '🟡 전설'
                       : activePetData.rarity === 'epic' ? '🟣 영웅' : activePetData.rarity === 'rare' ? '🔵 희귀' : '⚪ 일반'}
                   </p>
                 </div>
               </div>
 
-              {/* 배고픔/행복도 */}
               {[
-                { label:'🍖 배고픔', val: activePetHunger,    color:'bg-amber-400' },
-                { label:'💝 행복도', val: activePetHappiness, color:'bg-sky-400'   },
+                { label:'🍖 배고픔', val: activePetHunger, color:'bg-amber-400' },
+                { label:'💝 행복도', val: activePetHappiness, color:'bg-sky-400' },
+                { label:'✨ 기력', val: activePetEnergy, color:'bg-violet-400' },
               ].map(({ label, val, color }) => (
-                <div key={label} className="mb-1.5">
-                  <div className="flex justify-between text-[10px] mb-0.5">
+                <div key={label} className="mb-2">
+                  <div className="flex justify-between text-[11px] mb-1">
                     <span className="text-slate-300">{label}</span>
                     <span className="text-slate-400">{val}/100</span>
                   </div>
-                  <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
                     <div className={`h-full ${color} rounded-full`} style={{ width: `${val}%` }} />
                   </div>
                 </div>
               ))}
 
-              {/* 먹이주기 + 쓰다듬기 */}
               {(() => {
                 const TODAY = new Date().toISOString().slice(0, 10);
-                const care  = activePetData?.dailyCare?.date === TODAY ? activePetData.dailyCare : { date: TODAY, feedCount:0, petCount:0, washCount:0, playCount:0 };
+                const care = activePetData?.dailyCare?.date === TODAY
+                  ? { feedCount:0, petCount:0, washCount:0, playCount:0, ...activePetData.dailyCare }
+                  : { date: TODAY, feedCount:0, petCount:0, washCount:0, playCount:0 };
                 const isDead = activePetHunger <= 0;
 
                 const showEffect = (speech, hearts) => {
@@ -799,7 +852,9 @@ function App() {
                   requestAnimationFrame(() => {
                     setPetSpeech(speech);
                     if (hearts) {
-                      setHeartsKey(k => k + 1); // 매번 새 key → CSS 애니메이션 리마운트
+                      setPetActionAnim(activePetMonster?.animations?.attack ? 'attack' : 'run');
+                      setPetActionKey(k => k + 1);
+                      setHeartsKey(k => k + 1);
                       setShowPetHearts(true);
                     }
                     clearTimeout(window._petSpeechTimer);
@@ -808,53 +863,54 @@ function App() {
                 };
 
                 return (
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-3 space-y-2">
                     {[
                       { name:'작은 먹이', cost:100, hunger:20, happiness:0, emoji:'🌾' },
                       { name:'맛있는 먹이', cost:300, hunger:50, happiness:5, emoji:'🍖' },
                     ].map(f => {
-                      const full  = !isDead && activePetHunger >= 100; // 죽었을 땐 배부름 무시
+                      const full = !isDead && activePetHunger >= 100;
                       const maxed = care.feedCount >= 3;
                       return (
                         <button key={f.name}
                           disabled={full || maxed}
                           onClick={async () => {
                             if (full || maxed) return;
-                            // 골드 확인
                             const stuSnap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', activeStudentCode)));
                             if (stuSnap.empty) return;
                             const stuDoc = stuSnap.docs[0];
                             const gold = stuDoc.data().gold || 0;
-                            if (gold < f.cost) return;
-                            // 반영
+                            if (gold < f.cost) {
+                              showEffect('골드가 부족해요.', false);
+                              return;
+                            }
+
                             const newHunger = Math.min(100, activePetHunger + f.hunger);
-                            const newCare   = { ...care, feedCount: (care.feedCount||0) + 1 };
+                            const newCare = { ...care, feedCount: (care.feedCount || 0) + 1 };
                             const petUpdates = { hunger: newHunger, dailyCare: newCare, lastCareAt: serverTimestamp() };
                             if (f.happiness > 0) {
                               const newHap = Math.min(100, activePetHappiness + f.happiness);
                               setActivePetHappiness(newHap);
                               petUpdates.happiness = newHap;
                             }
+
                             setActivePetHunger(newHunger);
-                            setActivePetData(p => ({ ...p, dailyCare: newCare }));
+                            setActivePetData(p => ({ ...p, ...petUpdates, dailyCare: newCare }));
                             await Promise.all([
                               updateDoc(doc(db, 'students', stuDoc.id), { gold: gold - f.cost }),
                               updateDoc(doc(db, 'studentPets', activePetData.id), petUpdates),
                             ]);
-                            if (f.happiness > 0) {
-                              showEffect(['냠냠~ 맛있어요! 😋','고마워요! 🥰','배부르다~ 😊'][Math.floor(Math.random()*3)], true);
-                            }
+                            showEffect(['냠냠~ 맛있어요!', '고마워요!', '배부르다~'][Math.floor(Math.random() * 3)], f.happiness > 0);
                           }}
-                          className={`w-full flex justify-between items-center px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors
-                            ${full || maxed ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-amber-600'}`}>
+                          className={`w-full flex justify-between items-center px-3 py-2 rounded-xl text-xs font-bold transition-colors
+                            ${full || maxed ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-amber-600 text-slate-100'}`}>
                           <span>{f.emoji} {f.name}</span>
-                          <span className={full||maxed ? 'text-slate-600' : 'text-slate-400'}>
-                            {maxed ? '오늘 완료' : full ? '배부름' : `${f.cost}🪙`}
+                          <span className={full || maxed ? 'text-slate-600' : 'text-slate-400'}>
+                            {maxed ? '오늘 완료' : full ? '배부름' : `${f.cost}G`}
                           </span>
                         </button>
                       );
                     })}
-                    {/* 쓰다듬기 */}
+
                     {(() => {
                       const petDone = care.petCount >= 3;
                       const hapFull = activePetHappiness >= 100;
@@ -863,17 +919,18 @@ function App() {
                           disabled={isDead || petDone || hapFull}
                           onClick={async () => {
                             if (isDead || petDone || hapFull) return;
-                            const newHap  = Math.min(100, activePetHappiness + 15);
-                            const newCare = { ...care, petCount: (care.petCount||0) + 1 };
+                            const newHap = Math.min(100, activePetHappiness + 15);
+                            const newAff = (activePetData.affection || 0) + 2;
+                            const newCare = { ...care, petCount: (care.petCount || 0) + 1 };
                             setActivePetHappiness(newHap);
-                            setActivePetData(p => ({ ...p, dailyCare: newCare }));
-                            await updateDoc(doc(db, 'studentPets', activePetData.id), { happiness: newHap, dailyCare: newCare, lastCareAt: serverTimestamp() });
-                            const lines = ['기분 좋아요~ 💕','더 해줘요! 🥰','행복해요! ✨','좋아요~ 💝','이게 최고야! 💖'];
-                            showEffect(lines[Math.floor(Math.random()*lines.length)], true);
+                            setActivePetData(p => ({ ...p, happiness: newHap, affection: newAff, dailyCare: newCare }));
+                            await updateDoc(doc(db, 'studentPets', activePetData.id), { happiness: newHap, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp() });
+                            const lines = ['기분 좋아요!', '더 해줘요!', '행복해요!', '좋아요!', '고마워요!'];
+                            showEffect(lines[Math.floor(Math.random() * lines.length)], true);
                           }}
-                          className={`w-full px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors
+                          className={`w-full px-3 py-2 rounded-xl text-xs font-extrabold transition-colors
                             ${isDead || petDone || hapFull ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400'}`}>
-                          {isDead ? '💀 밥 먼저' : petDone ? '💝 오늘 완료' : hapFull ? '💝 행복 최대' : `💝 쓰다듬기 (행복+15) · ${3 - care.petCount}회`}
+                          {isDead ? '💀 밥 먼저' : petDone ? '💝 오늘 완료' : hapFull ? '💝 행복 최대' : `💝 쓰다듬기 · ${3 - care.petCount}회`}
                         </button>
                       );
                     })()}
@@ -881,11 +938,10 @@ function App() {
                 );
               })()}
 
-              {/* 펫 목록 보기 */}
               <button
                 onClick={() => { setCurrentView('petHouse'); setShowPetPopup(false); }}
-                className="w-full mt-2 py-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-xs font-extrabold transition-colors">
-                🐾 펫 목록 보기
+                className="w-full mt-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-xs font-extrabold transition-colors">
+                🐾 펫 하우스로 이동
               </button>
             </div>
           )}
