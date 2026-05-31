@@ -15,7 +15,8 @@ public class BossFSM : MonoBehaviour
     public enum Phase2SkillType
     {
         Jump,
-        PoisonPool
+        PoisonPool,
+        Smash
     }
 
     public UnityEngine.UI.Slider bossHpBar;
@@ -45,6 +46,13 @@ public class BossFSM : MonoBehaviour
     public float poisonTickInterval = 0.5f;
     public float poisonTickDamageMultiplier = 0.35f;
     public float poisonCastDelay = 0.35f;
+
+    [Header("Smash Attack (Phase 2)")]
+    public GameObject smashEffectPrefab;
+    public float smashCooldown = 9f;
+    public float smashCastDelay = 0.45f;
+    public float smashRadius = 3.2f;
+    public float smashDamageMultiplier = 2.1f;
 
     [Header("지형 감지")]
     public Transform frontCheck;
@@ -79,6 +87,7 @@ public class BossFSM : MonoBehaviour
     public string attackAnimName = "Attack";
     public string chargeAnimName = "";
     public string jumpAnimName   = "";
+    public string skillAnimName  = "";
     public string hitAnimName    = "Hit";
     public string deadAnimName   = "Die";
     public string rageAnimName   = "";
@@ -170,6 +179,13 @@ public class BossFSM : MonoBehaviour
             return;
         }
 
+        if (isPhase2 && phase2Skill == Phase2SkillType.Smash &&
+            dist <= 5f && Time.time >= lastJumpAttackTime + smashCooldown)
+        {
+            StartCoroutine(SmashAttack());
+            return;
+        }
+
         // 돌진 공격
         if (dist > attackRange && Time.time >= lastChargeAttackTime + chargeAttackCooldown)
         {
@@ -207,10 +223,29 @@ public class BossFSM : MonoBehaviour
             skeletonAnim.AnimationState.SetAnimation(0, animName, loop);
         else if (animator != null)
         {
+            ApplyAnimatorParams(animName);
+
             int stateHash = Animator.StringToHash(animName);
+            int fullPathHash = Animator.StringToHash("Base Layer." + animName);
             if (animator.HasState(0, stateHash))
                 animator.Play(stateHash, 0, 0f);
+            else if (animator.HasState(0, fullPathHash))
+                animator.Play(fullPathHash, 0, 0f);
         }
+    }
+
+    void ApplyAnimatorParams(string animName)
+    {
+        if (animator == null || string.IsNullOrEmpty(animName)) return;
+
+        if (animName == "Idle") animator.SetInteger("State", 0);
+        else if (animName == "Ready") animator.SetInteger("State", 1);
+        else if (animName == "Walk") animator.SetInteger("State", 2);
+        else if (animName == "Run") animator.SetInteger("State", 3);
+        else if (animName == "Death" || animName == "Die") animator.SetInteger("State", 9);
+
+        if (animName == "Attack") animator.SetTrigger("Attack");
+        else if (animName == "AttackAlt") animator.SetTrigger("AttackAlt");
     }
 
     void Chase(float speed)
@@ -355,6 +390,43 @@ public class BossFSM : MonoBehaviour
     }
 
     // ── Phase 2 전환 ──────────────────────────────────────────────────
+
+    IEnumerator SmashAttack()
+    {
+        isAttacking = true;
+        lastJumpAttackTime = Time.time;
+        rb.linearVelocity = Vector2.zero;
+
+        PlayAnim(string.IsNullOrEmpty(skillAnimName) ? attackAnimName : skillAnimName, false);
+        yield return new WaitForSeconds(smashCastDelay);
+
+        Vector3 center = (playerTarget != null) ? playerTarget.position : transform.position;
+        center.z = transform.position.z;
+        if (playerTarget != null)
+        {
+            float dir = (playerTarget.position.x > transform.position.x) ? 1f : -1f;
+            transform.localScale = new Vector3(-dir, 1, 1);
+        }
+
+        if (smashEffectPrefab != null)
+        {
+            var fx = Instantiate(smashEffectPrefab, center, Quaternion.identity);
+            Destroy(fx, 2f);
+        }
+
+        CameraFollow.Instance?.Shake(shakeDuration, shakeMagnitude);
+
+        Collider2D[] hits = Physics2D.OverlapCircleAll(center, smashRadius, LayerMask.GetMask("Player"));
+        foreach (var hit in hits)
+        {
+            var pc = hit.GetComponent<LayerLab.ArtMaker.PlayerCombat>();
+            if (pc != null)
+                pc.TakePlayerDamage(Mathf.RoundToInt(attackPower * smashDamageMultiplier), center);
+        }
+
+        yield return new WaitForSeconds(0.45f);
+        isAttacking = false;
+    }
 
     IEnumerator TriggerPhase2()
     {
