@@ -181,8 +181,6 @@ export default function AICoursewareManage({ selectedClass }) {
   // ── 렌더 ────────────────────────────────────────────────────
   const TABS = [
     { id: 'units',     label: '📚 단원별 현황', desc: '차시별 숙달도 분석' },
-    { id: 'textbook',  label: '📖 교과서 등록',  desc: 'RAG 교과서 내용 등록' },
-    { id: 'review',    label: '📝 문제 검토',   desc: '문제 수정·검증' },
     { id: 'weakness',  label: '🔍 취약 분석',   desc: '오답 기록 리포트' },
     { id: 'students',  label: '👥 학생별 분석', desc: '개인 학습 현황' },
     { id: 'dashboard', label: '📊 종합 현황',   desc: '전체 학습 통계' },
@@ -471,21 +469,6 @@ export default function AICoursewareManage({ selectedClass }) {
           </div>
         )}
 
-        {/* ═══════════════ 교과서 내용 등록 (RAG) ═══════════════ */}
-        {tab === 'textbook' && (
-          <TextbookContextTab
-            teacherUid={teacherUid}
-            units={units} loadingUnits={loadingUnits}
-            unitGrade={unitGrade} setUnitGrade={setUnitGrade}
-            unitSem={unitSem} setUnitSem={setUnitSem}
-          />
-        )}
-
-        {/* ═══════════════ 문제 검토 ═══════════════ */}
-        {tab === 'review' && (
-          <QuestionReviewTab teacherUid={teacherUid} students={students} unitGrade={unitGrade} setUnitGrade={setUnitGrade} unitSem={unitSem} setUnitSem={setUnitSem} units={units} loadingUnits={loadingUnits} />
-        )}
-
         {/* ═══════════════ 취약 분석 ═══════════════ */}
         {tab === 'weakness' && (
           <WeaknessTab teacherUid={teacherUid} students={students} />
@@ -606,7 +589,7 @@ export default function AICoursewareManage({ selectedClass }) {
 }
 
 // ── 교과서 내용 등록 탭 (RAG) ─────────────────────────────────
-function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade, setUnitGrade, unitSem, setUnitSem }) {
+export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade, setUnitGrade, unitSem, setUnitSem }) {
   const [selectedUnit,    setSelectedUnit]    = useState(null);
   const [selectedLesson,  setSelectedLesson]  = useState(null);
   const [text,            setText]            = useState('');
@@ -860,11 +843,11 @@ function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade, setUni
 }
 
 // ── 문제 검토 탭 ─────────────────────────────────────────────
-const CACHE_VER = 'v3';
-const lkey = (unit, lesson) =>
+export const CACHE_VER = 'v3';
+export const lkey = (unit, lesson) =>
   `${CACHE_VER}_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
 
-function QuestionReviewTab({ teacherUid, students, unitGrade, setUnitGrade, unitSem, setUnitSem, units, loadingUnits }) {
+export function QuestionReviewTab({ teacherUid, students, unitGrade, setUnitGrade, unitSem, setUnitSem, units, loadingUnits }) {
   const [selectedUnit,   setSelectedUnit]   = useState(null);
   const [selectedLesson, setSelectedLesson] = useState(null);
   const [content,        setContent]        = useState(null);

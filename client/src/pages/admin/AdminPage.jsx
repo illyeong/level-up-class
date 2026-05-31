@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore';
 import { MATH_CURRICULUM_1_2 } from '../../data/mathCurriculum';
 import { MATH_CURRICULUM_3_6_ICREAM } from '../../data/mathCurriculum_3_6_icream';
+import { TextbookContextTab, QuestionReviewTab } from '../teacher/AICoursewareManage';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../../firebase';
 import { useIsAdmin } from '../../hooks/useIsAdmin';
@@ -1748,6 +1749,60 @@ function GradeClassesTab() {
   );
 }
 
+// ── AI 콘텐츠 탭 (교과서 등록 + 문제 검토) ──────────────────────
+function AIContentTab() {
+  const [subTab, setSubTab] = useState('textbook');
+  const [unitGrade, setUnitGrade] = useState('');
+  const [unitSem, setUnitSem] = useState('all');
+  const [units, setUnits] = useState([]);
+  const [loadingUnits, setLoadingUnits] = useState(false);
+
+  React.useEffect(() => {
+    if (!unitGrade) { setUnits([]); return; }
+    setLoadingUnits(true);
+    getDocs(query(
+      collection(db, 'curriculumUnits'),
+      where('grade', '==', parseInt(unitGrade)),
+      where('subject', '==', '수학'),
+      where('status', '==', 'approved'),
+    ))
+      .then(s => setUnits(s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.semester || 0) - (b.semester || 0) || (a.unitNumber || 0) - (b.unitNumber || 0))))
+      .finally(() => setLoadingUnits(false));
+  }, [unitGrade]);
+
+  return (
+    <div className="p-6">
+      <h2 className="text-xl font-extrabold text-slate-800 mb-4">🤖 AI 학습 콘텐츠 관리</h2>
+      <div className="flex gap-2 mb-6">
+        {[['textbook', '📖 교과서 등록'], ['review', '📝 문제 검토']].map(([id, label]) => (
+          <button key={id} onClick={() => setSubTab(id)}
+            className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors
+              ${subTab === id ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {subTab === 'textbook' && (
+        <TextbookContextTab
+          teacherUid="admin"
+          units={units} loadingUnits={loadingUnits}
+          unitGrade={unitGrade} setUnitGrade={setUnitGrade}
+          unitSem={unitSem} setUnitSem={setUnitSem}
+        />
+      )}
+      {subTab === 'review' && (
+        <QuestionReviewTab
+          teacherUid="admin"
+          students={[]}
+          units={units} loadingUnits={loadingUnits}
+          unitGrade={unitGrade} setUnitGrade={setUnitGrade}
+          unitSem={unitSem} setUnitSem={setUnitSem}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── 단원 관리 탭 ──────────────────────────────────────────────
 function CurriculumUnitsTab() {
   const [subtab, setSubtab]   = useState('pending'); // 'pending' | 'all'
@@ -2173,6 +2228,7 @@ const TABS = [
   { id: 'equipment',       icon: '⚔️', label: '장비 관리' },
   { id: 'battleLayout',    icon: '🖼️', label: '배틀씬 에디터' },
   { id: 'curriculumUnits', icon: '📚', label: '단원 관리' },
+  { id: 'aiContent',      icon: '🤖', label: 'AI 콘텐츠 관리' },
 ];
 
 export default function AdminPage({ adminUser, onLogout, onBackToClassSelect }) {
@@ -2284,6 +2340,7 @@ export default function AdminPage({ adminUser, onLogout, onBackToClassSelect }) 
         {tab === 'equipment'    && <EquipmentManage />}
         {tab === 'battleLayout'    && <BattleLayoutTab />}
         {tab === 'curriculumUnits' && <CurriculumUnitsTab />}
+        {tab === 'aiContent'      && <AIContentTab />}
       </main>
     </div>
   );
