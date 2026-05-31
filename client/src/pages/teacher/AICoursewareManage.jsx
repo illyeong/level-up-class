@@ -652,19 +652,54 @@ function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade, setUni
     showToast('삭제됐습니다');
   };
 
-  const extractFromPdf = async (file) => {
+  const extractFromFile = async (file) => {
+    const ext = file.name.split('.').pop().toLowerCase();
     setExtracting(true);
     const reader = new FileReader();
+
+    // PPTX: JSZip 텍스트 추출
+    if (ext === 'pptx' || ext === 'ppt') {
+      try {
+        const JSZip = (await import('jszip')).default;
+        const zip = await JSZip.loadAsync(file);
+        const slideFiles = Object.keys(zip.files)
+          .filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+          .sort((a, b) => parseInt(a.match(/\d+/)?.[0]||0) - parseInt(b.match(/\d+/)?.[0]||0));
+        const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+        const parts = [];
+        for (let i = 0; i < slideFiles.length; i++) {
+          const xml = await zip.files[slideFiles[i]].async('text');
+          let t = '';
+          try {
+            const d = new DOMParser().parseFromString(xml, 'text/xml');
+            if (!d.querySelector('parsererror'))
+              t = Array.from(d.getElementsByTagNameNS(NS_A, 't')).map(n => n.textContent?.trim()).filter(Boolean).join(' ');
+          } catch (_) {}
+          if (!t) t = [...xml.matchAll(/<a:t[^>]*>([^<]*)<\/a:t>/g)].map(m=>m[1].replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').trim()).filter(Boolean).join(' ');
+          if (t) parts.push(`[슬라이드 ${i+1}]\n${t}`);
+        }
+        const result = parts.join('\n\n').slice(0, 3000);
+        setText(result);
+        showToast(`📊 PPT 추출 완료 (${result.length}자)`);
+      } catch (err) { showToast('PPT 추출 실패: ' + err.message, 'error'); }
+      finally { setExtracting(false); if (fileRef.current) fileRef.current.value = ''; }
+      return;
+    }
+
+    // PDF / 이미지: Claude API로 전송
     reader.onload = async (e) => {
       try {
         const base64 = e.target.result.split(',')[1];
+        const body = ext === 'pdf'
+          ? { pdfBase64: base64, lessonTitle: selectedLesson?.title }
+          : { imageBase64: base64, mediaType: file.type, lessonTitle: selectedLesson?.title };
         const res = await fetch('/api/extract-lesson-text', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pdfBase64: base64, lessonTitle: selectedLesson?.title }),
+          body: JSON.stringify(body),
         });
         const data = await res.json();
-        if (data.text) { setText(data.text); showToast(`📄 PDF 추출 완료 (${data.chars}자)`); }
+        if (data.text) { setText(data.text); showToast(`✅ 추출 완료 (${data.chars}자)`); }
         else showToast('추출 실패: ' + (data.error || '알 수 없는 오류'), 'error');
       } catch (err) { showToast('추출 실패: ' + err.message, 'error'); }
       finally { setExtracting(false); if (fileRef.current) fileRef.current.value = ''; }
@@ -682,7 +717,7 @@ function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade, setUni
           <p className="text-xs font-bold text-slate-500 mb-2">학년</p>
           <div className="flex flex-wrap gap-1">
             {['1','2','3','4','5','6'].map(g => (
-              <button key={g} onClick={() => { setUnitGrade(g); setSelectedUnit(null); setExisting(null); setText(''); }}
+              <button key={g} onClick={() => { setUnitGrade(g); setSelectedUnit(null); setSelectedLesson(null); setExisting(null); setText(''); }}
                 className={`w-8 h-8 rounded-lg text-sm font-extrabold transition-all
                   ${unitGrade === g ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-indigo-50'}`}>{g}</button>
             ))}
@@ -750,19 +785,25 @@ function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade, setUni
               )}
             </div>
 
-            {/* PDF 업로드 */}
+            {/* 파일 업로드 (PDF / 이미지 / PPT) */}
             <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-              <p className="text-sm font-bold text-blue-800 mb-2">📄 교과서 PDF에서 자동 추출</p>
-              <p className="text-xs text-blue-600 mb-3">PDF를 업로드하면 Claude AI가 텍스트를 자동 추출합니다</p>
-              <div className="flex items-center gap-3">
-                <input ref={fileRef} type="file" accept=".pdf"
-                  onChange={e => { if (e.target.files[0]) extractFromPdf(e.target.files[0]); }}
+              <p className="text-sm font-bold text-blue-800 mb-1">📄 파일에서 자동 추출</p>
+              <p className="text-xs text-blue-600 mb-3">PDF·이미지는 Claude AI가, PPT/PPTX는 직접 텍스트를 추출합니다</p>
+              <div className="flex items-center gap-3 mb-3">
+                <input ref={fileRef} type="file" accept=".pdf,.ppt,.pptx,image/*"
+                  onChange={e => { if (e.target.files[0]) extractFromFile(e.target.files[0]); }}
                   className="hidden" />
                 <button onClick={() => fileRef.current?.click()} disabled={extracting}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl disabled:opacity-50 transition-colors">
-                  {extracting ? '⏳ 추출 중...' : '📄 PDF 업로드'}
+                  {extracting ? '⏳ 추출 중...' : '📁 파일 업로드'}
                 </button>
-                {extracting && <p className="text-xs text-blue-600 animate-pulse">AI가 텍스트 추출 중...</p>}
+                <span className="text-[10px] text-blue-500">PDF · PPT/PPTX · 이미지 지원</span>
+                {extracting && <p className="text-xs text-blue-600 animate-pulse">추출 중...</p>}
+              </div>
+              {/* 저작권 안내 */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-[10px] text-amber-800">
+                <p className="font-extrabold mb-0.5">⚠️ 저작권 안내</p>
+                <p>타 사이트·출판사의 PDF/PPT 등 저작권 자료를 직접 등록하면 저작권법에 위반될 수 있습니다. 본인이 직접 작성한 학습자료나 저작권이 소멸된 공개 자료만 사용하세요.</p>
               </div>
             </div>
 
@@ -801,6 +842,7 @@ function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade, setUni
                 <li>등록 후 학생이 이 차시에 접속하면 입력한 내용 기반으로 문제가 생성됩니다</li>
                 <li>기존 캐시가 있다면 ↻ 버튼으로 재생성해야 적용됩니다</li>
                 <li>최대 3,000자까지 입력 가능합니다</li>
+                <li className="font-bold text-amber-900">📣 전체 적용: 등록된 교과서 내용은 같은 학년·단원·차시의 모든 AI 학습관 문제 생성에 반영됩니다 (반 구분 없이)</li>
               </ul>
             </div>
           </div>

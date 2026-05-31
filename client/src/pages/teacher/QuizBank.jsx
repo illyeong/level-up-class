@@ -42,14 +42,15 @@ const extractPptxText = async (file) => {
 
 // ─── 교육과정 데이터 ─────────────────────────────────────────────
 const NATIONAL = ['국정'];
-const MATH_PUB = ['비상', '천재교과서', '동아출판', '미래엔', '아이스크림', '지학사', 'YBM'];
+const MATH_PUB_LOW  = ['국정'];                                                              // 1~2학년 수학: 국정
+const MATH_PUB_HIGH = ['아이스크림', '비상', '천재교과서', '동아출판', '미래엔', '지학사', 'YBM']; // 3~6학년 수학: 아이스크림 기본
 const CURRICULUM = {
-  1: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '국어활동', publishers: NATIONAL }, { name: '수학', publishers: MATH_PUB }, { name: '통합교과', publishers: NATIONAL, units: { '1학기': ['학교', '사람들', '우리나라', '탐험'], '2학기': ['하루', '약속', '상상', '이야기'] } }, { name: '입학초기적응활동', publishers: NATIONAL }, { name: '국어기초학습', publishers: NATIONAL }] },
-  2: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB }, { name: '통합교과', publishers: NATIONAL, units: { '1학기': ['나', '자연', '마을', '세계'], '2학기': ['계절', '인물', '물건', '기억'] } }, { name: '안전한생활', publishers: NATIONAL }, { name: '국어기초학습', publishers: NATIONAL }] },
-  3: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '동아출판', '미래엔', '비상', '천재(정)', '천재(이)'] }, { name: '체육', publishers: ['금성', '비상', '지학사', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림'] }] },
-  4: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '동아출판', '미래엔', '비상', '천재(정)', '천재(이)'] }, { name: '체육', publishers: ['금성', '비상', '지학사', '동아출판', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림'] }] },
-  5: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '미래엔', '비상', '천재(정)'] }, { name: '실과', publishers: ['아이스크림', '교학사', '비상', '동아출판', '지학사', '금성', '미래엔', 'YBM', '천재'] }, { name: '체육', publishers: ['금성', '비상', '지학사', '동아출판', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔', '금성'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔', '아침나라'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림', '비상'] }] },
-  6: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '미래엔', '비상', '천재(정)'] }, { name: '실과', publishers: ['아이스크림', '교학사', '비상', '동아출판', '지학사', '금성', '미래엔', 'YBM', '천재'] }, { name: '체육', publishers: ['금성', '비상', '지학사', '동아출판', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔', '금성'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔', '아침나라'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림', '비상'] }] },
+  1: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '국어활동', publishers: NATIONAL }, { name: '수학', publishers: MATH_PUB_LOW }, { name: '통합교과', publishers: NATIONAL, units: { '1학기': ['학교', '사람들', '우리나라', '탐험'], '2학기': ['하루', '약속', '상상', '이야기'] } }, { name: '입학초기적응활동', publishers: NATIONAL }, { name: '국어기초학습', publishers: NATIONAL }] },
+  2: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB_LOW }, { name: '통합교과', publishers: NATIONAL, units: { '1학기': ['나', '자연', '마을', '세계'], '2학기': ['계절', '인물', '물건', '기억'] } }, { name: '안전한생활', publishers: NATIONAL }, { name: '국어기초학습', publishers: NATIONAL }] },
+  3: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB_HIGH }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '동아출판', '미래엔', '비상', '천재(정)', '천재(이)'] }, { name: '체육', publishers: ['금성', '비상', '지학사', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림'] }] },
+  4: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB_HIGH }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '동아출판', '미래엔', '비상', '천재(정)', '천재(이)'] }, { name: '체육', publishers: ['금성', '비상', '지학사', '동아출판', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림'] }] },
+  5: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB_HIGH }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '미래엔', '비상', '천재(정)'] }, { name: '실과', publishers: ['아이스크림', '교학사', '비상', '동아출판', '지학사', '금성', '미래엔', 'YBM', '천재'] }, { name: '체육', publishers: ['금성', '비상', '지학사', '동아출판', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔', '금성'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔', '아침나라'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림', '비상'] }] },
+  6: { subjects: [{ name: '국어', publishers: NATIONAL, parts: ['㉮', '㉯'] }, { name: '수학', publishers: MATH_PUB_HIGH }, { name: '도덕', publishers: NATIONAL }, { name: '사회', publishers: ['아이스크림', '동아출판', '미래엔', '비상', 'YBM', '지학사', '천재(박)', '천재(김)'] }, { name: '과학', publishers: ['아이스크림', '지학사', '미래엔', '비상', '천재(정)'] }, { name: '실과', publishers: ['아이스크림', '교학사', '비상', '동아출판', '지학사', '금성', '미래엔', 'YBM', '천재'] }, { name: '체육', publishers: ['금성', '비상', '지학사', '동아출판', 'YBM', '천재', '교학사', '미래엔', '아이스크림'] }, { name: '음악', publishers: ['동아출판', '비상', '지학사', '천재', '아침나라', 'YBM', '아이스크림', '미래엔', '금성'] }, { name: '미술', publishers: ['지학사', '금성', '동아출판', '비상', '아이스크림', '천재', '교학사', '미래엔', '아침나라'] }, { name: '영어', publishers: ['동아출판', 'YBM최희경', 'YBM김혜리', '천재함순애', '천재김태은', '미래엔', '아이스크림', '비상'] }] },
 };
 const DIFF_OPTIONS = [
   { value: 'easy',   label: '🟢 쉬움',   desc: '기본 개념 확인' },
@@ -478,6 +479,8 @@ export default function QuizBank({ selectedClass = null }) {
   const [myFilter, setMyFilter]             = useState({ grade: '', subject: '' });
   const [previewSet, setPreviewSet]         = useState(null);
   const [editingSet, setEditingSet]         = useState(null);
+  const [editingBankSet, setEditingBankSet] = useState(null); // 공유퀴즈은행 편집
+  const [isAdminMode, setIsAdminMode]       = useState(false);
 
   // ── AI 탭 상태 ───────────────────────────────────────────────────
   const [aiStep, setAiStep]                 = useState('form'); // 'form' | 'preview'
@@ -777,6 +780,15 @@ export default function QuizBank({ selectedClass = null }) {
       await deleteDoc(doc(db, 'quizSets', set.id));
       setMySets(prev => prev.filter(s => s.id !== set.id));
       showToast('삭제됐습니다.');
+    });
+  };
+
+  // ── 공유퀴즈은행: 관리자 삭제 ─────────────────────────────────────
+  const deleteBankSet = (set) => {
+    showConfirm(`공유퀴즈은행에서 "${set.title}"을 삭제할까요?\n(작성자의 내 퀴즈 목록에서는 유지됩니다)`, async () => {
+      await updateDoc(doc(db, 'quizSets', set.id), { isShared: false, sharedAt: null });
+      setBankSets(prev => prev.filter(s => s.id !== set.id));
+      showToast('공유퀴즈은행에서 제거됐습니다.');
     });
   };
 
@@ -1415,8 +1427,13 @@ export default function QuizBank({ selectedClass = null }) {
                 </div>
                 <button onClick={() => setBankFilter({ grade: '', subject: '' })}
                   className="text-xs text-slate-400 hover:text-slate-600 font-bold px-2 py-1.5">초기화</button>
-                <div className="ml-auto text-xs text-slate-400 self-center">
-                  {filteredBankSets.length}개 퀴즈
+                <div className="ml-auto flex items-center gap-2 self-center">
+                  <span className="text-xs text-slate-400">{filteredBankSets.length}개 퀴즈</span>
+                  <button onClick={() => setIsAdminMode(v => !v)}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors
+                      ${isAdminMode ? 'bg-rose-500 text-white border-rose-500' : 'border-slate-200 text-slate-500 hover:border-slate-400'}`}>
+                    {isAdminMode ? '🔒 관리자 모드 ON' : '🔑 관리자 모드'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -1456,15 +1473,28 @@ export default function QuizBank({ selectedClass = null }) {
                       <div className="text-[11px] text-slate-400">{fmtDate(set.sharedAt || set.createdAt)}</div>
                     </div>
                     {/* 하단 액션 */}
-                    <div className="px-3 pb-3 flex gap-1.5 border-t border-slate-100 pt-2.5">
+                    <div className="px-3 pb-3 flex gap-1.5 border-t border-slate-100 pt-2.5 flex-wrap">
                       <button onClick={() => setPreviewSet(set)}
                         className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
                         👁 미리보기
                       </button>
                       <button onClick={() => importFromBank(set)}
                         className="flex-1 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors text-center">
-                        📥 내 퀴즈로 가져오기
+                        📥 가져오기
                       </button>
+                      {/* 관리자 모드: 수정/삭제 */}
+                      {(isAdminMode || set.ownerId === currentUid) && (
+                        <>
+                          <button onClick={() => setEditingBankSet(set)}
+                            className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-amber-200 text-amber-600 hover:bg-amber-50 transition-colors">
+                            ✏️
+                          </button>
+                          <button onClick={() => deleteBankSet(set)}
+                            className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-rose-200 text-rose-500 hover:bg-rose-50 transition-colors">
+                            🗑️
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1479,12 +1509,21 @@ export default function QuizBank({ selectedClass = null }) {
     {/* 미리보기 모달 */}
     {previewSet && <PreviewModal set={previewSet} onClose={() => setPreviewSet(null)} />}
 
-    {/* 수정 모달 */}
+    {/* 수정 모달 (내 퀴즈) */}
     {editingSet && (
       <EditModal
         set={editingSet}
         onSave={(updated) => { setMySets(prev => prev.map(s => s.id === updated.id ? updated : s)); setEditingSet(null); showToast('✅ 저장됐습니다!'); }}
         onClose={() => setEditingSet(null)}
+      />
+    )}
+
+    {/* 수정 모달 (공유퀴즈은행) */}
+    {editingBankSet && (
+      <EditModal
+        set={editingBankSet}
+        onSave={(updated) => { setBankSets(prev => prev.map(s => s.id === updated.id ? updated : s)); setEditingBankSet(null); showToast('✅ 공유퀴즈 수정됐습니다!'); }}
+        onClose={() => setEditingBankSet(null)}
       />
     )}
 

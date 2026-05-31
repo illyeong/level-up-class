@@ -1186,6 +1186,7 @@ export default function PetHouse({ studentCode }) {
                       <div className="w-full border-t border-slate-600/60 my-3" />
                       {/* 조작 UI */}
                       {(() => {
+                        const isDead    = (sp.hunger ?? 100) <= 0;
                         const hunger    = sp.hunger    ?? 100;
                         const happiness = sp.happiness ?? 100;
                         const care      = getDailyCare(sp);

@@ -14,8 +14,21 @@ export default async function handler(req, res) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: 'API 키 없음' });
 
-  const { pdfBase64, lessonTitle } = req.body || {};
-  if (!pdfBase64) return res.status(400).json({ error: 'PDF 데이터가 없습니다' });
+  const { pdfBase64, imageBase64, mediaType, lessonTitle } = req.body || {};
+  if (!pdfBase64 && !imageBase64) return res.status(400).json({ error: '파일 데이터가 없습니다' });
+
+  const prompt = `이 교과서 자료에서${lessonTitle ? ` "${lessonTitle}" 차시` : ''} 관련 학습 내용을 추출해주세요.
+
+추출 규칙:
+- 수학 개념 설명, 공식, 예제 문제, 풀이 과정을 포함해주세요
+- 그림/표 설명은 텍스트로 변환해주세요
+- 학습 목표, 핵심 개념, 예시를 모두 포함해주세요
+- 불필요한 페이지 번호, 저작권 표시 등은 제외
+- 순수 텍스트로만 반환 (JSON 아님)`;
+
+  const contentBlock = pdfBase64
+    ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } }, { type: 'text', text: prompt }]
+    : [{ type: 'image',    source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 } }, { type: 'text', text: prompt }];
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -28,26 +41,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 4000,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
-            },
-            {
-              type: 'text',
-              text: `이 교과서 PDF에서${lessonTitle ? ` "${lessonTitle}" 차시` : ''} 관련 내용을 추출해주세요.
-
-추출 규칙:
-- 수학 개념 설명, 공식, 예제 문제, 풀이 과정을 포함해주세요
-- 그림/표 설명은 텍스트로 변환해주세요
-- 학습 목표, 핵심 개념, 예시를 모두 포함해주세요
-- 불필요한 페이지 번호, 저작권 표시 등은 제외
-- 순수 텍스트로만 반환 (JSON 아님)`,
-            },
-          ],
-        }],
+        messages: [{ role: 'user', content: contentBlock }],
       }),
     });
 

@@ -670,10 +670,10 @@ function App() {
             }}
           />
 
-          {/* 말풍선 — 펫을 따라다님 (ref로 RAF 동기화) */}
+          {/* 말풍선 — 펫을 따라다님 (ref로 RAF 동기화, left는 RAF에서 설정) */}
           {petSpeech && (
             <div ref={petBubbleRef}
-              style={{ position:'fixed', bottom:88, left: '75%', zIndex:25, maxWidth:170, pointerEvents:'none' }}
+              style={{ position:'fixed', bottom:88, left: -9999, zIndex:25, maxWidth:200, pointerEvents:'none' }}
               className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-slate-200 text-sm font-bold text-slate-700 select-none whitespace-nowrap">
               {petSpeech}
               <div style={{ position:'absolute', bottom:-7, left:14, width:12, height:12,
@@ -709,7 +709,7 @@ function App() {
             if (!urgent) return null;
             return (
               <div ref={petBubbleRef}
-                style={{ position:'fixed', bottom:88, left:'75%', zIndex:24, maxWidth:170, pointerEvents:'none' }}
+                style={{ position:'fixed', bottom:88, left:-9999, zIndex:24, maxWidth:200, pointerEvents:'none' }}
                 className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-rose-200 text-sm font-bold text-rose-600 animate-bounce select-none whitespace-nowrap">
                 {urgent}
                 <div style={{ position:'absolute', bottom:-7, left:14, width:12, height:12,
@@ -788,6 +788,11 @@ function App() {
                     const newH = Math.min(100, activePetHappiness + 15);
                     setActivePetHappiness(newH);
                     await updateDoc(doc(db, 'studentPets', activePetData.id), { happiness: newH, lastCareAt: serverTimestamp() });
+                    const petLines = ['기분 좋아요~ 💕', '더 해줘요! 🥰', '행복해요! ✨', '좋아요~ 💝', '이게 최고야! 💖'];
+                    setPetSpeech(petLines[Math.floor(Math.random() * petLines.length)]);
+                    clearTimeout(window._petSpeechTimer);
+                    window._petSpeechTimer = setTimeout(() => setPetSpeech(null), 3000);
+                    setShowPetPopup(false);
                   }}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-pink-500 hover:bg-pink-400 text-[10px] font-bold transition-colors">
                   💝 쓰다듬기 (행복+15)
