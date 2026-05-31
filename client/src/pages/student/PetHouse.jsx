@@ -571,9 +571,9 @@ export default function PetHouse({ studentCode }) {
 
   // 먹이 3종
   const FOOD_OPTIONS = [
-    { id: 'small',   name: '작은 먹이',   costType: 'gold',    cost: 50,  hunger: 20, happiness: 0,  emoji: '🌾' },
-    { id: 'nice',    name: '맛있는 먹이', costType: 'gold',    cost: 150, hunger: 50, happiness: 5,  emoji: '🍖' },
-    { id: 'special', name: '특별 간식',   costType: 'diamond', cost: 20,  hunger: 100, happiness: 20, emoji: '🍰' },
+    { id: 'small',   name: '작은 먹이',   costType: 'gold',    cost: 100, hunger: 20,  happiness: 0,  emoji: '🌾' },
+    { id: 'nice',    name: '맛있는 먹이', costType: 'gold',    cost: 300, hunger: 50,  happiness: 5,  emoji: '🍖' },
+    { id: 'special', name: '특별 간식',   costType: 'diamond', cost: 40,  hunger: 100, happiness: 20, emoji: '🍰' },
   ];
 
   const feedPet = async (pet, food) => {
