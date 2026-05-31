@@ -34,7 +34,7 @@ import SpriteMonster from './components/SpriteMonster';
 import { MONSTERS_DB } from './data/monsterData';
 
 // ── 전역 걷는 펫 (우측 하단 영역) ───────────────────────────
-function WalkingPet({ monsterData, isDead, energy = 100, onClick }) {
+function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef }) {
   const wrapRef  = useRef(null);
   const rafRef   = useRef(null);
   const animRef  = useRef('run'); // 현재 애니: run | idle
@@ -68,11 +68,15 @@ function WalkingPet({ monsterData, isDead, energy = 100, onClick }) {
         if (p.x <= minX) { p.x = minX; p.goRight = true;  }
         if (wrapRef.current) {
           wrapRef.current.style.left = p.x + 'px';
-          const sx = p.goRight ? -1 : 1; // 전 티어 동일 (보스 포함 좌우반전)
+          const sx = p.goRight ? -1 : 1;
           if (sx !== lastSx) {
             wrapRef.current.style.transform = `scaleX(${sx})`;
             lastSx = sx;
           }
+        }
+        // 말풍선도 같은 x 위치로 동기화
+        if (bubbleRef?.current) {
+          bubbleRef.current.style.left = p.x + 'px';
         }
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -184,7 +188,8 @@ function App() {
   const [activePetEnergy,      setActivePetEnergy]      = useState(100);
   const [activePetCleanliness, setActivePetCleanliness] = useState(100);
   const [showPetPopup,         setShowPetPopup]         = useState(false);
-  const [petSpeech,            setPetSpeech]            = useState(null);  // 말풍선 텍스트
+  const [petSpeech,            setPetSpeech]            = useState(null);
+  const petBubbleRef = useRef(null); // 말풍선 DOM ref (펫 따라다니기용)
   const [hasPoop,              setHasPoop]              = useState(false);
   const [petVisible, setPetVisible] = useState(true);
   const [currentView,    setCurrentView]    = useState('dashboard');
@@ -653,7 +658,9 @@ function App() {
             monsterData={activePetMonster}
             isDead={activePetHunger <= 0}
             energy={activePetEnergy}
+            bubbleRef={petBubbleRef}
             onClick={() => {
+              // 클릭: 말풍선만 (팝업 없음)
               const line = getPetLine(activePetHunger, activePetHappiness, activePetCleanliness, activePetEnergy);
               setPetSpeech(line);
               clearTimeout(window._petSpeechTimer);
@@ -661,13 +668,13 @@ function App() {
             }}
           />
 
-          {/* 말풍선 */}
+          {/* 말풍선 — 펫을 따라다님 (ref로 RAF 동기화) */}
           {petSpeech && (
-            <div style={{ position:'fixed', bottom:85, right:30, zIndex:25, maxWidth:180 }}
-              className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-slate-200 text-sm font-bold text-slate-700 animate-[fadeIn_0.2s_ease] pointer-events-none select-none">
+            <div ref={petBubbleRef}
+              style={{ position:'fixed', bottom:88, left: '75%', zIndex:25, maxWidth:170, pointerEvents:'none' }}
+              className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-slate-200 text-sm font-bold text-slate-700 select-none whitespace-nowrap">
               {petSpeech}
-              {/* 꼬리 */}
-              <div style={{ position:'absolute', bottom:-7, right:16, width:12, height:12,
+              <div style={{ position:'absolute', bottom:-7, left:14, width:12, height:12,
                 background:'white', borderRight:'1px solid #e2e8f0', borderBottom:'1px solid #e2e8f0',
                 transform:'rotate(45deg)' }} />
             </div>
@@ -691,19 +698,19 @@ function App() {
             </button>
           )}
 
-          {/* 상태 긴급 말풍선 (배고픔/청결 위급 시 — 클릭 말풍선과 별개) */}
+          {/* 긴급 상태 말풍선 (클릭 말풍선 없을 때만) */}
           {!petSpeech && (() => {
             const urgent =
               activePetHunger <= 0 ? '💀 배가 고파요...' :
               activePetHunger < 20 ? '🍖 배고파요!' :
-              hasPoop ? '💩 치워주세요~' :
-              null;
+              hasPoop ? '💩 치워주세요~' : null;
             if (!urgent) return null;
             return (
-              <div style={{ position:'fixed', bottom:85, right:30, zIndex:24, maxWidth:180 }}
-                className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-rose-200 text-sm font-bold text-rose-600 animate-bounce pointer-events-none select-none">
+              <div ref={petBubbleRef}
+                style={{ position:'fixed', bottom:88, left:'75%', zIndex:24, maxWidth:170, pointerEvents:'none' }}
+                className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-rose-200 text-sm font-bold text-rose-600 animate-bounce select-none whitespace-nowrap">
                 {urgent}
-                <div style={{ position:'absolute', bottom:-7, right:16, width:12, height:12,
+                <div style={{ position:'absolute', bottom:-7, left:14, width:12, height:12,
                   background:'white', borderRight:'1px solid #fecaca', borderBottom:'1px solid #fecaca',
                   transform:'rotate(45deg)' }} />
               </div>
