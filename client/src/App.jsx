@@ -104,10 +104,11 @@ function WalkingPet({ monsterData, isDead, energy = 100 }) {
     return () => clearTimeout(timerRef.current);
   }, [monsterData, isDead]);
 
+  const initX = Math.floor(window.innerWidth * 0.75); // 초기 위치 명시
   if (!monsterData) return null;
   return (
     <div ref={wrapRef} style={{
-      position: 'fixed', bottom: 2, zIndex: 20,
+      position: 'fixed', bottom: 2, left: initX, zIndex: 20,
       pointerEvents: 'none',
       transformOrigin: 'center bottom',
       willChange: 'transform, left',
@@ -454,40 +455,40 @@ function App() {
       if (!pid) { setActivePetMonster(null); return; }
       try {
         const petSnap = await getDoc(doc(db, 'studentPets', pid));
-        if (petSnap.exists()) {
-          const petData = petSnap.data();
-          const md = MONSTERS_DB[petData.monsterId];
-          setActivePetMonster(md || null);
-          setActivePetData({ id: petSnap.id, ...petData });
-          setActivePetHunger(petData.hunger ?? 100);
-          setActivePetHappiness(petData.happiness ?? 100);
-          setActivePetEnergy(petData.energy ?? 100);
-          setActivePetCleanliness(petData.cleanliness ?? 100);
+        if (!petSnap.exists()) {
+          setActivePetMonster(null); setActivePetData(null); setHasPoop(false); return;
+        }
+        const petData = petSnap.data();
+        const md = MONSTERS_DB[petData.monsterId];
 
-          // 똥 체크: poop 필드가 있고 cleaned=false면 표시
+        // ① 펫 state 먼저 설정 (오류가 나도 여기까지는 보장)
+        setActivePetMonster(md || null);
+        setActivePetData({ id: petSnap.id, ...petData });
+        setActivePetHunger(petData.hunger ?? 100);
+        setActivePetHappiness(petData.happiness ?? 100);
+        setActivePetEnergy(petData.energy ?? 100);
+        setActivePetCleanliness(petData.cleanliness ?? 100);
+
+        // ② 똥 체크 (별도 try-catch → 오류가 펫 표시에 영향 없음)
+        try {
           const poop = petData.poop;
           if (poop && !poop.cleaned) {
             setHasPoop(true);
           } else {
-            // 새 똥 생성 체크 (4~8시간 간격)
             const lastPoop = poop?.createdAt?.toDate?.() ?? new Date(0);
             const hoursSince = (Date.now() - lastPoop.getTime()) / 3600000;
-            const minHours = 4 + Math.random() * 4;
-            if (hoursSince >= minHours) {
+            if (hoursSince >= 4 + Math.random() * 4) {
               setHasPoop(true);
-              await updateDoc(doc(db, 'studentPets', petSnap.id), {
+              updateDoc(doc(db, 'studentPets', petSnap.id), {
                 poop: { createdAt: serverTimestamp(), cleaned: false },
-              });
+              }).catch(() => {});
             } else {
               setHasPoop(false);
             }
           }
-        } else {
-          setActivePetMonster(null); setActivePetData(null); setActivePetHunger(100);
-          setActivePetHappiness(100); setActivePetEnergy(100); setActivePetCleanliness(100);
-          setHasPoop(false);
-        }
-      } catch { setActivePetMonster(null); }
+        } catch { setHasPoop(false); }
+
+      } catch (e) { console.error('펫 로드 오류:', e); setActivePetMonster(null); }
     });
     return () => unsub();
   }, [activeStudentCode]);
