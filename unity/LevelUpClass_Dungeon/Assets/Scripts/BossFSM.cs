@@ -480,6 +480,8 @@ public class BossFSM : MonoBehaviour
         return Vector2.Distance(transform.position, playerTarget.position);
     }
 
+    [HideInInspector] public bool suppressDeath = false;
+
     public void TakeDamage(int damage, bool isCritical = false)
     {
         if (isDead) return;
@@ -492,7 +494,6 @@ public class BossFSM : MonoBehaviour
         if (bossHpFillImage != null)
             bossHpFillImage.fillAmount = Mathf.Clamp01((float)currentHealth / maxHealth);
 
-        // 피격 이펙트 스폰 (크리티컬이면 크리티컬 이펙트 우선)
         GameObject effectToSpawn = (isCritical && critHitEffectPrefab != null)
             ? critHitEffectPrefab : hitEffectPrefab;
         if (effectToSpawn != null)
@@ -501,7 +502,6 @@ public class BossFSM : MonoBehaviour
             Destroy(fx, 2f);
         }
 
-        // 크리티컬 Boom! 이펙트 (머리 위)
         if (isCritical && critBoomEffectPrefab != null)
         {
             Vector3 boomPos = transform.position + new Vector3(0, 2.5f, 0);
@@ -509,11 +509,17 @@ public class BossFSM : MonoBehaviour
             Destroy(boom, 2f);
         }
 
-        if (currentHealth <= 0) { Die(); return; }
+        if (currentHealth <= 0 && !suppressDeath) { Die(); return; }
 
-        // 히트 애니메이션 없으므로 경직 없이 바로 재개
         isAttacking = false;
         isCharging  = false;
+    }
+
+    public void ReleaseSuppressDeath()
+    {
+        suppressDeath = false;
+        if (!isDead && currentHealth <= 0)
+            Die();
     }
 
     // ── 사망 ─────────────────────────────────────────────────────────

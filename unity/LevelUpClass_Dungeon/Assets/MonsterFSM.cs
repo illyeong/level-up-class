@@ -172,6 +172,9 @@ public class MonsterFSM : MonoBehaviour
         }
     }
 
+    // 스킬 연타 중 사망 판정 지연용 플래그
+    [HideInInspector] public bool suppressDeath = false;
+
     public void TakeDamage(int damage, bool isCritical = false)
     {
         if (isDead) return;
@@ -189,7 +192,6 @@ public class MonsterFSM : MonoBehaviour
             Destroy(fx, 2f);
         }
 
-        // 크리티컬 Boom! 이펙트 (머리 위)
         if (isCritical && critBoomEffectPrefab != null)
         {
             Vector3 boomPos = transform.position + new Vector3(0, 2f, 0);
@@ -200,18 +202,29 @@ public class MonsterFSM : MonoBehaviour
         GetComponentInChildren<MonsterHpBar>(true)?.Show();
         isAggro = true;
 
-        if (currentHealth <= 0) Die();
+        if (currentHealth <= 0 && !suppressDeath)
+        {
+            Die();
+        }
         else
         {
+            // HP 0 이하여도 suppressDeath 중이면 피격모션 재생, 사망은 지연
             isHit = true;
             isAttacking = false;
             CancelInvoke("DealDamageToPlayer");
             CancelInvoke("FinishAttack");
-
             rb.linearVelocity = Vector2.zero;
             if (anim) anim.Play(hitAnimName, -1, 0f);
             Invoke("ResetHit", 0.5f);
         }
+    }
+
+    /// <summary>스킬 연타 완료 후 호출 — suppressDeath 해제 및 지연된 사망 처리</summary>
+    public void ReleaseSuppressDeath()
+    {
+        suppressDeath = false;
+        if (!isDead && currentHealth <= 0)
+            Die();
     }
 
     void ResetHit()

@@ -204,9 +204,17 @@ public class SkillThunderGod : MonoBehaviour
 
     private IEnumerator StrikeTargets(List<StrikeTarget> targets)
     {
-        int baseAttack = _combat != null ? _combat.attackPower : 10;
+        int baseAttack   = _combat != null ? _combat.attackPower : 10;
         int perHitDamage = Mathf.Max(1, Mathf.RoundToInt(baseAttack * totalDamageMultiplier / Mathf.Max(1, hitCount)));
 
+        // ① 6연타 시작 전 — 모든 타겟의 사망 판정 지연
+        foreach (var t in targets)
+        {
+            if (t.monster != null) t.monster.suppressDeath = true;
+            if (t.boss    != null) t.boss.suppressDeath    = true;
+        }
+
+        // ② 6연타 — isDead가 아직 false이므로 HP 0 이하여도 피격모션+이펙트 모두 재생
         for (int i = 0; i < hitCount; i++)
         {
             for (int t = 0; t < targets.Count; t++)
@@ -214,8 +222,7 @@ public class SkillThunderGod : MonoBehaviour
                 StrikeTarget target = targets[t];
                 if (target.transform == null) continue;
 
-                Vector3 hitPos = target.transform.position + Vector3.up * 0.6f;
-                SpawnFX(monsterFXPrefab, hitPos);
+                SpawnFX(monsterFXPrefab, target.transform.position + Vector3.up * 0.6f);
 
                 if (target.monster != null && !target.monster.isDead)
                     target.monster.TakeDamage(perHitDamage, false);
@@ -225,6 +232,14 @@ public class SkillThunderGod : MonoBehaviour
 
             if (i < hitCount - 1)
                 yield return new WaitForSeconds(hitInterval);
+        }
+
+        // ③ 모든 타격 완료 — 지연된 사망 판정 일괄 처리
+        yield return new WaitForSeconds(hitInterval); // 마지막 피격모션 잠깐 유지
+        foreach (var t in targets)
+        {
+            t.monster?.ReleaseSuppressDeath();
+            t.boss?.ReleaseSuppressDeath();
         }
     }
 

@@ -1051,6 +1051,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &131423496 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 8874675345365632662, guid: e5d33013ef139df4d80ca3f7bf1badd7, type: 3}
@@ -2651,6 +2652,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &332207352 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 8874675345365632662, guid: e5d33013ef139df4d80ca3f7bf1badd7, type: 3}
@@ -2811,6 +2813,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &359804344 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 2601841758491505267, guid: fb25f05e23375e045a018ebdeafad47c, type: 3}
@@ -3444,7 +3447,6 @@ MonoBehaviour:
   dashSpeed: 22
   dashDistance: 14
   hitBoxHeight: 3.5
-  fxDelayAfterDash: 0.2
   hitDelayAfterFX: 0.1
   invincibleDuration: 0.5
   totalDamageMultiplier: 8
@@ -4350,6 +4352,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &528206605 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 8874675345365632662, guid: e5d33013ef139df4d80ca3f7bf1badd7, type: 3}
@@ -4655,6 +4658,7 @@ MonoBehaviour:
   sessionEarnedDiamond: 0
   dungeonIndex: 1
   hasReactDungeonIndex: 0
+  selectedSkill: 
   savedAvatarJson: 
 --- !u!4 &577946505
 Transform:
@@ -5588,6 +5592,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &749972248 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 2601841758491505267, guid: fb25f05e23375e045a018ebdeafad47c, type: 3}
@@ -6683,6 +6688,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &904174258 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 8874675345365632662, guid: e5d33013ef139df4d80ca3f7bf1badd7, type: 3}
@@ -6843,6 +6849,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &904601446 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 8874675345365632662, guid: e5d33013ef139df4d80ca3f7bf1badd7, type: 3}
@@ -7105,6 +7112,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!61 &985455882
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -7607,6 +7615,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &1012017688 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 8874675345365632662, guid: e5d33013ef139df4d80ca3f7bf1badd7, type: 3}
@@ -11166,6 +11175,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &1397523294 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 8874675345365632662, guid: e5d33013ef139df4d80ca3f7bf1badd7, type: 3}
@@ -12962,6 +12972,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &1564113942 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 2601841758491505267, guid: fb25f05e23375e045a018ebdeafad47c, type: 3}
@@ -13122,6 +13133,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &1573100586 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 2601841758491505267, guid: fb25f05e23375e045a018ebdeafad47c, type: 3}
@@ -13582,6 +13594,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &1595645457 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 2601841758491505267, guid: fb25f05e23375e045a018ebdeafad47c, type: 3}
@@ -14392,6 +14405,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &1775751826 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 2601841758491505267, guid: fb25f05e23375e045a018ebdeafad47c, type: 3}
@@ -14991,6 +15005,7 @@ MonoBehaviour:
   hitAnimName: Snake_Hit
   deadAnimName: Snake_Dead
   isDead: 0
+  suppressDeath: 0
 --- !u!95 &1865922107 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 2601841758491505267, guid: fb25f05e23375e045a018ebdeafad47c, type: 3}
