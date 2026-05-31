@@ -119,7 +119,7 @@ namespace LayerLab.ArtMaker
 
         public void TakePlayerDamage(int damage, Vector3 monsterPos)
         {
-            int finalDamage = Mathf.Max(1, damage - (defense / 2));
+            int finalDamage = Mathf.Max(1, damage - (defense / 4)); // 방어력 1 = 피해 0.25 감소
             currentHealth -= finalDamage;
 
             // 체력을 GameManager에 즉시 동기화
@@ -245,7 +245,7 @@ namespace LayerLab.ArtMaker
                 Collider2D[] hitMonsters = Physics2D.OverlapCircleAll(attackPoint.position, attackRange, monsterLayer);
                 foreach (Collider2D monster in hitMonsters)
                 {
-                    bool isCrit = Random.Range(0, 100) < critChance;
+                    bool isCrit = Random.Range(0, 200) < Mathf.Min(critChance, 160); // 최대 80% (160/200)
                     int finalDamage = isCrit
                         ? Mathf.RoundToInt(attackPower * critDamageMultiplier)
                         : attackPower;
