@@ -674,35 +674,45 @@ function App() {
           {/* 말풍선 — 펫 크기에 맞춰 bottom 계산, RAF로 left 동기화 */}
           {(() => {
             const petH = Math.round((activePetMonster?.frameHeight || 80) * (activePetMonster?.scale || 0.5) * 2);
-            const bubbleBottom = 4 + petH; // 펫 발 위치(4) + 렌더 높이
+            const bubbleBottom = 4 + petH;
             return petSpeech ? (
               <div ref={petBubbleRef}
-                style={{ position:'fixed', bottom: bubbleBottom, left: -9999, zIndex:25, maxWidth:200, pointerEvents:'none', overflow:'visible' }}
+                style={{ position:'fixed', bottom: bubbleBottom, left: -9999, zIndex:25, maxWidth:200, pointerEvents:'none' }}
                 className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-slate-200 text-sm font-bold text-slate-700 select-none whitespace-nowrap">
                 {petSpeech}
-                {/* 쓰다듬기 하트 이펙트 */}
-                {showPetHearts && (
-                  <div style={{ position:'absolute', bottom:'100%', left:'50%', transform:'translateX(-50%)', width:100, height:80, pointerEvents:'none' }}>
-                    {['💕','❤️','💖','✨','💝'].map((h, i) => (
-                      <span key={i} style={{
-                        position:'absolute', left:`${8 + i*20}%`, bottom:0,
-                        fontSize: 14 + (i%3)*5,
-                        animation:`wpHeart${i%3} 1.4s ease-out ${i*0.18}s forwards`,
-                        opacity:0,
-                      }}>{h}</span>
-                    ))}
-                    <style>{`
-                      @keyframes wpHeart0{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-65px) scale(1.1) rotate(-12deg)}}
-                      @keyframes wpHeart1{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(1.2) rotate(9deg)}}
-                      @keyframes wpHeart2{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-55px) scale(1.0) rotate(-6deg)}}
-                    `}</style>
-                  </div>
-                )}
                 <div style={{ position:'absolute', bottom:-7, left:14, width:12, height:12,
                   background:'white', borderRight:'1px solid #e2e8f0', borderBottom:'1px solid #e2e8f0',
                   transform:'rotate(45deg)' }} />
               </div>
             ) : null;
+          })()}
+
+          {/* 쓰다듬기 하트 이펙트 — 말풍선과 분리된 독립 오버레이 */}
+          {showPetHearts && (() => {
+            const petH = Math.round((activePetMonster?.frameHeight || 80) * (activePetMonster?.scale || 0.5) * 2);
+            // petBubbleRef와 같은 x 위치 사용, 펫 위부터 시작
+            const startBottom = 4 + petH;
+            const startLeft   = petBubbleRef.current
+              ? parseInt(petBubbleRef.current.style.left || '-9999', 10)
+              : Math.floor(window.innerWidth * 0.75);
+            if (startLeft < 0) return null; // 아직 위치 미지정
+            return (
+              <div style={{ position:'fixed', bottom: startBottom, left: startLeft, width:120, height:100, zIndex:26, pointerEvents:'none' }}>
+                {['💕','❤️','💖','✨','💝'].map((h, i) => (
+                  <span key={i} style={{
+                    position:'absolute', left:`${6 + i*20}%`, bottom:0,
+                    fontSize: 16 + (i%3)*5,
+                    animation:`wpHeart${i%3} 1.5s ease-out ${i*0.18}s forwards`,
+                    opacity:0,
+                  }}>{h}</span>
+                ))}
+                <style>{`
+                  @keyframes wpHeart0{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(1.2) rotate(-12deg)}}
+                  @keyframes wpHeart1{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-95px) scale(1.3) rotate(9deg)}}
+                  @keyframes wpHeart2{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-65px) scale(1.1) rotate(-6deg)}}
+                `}</style>
+              </div>
+            );
           })()}
 
           {/* 💩 똥 */}
