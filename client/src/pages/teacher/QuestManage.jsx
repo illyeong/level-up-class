@@ -531,14 +531,20 @@ function SharedQuestModal({
 }
 
 function RecommendedSidebar({ onSelect, templates }) {
+  const [open, setOpen] = React.useState(false);
   return (
     <aside className="w-52 shrink-0 flex flex-col gap-3">
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 bg-violet-50 border-b border-violet-100">
-          <h2 className="text-sm font-extrabold text-violet-700">✨ 추천 퀘스트</h2>
-          <p className="text-[10px] text-violet-500 mt-0.5">추가하기로 바로 생성</p>
-        </div>
-        <div className="max-h-[calc(100vh-220px)] overflow-y-auto p-3 space-y-2.5">
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="w-full px-4 py-3 bg-violet-50 border-b border-violet-100 flex items-center justify-between hover:bg-violet-100 transition-colors">
+          <div className="text-left">
+            <h2 className="text-sm font-extrabold text-violet-700">✨ 추천 퀘스트</h2>
+            <p className="text-[10px] text-violet-500 mt-0.5">추가하기로 바로 생성</p>
+          </div>
+          <span className={`text-violet-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+        </button>
+        {open && <div className="max-h-[calc(100vh-260px)] overflow-y-auto p-3 space-y-2.5">
           {(templates || RECOMMENDED).map((t, i) => {
             const diff = DIFF[t.difficulty] || DIFF.easy;
             return (
@@ -567,7 +573,7 @@ function RecommendedSidebar({ onSelect, templates }) {
               </div>
             );
           })}
-        </div>
+        </div>}
       </div>
     </aside>
   );

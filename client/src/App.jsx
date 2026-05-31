@@ -74,10 +74,10 @@ function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef }) {
             lastSx = sx;
           }
         }
-        // 말풍선도 같은 x 위치로 동기화
-        if (bubbleRef?.current) {
-          bubbleRef.current.style.left = p.x + 'px';
-        }
+      }
+      // 말풍선은 run/idle 상관없이 항상 펫 위치 동기화
+      if (bubbleRef?.current) {
+        bubbleRef.current.style.left = p.x + 'px';
       }
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -189,6 +189,7 @@ function App() {
   const [activePetCleanliness, setActivePetCleanliness] = useState(100);
   const [showPetPopup,         setShowPetPopup]         = useState(false);
   const [petSpeech,            setPetSpeech]            = useState(null);
+  const [showPetHearts,        setShowPetHearts]        = useState(false); // 쓰다듬기 하트 이펙트
   const petBubbleRef = useRef(null); // 말풍선 DOM ref (펫 따라다니기용)
   const [hasPoop,              setHasPoop]              = useState(false);
   const [petVisible, setPetVisible] = useState(true);
@@ -670,17 +671,39 @@ function App() {
             }}
           />
 
-          {/* 말풍선 — 펫을 따라다님 (ref로 RAF 동기화, left는 RAF에서 설정) */}
-          {petSpeech && (
-            <div ref={petBubbleRef}
-              style={{ position:'fixed', bottom:88, left: -9999, zIndex:25, maxWidth:200, pointerEvents:'none' }}
-              className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-slate-200 text-sm font-bold text-slate-700 select-none whitespace-nowrap">
-              {petSpeech}
-              <div style={{ position:'absolute', bottom:-7, left:14, width:12, height:12,
-                background:'white', borderRight:'1px solid #e2e8f0', borderBottom:'1px solid #e2e8f0',
-                transform:'rotate(45deg)' }} />
-            </div>
-          )}
+          {/* 말풍선 — 펫 크기에 맞춰 bottom 계산, RAF로 left 동기화 */}
+          {(() => {
+            const petH = Math.round((activePetMonster?.frameHeight || 80) * (activePetMonster?.scale || 0.5) * 2);
+            const bubbleBottom = 4 + petH; // 펫 발 위치(4) + 렌더 높이
+            return petSpeech ? (
+              <div ref={petBubbleRef}
+                style={{ position:'fixed', bottom: bubbleBottom, left: -9999, zIndex:25, maxWidth:200, pointerEvents:'none', overflow:'visible' }}
+                className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-slate-200 text-sm font-bold text-slate-700 select-none whitespace-nowrap">
+                {petSpeech}
+                {/* 쓰다듬기 하트 이펙트 */}
+                {showPetHearts && (
+                  <div style={{ position:'absolute', bottom:'100%', left:'50%', transform:'translateX(-50%)', width:100, height:80, pointerEvents:'none' }}>
+                    {['💕','❤️','💖','✨','💝'].map((h, i) => (
+                      <span key={i} style={{
+                        position:'absolute', left:`${8 + i*20}%`, bottom:0,
+                        fontSize: 14 + (i%3)*5,
+                        animation:`wpHeart${i%3} 1.4s ease-out ${i*0.18}s forwards`,
+                        opacity:0,
+                      }}>{h}</span>
+                    ))}
+                    <style>{`
+                      @keyframes wpHeart0{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-65px) scale(1.1) rotate(-12deg)}}
+                      @keyframes wpHeart1{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-80px) scale(1.2) rotate(9deg)}}
+                      @keyframes wpHeart2{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-55px) scale(1.0) rotate(-6deg)}}
+                    `}</style>
+                  </div>
+                )}
+                <div style={{ position:'absolute', bottom:-7, left:14, width:12, height:12,
+                  background:'white', borderRight:'1px solid #e2e8f0', borderBottom:'1px solid #e2e8f0',
+                  transform:'rotate(45deg)' }} />
+              </div>
+            ) : null;
+          })()}
 
           {/* 💩 똥 */}
           {hasPoop && (
@@ -709,7 +732,7 @@ function App() {
             if (!urgent) return null;
             return (
               <div ref={petBubbleRef}
-                style={{ position:'fixed', bottom:88, left:-9999, zIndex:24, maxWidth:200, pointerEvents:'none' }}
+                style={{ position:'fixed', bottom: 4 + Math.round((activePetMonster?.frameHeight||80)*(activePetMonster?.scale||0.5)*2), left:-9999, zIndex:24, maxWidth:200, pointerEvents:'none' }}
                 className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-rose-200 text-sm font-bold text-rose-600 animate-bounce select-none whitespace-nowrap">
                 {urgent}
                 <div style={{ position:'absolute', bottom:-7, left:14, width:12, height:12,
@@ -790,8 +813,9 @@ function App() {
                     await updateDoc(doc(db, 'studentPets', activePetData.id), { happiness: newH, lastCareAt: serverTimestamp() });
                     const petLines = ['기분 좋아요~ 💕', '더 해줘요! 🥰', '행복해요! ✨', '좋아요~ 💝', '이게 최고야! 💖'];
                     setPetSpeech(petLines[Math.floor(Math.random() * petLines.length)]);
+                    setShowPetHearts(true);
                     clearTimeout(window._petSpeechTimer);
-                    window._petSpeechTimer = setTimeout(() => setPetSpeech(null), 3000);
+                    window._petSpeechTimer = setTimeout(() => { setPetSpeech(null); setShowPetHearts(false); }, 2800);
                     setShowPetPopup(false);
                   }}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-pink-500 hover:bg-pink-400 text-[10px] font-bold transition-colors">

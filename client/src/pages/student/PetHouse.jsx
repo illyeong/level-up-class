@@ -1070,303 +1070,220 @@ export default function PetHouse({ studentCode }) {
           );
 
           return (
-            <div className="flex gap-4" style={{ minHeight: 720 }}>
+            <div className="flex gap-3" style={{ minHeight: 720 }}>
 
-              {/* ── 왼쪽: 상세 패널 ──────────────────── */}
-              <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl flex flex-col overflow-y-auto p-4 items-center" style={{ width: 340, maxHeight: 720 }}>
-                {sp && spMd ? (() => {
-                  const r = RARITY[sp.rarity] || RARITY.common;
-                  const isMythic = sp.rarity === 'mythic';
-                  const isActive = sp.id === activePetId;
-                  const dh = DETAIL_H[spMd.tier] || 100;
-                  const dScale = dh / (spMd.frameHeight || 120);
-                  const lv         = getPetLevel(sp.petExp ?? 0);
-                  const mult       = getPetStatMultiplier(lv);
-                  const baseStats  = sp.stats || {};
-                  // 레벨 적용 스탯 (소수점 버림)
-                  const effStats   = Object.fromEntries(
-                    Object.entries(baseStats).map(([k, v]) => [k, Math.floor(v * mult)])
-                  );
-                  const statLines  = formatStats(effStats);
-                  return (
-                    <>
-                      {isActive && (
-                        <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border mb-2 ${r.bg} ${r.text} ${r.border}`}>
-                          ★ 대표 펫
-                        </span>
-                      )}
-                      {/* 대형 스프라이트 — 허기 0이면 death 애니메이션 */}
-                      {(() => {
-                        const isDead = (sp.hunger ?? 100) <= 0;
-                        const currentAnim = isDead ? 'death' : detailAnim;
-                        return (
-                          <div className="flex justify-center items-end mb-3 cursor-pointer"
-                            style={{ height: dh + 10, filter: isMythic ? 'drop-shadow(0 0 12px #f43f5e)' : `drop-shadow(0 0 8px ${RARITY_THEME[sp.rarity]?.glow || '#60a5fa'})`, opacity: isDead ? 0.5 : 1 }}
-                            onClick={() => !isDead && setDetailAnim(a => a === 'idle' ? 'attack' : 'idle')}>
-                            <SpriteMonster data={spMd} anim={currentAnim} scale={dScale} onAnimEnd={() => !isDead && setDetailAnim('idle')} />
-                          </div>
-                        );
-                      })()}
-                      {(sp.hunger ?? 100) <= 0 && (
-                        <div className="text-rose-400 text-xs font-bold text-center mb-1 animate-pulse">💀 굶주림... 먹이를 주세요!</div>
-                      )}
-                      {/* 이름 + 등급 */}
-                      <p className="text-white font-extrabold text-lg mb-0.5">{sp.nickname || spMd.name}</p>
-                      <p className={`text-xs font-bold ${r.text} mb-3`}>{r.badge} {r.label}</p>
-                      {/* 스탯 (레벨 배율 적용) */}
+              {/* 정보 카드 + 조작 카드 */}
+              {sp && spMd ? (() => {
+                const r = RARITY[sp.rarity] || RARITY.common;
+                const isMythic = sp.rarity === 'mythic';
+                const isActive = sp.id === activePetId;
+                const dh = DETAIL_H[spMd.tier] || 100;
+                const dScale = dh / (spMd.frameHeight || 120);
+                const lv = getPetLevel(sp.petExp ?? 0);
+                const mult = getPetStatMultiplier(lv);
+                const baseStats = sp.stats || {};
+                const effStats = Object.fromEntries(Object.entries(baseStats).map(([k, v]) => [k, Math.floor(v * mult)]));
+                const isDead = (sp.hunger ?? 100) <= 0;
+                const { level, current, needed, pct } = getLevelProgress(sp.petExp ?? 0);
+                const aff = sp.affection ?? 0;
+                const title = getAffectionTitle(aff);
+                const hunger = sp.hunger ?? 100;
+                const happiness = sp.happiness ?? 100;
+                const care = getDailyCare(sp);
+                const dialogue = getPetDialogue(sp);
+                const clean = sp.cleanliness ?? 100;
+                const energy = sp.energy ?? 100;
+                const nextMs = AFFECTION_MILESTONES.find(m => m.val > aff);
+                const currentAnim = isDead ? 'death' : detailAnim;
+                const bar = (v, bg) => (
+                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${v}%`, background: bg }} />
+                  </div>
+                );
+                return (
+                  <>
+                    {/* 정보 카드 */}
+                    <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl flex flex-col overflow-y-auto p-3 items-center" style={{ width: 165, maxHeight: 720 }}>
+                      {isActive && <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border mb-2 ${r.bg} ${r.text} ${r.border}`}>★ 대표 펫</span>}
+                      <div className="flex justify-center items-end mb-2 cursor-pointer"
+                        style={{ height: dh + 10, filter: isMythic ? 'drop-shadow(0 0 10px #f43f5e)' : `drop-shadow(0 0 8px ${RARITY_THEME[sp.rarity]?.glow || '#60a5fa'})`, opacity: isDead ? 0.5 : 1 }}
+                        onClick={() => !isDead && setDetailAnim(a => a === 'idle' ? 'attack' : 'idle')}>
+                        <SpriteMonster data={spMd} anim={currentAnim} scale={dScale} onAnimEnd={() => !isDead && setDetailAnim('idle')} />
+                      </div>
+                      {isDead && <p className="text-rose-400 text-[10px] font-bold text-center mb-1 animate-pulse">💀 굶주려요!</p>}
+                      <p className="text-white font-extrabold text-sm mb-0.5 text-center w-full truncate">{sp.nickname || spMd.name}</p>
+                      <p className={`text-[10px] font-bold ${r.text} mb-2 text-center`}>{r.badge} {r.label}</p>
                       <div className="w-full space-y-1 mb-2">
-                        {Object.entries(baseStats).filter(([,v]) => v > 0).map(([k, base], i) => {
-                          const eff  = effStats[k] || 0;
+                        {Object.entries(baseStats).filter(([, v]) => v > 0).map(([k, base], i) => {
+                          const eff = effStats[k] || 0;
                           const meta = STATS_META[k];
                           const unit = k === 'crit' ? '%' : '';
                           return (
-                            <div key={i} className="flex items-center justify-between bg-slate-700/60 rounded-lg px-3 py-1.5">
-                              <span className="text-slate-300 text-xs font-bold">{meta?.icon} {meta?.label}</span>
-                              <span className="flex items-center gap-1">
-                                <span className="text-slate-400 text-[10px]">+{base}{unit}</span>
-                                <span className="text-indigo-300 text-[10px]">→</span>
-                                <span className="text-white text-xs font-extrabold">+{eff}{unit}</span>
+                            <div key={i} className="flex items-center justify-between bg-slate-700/60 rounded-lg px-2 py-1">
+                              <span className="text-slate-300 text-[10px] font-bold">{meta?.icon}</span>
+                              <span className="flex items-center gap-0.5">
+                                <span className="text-slate-400 text-[9px]">+{base}{unit}</span>
+                                <span className="text-indigo-300 text-[9px]">→</span>
+                                <span className="text-white text-[10px] font-extrabold">+{eff}{unit}</span>
                               </span>
                             </div>
                           );
                         })}
                       </div>
-                      {lv > 1 && (
-                        <p className="text-[10px] text-indigo-400 text-right mb-3">
-                          Lv.{lv} 배율 ×{mult.toFixed(2)} 적용됨
-                        </p>
-                      )}
-                      {/* 레벨 + EXP */}
-                      {(() => {
-                        const { level, current, needed, pct } = getLevelProgress(sp.petExp ?? 0);
-                        const aff   = sp.affection ?? 0;
-                        const title = getAffectionTitle(aff);
-                        return (
-                          <div className="w-full mt-2 bg-slate-800/60 rounded-xl p-2.5">
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-extrabold text-indigo-300">Lv.{level}</span>
-                                {title && <span className="text-[10px] font-bold text-amber-400 bg-amber-900/30 px-1.5 py-0.5 rounded-full">{title}</span>}
-                              </div>
-                              {level < MAX_PET_LEVEL && (
-                                <span className="text-[10px] text-slate-400">{current}/{needed} EXP</span>
-                              )}
+                      <div className="w-full bg-slate-800/60 rounded-xl p-2 mb-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-extrabold text-indigo-300">Lv.{level}</span>
+                          {title && <span className="text-[9px] font-bold text-amber-400">{title}</span>}
+                        </div>
+                        {level < MAX_PET_LEVEL ? (
+                          <>
+                            <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                              <div className="h-full bg-indigo-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
                             </div>
-                            {level < MAX_PET_LEVEL && (
-                              <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                <div className="h-full bg-indigo-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                              </div>
-                            )}
-                            {level >= MAX_PET_LEVEL && <p className="text-[10px] text-amber-400 text-center">✨ 최고 레벨 달성!</p>}
-                          </div>
-                        );
-                      })()}
-
-                      {/* 버튼 */}
-                      <div className="w-full space-y-2 mt-3">
+                            <p className="text-[9px] text-slate-500 text-right mt-0.5">{current}/{needed} EXP</p>
+                          </>
+                        ) : <p className="text-[9px] text-amber-400 text-center">✨ MAX</p>}
+                        {lv > 1 && <p className="text-[9px] text-indigo-500 text-right">×{mult.toFixed(2)}</p>}
+                      </div>
+                      <div className="w-full space-y-1.5">
                         {!isActive && (
                           <button onClick={() => handleSetActive(sp.id)}
-                            className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold rounded-xl text-sm">
-                            ⭐ 대표 펫으로 설정
+                            className="w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold rounded-xl text-xs">
+                            ⭐ 대표 펫
                           </button>
                         )}
-                        {/* 이름 변경: 친밀도 50+ 필요 */}
-                        {(sp.affection ?? 0) >= 50 ? (
+                        {aff >= 50 ? (
                           <button onClick={() => { setRenamePet(sp); setRenameInput(sp.nickname || ''); }}
-                            className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold rounded-xl text-sm">
-                            ✏️ 이름 변경
+                            className="w-full py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-xl text-xs">
+                            이름 변경
                           </button>
                         ) : (
-                          <div className="w-full py-2 rounded-xl bg-slate-800 text-slate-600 text-xs text-center font-bold">
-                            ✏️ 이름 변경 (친밀도 {50 - (sp.affection ?? 0)} 남음)
-                          </div>
+                          <p className="text-[9px] text-slate-600 text-center">이름 변경 (친밀도 {50 - aff} 남음)</p>
                         )}
                       </div>
-                      {/* 구분선 */}
-                      <div className="w-full border-t border-slate-600/60 my-3" />
-                      {/* 조작 UI */}
-                      {(() => {
-                        const isDead    = (sp.hunger ?? 100) <= 0;
-                        const hunger    = sp.hunger    ?? 100;
-                        const happiness = sp.happiness ?? 100;
-                        const care      = getDailyCare(sp);
-                        const state     = getPetState(sp);
-                        const dialogue  = getPetDialogue(sp);
-                        const stateBar  = (v, color) => (
-                          <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${v}%` }} />
-                          </div>
-                        );
-                        return (
-                          <div className="w-full mt-3 border-t border-slate-700 pt-3 space-y-2.5">
-                            {/* 대사 */}
-                            <div className="bg-slate-700/50 rounded-xl px-3 py-2 text-center text-xs text-slate-200 font-bold italic">
-                              💬 "{dialogue}"
-                            </div>
+                      <p className="text-slate-600 text-[9px] text-center mt-2">클릭 = 애니</p>
+                    </div>
 
-                            {/* 배고픔 바 */}
-                            <div>
-                              <div className="flex justify-between mb-1">
-                                <span className="text-[11px] text-slate-300 font-bold">🍖 배고픔</span>
-                                <span className={`text-[10px] font-bold ${hunger < 20 ? 'text-rose-400 animate-pulse' : hunger < 50 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                                  {hunger}/100 ({care.feedCount}/3회)
-                                </span>
-                              </div>
-                              {stateBar(hunger, hunger >= 70 ? 'bg-emerald-400' : hunger >= 40 ? 'bg-amber-400' : 'bg-rose-500')}
-                            </div>
-
-                            {/* 행복도 바 */}
-                            <div>
-                              <div className="flex justify-between mb-1">
-                                <span className="text-[11px] text-slate-300 font-bold">💝 행복도</span>
-                                <span className={`text-[10px] font-bold ${happiness < 20 ? 'text-rose-400' : happiness < 50 ? 'text-amber-400' : 'text-sky-400'}`}>
-                                  {happiness}/100 ({care.petCount}/3회)
-                                </span>
-                              </div>
-                              {stateBar(happiness, happiness >= 70 ? 'bg-sky-400' : happiness >= 40 ? 'bg-amber-400' : 'bg-rose-500')}
-                            </div>
-
-                            {/* 먹이주기 버튼 3종 */}
-                            <div className="space-y-1">
-                              <p className="text-[10px] text-slate-500 font-bold">먹이주기 (하루 3회)</p>
-                              {FOOD_OPTIONS.map(food => {
-                                const cost  = food.costType === 'gold' ? (student?.gold || 0) : (student?.diamonds || 0);
-                                const noMoney = cost < food.cost;
-                                const full    = hunger >= 100;
-                                const maxed   = care.feedCount >= 3;
-                                return (
-                                  <button key={food.id} onClick={() => feedPet(sp, food)}
-                                    disabled={noMoney || full || maxed}
-                                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-bold transition-all
-                                      ${noMoney || full || maxed ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-amber-600 hover:text-white text-slate-200'}`}>
-                                    <span>{food.emoji} {food.name}</span>
-                                    <span className="opacity-70">배고픔+{food.hunger}{food.happiness ? ` 행복+${food.happiness}` : ''} · {food.cost}{food.costType === 'gold' ? '🪙' : '💎'}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {/* 쓰다듬기 */}
-                            <button onClick={() => petThePet(sp)}
-                              disabled={isDead || care.petCount >= 3 || happiness >= 100}
-                              className={`w-full py-2 rounded-xl font-extrabold text-sm transition-all
-                                ${isDead || care.petCount >= 3 || happiness >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg'}`}>
-                              {isDead ? '💀 먼저 밥을 주세요' : care.petCount >= 3 ? '💝 오늘 쓰다듬기 완료' : `💝 쓰다듬기 (행복+15) — ${3 - care.petCount}회 남음`}
+                    {/* 조작 카드 */}
+                    <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl flex flex-col overflow-y-auto p-3" style={{ width: 210, maxHeight: 720 }}>
+                      <div className="bg-slate-700/50 rounded-xl px-3 py-2 text-center text-xs text-slate-200 font-bold italic mb-3">
+                        💬 "{dialogue}"
+                      </div>
+                      <div className="mb-2">
+                        <div className="flex justify-between mb-1">
+                          <span className="text-[11px] text-slate-300 font-bold">🍖 배고픔</span>
+                          <span className={`text-[10px] font-bold ${hunger < 20 ? 'text-rose-400 animate-pulse' : hunger < 50 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                            {hunger}/100 ({care.feedCount}/3)
+                          </span>
+                        </div>
+                        {bar(hunger, hunger >= 70 ? '#34d399' : hunger >= 40 ? '#fbbf24' : '#f87171')}
+                      </div>
+                      <div className="space-y-1 mb-3">
+                        {FOOD_OPTIONS.map(food => {
+                          const bal = food.costType === 'gold' ? (student?.gold || 0) : (student?.diamonds || 0);
+                          const noMoney = bal < food.cost;
+                          const full = hunger >= 100;
+                          const maxed = care.feedCount >= 3;
+                          return (
+                            <button key={food.id} onClick={() => feedPet(sp, food)}
+                              disabled={isDead || noMoney || full || maxed}
+                              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all
+                                ${isDead || noMoney || full || maxed ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-amber-600 hover:text-white text-slate-200'}`}>
+                              <span>{food.emoji} {food.name}</span>
+                              <span className="opacity-70">{food.cost}{food.costType === 'gold' ? '🪙' : '💎'}</span>
                             </button>
-
-                            {/* Phase 2: 청결도·기력·친밀도 */}
-                            {(() => {
-                              const clean = sp.cleanliness ?? 100;
-                              const energy = sp.energy    ?? 100;
-                              const aff    = sp.affection ?? 0;
-                              const nextMs = AFFECTION_MILESTONES.find(m => m.val > aff);
-                              const lastMs = [...AFFECTION_MILESTONES].reverse().find(m => m.val <= aff);
-                              return (
-                                <>
-                                  <div className="grid grid-cols-2 gap-1.5">
-                                    {/* 청결도 */}
-                                    <div className="bg-slate-800/60 rounded-xl p-2">
-                                      <div className="flex justify-between mb-1">
-                                        <span className="text-[10px] text-slate-300 font-bold">🛁 청결</span>
-                                        <span className="text-[10px] text-slate-400">{clean}/100</span>
-                                      </div>
-                                      <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                                        <div className="h-full bg-cyan-400 rounded-full" style={{ width: `${clean}%` }} />
-                                      </div>
-                                    </div>
-                                    {/* 기력 */}
-                                    <div className="bg-slate-800/60 rounded-xl p-2">
-                                      <div className="flex justify-between mb-1">
-                                        <span className="text-[10px] text-slate-300 font-bold">⚡ 기력</span>
-                                        <span className="text-[10px] text-slate-400">{energy}/100</span>
-                                      </div>
-                                      <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                                        <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${energy}%` }} />
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* 씻기기 / 놀아주기 */}
-                                  <div className="grid grid-cols-2 gap-1.5">
-                                    <button onClick={() => washPet(sp)}
-                                      disabled={isDead || care.washCount >= 1 || clean >= 100}
-                                      className={`py-2 rounded-xl font-bold text-xs transition-all
-                                        ${isDead || care.washCount >= 1 || clean >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-white'}`}>
-                                      {isDead ? '💀 불가' : care.washCount >= 1 ? '🛁 오늘 완료' : '🛁 씻기기 (청결+30)'}
-                                    </button>
-                                    <button onClick={() => playWithPet(sp)}
-                                      disabled={isDead || care.playCount >= 2 || energy < 15}
-                                      className={`py-2 rounded-xl font-bold text-xs transition-all
-                                        ${isDead || care.playCount >= 2 || energy < 15 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-violet-500 hover:bg-violet-400 text-white'}`}>
-                                      {isDead ? '💀 불가' : care.playCount >= 2 ? '🎮 오늘 완료' : `🎮 놀아주기 (${2 - care.playCount}회 남음)`}
-                                    </button>
-                                  </div>
-
-                                  {/* 친밀도 보상 목록 */}
-                                  <div className="bg-slate-800/60 rounded-xl p-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <span className="text-xs text-slate-300 font-extrabold">🤝 친밀도 보상</span>
-                                      <span className="text-xs text-amber-400 font-extrabold">{aff} / {nextMs?.val || '최대'}</span>
-                                    </div>
-
-                                    {/* 전체 진행 바 */}
-                                    {nextMs && (
-                                      <div className="h-2 bg-slate-700 rounded-full overflow-hidden mb-3">
-                                        <div className="h-full bg-amber-400 rounded-full transition-all"
-                                          style={{ width: `${Math.min(100, (aff / nextMs.val) * 100)}%` }} />
-                                      </div>
-                                    )}
-
-                                    {/* 보상 목록 */}
-                                    <div className="space-y-1.5">
-                                      {AFFECTION_MILESTONES.map(m => {
-                                        const unlocked = aff >= m.val;
-                                        const isCurrent = nextMs?.val === m.val; // 다음 목표
-                                        return (
-                                          <div key={m.val} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all
-                                            ${unlocked
-                                              ? 'bg-amber-500/20 border border-amber-500/40'
-                                              : isCurrent
-                                                ? 'bg-slate-700/50 border border-slate-500 border-dashed'
-                                                : 'bg-slate-800/40 border border-slate-700/50'}`}>
-                                            <span className={`text-base shrink-0 ${unlocked ? '' : 'opacity-40'}`}>{m.emoji}</span>
-                                            <div className="flex-1 min-w-0">
-                                              <p className={`text-xs font-bold truncate ${unlocked ? 'text-amber-300' : 'text-slate-400'}`}>
-                                                {m.label}
-                                              </p>
-                                            </div>
-                                            <span className={`text-[10px] font-extrabold shrink-0
-                                              ${unlocked ? 'text-amber-400' : isCurrent ? 'text-slate-400' : 'text-slate-600'}`}>
-                                              {unlocked ? '✅' : `${m.val}`}
-                                            </span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-
-                                    {nextMs && (
-                                      <p className="text-[10px] text-slate-400 text-center mt-2">
-                                        다음 보상까지 <span className="text-amber-400 font-bold">{nextMs.val - aff}</span> 더 필요
-                                      </p>
-                                    )}
-                                  </div>
-                                </>
-                              );
-                            })()}
-
-                            <div className="text-[9px] text-slate-600 text-center">
-                              ⚔️ 대표 펫 설정 시 능력치 적용 · 행복80+ = 특기 100%
-                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mb-2">
+                        <div className="flex justify-between mb-1">
+                          <span className="text-[11px] text-slate-300 font-bold">💝 행복도</span>
+                          <span className={`text-[10px] font-bold ${happiness < 20 ? 'text-rose-400' : happiness < 50 ? 'text-amber-400' : 'text-sky-400'}`}>
+                            {happiness}/100 ({care.petCount}/3)
+                          </span>
+                        </div>
+                        {bar(happiness, happiness >= 70 ? '#38bdf8' : happiness >= 40 ? '#fbbf24' : '#f87171')}
+                      </div>
+                      <button onClick={() => petThePet(sp)}
+                        disabled={isDead || care.petCount >= 3 || happiness >= 100}
+                        className={`w-full py-2 rounded-xl font-extrabold text-xs mb-3 transition-all
+                          ${isDead || care.petCount >= 3 || happiness >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg'}`}>
+                        {isDead ? '💀 밥 먼저' : care.petCount >= 3 ? '💝 완료' : `💝 쓰다듬기 (${3 - care.petCount}회)`}
+                      </button>
+                      <div className="grid grid-cols-2 gap-1.5 mb-2">
+                        <div className="bg-slate-800/60 rounded-xl p-2">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-[10px] text-slate-300 font-bold">🛁 청결</span>
+                            <span className="text-[9px] text-slate-400">{clean}</span>
                           </div>
-                        );
-                      })()}
-                      <p className="text-slate-600 text-[9px] text-center mt-1">스프라이트 클릭 시 애니메이션 재생</p>
-                    </>
-                  );
-                })() : (
-                  <div className="p-8 text-slate-600 text-sm text-center">펫을 선택하세요</div>
-                )}
-              </div>{/* 왼쪽 상세 패널 끝 */}
+                          <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                            <div className="h-full bg-cyan-400 rounded-full" style={{ width: `${clean}%` }} />
+                          </div>
+                        </div>
+                        <div className="bg-slate-800/60 rounded-xl p-2">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-[10px] text-slate-300 font-bold">⚡ 기력</span>
+                            <span className="text-[9px] text-slate-400">{energy}</span>
+                          </div>
+                          <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                            <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${energy}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 mb-3">
+                        <button onClick={() => washPet(sp)}
+                          disabled={isDead || care.washCount >= 1 || clean >= 100}
+                          className={`py-2 rounded-xl font-bold text-xs transition-all
+                            ${isDead || care.washCount >= 1 || clean >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-white'}`}>
+                          {isDead ? '💀' : care.washCount >= 1 ? '🛁 완료' : '🛁 씻기기'}
+                        </button>
+                        <button onClick={() => playWithPet(sp)}
+                          disabled={isDead || care.playCount >= 2 || energy < 15}
+                          className={`py-2 rounded-xl font-bold text-xs transition-all
+                            ${isDead || care.playCount >= 2 || energy < 15 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-violet-500 hover:bg-violet-400 text-white'}`}>
+                          {isDead ? '💀' : care.playCount >= 2 ? '🎮 완료' : `🎮 놀기(${2 - care.playCount})`}
+                        </button>
+                      </div>
+                      <div className="bg-slate-800/60 rounded-xl p-2.5">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] text-slate-300 font-extrabold">🤝 친밀도</span>
+                          <span className="text-[10px] text-amber-400 font-extrabold">{aff} / {nextMs?.val || 'MAX'}</span>
+                        </div>
+                        {nextMs && (
+                          <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden mb-2">
+                            <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${Math.min(100, (aff / nextMs.val) * 100)}%` }} />
+                          </div>
+                        )}
+                        <div className="space-y-1">
+                          {AFFECTION_MILESTONES.map(m => {
+                            const unlocked = aff >= m.val;
+                            const isCurrent = nextMs?.val === m.val;
+                            return (
+                              <div key={m.val} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg
+                                ${unlocked ? 'bg-amber-500/20 border border-amber-500/40' : isCurrent ? 'bg-slate-700/50 border border-slate-500 border-dashed' : 'bg-slate-800/40 border border-slate-700/50'}`}>
+                                <span className={`text-sm shrink-0 ${unlocked ? '' : 'opacity-40'}`}>{m.emoji}</span>
+                                <p className={`text-[10px] font-bold flex-1 truncate ${unlocked ? 'text-amber-300' : 'text-slate-400'}`}>{m.label}</p>
+                                <span className={`text-[9px] font-extrabold shrink-0 ${unlocked ? 'text-amber-400' : isCurrent ? 'text-slate-400' : 'text-slate-600'}`}>
+                                  {unlocked ? '✅' : m.val}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {nextMs && <p className="text-[9px] text-slate-400 text-center mt-1.5">다음까지 <span className="text-amber-400 font-bold">{nextMs.val - aff}</span> 필요</p>}
+                      </div>
+                      <p className="text-[9px] text-slate-600 text-center mt-2">⚔️ 대표 펫 능력치 적용</p>
+                    </div>
+                  </>
+                );
+              })() : (
+                <>
+                  <div className="shrink-0 bg-slate-800/40 border border-slate-700 rounded-2xl flex items-center justify-center" style={{ width: 165, minHeight: 200 }}>
+                    <p className="text-slate-600 text-xs text-center p-4">펫을 선택하세요</p>
+                  </div>
+                  <div className="shrink-0 bg-slate-800/40 border border-slate-700 rounded-2xl" style={{ width: 210 }} />
+                </>
+              )}
 
               {/* ── 오른쪽: 3열 그리드 목록 ─────────────────────── */}
               <div className="flex-1 overflow-y-auto" style={{ maxHeight: 720 }}>

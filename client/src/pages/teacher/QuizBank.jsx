@@ -586,7 +586,8 @@ export default function QuizBank({ selectedClass = null }) {
   const parts       = subjectData?.parts || [];
   const rawUnits    = subjectData?.units;
   const unitList    = rawUnits ? (Array.isArray(rawUnits) ? rawUnits : (rawUnits[semester] || [])) : [];
-  const autoTitle   = [grade ? `${grade}학년` : '', semester ? `${semester}학기` : '', subject, publisher && publisher !== '국정' ? `(${publisher})` : '', part, unit].filter(Boolean).join(' ');
+  const lessonSuffix = aiLesson.no ? `${aiLesson.no}차시${aiLesson.title ? ` — ${aiLesson.title}` : ''}` : '';
+  const autoTitle   = [grade ? `${grade}학년` : '', semester ? `${semester}학기` : '', subject, publisher && publisher !== '국정' ? `(${publisher})` : '', part, unit, lessonSuffix].filter(Boolean).join(' ');
 
   // ── 파생 데이터 (직접 출제탭) ────────────────────────────────────
   const mGradeData   = mGrade ? CURRICULUM[parseInt(mGrade)] : null;
