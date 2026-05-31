@@ -514,6 +514,19 @@ export default function AICourseware({ studentCode }) {
       setMasteryMap(prev => ({ ...prev, [key]: masteryData }));
       setAllMastery(prev => ({ ...prev, [key]: masteryData }));
 
+      // ── 대표 펫 행복도 +10 (AI학습 완료 보상) ──────────────────
+      try {
+        const stuForPet = await getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)));
+        const petId = stuForPet.empty ? null : stuForPet.docs[0].data().activePetId;
+        if (petId) {
+          const petSnap = await getDoc(doc(db, 'studentPets', petId));
+          if (petSnap.exists()) {
+            const newHap = Math.min(100, (petSnap.data().happiness ?? 100) + 10);
+            await updateDoc(doc(db, 'studentPets', petId), { happiness: newHap, lastCareAt: serverTimestamp() });
+          }
+        }
+      } catch {} // 펫 없으면 무시
+
       // ── 알 부화 카운터 증가 ─────────────────────────────────
       try {
         const eggSnap = await getDocs(query(

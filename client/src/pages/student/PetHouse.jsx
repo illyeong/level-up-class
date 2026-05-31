@@ -500,21 +500,25 @@ export default function PetHouse({ studentCode }) {
       const petSnap = await getDocs(query(collection(db, 'studentPets'), where('studentCode', '==', studentCode)));
       const petList = petSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // 배고픔 일일 감소 (-10/일, 최소 0)
+      // 상태 일일 감소 (배고픔 -34/일, 행복도 -10/일)
       const today = new Date().toISOString().slice(0, 10);
-      const hungryUpdates = petList.map(async pet => {
-        const lastFed = pet.lastFedAt?.toDate?.()?.toISOString?.()?.slice(0, 10) || '1970-01-01';
-        if (lastFed >= today) return pet; // 오늘 이미 처리
-        const daysPassed = Math.max(0, Math.floor((Date.now() - new Date(lastFed).getTime()) / 86400000));
-        if (daysPassed === 0) return pet;
-        const newHunger = Math.max(0, (pet.hunger ?? 100) - daysPassed * 34); // 3일 방치 시 0
-        if (newHunger !== (pet.hunger ?? 100)) {
-          await updateDoc(doc(db, 'studentPets', pet.id), { hunger: newHunger, lastFedAt: serverTimestamp() });
-          return { ...pet, hunger: newHunger };
+      const stateUpdates = petList.map(async pet => {
+        const lastCare = pet.lastCareAt?.toDate?.()?.toISOString?.()?.slice(0, 10) || '1970-01-01';
+        if (lastCare >= today) return pet;
+        const days = Math.max(0, Math.floor((Date.now() - new Date(lastCare).getTime()) / 86400000));
+        if (days === 0) return pet;
+        const newHunger    = Math.max(0, (pet.hunger    ?? 100) - days * 34);
+        const newHappiness = Math.max(0, (pet.happiness ?? 100) - days * 10);
+        const changed = newHunger !== (pet.hunger ?? 100) || newHappiness !== (pet.happiness ?? 100);
+        if (changed) {
+          await updateDoc(doc(db, 'studentPets', pet.id), {
+            hunger: newHunger, happiness: newHappiness, lastCareAt: serverTimestamp(),
+          });
+          return { ...pet, hunger: newHunger, happiness: newHappiness };
         }
         return pet;
       });
-      const updatedPets = await Promise.all(hungryUpdates);
+      const updatedPets = await Promise.all(stateUpdates);
       setPets(updatedPets);
 
       // 알 인벤토리 로드
@@ -538,25 +542,86 @@ export default function PetHouse({ studentCode }) {
     showToast('알을 버렸습니다.');
   };
 
-  // 먹이주기 (하루 1회, 300G, 배고픔 +50)
-  const FEED_COST    = 300;
-  const FEED_RESTORE = 50;
+  // ── 펫 케어 시스템 ─────────────────────────────────────────────
+  const TODAY = new Date().toISOString().slice(0, 10);
 
-  const feedPet = async (pet) => {
-    if ((pet.hunger ?? 100) >= 100) {
-      showToast('이미 배가 부릅니다! 🐾', 'error'); return;
+  const getDailyCare = (pet) => {
+    if (!pet.dailyCare || pet.dailyCare.date !== TODAY) return { date: TODAY, feedCount: 0, petCount: 0 };
+    return pet.dailyCare;
+  };
+
+  // 상태 단계 (0-19/20-49/50-79/80-100)
+  const getPetState = (pet) => {
+    const h = pet.hunger ?? 100, hap = pet.happiness ?? 100;
+    const avg = (h + hap) / 2;
+    if (avg >= 80) return 'great';
+    if (avg >= 50) return 'normal';
+    if (avg >= 20) return 'bad';
+    return 'terrible';
+  };
+
+  // 대사 생성
+  const getPetDialogue = (pet) => {
+    const h = pet.hunger ?? 100, hap = pet.happiness ?? 100;
+    if (h <= 0) return '너무 배가 고파요... 😢';
+    if (h < 20) return '배가 너무 고파요... 🍖';
+    if (hap < 20) return '너무 심심해요... 💭';
+    if (h < 50) return '배고파요~ 먹이 줘요 🍖';
+    if (hap < 50) return '같이 놀아줘요! 💭';
+    if (h >= 80 && hap >= 80) return '오늘도 같이 공부하자! ✨';
+    return '안녕하세요! 😊';
+  };
+
+  // 먹이 3종
+  const FOOD_OPTIONS = [
+    { id: 'small',   name: '작은 먹이',   costType: 'gold',    cost: 50,  hunger: 20, happiness: 0,  emoji: '🌾' },
+    { id: 'nice',    name: '맛있는 먹이', costType: 'gold',    cost: 150, hunger: 50, happiness: 5,  emoji: '🍖' },
+    { id: 'special', name: '특별 간식',   costType: 'diamond', cost: 20,  hunger: 100, happiness: 20, emoji: '🍰' },
+  ];
+
+  const feedPet = async (pet, food) => {
+    const care = getDailyCare(pet);
+    if (care.feedCount >= 3) { showToast('오늘 먹이를 이미 3번 줬습니다!', 'error'); return; }
+    if ((pet.hunger ?? 100) >= 100) { showToast('이미 배가 부릅니다! 🐾', 'error'); return; }
+    const currency = food.costType === 'gold' ? (student?.gold || 0) : (student?.diamonds || 0);
+    if (currency < food.cost) { showToast(`${food.costType === 'gold' ? '골드' : '다이아'} 부족!`, 'error'); return; }
+
+    const newHunger    = Math.min(100, (pet.hunger    ?? 50) + food.hunger);
+    const newHappiness = Math.min(100, (pet.happiness ?? 50) + food.happiness);
+    const newCare      = { ...care, feedCount: care.feedCount + 1 };
+
+    const updates = { hunger: newHunger, happiness: newHappiness, dailyCare: newCare, lastCareAt: serverTimestamp() };
+    await updateDoc(doc(db, 'studentPets', pet.id), updates);
+
+    if (food.costType === 'gold') {
+      const newGold = (student.gold || 0) - food.cost;
+      await updateDoc(doc(db, 'students', student.id), { gold: newGold });
+      setStudent(p => ({ ...p, gold: newGold }));
+    } else {
+      const newDia = (student.diamonds || 0) - food.cost;
+      await updateDoc(doc(db, 'students', student.id), { diamonds: newDia });
+      setStudent(p => ({ ...p, diamonds: newDia }));
     }
-    if ((student?.gold || 0) < FEED_COST) {
-      showToast(`골드 부족! 필요: ${FEED_COST}G`, 'error'); return;
-    }
-    const newGold   = (student.gold || 0) - FEED_COST;
-    const newHunger = Math.min(100, (pet.hunger ?? 50) + FEED_RESTORE);
-    await updateDoc(doc(db, 'studentPets', pet.id), { hunger: newHunger, lastFedAt: serverTimestamp() });
-    await updateDoc(doc(db, 'students', student.id), { gold: newGold });
-    setStudent(p => ({ ...p, gold: newGold }));
-    setPets(prev => prev.map(p => p.id === pet.id ? { ...p, hunger: newHunger, lastFedAt: { toDate: () => new Date() } } : p));
-    if (selectedPet?.id === pet.id) setSelectedPet(prev => ({ ...prev, hunger: newHunger, lastFedAt: { toDate: () => new Date() } }));
-    showToast(`먹이를 줬습니다! 배고픔 +${FEED_RESTORE} 🍖 (${FEED_COST}G 사용)`);
+
+    const patched = { ...pet, ...updates, dailyCare: newCare };
+    setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
+    if (selectedPet?.id === pet.id) setSelectedPet(patched);
+    showToast(`${food.emoji} ${food.name} 줬습니다! 배고픔 +${food.hunger}${food.happiness ? `, 행복 +${food.happiness}` : ''}`);
+  };
+
+  // 쓰다듬기 (하루 3회, 무료)
+  const petThePet = async (pet) => {
+    const care = getDailyCare(pet);
+    if (care.petCount >= 3) { showToast('오늘 쓰다듬기를 이미 3번 했습니다!', 'error'); return; }
+    const newHappiness = Math.min(100, (pet.happiness ?? 50) + 15);
+    const newCare      = { ...care, petCount: care.petCount + 1 };
+    const updates = { happiness: newHappiness, dailyCare: newCare, lastCareAt: serverTimestamp() };
+    await updateDoc(doc(db, 'studentPets', pet.id), updates);
+    const patched = { ...pet, ...updates, dailyCare: newCare };
+    setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
+    if (selectedPet?.id === pet.id) setSelectedPet(patched);
+    setDetailAnim('attack');
+    showToast('💝 쓰다듬었습니다! 행복도 +15');
   };
 
   // 인큐베이터에서 알 꺼내기
@@ -922,40 +987,81 @@ export default function PetHouse({ studentCode }) {
                           ✏️ 이름 변경
                         </button>
                       </div>
-                      {/* 배고픔 + 먹이주기 */}
+                      {/* 케어 패널 */}
                       {(() => {
-                        const hunger   = sp.hunger ?? 100;
-                        const full = hunger >= 100;
-                        const hColor = hunger >= 70 ? 'bg-emerald-400' : hunger >= 40 ? 'bg-amber-400' : 'bg-rose-500';
-                        const hLabel = hunger >= 70 ? '든든함 😊' : hunger >= 40 ? '배고픔 😐' : hunger > 0 ? '매우 배고픔 😢' : '굶주림 💀';
-                        const noGold = (student?.gold || 0) < FEED_COST;
+                        const hunger    = sp.hunger    ?? 100;
+                        const happiness = sp.happiness ?? 100;
+                        const care      = getDailyCare(sp);
+                        const state     = getPetState(sp);
+                        const dialogue  = getPetDialogue(sp);
+                        const stateBar  = (v, color) => (
+                          <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${v}%` }} />
+                          </div>
+                        );
                         return (
-                          <div className="w-full mt-3 border-t border-slate-700 pt-3">
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-xs text-slate-300 font-extrabold">🍖 배고픔</span>
-                              <span className={`text-xs font-bold ${hunger <= 0 ? 'text-rose-500 animate-pulse' : hunger < 40 ? 'text-amber-400' : 'text-emerald-400'}`}>{hLabel} {hunger}/100</span>
+                          <div className="w-full mt-3 border-t border-slate-700 pt-3 space-y-2.5">
+                            {/* 대사 */}
+                            <div className="bg-slate-700/50 rounded-xl px-3 py-2 text-center text-xs text-slate-200 font-bold italic">
+                              💬 "{dialogue}"
                             </div>
-                            <div className="h-3 bg-slate-700 rounded-full overflow-hidden mb-3">
-                              <div className={`h-full rounded-full transition-all ${hColor}`} style={{ width: `${hunger}%` }} />
+
+                            {/* 배고픔 바 */}
+                            <div>
+                              <div className="flex justify-between mb-1">
+                                <span className="text-[11px] text-slate-300 font-bold">🍖 배고픔</span>
+                                <span className={`text-[10px] font-bold ${hunger < 20 ? 'text-rose-400 animate-pulse' : hunger < 50 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                  {hunger}/100 ({care.feedCount}/3회)
+                                </span>
+                              </div>
+                              {stateBar(hunger, hunger >= 70 ? 'bg-emerald-400' : hunger >= 40 ? 'bg-amber-400' : 'bg-rose-500')}
                             </div>
-                            <button
-                              onClick={() => feedPet(sp)}
-                              disabled={full || noGold}
-                              className={`w-full py-3 rounded-xl font-extrabold text-sm transition-all
-                                ${full || noGold
-                                  ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                  : 'bg-amber-500 hover:bg-amber-400 text-white shadow-lg'}`}>
-                              {full ? '😊 배가 불러요!' : noGold
-                                ? <span>💰 골드 부족 ({FEED_COST.toLocaleString()} 🪙 필요)</span>
-                                : <span>🍖 먹이주기 &nbsp;{FEED_COST.toLocaleString()} 🪙</span>}
+
+                            {/* 행복도 바 */}
+                            <div>
+                              <div className="flex justify-between mb-1">
+                                <span className="text-[11px] text-slate-300 font-bold">💝 행복도</span>
+                                <span className={`text-[10px] font-bold ${happiness < 20 ? 'text-rose-400' : happiness < 50 ? 'text-amber-400' : 'text-sky-400'}`}>
+                                  {happiness}/100 ({care.petCount}/3회)
+                                </span>
+                              </div>
+                              {stateBar(happiness, happiness >= 70 ? 'bg-sky-400' : happiness >= 40 ? 'bg-amber-400' : 'bg-rose-500')}
+                            </div>
+
+                            {/* 먹이주기 버튼 3종 */}
+                            <div className="space-y-1">
+                              <p className="text-[10px] text-slate-500 font-bold">먹이주기 (하루 3회)</p>
+                              {FOOD_OPTIONS.map(food => {
+                                const cost  = food.costType === 'gold' ? (student?.gold || 0) : (student?.diamonds || 0);
+                                const noMoney = cost < food.cost;
+                                const full    = hunger >= 100;
+                                const maxed   = care.feedCount >= 3;
+                                return (
+                                  <button key={food.id} onClick={() => feedPet(sp, food)}
+                                    disabled={noMoney || full || maxed}
+                                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-bold transition-all
+                                      ${noMoney || full || maxed ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-amber-600 hover:text-white text-slate-200'}`}>
+                                    <span>{food.emoji} {food.name}</span>
+                                    <span className="opacity-70">배고픔+{food.hunger}{food.happiness ? ` 행복+${food.happiness}` : ''} · {food.cost}{food.costType === 'gold' ? '🪙' : '💎'}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* 쓰다듬기 */}
+                            <button onClick={() => petThePet(sp)}
+                              disabled={care.petCount >= 3 || happiness >= 100}
+                              className={`w-full py-2.5 rounded-xl font-extrabold text-sm transition-all
+                                ${care.petCount >= 3 || happiness >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg'}`}>
+                              {care.petCount >= 3 ? '💝 오늘 쓰다듬기 완료' : `💝 쓰다듬기 (행복+15) — ${3 - care.petCount}회 남음`}
                             </button>
-                            <p className="text-[10px] text-slate-500 text-center mt-1">3일 방치 시 허기 0 · 매일 먹이면 든든</p>
+
+                            <div className="text-[9px] text-slate-600 text-center">
+                              ⚔️ 대표 펫 설정 시 능력치 적용 · 행복80+ = 특기 100%
+                            </div>
                           </div>
                         );
                       })()}
-                      <div className="w-full mt-3 bg-indigo-900/40 border border-indigo-700/50 rounded-xl px-3 py-2 text-[10px] text-indigo-300 text-center">
-                        ⚔️ <span className="font-bold">대표 펫으로 설정</span>해야 능력치가 캐릭터에 적용됩니다
-                      </div>
                       <p className="text-slate-600 text-[9px] mt-1">클릭하면 애니메이션 재생</p>
                     </>
                   );

@@ -145,8 +145,9 @@ function App() {
   const [teacherUser,    setTeacherUser]    = useState(null);
   const [selectedClass,  setSelectedClass]  = useState(null);
   const [studentInfo,    setStudentInfo]    = useState(null);
-  const [activePetMonster, setActivePetMonster] = useState(null);
-  const [activePetHunger,  setActivePetHunger]  = useState(100);
+  const [activePetMonster,   setActivePetMonster]   = useState(null);
+  const [activePetHunger,    setActivePetHunger]    = useState(100);
+  const [activePetHappiness, setActivePetHappiness] = useState(100);
   const [petVisible, setPetVisible] = useState(true);
   const [currentView,    setCurrentView]    = useState('dashboard');
   const [testStudentCode, setTestStudentCode] = useState(null);
@@ -451,7 +452,8 @@ function App() {
           const md = MONSTERS_DB[petData.monsterId];
           setActivePetMonster(md || null);
           setActivePetHunger(petData.hunger ?? 100);
-        } else { setActivePetMonster(null); setActivePetHunger(100); }
+          setActivePetHappiness(petData.happiness ?? 100);
+        } else { setActivePetMonster(null); setActivePetHunger(100); setActivePetHappiness(100); }
       } catch { setActivePetMonster(null); }
     });
     return () => unsub();
@@ -565,7 +567,26 @@ function App() {
   return (
     <div className={`flex h-screen relative ${themeMode === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
       {/* 전역 걷는 펫 */}
-      {activePetMonster && petVisible && <WalkingPet monsterData={activePetMonster} isDead={activePetHunger <= 0} />}
+      {activePetMonster && petVisible && (
+        <>
+          <WalkingPet monsterData={activePetMonster} isDead={activePetHunger <= 0} />
+          {/* 상태 말풍선 */}
+          {(() => {
+            const msg = activePetHunger <= 0 ? '💀 배가 고파요...'
+              : activePetHunger < 20 ? '🍖 배고파요!'
+              : activePetHappiness < 20 ? '💭 심심해요!'
+              : null;
+            if (!msg) return null;
+            return (
+              <div style={{ position:'fixed', bottom:90, right:20, zIndex:21 }}
+                className="bg-white rounded-2xl px-3 py-1.5 shadow-lg border border-slate-200 text-xs font-bold text-slate-700 animate-bounce pointer-events-none">
+                {msg}
+                <div style={{ position:'absolute', bottom:-6, right:12, width:10, height:10, background:'white', borderRight:'1px solid #e2e8f0', borderBottom:'1px solid #e2e8f0', transform:'rotate(45deg)' }} />
+              </div>
+            );
+          })()}
+        </>
+      )}
       {/* 펫 토글 버튼 */}
       {activePetMonster && (
         <button
