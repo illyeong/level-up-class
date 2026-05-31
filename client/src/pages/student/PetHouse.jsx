@@ -653,6 +653,7 @@ export default function PetHouse({ studentCode }) {
 
   // 쓰다듬기 (하루 3회, 무료)
   const petThePet = async (pet) => {
+    if ((pet.hunger ?? 100) <= 0) { showToast('배가 너무 고파 활동할 수 없어요! 먼저 먹이를 주세요 🍖', 'error'); return; }
     const care = getDailyCare(pet);
     if (care.petCount >= 3) { showToast('오늘 쓰다듬기를 이미 3번 했습니다!', 'error'); return; }
     const newHappiness = Math.min(100, (pet.happiness ?? 50) + 15);
@@ -682,6 +683,7 @@ export default function PetHouse({ studentCode }) {
 
   // 씻기기 (하루 1회)
   const washPet = async (pet) => {
+    if ((pet.hunger ?? 100) <= 0) { showToast('배가 너무 고파 활동할 수 없어요! 먼저 먹이를 주세요 🍖', 'error'); return; }
     const care = getDailyCare(pet);
     if (care.washCount >= 1) { showToast('오늘은 이미 씻겼습니다!', 'error'); return; }
     const newClean = Math.min(100, (pet.cleanliness ?? 100) + 30);
@@ -693,12 +695,17 @@ export default function PetHouse({ studentCode }) {
     const patched = { ...pet, ...updates, dailyCare: newCare };
     setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
     if (selectedPet?.id === pet.id) setSelectedPet(patched);
-    showToast('🛁 깨끗하게 씻었습니다! 청결+30, 행복+5');
+    // 씻기기 이펙트
+    const washLines = ['개운해요! 🛁', '깨끗해졌어요! ✨', '상쾌해요~ 💧', '감사해요! 🧼', '몸이 가벼워요!'];
+    setPetBubble(washLines[Math.floor(Math.random() * washLines.length)]);
+    setShowHearts(true);
+    setTimeout(() => { setPetBubble(null); setShowHearts(false); }, 2500);
     addPetExp(patched, 8);
   };
 
   // 놀아주기 (하루 2회)
   const playWithPet = async (pet) => {
+    if ((pet.hunger ?? 100) <= 0) { showToast('배가 너무 고파 활동할 수 없어요! 먼저 먹이를 주세요 🍖', 'error'); return; }
     const care = getDailyCare(pet);
     if (care.playCount >= 2) { showToast('오늘 놀아주기를 이미 2번 했습니다!', 'error'); return; }
     if ((pet.energy ?? 100) < 15) { showToast('기력이 부족합니다! 내일 다시 시도하세요.', 'error'); return; }
@@ -711,9 +718,12 @@ export default function PetHouse({ studentCode }) {
     const patched = { ...pet, ...updates, dailyCare: newCare };
     setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
     if (selectedPet?.id === pet.id) setSelectedPet(patched);
+    // 놀아주기 이펙트
+    const playLines = ['신나요! 🎮', '같이 놀아서 행복해요! 🎉', '최고야! ⭐', '또 해요! 🥳', '재밌어요!!! 🎊'];
+    setPetBubble(playLines[Math.floor(Math.random() * playLines.length)]);
+    setShowHearts(true);
     setDetailAnim('run');
-    setTimeout(() => setDetailAnim('idle'), 2000);
-    showToast('🎮 신나게 놀았습니다! 행복+25, 기력-15, 친밀도+5');
+    setTimeout(() => { setPetBubble(null); setShowHearts(false); setDetailAnim('idle'); }, 2500);
     addPetExp(patched, 10);
   };
 
@@ -1227,10 +1237,10 @@ export default function PetHouse({ studentCode }) {
 
                             {/* 쓰다듬기 */}
                             <button onClick={() => petThePet(sp)}
-                              disabled={care.petCount >= 3 || happiness >= 100}
+                              disabled={isDead || care.petCount >= 3 || happiness >= 100}
                               className={`w-full py-2 rounded-xl font-extrabold text-sm transition-all
-                                ${care.petCount >= 3 || happiness >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg'}`}>
-                              {care.petCount >= 3 ? '💝 오늘 쓰다듬기 완료' : `💝 쓰다듬기 (행복+15) — ${3 - care.petCount}회 남음`}
+                                ${isDead || care.petCount >= 3 || happiness >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg'}`}>
+                              {isDead ? '💀 먼저 밥을 주세요' : care.petCount >= 3 ? '💝 오늘 쓰다듬기 완료' : `💝 쓰다듬기 (행복+15) — ${3 - care.petCount}회 남음`}
                             </button>
 
                             {/* Phase 2: 청결도·기력·친밀도 */}
@@ -1268,16 +1278,16 @@ export default function PetHouse({ studentCode }) {
                                   {/* 씻기기 / 놀아주기 */}
                                   <div className="grid grid-cols-2 gap-1.5">
                                     <button onClick={() => washPet(sp)}
-                                      disabled={care.washCount >= 1 || clean >= 100}
+                                      disabled={isDead || care.washCount >= 1 || clean >= 100}
                                       className={`py-2 rounded-xl font-bold text-xs transition-all
-                                        ${care.washCount >= 1 || clean >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-white'}`}>
-                                      {care.washCount >= 1 ? '🛁 오늘 완료' : '🛁 씻기기 (청결+30)'}
+                                        ${isDead || care.washCount >= 1 || clean >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-white'}`}>
+                                      {isDead ? '💀 불가' : care.washCount >= 1 ? '🛁 오늘 완료' : '🛁 씻기기 (청결+30)'}
                                     </button>
                                     <button onClick={() => playWithPet(sp)}
-                                      disabled={care.playCount >= 2 || energy < 15}
+                                      disabled={isDead || care.playCount >= 2 || energy < 15}
                                       className={`py-2 rounded-xl font-bold text-xs transition-all
-                                        ${care.playCount >= 2 || energy < 15 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-violet-500 hover:bg-violet-400 text-white'}`}>
-                                      {care.playCount >= 2 ? '🎮 오늘 완료' : `🎮 놀아주기 (${2 - care.playCount}회 남음)`}
+                                        ${isDead || care.playCount >= 2 || energy < 15 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-violet-500 hover:bg-violet-400 text-white'}`}>
+                                      {isDead ? '💀 불가' : care.playCount >= 2 ? '🎮 오늘 완료' : `🎮 놀아주기 (${2 - care.playCount}회 남음)`}
                                     </button>
                                   </div>
 
