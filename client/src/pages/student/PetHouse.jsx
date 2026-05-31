@@ -1186,9 +1186,9 @@ export default function PetHouse({ studentCode }) {
                           const maxed = care.feedCount >= 3;
                           return (
                             <button key={food.id} onClick={() => feedPet(sp, food)}
-                              disabled={isDead || noMoney || full || maxed}
+                              disabled={noMoney || full || maxed}
                               className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all
-                                ${isDead || noMoney || full || maxed ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-amber-600 hover:text-white text-slate-200'}`}>
+                                ${noMoney || full || maxed ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-amber-600 hover:text-white text-slate-200'}`}>
                               <span>{food.emoji} {food.name}</span>
                               <span className="opacity-70">{food.cost}{food.costType === 'gold' ? '🪙' : '💎'}</span>
                             </button>

@@ -34,7 +34,7 @@ import SpriteMonster from './components/SpriteMonster';
 import { MONSTERS_DB } from './data/monsterData';
 
 // ── 전역 걷는 펫 (우측 하단 영역) ───────────────────────────
-function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef }) {
+function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef, posOutRef }) {
   const wrapRef  = useRef(null);
   const rafRef   = useRef(null);
   const animRef  = useRef('run'); // 현재 애니: run | idle
@@ -75,10 +75,9 @@ function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef }) {
           }
         }
       }
-      // 말풍선은 run/idle 상관없이 항상 펫 위치 동기화
-      if (bubbleRef?.current) {
-        bubbleRef.current.style.left = p.x + 'px';
-      }
+      // 말풍선 + 외부 위치 ref 항상 동기화 (run/idle 무관)
+      if (bubbleRef?.current) bubbleRef.current.style.left = p.x + 'px';
+      if (posOutRef?.current) posOutRef.current.x = p.x;
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
@@ -191,6 +190,7 @@ function App() {
   const [petSpeech,            setPetSpeech]            = useState(null);
   const [showPetHearts,        setShowPetHearts]        = useState(false); // 쓰다듬기 하트 이펙트
   const petBubbleRef = useRef(null); // 말풍선 DOM ref (펫 따라다니기용)
+  const petPosRef    = useRef({ x: Math.floor(window.innerWidth * 0.75) }); // 펫 실시간 X 위치
   const [hasPoop,              setHasPoop]              = useState(false);
   const [petVisible, setPetVisible] = useState(true);
   const [currentView,    setCurrentView]    = useState('dashboard');
@@ -660,6 +660,7 @@ function App() {
             isDead={activePetHunger <= 0}
             energy={activePetEnergy}
             bubbleRef={petBubbleRef}
+            posOutRef={petPosRef}
             onClick={() => {
               // 클릭: 상태 기반 대사만 표시 (쓰다듬기 대사 X)
               const line = getPetLine(activePetHunger, activePetHappiness, activePetCleanliness, activePetEnergy);
@@ -687,17 +688,13 @@ function App() {
             ) : null;
           })()}
 
-          {/* 쓰다듬기 하트 이펙트 — 말풍선과 분리된 독립 오버레이 */}
+          {/* 하트 이펙트 — petPosRef로 정확한 펫 위치 사용 */}
           {showPetHearts && (() => {
             const petH = Math.round((activePetMonster?.frameHeight || 80) * (activePetMonster?.scale || 0.5) * 2);
-            // petBubbleRef와 같은 x 위치 사용, 펫 위부터 시작
-            const startBottom = 4 + petH;
-            const startLeft   = petBubbleRef.current
-              ? parseInt(petBubbleRef.current.style.left || '-9999', 10)
-              : Math.floor(window.innerWidth * 0.75);
-            if (startLeft < 0) return null; // 아직 위치 미지정
+            const bottom = 4 + petH;
+            const left   = petPosRef.current.x; // RAF가 항상 최신 위치 유지
             return (
-              <div style={{ position:'fixed', bottom: startBottom, left: startLeft, width:120, height:100, zIndex:26, pointerEvents:'none' }}>
+              <div style={{ position:'fixed', bottom, left, width:130, height:110, zIndex:26, pointerEvents:'none' }}>
                 {['💕','❤️','💖','✨','💝'].map((h, i) => (
                   <span key={i} style={{
                     position:'absolute', left:`${6 + i*20}%`, bottom:0,
@@ -794,12 +791,11 @@ function App() {
               {/* 먹이주기 미니 (3종) */}
               <div className="mt-2 space-y-1">
                 {[
-                  { name:'작은 먹이', cost:'100🪙', hunger:20 },
-                  { name:'맛있는 먹이', cost:'300🪙', hunger:50 },
+                  { name:'작은 먹이', cost:'100🪙', hunger:20, happiness:0 },
+                  { name:'맛있는 먹이', cost:'300🪙', hunger:50, happiness:5 },
                 ].map(f => (
                   <button key={f.name}
                     onClick={async () => {
-                      // 간단 먹이주기 (gold 차감)
                       const stuSnap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', activeStudentCode)));
                       if (stuSnap.empty) return;
                       const stuDoc = stuSnap.docs[0];
@@ -809,7 +805,20 @@ function App() {
                       await updateDoc(doc(db, 'students', stuDoc.id), { gold: gold - cost });
                       const newH = Math.min(100, activePetHunger + f.hunger);
                       setActivePetHunger(newH);
-                      await updateDoc(doc(db, 'studentPets', activePetData.id), { hunger: newH, lastCareAt: serverTimestamp() });
+                      const updates = { hunger: newH, lastCareAt: serverTimestamp() };
+                      if (f.happiness > 0) {
+                        const newHap = Math.min(100, activePetHappiness + f.happiness);
+                        setActivePetHappiness(newHap);
+                        updates.happiness = newHap;
+                        // 행복도 오를 때 이펙트
+                        const lines = ['냠냠~ 맛있어요! 😋', '고마워요! 🥰', '배부르다~ 😊'];
+                        setPetSpeech(lines[Math.floor(Math.random() * lines.length)]);
+                        setShowPetHearts(true);
+                        clearTimeout(window._petSpeechTimer);
+                        window._petSpeechTimer = setTimeout(() => { setPetSpeech(null); setShowPetHearts(false); }, 2500);
+                        setShowPetPopup(false);
+                      }
+                      await updateDoc(doc(db, 'studentPets', activePetData.id), updates);
                     }}
                     className="w-full flex justify-between items-center px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-amber-600 text-[10px] font-bold transition-colors">
                     <span>🍖 {f.name}</span><span className="text-slate-400">{f.cost}</span>
