@@ -55,6 +55,7 @@ export const DUNGEON_SKILLS = [
     aoe: false,
     desc: '불꽃 구체를 발사해 적에게 2배 데미지를 줍니다.',
     unityEffect: 'FlameShot',
+    comingSoon: true,
   },
   {
     id: 'ice_blast',
@@ -70,6 +71,7 @@ export const DUNGEON_SKILLS = [
     aoe: true,
     desc: '주변 모든 적을 얼려 3초간 정지시키고 1.5배 데미지를 줍니다.',
     unityEffect: 'IceBlast',
+    comingSoon: true,
   },
   {
     id: 'shadow_strike',
@@ -86,6 +88,7 @@ export const DUNGEON_SKILLS = [
     aoe: false,
     desc: '분신이 나타나 가장 가까운 적을 1.5배 데미지로 3회 연속 강타합니다.',
     unityEffect: 'ShadowStrike',
+    comingSoon: true,
   },
   {
     id: 'flame_explosion',
@@ -102,6 +105,7 @@ export const DUNGEON_SKILLS = [
     dot: true,
     desc: '거대한 화염이 폭발하며 화면 전체 적에게 4배 데미지와 화상을 입힙니다.',
     unityEffect: 'FlameExplosion',
+    comingSoon: true,
   },
   {
     id: 'thunder_god',
@@ -755,6 +759,23 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
                 const owned = purchasedSkills.includes(skill.id);
                 const selected = selectedSkill === skill.id;
                 const canAfford = (student?.diamonds || 0) >= skill.cost;
+                if (skill.comingSoon) return (
+                  <div key={skill.id} className="rounded-2xl border-2 border-slate-700 bg-slate-900/60 p-4 opacity-50 relative overflow-hidden">
+                    <div className="absolute inset-0 flex items-center justify-center z-10">
+                      <span className="bg-slate-800/90 text-slate-300 text-xs font-extrabold px-4 py-2 rounded-xl border border-slate-600">🔒 미구현 (준비 중)</span>
+                    </div>
+                    <div className="flex items-start gap-3 blur-[1px]">
+                      <span className="text-4xl shrink-0">{skill.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-white font-extrabold text-base">{skill.name}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${skill.rarityBg} ${skill.rarityColor}`}>{skill.rarityLabel}</span>
+                        </div>
+                        <p className="text-slate-400 text-xs">{skill.desc}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
                 return (
                   <div key={skill.id} className={`rounded-2xl border-2 p-4 transition-all
                     ${selected ? 'border-yellow-400 bg-yellow-900/20' : owned ? `${skill.rarityBg}` : 'border-slate-700 bg-slate-800/60'}`}>
