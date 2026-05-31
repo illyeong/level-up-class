@@ -49,12 +49,9 @@ public class DungeonCharacterLoader : MonoBehaviour
             if (data.colors != null) ApplyColors(pm, data.colors);
         }
 
-        // 선택된 스킬 → SkillButtonUI에 전달
-        if (!string.IsNullOrEmpty(data.selectedSkill))
-        {
-            var skillUI = FindFirstObjectByType<SkillButtonUI>();
-            if (skillUI != null) skillUI.ShowSkill(data.selectedSkill);
-        }
+        // 선택된 스킬 → GameManager에 저장 (씬 전환 후 SkillButtonUI.Start에서 읽음)
+        if (!string.IsNullOrEmpty(data.selectedSkill) && GameManager.Instance != null)
+            GameManager.Instance.selectedSkill = data.selectedSkill;
 
         // 캐릭터 데이터 적용이 끝난 뒤에만 던전 씬으로 이동
         if (GameManager.Instance != null)

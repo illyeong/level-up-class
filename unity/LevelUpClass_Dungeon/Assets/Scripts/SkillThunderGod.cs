@@ -9,7 +9,6 @@ public class SkillThunderGod : MonoBehaviour
     public float dashSpeed = 150f;
     public float dashDistance = 14f;
     public float hitBoxHeight = 4f;
-    public float fxDelayAfterDash = 0.2f;
     public float hitDelayAfterFX = 0.5f;
     public float invincibleDuration = 0.5f;
 
@@ -64,14 +63,18 @@ public class SkillThunderGod : MonoBehaviour
         float dir = GetFacingDir();
         Vector3 startPos = transform.position;
 
+        // ① 캐릭터 이펙트 먼저 출현
+        SpawnAttachedFX(playerFXPrefab);
+
+        // ② 0.7초 대기
+        yield return new WaitForSeconds(0.7f);
+
+        // ③ 대쉬
         SetPlayerControl(false);
         yield return Dash(dir);
 
         Vector3 endPos = transform.position;
         List<StrikeTarget> targets = FindTargets(startPos, endPos);
-
-        yield return new WaitForSeconds(fxDelayAfterDash);
-        SpawnAttachedFX(playerFXPrefab);
 
         if (targets.Count == 0)
         {

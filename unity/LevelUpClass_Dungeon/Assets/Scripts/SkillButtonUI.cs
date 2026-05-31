@@ -53,6 +53,14 @@ public class SkillButtonUI : MonoBehaviour
         if (testThunderGod)
         {
             ShowSkill("thunder_god");
+            return;
+        }
+
+        // GameManager에 저장된 스킬 복원 (씬 전환 후에도 유지)
+        string saved = GameManager.Instance?.selectedSkill ?? "";
+        if (!string.IsNullOrEmpty(saved))
+        {
+            ShowSkill(saved);
         }
         else
         {
