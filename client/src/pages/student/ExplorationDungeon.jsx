@@ -49,7 +49,7 @@ export const DUNGEON_SKILLS = [
     rarityLabel: '일반',
     rarityColor: 'text-slate-400',
     rarityBg: 'bg-slate-700 border-slate-500',
-    cost: 300,
+    cost: 30,
     cooldown: 8,
     dmgMultiplier: 2.0,
     aoe: false,
@@ -64,7 +64,7 @@ export const DUNGEON_SKILLS = [
     rarityLabel: '희귀',
     rarityColor: 'text-sky-400',
     rarityBg: 'bg-sky-900/60 border-sky-500',
-    cost: 700,
+    cost: 70,
     cooldown: 12,
     dmgMultiplier: 1.5,
     aoe: true,
@@ -79,7 +79,7 @@ export const DUNGEON_SKILLS = [
     rarityLabel: '영웅',
     rarityColor: 'text-purple-400',
     rarityBg: 'bg-purple-900/60 border-purple-500',
-    cost: 1500,
+    cost: 150,
     cooldown: 20,
     dmgMultiplier: 1.5,
     hitCount: 3,
@@ -88,20 +88,20 @@ export const DUNGEON_SKILLS = [
     unityEffect: 'ShadowStrike',
   },
   {
-    id: 'dragon_breath',
-    name: '용의 숨결',
-    emoji: '🐉',
+    id: 'flame_explosion',
+    name: '플레임 익스플로전',
+    emoji: '💥',
     rarity: 'legendary',
     rarityLabel: '전설',
     rarityColor: 'text-amber-400',
     rarityBg: 'bg-amber-900/60 border-amber-500',
-    cost: 3000,
+    cost: 300,
     cooldown: 30,
     dmgMultiplier: 4.0,
     aoe: true,
     dot: true,
-    desc: '용의 불꽃이 전방을 휩쓸어 4배 데미지와 함께 화상을 입힙니다.',
-    unityEffect: 'DragonBreath',
+    desc: '거대한 화염이 폭발하며 화면 전체 적에게 4배 데미지와 화상을 입힙니다.',
+    unityEffect: 'FlameExplosion',
   },
   {
     id: 'thunder_god',
@@ -111,7 +111,7 @@ export const DUNGEON_SKILLS = [
     rarityLabel: '신화',
     rarityColor: 'text-yellow-300',
     rarityBg: 'bg-gradient-to-br from-yellow-900/80 to-indigo-900/80 border-yellow-400',
-    cost: 7000,
+    cost: 700,
     cooldown: 45,
     dmgMultiplier: 10.0,
     aoe: true,
@@ -743,7 +743,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
                 <p className="text-slate-400 text-xs mt-0.5">스킬을 구매하고 입장 전 1개를 선택하세요</p>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-yellow-300 font-extrabold text-sm">🪙 {(student?.gold || 0).toLocaleString()}G</span>
+                <span className="text-cyan-300 font-extrabold text-sm">💎 {(student?.diamonds || 0).toLocaleString()}</span>
                 <button onClick={() => setShowSkillShop(false)} className="text-slate-400 hover:text-white text-xl">✕</button>
               </div>
             </div>
@@ -751,7 +751,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
               {DUNGEON_SKILLS.map(skill => {
                 const owned = purchasedSkills.includes(skill.id);
                 const selected = selectedSkill === skill.id;
-                const canAfford = (student?.gold || 0) >= skill.cost;
+                const canAfford = (student?.diamonds || 0) >= skill.cost;
                 return (
                   <div key={skill.id} className={`rounded-2xl border-2 p-4 transition-all
                     ${selected ? 'border-yellow-400 bg-yellow-900/20' : owned ? `${skill.rarityBg}` : 'border-slate-700 bg-slate-800/60'}`}>
@@ -779,19 +779,19 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
                               if (!canAfford) return;
                               const docId = studentDocIdRef.current;
                               if (!docId) return;
-                              const newGold = (student.gold || 0) - skill.cost;
+                              const newDiamonds = (student.diamonds || 0) - skill.cost;
                               const newPurchased = [...purchasedSkills, skill.id];
                               await updateDoc(doc(db, 'students', docId), {
-                                gold: newGold,
+                                diamonds: newDiamonds,
                                 purchasedSkills: newPurchased,
                               });
-                              setStudent(p => ({ ...p, gold: newGold }));
+                              setStudent(p => ({ ...p, diamonds: newDiamonds }));
                               setPurchasedSkills(newPurchased);
                             }}
                             disabled={!canAfford}
                             className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all
-                              ${canAfford ? 'bg-yellow-500 hover:bg-yellow-400 text-yellow-900 shadow-lg' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
-                            🪙 {skill.cost.toLocaleString()}G 구매
+                              ${canAfford ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
+                            💎 {skill.cost.toLocaleString()} 구매
                           </button>
                         ) : (
                           <button
