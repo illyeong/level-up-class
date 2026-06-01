@@ -73,6 +73,12 @@
         user-select: none; -webkit-user-select: none;
         box-shadow: 0 2px 12px rgba(239,68,68,0.5);
       }
+      /* 우측 절반 탭 공격 존 (조이스틱 오른쪽 전체) */
+      #tap-attack-zone {
+        position: absolute; left: 42%; right: 0; top: 0; bottom: 0;
+        pointer-events: auto; touch-action: none;
+        /* 디버그용: background: rgba(255,0,0,0.05); */
+      }
     </style>
   </head>
   <body>
@@ -89,6 +95,8 @@
         <div id="joy-zone">
           <div id="joy-base"><div id="joy-handle"></div></div>
         </div>
+        <!-- 우측 탭 공격 존: btn-attack 아래 레이어로 배치 -->
+        <div id="tap-attack-zone"></div>
         <div id="btn-attack">⚔</div>
       </div>
     </div>
@@ -232,6 +240,13 @@
         e.preventDefault();
         btnAttack.style.background = "rgba(239,68,68,0.75)";
         btnAttack.style.transform  = "scale(1)";
+      }, { passive: false });
+
+      // ── 우측 탭 → 공격 (버튼 없이 화면 탭으로도 공격 가능) ────
+      const tapAttackZone = document.getElementById("tap-attack-zone");
+      tapAttackZone.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        sendAttack();
       }, { passive: false });
 
       // ── Unity 인스턴스 생성 ──────────────────────────────────────
