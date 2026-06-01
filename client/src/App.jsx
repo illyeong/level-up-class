@@ -589,7 +589,11 @@ function App() {
           if (poop && !poop.cleaned) {
             setHasPoop(true);
           } else {
-            const lastPoop = poop?.createdAt?.toDate?.() ?? new Date(0);
+            const lastPoop = poop?.cleanedAt?.toDate?.() ?? poop?.createdAt?.toDate?.();
+            if (!lastPoop) {
+              setHasPoop(false);
+              return;
+            }
             const hoursSince = (Date.now() - lastPoop.getTime()) / 3600000;
             if (hoursSince >= 4 + Math.random() * 4) {
               setHasPoop(true);
@@ -782,6 +786,10 @@ function App() {
           {hasPoop && (
             <button
               type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               onClick={async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -793,9 +801,9 @@ function App() {
                   const newClean = Math.min(100, activePetCleanliness + 5);
                   setHasPoop(false);
                   setActivePetCleanliness(newClean);
-                  setActivePetData(p => ({ ...p, cleanliness: newClean, poop: { createdAt: new Date(), cleaned: true } }));
+                  setActivePetData(p => ({ ...p, cleanliness: newClean, poop: { cleanedAt: new Date(), cleaned: true } }));
                   await updateDoc(doc(db, 'studentPets', activePetData.id), {
-                    poop: { createdAt: serverTimestamp(), cleaned: true },
+                    poop: { cleanedAt: serverTimestamp(), cleaned: true },
                     cleanliness: newClean,
                   });
                   setPetSpeech('깨끗해졌어요!');
