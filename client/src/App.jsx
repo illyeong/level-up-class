@@ -609,10 +609,18 @@ function App() {
         const petData = petSnap.data();
         const md = MONSTERS_DB[petData.monsterId];
 
+        // 배고픔 로컬 감소 계산 (표시용, Firebase 쓰기 없음 — PetHouse 열 때 실제 반영)
+        const calcHunger = (pd) => {
+          const STEP_H = 7.2;
+          const ref = pd.lastHungerDecay?.toDate?.() || pd.lastCareAt?.toDate?.() || new Date(0);
+          const steps = Math.floor((Date.now() - ref.getTime()) / (STEP_H * 3600000));
+          return Math.max(0, (pd.hunger ?? 100) - steps * 10);
+        };
+
         // ① 펫 state 먼저 설정 (오류가 나도 여기까지는 보장)
         setActivePetMonster(md || null);
         setActivePetData({ id: petSnap.id, ...petData });
-        setActivePetHunger(petData.hunger ?? 100);
+        setActivePetHunger(calcHunger(petData));
         setActivePetHappiness(petData.happiness ?? 100);
         setActivePetEnergy(petData.energy ?? 100);
         setActivePetCleanliness(petData.cleanliness ?? 100);

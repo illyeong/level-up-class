@@ -540,19 +540,39 @@ export default function PetHouse({ studentCode }) {
       const petSnap = await getDocs(query(collection(db, 'studentPets'), where('studentCode', '==', studentCode)));
       const petList = petSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // 상태 일일 감소 (배고픔-34, 행복-10, 청결-8, 기력 +20 회복)
-      const today = new Date().toISOString().slice(0, 10);
+      // ── 펫 상태 시간 감소 ────────────────────────────────────
+      // 배고픔: 7.2시간마다 -10 (72h=3일에 0), 행복도/청결: 하루마다 감소
+      // lastHungerDecay: 배고픔 감소 전용 타임스탬프 (lastCareAt과 분리)
+      const HUNGER_STEP_HOURS = 7.2; // 10씩 감소 간격
       const stateUpdates = petList.map(async pet => {
-        const lastCare = pet.lastCareAt?.toDate?.()?.toISOString?.()?.slice(0, 10) || '1970-01-01';
-        if (lastCare >= today) return pet;
-        const days = Math.max(0, Math.floor((Date.now() - new Date(lastCare).getTime()) / 86400000));
-        if (days === 0) return pet;
-        // 배고픔: 3일=0(-34/일), 행복도: 5일=0(-20/일), 청결도: 10일=0(-10/일)
-        const newHunger      = Math.max(0,   (pet.hunger      ?? 100) - days * 34);
-        const newHappiness   = Math.max(0,   (pet.happiness   ?? 100) - days * 20);
-        const newCleanliness = Math.max(0,   (pet.cleanliness ?? 100) - days * 10);
-        const newEnergy      = Math.min(100, (pet.energy      ?? 100) + days * 20);
-        const updates = { hunger: newHunger, happiness: newHappiness, cleanliness: newCleanliness, energy: newEnergy, lastCareAt: serverTimestamp() };
+        const now = Date.now();
+        // ① 배고픔 감소 (lastHungerDecay 기준)
+        const decayRef = pet.lastHungerDecay?.toDate?.() || pet.lastCareAt?.toDate?.() || new Date(0);
+        const hoursElapsed = (now - decayRef.getTime()) / 3600000;
+        const hungerSteps  = Math.floor(hoursElapsed / HUNGER_STEP_HOURS);
+
+        // ② 행복도·청결도·기력 감소 (lastCareAt 기준 일 단위, 기존 유지)
+        const careRef  = pet.lastCareAt?.toDate?.() || new Date(0);
+        const daysElapsed = Math.max(0, Math.floor((now - careRef.getTime()) / 86400000));
+        const today = new Date().toISOString().slice(0, 10);
+        const caredToday = pet.lastCareAt?.toDate?.()?.toISOString?.()?.slice(0, 10) >= today;
+
+        if (hungerSteps === 0 && (caredToday || daysElapsed === 0)) return pet;
+
+        const newHunger      = Math.max(0,   (pet.hunger      ?? 100) - hungerSteps * 10);
+        const newHappiness   = caredToday ? (pet.happiness   ?? 100) : Math.max(0,   (pet.happiness   ?? 100) - daysElapsed * 20);
+        const newCleanliness = caredToday ? (pet.cleanliness ?? 100) : Math.max(0,   (pet.cleanliness ?? 100) - daysElapsed * 10);
+        const newEnergy      = caredToday ? (pet.energy      ?? 100) : Math.min(100, (pet.energy      ?? 100) + daysElapsed * 20);
+
+        const updates = {
+          hunger: newHunger,
+          happiness: newHappiness,
+          cleanliness: newCleanliness,
+          energy: newEnergy,
+        };
+        if (hungerSteps > 0) updates.lastHungerDecay = serverTimestamp(); // 배고픔만 별도 기록
+        if (!caredToday && daysElapsed > 0) updates.lastCareAt = serverTimestamp();
+
         await updateDoc(doc(db, 'studentPets', pet.id), updates);
         return { ...pet, ...updates };
       });
