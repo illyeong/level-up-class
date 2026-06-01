@@ -9,6 +9,7 @@ import { MONSTERS_DB, DIFF_MONSTER, TIER_LABEL, TIER_COST, generateWaves } from 
 import { fireProjectile } from '../../utils/projectile';
 import { renderMath, TableRenderer, stripOptionPrefix } from '../../utils/renderMath';
 import ShapeRenderer from '../../components/ShapeRenderer';
+import { getMaxExpForLevel } from '../../utils/leveling';
 
 const PROJECTILE_TYPE = { easy: 'ice', normal: 'magic', hard: 'fire' };
 
@@ -66,9 +67,6 @@ function generatePetStats(rarity) {
 }
 
 // ── 유틸 ──────────────────────────────────────────────────────
-const getMaxExpForLevel = (lv) =>
-  lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
-
 const calcLevelUp = (currentLevel, currentExp, currentMaxExp, gainedExp) => {
   let level = currentLevel || 1;
   let exp   = (currentExp || 0) + gainedExp;

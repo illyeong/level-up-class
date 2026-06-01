@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-
-const getMaxExpForLevel = (lv) =>
-  lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
+import { getMaxExpForLevel } from '../../utils/leveling';
 
 const calcLevelUp = (level, exp, maxExp, gained) => {
   let lv = level || 1;

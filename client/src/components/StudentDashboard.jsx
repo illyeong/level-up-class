@@ -626,8 +626,6 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
   };
 
   const name     = studentData?.name     || studentData?.studentCode || '용감한 용사';
-  const getMaxExpForLevel = (lv) =>
-    lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
 
   const level    = studentData?.level    || 1;
   const exp      = studentData?.exp      || 0;

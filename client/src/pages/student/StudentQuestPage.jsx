@@ -5,9 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import iconQuest from '../../assets/images/icon-quest.png';
-
-const getMaxExpForLevel = (lv) =>
-  lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
+import { getMaxExpForLevel } from '../../utils/leveling';
 
 const calcLevelUp = (level, exp, gained) => {
   let lv = level || 1;

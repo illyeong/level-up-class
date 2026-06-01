@@ -4,6 +4,7 @@ import {
   query, where, serverTimestamp, getDoc, setDoc,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { getMaxExpForLevel } from '../../utils/leveling';
 
 const SUBJECTS = ['국어', '수학', '사회', '과학', '영어', '도덕', '체육', '음악', '미술', '실과', '창체'];
 
@@ -28,7 +29,7 @@ const calcOverallStatus = (subjects) => {
 
 const DEFAULT_SETTINGS = { minCoreLength: 10, minThoughtLength: 20, rewardGold: 10, rewardExp: 30, rewardDiamond: 10 };
 
-const getMaxExp = (lv) => lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
+const getMaxExp = getMaxExpForLevel;
 
 export default function LearningNoteManage({ selectedClass }) {
   const teacherUid = selectedClass?.teacherUid;

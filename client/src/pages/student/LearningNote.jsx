@@ -4,6 +4,7 @@ import {
   doc, query, where, serverTimestamp, getDoc,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { getMaxExpForLevel } from '../../utils/leveling';
 
 const SUBJECTS = ['국어', '수학', '사회', '과학', '영어', '도덕', '체육', '음악', '미술', '실과', '창체'];
 
@@ -281,7 +282,7 @@ export default function LearningNote({ studentCode, themeMode = 'dark' }) {
               const bonusGold = 50, bonusDia = 50, bonusExp = 50;
               const curGold = prevData?.gold || 0, curDia = prevData?.diamonds || 0;
               const curExp  = prevData?.exp  || 0, curLv  = prevData?.level   || 1;
-              const getMax  = (lv) => lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
+              const getMax  = getMaxExpForLevel;
               let newExp = curExp + bonusExp, newLv = curLv;
               while (newExp >= getMax(newLv)) { newExp -= getMax(newLv); newLv++; }
               Object.assign(streakUpdate, {

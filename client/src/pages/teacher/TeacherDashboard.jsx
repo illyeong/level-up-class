@@ -3,7 +3,7 @@ import { collection, getDocs, doc, getDoc, updateDoc, writeBatch, serverTimestam
 import { db } from '../../firebase';
 import LevelUpEffect from '../../components/LevelUpEffect';
 import { applyClassQuickSetup, QUICK_SETUP_VERSION } from '../../utils/classQuickSetup';
-import { applyExpDelta } from '../../utils/leveling';
+import { applyExpDelta, getMaxExpForLevel } from '../../utils/leveling';
 
 import iconGold from '../../assets/images/icon-gold.png';
 import iconDiamond from '../../assets/images/icon-diamond.png';
@@ -194,7 +194,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       ));
       const settSnap = await getDoc(doc(db, 'learningSettings', teacherUid));
       const settings = settSnap.exists() ? { rewardGold: 10, rewardDiamond: 10, rewardExp: 30, ...settSnap.data() } : { rewardGold: 10, rewardDiamond: 10, rewardExp: 30 };
-      const getMaxExp = (lv) => lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
+      const getMaxExp = getMaxExpForLevel;
 
       for (const noteDoc of notesSnap.docs) {
         const note = { id: noteDoc.id, ...noteDoc.data() };

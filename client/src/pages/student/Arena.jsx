@@ -6,6 +6,7 @@ import {
 import { db } from '../../firebase';
 import { fireProjectile } from '../../utils/projectile';
 import { STAT_LABEL } from '../../constants/equipment';
+import { getMaxExpForLevel } from '../../utils/leveling';
 
 // ── 레벨 기반 스탯 + 장비/업그레이드 보너스 ─────────────────
 // 인수로 student 객체 또는 숫자(레벨)를 받음
@@ -53,9 +54,6 @@ const getStats = (studentOrLevel = 1, equipmentItems = []) => {
     attackSpeed: base.attackSpeed + (equipBonus.attackSpeed || 0),
   };
 };
-
-const getMaxExpForLevel = (lv) =>
-  lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
 
 const calcLevelUp = (level, exp, gained) => {
   let lv = level || 1, ex = (exp || 0) + gained;

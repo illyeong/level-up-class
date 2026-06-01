@@ -6,6 +6,7 @@ import { GRADE, SLOTS, STAT_LABEL } from '../constants/equipment';
 import SpriteMonster from './SpriteMonster';
 import { MONSTERS_DB } from '../data/monsterData';
 import { formatStats } from '../pages/student/PetHouse';
+import { getMaxExpForLevel } from '../utils/leveling';
 
 const RARITY_BADGE = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟡', mythic:'🌈' };
 const RARITY_LABEL = { common:'일반', rare:'희귀', epic:'영웅', legendary:'전설', mythic:'신화' };
@@ -50,8 +51,6 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
     load();
   }, [studentCode]);
 
-  const getMaxExpForLevel = (lv) =>
-    lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
 
   const name    = studentData?.name || studentData?.studentCode || '용사';
   const level   = studentData?.level || 1;
