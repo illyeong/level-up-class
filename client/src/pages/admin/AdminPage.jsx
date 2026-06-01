@@ -46,6 +46,17 @@ const isTodayDate = (value) => {
     && d.getDate() === now.getDate();
 };
 
+const getKstDateKey = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const map = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  return `${map.year}-${map.month}-${map.day}`;
+};
+
 const percent = (value, total) => total > 0 ? Math.round((value / total) * 100) : 0;
 const fmtNum = (value) => Number(value || 0).toLocaleString();
 
@@ -125,6 +136,7 @@ function DashboardTab() {
         });
 
         const classStats = {};
+        const todayKey = getKstDateKey();
         classes.forEach(c => {
           classStats[c.id] = {
             id: c.id,
@@ -166,6 +178,10 @@ function DashboardTab() {
           classStats[classId].studentCount += 1;
           classStats[classId].totalGold += Number(s.gold || 0);
           classStats[classId].totalDiamonds += Number(s.diamonds || 0);
+          const activeAt = s.lastActiveAt || s.lastLoginAt;
+          if (s.lastActiveDateKey === todayKey || isTodayDate(activeAt)) {
+            touchActivity(classId, s.id, activeAt || new Date());
+          }
         });
 
         const touchActivity = (classId, studentId, ts) => {

@@ -209,6 +209,37 @@ const saveStudentSession = (data) => {
   localStorage.setItem(STUDENT_AUTO_LOGIN_KEY, payload);
 };
 
+const getKstDateKey = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const map = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  return `${map.year}-${map.month}-${map.day}`;
+};
+
+const markStudentActive = async (student) => {
+  const docId = student?.id;
+  const studentCode = student?.studentCode;
+  try {
+    let targetId = docId;
+    if (!targetId && studentCode) {
+      const snap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)));
+      if (!snap.empty) targetId = snap.docs[0].id;
+    }
+    if (!targetId) return;
+    await updateDoc(doc(db, 'students', targetId), {
+      lastActiveAt: serverTimestamp(),
+      lastLoginAt: serverTimestamp(),
+      lastActiveDateKey: getKstDateKey(),
+    });
+  } catch (e) {
+    console.warn('[StudentActive] update failed:', e);
+  }
+};
+
 // appMode: 'loading' | 'login' | 'classSelect' | 'student' | 'teacher' | 'admin'
 function App() {
   const [appMode,        setAppMode]        = useState('loading');
@@ -298,6 +329,7 @@ function App() {
         if (saved) {
           setStudentInfo(saved);
           sessionStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(saved));
+          markStudentActive(saved);
           setAppMode('student');
         } else {
           setAppMode('login');
@@ -421,6 +453,7 @@ function App() {
   const handleStudentLogin = (data) => {
     setStudentInfo(data);
     saveStudentSession(data);
+    markStudentActive(data);
     setAppMode('student');
     setCurrentView('dashboard');
   };
@@ -465,6 +498,7 @@ function App() {
         const data = { id: snap.docs[0].id, ...snap.docs[0].data() };
         setStudentInfo(data);
         saveStudentSession(data);
+        markStudentActive(data);
       }
     } catch (e) {
       console.error('테스트 학생 연동 실패:', e);
