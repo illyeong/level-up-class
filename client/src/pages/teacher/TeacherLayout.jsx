@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { db } from '../../firebase';
-import TeacherNavigationBar from '../../components/TeacherNavigationBar';
+import TeacherNavigationBar, { HELP_CONTENT as TEACHER_HELP_CONTENT } from '../../components/TeacherNavigationBar';
 
 // 🌟 필요한 화면 컴포넌트들 완벽하게 불러오기
 import AccountIssue from './AccountIssue';
@@ -156,6 +156,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   const [operationMode, setOperationMode] = useState('custom');
   const [forceShowNav, setForceShowNav] = useState(false);
   const [dashboardKey, setDashboardKey] = useState(0);
+  const [activeHelpId, setActiveHelpId] = useState(null);
   const [notices, setNotices]           = useState([]);
   const [dismissedIds, setDismissedIds] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('dismissedNotices') || '[]'); } catch { return []; }
@@ -285,6 +286,8 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   };
   const studentMenuLabelMap = { ...studentMenuLabels, ...KOREAN_STUDENT_MENU_LABELS };
   const teacherMenuLabelMap = { ...teacherMenuLabels, ...KOREAN_TEACHER_MENU_LABELS };
+  const currentHelp = TEACHER_HELP_CONTENT[currentView];
+  const activeHelp = activeHelpId ? TEACHER_HELP_CONTENT[activeHelpId] : null;
 
   const toggleHiddenMenu = async (scope, id) => {
     if (!uiPrefsRef) return;
@@ -366,6 +369,23 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
                 학급 변경
               </button>
             )}
+          </div>
+        )}
+
+        {currentHelp && currentView !== 'questKiosk' && (
+          <div className="sticky top-3 z-40 flex justify-end px-5 pointer-events-none">
+            <button
+              type="button"
+              onClick={() => setActiveHelpId(currentView)}
+              className={`pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black shadow-lg border transition ${
+                isDark
+                  ? 'border-indigo-400/30 bg-slate-800/95 text-indigo-100 hover:bg-indigo-700'
+                  : 'border-indigo-100 bg-white text-indigo-700 hover:bg-indigo-50'
+              }`}
+            >
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white">?</span>
+              이 페이지 사용법
+            </button>
           </div>
         )}
 
@@ -506,6 +526,57 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             setCurrentView('dashboard');
             setDashboardKey(k => k + 1); // 대시보드 강제 재마운트 → 퀘스트 현황 최신화
           }} />
+        </div>
+      )}
+
+      {activeHelp && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[210] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="p-5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-extrabold text-indigo-100">페이지 도움말</p>
+                <h2 className="text-xl font-black mt-1">{activeHelp.title}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveHelpId(null)}
+                className="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white font-black"
+                aria-label="도움말 닫기"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-5 space-y-5 text-slate-800">
+              <p className="text-sm leading-relaxed font-semibold text-slate-700">{activeHelp.summary}</p>
+              <div>
+                <h3 className="text-sm font-black text-slate-900 mb-2">사용 방법</h3>
+                <ol className="space-y-2">
+                  {activeHelp.steps.map((step, idx) => (
+                    <li key={idx} className="flex gap-2 text-sm leading-relaxed">
+                      <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              {activeHelp.tip && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <span className="font-black">운영 팁: </span>{activeHelp.tip}
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setActiveHelpId(null)}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black"
+              >
+                확인
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

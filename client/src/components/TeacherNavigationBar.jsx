@@ -7,7 +7,7 @@ import iconDashboard from '../assets/images/icon-dashboard.png';
 import iconQuest from '../assets/images/icon-quest.png';
 import iconAdventure from '../assets/images/icon-adventure.png';
 
-const HELP_CONTENT = {
+export const HELP_CONTENT = {
   dashboard: {
     title: '대시보드',
     summary: '우리 반 학생 현황, 오늘의 퀘스트 진행률, 주요 운영 버튼을 한눈에 보는 첫 화면입니다.',
@@ -178,7 +178,6 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
   const [showFeedback, setShowFeedback] = useState(false);
   const [fbText, setFbText]             = useState('');
   const [fbSaving, setFbSaving]         = useState(false);
-  const [activeHelpId, setActiveHelpId] = useState(null);
 
   const hidden = new Set(hiddenMenuIds || []);
   const teacherMenuData = [
@@ -297,14 +296,6 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
     }
   };
 
-  const openHelp = (e, id) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setActiveHelpId(id);
-  };
-
-  const activeHelp = activeHelpId ? HELP_CONTENT[activeHelpId] : null;
-
   return (
     <>
     <nav className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-indigo-950 text-indigo-100 transition-all duration-300 flex flex-col h-full z-50 shadow-2xl`}>
@@ -364,23 +355,10 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
                 )}
               </div>
               
-              {isSidebarOpen && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={(e) => openHelp(e, menu.id)}
-                    className="w-6 h-6 rounded-full bg-indigo-800/80 hover:bg-amber-400 hover:text-indigo-950 text-indigo-200 text-xs font-black transition-colors"
-                    title={`${menu.title} 도움말`}
-                    aria-label={`${menu.title} 도움말`}
-                  >
-                    ?
-                  </button>
-                  {menu.subMenus.length > 0 && (
-                    <svg className={`w-4 h-4 text-indigo-400 transition-transform duration-300 ${expandedMenu === menu.id ? 'rotate-180 text-amber-400' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                  )}
-                </div>
+              {isSidebarOpen && menu.subMenus.length > 0 && (
+                <svg className={`w-4 h-4 text-indigo-400 transition-transform duration-300 ${expandedMenu === menu.id ? 'rotate-180 text-amber-400' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
               )}
             </div>
 
@@ -391,23 +369,14 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
                   <li 
                     key={idx} 
                     onClick={(e) => handleSubMenuClick(e, subMenu.id)}
-                    className={`pl-14 pr-2 py-2 text-sm rounded-lg cursor-pointer transition-colors flex items-center justify-between gap-2 before:content-[''] before:w-1 before:h-1 before:rounded-full before:mr-3
+                    className={`pl-14 py-2 text-sm rounded-lg cursor-pointer transition-colors flex items-center before:content-[''] before:w-1 before:h-1 before:rounded-full before:mr-3
                       ${currentView === subMenu.id 
                         ? 'text-amber-300 bg-indigo-900/50 before:bg-amber-400 font-bold' 
                         : 'text-indigo-300 hover:text-amber-200 hover:bg-indigo-900/30 before:bg-indigo-600 hover:before:bg-amber-400'
                       }
                     `}
                   >
-                    <span className="min-w-0 flex-1 truncate">{subMenu.title}</span>
-                    <button
-                      type="button"
-                      onClick={(e) => openHelp(e, subMenu.id)}
-                      className="w-5 h-5 rounded-full bg-indigo-900/80 hover:bg-amber-400 hover:text-indigo-950 text-indigo-300 text-[10px] font-black transition-colors shrink-0"
-                      title={`${subMenu.title} 도움말`}
-                      aria-label={`${subMenu.title} 도움말`}
-                    >
-                      ?
-                    </button>
+                    {subMenu.title}
                   </li>
                 ))}
               </ul>
@@ -454,56 +423,6 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       </div>
     )}
 
-    {activeHelp && (
-      <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[210] flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-          <div className="p-5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-extrabold text-indigo-100">메뉴 도움말</p>
-              <h2 className="text-xl font-black mt-1">{activeHelp.title}</h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveHelpId(null)}
-              className="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white font-black"
-              aria-label="도움말 닫기"
-            >
-              ×
-            </button>
-          </div>
-          <div className="p-5 space-y-5 text-slate-800">
-            <p className="text-sm leading-relaxed font-semibold text-slate-700">{activeHelp.summary}</p>
-            <div>
-              <h3 className="text-sm font-black text-slate-900 mb-2">사용 방법</h3>
-              <ol className="space-y-2">
-                {activeHelp.steps.map((step, idx) => (
-                  <li key={idx} className="flex gap-2 text-sm leading-relaxed">
-                    <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center shrink-0">
-                      {idx + 1}
-                    </span>
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-            {activeHelp.tip && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                <span className="font-black">운영 팁: </span>{activeHelp.tip}
-              </div>
-            )}
-          </div>
-          <div className="p-4 border-t border-slate-100 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setActiveHelpId(null)}
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black"
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
     </>
   );
 };
