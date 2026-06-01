@@ -154,6 +154,11 @@ public class Joystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoint
         return RectTransformUtility.RectangleContainsScreenPoint(background, eventData.position, c);
     }
 
+    public bool IsPointerInsideJoystick(PointerEventData eventData)
+    {
+        return IsPointerOverBackground(eventData);
+    }
+
     protected Vector2 ScreenPointToAnchoredPosition(Vector2 screenPosition)
     {
         Vector2 localPoint = Vector2.zero;

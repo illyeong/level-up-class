@@ -17,9 +17,12 @@ public class DynamicJoystick : Joystick
     }
 
     [SerializeField] private bool restrictToSelf = true; // 컴포넌트 RectTransform 범위 안에서만 반응
+    [SerializeField] private bool restrictToJoystickArea = true; // 조이스틱 배경 영역에서 시작한 터치만 반응
 
     public override void OnPointerDown(PointerEventData eventData)
     {
+        if (restrictToJoystickArea && !IsPointerInsideJoystick(eventData)) return;
+
         // restrictToSelf: DynamicJoystick GameObject 자체 RectTransform 영역 밖 터치 무시
         if (restrictToSelf)
         {

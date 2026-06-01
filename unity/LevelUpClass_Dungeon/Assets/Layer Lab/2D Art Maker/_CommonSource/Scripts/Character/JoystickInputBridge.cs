@@ -8,8 +8,20 @@ using LayerLab.ArtMaker;
 /// </summary>
 public class JoystickInputBridge : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
 {
+    private Joystick joystick;
+
+    void Awake()
+    {
+        joystick = GetComponent<Joystick>() ?? GetComponentInChildren<Joystick>(true);
+    }
+
     public void OnPointerDown(PointerEventData eventData)
     {
+        if (joystick != null && !joystick.IsPointerInsideJoystick(eventData))
+        {
+            MobileInput.isJoystickActive = false;
+            return;
+        }
         MobileInput.isJoystickActive = true;
     }
 

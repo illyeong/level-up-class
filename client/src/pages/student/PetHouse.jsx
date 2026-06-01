@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, doc, addDoc, updateDoc, deleteDoc,
   query, where, serverTimestamp, orderBy,
@@ -489,6 +489,8 @@ export default function PetHouse({ studentCode }) {
   const [detailAnim,  setDetailAnim]  = useState('idle');
   const [petBubble,   setPetBubble]   = useState(null);  // 쓰다듬기 말풍선
   const [showHearts,  setShowHearts]  = useState(false); // 하트 이펙트
+  const [careEffectPos, setCareEffectPos] = useState(null);
+  const detailPetRef = useRef(null);
   const [hatchPhase,  setHatchPhase]  = useState('idle'); // idle|animating|result
   const [hatchingEgg, setHatchingEgg] = useState(null);
   const [hatchedPet,  setHatchedPet]  = useState(null);
@@ -508,6 +510,19 @@ export default function PetHouse({ studentCode }) {
 
   const [renamePet, setRenamePet]   = useState(null);
   const [renameInput, setRenameInput] = useState('');
+
+  const captureCareEffectPos = () => {
+    const rect = detailPetRef.current?.getBoundingClientRect?.();
+    if (!rect) {
+      setCareEffectPos(null);
+      return;
+    }
+    setCareEffectPos({
+      x: rect.left + rect.width / 2,
+      top: Math.max(72, rect.top - 12),
+      middle: rect.top + rect.height * 0.45,
+    });
+  };
 
   const [toast, setToast] = useState(null);
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 2500); };
@@ -670,6 +685,7 @@ export default function PetHouse({ studentCode }) {
     });
     // 쓰다듬기 대사 + 하트 이펙트
     const lines = ['기분 좋아요~ 💕', '더 해줘요! 🥰', '행복해요! ✨', '좋아요~ 💝', '이게 최고야! 💖', '쓰다듬어줘서 고마워요!'];
+    captureCareEffectPos();
     setPetBubble(lines[Math.floor(Math.random() * lines.length)]);
     setShowHearts(true);
     setTimeout(() => { setPetBubble(null); setShowHearts(false); setDetailAnim('idle'); }, 2500);
@@ -701,6 +717,7 @@ export default function PetHouse({ studentCode }) {
     if (selectedPet?.id === pet.id) setSelectedPet(patched);
     // 씻기기 이펙트
     const washLines = ['개운해요! 🛁', '깨끗해졌어요! ✨', '상쾌해요~ 💧', '감사해요! 🧼', '몸이 가벼워요!'];
+    captureCareEffectPos();
     setPetBubble(washLines[Math.floor(Math.random() * washLines.length)]);
     setShowHearts(true);
     setTimeout(() => { setPetBubble(null); setShowHearts(false); }, 2500);
@@ -724,6 +741,7 @@ export default function PetHouse({ studentCode }) {
     if (selectedPet?.id === pet.id) setSelectedPet(patched);
     // 놀아주기 이펙트
     const playLines = ['신나요! 🎮', '같이 놀아서 행복해요! 🎉', '최고야! ⭐', '또 해요! 🥳', '재밌어요!!! 🎊'];
+    captureCareEffectPos();
     setPetBubble(playLines[Math.floor(Math.random() * playLines.length)]);
     setShowHearts(true);
     setDetailAnim('run');
@@ -990,16 +1008,29 @@ export default function PetHouse({ studentCode }) {
     <div className="min-h-screen bg-gradient-to-b from-indigo-950 to-slate-900 p-4 pb-24">
       {/* ── 케어 이펙트 fixed 오버레이 (항상 화면 중앙에 표시) ── */}
       {(petBubble || showHearts) && (
-        <div className="fixed inset-0 pointer-events-none z-[9999] flex items-center justify-center">
-          <div className="relative flex flex-col items-center">
-            {petBubble && (
-              <div className="bg-white text-slate-800 text-lg font-extrabold px-6 py-3 rounded-3xl shadow-2xl border-2 border-slate-200 animate-bounce mb-4">
-                {petBubble}
-                <div style={{ position:'absolute', bottom:-8, left:'50%', transform:'translateX(-50%) rotate(45deg)', width:14, height:14, background:'white', borderRight:'2px solid #e2e8f0', borderBottom:'2px solid #e2e8f0' }} />
-              </div>
-            )}
-            {showHearts && (
-              <div className="relative w-32 h-32">
+        <div className="fixed inset-0 pointer-events-none z-[9999]">
+          {petBubble && (
+            <div
+              className="absolute bg-white text-slate-800 text-lg font-extrabold px-6 py-3 rounded-3xl shadow-2xl border-2 border-slate-200 animate-bounce whitespace-nowrap"
+              style={{
+                left: careEffectPos?.x ?? '50%',
+                top: careEffectPos?.top ?? '50%',
+                transform: 'translate(-50%, -100%)',
+              }}
+            >
+              {petBubble}
+              <div style={{ position:'absolute', bottom:-8, left:'50%', transform:'translateX(-50%) rotate(45deg)', width:14, height:14, background:'white', borderRight:'2px solid #e2e8f0', borderBottom:'2px solid #e2e8f0' }} />
+            </div>
+          )}
+          {showHearts && (
+            <div
+              className="absolute w-32 h-32"
+              style={{
+                left: careEffectPos?.x ?? '50%',
+                top: careEffectPos?.middle ?? '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
                 {['💕','❤️','💖','✨','💝','🌟'].map((h, i) => (
                   <span key={i} style={{
                     position:'absolute',
@@ -1015,9 +1046,8 @@ export default function PetHouse({ studentCode }) {
                   @keyframes petFloatUp1 { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-95px) scale(1.3) rotate(10deg)} }
                   @keyframes petFloatUp2 { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-65px) scale(1.1) rotate(-6deg)} }
                 `}</style>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
       <div className="max-w-3xl mx-auto">
@@ -1109,7 +1139,7 @@ export default function PetHouse({ studentCode }) {
                     {/* 정보 카드 */}
                     <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl flex flex-col overflow-y-auto p-4 items-center" style={{ width: 250, maxHeight: 720 }}>
                       {isActive && <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border mb-2 ${r.bg} ${r.text} ${r.border}`}>★ 대표 펫</span>}
-                      <div className="flex justify-center items-end mb-2 cursor-pointer"
+                      <div ref={detailPetRef} className="flex justify-center items-end mb-2 cursor-pointer"
                         style={{ height: dh + 10, filter: isMythic ? 'drop-shadow(0 0 10px #f43f5e)' : `drop-shadow(0 0 8px ${RARITY_THEME[sp.rarity]?.glow || '#60a5fa'})`, opacity: isDead ? 0.5 : 1 }}
                         onClick={() => !isDead && setDetailAnim(a => a === 'idle' ? 'attack' : 'idle')}>
                         <SpriteMonster data={spMd} anim={currentAnim} scale={dScale} onAnimEnd={() => !isDead && setDetailAnim('idle')} />
