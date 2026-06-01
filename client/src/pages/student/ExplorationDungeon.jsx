@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { STAT_LABEL } from '../../constants/equipment';
+import { getMaxExpForLevel } from '../../utils/leveling';
 
 const DUNGEON_URL = '/dungeon-wrapper.html';
 
@@ -141,9 +142,6 @@ const getSequentialState = (dungeon, completedMap, allDungeons, isTeacher = fals
 };
 
 // ── 유틸 ──────────────────────────────────────────────────────
-const getMaxExpForLevel = (lv) =>
-  lv <= 10 ? 100 : lv <= 30 ? 300 : lv <= 60 ? 800 : 2000;
-
 const calcLevelUp = (level, exp, maxExp, gained) => {
   let lv = level || 1, ex = (exp || 0) + gained;
   let mx = getMaxExpForLevel(lv), leveled = false;

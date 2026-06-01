@@ -4,6 +4,7 @@ import {
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { getMaxExpForLevel } from '../utils/leveling';
 import AttendanceCheck from '../pages/student/AttendanceCheck';
 import HallOfFame from '../pages/student/HallOfFame';
 import LevelUpEffect from './LevelUpEffect';
@@ -564,7 +565,7 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
     const stored   = parseInt(localStorage.getItem(key) || '0', 10);
     const current  = studentData.level;
     if (stored > 0 && current > stored) {
-      const prevMaxExp = stored <= 10 ? 100 : stored <= 30 ? 300 : stored <= 60 ? 800 : 2000;
+      const prevMaxExp = getMaxExpForLevel(stored);
       setLevelUpData({ prevLevel: stored, newLevel: current, expGained: prevMaxExp, maxExp: prevMaxExp });
     }
     localStorage.setItem(key, String(current));

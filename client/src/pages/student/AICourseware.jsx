@@ -6,6 +6,7 @@ import {
 import { db } from '../../firebase';
 import { renderMath, TableRenderer, stripOptionPrefix } from '../../utils/renderMath';
 import ShapeRenderer from '../../components/ShapeRenderer';
+import { getMaxExpForLevel } from '../../utils/leveling';
 
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
@@ -75,7 +76,7 @@ const MASTERY = {
 };
 const getMasteryLevel = (score) =>
   score >= 90 ? 'excellent' : score >= 75 ? 'good' : score >= 60 ? 'normal' : 'retry';
-const getMaxExp = (lv) => lv <= 10 ? 100 : lv <= 30 ? 500 : lv <= 40 ? 700 : lv <= 50 ? 900 : lv <= 60 ? 1100 : lv <= 70 ? 1300 : lv <= 80 ? 1500 : lv <= 90 ? 1700 : 1900;
+const getMaxExp = getMaxExpForLevel; // leveling.js 통합 공식 사용
 
 // 단원 카드 원형 진행 그래프
 function UnitCircleProgress({ started, done, total, size = 50 }) {
