@@ -1,0 +1,10 @@
+node_modules
+.git
+.vercel
+client/dist
+
+# Unity source/editor folders are not part of the deployed web app.
+# WebGL runtime files used by the site live under client/public.
+unity/
+
+desktop-widget/

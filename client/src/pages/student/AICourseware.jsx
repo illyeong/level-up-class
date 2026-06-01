@@ -10,14 +10,54 @@ import ShapeRenderer from '../../components/ShapeRenderer';
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
 const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
+const COURSEWARE_QUALITY_VERSION = 'quality-v2';
 
-// 캐시된 풀(10개)에서 매 세션 SESSION_Q_NUM개를 랜덤 선택
-function pickSessionQuestions(data) {
+const questionFingerprint = (q) =>
+  String(q?.question || '')
+    .replace(/\s+/g, '')
+    .replace(/[①②③④0-9().,!?~]/g, '')
+    .slice(0, 90);
+
+function readRecentQuestionKeys(key) {
+  if (!key) return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(`aiCoursewareRecent:${key}`) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentQuestionKeys(key, selectedKeys, max = 20) {
+  if (!key) return;
+  const merged = [...selectedKeys, ...readRecentQuestionKeys(key)];
+  const unique = [];
+  for (const item of merged) {
+    if (item && !unique.includes(item)) unique.push(item);
+    if (unique.length >= max) break;
+  }
+  localStorage.setItem(`aiCoursewareRecent:${key}`, JSON.stringify(unique));
+}
+
+function shouldRefreshLessonContent(data) {
+  if (!data) return true;
+  if (data.generatorVersion !== COURSEWARE_QUALITY_VERSION) return true;
+  if (!Array.isArray(data.questions) || data.questions.length < 12) return true;
+  return false;
+}
+
+// 캐시된 문제 풀에서 최근 풀었던 문항은 뒤로 미뤄 세션마다 다른 조합을 출제
+function pickSessionQuestions(data, key) {
   if (!data?.questions?.length) return data;
   const pool = data.questions;
   if (pool.length <= SESSION_Q_NUM) return data;
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  return { ...data, questions: shuffled.slice(0, SESSION_Q_NUM) };
+  const recent = new Set(readRecentQuestionKeys(key));
+  const fresh = shuffled.filter(q => !recent.has(questionFingerprint(q)));
+  const fallback = shuffled.filter(q => recent.has(questionFingerprint(q)));
+  const selected = [...fresh, ...fallback].slice(0, SESSION_Q_NUM);
+  saveRecentQuestionKeys(key, selected.map(questionFingerprint));
+  return { ...data, questions: selected };
 }
 
 // KST 오전 8시 기준 세션 날짜 (매일 8시 초기화)
@@ -299,7 +339,7 @@ export default function AICourseware({ studentCode }) {
       const promise = (async () => {
         try {
           const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
-          if (cacheDoc.exists()) return cacheDoc.data();
+          if (cacheDoc.exists() && !shouldRefreshLessonContent(cacheDoc.data())) return cacheDoc.data();
           return await fetchLessonContent(unit, lesson);
         } catch { return null; }
       })();
@@ -348,20 +388,20 @@ export default function AICourseware({ studentCode }) {
         // 프리로드 성공 — 즉시 사용
         data = preloadResult;
         // Firestore에 없으면 저장
-        const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
-        if (!cacheDoc.exists() && data) {
+        if (data?.generatorVersion === COURSEWARE_QUALITY_VERSION) {
           setDoc(doc(db, 'aiLessonContent', key), {
             ...data, lessonKey: key,
             grade: unit.grade, semester: unit.semester,
             publisher: unit.publisher, unitId: unit.id, unitName: unit.unitName,
             lessonNo: lesson.no, lessonTitle: lesson.title,
             createdAt: serverTimestamp(),
-          }).catch(() => {});
+            updatedAt: serverTimestamp(),
+          }, { merge: true }).catch(() => {});
         }
       } else {
         // 2. Firestore 캐시 확인
         const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
-        if (cacheDoc.exists()) {
+        if (cacheDoc.exists() && !shouldRefreshLessonContent(cacheDoc.data())) {
           data = cacheDoc.data();
         } else {
           // 3. 캐시 없으면 API 생성
@@ -374,12 +414,13 @@ export default function AICourseware({ studentCode }) {
             publisher: unit.publisher, unitId: unit.id, unitName: unit.unitName,
             lessonNo: lesson.no, lessonTitle: lesson.title,
             createdAt: serverTimestamp(),
-          }).catch(() => {});
+            updatedAt: serverTimestamp(),
+          }, { merge: true }).catch(() => {});
         }
       }
 
       stepTimer.clear();
-      setContent(pickSessionQuestions(data)); // 풀에서 랜덤 선택
+      setContent(pickSessionQuestions(data, key)); // 최근 문항을 피해서 선택
       setStep('concept');
     } catch (e) {
       stepTimer.clear();
@@ -390,7 +431,7 @@ export default function AICourseware({ studentCode }) {
   };
 
   const startLearning = () => {
-    setContent(prev => prev ? pickSessionQuestions(prev) : prev); // 재도전 시 새 문제 조합
+    setContent(prev => prev ? pickSessionQuestions(prev, prev.lessonKey || lessonKey(selectedUnit, selectedLesson)) : prev); // 재도전 시 새 문제 조합
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
     setConsecWrong(0); setMinTimeLeft(0);
