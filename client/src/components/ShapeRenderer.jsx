@@ -31,6 +31,53 @@ const FILL  = '#dbeafe';
 const STROKE = '#3b82f6';
 const SW    = 2;
 
+function MiniSolid({ type, cx, cy, s = 32 }) {
+  if (type === 'cube' || type === 'cuboid') {
+    const w = type === 'cube' ? s : s * 1.25;
+    const h = type === 'cube' ? s : s * 0.75;
+    const dx = s * 0.28, dy = -s * 0.22;
+    const x = cx - w / 2, y = cy - h / 2 + 4;
+    return (
+      <g>
+        <polygon points={`${x},${y} ${x+dx},${y+dy} ${x+w+dx},${y+dy} ${x+w},${y}`} fill="#eff6ff" stroke={STROKE} strokeWidth="1.4" />
+        <polygon points={`${x+w},${y} ${x+w+dx},${y+dy} ${x+w+dx},${y+h+dy} ${x+w},${y+h}`} fill="#bfdbfe" stroke={STROKE} strokeWidth="1.4" />
+        <rect x={x} y={y} width={w} height={h} fill={FILL} stroke={STROKE} strokeWidth="1.4" />
+      </g>
+    );
+  }
+  if (type === 'cylinder') {
+    const w = s * 1.2, h = s * 1.1;
+    const x = cx - w / 2, y = cy - h / 2;
+    return (
+      <g>
+        <rect x={x} y={y} width={w} height={h} fill={FILL} stroke={STROKE} strokeWidth="1.4" />
+        <ellipse cx={cx} cy={y} rx={w/2} ry={s*0.18} fill="#eff6ff" stroke={STROKE} strokeWidth="1.4" />
+        <ellipse cx={cx} cy={y+h} rx={w/2} ry={s*0.18} fill="#bfdbfe" stroke={STROKE} strokeWidth="1.4" />
+      </g>
+    );
+  }
+  if (type === 'cone') {
+    const w = s * 1.25, h = s * 1.25;
+    const x = cx - w / 2, y = cy + h / 2;
+    return (
+      <g>
+        <path d={`M ${cx} ${cy-h/2} L ${x} ${y} A ${w/2} ${s*0.18} 0 0 0 ${x+w} ${y} Z`} fill={FILL} stroke={STROKE} strokeWidth="1.4" />
+        <ellipse cx={cx} cy={y} rx={w/2} ry={s*0.18} fill="#bfdbfe" stroke={STROKE} strokeWidth="1.4" />
+      </g>
+    );
+  }
+  if (type === 'sphere') {
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={s*0.5} fill={FILL} stroke={STROKE} strokeWidth="1.4" />
+        <ellipse cx={cx} cy={cy} rx={s*0.5} ry={s*0.16} fill="none" stroke="#93c5fd" strokeWidth="1.2" />
+        <ellipse cx={cx} cy={cy} rx={s*0.17} ry={s*0.5} fill="none" stroke="#93c5fd" strokeWidth="1.2" />
+      </g>
+    );
+  }
+  return null;
+}
+
 const renderers = {
 
   // ── 정삼각형 ──────────────────────────────────────────────────
@@ -225,6 +272,70 @@ const renderers = {
   },
 
   // ── 여러 도형 2×2 그리드 ─────────────────────────────────────
+  cuboid() {
+    return <MiniSolid type="cuboid" cx={W/2} cy={H/2 + 4} s={78} />;
+  },
+
+  cube() {
+    return <MiniSolid type="cube" cx={W/2} cy={H/2 + 4} s={78} />;
+  },
+
+  cylinder() {
+    return <MiniSolid type="cylinder" cx={W/2} cy={H/2 + 4} s={78} />;
+  },
+
+  cone() {
+    return <MiniSolid type="cone" cx={W/2} cy={H/2 + 8} s={82} />;
+  },
+
+  sphere() {
+    return <MiniSolid type="sphere" cx={W/2} cy={H/2 + 4} s={82} />;
+  },
+
+  factor_list({ d }) {
+    const groups = Array.isArray(d.groups) ? d.groups.slice(0, 3) : [];
+    const highlight = new Set((Array.isArray(d.highlight) ? d.highlight : []).map(v => String(v)));
+    const rowH = groups.length >= 3 ? 42 : 50;
+    const startY = H / 2 - (groups.length * rowH) / 2 + 4;
+    return (
+      <>
+        {groups.map((group, row) => {
+          const y = startY + row * rowH;
+          const values = Array.isArray(group.values) ? group.values.slice(0, 10) : [];
+          return (
+            <React.Fragment key={row}>
+              <text x={18} y={y + 16} fontSize={11} fill="#1e293b" fontWeight="700" textAnchor="start">
+                {group.label}
+              </text>
+              {values.map((value, i) => {
+                const x = 78 + i * 23;
+                const active = highlight.has(String(value));
+                return (
+                  <g key={i}>
+                    <rect
+                      x={x - 9} y={y + 1} width={20} height={22} rx={6}
+                      fill={active ? '#dcfce7' : '#eff6ff'}
+                      stroke={active ? '#16a34a' : STROKE}
+                      strokeWidth="1.4"
+                    />
+                    <text x={x + 1} y={y + 16} fontSize={10} fill={active ? '#166534' : '#1e40af'} fontWeight="700" textAnchor="middle">
+                      {value}
+                    </text>
+                  </g>
+                );
+              })}
+            </React.Fragment>
+          );
+        })}
+        {highlight.size > 0 && (
+          <text x={W/2} y={H-8} textAnchor="middle" fontSize={10} fill="#166534" fontWeight="700">
+            초록색: 공통으로 들어가는 수
+          </text>
+        )}
+      </>
+    );
+  },
+
   multi({ d }) {
     const items = (d.items || []).slice(0, 4);
     const KO = {
@@ -232,6 +343,7 @@ const renderers = {
       equilateral_triangle:'정삼각형', isosceles_triangle:'이등변삼각형',
       right_triangle:'직각삼각형', parallelogram:'평행사변형',
       rhombus:'마름모', trapezoid:'사다리꼴', semicircle:'반원',
+      cuboid:'직육면체', cube:'정육면체', cylinder:'원기둥', cone:'원뿔', sphere:'구',
     };
     const positions = [
       { cx: W*0.25, cy: H*0.38 }, { cx: W*0.75, cy: H*0.38 },
@@ -240,6 +352,12 @@ const renderers = {
     const miniShape = (type, cx, cy) => {
       const s = 32;
       switch (type) {
+        case 'cuboid':
+        case 'cube':
+        case 'cylinder':
+        case 'cone':
+        case 'sphere':
+          return <MiniSolid type={type} cx={cx} cy={cy} s={s} />;
         case 'circle':     return <circle cx={cx} cy={cy} r={s/2} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
         case 'square':     return <rect x={cx-s/2} y={cy-s/2} width={s} height={s} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;
         case 'rectangle':  return <rect x={cx-s*0.75} y={cy-s*0.4} width={s*1.5} height={s*0.8} fill={FILL} stroke={STROKE} strokeWidth={1.5} />;

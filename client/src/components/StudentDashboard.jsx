@@ -523,6 +523,7 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
   const [levelUpData, setLevelUpData]       = useState(null); // { prevLevel, newLevel }
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isIOS, setIsIOS] = useState(false);
+  const [installGuide, setInstallGuide] = useState(null);
 
   useEffect(() => {
     if (!studentCode) return;
@@ -611,18 +612,34 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
     }
   };
 
-  const handleInstallClick = async () => {
+  const openHomeShortcutGuide = () => {
+    setInstallGuide({
+      title: '홈화면/바탕화면에 추가하기',
+      description: isIOS
+        ? 'iPhone/iPad에서는 Safari 하단 공유 버튼을 누른 뒤 "홈 화면에 추가"를 선택해 주세요.'
+        : '브라우저 주소창 오른쪽 또는 메뉴에서 "홈 화면에 추가", "바로가기 만들기", "앱 설치"를 선택해 주세요.',
+      steps: isIOS
+        ? ['Safari로 접속하기', '하단 공유 버튼 누르기', '"홈 화면에 추가" 선택']
+        : ['Chrome 또는 Edge로 접속하기', '주소창 오른쪽 설치 아이콘 또는 메뉴 열기', '"홈 화면에 추가" 또는 "바로가기 만들기" 선택'],
+    });
+  };
+
+  const handleAppInstallClick = async () => {
     if (installPrompt) {
       installPrompt.prompt();
       await installPrompt.userChoice;
       setInstallPrompt(null);
       return;
     }
-    if (isIOS) {
-      window.alert('iOS Safari에서 하단 공유 버튼 -> "홈 화면에 추가"를 눌러주세요.');
-      return;
-    }
-    window.alert('브라우저 메뉴에서 "홈 화면에 추가" 또는 "앱 설치"를 눌러주세요.');
+    setInstallGuide({
+      title: '앱 설치 안내',
+      description: isIOS
+        ? 'iOS Safari는 앱 설치 팝업을 직접 띄울 수 없습니다. 공유 버튼에서 홈 화면에 추가해 주세요.'
+        : '현재 브라우저가 설치 팝업을 제공하지 않는 상태입니다. 주소창의 설치 아이콘 또는 브라우저 메뉴를 확인해 주세요.',
+      steps: isIOS
+        ? ['Safari로 접속하기', '공유 버튼 누르기', '"홈 화면에 추가" 선택']
+        : ['Chrome 또는 Edge로 접속하기', '주소창 설치 아이콘 확인', '메뉴에서 "앱 설치" 또는 "홈 화면에 추가" 선택'],
+    });
   };
 
   const name     = studentData?.name     || studentData?.studentCode || '용감한 용사';
@@ -655,6 +672,38 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
         maxExp={levelUpData.maxExp}
       />
     )}
+    {installGuide && (
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 px-4" onClick={() => setInstallGuide(null)}>
+        <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-xl font-extrabold text-slate-900">{installGuide.title}</h2>
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-600">{installGuide.description}</p>
+            </div>
+            <button
+              onClick={() => setInstallGuide(null)}
+              className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-extrabold text-slate-600 hover:bg-slate-200"
+            >
+              닫기
+            </button>
+          </div>
+          <div className="space-y-2">
+            {installGuide.steps.map((step, idx) => (
+              <div key={step} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-sm font-extrabold text-white">{idx + 1}</span>
+                <span className="text-sm font-bold text-slate-700">{step}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => setInstallGuide(null)}
+            className="mt-5 w-full rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-extrabold text-white hover:bg-indigo-700"
+          >
+            확인
+          </button>
+        </div>
+      </div>
+    )}
     <div className={`min-h-screen p-6 md:p-8 ${themeMode === 'dark' ? '' : 'bg-slate-50'}`}>
       <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 gap-4 flex-wrap">
         <h1 className={`text-3xl font-bold flex items-center gap-2 ${themeMode === 'dark' ? 'text-white' : 'text-slate-800'}`}>
@@ -664,22 +713,22 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
         <div className="flex items-center gap-3 flex-wrap">
           {installPrompt && (
             <button
-              onClick={handleInstallClick}
+              onClick={openHomeShortcutGuide}
               className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 border border-slate-800 text-white font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm"
             >
-              홈 화면에 추가
+              홈화면/바탕화면 추가
             </button>
           )}
           {!installPrompt && (
             <button
-              onClick={handleInstallClick}
+              onClick={openHomeShortcutGuide}
               className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 border border-slate-800 text-white font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm"
             >
               홈화면/바탕화면 추가
             </button>
           )}
           <button
-            onClick={handleInstallClick}
+            onClick={handleAppInstallClick}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 border border-indigo-700 text-white font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm"
           >
             앱 설치하기

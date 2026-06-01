@@ -5,6 +5,7 @@ const SHAPE_TYPES = new Set([
   'pie_chart', 'number_line', 'polygon', 'multi', 'rectangle', 'square',
   'circle', 'equilateral_triangle', 'isosceles_triangle', 'right_triangle',
   'parallelogram', 'rhombus', 'trapezoid', 'semicircle', 'symmetry',
+  'cuboid', 'cube', 'cylinder', 'cone', 'sphere', 'factor_list',
 ]);
 
 const stripOptionPrefix = (value) =>
@@ -118,11 +119,32 @@ const cleanChart = (d, maxItems, positiveOnly = false) => {
   };
 };
 
-const sanitizeShape = (shape) => {
+const isFactorMultipleLesson = (payload) => {
+  const text = [
+    payload?.unitName,
+    payload?.lessonTitle,
+    payload?.learningGoal,
+    Array.isArray(payload?.keywords) ? payload.keywords.join(' ') : payload?.keywords,
+  ].filter(Boolean).join(' ');
+  return /약수|공약수|최대공약수|배수|공배수|최소공배수/.test(text);
+};
+
+const sanitizeShape = (shape, context = {}) => {
   if (!shape || typeof shape !== 'object' || !SHAPE_TYPES.has(shape.type)) return null;
   const type = shape.type;
   const d = shape.dimensions && typeof shape.dimensions === 'object' ? { ...shape.dimensions } : {};
   const unit = String(shape.unit || d.unit || '').slice(0, 6);
+  if (context.factorMultiple && ['bar_chart', 'line_chart', 'pie_chart'].includes(type)) return null;
+  if (type === 'factor_list') {
+    const groups = asList(d.groups, 3)
+      .map(group => ({
+        label: String(group?.label || '').trim().slice(0, 20),
+        values: asList(group?.values, 12).map(v => finite(v)).filter(v => v != null).map(v => Math.round(v)),
+      }))
+      .filter(group => group.label && group.values.length);
+    const highlight = asList(d.highlight, 12).map(v => finite(v)).filter(v => v != null).map(v => Math.round(v));
+    return groups.length ? { type, dimensions: { groups, highlight } } : null;
+  }
 
   if (type === 'bar_chart') {
     const cleaned = cleanChart(d, 6);
@@ -137,12 +159,15 @@ const sanitizeShape = (shape) => {
     return cleaned ? { type, dimensions: cleaned } : null;
   }
   if (type === 'multi') {
-    const allowed = new Set(['rectangle', 'square', 'circle', 'equilateral_triangle', 'isosceles_triangle', 'right_triangle', 'parallelogram', 'rhombus', 'trapezoid', 'semicircle']);
+    const allowed = new Set(['rectangle', 'square', 'circle', 'equilateral_triangle', 'isosceles_triangle', 'right_triangle', 'parallelogram', 'rhombus', 'trapezoid', 'semicircle', 'cuboid', 'cube', 'cylinder', 'cone', 'sphere']);
     const items = asList(d.items, 4)
       .map(v => String(v || '').trim())
       .map(v => v === 'triangle' ? 'equilateral_triangle' : v)
       .filter(v => allowed.has(v));
     return items.length >= 2 ? { type, dimensions: { ...d, items } } : null;
+  }
+  if (['cuboid', 'cube', 'cylinder', 'cone', 'sphere'].includes(type)) {
+    return { type, dimensions: d, unit };
   }
   if (type === 'polygon') {
     return { type, dimensions: { ...d, sides: Math.round(clamp(d.sides, 3, 10, 5)), side: finite(d.side) || undefined }, unit };
@@ -250,7 +275,7 @@ function tryParseJson(text) {
   }
 }
 
-function normalizeQuestion(q, index, { sameDenomFocus = false } = {}) {
+function normalizeQuestion(q, index, { sameDenomFocus = false, factorMultiple = false } = {}) {
   if (!q || typeof q !== 'object') return null;
 
   const options = Array.isArray(q.options)
@@ -266,7 +291,7 @@ function normalizeQuestion(q, index, { sameDenomFocus = false } = {}) {
   const rotated = [...options.slice(shift), ...options.slice(0, shift)];
   const rotatedAnswerIndex = rotated.findIndex(o => o === correct);
 
-  const shape = sanitizeShape(q.shape);
+  const shape = sanitizeShape(q.shape, { factorMultiple });
 
   const normalized = {
     question: String(q.question || '').trim(),
@@ -358,12 +383,23 @@ function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
 - For fraction_bar shapes, do not reveal the answer as a label; show only the visual bar.
 `
     : '';
+  const factorRules = isFactorMultipleLesson(payload)
+    ? `
+[Factor/multiple visual rules]
+- This lesson is about factors, common factors, multiples, or common multiples.
+- Do not use bar_chart, line_chart, or pie_chart for factor lists. A bar chart showing "number of factors" is not useful for solving common factor questions.
+- For factor/common-factor questions, use factor_list shape.
+- Example: {"type":"factor_list","dimensions":{"groups":[{"label":"8의 약수","values":[1,2,4,8]},{"label":"12의 약수","values":[1,2,3,4,6,12]}],"highlight":[1,2,4]}}
+- For multiple/common-multiple questions, use factor_list with labels such as "4의 배수", "6의 배수" and highlight common values.
+`
+    : '';
 
   return `당신은 대한민국 초등 수학 평가 문항을 만드는 교사입니다.
 아래 수업 정보에 맞춰 학생용 AI 학습 콘텐츠를 완전한 JSON 하나로만 생성하세요.
 
 ${ragSection}
 ${sameDenomRules}
+${factorRules}
 [수업 정보]
 - 학년/학기: 초등학교 ${grade}학년${semester ? ` ${semester}학기` : ''}
 - 과목/출판사: 수학${publisher ? ` / ${publisher}` : ''}
@@ -395,9 +431,14 @@ ${sameDenomRules}
 - 원그래프: {"type":"pie_chart","dimensions":{"title":"선호 조사","labels":["사과","배","귤"],"values":[4,3,3]}}
 - 도형 비교: {"type":"multi","dimensions":{"items":["circle","rectangle","triangle"]}}
 - 도형: rectangle, square, circle, right_triangle, parallelogram, rhombus, trapezoid 등을 사용할 수 있습니다.
+- 입체도형: cuboid(직육면체), cube(정육면체), cylinder(원기둥), cone(원뿔), sphere(구)를 사용할 수 있습니다.
+- 입체도형 비교: {"type":"multi","dimensions":{"items":["cuboid","cube","cylinder","cone"]}}
 - 대칭: {"type":"symmetry","dimensions":{"axis":"vertical","cells":[{"x":1,"y":1},{"x":2,"y":3}]}}
+- 약수/공약수 목록: {"type":"factor_list","dimensions":{"groups":[{"label":"8의 약수","values":[1,2,4,8]},{"label":"12의 약수","values":[1,2,3,4,6,12]}],"highlight":[1,2,4]}}
 - 그래프는 labels와 values 개수를 반드시 같게 만들고, values에는 숫자만 넣으세요.
 - 대칭은 좌표평면 계산이 아니라 격자에서 대칭축을 기준으로 같은 위치를 찾는 초등 수준 문제에만 쓰세요.
+- 직육면체/정육면체/원기둥/원뿔/구 문제에서는 rectangle, square, circle 같은 2D 도형으로 대체하지 말고 입체도형 타입을 쓰세요.
+- 약수/공약수/배수/공배수 문제에서는 그래프를 쓰지 말고 factor_list를 쓰세요.
 
 [반환 JSON 형식]
 {
@@ -500,7 +541,8 @@ export default async function handler(req, res) {
     }
 
     const sameDenomFocus = hasSameDenominatorFractionFocus(payload, ragSection);
-    const result = normalizeContent(parsed, poolSize, { sameDenomFocus });
+    const factorMultiple = isFactorMultipleLesson(payload);
+    const result = normalizeContent(parsed, poolSize, { sameDenomFocus, factorMultiple });
     const validationIssues = validateContent(result, poolSize);
 
     if (!result.questions.length) {
@@ -511,7 +553,7 @@ export default async function handler(req, res) {
       ...result,
       context,
       generatedBy: 'ai',
-      generatorVersion: 'quality-v6-shape-fix',
+      generatorVersion: 'quality-v8-factor-visuals',
       requestedQuestionCount: requested,
       poolSize: result.questions.length,
       validationIssues: validationIssues.length > 0 ? validationIssues : null,
