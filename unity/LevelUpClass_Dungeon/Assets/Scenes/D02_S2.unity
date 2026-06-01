@@ -344,6 +344,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &22064014 stripped
 Animator:
@@ -1133,6 +1134,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &257980719 stripped
 Animator:
@@ -1618,6 +1620,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &332207352 stripped
 Animator:
@@ -2457,7 +2460,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6048616795054218728, guid: bb0b9484aa9ed264da0ee089c5416451, type: 3}
       propertyPath: m_Name
-      value: Character (1)
+      value: Character
       objectReference: {fileID: 0}
     - target: {fileID: 6048616795054218728, guid: bb0b9484aa9ed264da0ee089c5416451, type: 3}
       propertyPath: m_Layer
@@ -2650,6 +2653,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &474485979 stripped
 Animator:
@@ -4020,6 +4024,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &744728366 stripped
 Animator:
@@ -4181,6 +4186,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &768213086 stripped
 Animator:
@@ -5554,6 +5560,7 @@ MonoBehaviour:
   hitAnimName: Slime_Hit
   deadAnimName: Slime_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!61 &985455882
 BoxCollider2D:
@@ -10753,6 +10760,7 @@ MonoBehaviour:
   hitAnimName: Snail_Hit
   deadAnimName: Snail_Dead
   isDead: 0
+  frozen: 0
   suppressDeath: 0
 --- !u!95 &2067386562 stripped
 Animator:
