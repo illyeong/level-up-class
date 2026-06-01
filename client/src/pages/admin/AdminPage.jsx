@@ -168,6 +168,18 @@ function DashboardTab() {
         });
 
         const studentToClass = {};
+        const touchActivity = (classId, studentId, ts, forceToday = false) => {
+          if (!classId || !classStats[classId]) return;
+          const date = toJsDate(ts);
+          if (date && (!classStats[classId].recentActivityAt || date > classStats[classId].recentActivityAt)) {
+            classStats[classId].recentActivityAt = date;
+          }
+          if (forceToday || isTodayDate(ts)) {
+            classStats[classId].todayActivityCount += 1;
+            if (studentId) classStats[classId].todayActiveStudents.add(studentId);
+          }
+        };
+
         students.forEach(s => {
           let classId = s.classId || null;
           if (!classId && s.teacherUid && classesByTeacher[s.teacherUid]?.length === 1) {
@@ -180,21 +192,9 @@ function DashboardTab() {
           classStats[classId].totalDiamonds += Number(s.diamonds || 0);
           const activeAt = s.lastActiveAt || s.lastLoginAt;
           if (s.lastActiveDateKey === todayKey || isTodayDate(activeAt)) {
-            touchActivity(classId, s.id, activeAt || new Date());
+            touchActivity(classId, s.id, activeAt || new Date(), s.lastActiveDateKey === todayKey);
           }
         });
-
-        const touchActivity = (classId, studentId, ts) => {
-          if (!classId || !classStats[classId]) return;
-          const date = toJsDate(ts);
-          if (date && (!classStats[classId].recentActivityAt || date > classStats[classId].recentActivityAt)) {
-            classStats[classId].recentActivityAt = date;
-          }
-          if (isTodayDate(ts)) {
-            classStats[classId].todayActivityCount += 1;
-            if (studentId) classStats[classId].todayActiveStudents.add(studentId);
-          }
-        };
 
         const teacherToSingleClass = (teacherUid) => {
           const ids = classesByTeacher[teacherUid] || [];
