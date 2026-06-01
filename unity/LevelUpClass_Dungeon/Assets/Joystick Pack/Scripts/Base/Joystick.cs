@@ -30,6 +30,7 @@ public class Joystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoint
     [SerializeField] private AxisOptions axisOptions = AxisOptions.Both;
     [SerializeField] private bool snapX = false;
     [SerializeField] private bool snapY = false;
+    [SerializeField] private float activationRadiusPixels = 130f;
 
     [SerializeField] protected RectTransform background = null;
     [SerializeField] private RectTransform handle = null;
@@ -156,7 +157,10 @@ public class Joystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoint
 
     public bool IsPointerInsideJoystick(PointerEventData eventData)
     {
-        return IsPointerOverBackground(eventData);
+        Camera c = (canvas != null && canvas.renderMode == RenderMode.ScreenSpaceCamera)
+            ? canvas.worldCamera : null;
+        Vector2 center = RectTransformUtility.WorldToScreenPoint(c, background.position);
+        return Vector2.Distance(eventData.position, center) <= activationRadiusPixels;
     }
 
     protected Vector2 ScreenPointToAnchoredPosition(Vector2 screenPosition)

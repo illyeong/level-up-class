@@ -69,6 +69,61 @@ const fmtDate = (ts) => {
   return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 };
 
+const toCleanFirestoreValue = (value) => {
+  if (value === undefined) return null;
+  if (Array.isArray(value)) return value.map(toCleanFirestoreValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, toCleanFirestoreValue(v)])
+    );
+  }
+  return value;
+};
+
+const normalizeQuizTable = (table) => {
+  if (!table?.headers?.length) return null;
+  return {
+    headers: table.headers.map(h => String(h ?? '')),
+    rows: (table.rows || []).map(row => ({
+      cells: (Array.isArray(row) ? row : row?.cells || []).map(cell => String(cell ?? '')),
+    })),
+  };
+};
+
+const normalizeQuizQuestion = (q) => {
+  const isShort = q?.type === 'sa' || q?.type === 'short';
+  if (isShort) {
+    return toCleanFirestoreValue({
+      type: 'sa',
+      question: String(q?.question ?? '').trim(),
+      options: [],
+      answer: String(q?.answer ?? '').trim(),
+      explanation: String(q?.explanation ?? '').trim(),
+      table: normalizeQuizTable(q?.table),
+      shape: q?.shape ?? null,
+    });
+  }
+
+  const options = (q?.options || []).slice(0, 4).map(opt => String(opt ?? '').trim());
+  while (options.length < 4) options.push('');
+  const rawAnswer = q?.answer ?? q?.answerIndex ?? 0;
+  const answer = Number.isInteger(rawAnswer) ? rawAnswer : parseInt(rawAnswer, 10);
+
+  return toCleanFirestoreValue({
+    type: 'mc',
+    question: String(q?.question ?? '').trim(),
+    options,
+    answer: Number.isInteger(answer) && answer >= 0 && answer <= 3 ? answer : 0,
+    explanation: String(q?.explanation ?? '').trim(),
+    table: normalizeQuizTable(q?.table),
+    shape: q?.shape ?? null,
+  });
+};
+
+const normalizeQuizQuestions = (questions) => questions.map(normalizeQuizQuestion);
+
 // ─── 문제 편집 카드 ───────────────────────────────────────────────
 function QuestionCard({ q, idx, onChange, onDelete, onTypeChange }) {
   const isSA = q.type === 'sa' || q.type === 'short';
@@ -678,6 +733,16 @@ export default function QuizBank({ selectedClass = null }) {
   const saveAiQuizSet = async (isShared = false) => {
     if (aiQuestions.length === 0) { showToast('문제가 없습니다.', 'error'); return; }
     const finalTitle = customTitle.trim() || autoTitle || '퀴즈 세트';
+    const cleanedQuestions = normalizeQuizQuestions(aiQuestions);
+    const hasInvalidQuestion = cleanedQuestions.some(q => {
+      if (!q.question) return true;
+      if (q.type === 'sa') return !String(q.answer || '').trim();
+      return !Array.isArray(q.options) || q.options.filter(Boolean).length < 2;
+    });
+    if (hasInvalidQuestion) {
+      showToast('비어 있는 문제, 보기, 정답을 확인해 주세요.', 'error');
+      return;
+    }
     setIsSavingAi(true);
     try {
       await addDoc(collection(db, 'quizSets'), {
@@ -691,8 +756,8 @@ export default function QuizBank({ selectedClass = null }) {
         unitId:        aiUnitId || null,
         topic:         aiTopic.trim() || null,
         difficulty,
-        questions:     aiQuestions,
-        questionCount: aiQuestions.length,
+        questions:     cleanedQuestions,
+        questionCount: cleanedQuestions.length,
         ownerId:       currentUid,
         ownerName:     auth.currentUser?.email || '선생님',
         classId:       currentClassId,

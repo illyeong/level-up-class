@@ -9,6 +9,7 @@ export const stripOptionPrefix = (text) => {
 /** 표 렌더러 */
 export function TableRenderer({ table, dark = false }) {
   if (!table?.headers?.length) return null;
+  const rows = (table.rows || []).map(row => Array.isArray(row) ? row : (row?.cells || []));
   return (
     <div className="my-3 overflow-x-auto">
       <table className="mx-auto border-collapse text-sm min-w-fit">
@@ -22,7 +23,7 @@ export function TableRenderer({ table, dark = false }) {
           </tr>
         </thead>
         <tbody>
-          {(table.rows || []).map((row, ri) => (
+          {rows.map((row, ri) => (
             <tr key={ri}>
               {row.map((cell, ci) => (
                 <td key={ci}

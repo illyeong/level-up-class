@@ -33,12 +33,10 @@ public class VariableJoystick : Joystick
 
     public override void OnPointerDown(PointerEventData eventData)
     {
-        if (joystickType == JoystickType.Fixed)
-        {
-            // Fixed 모드: 조이스틱 background 이미지 영역 안에서만 반응
-            if (!IsPointerOverBackground(eventData)) return;
-        }
-        else
+        if (!IsPointerInsideJoystick(eventData))
+            return;
+
+        if (joystickType != JoystickType.Fixed)
         {
             background.anchoredPosition = ScreenPointToAnchoredPosition(eventData.position);
             background.gameObject.SetActive(true);
