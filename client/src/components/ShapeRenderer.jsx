@@ -658,6 +658,55 @@ const renderers = {
   },
 
   // ── 사다리꼴 ─────────────────────────────────────────────────
+  symmetry({ d }) {
+    const axis = d.axis === 'horizontal' ? 'horizontal' : 'vertical';
+    const cells = Array.isArray(d.cells) ? d.cells.slice(0, 8) : [];
+    const grid = 8;
+    const cell = 16;
+    const x0 = W / 2 - (grid * cell) / 2;
+    const y0 = H / 2 - (grid * cell) / 2;
+    const axisX = x0 + (grid * cell) / 2;
+    const axisY = y0 + (grid * cell) / 2;
+    const normalized = cells
+      .map(v => Array.isArray(v) ? { x: v[0], y: v[1] } : v)
+      .filter(v => Number.isFinite(Number(v?.x)) && Number.isFinite(Number(v?.y)))
+      .map(v => ({ x: Math.max(0, Math.min(grid - 1, Math.round(Number(v.x)))), y: Math.max(0, Math.min(grid - 1, Math.round(Number(v.y)))) }));
+    const mirror = (p) => axis === 'vertical'
+      ? { x: grid - 1 - p.x, y: p.y }
+      : { x: p.x, y: grid - 1 - p.y };
+
+    return (
+      <>
+        {Array.from({ length: grid + 1 }, (_, i) => (
+          <React.Fragment key={i}>
+            <line x1={x0 + i * cell} y1={y0} x2={x0 + i * cell} y2={y0 + grid * cell} stroke="#cbd5e1" strokeWidth="1" />
+            <line x1={x0} y1={y0 + i * cell} x2={x0 + grid * cell} y2={y0 + i * cell} stroke="#cbd5e1" strokeWidth="1" />
+          </React.Fragment>
+        ))}
+        {axis === 'vertical'
+          ? <line x1={axisX} y1={y0 - 6} x2={axisX} y2={y0 + grid * cell + 6} stroke="#ef4444" strokeWidth="2" strokeDasharray="4,4" />
+          : <line x1={x0 - 6} y1={axisY} x2={x0 + grid * cell + 6} y2={axisY} stroke="#ef4444" strokeWidth="2" strokeDasharray="4,4" />
+        }
+        {normalized.map((p, i) => {
+          const m = mirror(p);
+          const cx = x0 + p.x * cell + cell / 2;
+          const cy = y0 + p.y * cell + cell / 2;
+          const mx = x0 + m.x * cell + cell / 2;
+          const my = y0 + m.y * cell + cell / 2;
+          return (
+            <React.Fragment key={i}>
+              <circle cx={cx} cy={cy} r="5" fill="#3b82f6" />
+              <circle cx={mx} cy={my} r="5" fill="#93c5fd" stroke="#1d4ed8" strokeWidth="1.5" strokeDasharray="2,2" />
+            </React.Fragment>
+          );
+        })}
+        <text x={W/2} y={H-6} textAnchor="middle" fontSize={10} fill="#64748b">
+          {axis === 'vertical' ? '세로 대칭축' : '가로 대칭축'}
+        </text>
+      </>
+    );
+  },
+
   trapezoid({ d, u }) {
     const bB = 120, tB = 70, hLen = 72;
     const cx = W/2, cy = H/2;

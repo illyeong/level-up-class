@@ -4,10 +4,15 @@ const SHAPE_TYPES = new Set([
   'clock', 'ruler', 'angle', 'fraction_bar', 'bar_chart', 'line_chart',
   'pie_chart', 'number_line', 'polygon', 'multi', 'rectangle', 'square',
   'circle', 'equilateral_triangle', 'isosceles_triangle', 'right_triangle',
-  'parallelogram', 'rhombus', 'trapezoid', 'semicircle',
+  'parallelogram', 'rhombus', 'trapezoid', 'semicircle', 'symmetry',
 ]);
 
 const stripOptionPrefix = (value) =>
+  String(value ?? '')
+    .trim()
+    .replace(/^\s*(?:[\u2460-\u2463\u2776-\u2779]|[1-4][.)]\s*|[1-4]\s+)/u, '')
+    .replace(/^\s*(?:[①②③④❶❷❸❹]|[1-4][.)]\s*|[1-4]\s+)/u, '')
+    .trim() ||
   String(value ?? '').trim().replace(/^[①②③④1-4][.)\s]*/, '').trim();
 
 const normalizeKey = (value) =>
@@ -64,6 +69,7 @@ const hasSameDenominatorFractionFocus = (payload, ragSection) => {
     Array.isArray(payload?.keywords) ? payload.keywords.join(' ') : payload?.keywords,
     ragSection,
   ].filter(Boolean).join(' ');
+  if (/분모가\s*같|같은\s*분모|동분모|분모는\s*그대로|분자끼리|진분수의\s*덧셈|분수의\s*덧셈/.test(text)) return true;
   return /분모가\s*같|같은\s*분모|동분모|분모는\s*그대로|분자끼리/.test(text);
 };
 
@@ -77,9 +83,147 @@ const violatesSameDenominatorAddition = (text) => {
   });
 };
 
+const hasMalformedFractionText = (text) =>
+  /(^|[^\d])\/\s*\d+/.test(String(text || '')) || /\d+\s*\/(?!\s*\d)/.test(String(text || ''));
+
+const getComparableFractionValue = (text) => {
+  const expr = evalFractionExpression(text);
+  if (expr) return expr.value;
+  const frac = parseFractions(text)[0];
+  return frac ? frac.n / frac.d : null;
+};
+
+const finite = (value, fallback = null) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const clamp = (value, min, max, fallback = min) =>
+  Math.min(max, Math.max(min, finite(value, fallback)));
+
+const asList = (value, max = 8) =>
+  Array.isArray(value) ? value.slice(0, max) : [];
+
+const cleanChart = (d, maxItems, positiveOnly = false) => {
+  const labels = asList(d.labels, maxItems).map(v => String(v ?? '').trim()).filter(Boolean);
+  const rawValues = asList(d.values, maxItems).map(v => finite(v)).filter(v => v != null && (!positiveOnly || v > 0));
+  const n = Math.min(labels.length, rawValues.length, maxItems);
+  if (n < 2) return null;
+  return {
+    ...d,
+    labels: labels.slice(0, n),
+    values: rawValues.slice(0, n),
+    unit: String(d.unit || '').slice(0, 6),
+    title: String(d.title || '').slice(0, 30),
+  };
+};
+
+const sanitizeShape = (shape) => {
+  if (!shape || typeof shape !== 'object' || !SHAPE_TYPES.has(shape.type)) return null;
+  const type = shape.type;
+  const d = shape.dimensions && typeof shape.dimensions === 'object' ? { ...shape.dimensions } : {};
+  const unit = String(shape.unit || d.unit || '').slice(0, 6);
+
+  if (type === 'bar_chart') {
+    const cleaned = cleanChart(d, 6);
+    return cleaned ? { type, dimensions: cleaned } : null;
+  }
+  if (type === 'line_chart') {
+    const cleaned = cleanChart(d, 7);
+    return cleaned ? { type, dimensions: cleaned } : null;
+  }
+  if (type === 'pie_chart') {
+    const cleaned = cleanChart(d, 6, true);
+    return cleaned ? { type, dimensions: cleaned } : null;
+  }
+  if (type === 'multi') {
+    const allowed = new Set(['rectangle', 'square', 'circle', 'equilateral_triangle', 'isosceles_triangle', 'right_triangle', 'parallelogram', 'rhombus', 'trapezoid', 'semicircle']);
+    const items = asList(d.items, 4)
+      .map(v => String(v || '').trim())
+      .map(v => v === 'triangle' ? 'equilateral_triangle' : v)
+      .filter(v => allowed.has(v));
+    return items.length >= 2 ? { type, dimensions: { ...d, items } } : null;
+  }
+  if (type === 'polygon') {
+    return { type, dimensions: { ...d, sides: Math.round(clamp(d.sides, 3, 10, 5)), side: finite(d.side) || undefined }, unit };
+  }
+  if (type === 'angle') {
+    return { type, dimensions: { ...d, degrees: Math.round(clamp(d.degrees, 1, 179, 90)) } };
+  }
+  if (type === 'clock') {
+    return { type, dimensions: { ...d, hour: Math.round(clamp(d.hour, 1, 12, 3)), minute: Math.round(clamp(d.minute, 0, 59, 0)) } };
+  }
+  if (type === 'ruler') {
+    const total = Math.round(clamp(d.total, 1, 30, 10));
+    const from = clamp(d.highlight?.from, 0, total, 0);
+    const to = clamp(d.highlight?.to, from, total, Math.min(total, from + 1));
+    return { type, dimensions: { ...d, total, highlight: to > from ? { from, to } : undefined }, unit: unit || 'cm' };
+  }
+  if (type === 'number_line') {
+    const min = finite(d.min, 0);
+    const max = Math.max(min + 1, finite(d.max, 10));
+    const marks = asList(d.marks, 8).map(v => finite(v)).filter(v => v != null && v >= min && v <= max);
+    const from = finite(d.highlight?.from);
+    const to = finite(d.highlight?.to);
+    const highlight = from != null && to != null && to > from && from >= min && to <= max ? { from, to } : undefined;
+    return { type, dimensions: { ...d, min, max, marks, highlight }, unit };
+  }
+  if (type === 'fraction_bar') {
+    const total = Math.round(clamp(d.total, 2, 20, 4));
+    const filled = Math.round(clamp(d.filled, 0, total, 1));
+    const cmpTotal = d.compare ? Math.round(clamp(d.compare.total, 2, 20, total)) : null;
+    const cmpFilled = d.compare ? Math.round(clamp(d.compare.filled, 0, cmpTotal, 1)) : null;
+    return {
+      type,
+      dimensions: {
+        ...d,
+        total,
+        filled,
+        compare: cmpTotal ? { total: cmpTotal, filled: cmpFilled } : undefined,
+        showLabel: false,
+      },
+    };
+  }
+  if (type === 'symmetry') {
+    const axis = d.axis === 'horizontal' ? 'horizontal' : 'vertical';
+    const cells = asList(d.cells, 8)
+      .map(cell => Array.isArray(cell) ? { x: finite(cell[0]), y: finite(cell[1]) } : { x: finite(cell.x), y: finite(cell.y) })
+      .filter(cell => Number.isFinite(cell.x) && Number.isFinite(cell.y))
+      .map(cell => ({ x: Math.round(clamp(cell.x, 0, 7, 1)), y: Math.round(clamp(cell.y, 0, 7, 1)) }));
+    return cells.length ? { type, dimensions: { axis, cells } } : null;
+  }
+
+  return { type, dimensions: d, unit };
+};
+
+const verifySameDenomQuestionAnswer = (q) => {
+  const question = String(q.question || '');
+  if (!/[+]|합|더|덧셈|모두/.test(question)) return true;
+  const fractions = parseFractions(question);
+  if (fractions.length < 2) return true;
+  const dens = new Set(fractions.map(f => f.d));
+  if (dens.size !== 1) return false;
+  const den = fractions[0].d;
+  const numeratorSum = fractions.reduce((sum, f) => sum + f.n, 0);
+  const correctFractions = parseFractions(q.options?.[q.answerIndex] || '');
+  if (correctFractions.length !== 1) return false;
+  const correct = correctFractions[0];
+  return correct.n === numeratorSum && correct.d === den;
+};
+
 const hasExactlyOneVerifiableAnswer = (q) => {
   const question = String(q.question || '');
   const options = q.options || [];
+  const combined = [question, ...options, q.explanation].join('\n');
+  if (hasMalformedFractionText(combined)) return false;
+  if (/가장\s*큰|가장\s*작은/.test(question) && options.some(opt => String(opt).includes('/'))) {
+    const values = options.map(getComparableFractionValue);
+    if (values.some(v => v == null)) return false;
+    const target = /가장\s*작은/.test(question) ? Math.min(...values) : Math.max(...values);
+    const matches = values.map(v => Math.abs(v - target) < 1e-9);
+    return matches.filter(Boolean).length === 1 && matches[q.answerIndex] === true;
+  }
+  if (!verifySameDenomQuestionAnswer(q)) return false;
   if (/올바른|맞는/.test(question) && options.some(opt => String(opt).includes('='))) {
     const checks = options.map(evalFractionEquation);
     if (checks.some(v => v === null)) return false;
@@ -122,12 +266,7 @@ function normalizeQuestion(q, index, { sameDenomFocus = false } = {}) {
   const rotated = [...options.slice(shift), ...options.slice(0, shift)];
   const rotatedAnswerIndex = rotated.findIndex(o => o === correct);
 
-  const shape = q.shape && typeof q.shape === 'object' && SHAPE_TYPES.has(q.shape.type)
-    ? q.shape
-    : null;
-  if (shape?.type === 'fraction_bar') {
-    shape.dimensions = { ...(shape.dimensions || {}), showLabel: false };
-  }
+  const shape = sanitizeShape(q.shape);
 
   const normalized = {
     question: String(q.question || '').trim(),
@@ -252,8 +391,13 @@ ${sameDenomRules}
 - 분수막대: {"type":"fraction_bar","dimensions":{"total":5,"filled":3}}
 - 수직선: {"type":"number_line","dimensions":{"min":0,"max":10,"marks":[3,7],"highlight":{"from":3,"to":7}}}
 - 막대그래프: {"type":"bar_chart","dimensions":{"title":"좋아하는 과일","labels":["사과","배"],"values":[5,8],"unit":"명"}}
+- 꺾은선그래프: {"type":"line_chart","dimensions":{"title":"기온 변화","labels":["월","화","수"],"values":[12,15,13],"unit":"도"}}
+- 원그래프: {"type":"pie_chart","dimensions":{"title":"선호 조사","labels":["사과","배","귤"],"values":[4,3,3]}}
 - 도형 비교: {"type":"multi","dimensions":{"items":["circle","rectangle","triangle"]}}
 - 도형: rectangle, square, circle, right_triangle, parallelogram, rhombus, trapezoid 등을 사용할 수 있습니다.
+- 대칭: {"type":"symmetry","dimensions":{"axis":"vertical","cells":[{"x":1,"y":1},{"x":2,"y":3}]}}
+- 그래프는 labels와 values 개수를 반드시 같게 만들고, values에는 숫자만 넣으세요.
+- 대칭은 좌표평면 계산이 아니라 격자에서 대칭축을 기준으로 같은 위치를 찾는 초등 수준 문제에만 쓰세요.
 
 [반환 JSON 형식]
 {
@@ -323,8 +467,8 @@ export default async function handler(req, res) {
   const isUnitTest = lessonTitle === '단원평가';
   const requested = Number(questionCount) || 5;
   const poolSize = isUnitTest
-    ? Math.min(Math.max(requested * 3, 18), 24)
-    : Math.min(Math.max(requested * 3, 12), 18);
+    ? Math.min(Math.max(requested + 5, 10), 12)
+    : Math.min(Math.max(requested + 3, 8), 10);
 
   const context = [
     `초등학교 ${grade}학년`,
@@ -347,7 +491,7 @@ export default async function handler(req, res) {
       apiKey,
       model,
       prompt,
-      maxTokens: isUnitTest ? 9000 : 7000,
+      maxTokens: isUnitTest ? 5500 : 4500,
     });
 
     const parsed = tryParseJson(rawText);
@@ -367,7 +511,7 @@ export default async function handler(req, res) {
       ...result,
       context,
       generatedBy: 'ai',
-      generatorVersion: 'quality-v3',
+      generatorVersion: 'quality-v6-shape-fix',
       requestedQuestionCount: requested,
       poolSize: result.questions.length,
       validationIssues: validationIssues.length > 0 ? validationIssues : null,

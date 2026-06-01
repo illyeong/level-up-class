@@ -11,7 +11,7 @@ import { getMaxExpForLevel } from '../../utils/leveling';
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
 const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
-const COURSEWARE_QUALITY_VERSION = 'quality-v3';
+const COURSEWARE_QUALITY_VERSION = 'quality-v6-shape-fix';
 
 const questionFingerprint = (q) =>
   String(q?.question || '')
@@ -43,7 +43,7 @@ function saveRecentQuestionKeys(key, selectedKeys, max = 20) {
 function shouldRefreshLessonContent(data) {
   if (!data) return true;
   if (data.generatorVersion !== COURSEWARE_QUALITY_VERSION) return true;
-  if (!Array.isArray(data.questions) || data.questions.length < 12) return true;
+  if (!Array.isArray(data.questions) || data.questions.length < 8) return true;
   return false;
 }
 
@@ -200,7 +200,7 @@ const fetchLessonContent = async (unit, lesson) => {
       unitName: unit.unitName,
       lessonNo: lesson.no, lessonTitle: lesson.title,
       learningGoal: '', keywords: lesson.keywords || [],
-      difficulty: 'normal', questionCount: lesson.title === '단원평가' ? 10 : 5,
+      difficulty: 'normal', questionCount: SESSION_Q_NUM,
       lessonContext, // RAG 교과서 내용
     }),
   });
@@ -350,7 +350,7 @@ export default function AICourseware({ studentCode }) {
     runPreload(selectedUnit, lessons[0]);
     let t;
     if (lessons.length > 1) {
-      t = setTimeout(() => runPreload(selectedUnit, lessons[1]), 3000);
+      t = setTimeout(() => runPreload(selectedUnit, lessons[1]), 1200);
     }
     return () => clearTimeout(t);
   }, [step, selectedUnit]);
@@ -1022,7 +1022,7 @@ export default function AICourseware({ studentCode }) {
         <div className="flex items-center justify-center gap-2 text-indigo-400/70 text-sm">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
           <span>{loadingElapsed}초 경과</span>
-          {loadingElapsed < 3 && <span className="text-xs">(첫 방문 시 5~8초 소요돼요)</span>}
+          {loadingElapsed < 3 && <span className="text-xs">(첫 생성은 잠시 걸릴 수 있어요)</span>}
         </div>
 
       </div>

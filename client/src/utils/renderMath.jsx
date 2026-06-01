@@ -3,6 +3,10 @@ import React from 'react';
 /** 보기 앞의 ①②③④ 제거 */
 export const stripOptionPrefix = (text) => {
   if (!text || typeof text !== 'string') return text;
+  return text
+    .replace(/^\s*(?:[\u2460-\u2463\u2776-\u2779]|[1-4][.)]\s*|[1-4]\s+)/u, '')
+    .replace(/^\s*(?:[①②③④❶❷❸❹]|[1-4][.)]\s*|[1-4]\s+)/u, '')
+    .trimStart();
   return text.replace(/^[①②③④⑤⑥]\s*/, '').trimStart();
 };
 
