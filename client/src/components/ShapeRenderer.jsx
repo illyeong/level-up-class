@@ -413,9 +413,11 @@ const renderers = {
               fill={i < fil ? FILL : '#f8fafc'}
               stroke={STROKE} strokeWidth={1.5} />
           ))}
-          <text x={W / 2} y={y - 6} textAnchor="middle" fontSize={11} fill="#1e40af" fontWeight="bold">
-            {fil}/{tot}
-          </text>
+          {d.showLabel !== false && (
+            <text x={W / 2} y={y - 6} textAnchor="middle" fontSize={11} fill="#1e40af" fontWeight="bold">
+              {fil}/{tot}
+            </text>
+          )}
         </React.Fragment>
       );
     };

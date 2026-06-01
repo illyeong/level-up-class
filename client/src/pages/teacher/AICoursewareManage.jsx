@@ -589,6 +589,96 @@ export default function AICoursewareManage({ selectedClass }) {
 }
 
 // ── 교과서 내용 등록 탭 (RAG) ─────────────────────────────────
+const buildAutoLessonContext = (unit, lesson) => {
+  const keywords = Array.isArray(lesson?.keywords)
+    ? lesson.keywords.filter(Boolean).join(', ')
+    : '';
+  const unitName = unit?.unitName || '';
+  const lessonTitle = lesson?.title || `${lesson?.no || ''}차시`;
+  const joined = `${unitName} ${lessonTitle} ${keywords}`;
+  const isSameDenomFraction = /분모가\s*같|같은\s*분모|동분모|분모는\s*그대로|분자끼리|분수의\s*덧셈/.test(joined);
+  const isFraction = isSameDenomFraction || /분수|분모|분자|진분수|가분수|대분수/.test(joined);
+  const isGeometry = /도형|각도|삼각형|사각형|원|둘레|넓이|부피|입체/.test(joined);
+  const isGraph = /그래프|표|자료|막대|꺾은선|평균|가능성/.test(joined);
+  const isClock = /시각|시간|시계|분/.test(joined);
+
+  const focusGuide = (() => {
+    if (isSameDenomFraction) {
+      return [
+        '- 분모가 같은 분수끼리 더할 때는 분모는 그대로 두고 분자끼리 더한다.',
+        '- 색칠한 칸 수는 분자, 전체를 똑같이 나눈 칸 수는 분모로 본다.',
+        '- 대표 예: 2/7 + 3/7 = 5/7',
+        '- 금지: 2/7 + 3/7 = 5/14처럼 분모까지 더하는 문제를 정답으로 만들지 않는다.',
+        '- 금지: "1보다 작은 것"처럼 정답이 여러 개가 될 수 있는 문항을 만들지 않는다.',
+        '- 그림은 정답을 직접 써 주지 말고, 풀이에 필요한 정보만 제공한다.',
+      ];
+    }
+    if (isFraction) {
+      return [
+        '- 분모는 전체를 똑같이 나눈 수, 분자는 선택하거나 색칠한 부분의 수이다.',
+        '- 분수 비교는 같은 전체를 기준으로 해야 한다.',
+        '- 보기 4개 중 정답은 반드시 1개만 되게 만든다.',
+        '- 그림과 보기의 수가 서로 모순되지 않게 검산한다.',
+      ];
+    }
+    if (isGeometry) {
+      return [
+        '- 도형의 이름, 성질, 길이, 각도, 넓이 등 차시의 핵심 개념을 하나만 묻는다.',
+        '- 그림 자료가 있으면 문제 조건과 일치해야 한다.',
+        '- 단위를 빠뜨리지 않는다.',
+      ];
+    }
+    if (isGraph) {
+      return [
+        '- 표나 그래프에서 값을 읽고 비교하는 문제를 만든다.',
+        '- 축 이름, 단위, 범례가 문제와 일치해야 한다.',
+        '- 계산이 필요한 경우 중간 계산이 초등 수준을 넘지 않게 한다.',
+      ];
+    }
+    if (isClock) {
+      return [
+        '- 시각 읽기, 시간의 흐름, 분 단위 계산 중 하나를 중심으로 묻는다.',
+        '- 오전/오후, 몇 시간 후, 몇 분 전 같은 표현을 명확히 쓴다.',
+        '- 시계 그림이 있으면 시침과 분침 위치가 답과 일치해야 한다.',
+      ];
+    }
+    return [
+      '- 차시 제목과 키워드에 맞는 핵심 개념을 한 문항에 하나씩만 묻는다.',
+      '- 계산 문제와 문장제를 섞되, 초등학생이 읽고 풀 수 있는 짧은 문장으로 만든다.',
+      '- 보기 4개 중 정답은 반드시 1개만 되게 만든다.',
+      '- 해설은 왜 정답인지 한두 문장으로 설명한다.',
+    ];
+  })();
+
+  return [
+    '[차시 정보]',
+    `학년: ${unit?.grade || ''}학년`,
+    `학기: ${unit?.semester || ''}학기`,
+    `과목: ${unit?.subject || '수학'}`,
+    `출판사: ${unit?.publisher || '공통'}`,
+    `단원: ${unitName}`,
+    `차시: ${lesson?.no || ''}차시 - ${lessonTitle}`,
+    keywords ? `핵심 키워드: ${keywords}` : '',
+    '',
+    '[학습 목표]',
+    `학생이 "${lessonTitle}"의 핵심 개념을 이해하고, 그림/식/문장 상황에서 바르게 적용할 수 있다.`,
+    '',
+    '[핵심 개념]',
+    ...focusGuide,
+    '',
+    '[대표 문제 유형]',
+    '- 개념 확인 문제',
+    '- 짧은 문장제',
+    '- 그림이나 표를 보고 답을 고르는 문제',
+    '- 자주 하는 실수를 구별하는 문제',
+    '',
+    '[오답 유도 주의]',
+    '- 학생이 자주 헷갈리는 보기를 넣되, 정답이 여러 개가 되면 안 된다.',
+    '- 문제, 보기, 해설, 그림 자료의 숫자가 서로 맞는지 반드시 검산한다.',
+    '- 차시 범위를 벗어나는 중학교식 풀이, 지나치게 복잡한 계산은 피한다.',
+  ].filter(Boolean).join('\n');
+};
+
 export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade, setUnitGrade, unitSem, setUnitSem }) {
   const [selectedUnit,    setSelectedUnit]    = useState(null);
   const [selectedLesson,  setSelectedLesson]  = useState(null);
@@ -596,6 +686,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
   const [existing,        setExisting]        = useState(null); // 기존 등록 내용
   const [saving,          setSaving]          = useState(false);
   const [extracting,      setExtracting]      = useState(false);
+  const [bulkGenerating,  setBulkGenerating]  = useState(false);
   const [toast,           setToast]           = useState(null);
   const fileRef = React.useRef(null);
 
@@ -633,6 +724,58 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     await deleteDoc(doc(db, 'aiLessonContext', lkey(selectedUnit, selectedLesson)));
     setExisting(null); setText('');
     showToast('삭제됐습니다');
+  };
+
+  const generateSelectedContext = () => {
+    if (!selectedUnit || !selectedLesson) return;
+    setText(buildAutoLessonContext(selectedUnit, selectedLesson).slice(0, 3000));
+    showToast('선택한 차시의 AI 출제용 자료를 작성했습니다.');
+  };
+
+  const autoCreateMissingContexts = async () => {
+    const targetUnits = units.filter(u => unitSem === 'all' || String(u.semester || '') === unitSem);
+    const lessons = targetUnits.flatMap(unit => (unit.lessons || []).map(lesson => ({ unit, lesson })));
+    if (!lessons.length) {
+      showToast('생성할 차시가 없습니다.', 'error');
+      return;
+    }
+    if (!window.confirm(`현재 선택한 ${unitGrade}학년 ${unitSem === 'all' ? '전체 학기' : `${unitSem}학기`}의 비어 있는 차시 자료를 자동 생성할까요?`)) return;
+
+    setBulkGenerating(true);
+    let created = 0;
+    let skipped = 0;
+    try {
+      for (const { unit, lesson } of lessons) {
+        const key = lkey(unit, lesson);
+        const ref = doc(db, 'aiLessonContext', key);
+        const snap = await getDoc(ref);
+        if (snap.exists() && String(snap.data()?.text || '').trim()) {
+          skipped += 1;
+          continue;
+        }
+
+        await setDoc(ref, {
+          text: buildAutoLessonContext(unit, lesson).slice(0, 3000),
+          lessonKey: key,
+          grade: unit.grade,
+          semester: unit.semester,
+          unitName: unit.unitName,
+          lessonTitle: lesson.title,
+          lessonNo: lesson.no || null,
+          teacherUid,
+          source: 'auto-generated',
+          generatedFrom: 'curriculumUnits',
+          uploadedAt: serverTimestamp(),
+        });
+        created += 1;
+      }
+      if (selectedUnit && selectedLesson) await loadContext(selectedUnit, selectedLesson);
+      showToast(`차시 자료 ${created}개 생성, ${skipped}개 건너뜀`);
+    } catch (err) {
+      showToast('자동 생성 중 오류가 발생했습니다: ' + err.message, 'error');
+    } finally {
+      setBulkGenerating(false);
+    }
   };
 
   const extractFromFile = async (file) => {
@@ -716,6 +859,19 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
           </div>
         </div>
 
+        <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
+          <button
+            onClick={autoCreateMissingContexts}
+            disabled={bulkGenerating || loadingUnits}
+            className="w-full px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold disabled:opacity-50 transition-colors"
+          >
+            {bulkGenerating ? '생성 중...' : '빈 차시 자료 자동 생성'}
+          </button>
+          <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+            등록된 단원/차시/키워드를 바탕으로 AI 출제용 맥락 자료를 만듭니다. 이미 입력된 차시는 건너뜁니다.
+          </p>
+        </div>
+
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden max-h-[500px] overflow-y-auto">
           {loadingUnits ? <div className="p-4 text-slate-400 text-xs text-center">로딩중...</div>
             : filteredUnits.map(unit => (
@@ -755,11 +911,19 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
                   <p className="font-extrabold text-slate-800">{selectedLesson.title}</p>
                   <p className="text-xs text-slate-500 mt-0.5">{selectedUnit.unitName} · {selectedUnit.grade}학년</p>
                 </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={generateSelectedContext}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold transition-colors"
+                  >
+                    차시 자료 자동 작성
+                  </button>
                 {existing && (
                   <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
                     ✅ 교과서 내용 등록됨
                   </span>
                 )}
+                </div>
               </div>
               {existing?.uploadedAt?.seconds && (
                 <p className="text-[10px] text-slate-400 mt-1">

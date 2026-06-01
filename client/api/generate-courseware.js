@@ -13,6 +13,89 @@ const stripOptionPrefix = (value) =>
 const normalizeKey = (value) =>
   String(value ?? '').replace(/\s+/g, '').replace(/[①②③④0-9().,!?~]/g, '').slice(0, 80);
 
+const gcd = (a, b) => {
+  a = Math.abs(a); b = Math.abs(b);
+  while (b) [a, b] = [b, a % b];
+  return a || 1;
+};
+
+const parseFractions = (text) => {
+  const list = [];
+  const re = /(\d+)\s*\/\s*(\d+)/g;
+  let m;
+  while ((m = re.exec(String(text || ''))) !== null) {
+    const n = Number(m[1]);
+    const d = Number(m[2]);
+    if (d > 0) list.push({ n, d });
+  }
+  return list;
+};
+
+const evalFractionExpression = (text) => {
+  const parts = String(text || '').split('+');
+  const fractions = parts.map(part => parseFractions(part)[0]);
+  if (!fractions.length || fractions.some(v => !v)) return null;
+  let num = 0;
+  let den = 1;
+  fractions.forEach(f => {
+    num = num * f.d + f.n * den;
+    den *= f.d;
+    const g = gcd(num, den);
+    num /= g;
+    den /= g;
+  });
+  return { num, den, value: num / den };
+};
+
+const evalFractionEquation = (text) => {
+  const parts = String(text || '').split('=');
+  if (parts.length !== 2) return null;
+  const left = evalFractionExpression(parts[0]);
+  const right = evalFractionExpression(parts[1]);
+  if (!left || !right) return null;
+  return Math.abs(left.value - right.value) < 1e-9;
+};
+
+const hasSameDenominatorFractionFocus = (payload, ragSection) => {
+  const text = [
+    payload?.unitName,
+    payload?.lessonTitle,
+    payload?.learningGoal,
+    Array.isArray(payload?.keywords) ? payload.keywords.join(' ') : payload?.keywords,
+    ragSection,
+  ].filter(Boolean).join(' ');
+  return /분모가\s*같|같은\s*분모|동분모|분모는\s*그대로|분자끼리/.test(text);
+};
+
+const violatesSameDenominatorAddition = (text) => {
+  const pieces = String(text || '').split(/[,\n]/);
+  return pieces.some(piece => {
+    if (!piece.includes('+')) return false;
+    const left = piece.split('=')[0];
+    const fractions = parseFractions(left);
+    return fractions.length >= 2 && new Set(fractions.map(f => f.d)).size > 1;
+  });
+};
+
+const hasExactlyOneVerifiableAnswer = (q) => {
+  const question = String(q.question || '');
+  const options = q.options || [];
+  if (/올바른|맞는/.test(question) && options.some(opt => String(opt).includes('='))) {
+    const checks = options.map(evalFractionEquation);
+    if (checks.some(v => v === null)) return false;
+    return checks.filter(Boolean).length === 1 && checks[q.answerIndex] === true;
+  }
+  if (/1보다\s*작은/.test(question)) {
+    const checks = options.map(opt => {
+      const value = evalFractionExpression(opt)?.value;
+      return value == null ? null : value < 1;
+    });
+    if (checks.some(v => v === null)) return false;
+    return checks.filter(Boolean).length === 1 && checks[q.answerIndex] === true;
+  }
+  return true;
+};
+
 function tryParseJson(text) {
   const match = String(text || '').match(/\{[\s\S]*\}/);
   if (!match) return null;
@@ -23,7 +106,7 @@ function tryParseJson(text) {
   }
 }
 
-function normalizeQuestion(q, index) {
+function normalizeQuestion(q, index, { sameDenomFocus = false } = {}) {
   if (!q || typeof q !== 'object') return null;
 
   const options = Array.isArray(q.options)
@@ -42,8 +125,11 @@ function normalizeQuestion(q, index) {
   const shape = q.shape && typeof q.shape === 'object' && SHAPE_TYPES.has(q.shape.type)
     ? q.shape
     : null;
+  if (shape?.type === 'fraction_bar') {
+    shape.dimensions = { ...(shape.dimensions || {}), showLabel: false };
+  }
 
-  return {
+  const normalized = {
     question: String(q.question || '').trim(),
     shape,
     options: rotated,
@@ -52,14 +138,20 @@ function normalizeQuestion(q, index) {
     skill: String(q.skill || q.questionType || '').trim() || undefined,
     difficultyTag: String(q.difficultyTag || '').trim() || undefined,
   };
+
+  const combinedText = [normalized.question, ...normalized.options, normalized.explanation].join('\n');
+  if (sameDenomFocus && violatesSameDenominatorAddition(combinedText)) return null;
+  if (!hasExactlyOneVerifiableAnswer(normalized)) return null;
+
+  return normalized;
 }
 
-function normalizeContent(result, poolSize) {
+function normalizeContent(result, poolSize, options = {}) {
   const questions = [];
   const seen = new Set();
 
   for (const [idx, raw] of (result.questions || []).entries()) {
-    const q = normalizeQuestion(raw, idx);
+    const q = normalizeQuestion(raw, idx, options);
     if (!q) continue;
     const key = normalizeKey(q.question);
     if (!q.question || q.question.length < 8 || !q.explanation || seen.has(key)) continue;
@@ -115,11 +207,24 @@ function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
   const diffLabel = difficulty === 'easy' ? '기초' : difficulty === 'hard' ? '심화' : '기본';
   const lessonLabel = isUnitTest ? '단원평가' : `${lessonNo ? `${lessonNo}차시 ` : ''}${lessonTitle}`;
 
+  const sameDenomRules = hasSameDenominatorFractionFocus(payload, ragSection)
+    ? `
+[Same-denominator fraction rules]
+- This lesson is about adding fractions with the same denominator.
+- Every addition expression must use the same denominator on both addends.
+- The correct answer keeps the denominator and adds only the numerators. Example: 2/7 + 3/7 = 5/7.
+- 2/7 + 3/7 = 5/14 may appear only as a wrong distractor, never as the answer.
+- If asking for the correct calculation, exactly one option must be true.
+- Do not create off-target comparison questions such as "which is less than 1" for this lesson.
+- For fraction_bar shapes, do not reveal the answer as a label; show only the visual bar.
+`
+    : '';
+
   return `당신은 대한민국 초등 수학 평가 문항을 만드는 교사입니다.
 아래 수업 정보에 맞춰 학생용 AI 학습 콘텐츠를 완전한 JSON 하나로만 생성하세요.
 
 ${ragSection}
-
+${sameDenomRules}
 [수업 정보]
 - 학년/학기: 초등학교 ${grade}학년${semester ? ` ${semester}학기` : ''}
 - 과목/출판사: 수학${publisher ? ` / ${publisher}` : ''}
@@ -250,7 +355,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'AI 응답을 JSON으로 해석하지 못했습니다. 다시 시도해주세요.' });
     }
 
-    const result = normalizeContent(parsed, poolSize);
+    const sameDenomFocus = hasSameDenominatorFractionFocus(payload, ragSection);
+    const result = normalizeContent(parsed, poolSize, { sameDenomFocus });
     const validationIssues = validateContent(result, poolSize);
 
     if (!result.questions.length) {
@@ -261,7 +367,7 @@ export default async function handler(req, res) {
       ...result,
       context,
       generatedBy: 'ai',
-      generatorVersion: 'quality-v2',
+      generatorVersion: 'quality-v3',
       requestedQuestionCount: requested,
       poolSize: result.questions.length,
       validationIssues: validationIssues.length > 0 ? validationIssues : null,

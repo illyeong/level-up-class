@@ -11,7 +11,7 @@ import { getMaxExpForLevel } from '../../utils/leveling';
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
 const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
-const COURSEWARE_QUALITY_VERSION = 'quality-v2';
+const COURSEWARE_QUALITY_VERSION = 'quality-v3';
 
 const questionFingerprint = (q) =>
   String(q?.question || '')
