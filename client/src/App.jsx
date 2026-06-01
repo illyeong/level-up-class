@@ -256,6 +256,7 @@ function App() {
   const [petSpeech,            setPetSpeech]            = useState(null);
   const [showPetHearts,        setShowPetHearts]        = useState(false); // 쓰다듬기 하트 이펙트
   const [heartsKey,            setHeartsKey]            = useState(0);     // 리마운트용
+  const activePetDataRef = useRef(null); // 1분 타이머에서 최신 petData 참조용
   const [petActionAnim,        setPetActionAnim]        = useState(null);
   const [petActionKey,         setPetActionKey]         = useState(0);
   const petBubbleRef = useRef(null); // 말풍선 DOM ref (펫 따라다니기용)
@@ -553,6 +554,22 @@ function App() {
     normalizeStudentProgress();
   }, [appMode, activeStudentCode]);
 
+  // 배고픔 1분마다 로컬 재계산 (Firebase 쓰기 없음 — 표시 정확도 유지)
+  useEffect(() => {
+    if (!activePetMonster) return;
+    const STEP_H = 7.2;
+    const tick = () => {
+      const pd = activePetDataRef.current;
+      if (!pd) return;
+      const ref = pd.lastHungerDecay?.toDate?.() || pd.lastCareAt?.toDate?.() || new Date(0);
+      const steps = Math.floor((Date.now() - ref.getTime()) / (STEP_H * 3600000));
+      setActivePetHunger(Math.max(0, (pd.hunger ?? 100) - steps * 10));
+    };
+    const iv = setInterval(tick, 60000); // 1분마다
+    tick(); // 즉시 1회
+    return () => clearInterval(iv);
+  }, [activePetMonster]);
+
   // 랜덤 말풍선 (30~90초마다)
   useEffect(() => {
     if (!activePetMonster || !petVisible) return;
@@ -618,8 +635,10 @@ function App() {
         };
 
         // ① 펫 state 먼저 설정 (오류가 나도 여기까지는 보장)
+        const enriched = { id: petSnap.id, ...petData };
+        activePetDataRef.current = enriched; // 타이머에서 최신값 참조
         setActivePetMonster(md || null);
-        setActivePetData({ id: petSnap.id, ...petData });
+        setActivePetData(enriched);
         setActivePetHunger(calcHunger(petData));
         setActivePetHappiness(petData.happiness ?? 100);
         setActivePetEnergy(petData.energy ?? 100);
