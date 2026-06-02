@@ -142,7 +142,7 @@ export const PROFILE_BACKGROUNDS = [
     name: '별빛 오라',
     description: '어두운 배경에 별빛이 도는 프리미엄 배경입니다.',
     costType: 'diamond',
-    cost: 40,
+    cost: 200,
     rarity: '영웅',
     style: {
       background: 'radial-gradient(circle at 30% 26%, rgba(96, 165, 250, 0.5), transparent 24%), radial-gradient(circle at 70% 22%, rgba(216, 180, 254, 0.48), transparent 26%), linear-gradient(145deg, #0f172a 0%, #312e81 100%)',
@@ -156,7 +156,7 @@ export const PROFILE_BACKGROUNDS = [
 
 export const COSMETIC_SECTIONS = [
   { key: 'frames', title: '프로필 프레임', description: '캐릭터 카드 테두리를 꾸밉니다.', items: PROFILE_FRAMES.filter(item => !item.hidden) },
-  { key: 'backgrounds', title: 'CSS 배경', description: '이미지 없이 CSS 효과로 배경을 꾸밉니다.', items: PROFILE_BACKGROUNDS },
+  { key: 'backgrounds', title: '배경 꾸미기', description: '프로필 배경을 꾸밉니다.', items: PROFILE_BACKGROUNDS },
 ];
 
 export const getOwnedCosmetics = (owned = {}) => ({
