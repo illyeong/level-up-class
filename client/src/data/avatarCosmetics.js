@@ -64,7 +64,7 @@ export const PROFILE_FRAMES = [
     name: '마법 프레임',
     description: '보랏빛 오라가 감도는 특별한 테두리입니다.',
     costType: 'diamond',
-    cost: 35,
+    cost: 140,
     rarity: '영웅',
     style: {
       border: '3px solid #8b5cf6',
@@ -116,7 +116,7 @@ export const PROFILE_FRAMES = [
     name: '무지개 프레임',
     description: '화려한 무지개빛이 넘실대는 전설의 테두리입니다.',
     costType: 'diamond',
-    cost: 80,
+    cost: 320,
     rarity: '전설',
     style: {
       border: '3px solid #a855f7',
@@ -129,7 +129,7 @@ export const PROFILE_FRAMES = [
     name: '얼음 프레임',
     description: '투명한 얼음 결정이 빛나는 청순한 테두리입니다.',
     costType: 'diamond',
-    cost: 50,
+    cost: 200,
     rarity: '영웅',
     style: {
       border: '3px solid #bae6fd',
@@ -207,7 +207,7 @@ export const PROFILE_BACKGROUNDS = [
     name: '별빛 오라',
     description: '어두운 배경에 별빛이 도는 프리미엄 배경입니다.',
     costType: 'diamond',
-    cost: 200,
+    cost: 800,
     rarity: '영웅',
     style: {
       background: 'radial-gradient(circle at 30% 26%, rgba(96, 165, 250, 0.5), transparent 24%), radial-gradient(circle at 70% 22%, rgba(216, 180, 254, 0.48), transparent 26%), linear-gradient(145deg, #0f172a 0%, #312e81 100%)',
@@ -269,7 +269,7 @@ export const PROFILE_BACKGROUNDS = [
     name: '은하 배경',
     description: '별이 가득한 신비로운 우주 배경입니다.',
     costType: 'diamond',
-    cost: 120,
+    cost: 480,
     rarity: '전설',
     style: {
       background: 'radial-gradient(circle at 25% 20%, rgba(167,139,250,0.6), transparent 22%), radial-gradient(circle at 75% 30%, rgba(251,191,36,0.35), transparent 18%), radial-gradient(circle at 50% 60%, rgba(99,102,241,0.3), transparent 25%), linear-gradient(145deg, #020617 0%, #1e1b4b 50%, #0c0a1a 100%)',
@@ -285,7 +285,7 @@ export const PROFILE_BACKGROUNDS = [
     name: '화산 배경',
     description: '용암이 흐르는 강렬한 화산 배경입니다.',
     costType: 'diamond',
-    cost: 60,
+    cost: 240,
     rarity: '영웅',
     style: {
       background: 'radial-gradient(circle at 50% 15%, rgba(251,191,36,0.65), transparent 20%), radial-gradient(circle at 30% 35%, rgba(249,115,22,0.6), transparent 28%), radial-gradient(circle at 70% 28%, rgba(239,68,68,0.5), transparent 30%), linear-gradient(160deg, #431407 0%, #7c2d12 45%, #9a3412 100%)',
