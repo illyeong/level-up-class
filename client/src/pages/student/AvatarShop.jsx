@@ -7,11 +7,11 @@ import {
   getOwnedCosmetics,
 } from '../../data/avatarCosmetics';
 
-function AvatarShop({ studentCode }) {
+function AvatarShop({ studentCode, defaultTab = 'avatar' }) {
   const [myDiamonds, setMyDiamonds]     = useState(0);
   const [myGold, setMyGold]             = useState(0);
   const [studentDocId, setStudentDocId] = useState(null);
-  const [activeTab, setActiveTab]       = useState('avatar');
+  const [activeTab, setActiveTab]       = useState(defaultTab);
   const [ownedCosmetics, setOwnedCosmetics]       = useState(getOwnedCosmetics());
   const [equippedCosmetics, setEquippedCosmetics] = useState(getEquippedCosmetics());
   const [isReady, setIsReady]           = useState(false);

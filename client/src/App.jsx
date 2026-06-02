@@ -1206,7 +1206,8 @@ function App() {
       <main className="flex-1 overflow-auto relative" style={shouldUseAdventureBg ? { background: ADVENTURE_BG } : undefined}>
         {currentView === 'dashboard'    && <StudentDashboard studentCode={activeStudentCode} onChangeView={setCurrentView} themeMode={themeMode} />}
         {currentView === 'myCharacter'  && <MyCharacter      studentCode={activeStudentCode} themeMode={themeMode} />}
-        {currentView === 'avatarRoom'   && <AvatarRoom        studentCode={activeStudentCode} />}
+        {currentView === 'avatarRoom'    && <AvatarRoom studentCode={activeStudentCode} />}
+        {currentView === 'cosmeticShop'  && <AvatarRoom studentCode={activeStudentCode} defaultTab="cosmetics" />}
         {currentView === 'quest'        && <StudentQuestPage  studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'classAll'     && <ClassAllView studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'classBank'    && <ClassBank         studentCode={activeStudentCode} />}

@@ -23,6 +23,7 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] 
       id: 'myCharacter', icon: '🦸‍♂️', title: t('menu.character', '내 캐릭터'), isReady: true, directNav: true,
       subMenus: [
         { title: t('submenu.avatarRoom', '🎨 아바타 룸'), id: 'avatarRoom' },
+        { title: '✨ 꾸미기 상점', id: 'cosmeticShop' },
         { title: '⚔️ 장비', id: 'equipment' },
         { title: '🐾 펫 하우스', id: 'petHouse' },
         { title: '📦 보물상자', id: 'gachaBox' }
