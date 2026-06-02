@@ -11,6 +11,7 @@ import { getMaxExpForLevel } from '../../utils/leveling';
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
 const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
+const MASTERY_ATTEMPTS = 4; // 숙달도 판정에 사용할 최고 점수 개수
 const COURSEWARE_QUALITY_VERSION = 'quality-v9-solid-shape-guard';
 
 const questionFingerprint = (q) =>
@@ -532,17 +533,22 @@ export default function AICourseware({ studentCode }) {
       await setDoc(doc(db, 'aiStudentProgress', progressId), pData, { merge: true });
       setMyProgress(pData);
 
-      // ── mastery 업데이트 (rolling best-5 평균) ───────────────
+      // ── mastery 업데이트 (rolling best-4 평균) ───────────────
       const masteryId = `${studentCode}_${key}`;
       const prevMDoc  = await getDoc(doc(db, 'aiLessonMastery', masteryId));
       const prevM     = prevMDoc.exists() ? prevMDoc.data() : { scores: [], attemptCount: 0 };
 
-      // 현재 보관 중인 점수 배열 (최대 5개)
+      // 현재 보관 중인 점수 배열 (최대 4개)
       let scores = Array.isArray(prevM.scores) ? [...prevM.scores] : [];
-      if (scores.length < 5) {
+      while (scores.length > MASTERY_ATTEMPTS) {
+        const minScore = Math.min(...scores);
+        scores.splice(scores.indexOf(minScore), 1);
+      }
+
+      if (scores.length < MASTERY_ATTEMPTS) {
         scores.push(score);
       } else {
-        // 5개 꽉 참 → 최저 점수보다 높으면 최저를 교체 (평균 하락 방지)
+        // 4개 꽉 참 → 최저 점수보다 높으면 최저를 교체 (평균 하락 방지)
         const minScore = Math.min(...scores);
         if (score > minScore) {
           scores[scores.indexOf(minScore)] = score;
@@ -550,8 +556,8 @@ export default function AICourseware({ studentCode }) {
       }
 
       const newCount       = (prevM.attemptCount || 0) + 1;
-      const hasWindow      = scores.length === 5;
-      const masteryAvg     = hasWindow ? Math.round(scores.reduce((a, b) => a + b, 0) / 5) : null;
+      const hasWindow      = scores.length === MASTERY_ATTEMPTS;
+      const masteryAvg     = hasWindow ? Math.round(scores.reduce((a, b) => a + b, 0) / MASTERY_ATTEMPTS) : null;
       const mastLevel      = hasWindow ? getMasteryLevel(masteryAvg) : null;
       const masteryData    = {
         studentCode, lessonKey: key,
@@ -942,10 +948,10 @@ export default function AICourseware({ studentCode }) {
                 const m = masteryMap[lessonKey(selectedUnit, lesson)];
                 if (!m) return <div className="mt-1 pl-[68px]"><span className="text-[10px] text-slate-600">미도전</span></div>;
                 const done = (m.scores?.length || 0);
-                if (done < 5) {
+                if (done < MASTERY_ATTEMPTS) {
                   return (
                     <div className="flex items-center gap-2 mt-1 pl-[68px] flex-wrap">
-                      <span className="text-[10px] text-slate-500 shrink-0">{done}/5 도전 중</span>
+                      <span className="text-[10px] text-slate-500 shrink-0">{done}/{MASTERY_ATTEMPTS} 도전 중</span>
                       <div className="flex gap-1 items-center">
                         {(m.scores || []).map((s, i) => (
                           <span key={i} className={`text-[10px] font-bold px-1.5 py-0.5 rounded
@@ -953,7 +959,7 @@ export default function AICourseware({ studentCode }) {
                             {s}
                           </span>
                         ))}
-                        {Array.from({ length: 5 - done }, (_, i) => (
+                        {Array.from({ length: MASTERY_ATTEMPTS - done }, (_, i) => (
                           <span key={`e${i}`} className="text-[10px] text-slate-500 px-1.5 py-0.5 rounded bg-slate-700">?</span>
                         ))}
                       </div>
@@ -1234,10 +1240,10 @@ export default function AICourseware({ studentCode }) {
           {/* 숙달도 + 도전 기록 */}
           {(() => {
             const done = finalResult.scores?.length || 0;
-            if (done < 5) {
+            if (done < MASTERY_ATTEMPTS) {
               return (
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
-                  <div className="text-xs text-slate-500 mb-2">{finalResult.attemptNo}번째 도전 · 숙달도 평가까지 <span className="font-bold text-indigo-600">{5 - done}회</span> 남음</div>
+                  <div className="text-xs text-slate-500 mb-2">{finalResult.attemptNo}번째 도전 · 숙달도 평가까지 <span className="font-bold text-indigo-600">{MASTERY_ATTEMPTS - done}회</span> 남음</div>
                   <div className="flex justify-center gap-1.5">
                     {(finalResult.scores || []).map((s, i) => (
                       <div key={i} className="text-center">
@@ -1245,7 +1251,7 @@ export default function AICourseware({ studentCode }) {
                         <div className="text-[9px] text-slate-400 mt-0.5">{i + 1}회</div>
                       </div>
                     ))}
-                    {Array.from({ length: 5 - done }, (_, i) => (
+                    {Array.from({ length: MASTERY_ATTEMPTS - done }, (_, i) => (
                       <div key={`empty-${i}`} className="text-center">
                         <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center">?</div>
                         <div className="text-[9px] text-slate-400 mt-0.5">{done + i + 1}회</div>
@@ -1258,7 +1264,7 @@ export default function AICourseware({ studentCode }) {
             const cfg = MASTERY[finalResult.masteryLevel] || MASTERY.retry;
             return (
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
-                <div className="text-xs text-slate-500 mb-1.5">{finalResult.attemptNo}번째 도전 · 5회 점수 평균</div>
+                <div className="text-xs text-slate-500 mb-1.5">{finalResult.attemptNo}번째 도전 · {MASTERY_ATTEMPTS}회 점수 평균</div>
                 <span className={`inline-flex items-center gap-1 text-sm font-extrabold px-3 py-1 rounded-full ${cfg.cls}`}>
                   {cfg.emoji} {cfg.label}
                 </span>

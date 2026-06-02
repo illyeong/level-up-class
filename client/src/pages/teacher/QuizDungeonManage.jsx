@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp
 import { db, auth } from '../../firebase';
 import { MONSTERS_DB, TIER_LABEL, TIER_COST } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
+import AILessonQuizSetBuilder from '../../components/AILessonQuizSetBuilder';
 
 const DIFF_OPTIONS = [
   { value: 'easy',   label: '🟢 쉬움',   desc: '기본 개념 확인' },
@@ -446,13 +447,38 @@ function QuizDungeonManage({ selectedClass }) {
             {/* 1. 퀴즈 선택 */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-slate-700 text-sm">📋 퀴즈 선택</h2>
+                <div>
+                  <h2 className="font-bold text-slate-700 text-sm">📋 퀴즈 선택</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">AI학습관 차시로 새로 만들거나, 기존 내 퀴즈를 선택하세요.</p>
+                </div>
                 {selectedSet && (
                   <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-1.5">
                     <span className="text-xs font-extrabold text-indigo-700 truncate max-w-[200px]">✓ {selectedSet.title}</span>
                     <span className="text-[10px] text-indigo-500 shrink-0">{questionCount}문항</span>
                   </div>
                 )}
+              </div>
+              <div className="mb-4">
+                <AILessonQuizSetBuilder
+                  selectedClass={selectedClass}
+                  accent="indigo"
+                  title="AI학습관 차시로 던전 퀴즈 만들기"
+                  description="등록된 수학 차시를 골라 퀴즈를 생성하면 아래 선택 퀴즈로 바로 들어갑니다."
+                  defaultQuestionCount={6}
+                  defaultDifficulty={difficulty}
+                  onCreated={(quizSet) => {
+                    setSelectedSet(quizSet);
+                    setCustomTitle(quizSet.title);
+                    handleDiffChange(quizSet.difficulty || 'normal');
+                    setSelectedMonsters([]);
+                  }}
+                  showToast={showToast}
+                />
+              </div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span className="text-[11px] font-bold text-slate-400">또는 기존 내 퀴즈 선택</span>
+                <div className="h-px flex-1 bg-slate-200" />
               </div>
               <QuizSetPicker selectedSetId={selectedSet?.id} onSelect={setSelectedSet} />
             </div>

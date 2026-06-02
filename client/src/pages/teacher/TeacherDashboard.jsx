@@ -4,6 +4,7 @@ import { db } from '../../firebase';
 import LevelUpEffect from '../../components/LevelUpEffect';
 import { applyClassQuickSetup, QUICK_SETUP_VERSION } from '../../utils/classQuickSetup';
 import { applyExpDelta, getMaxExpForLevel } from '../../utils/leveling';
+import { getEffectiveCosmeticStyles } from '../../data/avatarCosmetics';
 
 import iconGold from '../../assets/images/icon-gold.png';
 import iconDiamond from '../../assets/images/icon-diamond.png';
@@ -860,7 +861,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-        {students.map((student) => (
+        {students.map((student) => {
+          const cosmeticStyles = getEffectiveCosmeticStyles(student);
+          return (
           <div key={student.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow relative">
             {/* ?쇱씪?섏뒪???꾨즺 ?꾪솴 */}
             {(() => {
@@ -882,18 +885,30 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                 </div>
               );
             })()}
-            <div className="h-36 bg-gradient-to-b from-slate-50 to-white flex items-center justify-center border-b border-slate-100 relative overflow-hidden">
+            <div
+              className="h-36 bg-gradient-to-b from-slate-50 to-white flex items-center justify-center border-b border-slate-100 relative overflow-hidden"
+              style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
+            >
+              <div className="pointer-events-none absolute inset-0">
+                <div className="absolute left-1/2 top-[46%] -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-indigo-300/25 blur-2xl" />
+              </div>
+              {cosmeticStyles.background.floorStyle && (
+                <div
+                  className="pointer-events-none absolute left-1/2 bottom-6 -translate-x-1/2 w-28 h-6 rounded-full"
+                  style={cosmeticStyles.background.floorStyle}
+                />
+              )}
               {student.characterImage ? (
                 <img
                   src={student.characterImage}
                   alt="캐릭터"
-                  className="h-full w-full object-contain scale-[2.5] drop-shadow-sm"
+                  className="relative z-10 h-full w-full object-contain scale-[2.5] drop-shadow-sm"
                   onError={e => { e.target.style.display = 'none'; }}
                 />
               ) : student.parts ? (
-                <span className="text-6xl drop-shadow-sm">👤</span>
+                <span className="relative z-10 text-6xl drop-shadow-sm">👤</span>
               ) : (
-                <span className="text-6xl drop-shadow-sm opacity-30">?쭕</span>
+                <span className="relative z-10 text-6xl drop-shadow-sm opacity-30">?쭕</span>
               )}
               <div className="absolute top-2 left-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
                 {getSeatNum(student.studentCode)}번
@@ -927,7 +942,8 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {isModalOpen && (

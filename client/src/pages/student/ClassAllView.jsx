@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { getEffectiveCosmeticStyles } from '../../data/avatarCosmetics';
 
 export default function ClassAllView({ studentCode, themeMode = 'dark' }) {
   const [students, setStudents] = useState([]);
@@ -47,13 +48,27 @@ export default function ClassAllView({ studentCode, themeMode = 'dark' }) {
         우리 반 전체 보기
       </h1>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-        {students.map((s) => (
+        {students.map((s) => {
+          const cosmeticStyles = getEffectiveCosmeticStyles(s);
+          return (
           <div key={s.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col items-center">
-            <div className="w-full h-56 bg-indigo-50 flex items-center justify-center overflow-hidden">
+            <div
+              className="relative w-full h-56 bg-indigo-50 flex items-center justify-center overflow-hidden"
+              style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
+            >
+              <div className="pointer-events-none absolute inset-0">
+                <div className="absolute left-1/2 top-[46%] -translate-x-1/2 -translate-y-1/2 w-28 h-28 rounded-full bg-indigo-300/25 blur-2xl" />
+              </div>
+              {cosmeticStyles.background.floorStyle && (
+                <div
+                  className="pointer-events-none absolute left-1/2 bottom-8 -translate-x-1/2 w-32 h-7 rounded-full"
+                  style={cosmeticStyles.background.floorStyle}
+                />
+              )}
               {s.characterImage ? (
-                <img src={s.characterImage} alt="캐릭터" className="w-full h-full object-contain scale-[2.5]" />
+                <img src={s.characterImage} alt="캐릭터" className="relative z-10 w-full h-full object-contain scale-[2.5]" />
               ) : (
-                <span className="text-7xl opacity-40">👤</span>
+                <span className="relative z-10 text-7xl opacity-40">👤</span>
               )}
             </div>
             <div className="p-3 text-center w-full">
@@ -66,7 +81,8 @@ export default function ClassAllView({ studentCode, themeMode = 'dark' }) {
               {s.name && <div className="text-xs text-slate-400 truncate w-full">{s.studentCode}</div>}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

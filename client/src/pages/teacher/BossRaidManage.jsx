@@ -7,6 +7,7 @@ import { db, auth } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg as resolveBossBackground } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 import { applyExpDelta } from '../../utils/leveling';
+import AILessonQuizSetBuilder from '../../components/AILessonQuizSetBuilder';
 
 // ── 퀴즈셋 선택 피커 (스크롤형 인라인) ────────────────────────────
 const DIFF_LABEL_SM = { easy: '쉬움', normal: '보통', hard: '어려움' };
@@ -929,7 +930,10 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
             {/* 퀴즈 선택 */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-slate-700 text-sm">📝 퀴즈 선택</h2>
+                <div>
+                  <h2 className="font-bold text-slate-700 text-sm">📝 퀴즈 선택</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">AI학습관 차시로 새로 만들거나, 기존 내 퀴즈를 선택하세요.</p>
+                </div>
                 {selectedQuizSet && (
                   <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5">
                     <span className="text-xs font-extrabold text-rose-700 truncate max-w-[180px]">✓ {selectedQuizSet.title}</span>
@@ -938,6 +942,23 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
                     </span>
                   </div>
                 )}
+              </div>
+              <div className="mb-4">
+                <AILessonQuizSetBuilder
+                  selectedClass={selectedClass}
+                  accent="rose"
+                  title="AI학습관 차시로 보스레이드 퀴즈 만들기"
+                  description="등록된 수학 차시를 골라 객관식 퀴즈를 생성하면 레이드 퀴즈로 바로 선택됩니다."
+                  defaultQuestionCount={8}
+                  defaultDifficulty="normal"
+                  onCreated={(quizSet) => setSelectedQuizSet(quizSet)}
+                  showToast={showToast}
+                />
+              </div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span className="text-[11px] font-bold text-slate-400">또는 기존 내 퀴즈 선택</span>
+                <div className="h-px flex-1 bg-slate-200" />
               </div>
               <QuizSetPicker selectedSetId={selectedQuizSet?.id} onSelect={setSelectedQuizSet} />
             </div>

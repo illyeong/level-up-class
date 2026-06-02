@@ -9,6 +9,7 @@ const MASTERY = {
   normal:    { label: '보통',     emoji: '👍', bar: 'bg-emerald-400', text: 'text-emerald-600', light: 'bg-emerald-50 border-emerald-200' },
   retry:     { label: '재도전',   emoji: '🔄', bar: 'bg-rose-400',   text: 'text-rose-500',   light: 'bg-rose-50 border-rose-200'   },
 };
+const MASTERY_ATTEMPTS = 4;
 const getMasteryLevel = (avg) =>
   avg >= 90 ? 'excellent' : avg >= 75 ? 'good' : avg >= 60 ? 'normal' : 'retry';
 
@@ -431,13 +432,13 @@ export default function AICoursewareManage({ selectedClass }) {
                                   <div key={stu.id} className="px-5 py-2.5 grid grid-cols-12 items-center text-xs hover:bg-white transition-colors">
                                     <div className="col-span-2 font-extrabold text-slate-700 truncate">{stu.name || stu.studentCode?.slice(-5)}</div>
                                     <div className="col-span-1 text-center">
-                                      <span className={`font-bold ${done >= 5 ? 'text-indigo-600' : 'text-slate-400'}`}>{m.attemptCount || done}회</span>
+                                      <span className={`font-bold ${done >= MASTERY_ATTEMPTS ? 'text-indigo-600' : 'text-slate-400'}`}>{m.attemptCount || done}회</span>
                                     </div>
                                     <div className="col-span-4 flex gap-0.5 flex-wrap">
                                       {(m.scores || []).map((s, i) => (
                                         <span key={i} className={`px-1 py-0.5 rounded text-[10px] font-bold bg-white border ${scoreColor(s)} border-current`}>{s}</span>
                                       ))}
-                                      {done < 5 && Array.from({ length: 5 - done }, (_, i) => (
+                                      {done < MASTERY_ATTEMPTS && Array.from({ length: MASTERY_ATTEMPTS - done }, (_, i) => (
                                         <span key={`e${i}`} className="px-1 py-0.5 rounded text-[10px] bg-slate-100 text-slate-300">?</span>
                                       ))}
                                     </div>
@@ -446,7 +447,7 @@ export default function AICoursewareManage({ selectedClass }) {
                                         ? <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${MASTERY[m.masteryLevel]?.light || ''} ${MASTERY[m.masteryLevel]?.text || ''}`}>
                                             {MASTERY[m.masteryLevel]?.emoji} {MASTERY[m.masteryLevel]?.label}
                                           </span>
-                                        : <span className="text-slate-400">{done}/5 도전중</span>}
+                                        : <span className="text-slate-400">{done}/{MASTERY_ATTEMPTS} 도전중</span>}
                                     </div>
                                     <div className={`col-span-1 text-center font-extrabold ${m.masteryAvg != null ? scoreColor(m.masteryAvg) : 'text-slate-300'}`}>
                                       {m.masteryAvg != null ? `${m.masteryAvg}점` : '-'}
