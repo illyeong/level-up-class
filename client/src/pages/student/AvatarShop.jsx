@@ -464,10 +464,10 @@ function AvatarShop({ studentCode, defaultTab = 'avatar' }) {
             <div className="bg-slate-900 rounded-3xl p-5 md:p-6 text-white shadow-sm">
               <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                 <div>
-                  <p className="text-sm font-extrabold text-indigo-200">프로필 꾸미기</p>
-                  <h3 className="text-2xl font-black mt-1">프레임과 CSS 배경을 구매하고 장착하세요</h3>
+                  <p className="text-sm font-extrabold text-indigo-200">꾸미기 상점</p>
+                  <h3 className="text-2xl font-black mt-1">테두리와 배경을 구매하고 장착하세요</h3>
                   <p className="text-sm text-slate-300 mt-2">
-                    장착한 효과는 학생 대시보드와 내 캐릭터 카드에 바로 반영됩니다.
+                    장착한 효과는 대시보드·내 캐릭터·우리반 전체보기에 바로 반영됩니다.
                   </p>
                 </div>
                 <div className="flex gap-2 text-sm font-extrabold">
