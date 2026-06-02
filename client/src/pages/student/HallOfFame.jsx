@@ -123,7 +123,11 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid, on
     if (!resolvedUid) return;
     (async () => {
       const allSnap = await getDocs(query(collection(db, 'students'), where('teacherUid', '==', resolvedUid)));
-      setStudents(allSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const EXCLUDED = ['sinseok-5-15']; // 테스트 계정 — 명예의전당 제외
+      setStudents(allSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(s => !EXCLUDED.includes((s.studentCode || '').toLowerCase()))
+      );
       setLoading(false);
     })();
   }, [resolvedUid]);
