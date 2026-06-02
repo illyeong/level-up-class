@@ -7,6 +7,7 @@ import SpriteMonster from './SpriteMonster';
 import { MONSTERS_DB } from '../data/monsterData';
 import { formatStats } from '../pages/student/PetHouse';
 import { getMaxExpForLevel } from '../utils/leveling';
+import { getEffectiveCosmeticStyles } from '../data/avatarCosmetics';
 
 const RARITY_BADGE = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟡', mythic:'🌈' };
 const RARITY_LABEL = { common:'일반', rare:'희귀', epic:'영웅', legendary:'전설', mythic:'신화' };
@@ -60,6 +61,7 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
   const diamond = studentData?.diamonds || 0;
   const image   = studentData?.characterImage;
   const expPct  = Math.min(100, (exp / maxExp) * 100);
+  const cosmeticStyles = getEffectiveCosmeticStyles(studentData);
 
   const equipped  = studentData?.equipped || {};
   const inventory = studentData?.equipInventory || [];
@@ -113,10 +115,22 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
         {/* ── 왼쪽: 캐릭터 카드 ── */}
         <div className="lg:col-span-1 bg-white rounded-3xl shadow-lg border border-slate-100 p-8 flex flex-col items-center justify-center transform transition-all hover:-translate-y-1 hover:shadow-xl">
           <div className="relative w-48 h-56 mb-6">
-            <div className="relative w-full h-full bg-indigo-50 border-2 border-indigo-200 rounded-2xl flex items-center justify-center shadow-inner overflow-hidden">
+            <div
+              className="relative w-full h-full bg-indigo-50 border-2 border-indigo-200 rounded-2xl flex items-center justify-center shadow-inner overflow-hidden"
+              style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
+            >
+              <div className="pointer-events-none absolute inset-0">
+                <div className="absolute left-1/2 top-[46%] -translate-x-1/2 -translate-y-1/2 w-28 h-28 rounded-full bg-indigo-300/30 blur-2xl" />
+              </div>
+              {cosmeticStyles.background.floorStyle && (
+                <div
+                  className="pointer-events-none absolute left-1/2 bottom-8 -translate-x-1/2 w-32 h-7 rounded-full"
+                  style={cosmeticStyles.background.floorStyle}
+                />
+              )}
               {image
-                ? <img src={image} alt="캐릭터" className="w-full h-full object-contain scale-[3]" />
-                : <span className="text-6xl">🧑‍🎓</span>}
+                ? <img src={image} alt="캐릭터" className="relative z-10 w-full h-full object-contain scale-[3]" />
+                : <span className="relative z-10 text-6xl">🧑‍🎓</span>}
             </div>
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white px-4 py-1 rounded-full font-bold text-sm shadow-md border-2 border-white whitespace-nowrap">
               {t('character.level', { level })}

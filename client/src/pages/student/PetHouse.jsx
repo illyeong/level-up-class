@@ -1267,10 +1267,10 @@ export default function PetHouse({ studentCode }) {
                         </div>
                         {bar(happiness, happiness >= 70 ? '#38bdf8' : happiness >= 40 ? '#fbbf24' : '#f87171')}
                       </div>
-                      <button onClick={() => petThePet(sp)}
-                        disabled={isDead || care.petCount >= 3 || happiness >= 100}
+                      <button onClick={() => isDead ? feedPet(sp, FOOD_OPTIONS[0]) : petThePet(sp)}
+                        disabled={!isDead && (care.petCount >= 3 || happiness >= 100)}
                         className={`w-full py-2 rounded-xl font-extrabold text-xs mb-3 transition-all
-                          ${isDead || care.petCount >= 3 || happiness >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg'}`}>
+                          ${isDead ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg' : care.petCount >= 3 || happiness >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg'}`}>
                         {isDead ? '🍖 먹이 필요' : care.petCount >= 3 ? '💝 완료' : `💝 쓰다듬기 (${3 - care.petCount}회)`}
                       </button>
                       <div className="grid grid-cols-2 gap-1.5 mb-2">

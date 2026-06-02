@@ -1,6 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import React, { useState, useEffect, useRef } from 'react';
+import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { db } from '../../firebase';
+import {
+  getCosmeticById,
+  getHallOfFameDateKey,
+  HALL_OF_FAME_FRAME_ID,
+} from '../../data/avatarCosmetics';
+
+const sumEnhanceStars = s => (s.equipInventory || []).reduce((t, e) => t + (e.stars || 0), 0);
 
 const CATEGORIES = [
   {
@@ -10,6 +17,7 @@ const CATEGORIES = [
     bg: 'bg-amber-50',
     sort: (a, b) => (b.level || 1) - (a.level || 1) || (b.exp || 0) - (a.exp || 0),
     value: s => `Lv.${s.level || 1}`,
+    qualifies: s => (s.level || 1) > 1 || (s.exp || 0) > 0,
   },
   {
     id: 'gold',
@@ -18,6 +26,7 @@ const CATEGORIES = [
     bg: 'bg-yellow-50',
     sort: (a, b) => (b.gold || 0) - (a.gold || 0),
     value: s => `${(s.gold || 0).toLocaleString()}G`,
+    qualifies: s => (s.gold || 0) > 0,
   },
   {
     id: 'diamond',
@@ -26,6 +35,7 @@ const CATEGORIES = [
     bg: 'bg-cyan-50',
     sort: (a, b) => (b.diamonds || 0) - (a.diamonds || 0),
     value: s => `${(s.diamonds || 0).toLocaleString()}💎`,
+    qualifies: s => (s.diamonds || 0) > 0,
   },
   {
     id: 'arena',
@@ -34,19 +44,33 @@ const CATEGORIES = [
     bg: 'bg-rose-50',
     sort: (a, b) => (b.arenaWins || 0) - (a.arenaWins || 0),
     value: s => `${s.arenaWins || 0}승`,
+    qualifies: s => (s.arenaWins || 0) > 0,
   },
   {
     id: 'enhance',
     label: '🔮 강화 달인',
     gradient: 'from-purple-500 to-indigo-400',
     bg: 'bg-purple-50',
-    sort: (a, b) => {
-      const sum = s => (s.equipInventory || []).reduce((t, e) => t + (e.stars || 0), 0);
-      return sum(b) - sum(a);
-    },
-    value: s => `★${(s.equipInventory || []).reduce((t, e) => t + (e.stars || 0), 0)}`,
+    sort: (a, b) => sumEnhanceStars(b) - sumEnhanceStars(a),
+    value: s => `★${sumEnhanceStars(s)}`,
+    qualifies: s => sumEnhanceStars(s) > 0,
   },
 ];
+
+const sameStringArray = (a = [], b = []) => {
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+};
+
+const getTopStudents = (category, list) => {
+  if (!list.length) return [];
+  const sorted = [...list].sort(category.sort);
+  const top = sorted[0];
+  if (!category.qualifies(top)) return [];
+  const winners = sorted.filter(s => category.sort(s, top) === 0 && category.sort(top, s) === 0);
+  if (winners.length === list.length) return [];
+  return winners;
+};
 
 function RankBadge({ rank }) {
   if (rank === 1) return (
@@ -76,12 +100,14 @@ function RankBadge({ rank }) {
   );
 }
 
-export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) {
+export default function HallOfFame({ studentCode, teacherUid: propTeacherUid, onHallFrameChange }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [activeTab, setActiveTab] = useState('level');
   const [resolvedUid, setResolvedUid] = useState(propTeacherUid || null);
   const [arenaWinsMap, setArenaWinsMap] = useState({});
+  const [arenaWinsLoaded, setArenaWinsLoaded] = useState(false);
+  const awardRunKeyRef = useRef('');
 
   useEffect(() => {
     if (propTeacherUid) { setResolvedUid(propTeacherUid); return; }
@@ -102,12 +128,16 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
     })();
   }, [resolvedUid]);
 
-  // 투기장 랭킹 집계
   useEffect(() => {
-    if (activeTab !== 'arena' || students.length === 0) return;
+    if (students.length === 0) {
+      setArenaWinsLoaded(true);
+      setArenaWinsMap({});
+      return;
+    }
     const classIds = students.map(s => s.id);
     (async () => {
       try {
+        setArenaWinsLoaded(false);
         const logMap = {};
         const chunks = [];
         for (let i = 0; i < classIds.length; i += 30) chunks.push(classIds.slice(i, i + 30));
@@ -125,9 +155,64 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
           if (idSet.has(winner)) winsMap[winner] = (winsMap[winner] || 0) + 1;
         });
         setArenaWinsMap(winsMap);
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error(e);
+        setArenaWinsMap({});
+      } finally {
+        setArenaWinsLoaded(true);
+      }
     })();
-  }, [activeTab, students]);
+  }, [students]);
+
+  useEffect(() => {
+    if (!resolvedUid || students.length === 0 || !arenaWinsLoaded) return;
+
+    const dateKey = getHallOfFameDateKey();
+    const displayList = students.map(s => ({ ...s, arenaWins: arenaWinsMap[s.id] || 0 }));
+    const desiredById = new Map();
+
+    CATEGORIES.forEach(category => {
+      const winners = getTopStudents(category, displayList);
+      winners.forEach(student => {
+        const current = desiredById.get(student.id) || new Set();
+        current.add(category.id);
+        desiredById.set(student.id, current);
+      });
+    });
+
+    const desiredEntries = [...desiredById.entries()]
+      .map(([id, set]) => [id, [...set].sort()])
+      .sort(([a], [b]) => a.localeCompare(b));
+    const runKey = `${resolvedUid}_${dateKey}_${JSON.stringify(desiredEntries)}`;
+    if (awardRunKeyRef.current === runKey) return;
+    awardRunKeyRef.current = runKey;
+
+    const updates = [];
+    const nextStudents = students.map(student => {
+      const desiredCategories = [...(desiredById.get(student.id) || new Set())].sort();
+      const currentFrame = student.hallOfFameFrame || {};
+      const currentCategories = currentFrame.dateKey === dateKey ? [...(currentFrame.categories || [])].sort() : [];
+      if (sameStringArray(currentCategories, desiredCategories)) return student;
+
+      const hallOfFameFrame = desiredCategories.length > 0
+        ? { dateKey, frameId: HALL_OF_FAME_FRAME_ID, categories: desiredCategories, awardedAt: new Date() }
+        : { dateKey, frameId: null, categories: [], awardedAt: new Date() };
+
+      updates.push(updateDoc(doc(db, 'students', student.id), {
+        hallOfFameFrame: {
+          ...hallOfFameFrame,
+          awardedAt: serverTimestamp(),
+        },
+      }));
+      return { ...student, hallOfFameFrame };
+    });
+
+    if (updates.length === 0) return;
+    setStudents(nextStudents);
+    const currentStudent = studentCode ? nextStudents.find(s => s.studentCode === studentCode) : null;
+    if (currentStudent) onHallFrameChange?.(currentStudent.hallOfFameFrame);
+    Promise.all(updates).catch(err => console.error('명예의 전당 프레임 지급 오류:', err));
+  }, [arenaWinsLoaded, arenaWinsMap, resolvedUid, students]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-full text-slate-400">불러오는 중...</div>
@@ -138,6 +223,8 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
     ? students.map(s => ({ ...s, arenaWins: arenaWinsMap[s.id] || 0 }))
     : students;
   const ranked = [...displayStudents].sort(cat.sort).slice(0, 10);
+  const hallFrameStyle = getCosmeticById('frames', HALL_OF_FAME_FRAME_ID).style;
+  const currentWinnerIds = new Set(getTopStudents(cat, displayStudents).map(s => s.id));
 
   return (
     <div className="max-w-xl mx-auto p-6">
@@ -166,6 +253,7 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
             const rank = i + 1;
             const isMe = s.studentCode === studentCode;
             const isTop3 = rank <= 3;
+            const hasHallFrame = currentWinnerIds.has(s.id);
             return (
               <div
                 key={s.id}
@@ -177,7 +265,10 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
               >
                 <RankBadge rank={rank} />
                 {s.characterImage ? (
-                  <div className="w-20 h-20 rounded-xl bg-white border-2 border-slate-100 overflow-hidden shrink-0 flex items-center justify-center shadow-sm">
+                  <div
+                    className="w-20 h-20 rounded-xl bg-white border-2 border-slate-100 overflow-hidden shrink-0 flex items-center justify-center shadow-sm"
+                    style={hasHallFrame ? hallFrameStyle : undefined}
+                  >
                     <img
                       src={s.characterImage}
                       alt=""
@@ -186,7 +277,12 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid }) 
                     />
                   </div>
                 ) : (
-                  <div className="w-20 h-20 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-3xl shadow-sm">🧑‍🎓</div>
+                  <div
+                    className="w-20 h-20 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-3xl shadow-sm"
+                    style={hasHallFrame ? hallFrameStyle : undefined}
+                  >
+                    🧑‍🎓
+                  </div>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className={`font-extrabold truncate text-sm ${isMe ? 'text-indigo-700' : isTop3 ? 'text-slate-800' : 'text-slate-600'}`}>

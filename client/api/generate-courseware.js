@@ -129,6 +129,16 @@ const isFactorMultipleLesson = (payload) => {
   return /약수|공약수|최대공약수|배수|공배수|최소공배수/.test(text);
 };
 
+const isSolidShapeLesson = (payload) => {
+  const text = [
+    payload?.unitName,
+    payload?.lessonTitle,
+    payload?.learningGoal,
+    Array.isArray(payload?.keywords) ? payload.keywords.join(' ') : payload?.keywords,
+  ].filter(Boolean).join(' ');
+  return /입체도형|직육면체|정육면체|각기둥|각뿔|원기둥|원뿔|구/.test(text);
+};
+
 const sanitizeShape = (shape, context = {}) => {
   if (!shape || typeof shape !== 'object' || !SHAPE_TYPES.has(shape.type)) return null;
   const type = shape.type;
@@ -159,13 +169,17 @@ const sanitizeShape = (shape, context = {}) => {
     return cleaned ? { type, dimensions: cleaned } : null;
   }
   if (type === 'multi') {
-    const allowed = new Set(['rectangle', 'square', 'circle', 'equilateral_triangle', 'isosceles_triangle', 'right_triangle', 'parallelogram', 'rhombus', 'trapezoid', 'semicircle', 'cuboid', 'cube', 'cylinder', 'cone', 'sphere']);
+    const solidTypes = new Set(['cuboid', 'cube', 'cylinder', 'cone', 'sphere']);
+    const allowed = context.solidShape
+      ? solidTypes
+      : new Set(['rectangle', 'square', 'circle', 'equilateral_triangle', 'isosceles_triangle', 'right_triangle', 'parallelogram', 'rhombus', 'trapezoid', 'semicircle', 'cuboid', 'cube', 'cylinder', 'cone', 'sphere']);
     const items = asList(d.items, 4)
       .map(v => String(v || '').trim())
       .map(v => v === 'triangle' ? 'equilateral_triangle' : v)
       .filter(v => allowed.has(v));
     return items.length >= 2 ? { type, dimensions: { ...d, items } } : null;
   }
+  if (context.solidShape && !['cuboid', 'cube', 'cylinder', 'cone', 'sphere'].includes(type)) return null;
   if (['cuboid', 'cube', 'cylinder', 'cone', 'sphere'].includes(type)) {
     return { type, dimensions: d, unit };
   }
@@ -275,7 +289,7 @@ function tryParseJson(text) {
   }
 }
 
-function normalizeQuestion(q, index, { sameDenomFocus = false, factorMultiple = false } = {}) {
+function normalizeQuestion(q, index, { sameDenomFocus = false, factorMultiple = false, solidShape = false } = {}) {
   if (!q || typeof q !== 'object') return null;
 
   const options = Array.isArray(q.options)
@@ -291,7 +305,7 @@ function normalizeQuestion(q, index, { sameDenomFocus = false, factorMultiple = 
   const rotated = [...options.slice(shift), ...options.slice(0, shift)];
   const rotatedAnswerIndex = rotated.findIndex(o => o === correct);
 
-  const shape = sanitizeShape(q.shape, { factorMultiple });
+  const shape = sanitizeShape(q.shape, { factorMultiple, solidShape });
 
   const normalized = {
     question: String(q.question || '').trim(),
@@ -393,6 +407,15 @@ function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
 - For multiple/common-multiple questions, use factor_list with labels such as "4의 배수", "6의 배수" and highlight common values.
 `
     : '';
+  const solidShapeRules = isSolidShapeLesson(payload)
+    ? `
+[Solid-shape visual rules]
+- This lesson is about three-dimensional solids.
+- Do not use flat 2D shapes such as rectangle, square, circle, or triangle as the visual for solid-shape questions.
+- Use cuboid, cube, cylinder, cone, sphere, or multi with only those solid types.
+- If the question asks about a real-life object, the visual must still show the matching solid type, not a flat face.
+`
+    : '';
 
   return `당신은 대한민국 초등 수학 평가 문항을 만드는 교사입니다.
 아래 수업 정보에 맞춰 학생용 AI 학습 콘텐츠를 완전한 JSON 하나로만 생성하세요.
@@ -400,6 +423,7 @@ function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
 ${ragSection}
 ${sameDenomRules}
 ${factorRules}
+${solidShapeRules}
 [수업 정보]
 - 학년/학기: 초등학교 ${grade}학년${semester ? ` ${semester}학기` : ''}
 - 과목/출판사: 수학${publisher ? ` / ${publisher}` : ''}
@@ -542,7 +566,8 @@ export default async function handler(req, res) {
 
     const sameDenomFocus = hasSameDenominatorFractionFocus(payload, ragSection);
     const factorMultiple = isFactorMultipleLesson(payload);
-    const result = normalizeContent(parsed, poolSize, { sameDenomFocus, factorMultiple });
+    const solidShape = isSolidShapeLesson(payload);
+    const result = normalizeContent(parsed, poolSize, { sameDenomFocus, factorMultiple, solidShape });
     const validationIssues = validateContent(result, poolSize);
 
     if (!result.questions.length) {
@@ -553,7 +578,7 @@ export default async function handler(req, res) {
       ...result,
       context,
       generatedBy: 'ai',
-      generatorVersion: 'quality-v8-factor-visuals',
+      generatorVersion: 'quality-v9-solid-shape-guard',
       requestedQuestionCount: requested,
       poolSize: result.questions.length,
       validationIssues: validationIssues.length > 0 ? validationIssues : null,

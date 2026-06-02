@@ -1029,6 +1029,45 @@ function App() {
                   });
                 };
 
+                const feedActivePet = async (f) => {
+                  const full = !isDead && activePetHunger >= 100;
+                  const maxed = care.feedCount >= 3;
+                  if (full || maxed) return;
+                  if (!activePetData?.id) {
+                    showEffect('펫 정보를 불러오는 중이에요.', false);
+                    return;
+                  }
+                  const stuSnap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', activeStudentCode)));
+                  if (stuSnap.empty) {
+                    showEffect('학생 정보를 찾지 못했어요.', false);
+                    return;
+                  }
+                  const stuDoc = stuSnap.docs[0];
+                  const gold = stuDoc.data().gold || 0;
+                  if (gold < f.cost) {
+                    showEffect('골드가 부족해요.', false);
+                    return;
+                  }
+
+                  const newHunger = Math.min(100, activePetHunger + f.hunger);
+                  const newCare = { ...care, feedCount: (care.feedCount || 0) + 1 };
+                  const petUpdates = { hunger: newHunger, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHungerDecay: serverTimestamp() };
+                  if (f.happiness > 0) {
+                    const newHap = Math.min(100, activePetHappiness + f.happiness);
+                    setActivePetHappiness(newHap);
+                    petUpdates.happiness = newHap;
+                    petUpdates.lastHappinessDecay = serverTimestamp();
+                  }
+
+                  setActivePetHunger(newHunger);
+                  setActivePetData(p => ({ ...p, ...petUpdates, dailyCare: newCare }));
+                  await Promise.all([
+                    updateDoc(doc(db, 'students', stuDoc.id), { gold: gold - f.cost }),
+                    updateDoc(doc(db, 'studentPets', activePetData.id), petUpdates),
+                  ]);
+                  showEffect(['냠냠~ 맛있어요!', '고마워요!', '배부르다~'][Math.floor(Math.random() * 3)], f.happiness > 0);
+                };
+
                 return (
                   <div className="mt-3 space-y-2">
                     {[
@@ -1095,11 +1134,15 @@ function App() {
                       return (
                         <button
                           type="button"
-                          disabled={isDead || petDone || hapFull}
+                          disabled={!isDead && (petDone || hapFull)}
                           onClick={async (e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (isDead || petDone || hapFull) return;
+                            if (isDead) {
+                              await feedActivePet({ name:'작은 먹이', cost:100, hunger:20, happiness:0, emoji:'🌾' });
+                              return;
+                            }
+                            if (petDone || hapFull) return;
                             if (!activePetData?.id) {
                               showEffect('펫 정보를 불러오는 중이에요.', false);
                               return;
@@ -1114,7 +1157,7 @@ function App() {
                             showEffect(lines[Math.floor(Math.random() * lines.length)], true);
                           }}
                           className={`w-full px-3 py-2 rounded-xl text-xs font-extrabold transition-colors
-                            ${isDead || petDone || hapFull ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400'}`}>
+                            ${isDead ? 'bg-amber-600 hover:bg-amber-500 text-white' : petDone || hapFull ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400'}`}>
                           {isDead ? '🍖 먹이 필요' : petDone ? '💝 오늘 완료' : hapFull ? '💝 행복 최대' : `💝 쓰다듬기 · ${3 - care.petCount}회`}
                         </button>
                       );

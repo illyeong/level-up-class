@@ -9,6 +9,7 @@ import AttendanceCheck from '../pages/student/AttendanceCheck';
 import HallOfFame from '../pages/student/HallOfFame';
 import LevelUpEffect from './LevelUpEffect';
 import iconDashboard from '../assets/images/icon-dashboard.png';
+import { getEffectiveCosmeticStyles } from '../data/avatarCosmetics';
 
 // ── 오늘의 퀘스트 위젯 ────────────────────────────────────────
 function TodayQuestWidget({ studentId, teacherUid, onYesterdayLog }) {
@@ -650,6 +651,7 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
   const diamonds = studentData?.diamonds ?? 0;
   const gold     = studentData?.gold     ?? 0;
   const expPct   = Math.min(100, Math.round((exp / maxExp) * 100));
+  const cosmeticStyles = getEffectiveCosmeticStyles(studentData);
 
   if (isLoading) {
     return (
@@ -756,11 +758,20 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
       <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] items-start gap-6">
         {/* 캐릭터 카드 */}
         <div className="bg-white p-5 rounded-3xl shadow-lg border border-gray-100 text-center self-start">
-          <div className="w-full h-44 md:h-48 mx-auto flex items-center justify-center mb-4 relative bg-indigo-50 rounded-2xl overflow-hidden border border-indigo-100">
+          <div
+            className="w-full h-44 md:h-48 mx-auto flex items-center justify-center mb-4 relative bg-indigo-50 rounded-2xl overflow-hidden border border-indigo-100"
+            style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
+          >
             <div className="pointer-events-none absolute inset-0">
               <div className="absolute left-1/2 top-[46%] -translate-x-1/2 -translate-y-1/2 w-40 h-40 rounded-full bg-indigo-300/35 blur-3xl" />
               <div className="absolute left-1/2 bottom-6 -translate-x-1/2 w-36 h-6 rounded-[999px] bg-slate-700/20 blur-md" />
             </div>
+            {cosmeticStyles.background.floorStyle && (
+              <div
+                className="pointer-events-none absolute left-1/2 bottom-8 -translate-x-1/2 w-40 h-8 rounded-full"
+                style={cosmeticStyles.background.floorStyle}
+              />
+            )}
             {studentData?.characterImage ? (
               <img
                 src={studentData.characterImage}
@@ -817,7 +828,13 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
 
       {/* 명예의 전당 */}
       <div className="max-w-7xl mx-auto mt-8 border-t border-slate-700/70 pt-6">
-        <HallOfFame studentCode={studentCode} teacherUid={studentData?.teacherUid} />
+        <HallOfFame
+          studentCode={studentCode}
+          teacherUid={studentData?.teacherUid}
+          onHallFrameChange={(hallOfFameFrame) => {
+            setStudentData(prev => prev ? { ...prev, hallOfFameFrame } : prev);
+          }}
+        />
       </div>
 
       {/* 어제 완료한 퀘스트 팝업 */}
