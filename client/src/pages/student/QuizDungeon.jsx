@@ -1455,6 +1455,8 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
               isActive: false,
               obtainedFrom: 'dungeonDrop',
               obtainedAt: serverTimestamp(),
+              lastHungerDecay: serverTimestamp(),
+              lastHappinessDecay: serverTimestamp(),
             };
             const petRef = await addDoc(collection(db, 'studentPets'), petData);
             setPetDropped({ id: petRef.id, ...petData, monsterData: md });

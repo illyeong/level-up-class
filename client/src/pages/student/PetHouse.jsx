@@ -544,12 +544,17 @@ export default function PetHouse({ studentCode }) {
       // 배고픔: 7.2시간마다 -10 (72h=3일에 0), 행복도/청결: 하루마다 감소
       // lastHungerDecay: 배고픔 감소 전용 타임스탬프 (lastCareAt과 분리)
       const HUNGER_STEP_HOURS = 7.2; // 10씩 감소 간격
+      const HAPPINESS_DECAY_PER_DAY = 80;
       const stateUpdates = petList.map(async pet => {
         const now = Date.now();
         // ① 배고픔 감소 (lastHungerDecay 기준)
-        const decayRef = pet.lastHungerDecay?.toDate?.() || pet.lastCareAt?.toDate?.() || new Date(0);
+        const decayRef = pet.lastHungerDecay?.toDate?.() || pet.lastCareAt?.toDate?.() || pet.obtainedAt?.toDate?.() || new Date();
         const hoursElapsed = (now - decayRef.getTime()) / 3600000;
         const hungerSteps  = Math.floor(hoursElapsed / HUNGER_STEP_HOURS);
+
+        const happinessRef = pet.lastHappinessDecay?.toDate?.() || pet.lastCareAt?.toDate?.() || pet.obtainedAt?.toDate?.() || new Date();
+        const happinessElapsedMs = Math.max(0, now - happinessRef.getTime());
+        const happinessLoss = Math.floor(happinessElapsedMs * HAPPINESS_DECAY_PER_DAY / 86400000);
 
         // ② 행복도·청결도·기력 감소 (lastCareAt 기준 일 단위, 기존 유지)
         const careRef  = pet.lastCareAt?.toDate?.() || new Date(0);
@@ -557,10 +562,10 @@ export default function PetHouse({ studentCode }) {
         const today = new Date().toISOString().slice(0, 10);
         const caredToday = pet.lastCareAt?.toDate?.()?.toISOString?.()?.slice(0, 10) >= today;
 
-        if (hungerSteps === 0 && (caredToday || daysElapsed === 0)) return pet;
+        if (hungerSteps === 0 && happinessLoss === 0 && (caredToday || daysElapsed === 0)) return pet;
 
         const newHunger      = Math.max(0,   (pet.hunger      ?? 100) - hungerSteps * 10);
-        const newHappiness   = caredToday ? (pet.happiness   ?? 100) : Math.max(0,   (pet.happiness   ?? 100) - daysElapsed * 20);
+        const newHappiness   = Math.max(0,   Math.round((pet.happiness ?? 100) - happinessLoss));
         const newCleanliness = caredToday ? (pet.cleanliness ?? 100) : Math.max(0,   (pet.cleanliness ?? 100) - daysElapsed * 10);
         const newEnergy      = caredToday ? (pet.energy      ?? 100) : Math.min(100, (pet.energy      ?? 100) + daysElapsed * 20);
 
@@ -570,7 +575,8 @@ export default function PetHouse({ studentCode }) {
           cleanliness: newCleanliness,
           energy: newEnergy,
         };
-        if (hungerSteps > 0) updates.lastHungerDecay = serverTimestamp(); // 배고픔만 별도 기록
+        if (hungerSteps > 0) updates.lastHungerDecay = new Date(decayRef.getTime() + hungerSteps * HUNGER_STEP_HOURS * 3600000); // 배고픔만 별도 기록
+        if (happinessLoss > 0) updates.lastHappinessDecay = new Date(happinessRef.getTime() + happinessLoss * 86400000 / HAPPINESS_DECAY_PER_DAY);
         if (!caredToday && daysElapsed > 0) updates.lastCareAt = serverTimestamp();
 
         await updateDoc(doc(db, 'studentPets', pet.id), updates);
@@ -666,7 +672,8 @@ export default function PetHouse({ studentCode }) {
     const newHappiness = Math.min(100, (pet.happiness ?? 50) + food.happiness);
     const newCare      = { ...care, feedCount: care.feedCount + 1 };
 
-    const updates = { hunger: newHunger, happiness: newHappiness, dailyCare: newCare, lastCareAt: serverTimestamp() };
+    const updates = { hunger: newHunger, happiness: newHappiness, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHungerDecay: serverTimestamp() };
+    if (food.happiness > 0) updates.lastHappinessDecay = serverTimestamp();
     await updateDoc(doc(db, 'studentPets', pet.id), updates);
 
     if (food.costType === 'gold') {
@@ -693,7 +700,7 @@ export default function PetHouse({ studentCode }) {
     if (care.petCount >= 3) { showToast('오늘 쓰다듬기를 이미 3번 했습니다!', 'error'); return; }
     const newHappiness = Math.min(100, (pet.happiness ?? 50) + 15);
     const newCare      = { ...care, petCount: care.petCount + 1 };
-    const updates = { happiness: newHappiness, dailyCare: newCare, lastCareAt: serverTimestamp() };
+    const updates = { happiness: newHappiness, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp() };
     await updateDoc(doc(db, 'studentPets', pet.id), updates);
     const patched = { ...pet, ...updates, dailyCare: newCare };
     setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
@@ -730,7 +737,7 @@ export default function PetHouse({ studentCode }) {
     const newHap   = Math.min(100, (pet.happiness   ?? 100) + 5);
     const newAff   = (pet.affection ?? 0) + 3;
     const newCare  = { ...care, washCount: (care.washCount || 0) + 1 };
-    const updates  = { cleanliness: newClean, happiness: newHap, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp() };
+    const updates  = { cleanliness: newClean, happiness: newHap, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp() };
     await updateDoc(doc(db, 'studentPets', pet.id), updates);
     const patched = { ...pet, ...updates, dailyCare: newCare };
     setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
@@ -754,7 +761,7 @@ export default function PetHouse({ studentCode }) {
     const newEng   = Math.max(0,   (pet.energy    ?? 100) - 15);
     const newAff   = (pet.affection ?? 0) + 5;
     const newCare  = { ...care, playCount: (care.playCount || 0) + 1 };
-    const updates  = { happiness: newHap, energy: newEng, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp() };
+    const updates  = { happiness: newHap, energy: newEng, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp() };
     await updateDoc(doc(db, 'studentPets', pet.id), updates);
     const patched = { ...pet, ...updates, dailyCare: newCare };
     setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
@@ -802,7 +809,7 @@ export default function PetHouse({ studentCode }) {
       monsterId: md.id, nickname: md.name, rarity, tier: md.tier,
       level: 1, exp: 0, hunger: 100, happiness: 100,
       stats: generateStats(rarity),
-      isActive: false, obtainedFrom: 'hatch', obtainedAt: serverTimestamp(),
+      isActive: false, obtainedFrom: 'hatch', obtainedAt: serverTimestamp(), lastHungerDecay: serverTimestamp(), lastHappinessDecay: serverTimestamp(),
     };
     const ref = await addDoc(collection(db, 'studentPets'), petData);
     const newPet = { id: ref.id, ...petData, monsterData: md };

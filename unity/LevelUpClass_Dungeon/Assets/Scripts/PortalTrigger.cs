@@ -18,6 +18,9 @@ public class PortalTrigger : MonoBehaviour
 
     string ResolveTargetScene()
     {
+        if (!string.IsNullOrWhiteSpace(targetScene))
+            return targetScene.Trim();
+
         int idx = Mathf.Max(1, GameManager.Instance?.dungeonIndex ?? 1);
         if (string.IsNullOrWhiteSpace(targetScene))
             return GameManager.SceneS1(idx);

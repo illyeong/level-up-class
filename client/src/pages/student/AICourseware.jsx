@@ -575,7 +575,7 @@ export default function AICourseware({ studentCode }) {
             const pd = petSnap.data();
             const newHap = Math.min(100, (pd.happiness ?? 100) + 10);
             const newAff = (pd.affection ?? 0) + 5;
-            await updateDoc(doc(db, 'studentPets', petId), { happiness: newHap, affection: newAff, lastCareAt: serverTimestamp() });
+            await updateDoc(doc(db, 'studentPets', petId), { happiness: newHap, affection: newAff, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp() });
           }
         }
       } catch {} // 펫 없으면 무시

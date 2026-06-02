@@ -558,12 +558,16 @@ function App() {
   useEffect(() => {
     if (!activePetMonster) return;
     const STEP_H = 7.2;
+    const HAPPINESS_DECAY_PER_DAY = 80;
     const tick = () => {
       const pd = activePetDataRef.current;
       if (!pd) return;
-      const ref = pd.lastHungerDecay?.toDate?.() || pd.lastCareAt?.toDate?.() || new Date(0);
+      const ref = pd.lastHungerDecay?.toDate?.() || pd.lastCareAt?.toDate?.() || pd.obtainedAt?.toDate?.() || new Date();
       const steps = Math.floor((Date.now() - ref.getTime()) / (STEP_H * 3600000));
       setActivePetHunger(Math.max(0, (pd.hunger ?? 100) - steps * 10));
+      const happinessRef = pd.lastHappinessDecay?.toDate?.() || pd.lastCareAt?.toDate?.() || pd.obtainedAt?.toDate?.() || new Date();
+      const happinessLoss = Math.floor(Math.max(0, Date.now() - happinessRef.getTime()) * HAPPINESS_DECAY_PER_DAY / 86400000);
+      setActivePetHappiness(Math.max(0, Math.round((pd.happiness ?? 100) - happinessLoss)));
     };
     const iv = setInterval(tick, 60000); // 1분마다
     tick(); // 즉시 1회
@@ -629,9 +633,15 @@ function App() {
         // 배고픔 로컬 감소 계산 (표시용, Firebase 쓰기 없음 — PetHouse 열 때 실제 반영)
         const calcHunger = (pd) => {
           const STEP_H = 7.2;
-          const ref = pd.lastHungerDecay?.toDate?.() || pd.lastCareAt?.toDate?.() || new Date(0);
+          const ref = pd.lastHungerDecay?.toDate?.() || pd.lastCareAt?.toDate?.() || pd.obtainedAt?.toDate?.() || new Date();
           const steps = Math.floor((Date.now() - ref.getTime()) / (STEP_H * 3600000));
           return Math.max(0, (pd.hunger ?? 100) - steps * 10);
+        };
+        const calcHappiness = (pd) => {
+          const HAPPINESS_DECAY_PER_DAY = 80;
+          const ref = pd.lastHappinessDecay?.toDate?.() || pd.lastCareAt?.toDate?.() || pd.obtainedAt?.toDate?.() || new Date();
+          const loss = Math.floor(Math.max(0, Date.now() - ref.getTime()) * HAPPINESS_DECAY_PER_DAY / 86400000);
+          return Math.max(0, Math.round((pd.happiness ?? 100) - loss));
         };
 
         // ① 펫 state 먼저 설정 (오류가 나도 여기까지는 보장)
@@ -640,7 +650,7 @@ function App() {
         setActivePetMonster(md || null);
         setActivePetData(enriched);
         setActivePetHunger(calcHunger(petData));
-        setActivePetHappiness(petData.happiness ?? 100);
+        setActivePetHappiness(calcHappiness(petData));
         setActivePetEnergy(petData.energy ?? 100);
         setActivePetCleanliness(petData.cleanliness ?? 100);
 
@@ -1000,11 +1010,12 @@ function App() {
 
                             const newHunger = Math.min(100, activePetHunger + f.hunger);
                             const newCare = { ...care, feedCount: (care.feedCount || 0) + 1 };
-                            const petUpdates = { hunger: newHunger, dailyCare: newCare, lastCareAt: serverTimestamp() };
+                            const petUpdates = { hunger: newHunger, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHungerDecay: serverTimestamp() };
                             if (f.happiness > 0) {
                               const newHap = Math.min(100, activePetHappiness + f.happiness);
                               setActivePetHappiness(newHap);
                               petUpdates.happiness = newHap;
+                              petUpdates.lastHappinessDecay = serverTimestamp();
                             }
 
                             setActivePetHunger(newHunger);
@@ -1044,8 +1055,8 @@ function App() {
                             const newAff = (activePetData.affection || 0) + 2;
                             const newCare = { ...care, petCount: (care.petCount || 0) + 1 };
                             setActivePetHappiness(newHap);
-                            setActivePetData(p => ({ ...p, happiness: newHap, affection: newAff, dailyCare: newCare }));
-                            await updateDoc(doc(db, 'studentPets', activePetData.id), { happiness: newHap, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp() });
+                            setActivePetData(p => ({ ...p, happiness: newHap, affection: newAff, dailyCare: newCare, lastHappinessDecay: new Date() }));
+                            await updateDoc(doc(db, 'studentPets', activePetData.id), { happiness: newHap, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp() });
                             const lines = ['기분 좋아요!', '더 해줘요!', '행복해요!', '좋아요!', '고마워요!'];
                             showEffect(lines[Math.floor(Math.random() * lines.length)], true);
                           }}
