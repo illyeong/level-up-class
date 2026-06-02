@@ -163,7 +163,7 @@ function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef, pos
 
 // ── 펫 말풍선 대사 ────────────────────────────────────────────
 const PET_DIALOGUES = {
-  dead:        ['너무 배가 고파요... 😢', '밥 줘요... 제발...', '꼬르륵...'],
+  dead:        ['배가 너무 고파서 움직일 힘이 없어요...', '먹이를 주면 다시 움직일 수 있어요.', '꼬르륵... 먹이가 필요해요.'],
   hungry:      ['배가 고파요... 🍖', '밥 줘요~ 🍖', '배꼽시계가 울려요!', '간식 없어요?'],
   unhappy:     ['심심해요... 💭', '같이 놀아요!', '쓰다듬어 주세요 💝', '외로워요~'],
   dirty:       ['씻겨주세요 🛁', '좀 더러운 것 같아요...', '목욕 하고 싶어요!'],
@@ -554,6 +554,22 @@ function App() {
     normalizeStudentProgress();
   }, [appMode, activeStudentCode]);
 
+  // ── 친밀도 100: 워킹펫 특별모션 (45~105초마다 attack 애니) ──
+  useEffect(() => {
+    const aff = activePetData?.affection ?? 0;
+    if (!activePetMonster || aff < 100) return;
+    const schedule = () => {
+      const delay = 45000 + Math.random() * 60000;
+      return setTimeout(() => {
+        setPetActionAnim('attack');
+        setPetActionKey(k => k + 1);
+        schedule();
+      }, delay);
+    };
+    const t = schedule();
+    return () => clearTimeout(t);
+  }, [activePetMonster, activePetData?.affection]);
+
   // 배고픔 1분마다 로컬 재계산 (Firebase 쓰기 없음 — 표시 정확도 유지)
   useEffect(() => {
     if (!activePetMonster) return;
@@ -832,6 +848,28 @@ function App() {
             ) : null;
           })()}
 
+          {/* 친밀도 300+ 배경 장식 — 워킹펫 주변 별빛 */}
+          {(activePetData?.affection ?? 0) >= 300 && (() => {
+            const petH = Math.round((activePetMonster?.frameHeight||80)*(activePetMonster?.scale||0.5)*2);
+            return (
+              <div style={{ position:'fixed', bottom:2, left: petPosRef.current.x - 20, width:80, height: petH+30, zIndex:19, pointerEvents:'none' }}>
+                <style>{`
+                  @keyframes wpStar0{0%,100%{opacity:0.3;transform:scale(0.8) rotate(0deg)}50%{opacity:1;transform:scale(1.2) rotate(20deg)}}
+                  @keyframes wpStar1{0%,100%{opacity:0.2;transform:scale(1) rotate(0deg)}50%{opacity:0.9;transform:scale(0.7) rotate(-15deg)}}
+                  @keyframes wpStar2{0%,100%{opacity:0.4;transform:scale(0.9)}50%{opacity:1;transform:scale(1.3)}}
+                `}</style>
+                {['✨','⭐','✦'].map((s, i) => (
+                  <span key={i} style={{
+                    position:'absolute', left:`${15+i*28}%`, top:`${5+i*22}%`,
+                    fontSize: 10+i*2,
+                    animation:`wpStar${i} ${1.8+i*0.5}s ease-in-out ${i*0.6}s infinite`,
+                    opacity:0,
+                  }}>{s}</span>
+                ))}
+              </div>
+            );
+          })()}
+
           {showPetHearts && (
             <div key={heartsKey} style={{
               position:'fixed',
@@ -924,19 +962,34 @@ function App() {
                 ×
               </button>
 
-              <div className="flex items-center gap-3 mb-3 pr-6">
-                <div className="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-end justify-center overflow-hidden">
-                  <SpriteMonster data={activePetMonster} anim="idle"
-                    scale={Math.min(activePetMonster.scale * 1.8, 44 / (activePetMonster.frameHeight || 120))} />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-extrabold text-sm truncate">{activePetData.nickname || activePetMonster.name}</p>
-                  <p className="text-[11px] text-indigo-200 font-bold">
-                    {activePetData.rarity === 'mythic' ? '🌈 신화' : activePetData.rarity === 'legendary' ? '🟡 전설'
-                      : activePetData.rarity === 'epic' ? '🟣 영웅' : activePetData.rarity === 'rare' ? '🔵 희귀' : '⚪ 일반'}
-                  </p>
-                </div>
-              </div>
+              {(() => {
+                const aff   = activePetData.affection ?? 0;
+                const title = aff>=500?'💖 소울메이트':aff>=300?'💛 베스트 프렌드':aff>=200?'🤝 단짝':aff>=100?'😊 친한 친구':aff>=50?'👋 새 친구':null;
+                return (
+                  <div className="flex items-center gap-3 mb-3 pr-6">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-end justify-center overflow-hidden">
+                      <SpriteMonster data={activePetMonster} anim="idle"
+                        scale={Math.min(activePetMonster.scale * 1.8, 44 / (activePetMonster.frameHeight || 120))} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-extrabold text-sm truncate">{activePetData.nickname || activePetMonster.name}</p>
+                        {/* 친밀도 200+ 칭호 */}
+                        {title && aff >= 200 && (
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 whitespace-nowrap">
+                            {title}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-indigo-200 font-bold">
+                        {activePetData.rarity === 'mythic' ? '🌈 신화' : activePetData.rarity === 'legendary' ? '🟡 전설'
+                          : activePetData.rarity === 'epic' ? '🟣 영웅' : activePetData.rarity === 'rare' ? '🔵 희귀' : '⚪ 일반'}
+                        {aff > 0 && <span className="ml-1.5 text-slate-400">친밀도 {aff}</span>}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {[
                 { label:'🍖 배고픔', val: activePetHunger, color:'bg-amber-400' },
@@ -1062,7 +1115,7 @@ function App() {
                           }}
                           className={`w-full px-3 py-2 rounded-xl text-xs font-extrabold transition-colors
                             ${isDead || petDone || hapFull ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400'}`}>
-                          {isDead ? '💀 밥 먼저' : petDone ? '💝 오늘 완료' : hapFull ? '💝 행복 최대' : `💝 쓰다듬기 · ${3 - care.petCount}회`}
+                          {isDead ? '🍖 먹이 필요' : petDone ? '💝 오늘 완료' : hapFull ? '💝 행복 최대' : `💝 쓰다듬기 · ${3 - care.petCount}회`}
                         </button>
                       );
                     })()}

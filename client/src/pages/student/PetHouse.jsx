@@ -645,7 +645,7 @@ export default function PetHouse({ studentCode }) {
   // 대사 생성
   const getPetDialogue = (pet) => {
     const h = pet.hunger ?? 100, hap = pet.happiness ?? 100;
-    if (h <= 0) return '너무 배가 고파요... 😢';
+    if (h <= 0) return '배가 너무 고파서 움직일 힘이 없어요... 🍖';
     if (h < 20) return '배가 너무 고파요... 🍖';
     if (hap < 20) return '너무 심심해요... 💭';
     if (h < 50) return '배고파요~ 먹이 줘요 🍖';
@@ -695,7 +695,7 @@ export default function PetHouse({ studentCode }) {
 
   // 쓰다듬기 (하루 3회, 무료)
   const petThePet = async (pet) => {
-    if ((pet.hunger ?? 100) <= 0) { showToast('배가 너무 고파 활동할 수 없어요! 먼저 먹이를 주세요 🍖', 'error'); return; }
+    if ((pet.hunger ?? 100) <= 0) { showToast('먹이를 주면 다시 움직일 수 있어요 🍖', 'error'); return; }
     const care = getDailyCare(pet);
     if (care.petCount >= 3) { showToast('오늘 쓰다듬기를 이미 3번 했습니다!', 'error'); return; }
     const newHappiness = Math.min(100, (pet.happiness ?? 50) + 15);
@@ -730,7 +730,7 @@ export default function PetHouse({ studentCode }) {
 
   // 씻기기 (하루 1회)
   const washPet = async (pet) => {
-    if ((pet.hunger ?? 100) <= 0) { showToast('배가 너무 고파 활동할 수 없어요! 먼저 먹이를 주세요 🍖', 'error'); return; }
+    if ((pet.hunger ?? 100) <= 0) { showToast('먹이를 주면 다시 움직일 수 있어요 🍖', 'error'); return; }
     const care = getDailyCare(pet);
     if (care.washCount >= 1) { showToast('오늘은 이미 씻겼습니다!', 'error'); return; }
     const newClean = Math.min(100, (pet.cleanliness ?? 100) + 30);
@@ -753,7 +753,7 @@ export default function PetHouse({ studentCode }) {
 
   // 놀아주기 (하루 2회)
   const playWithPet = async (pet) => {
-    if ((pet.hunger ?? 100) <= 0) { showToast('배가 너무 고파 활동할 수 없어요! 먼저 먹이를 주세요 🍖', 'error'); return; }
+    if ((pet.hunger ?? 100) <= 0) { showToast('먹이를 주면 다시 움직일 수 있어요 🍖', 'error'); return; }
     const care = getDailyCare(pet);
     if (care.playCount >= 2) { showToast('오늘 놀아주기를 이미 2번 했습니다!', 'error'); return; }
     if ((pet.energy ?? 100) < 15) { showToast('기력이 부족합니다! 내일 다시 시도하세요.', 'error'); return; }
@@ -1143,10 +1143,12 @@ export default function PetHouse({ studentCode }) {
                 const lv = getPetLevel(sp.petExp ?? 0);
                 const mult = getPetStatMultiplier(lv);
                 const baseStats = sp.stats || {};
-                const effStats = Object.fromEntries(Object.entries(baseStats).map(([k, v]) => [k, Math.floor(v * mult)]));
+                const aff = sp.affection ?? 0;
+                // 친밀도 500+ 특기 강화: 레벨 배율 적용 후 추가 +20%
+                const affBoost = aff >= 500 ? 1.2 : 1.0;
+                const effStats = Object.fromEntries(Object.entries(baseStats).map(([k, v]) => [k, Math.floor(v * mult * affBoost)]));
                 const isDead = (sp.hunger ?? 100) <= 0;
                 const { level, current, needed, pct } = getLevelProgress(sp.petExp ?? 0);
-                const aff = sp.affection ?? 0;
                 const title = getAffectionTitle(aff);
                 const hunger = sp.hunger ?? 100;
                 const happiness = sp.happiness ?? 100;
@@ -1171,7 +1173,7 @@ export default function PetHouse({ studentCode }) {
                         onClick={() => !isDead && setDetailAnim(a => a === 'idle' ? 'attack' : 'idle')}>
                         <SpriteMonster data={spMd} anim={currentAnim} scale={dScale} onAnimEnd={() => !isDead && setDetailAnim('idle')} />
                       </div>
-                      {isDead && <p className="text-rose-400 text-[10px] font-bold text-center mb-1 animate-pulse">💀 굶주려요!</p>}
+                      {isDead && <p className="text-rose-400 text-[10px] font-bold text-center mb-1 animate-pulse">🍖 먹이가 필요해요</p>}
                       <p className="text-white font-extrabold text-sm mb-0.5 text-center w-full truncate">{sp.nickname || spMd.name}</p>
                       <p className={`text-[10px] font-bold ${r.text} mb-2 text-center`}>{r.badge} {r.label}</p>
                       <div className="w-full space-y-1 mb-2">
@@ -1204,7 +1206,7 @@ export default function PetHouse({ studentCode }) {
                             <p className="text-[9px] text-slate-500 text-right mt-0.5">{current}/{needed} EXP</p>
                           </>
                         ) : <p className="text-[9px] text-amber-400 text-center">✨ MAX</p>}
-                        {lv > 1 && <p className="text-[9px] text-indigo-500 text-right">×{mult.toFixed(2)}</p>}
+                        {lv > 1 && <p className="text-[9px] text-indigo-500 text-right">×{mult.toFixed(2)}{aff>=500?' ×1.2⚡':''}</p>}
                       </div>
                       <div className="w-full space-y-1.5">
                         {!isActive && (
@@ -1269,7 +1271,7 @@ export default function PetHouse({ studentCode }) {
                         disabled={isDead || care.petCount >= 3 || happiness >= 100}
                         className={`w-full py-2 rounded-xl font-extrabold text-xs mb-3 transition-all
                           ${isDead || care.petCount >= 3 || happiness >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg'}`}>
-                        {isDead ? '💀 밥 먼저' : care.petCount >= 3 ? '💝 완료' : `💝 쓰다듬기 (${3 - care.petCount}회)`}
+                        {isDead ? '🍖 먹이 필요' : care.petCount >= 3 ? '💝 완료' : `💝 쓰다듬기 (${3 - care.petCount}회)`}
                       </button>
                       <div className="grid grid-cols-2 gap-1.5 mb-2">
                         <div className="bg-slate-800/60 rounded-xl p-2">
@@ -1296,13 +1298,13 @@ export default function PetHouse({ studentCode }) {
                           disabled={isDead || care.washCount >= 1 || clean >= 100}
                           className={`py-2 rounded-xl font-bold text-xs transition-all
                             ${isDead || care.washCount >= 1 || clean >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-white'}`}>
-                          {isDead ? '💀' : care.washCount >= 1 ? '🛁 완료' : '🛁 씻기기'}
+                          {isDead ? '🍖' : care.washCount >= 1 ? '🛁 완료' : '🛁 씻기기'}
                         </button>
                         <button onClick={() => playWithPet(sp)}
                           disabled={isDead || care.playCount >= 2 || energy < 15}
                           className={`py-2 rounded-xl font-bold text-xs transition-all
                             ${isDead || care.playCount >= 2 || energy < 15 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-violet-500 hover:bg-violet-400 text-white'}`}>
-                          {isDead ? '💀' : care.playCount >= 2 ? '🎮 완료' : `🎮 놀기(${2 - care.playCount})`}
+                          {isDead ? '🍖' : care.playCount >= 2 ? '🎮 완료' : `🎮 놀기(${2 - care.playCount})`}
                         </button>
                       </div>
                       <div className="bg-slate-800/60 rounded-xl p-2.5">

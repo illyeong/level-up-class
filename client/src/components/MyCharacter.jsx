@@ -145,7 +145,13 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
           const DETAIL_H = { tiny:60, small:85, medium:115, large:150, boss:185 };
           const dh = DETAIL_H[md.tier] || 80;
           const dScale = dh / (md.frameHeight || 120);
-          const statLines = formatStats(activePet.stats || {});
+          // 친밀도 500+ 특기 강화: 모든 스탯 +20%
+          const aff500 = (activePet.affection ?? 0) >= 500;
+          const rawStats = activePet.stats || {};
+          const boostedStats = aff500
+            ? Object.fromEntries(Object.entries(rawStats).map(([k, v]) => [k, Math.round(v * 1.2)]))
+            : rawStats;
+          const statLines = formatStats(boostedStats);
           const rc = RARITY_COLOR[activePet.rarity] || 'text-slate-500';
           return (
             <div className="lg:col-span-1 bg-white rounded-3xl shadow-lg border border-slate-100 p-5 flex flex-col items-center">
