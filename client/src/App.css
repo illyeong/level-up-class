@@ -384,3 +384,14 @@
     border-right-color: var(--border);
   }
 }
+
+@keyframes hallFramePulse {
+  0%, 100% {
+    filter: saturate(1) brightness(1);
+    transform: translateZ(0) scale(1);
+  }
+  50% {
+    filter: saturate(1.18) brightness(1.08);
+    transform: translateZ(0) scale(1.015);
+  }
+}

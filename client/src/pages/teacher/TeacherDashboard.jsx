@@ -4,7 +4,7 @@ import { db } from '../../firebase';
 import LevelUpEffect from '../../components/LevelUpEffect';
 import { applyClassQuickSetup, QUICK_SETUP_VERSION } from '../../utils/classQuickSetup';
 import { applyExpDelta, getMaxExpForLevel } from '../../utils/leveling';
-import { getEffectiveCosmeticStyles } from '../../data/avatarCosmetics';
+import { getEffectiveCosmeticStyles, getHallOfFameBadgeText } from '../../data/avatarCosmetics';
 
 import iconGold from '../../assets/images/icon-gold.png';
 import iconDiamond from '../../assets/images/icon-diamond.png';
@@ -863,6 +863,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {students.map((student) => {
           const cosmeticStyles = getEffectiveCosmeticStyles(student);
+          const hallBadgeText = getHallOfFameBadgeText(student);
           return (
           <div key={student.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow relative">
             {/* ?쇱씪?섏뒪???꾨즺 ?꾪솴 */}
@@ -889,6 +890,11 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
               className="h-36 bg-gradient-to-b from-slate-50 to-white flex items-center justify-center border-b border-slate-100 relative overflow-hidden"
               style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
             >
+              {hallBadgeText && (
+                <div className="absolute top-2 right-2 z-20 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400 px-2.5 py-1 text-[10px] font-black text-amber-950 shadow-lg ring-2 ring-white/90">
+                  {hallBadgeText}
+                </div>
+              )}
               <div className="pointer-events-none absolute inset-0">
                 <div className="absolute left-1/2 top-[46%] -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-indigo-300/25 blur-2xl" />
               </div>

@@ -12,7 +12,7 @@ const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
 const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
 const MASTERY_ATTEMPTS = 4; // 숙달도 판정에 사용할 최고 점수 개수
-const COURSEWARE_QUALITY_VERSION = 'quality-v9-solid-shape-guard';
+const COURSEWARE_QUALITY_VERSION = 'quality-v10-fraction-score-guard';
 
 const questionFingerprint = (q) =>
   String(q?.question || '')
@@ -155,7 +155,7 @@ function ConfettiCanvas() {
 // 정답 수에 따른 차등 보상 계산
 const calcReward = (correctCount, total) => {
   if (total === 0) return { exp: 0, gold: 0, diamonds: 0 };
-  const ratio = correctCount / total;
+  const ratio = Math.min(1, Math.max(0, correctCount / total));
   return {
     exp:      Math.round(MAX_REWARD.exp      * ratio),
     gold:     Math.round(MAX_REWARD.gold     * ratio),
@@ -247,6 +247,7 @@ export default function AICourseware({ studentCode }) {
   const [answers, setAnswers]   = useState([]);
   const [selected, setSelected] = useState(null);
   const [showResult, setShowResult] = useState(false);
+  const answerLockRef = useRef(false);
   const [finalResult, setFR]    = useState(null);
   const [saving, setSaving]     = useState(false);
   const [masteryMap, setMasteryMap]   = useState({});  // lessonKey → mastery 데이터
@@ -442,6 +443,7 @@ export default function AICourseware({ studentCode }) {
 
   // ── 최소 응답 시간: 문제 바뀔 때마다 5초 카운트다운 ─────────
   useEffect(() => {
+    answerLockRef.current = false;
     if (step !== 'quiz') return;
     const MIN_SEC = 5;
     setMinTimeLeft(MIN_SEC);
@@ -456,9 +458,13 @@ export default function AICourseware({ studentCode }) {
 
   // ── 퀴즈 ──────────────────────────────────────────────────────
   const confirmAnswer = () => {
-    if (selected === null || minTimeLeft > 0) return;
+    if (selected === null || minTimeLeft > 0 || showResult || answerLockRef.current) return;
+    answerLockRef.current = true;
     const correct = selected === content.questions[qIdx].answerIndex;
-    setAnswers(prev => [...prev, { questionIndex: qIdx, selectedIndex: selected, correct }]);
+    setAnswers(prev => {
+      const withoutCurrent = prev.filter(a => a.questionIndex !== qIdx);
+      return [...withoutCurrent, { questionIndex: qIdx, selectedIndex: selected, correct }];
+    });
     setShowResult(true);
 
     // 연속 오답 카운터 업데이트
@@ -488,10 +494,16 @@ export default function AICourseware({ studentCode }) {
   // ── 완료 + 차등 보상 ──────────────────────────────────────────
   const finishQuiz = async () => {
     // answers에 이미 모든 답이 들어있음 (confirmAnswer가 마지막 답도 추가했으므로 중복 추가 X)
-    const allAns = answers;
-    const correctCount = allAns.filter(a => a.correct).length;
-    const total        = content.questions.length;
-    const score        = Math.round((correctCount / total) * 100);
+    const total = Math.max(1, content.questions.length);
+    const answerByQuestion = new Map();
+    answers.forEach(a => {
+      if (Number.isInteger(a.questionIndex) && a.questionIndex >= 0 && a.questionIndex < total && !answerByQuestion.has(a.questionIndex)) {
+        answerByQuestion.set(a.questionIndex, a);
+      }
+    });
+    const allAns = Array.from(answerByQuestion.values()).slice(0, total);
+    const correctCount = Math.min(total, allAns.filter(a => a.correct).length);
+    const score = Math.min(100, Math.max(0, Math.round((correctCount / total) * 100)));
     const today        = getSessionDate(); // KST 오전 8시 기준
     // 오늘 이미 보상 받은 차시인지 (같은 차시 재도전 시 보상 없음)
     const alreadyRewarded = myProgress?.date === today && myProgress?.rewarded;
@@ -539,7 +551,11 @@ export default function AICourseware({ studentCode }) {
       const prevM     = prevMDoc.exists() ? prevMDoc.data() : { scores: [], attemptCount: 0 };
 
       // 현재 보관 중인 점수 배열 (최대 4개)
-      let scores = Array.isArray(prevM.scores) ? [...prevM.scores] : [];
+      let scores = Array.isArray(prevM.scores)
+        ? prevM.scores
+            .map(s => Math.min(100, Math.max(0, Math.round(Number(s) || 0))))
+            .filter(s => Number.isFinite(s))
+        : [];
       while (scores.length > MASTERY_ATTEMPTS) {
         const minScore = Math.min(...scores);
         scores.splice(scores.indexOf(minScore), 1);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { getEffectiveCosmeticStyles } from '../../data/avatarCosmetics';
+import { getEffectiveCosmeticStyles, getHallOfFameBadgeText } from '../../data/avatarCosmetics';
 
 export default function ClassAllView({ studentCode, themeMode = 'dark' }) {
   const [students, setStudents] = useState([]);
@@ -50,12 +50,18 @@ export default function ClassAllView({ studentCode, themeMode = 'dark' }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {students.map((s) => {
           const cosmeticStyles = getEffectiveCosmeticStyles(s);
+          const hallBadgeText = getHallOfFameBadgeText(s);
           return (
           <div key={s.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col items-center">
             <div
               className="relative w-full h-56 bg-indigo-50 flex items-center justify-center overflow-hidden"
               style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
             >
+              {hallBadgeText && (
+                <div className="absolute top-2 right-2 z-20 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400 px-2.5 py-1 text-[10px] font-black text-amber-950 shadow-lg ring-2 ring-white/90">
+                  {hallBadgeText}
+                </div>
+              )}
               <div className="pointer-events-none absolute inset-0">
                 <div className="absolute left-1/2 top-[46%] -translate-x-1/2 -translate-y-1/2 w-28 h-28 rounded-full bg-indigo-300/25 blur-2xl" />
               </div>

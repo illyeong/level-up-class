@@ -7,7 +7,7 @@ import SpriteMonster from './SpriteMonster';
 import { MONSTERS_DB } from '../data/monsterData';
 import { formatStats } from '../pages/student/PetHouse';
 import { getMaxExpForLevel } from '../utils/leveling';
-import { getEffectiveCosmeticStyles } from '../data/avatarCosmetics';
+import { getEffectiveCosmeticStyles, getHallOfFameBadgeText } from '../data/avatarCosmetics';
 
 const RARITY_BADGE = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟡', mythic:'🌈' };
 const RARITY_LABEL = { common:'일반', rare:'희귀', epic:'영웅', legendary:'전설', mythic:'신화' };
@@ -62,6 +62,7 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
   const image   = studentData?.characterImage;
   const expPct  = Math.min(100, (exp / maxExp) * 100);
   const cosmeticStyles = getEffectiveCosmeticStyles(studentData);
+  const hallBadgeText = getHallOfFameBadgeText(studentData);
 
   const equipped  = studentData?.equipped || {};
   const inventory = studentData?.equipInventory || [];
@@ -119,6 +120,11 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
               className="relative w-full h-full bg-indigo-50 border-2 border-indigo-200 rounded-2xl flex items-center justify-center shadow-inner overflow-hidden"
               style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
             >
+              {hallBadgeText && (
+                <div className="absolute top-2 right-2 z-20 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400 px-3 py-1 text-[11px] font-black text-amber-950 shadow-lg ring-2 ring-white/90">
+                  {hallBadgeText}
+                </div>
+              )}
               <div className="pointer-events-none absolute inset-0">
                 <div className="absolute left-1/2 top-[46%] -translate-x-1/2 -translate-y-1/2 w-28 h-28 rounded-full bg-indigo-300/30 blur-2xl" />
               </div>

@@ -11,10 +11,11 @@ const SHAPE_TYPES = new Set([
 const stripOptionPrefix = (value) =>
   String(value ?? '')
     .trim()
-    .replace(/^\s*(?:[\u2460-\u2463\u2776-\u2779]|[1-4][.)]\s*|[1-4]\s+)/u, '')
-    .replace(/^\s*(?:[①②③④❶❷❸❹]|[1-4][.)]\s*|[1-4]\s+)/u, '')
+    .replace(/^\s*(?:[\u2460-\u2463\u2776-\u2779])\s*/u, '')
+    .replace(/^\s*(?:[1-4][.)])\s+/u, '')
+    .replace(/^\s*(?:[①②③④❶❷❸❹])\s*/u, '')
     .trim() ||
-  String(value ?? '').trim().replace(/^[①②③④1-4][.)\s]*/, '').trim();
+  String(value ?? '').trim().replace(/^[①②③④]\s*/, '').trim();
 
 const normalizeKey = (value) =>
   String(value ?? '').replace(/\s+/g, '').replace(/[①②③④0-9().,!?~]/g, '').slice(0, 80);
@@ -60,6 +61,74 @@ const evalFractionEquation = (text) => {
   const right = evalFractionExpression(parts[1]);
   if (!left || !right) return null;
   return Math.abs(left.value - right.value) < 1e-9;
+};
+
+const simplifyFraction = ({ num, den }) => {
+  if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return null;
+  const g = gcd(num, den);
+  return { num: num / g, den: den / g, value: num / den };
+};
+
+const sameFraction = (a, b) => {
+  const left = simplifyFraction(a);
+  const right = simplifyFraction(b);
+  return !!left && !!right && left.num === right.num && left.den === right.den;
+};
+
+const getSameDenominatorSum = (text) => {
+  const src = String(text || '');
+  const asksSum = src.includes('+') || src.includes('합') || src.includes('더') || src.includes('모두');
+  if (!asksSum) return null;
+  const leftSide = src.split('=')[0];
+  const fractions = parseFractions(leftSide);
+  if (fractions.length < 2) return null;
+  const dens = new Set(fractions.map(f => f.d));
+  if (dens.size !== 1) return null;
+  return { num: fractions.reduce((sum, f) => sum + f.n, 0), den: fractions[0].d };
+};
+
+const uniqueIndex = (items, predicate) => {
+  const matches = items.map(predicate);
+  return matches.filter(Boolean).length === 1 ? matches.findIndex(Boolean) : -1;
+};
+
+const hasKoreanPhrase = (text, phrases) => {
+  const src = String(text || '');
+  return phrases.some(phrase => src.includes(phrase));
+};
+
+const fixFractionAnswer = (q) => {
+  const options = q.options || [];
+  const combined = [q.question, ...options, q.explanation].join('\n');
+  if (hasMalformedFractionText(combined)) return null;
+
+  const equationChecks = options.map(evalFractionEquation);
+  if (equationChecks.some(v => v !== null)) {
+    if (equationChecks.some(v => v === null)) return null;
+    const idx = uniqueIndex(equationChecks, Boolean);
+    return idx >= 0 ? { ...q, answerIndex: idx } : null;
+  }
+
+  const expectedSum = getSameDenominatorSum(q.question);
+  if (expectedSum) {
+    const idx = uniqueIndex(options, opt => {
+      const fractions = parseFractions(opt);
+      return fractions.length === 1 && sameFraction(fractions[0], expectedSum);
+    });
+    return idx >= 0 ? { ...q, answerIndex: idx } : null;
+  }
+
+  const asksLargest = hasKoreanPhrase(q.question, ['가장 큰', '큰 것은', '가장 클']);
+  const asksSmallest = hasKoreanPhrase(q.question, ['가장 작은', '작은 것은', '1보다 작은']);
+  if ((asksLargest || asksSmallest) && options.some(opt => String(opt).includes('/'))) {
+    const values = options.map(getComparableFractionValue);
+    if (values.some(v => v == null)) return null;
+    const target = asksSmallest ? Math.min(...values) : Math.max(...values);
+    const idx = uniqueIndex(values, v => Math.abs(v - target) < 1e-9);
+    return idx >= 0 ? { ...q, answerIndex: idx } : null;
+  }
+
+  return q;
 };
 
 const hasSameDenominatorFractionFocus = (payload, ragSection) => {
@@ -300,6 +369,15 @@ function normalizeQuestion(q, index, { sameDenomFocus = false, factorMultiple = 
   let answerIndex = Number(q.answerIndex);
   if (!Number.isInteger(answerIndex) || answerIndex < 0 || answerIndex > 3) answerIndex = 0;
 
+  const fractionFixed = fixFractionAnswer({
+    question: String(q.question || '').trim(),
+    options,
+    answerIndex,
+    explanation: String(q.explanation || '').trim(),
+  });
+  if (!fractionFixed) return null;
+
+  answerIndex = fractionFixed.answerIndex;
   const correct = options[answerIndex];
   const shift = index % 4;
   const rotated = [...options.slice(shift), ...options.slice(0, shift)];
@@ -578,7 +656,7 @@ export default async function handler(req, res) {
       ...result,
       context,
       generatedBy: 'ai',
-      generatorVersion: 'quality-v9-solid-shape-guard',
+      generatorVersion: 'quality-v10-fraction-score-guard',
       requestedQuestionCount: requested,
       poolSize: result.questions.length,
       validationIssues: validationIssues.length > 0 ? validationIssues : null,

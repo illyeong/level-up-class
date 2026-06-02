@@ -1182,16 +1182,24 @@ export default function PetHouse({ studentCode }) {
                           const meta = STATS_META[k];
                           const unit = k === 'crit' ? '%' : '';
                           return (
-                            <div key={i} className="flex items-center justify-between bg-slate-700/60 rounded-lg px-2 py-1">
-                              <span className="text-slate-300 text-[10px] font-bold">{meta?.icon}</span>
-                              <span className="flex items-center gap-0.5">
-                                <span className="text-slate-400 text-[9px]">+{base}{unit}</span>
-                                <span className="text-indigo-300 text-[9px]">→</span>
-                                <span className="text-white text-[10px] font-extrabold">+{eff}{unit}</span>
-                              </span>
+                            <div key={i} className="bg-slate-700/70 border border-slate-600/70 rounded-lg px-2.5 py-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="min-w-0 text-slate-100 text-[11px] font-extrabold truncate">
+                                  <span className="mr-1">{meta?.icon}</span>{meta?.label || k}
+                                </span>
+                                <span className="text-white text-[12px] font-black">+{eff}{unit}</span>
+                              </div>
+                              <div className="mt-0.5 text-right text-[9px] font-bold text-slate-400">
+                                기본 +{base}{unit}
+                              </div>
                             </div>
                           );
                         })}
+                        {Object.entries(baseStats).filter(([, v]) => v > 0).length === 0 && (
+                          <div className="bg-slate-700/70 border border-slate-600/70 rounded-lg px-2.5 py-2 text-center text-[11px] font-bold text-slate-300">
+                            능력치 없음
+                          </div>
+                        )}
                       </div>
                       <div className="w-full bg-slate-800/60 rounded-xl p-2 mb-2">
                         <div className="flex items-center justify-between mb-1">

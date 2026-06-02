@@ -9,7 +9,7 @@ import AttendanceCheck from '../pages/student/AttendanceCheck';
 import HallOfFame from '../pages/student/HallOfFame';
 import LevelUpEffect from './LevelUpEffect';
 import iconDashboard from '../assets/images/icon-dashboard.png';
-import { getEffectiveCosmeticStyles } from '../data/avatarCosmetics';
+import { getEffectiveCosmeticStyles, getHallOfFameBadgeText } from '../data/avatarCosmetics';
 
 // ── 오늘의 퀘스트 위젯 ────────────────────────────────────────
 function TodayQuestWidget({ studentId, teacherUid, onYesterdayLog }) {
@@ -652,6 +652,7 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
   const gold     = studentData?.gold     ?? 0;
   const expPct   = Math.min(100, Math.round((exp / maxExp) * 100));
   const cosmeticStyles = getEffectiveCosmeticStyles(studentData);
+  const hallBadgeText = getHallOfFameBadgeText(studentData);
 
   if (isLoading) {
     return (
@@ -762,6 +763,11 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
             className="w-full h-44 md:h-48 mx-auto flex items-center justify-center mb-4 relative bg-indigo-50 rounded-2xl overflow-hidden border border-indigo-100"
             style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
           >
+            {hallBadgeText && (
+              <div className="absolute top-2 right-2 z-20 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400 px-3 py-1 text-[11px] font-black text-amber-950 shadow-lg ring-2 ring-white/90">
+                {hallBadgeText}
+              </div>
+            )}
             <div className="pointer-events-none absolute inset-0">
               <div className="absolute left-1/2 top-[46%] -translate-x-1/2 -translate-y-1/2 w-40 h-40 rounded-full bg-indigo-300/35 blur-3xl" />
               <div className="absolute left-1/2 bottom-6 -translate-x-1/2 w-36 h-6 rounded-[999px] bg-slate-700/20 blur-md" />

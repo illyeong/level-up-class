@@ -10,6 +10,14 @@ export const DEFAULT_EQUIPPED_COSMETICS = {
 
 export const HALL_OF_FAME_FRAME_ID = 'hall_of_fame';
 
+export const HALL_OF_FAME_CATEGORY_LABELS = {
+  level: '레벨',
+  gold: '골드',
+  diamond: '다이아',
+  arena: '투기장',
+  enhance: '강화',
+};
+
 export const PROFILE_FRAMES = [
   {
     id: 'basic',
@@ -73,8 +81,11 @@ export const PROFILE_FRAMES = [
     rarity: '명예',
     hidden: true,
     style: {
-      border: '4px solid #facc15',
-      boxShadow: '0 0 0 5px rgba(250, 204, 21, 0.20), 0 0 32px rgba(250, 204, 21, 0.62), inset 0 0 28px rgba(251, 191, 36, 0.24)',
+      border: '5px solid #facc15',
+      outline: '2px solid rgba(255, 255, 255, 0.95)',
+      outlineOffset: '-8px',
+      boxShadow: '0 0 0 5px rgba(250, 204, 21, 0.28), 0 0 22px rgba(250, 204, 21, 0.95), 0 0 54px rgba(249, 115, 22, 0.55), inset 0 0 30px rgba(255, 255, 255, 0.42), inset 0 0 42px rgba(251, 191, 36, 0.34)',
+      animation: 'hallFramePulse 1.8s ease-in-out infinite',
     },
   },
 ];
@@ -184,6 +195,20 @@ export const hasActiveHallOfFameFrame = (student, dateKey = getHallOfFameDateKey
   student?.hallOfFameFrame?.dateKey === dateKey
   && (student.hallOfFameFrame.categories || []).length > 0
 );
+
+export const getHallOfFameCategoryLabels = (student, dateKey = getHallOfFameDateKey()) => {
+  if (!hasActiveHallOfFameFrame(student, dateKey)) return [];
+  return (student.hallOfFameFrame.categories || [])
+    .map(id => HALL_OF_FAME_CATEGORY_LABELS[id] || id)
+    .filter(Boolean);
+};
+
+export const getHallOfFameBadgeText = (student, dateKey = getHallOfFameDateKey()) => {
+  const labels = getHallOfFameCategoryLabels(student, dateKey);
+  if (labels.length === 0) return '';
+  if (labels.length === 1) return `${labels[0]} 1위`;
+  return `${labels[0]} 1위 외 ${labels.length - 1}관왕`;
+};
 
 export const getEffectiveCosmeticStyles = (student, dateKey = getHallOfFameDateKey()) => {
   const styles = getCosmeticStyles(student?.equippedCosmetics);
