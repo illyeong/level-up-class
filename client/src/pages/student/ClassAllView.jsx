@@ -52,10 +52,17 @@ export default function ClassAllView({ studentCode, themeMode = 'dark' }) {
           const cosmeticStyles = getEffectiveCosmeticStyles(s);
           const hallBadgeText = getHallOfFameBadgeText(s);
           return (
-          <div key={s.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col items-center">
+          <div key={s.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col items-center relative">
+            {/* 프레임 오버레이 — 카드 전체를 감싸서 rounded corner 일치 */}
+            {cosmeticStyles.frame?.id && cosmeticStyles.frame.id !== 'basic' && (
+              <div
+                className="absolute inset-0 rounded-2xl pointer-events-none z-30"
+                style={cosmeticStyles.frame.style}
+              />
+            )}
             <div
               className="relative w-full h-56 bg-indigo-50 flex items-center justify-center overflow-hidden"
-              style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
+              style={cosmeticStyles.background.style}
             >
               {hallBadgeText && (
                 <div className="absolute top-2 right-2 z-20 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400 px-2.5 py-1 text-[10px] font-black text-amber-950 shadow-lg ring-2 ring-white/90">
