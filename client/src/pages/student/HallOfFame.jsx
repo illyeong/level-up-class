@@ -124,10 +124,19 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid, on
     (async () => {
       const allSnap = await getDocs(query(collection(db, 'students'), where('teacherUid', '==', resolvedUid)));
       const EXCLUDED = ['sinseok-5-15']; // 테스트 계정 — 명예의전당 제외
-      setStudents(allSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(s => !EXCLUDED.includes((s.studentCode || '').toLowerCase()))
+      const all = allSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // 제외 계정에 프레임이 남아있으면 강제 초기화
+      await Promise.all(
+        all
+          .filter(s => EXCLUDED.includes((s.studentCode || '').toLowerCase()))
+          .filter(s => s.hallOfFameFrame?.frameId)
+          .map(s => updateDoc(doc(db, 'students', s.id), {
+            hallOfFameFrame: { frameId: null, categories: [], dateKey: '', awardedAt: serverTimestamp() },
+          }))
       );
+
+      setStudents(all.filter(s => !EXCLUDED.includes((s.studentCode || '').toLowerCase())));
       setLoading(false);
     })();
   }, [resolvedUid]);
