@@ -27,7 +27,8 @@ public class CharacterAutoSetup : MonoBehaviour
             skills = new[] { gm.selectedSkill };
         }
 
-        var uiList = FindObjectsByType<SkillButtonUI>(FindObjectsSortMode.None);
+        // 비활성 오브젝트도 포함해서 탐색
+        var uiList = FindObjectsByType<SkillButtonUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         for (int i = 0; i < uiList.Length && i < skills.Length; i++)
             uiList[i].ShowSkill(skills[i]);
     }

@@ -64,8 +64,8 @@ public class DungeonCharacterLoader : MonoBehaviour
                 GameManager.Instance.selectedSkills = new[] { data.selectedSkill };
             }
 
-            // 이미 씬에 있는 SkillButtonUI에 직접 주입 (타이밍 문제 해결)
-            var uiList = FindObjectsByType<SkillButtonUI>(FindObjectsSortMode.None);
+            // 이미 씬에 있는 SkillButtonUI에 직접 주입 (비활성 포함 — 숨겨진 버튼도 탐색)
+            var uiList = FindObjectsByType<SkillButtonUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             for (int i = 0; i < uiList.Length && i < GameManager.Instance.selectedSkills.Length; i++)
                 uiList[i].ShowSkill(GameManager.Instance.selectedSkills[i]);
         }
