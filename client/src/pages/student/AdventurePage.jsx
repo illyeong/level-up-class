@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { getMaxExpForLevel } from '../../utils/leveling';
 import QuizDungeon from './QuizDungeon';
 import BossRaid from './BossRaid';
 import ExplorationDungeon from './ExplorationDungeon';
@@ -338,7 +339,7 @@ function AdventurePage({ currentView, studentCode, onChangeView }) {
         const sDoc = snap.docs[0];
         const data = sDoc.data();
         setStudentDocId(sDoc.id);
-        const calcMaxExp = (l) => l <= 10 ? 100 : l <= 30 ? 300 : l <= 60 ? 800 : 2000;
+        const calcMaxExp = getMaxExpForLevel;
         let lv = data.level ?? 1;
         let ex = data.exp ?? 0;
         let mx = calcMaxExp(lv);
