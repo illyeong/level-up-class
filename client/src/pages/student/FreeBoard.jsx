@@ -315,13 +315,6 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                 <div className="flex-1 min-w-0">
                   <div className="font-extrabold text-slate-800 truncate">{post.title}</div>
                   <div className="text-sm text-slate-500 mt-1 line-clamp-2">{post.content}</div>
-                  {post.content.length > 80 && (
-                    <button
-                      onClick={e => { e.stopPropagation(); openDetail(post); }}
-                      className="text-xs text-indigo-500 font-extrabold mt-1 hover:underline">
-                      더보기 →
-                    </button>
-                  )}
                 </div>
                 {post.imageUrl && (
                   <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0">
@@ -335,6 +328,13 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
               <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">
                 <span className="font-bold text-slate-500">{post.authorName}</span>
                 <span>{formatDate(post.createdAt)}</span>
+                {post.content.length > 60 && (
+                  <button
+                    onClick={e => { e.stopPropagation(); openDetail(post); }}
+                    className="text-indigo-500 font-extrabold hover:text-indigo-700 hover:underline shrink-0">
+                    더보기
+                  </button>
+                )}
                 <span className="ml-auto flex items-center gap-2">
                   <span>❤️ {post.likes?.length || 0}</span>
                   <span>💬 {post.commentCount || 0}</span>
@@ -349,7 +349,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
       {selectedPost && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={e => e.target === e.currentTarget && setSelectedPost(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden">
 
             {editMode ? (
               /* ── 수정 모드 ── */
