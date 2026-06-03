@@ -233,7 +233,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
   // ── 글쓰기 페이지 ──────────────────────────────────────────────
   if (view === 'write') {
     return (
-      <div className="max-w-3xl mx-auto p-6 space-y-4">
+      <div className="max-w-4xl mx-auto p-6 space-y-4">
         <div className="flex items-center gap-3 mb-2">
           <button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-800 text-sm font-bold">← 목록</button>
           <h2 className="text-xl font-extrabold text-slate-800">✏️ 글쓰기</h2>
@@ -241,12 +241,13 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
         <input
           value={title} onChange={e => setTitle(e.target.value)}
           placeholder="제목" maxLength={50}
-          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400"
         />
         <textarea
           value={content} onChange={e => setContent(e.target.value)}
-          placeholder="내용을 입력하세요" rows={7} maxLength={1000}
+          placeholder="내용을 입력하세요" maxLength={1000}
           className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          style={{ minHeight: '280px' }}
         />
         {imageData ? (
           <div className="relative inline-block">
