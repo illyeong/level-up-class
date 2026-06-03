@@ -29,8 +29,15 @@ public class SkillExplosiveBomb : MonoBehaviour, IDungeonSkill
 
     [Header("FX")]
     public GameObject projectilePrefab;
-    public GameObject explosionSmokePrefab;
+    public GameObject explosionSmokePrefab;   // 스모크/먼지 FX (주 + 보조 폭발 공통)
+    public GameObject explosionFXPrefab;      // 투사체 착탄 시 추가 이팩트 (메인 폭발에만 적용)
+    public GameObject floorFireFXPrefab;      // 바닥 불 FX (착탄 지점에 남아 타오름)
     public float fxLifetime = 2f;
+    public float explosionFXLifetime = 1.5f;  // 착탄 FX 수명
+    public float explosionFXScale = 1f;       // 착탄 FX 크기 배율
+    public float floorFireLifetime = 2.5f;    // 바닥 불 FX 수명
+    public float floorFireScale = 1f;         // 바닥 불 FX 크기 배율
+    public Vector2 floorFireOffset = new Vector2(0f, 0f); // 바닥 기준 오프셋
     public float projectileLifetime = 1f;
     public Vector2 fxOffset = new Vector2(0f, 0.2f);
     public Vector2 projectileStartOffset = new Vector2(0.35f, 0.6f);
@@ -94,6 +101,8 @@ public class SkillExplosiveBomb : MonoBehaviour, IDungeonSkill
             yield return StartCoroutine(PlayProjectile(startPoint, explosionPoint));
 
         SpawnExplosion(explosionPoint, mainFxScale);
+        SpawnImpactFX(explosionPoint);          // 투사체 착탄 추가 이팩트
+        SpawnFloorFire(explosionPoint);         // 바닥 불 FX
         StartCoroutine(ShakeCamera());
         yield return StartCoroutine(DealTickDamage(explosionPoint, damageMultiplier, explosionRadius, 1f));
 
@@ -173,6 +182,27 @@ public class SkillExplosiveBomb : MonoBehaviour, IDungeonSkill
         GameObject fx = Instantiate(explosionSmokePrefab, pos, Quaternion.identity);
         fx.transform.localScale *= Mathf.Max(0.01f, scale);
         Destroy(fx, fxLifetime);
+    }
+
+    /// <summary>바닥 불 FX — 착탄 지점 바닥에 남아 타오르는 이팩트</summary>
+    private void SpawnFloorFire(Vector3 pos)
+    {
+        if (floorFireFXPrefab == null) return;
+
+        Vector3 spawnPos = pos + new Vector3(floorFireOffset.x, floorFireOffset.y, 0f);
+        GameObject fx = Instantiate(floorFireFXPrefab, spawnPos, Quaternion.identity);
+        fx.transform.localScale *= Mathf.Max(0.01f, floorFireScale);
+        Destroy(fx, floorFireLifetime);
+    }
+
+    /// <summary>투사체 착탄 시 추가 이팩트 — explosionFXPrefab이 없으면 아무것도 하지 않음</summary>
+    private void SpawnImpactFX(Vector3 pos)
+    {
+        if (explosionFXPrefab == null) return;
+
+        GameObject fx = Instantiate(explosionFXPrefab, pos, Quaternion.identity);
+        fx.transform.localScale *= Mathf.Max(0.01f, explosionFXScale);
+        Destroy(fx, explosionFXLifetime);
     }
 
     private IEnumerator ShakeCamera()

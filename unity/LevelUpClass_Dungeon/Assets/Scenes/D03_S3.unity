@@ -1471,6 +1471,7 @@ MonoBehaviour:
   dungeonIndex: 1
   hasReactDungeonIndex: 0
   selectedSkill: 
+  selectedSkills: []
   savedAvatarJson: 
 --- !u!4 &1254173590
 Transform:

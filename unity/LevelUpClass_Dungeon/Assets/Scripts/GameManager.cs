@@ -85,7 +85,8 @@ public class GameManager : MonoBehaviour
     [HideInInspector] public bool hasReactDungeonIndex = false;
 
     // ── 선택된 스킬 (React에서 수신, 씬 전환 후에도 유지) ────────
-    [HideInInspector] public string selectedSkill = "";
+    [HideInInspector] public string   selectedSkill  = "";           // 단일 호환용 (첫 번째 스킬)
+    [HideInInspector] public string[] selectedSkills = new string[0]; // 다중 슬롯용
 
     // ── 캐릭터 외형 (씬 전환 시 재적용용) ────────────────────────
     [HideInInspector] public string savedAvatarJson = ""; // REACT_LOAD_AVATAR 전체 JSON

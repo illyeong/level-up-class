@@ -49,9 +49,26 @@ public class DungeonCharacterLoader : MonoBehaviour
             if (data.colors != null) ApplyColors(pm, data.colors);
         }
 
-        // 선택된 스킬 → GameManager에 저장 (씬 전환 후 SkillButtonUI.Start에서 읽음)
-        if (!string.IsNullOrEmpty(data.selectedSkill) && GameManager.Instance != null)
-            GameManager.Instance.selectedSkill = data.selectedSkill;
+        // 선택된 스킬 → GameManager 저장 + 씬의 SkillButtonUI 직접 주입
+        if (GameManager.Instance != null)
+        {
+            // 배열 우선, 없으면 단일값 변환
+            if (data.selectedSkills != null && data.selectedSkills.Length > 0)
+            {
+                GameManager.Instance.selectedSkills = data.selectedSkills;
+                GameManager.Instance.selectedSkill  = data.selectedSkills[0];
+            }
+            else if (!string.IsNullOrEmpty(data.selectedSkill))
+            {
+                GameManager.Instance.selectedSkill  = data.selectedSkill;
+                GameManager.Instance.selectedSkills = new[] { data.selectedSkill };
+            }
+
+            // 이미 씬에 있는 SkillButtonUI에 직접 주입 (타이밍 문제 해결)
+            var uiList = FindObjectsByType<SkillButtonUI>(FindObjectsSortMode.None);
+            for (int i = 0; i < uiList.Length && i < GameManager.Instance.selectedSkills.Length; i++)
+                uiList[i].ShowSkill(GameManager.Instance.selectedSkills[i]);
+        }
 
         // 캐릭터 데이터 적용이 끝난 뒤에만 던전 씬으로 이동
         if (GameManager.Instance != null)
@@ -140,7 +157,8 @@ public class DungeonCharacterLoader : MonoBehaviour
         public PartsData parts;
         public ColorData colors;
         public StatsData stats;
-        public string    selectedSkill; // "thunder_god" 등
+        public string    selectedSkill;            // 단일 호환용
+        public string[]  selectedSkills;           // 다중 슬롯용
     }
 
     [System.Serializable]

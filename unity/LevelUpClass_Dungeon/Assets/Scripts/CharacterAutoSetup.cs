@@ -11,7 +11,25 @@ public class CharacterAutoSetup : MonoBehaviour
     {
         ApplyStats();
         ApplyAppearance();
+        ApplySkillUI();
         StartCoroutine(FixJoystickAfterSceneLoad());
+    }
+
+    void ApplySkillUI()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null) return;
+
+        var skills = gm.selectedSkills;
+        if (skills == null || skills.Length == 0)
+        {
+            if (string.IsNullOrEmpty(gm.selectedSkill)) return;
+            skills = new[] { gm.selectedSkill };
+        }
+
+        var uiList = FindObjectsByType<SkillButtonUI>(FindObjectsSortMode.None);
+        for (int i = 0; i < uiList.Length && i < skills.Length; i++)
+            uiList[i].ShowSkill(skills[i]);
     }
 
     /// <summary>

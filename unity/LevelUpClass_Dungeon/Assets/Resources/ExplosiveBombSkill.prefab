@@ -52,21 +52,28 @@ MonoBehaviour:
   controlLockTime: 0.65
   damageMultiplier: 2.2
   tickCount: 5
-  tickInterval: 0.15
+  tickInterval: 0.2
   canCrit: 1
-  forwardDistance: 4
+  forwardDistance: 7
   explosionRadius: 2.8
   secondaryExplosionRadius: 2
   secondaryExplosionOffset: 1.35
   secondaryDamageRatio: 0.45
   knockbackForce: 5
-  projectilePrefab: {fileID: 0}
+  projectilePrefab: {fileID: 1387184485442225889, guid: 6ef5aa403abc7454ba8baac5f3c25596, type: 3}
   explosionSmokePrefab: {fileID: 725748389856807714, guid: 4bda94453d2ca7444a0fff05b2d425f5, type: 3}
-  fxLifetime: 2
-  projectileLifetime: 1
+  explosionFXPrefab: {fileID: 8791802859087666345, guid: ae07f2a45f14a82428409cfe410e6002, type: 3}
+  floorFireFXPrefab: {fileID: 8172849020266659018, guid: 2af5562ce69fc2d448481a1587a352a5, type: 3}
+  fxLifetime: 2.4
+  explosionFXLifetime: 1.8
+  explosionFXScale: 2
+  floorFireLifetime: 3
+  floorFireScale: 2
+  floorFireOffset: {x: 0, y: -0.8}
+  projectileLifetime: 2.2
   fxOffset: {x: 0, y: 0.2}
   projectileStartOffset: {x: 0.35, y: 0.6}
-  mainFxScale: 1.15
+  mainFxScale: 2
   secondaryFxScale: 0.8
   cameraShakeDuration: 0.12
   cameraShakeStrength: 0.08
