@@ -23,6 +23,9 @@ public class SkillButtonUI : MonoBehaviour
     public Image       cooldownFill;  // 쿨타임 어두운 오버레이 (fillAmount)
     public TMP_Text    cooldownText;  // 남은 쿨타임 초 표시 (없어도 됨)
 
+    [Header("Skill Manager")]
+    public SkillManager skillManager;  // Player에 붙은 공통 스킬 매니저
+
     [Header("스킬 아이콘 스프라이트")]
     public Sprite thunderGodSprite;   // 벽력일섬 아이콘
     public Sprite fireBreathSprite;   // 불 뿜기 아이콘
@@ -114,22 +117,19 @@ public class SkillButtonUI : MonoBehaviour
     {
         _activeSkillId = skillId;
 
-        switch (skillId)
+        EnsureSkillManager();
+        bool hasManagedSkill = skillManager != null && skillManager.HasSkill(skillId);
+        bool hasKnownFallback = IsKnownSkill(skillId);
+
+        if (!hasManagedSkill && !hasKnownFallback)
         {
-            case "thunder_god":
-                SetupButton(thunderGodSprite, 45f);
-                break;
-            case "fire_breath":
-                SetupButton(fireBreathSprite, 25f);
-                break;
-            case "explosive_bomb":
-                SetupButton(explosiveBombSprite, 30f);
-                break;
-            default:
-                if (buttonRoot) buttonRoot.SetActive(false);
-                _activeSkillId = "";
-                return;
+            if (buttonRoot) buttonRoot.SetActive(false);
+            _activeSkillId = "";
+            return;
         }
+
+        Sprite icon = hasManagedSkill ? skillManager.GetIcon(skillId) : null;
+        SetupButton(icon != null ? icon : GetFallbackIcon(skillId), GetCooldown(skillId));
 
         if (buttonRoot) buttonRoot.SetActive(true);
     }
@@ -138,6 +138,13 @@ public class SkillButtonUI : MonoBehaviour
     public void OnSkillButtonClick()
     {
         if (_cooldownTimer > 0f) return; // 쿨타임 중
+        EnsureSkillManager();
+
+        if (skillManager != null && skillManager.UseSkill(_activeSkillId))
+        {
+            StartCooldown(GetCooldown(_activeSkillId));
+            return;
+        }
 
         switch (_activeSkillId)
         {
@@ -199,6 +206,42 @@ public class SkillButtonUI : MonoBehaviour
             cooldownText.transform.SetAsLastSibling();
             cooldownText.text = Mathf.CeilToInt(seconds).ToString();
         }
+    }
+
+    private void EnsureSkillManager()
+    {
+        if (skillManager == null)
+            skillManager = FindFirstObjectByType<SkillManager>();
+    }
+
+    private bool IsKnownSkill(string skillId)
+    {
+        return skillId == "thunder_god" || skillId == "fire_breath" || skillId == "explosive_bomb";
+    }
+
+    private Sprite GetFallbackIcon(string skillId)
+    {
+        return skillId switch
+        {
+            "thunder_god" => thunderGodSprite,
+            "fire_breath" => fireBreathSprite,
+            "explosive_bomb" => explosiveBombSprite,
+            _ => null
+        };
+    }
+
+    private float GetCooldown(string skillId)
+    {
+        float fallback = skillId switch
+        {
+            "thunder_god" => 45f,
+            "fire_breath" => 25f,
+            "explosive_bomb" => 30f,
+            _ => 10f
+        };
+
+        EnsureSkillManager();
+        return skillManager != null ? skillManager.GetCooldown(skillId, fallback) : fallback;
     }
 
     private void AutoBindChildren()

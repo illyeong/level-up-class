@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using LayerLab.ArtMaker;
 
-public class SkillExplosiveBomb : MonoBehaviour
+public class SkillExplosiveBomb : MonoBehaviour, IDungeonSkill
 {
     [Header("Timing")]
+    public float cooldown = 30f;
     public float castDelay = 0.15f;
     public float projectileTravelTime = 0.18f;
     public float impactPause = 0.08f;
@@ -14,6 +15,8 @@ public class SkillExplosiveBomb : MonoBehaviour
 
     [Header("Damage")]
     public float damageMultiplier = 2.2f;
+    public int tickCount = 5;
+    public float tickInterval = 0.08f;
     public bool canCrit = true;
 
     [Header("Explosion")]
@@ -44,19 +47,29 @@ public class SkillExplosiveBomb : MonoBehaviour
     private PlayerCombat _combat;
     private PlayerMovement _movement;
     private Rigidbody2D _rb;
+    private Transform _owner;
     private bool _running;
 
     private void Awake()
     {
-        _combat = GetComponent<PlayerCombat>();
-        _movement = GetComponent<PlayerMovement>();
-        _rb = GetComponent<Rigidbody2D>();
+        Initialize(gameObject);
 
         if (targetLayer.value == 0)
             targetLayer = LayerMask.GetMask("Monster");
     }
 
     public bool IsReady => !_running;
+    public float Cooldown => cooldown;
+
+    public void Initialize(GameObject owner)
+    {
+        if (owner == null) owner = gameObject;
+
+        _owner = owner.transform;
+        _combat = owner.GetComponent<PlayerCombat>();
+        _movement = owner.GetComponent<PlayerMovement>();
+        _rb = owner.GetComponent<Rigidbody2D>();
+    }
 
     public void Activate()
     {
@@ -70,25 +83,27 @@ public class SkillExplosiveBomb : MonoBehaviour
         SetPlayerControl(false);
 
         float dir = GetFacingDir();
-        Vector3 explosionPoint = transform.position + new Vector3(forwardDistance * dir + fxOffset.x, fxOffset.y, 0f);
+        Transform owner = _owner != null ? _owner : transform;
+        Vector3 explosionPoint = owner.position + new Vector3(forwardDistance * dir + fxOffset.x, fxOffset.y, 0f);
 
         if (castDelay > 0f)
             yield return new WaitForSeconds(castDelay);
 
-        Vector3 startPoint = transform.position + new Vector3(projectileStartOffset.x * dir, projectileStartOffset.y, 0f);
+        Vector3 startPoint = owner.position + new Vector3(projectileStartOffset.x * dir, projectileStartOffset.y, 0f);
         if (projectileTravelTime > 0f)
             yield return StartCoroutine(PlayProjectile(startPoint, explosionPoint));
 
         SpawnExplosion(explosionPoint, mainFxScale);
         StartCoroutine(ShakeCamera());
-        DealExplosionDamage(explosionPoint, damageMultiplier, explosionRadius, 1f);
+        yield return StartCoroutine(DealTickDamage(explosionPoint, damageMultiplier, explosionRadius, 1f));
 
         if (impactPause > 0f)
             yield return new WaitForSeconds(impactPause);
 
         yield return StartCoroutine(SecondaryBlasts(explosionPoint));
 
-        float elapsedLockTime = castDelay + projectileTravelTime + impactPause + secondaryExplosionDelay * 2f;
+        float tickDuration = Mathf.Max(0, tickCount - 1) * Mathf.Max(0f, tickInterval);
+        float elapsedLockTime = castDelay + projectileTravelTime + impactPause + secondaryExplosionDelay * 2f + tickDuration * 3f;
         float remain = Mathf.Max(0f, controlLockTime - elapsedLockTime);
         if (remain > 0f)
             yield return new WaitForSeconds(remain);
@@ -99,7 +114,8 @@ public class SkillExplosiveBomb : MonoBehaviour
 
     private float GetFacingDir()
     {
-        return transform.localScale.x < 0f ? 1f : -1f;
+        Transform owner = _owner != null ? _owner : transform;
+        return owner.localScale.x < 0f ? 1f : -1f;
     }
 
     private void SetPlayerControl(bool enabled)
@@ -141,13 +157,13 @@ public class SkillExplosiveBomb : MonoBehaviour
         Vector3 right = center + Vector3.right * secondaryExplosionOffset;
 
         SpawnExplosion(left, secondaryFxScale);
-        DealExplosionDamage(left, damageMultiplier * secondaryDamageRatio, secondaryExplosionRadius, 0.65f);
+        yield return StartCoroutine(DealTickDamage(left, damageMultiplier * secondaryDamageRatio, secondaryExplosionRadius, 0.65f));
 
         if (secondaryExplosionDelay > 0f)
             yield return new WaitForSeconds(secondaryExplosionDelay);
 
         SpawnExplosion(right, secondaryFxScale);
-        DealExplosionDamage(right, damageMultiplier * secondaryDamageRatio, secondaryExplosionRadius, 0.65f);
+        yield return StartCoroutine(DealTickDamage(right, damageMultiplier * secondaryDamageRatio, secondaryExplosionRadius, 0.65f));
     }
 
     private void SpawnExplosion(Vector3 pos, float scale)
@@ -179,6 +195,19 @@ public class SkillExplosiveBomb : MonoBehaviour
         }
 
         camTransform.position = origin;
+    }
+
+    private IEnumerator DealTickDamage(Vector3 center, float multiplier, float radius, float knockbackMultiplier)
+    {
+        int count = Mathf.Max(1, tickCount);
+        float perTickMultiplier = multiplier / count;
+
+        for (int i = 0; i < count; i++)
+        {
+            DealExplosionDamage(center, perTickMultiplier, radius, i == 0 ? knockbackMultiplier : 0f);
+            if (i < count - 1 && tickInterval > 0f)
+                yield return new WaitForSeconds(tickInterval);
+        }
     }
 
     private void DealExplosionDamage(Vector3 center, float multiplier, float radius, float knockbackMultiplier)
@@ -241,7 +270,8 @@ public class SkillExplosiveBomb : MonoBehaviour
     private void OnDrawGizmosSelected()
     {
         float dir = Application.isPlaying ? GetFacingDir() : 1f;
-        Vector3 center = transform.position + new Vector3(forwardDistance * dir + fxOffset.x, fxOffset.y, 0f);
+        Transform owner = _owner != null ? _owner : transform;
+        Vector3 center = owner.position + new Vector3(forwardDistance * dir + fxOffset.x, fxOffset.y, 0f);
 
         Gizmos.color = new Color(1f, 0.45f, 0f, 0.3f);
         Gizmos.DrawSphere(center, explosionRadius);

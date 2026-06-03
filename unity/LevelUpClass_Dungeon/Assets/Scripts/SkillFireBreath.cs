@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using LayerLab.ArtMaker;
 
-public class SkillFireBreath : MonoBehaviour
+public class SkillFireBreath : MonoBehaviour, IDungeonSkill
 {
     [Header("Timing")]
+    public float cooldown = 25f;
     public float castLockTime = 0.15f;
     public float duration = 1.2f;
     public float tickInterval = 0.2f;
@@ -32,19 +33,29 @@ public class SkillFireBreath : MonoBehaviour
     private PlayerCombat _combat;
     private PlayerMovement _movement;
     private Rigidbody2D _rb;
+    private Transform _owner;
     private bool _running;
 
     private void Awake()
     {
-        _combat = GetComponent<PlayerCombat>();
-        _movement = GetComponent<PlayerMovement>();
-        _rb = GetComponent<Rigidbody2D>();
+        Initialize(gameObject);
 
         if (targetLayer.value == 0)
             targetLayer = LayerMask.GetMask("Monster");
     }
 
     public bool IsReady => !_running;
+    public float Cooldown => cooldown;
+
+    public void Initialize(GameObject owner)
+    {
+        if (owner == null) owner = gameObject;
+
+        _owner = owner.transform;
+        _combat = owner.GetComponent<PlayerCombat>();
+        _movement = owner.GetComponent<PlayerMovement>();
+        _rb = owner.GetComponent<Rigidbody2D>();
+    }
 
     public void Activate()
     {
@@ -77,7 +88,8 @@ public class SkillFireBreath : MonoBehaviour
 
     private float GetFacingDir()
     {
-        return transform.localScale.x < 0f ? 1f : -1f;
+        Transform owner = _owner != null ? _owner : transform;
+        return owner.localScale.x < 0f ? 1f : -1f;
     }
 
     private void SetPlayerControl(bool enabled)
@@ -90,7 +102,8 @@ public class SkillFireBreath : MonoBehaviour
     {
         if (fireBreathPrefab == null) return;
 
-        Vector3 pos = transform.position + new Vector3(fxOffset.x * dir, fxOffset.y, 0f);
+        Transform owner = _owner != null ? _owner : transform;
+        Vector3 pos = owner.position + new Vector3(fxOffset.x * dir, fxOffset.y, 0f);
         GameObject fx = Instantiate(fireBreathPrefab, pos, fireBreathPrefab.transform.rotation);
 
         if (flipFxByFacingDirection)
@@ -101,7 +114,7 @@ public class SkillFireBreath : MonoBehaviour
         }
 
         if (attachFxToPlayer)
-            fx.transform.SetParent(transform, true);
+            fx.transform.SetParent(owner, true);
 
         Destroy(fx, duration + fxLifetimePadding);
     }
@@ -117,7 +130,8 @@ public class SkillFireBreath : MonoBehaviour
         if (isCrit)
             damage = Mathf.Max(1, Mathf.RoundToInt(damage * critMult));
 
-        Vector2 center = (Vector2)transform.position + new Vector2(hitBoxOffset.x * dir, hitBoxOffset.y);
+        Transform owner = _owner != null ? _owner : transform;
+        Vector2 center = (Vector2)owner.position + new Vector2(hitBoxOffset.x * dir, hitBoxOffset.y);
         Collider2D[] hits = Physics2D.OverlapBoxAll(center, new Vector2(range, height), 0f, targetLayer);
 
         HashSet<Transform> damaged = new HashSet<Transform>();
@@ -149,7 +163,8 @@ public class SkillFireBreath : MonoBehaviour
     private void OnDrawGizmosSelected()
     {
         float dir = Application.isPlaying ? GetFacingDir() : 1f;
-        Vector3 center = transform.position + new Vector3(hitBoxOffset.x * dir, hitBoxOffset.y, 0f);
+        Transform owner = _owner != null ? _owner : transform;
+        Vector3 center = owner.position + new Vector3(hitBoxOffset.x * dir, hitBoxOffset.y, 0f);
 
         Gizmos.color = new Color(1f, 0.25f, 0f, 0.28f);
         Gizmos.DrawCube(center, new Vector3(range, height, 0.1f));

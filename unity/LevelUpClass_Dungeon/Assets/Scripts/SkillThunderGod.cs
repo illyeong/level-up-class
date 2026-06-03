@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using LayerLab.ArtMaker;
 
-public class SkillThunderGod : MonoBehaviour
+public class SkillThunderGod : MonoBehaviour, IDungeonSkill
 {
     [Header("Dash")]
+    public float cooldown = 45f;
     public float dashSpeed = 150f;
     public float dashDistance = 14f;
     public float hitBoxHeight = 4f;
@@ -16,6 +17,7 @@ public class SkillThunderGod : MonoBehaviour
     [Tooltip("Total skill damage multiplier. The value is split across all strikes.")]
     public float totalDamageMultiplier = 3f;
     public int hitCount = 6;
+    public int minimumHitCount = 6;
     public float hitInterval = 0.1f;
 
     [Header("FX")]
@@ -29,6 +31,7 @@ public class SkillThunderGod : MonoBehaviour
     private PlayerCombat _combat;
     private PlayerMovement _movement;
     private Rigidbody2D _rb;
+    private Transform _owner;
     private bool _running;
 
     private struct StrikeTarget
@@ -40,15 +43,24 @@ public class SkillThunderGod : MonoBehaviour
 
     private void Awake()
     {
-        _combat = GetComponent<PlayerCombat>();
-        _movement = GetComponent<PlayerMovement>();
-        _rb = GetComponent<Rigidbody2D>();
+        Initialize(gameObject);
 
         if (targetLayer.value == 0)
             targetLayer = LayerMask.GetMask("Monster");
     }
 
     public bool IsReady => !_running;
+    public float Cooldown => cooldown;
+
+    public void Initialize(GameObject owner)
+    {
+        if (owner == null) owner = gameObject;
+
+        _owner = owner.transform;
+        _combat = owner.GetComponent<PlayerCombat>();
+        _movement = owner.GetComponent<PlayerMovement>();
+        _rb = owner.GetComponent<Rigidbody2D>();
+    }
 
     public void Activate()
     {
@@ -61,7 +73,8 @@ public class SkillThunderGod : MonoBehaviour
         _running = true;
 
         float dir = GetFacingDir();
-        Vector3 startPos = transform.position;
+        Transform owner = _owner != null ? _owner : transform;
+        Vector3 startPos = owner.position;
 
         // ① 캐릭터 이펙트 먼저 출현
         SpawnAttachedFX(playerFXPrefab);
@@ -73,7 +86,7 @@ public class SkillThunderGod : MonoBehaviour
         SetPlayerControl(false);
         yield return Dash(dir);
 
-        Vector3 endPos = transform.position;
+        Vector3 endPos = owner.position;
         List<StrikeTarget> targets = FindTargets(startPos, endPos);
 
         if (targets.Count == 0)
@@ -108,7 +121,8 @@ public class SkillThunderGod : MonoBehaviour
 
     private float GetFacingDir()
     {
-        return transform.localScale.x < 0f ? 1f : -1f;
+        Transform owner = _owner != null ? _owner : transform;
+        return owner.localScale.x < 0f ? 1f : -1f;
     }
 
     private void SetPlayerControl(bool enabled)
@@ -124,7 +138,8 @@ public class SkillThunderGod : MonoBehaviour
         while (traveled < dashDistance)
         {
             float step = Mathf.Min(dashSpeed * Time.deltaTime, dashDistance - traveled);
-            transform.position += new Vector3(dir * step, 0f, 0f);
+            Transform owner = _owner != null ? _owner : transform;
+            owner.position += new Vector3(dir * step, 0f, 0f);
             traveled += step;
             yield return null;
         }
@@ -219,11 +234,11 @@ public class SkillThunderGod : MonoBehaviour
 
     private IEnumerator StrikeTargets(List<StrikeTarget> targets)
     {
-        int   baseAttack  = _combat != null ? _combat.attackPower          : 10;
-        int   critChance  = _combat != null ? _combat.critChance           : 20;
-        float critMult    = _combat != null ? _combat.critDamageMultiplier : 1.5f;
-        // 타격당 데미지 = 공격력 / 2
-        int   baseDmg     = Mathf.Max(1, baseAttack / 2);
+        int   baseAttack        = _combat != null ? _combat.attackPower          : 10;
+        int   critChance        = _combat != null ? _combat.critChance           : 20;
+        float critMult          = _combat != null ? _combat.critDamageMultiplier : 1.5f;
+        int   effectiveHitCount = Mathf.Max(minimumHitCount, hitCount);
+        int   baseDmg           = Mathf.Max(1, Mathf.RoundToInt(baseAttack * totalDamageMultiplier / effectiveHitCount));
 
         // ① 6연타 시작 전 — 모든 타겟 사망 판정 지연
         foreach (var t in targets)
@@ -232,8 +247,8 @@ public class SkillThunderGod : MonoBehaviour
             if (t.boss    != null) t.boss.suppressDeath    = true;
         }
 
-        // ② 6연타 — 타격마다 크리확률 독립 적용
-        for (int i = 0; i < hitCount; i++)
+        // ② 연타 — 모든 타격이 끝난 뒤에만 사망 판정을 해제
+        for (int i = 0; i < effectiveHitCount; i++)
         {
             for (int t = 0; t < targets.Count; t++)
             {
@@ -251,7 +266,7 @@ public class SkillThunderGod : MonoBehaviour
                     target.boss.TakeDamage(dmg, isCrit);
             }
 
-            if (i < hitCount - 1)
+            if (i < effectiveHitCount - 1)
                 yield return new WaitForSeconds(hitInterval);
         }
 
@@ -276,8 +291,9 @@ public class SkillThunderGod : MonoBehaviour
     private void SpawnAttachedFX(GameObject prefab)
     {
         if (prefab == null) return;
-        var fx = Instantiate(prefab, transform.position, Quaternion.identity);
-        fx.transform.SetParent(transform, true);
+        Transform owner = _owner != null ? _owner : transform;
+        var fx = Instantiate(prefab, owner.position, Quaternion.identity);
+        fx.transform.SetParent(owner, true);
         Destroy(fx, 3f);
     }
 
@@ -291,6 +307,7 @@ public class SkillThunderGod : MonoBehaviour
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = new Color(1f, 0.9f, 0f, 0.35f);
-        Gizmos.DrawCube(transform.position, new Vector3(dashDistance, hitBoxHeight, 0.1f));
+        Transform owner = _owner != null ? _owner : transform;
+        Gizmos.DrawCube(owner.position, new Vector3(dashDistance, hitBoxHeight, 0.1f));
     }
 }
