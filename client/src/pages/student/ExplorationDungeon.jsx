@@ -219,7 +219,7 @@ function DungeonNode({ dungeon, state, isSelected, onClick }) {
 }
 
 // ── 던전 정보 팝업 ────────────────────────────────────────────
-function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets, prevDungeonName, activeSkill }) {
+function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets, prevDungeonName, activeSkills = [] }) {
   const isActive  = dungeon.active !== false;
   const isLocked  = isActive && state === 'locked'; // 활성이지만 이전 단계 미클리어
 
@@ -267,19 +267,24 @@ function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets
             <div className="text-amber-600 font-medium">{dungeon.reward}</div>
           </div>
 
-          {/* 선택된 스킬 */}
-          {activeSkill ? (
-            <div className={`rounded-2xl border-2 p-3 flex items-center gap-3 ${activeSkill.rarityBg}`}>
-              {activeSkill.image
-                ? <img src={activeSkill.image} alt={activeSkill.name} className="w-12 h-12 rounded-xl object-cover shrink-0 border border-slate-600" />
-                : <span className="text-3xl">{activeSkill.emoji}</span>}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className={`font-extrabold text-sm text-white`}>{activeSkill.name}</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeSkill.rarityColor}`}>{activeSkill.rarityLabel}</span>
+          {/* 선택된 스킬 목록 */}
+          {activeSkills.length > 0 ? (
+            <div className="space-y-2">
+              {activeSkills.map((sk, i) => (
+                <div key={sk.id} className={`rounded-2xl border-2 p-2.5 flex items-center gap-2.5 ${sk.rarityBg}`}>
+                  {sk.image
+                    ? <img src={sk.image} alt={sk.name} className="w-10 h-10 rounded-xl object-cover shrink-0 border border-slate-600" />
+                    : <span className="text-2xl">{sk.emoji}</span>}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-extrabold text-slate-400">슬롯{i+1}</span>
+                      <span className="font-extrabold text-sm text-white">{sk.name}</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${sk.rarityColor}`}>{sk.rarityLabel}</span>
+                    </div>
+                    <p className="text-slate-400 text-[10px]">쿨타임 {sk.cooldown}초</p>
+                  </div>
                 </div>
-                <p className="text-slate-300 text-[11px] mt-0.5">입장 후 스킬 버튼으로 사용 (쿨타임 {activeSkill.cooldown}초)</p>
-              </div>
+              ))}
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-slate-600 p-3 text-center text-slate-500 text-xs">
@@ -387,10 +392,14 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
   const selectedDungeonRef = useRef(null);
   const [dungeonReward, setDungeonReward]     = useState(null);
   // 스킬 시스템
-  const [purchasedSkills, setPurchasedSkills] = useState([]);
-  const [selectedSkill,   setSelectedSkill]   = useState(null); // skill.id or null
+  const MAX_SKILL_SLOTS = 3;
+  const [purchasedSkills, setPurchasedSkills]   = useState([]);
+  const [selectedSkills,  setSelectedSkills]    = useState([]); // skill.id[] (최대 3개)
+  const selectedSkillsRef = useRef([]);
+  // 하위 호환: 첫 번째 선택 스킬 (Unity 단일 스킬 전달용)
+  const selectedSkill    = selectedSkills[0] || null;
   const selectedSkillRef = useRef(null);
-  const [showSkillShop,   setShowSkillShop]   = useState(false);
+  const [showSkillShop,   setShowSkillShop]     = useState(false);
 
   const iframeRef        = useRef(null);
   const characterDataRef = useRef(null);
@@ -448,14 +457,22 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
           studentDocIdRef.current = d.id;
           setStudent({ id: d.id, ...data });
           setProgress(data.dungeonProgress || {});
-          // 스킬 로드
+          // 스킬 로드 (selectedSkills 배열 우선, 없으면 selectedSkill 단일값으로 변환)
           const savedPurchasedSkills = data.purchasedSkills || [];
           setPurchasedSkills(savedPurchasedSkills);
-          const saved = data.selectedSkill || null;
-          const savedSkill = DUNGEON_SKILLS.find(skill => skill.id === saved);
-          const unlockedSaved = savedSkill && isSkillUnlocked(savedSkill, Number(data.level ?? 1) || 1);
-          setSelectedSkill(unlockedSaved ? saved : null);
-          selectedSkillRef.current = unlockedSaved ? saved : null;
+          const lv = Number(data.level ?? 1) || 1;
+          const code = data.studentCode || '';
+          const rawSkills = data.selectedSkills?.length
+            ? data.selectedSkills
+            : data.selectedSkill ? [data.selectedSkill] : [];
+          const validSkills = rawSkills
+            .map(id => DUNGEON_SKILLS.find(s => s.id === id))
+            .filter(s => s && isSkillUnlocked(s, lv, code, savedPurchasedSkills))
+            .map(s => s.id)
+            .slice(0, MAX_SKILL_SLOTS);
+          setSelectedSkills(validSkills);
+          selectedSkillsRef.current = validSkills;
+          selectedSkillRef.current = validSkills[0] || null;
           const mergedStats = getDungeonStatsFromStudent(data, equipmentItems);
           characterDataRef.current = {
             parts: data.parts ?? null,
@@ -583,7 +600,8 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
       ...cd,
       stats: { ...cd.stats, classLevel: cd.stats?.level ?? 1, dungeonIndex },
       dungeonIndex,
-      selectedSkill: selectedSkillRef.current || null,
+      selectedSkill:  selectedSkillsRef.current[0] || null,  // Unity 단일 하위 호환
+      selectedSkills: selectedSkillsRef.current,              // 다중 슬롯용
     }, '*');
   };
 
@@ -738,10 +756,11 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
               {DUNGEON_SKILLS.map(skill => {
                 const studentLevel = Number(student?.level ?? 1) || 1;
                 const studentCode  = student?.studentCode || '';
-                const owned = isSkillUnlocked(skill, studentLevel, studentCode, purchasedSkills);
-                const selected = selectedSkill === skill.id;
+                const owned    = isSkillUnlocked(skill, studentLevel, studentCode, purchasedSkills);
+                const selIdx   = selectedSkills.indexOf(skill.id); // -1 이면 미선택
+                const selected = selIdx !== -1;
+                const slotNum  = selected ? selIdx + 1 : null;
                 const canBuyDiamond = !owned && skill.diamondCost && (student?.diamonds ?? 0) >= skill.diamondCost;
-                const lockedByLevel = !owned && !skill.comingSoon;
                 if (skill.comingSoon) return (
                   <div key={skill.id} className="rounded-2xl border-2 border-slate-700 bg-slate-900/60 p-4 opacity-50 relative overflow-hidden">
                     <div className="absolute inset-0 flex items-center justify-center z-10">
@@ -772,7 +791,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${skill.rarityBg} ${skill.rarityColor}`}>
                             {skill.rarityLabel}
                           </span>
-                          {selected && <span className="text-[10px] font-extrabold text-yellow-400 bg-yellow-900/50 px-2 py-0.5 rounded-full border border-yellow-500">✓ 선택됨</span>}
+                          {selected && <span className="text-[10px] font-extrabold text-yellow-400 bg-yellow-900/50 px-2 py-0.5 rounded-full border border-yellow-500">✓ 슬롯 {slotNum}</span>}
                         </div>
                         <p className="text-slate-300 text-xs leading-relaxed mb-2">{skill.desc}</p>
                         <div className="flex gap-3 text-[11px] text-slate-400">
@@ -785,15 +804,29 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
                         {owned ? (
                           <button
                             onClick={async () => {
-                              const next = selected ? null : skill.id;
+                              let next;
+                              if (selected) {
+                                next = selectedSkills.filter(id => id !== skill.id);
+                              } else if (selectedSkills.length < MAX_SKILL_SLOTS) {
+                                next = [...selectedSkills, skill.id];
+                              } else {
+                                return; // 슬롯 꽉 참
+                              }
                               const docId = studentDocIdRef.current;
-                              if (docId) await updateDoc(doc(db, 'students', docId), { selectedSkill: next });
-                              setSelectedSkill(next);
-                              selectedSkillRef.current = next;
+                              if (docId) await updateDoc(doc(db, 'students', docId), {
+                                selectedSkills: next,
+                                selectedSkill:  next[0] || null,
+                              });
+                              setSelectedSkills(next);
+                              selectedSkillsRef.current = next;
+                              selectedSkillRef.current  = next[0] || null;
                             }}
+                            disabled={!selected && selectedSkills.length >= MAX_SKILL_SLOTS}
                             className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all
-                              ${selected ? 'bg-slate-700 text-slate-400 border border-slate-600' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg'}`}>
-                            {selected ? '선택 해제' : '✓ 선택하기'}
+                              ${selected ? 'bg-slate-700 text-slate-400 border border-slate-600'
+                              : selectedSkills.length >= MAX_SKILL_SLOTS ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg'}`}>
+                            {selected ? '선택 해제' : selectedSkills.length >= MAX_SKILL_SLOTS ? `최대 ${MAX_SKILL_SLOTS}개` : '+ 슬롯에 추가'}
                           </button>
                         ) : skill.diamondCost ? (
                           <div className="flex flex-col gap-1.5 items-end">
@@ -838,16 +871,17 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
       <div className="bg-slate-800 border-b border-slate-700 px-5 py-2.5 flex items-center gap-4 shrink-0">
         <h1 className="font-extrabold text-white text-base">🗺️ 탐험던전</h1>
         <span className="text-slate-400 text-xs">클리어: {completedCount}/{DUNGEONS.length}</span>
-        {/* 선택된 스킬 표시 */}
-        {selectedSkill && (() => {
-          const sk = DUNGEON_SKILLS.find(s => s.id === selectedSkill);
+        {/* 선택된 스킬 표시 (최대 3개) */}
+        {selectedSkills.length > 0 && selectedSkills.map(id => {
+          const sk = DUNGEON_SKILLS.find(s => s.id === id);
           return sk ? (
-            <button onClick={() => setShowSkillShop(true)}
-              className="flex items-center gap-1.5 bg-yellow-900/60 border border-yellow-600 px-2.5 py-1 rounded-xl text-xs font-bold text-yellow-300 hover:bg-yellow-900/80 transition-colors">
-              {sk.emoji} {sk.name}
+            <button key={id} onClick={() => setShowSkillShop(true)}
+              className="flex items-center gap-1 bg-yellow-900/60 border border-yellow-600 px-2 py-1 rounded-xl text-[11px] font-bold text-yellow-300 hover:bg-yellow-900/80 transition-colors">
+              {sk.image ? <img src={sk.image} className="w-4 h-4 rounded object-cover" alt="" /> : sk.emoji}
+              <span className="hidden sm:inline">{sk.name}</span>
             </button>
           ) : null;
-        })()}
+        })}
         <div className="ml-auto flex items-center gap-3">
           {/* 스킬 상점 버튼 */}
           <button onClick={() => setShowSkillShop(true)}
@@ -906,7 +940,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
               onClose={() => setSelectedDungeon(null)}
               isBusy={isBusy}
               dungeonTickets={dungeonTickets}
-              activeSkill={DUNGEON_SKILLS.find(s => s.id === selectedSkill) || null}
+              activeSkills={selectedSkills.map(id => DUNGEON_SKILLS.find(s => s.id === id)).filter(Boolean)}
             />
             );
           })()}
