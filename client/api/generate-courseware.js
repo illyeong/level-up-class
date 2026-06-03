@@ -8,6 +8,8 @@ const SHAPE_TYPES = new Set([
   'cuboid', 'cube', 'cylinder', 'cone', 'sphere', 'factor_list',
 ]);
 
+const COURSEWARE_GENERATOR_VERSION = 'quality-v11-topic-visual-fraction-guard';
+
 const stripOptionPrefix = (value) =>
   String(value ?? '')
     .trim()
@@ -19,6 +21,21 @@ const stripOptionPrefix = (value) =>
 
 const normalizeKey = (value) =>
   String(value ?? '').replace(/\s+/g, '').replace(/[①②③④0-9().,!?~]/g, '').slice(0, 80);
+
+const normalizeText = (value) => String(value ?? '').normalize('NFKC').toLowerCase();
+
+const includesAny = (text, words) => {
+  const src = normalizeText(text);
+  return words.some(word => src.includes(normalizeText(word)));
+};
+
+const lessonTopicText = (payload, ragSection = '') => [
+  payload?.unitName,
+  payload?.lessonTitle,
+  payload?.learningGoal,
+  Array.isArray(payload?.keywords) ? payload.keywords.join(' ') : payload?.keywords,
+  ragSection,
+].filter(Boolean).join(' ');
 
 const gcd = (a, b) => {
   a = Math.abs(a); b = Math.abs(b);
@@ -39,8 +56,14 @@ const parseFractions = (text) => {
 };
 
 const evalFractionExpression = (text) => {
-  const parts = String(text || '').split('+');
-  const fractions = parts.map(part => parseFractions(part)[0]);
+  const compact = String(text || '').replace(/\s+/g, '');
+  const parts = compact.match(/[+-]?[^+-]+/g) || [];
+  const fractions = parts.map(part => {
+    const sign = part.startsWith('-') ? -1 : 1;
+    const raw = part.replace(/^[+-]/, '');
+    const fraction = parseFractions(raw)[0];
+    return fraction ? { n: fraction.n * sign, d: fraction.d } : null;
+  });
   if (!fractions.length || fractions.some(v => !v)) return null;
   let num = 0;
   let den = 1;
@@ -77,7 +100,7 @@ const sameFraction = (a, b) => {
 
 const getSameDenominatorSum = (text) => {
   const src = String(text || '');
-  const asksSum = src.includes('+') || src.includes('합') || src.includes('더') || src.includes('모두');
+  const asksSum = src.includes('+') || includesAny(src, ['합', '더', '모두', '얼마', '구하']);
   if (!asksSum) return null;
   const leftSide = src.split('=')[0];
   const fractions = parseFractions(leftSide);
@@ -87,14 +110,32 @@ const getSameDenominatorSum = (text) => {
   return { num: fractions.reduce((sum, f) => sum + f.n, 0), den: fractions[0].d };
 };
 
+const getFractionOperationExpected = (text) => {
+  const src = String(text || '');
+  if (!/[+-]/.test(src) && !includesAny(src, ['합', '더', '덧셈', '차', '빼', '뺐', '남은'])) return null;
+  const fractions = parseFractions(src.split('=')[0]);
+  if (fractions.length < 2) return null;
+  const isSubtraction = /-/.test(src) || (includesAny(src, ['차', '빼', '뺐', '남은']) && !includesAny(src, ['합', '더', '덧셈', '모두']));
+  let num = fractions[0].n;
+  let den = fractions[0].d;
+  fractions.slice(1).forEach(f => {
+    num = isSubtraction ? num * f.d - f.n * den : num * f.d + f.n * den;
+    den *= f.d;
+    const g = gcd(num, den);
+    num /= g;
+    den /= g;
+  });
+  return simplifyFraction({ num, den });
+};
+
 const uniqueIndex = (items, predicate) => {
   const matches = items.map(predicate);
   return matches.filter(Boolean).length === 1 ? matches.findIndex(Boolean) : -1;
 };
 
 const hasKoreanPhrase = (text, phrases) => {
-  const src = String(text || '');
-  return phrases.some(phrase => src.includes(phrase));
+  const src = normalizeText(text);
+  return phrases.some(phrase => src.includes(normalizeText(phrase)));
 };
 
 const fixFractionAnswer = (q) => {
@@ -109,17 +150,17 @@ const fixFractionAnswer = (q) => {
     return idx >= 0 ? { ...q, answerIndex: idx } : null;
   }
 
-  const expectedSum = getSameDenominatorSum(q.question);
-  if (expectedSum) {
+  const expected = getFractionOperationExpected(q.question) || getSameDenominatorSum(q.question);
+  if (expected) {
     const idx = uniqueIndex(options, opt => {
       const fractions = parseFractions(opt);
-      return fractions.length === 1 && sameFraction(fractions[0], expectedSum);
+      return fractions.length === 1 && sameFraction(fractions[0], expected);
     });
     return idx >= 0 ? { ...q, answerIndex: idx } : null;
   }
 
-  const asksLargest = hasKoreanPhrase(q.question, ['가장 큰', '큰 것은', '가장 클']);
-  const asksSmallest = hasKoreanPhrase(q.question, ['가장 작은', '작은 것은', '1보다 작은']);
+  const asksLargest = hasKoreanPhrase(q.question, ['가장 큰', '제일 큰', '큰 것은', '가장 클']);
+  const asksSmallest = hasKoreanPhrase(q.question, ['가장 작은', '제일 작은', '작은 것은', '1보다 작은']);
   if ((asksLargest || asksSmallest) && options.some(opt => String(opt).includes('/'))) {
     const values = options.map(getComparableFractionValue);
     if (values.some(v => v == null)) return null;
@@ -132,15 +173,9 @@ const fixFractionAnswer = (q) => {
 };
 
 const hasSameDenominatorFractionFocus = (payload, ragSection) => {
-  const text = [
-    payload?.unitName,
-    payload?.lessonTitle,
-    payload?.learningGoal,
-    Array.isArray(payload?.keywords) ? payload.keywords.join(' ') : payload?.keywords,
-    ragSection,
-  ].filter(Boolean).join(' ');
-  if (/분모가\s*같|같은\s*분모|동분모|분모는\s*그대로|분자끼리|진분수의\s*덧셈|분수의\s*덧셈/.test(text)) return true;
-  return /분모가\s*같|같은\s*분모|동분모|분모는\s*그대로|분자끼리/.test(text);
+  const text = lessonTopicText(payload, ragSection);
+  if (includesAny(text, ['이분모', '통분', '분모가 다른'])) return false;
+  return includesAny(text, ['분모가 같은', '같은 분모', '동분모', '분모는 그대로', '분자끼리']);
 };
 
 const violatesSameDenominatorAddition = (text) => {
@@ -188,24 +223,24 @@ const cleanChart = (d, maxItems, positiveOnly = false) => {
   };
 };
 
-const isFactorMultipleLesson = (payload) => {
-  const text = [
-    payload?.unitName,
-    payload?.lessonTitle,
-    payload?.learningGoal,
-    Array.isArray(payload?.keywords) ? payload.keywords.join(' ') : payload?.keywords,
-  ].filter(Boolean).join(' ');
-  return /약수|공약수|최대공약수|배수|공배수|최소공배수/.test(text);
-};
+const isFactorMultipleLesson = (payload, ragSection = '') =>
+  includesAny(lessonTopicText(payload, ragSection), ['약수', '공약수', '최대공약수', '배수', '공배수', '최소공배수']);
 
-const isSolidShapeLesson = (payload) => {
-  const text = [
-    payload?.unitName,
-    payload?.lessonTitle,
-    payload?.learningGoal,
-    Array.isArray(payload?.keywords) ? payload.keywords.join(' ') : payload?.keywords,
-  ].filter(Boolean).join(' ');
-  return /입체도형|직육면체|정육면체|각기둥|각뿔|원기둥|원뿔|구/.test(text);
+const isSolidShapeLesson = (payload, ragSection = '') =>
+  includesAny(lessonTopicText(payload, ragSection), ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '구']);
+
+const buildLessonContext = (payload, ragSection = '') => {
+  const text = lessonTopicText(payload, ragSection);
+  return {
+    sameDenomFocus: hasSameDenominatorFractionFocus(payload, ragSection),
+    factorMultiple: isFactorMultipleLesson(payload, ragSection),
+    solidShape: isSolidShapeLesson(payload, ragSection),
+    timeLesson: includesAny(text, ['시각', '시간', '시계', '몇 시', '몇 분']),
+    angleLesson: includesAny(text, ['각도', '각의 크기', '몇 도', '예각', '둔각']),
+    measurementLesson: includesAny(text, ['길이', '재기', 'cm', 'm', '자']),
+    areaLesson: includesAny(text, ['넓이', '둘레']),
+    fractionLesson: includesAny(text, ['분수', '진분수', '대분수', '통분', '약분']),
+  };
 };
 
 const sanitizeShape = (shape, context = {}) => {
@@ -256,12 +291,15 @@ const sanitizeShape = (shape, context = {}) => {
     return { type, dimensions: { ...d, sides: Math.round(clamp(d.sides, 3, 10, 5)), side: finite(d.side) || undefined }, unit };
   }
   if (type === 'angle') {
+    if (!context.angleLesson) return null;
     return { type, dimensions: { ...d, degrees: Math.round(clamp(d.degrees, 1, 179, 90)) } };
   }
   if (type === 'clock') {
+    if (!context.timeLesson) return null;
     return { type, dimensions: { ...d, hour: Math.round(clamp(d.hour, 1, 12, 3)), minute: Math.round(clamp(d.minute, 0, 59, 0)) } };
   }
   if (type === 'ruler') {
+    if (!context.measurementLesson) return null;
     const total = Math.round(clamp(d.total, 1, 30, 10));
     const from = clamp(d.highlight?.from, 0, total, 0);
     const to = clamp(d.highlight?.to, from, total, Math.min(total, from + 1));
@@ -304,19 +342,22 @@ const sanitizeShape = (shape, context = {}) => {
   return { type, dimensions: d, unit };
 };
 
-const verifySameDenomQuestionAnswer = (q) => {
+const verifyFractionQuestionAnswer = (q) => {
   const question = String(q.question || '');
-  if (!/[+]|합|더|덧셈|모두/.test(question)) return true;
-  const fractions = parseFractions(question);
-  if (fractions.length < 2) return true;
-  const dens = new Set(fractions.map(f => f.d));
-  if (dens.size !== 1) return false;
-  const den = fractions[0].d;
-  const numeratorSum = fractions.reduce((sum, f) => sum + f.n, 0);
+  const expected = getFractionOperationExpected(question);
+  if (!expected) return true;
   const correctFractions = parseFractions(q.options?.[q.answerIndex] || '');
   if (correctFractions.length !== 1) return false;
-  const correct = correctFractions[0];
-  return correct.n === numeratorSum && correct.d === den;
+  return sameFraction(correctFractions[0], expected);
+};
+
+const isOffTopicQuestion = (q, context = {}) => {
+  const text = [q.question, ...(q.options || []), q.explanation].join(' ');
+  if (!context.timeLesson && /시계|시침|분침|몇\s*시|몇\s*분|시간\s*(뒤|전)/.test(text)) return true;
+  if (!context.angleLesson && /각도|몇\s*도|예각|둔각/.test(text)) return true;
+  if (!context.areaLesson && /넓이|둘레/.test(text)) return true;
+  if (!context.fractionLesson && hasMalformedFractionText(text)) return true;
+  return false;
 };
 
 const hasExactlyOneVerifiableAnswer = (q) => {
@@ -331,7 +372,7 @@ const hasExactlyOneVerifiableAnswer = (q) => {
     const matches = values.map(v => Math.abs(v - target) < 1e-9);
     return matches.filter(Boolean).length === 1 && matches[q.answerIndex] === true;
   }
-  if (!verifySameDenomQuestionAnswer(q)) return false;
+  if (!verifyFractionQuestionAnswer(q)) return false;
   if (/올바른|맞는/.test(question) && options.some(opt => String(opt).includes('='))) {
     const checks = options.map(evalFractionEquation);
     if (checks.some(v => v === null)) return false;
@@ -358,7 +399,7 @@ function tryParseJson(text) {
   }
 }
 
-function normalizeQuestion(q, index, { sameDenomFocus = false, factorMultiple = false, solidShape = false } = {}) {
+function normalizeQuestion(q, index, context = {}) {
   if (!q || typeof q !== 'object') return null;
 
   const options = Array.isArray(q.options)
@@ -383,7 +424,13 @@ function normalizeQuestion(q, index, { sameDenomFocus = false, factorMultiple = 
   const rotated = [...options.slice(shift), ...options.slice(0, shift)];
   const rotatedAnswerIndex = rotated.findIndex(o => o === correct);
 
-  const shape = sanitizeShape(q.shape, { factorMultiple, solidShape });
+  if (isOffTopicQuestion(fractionFixed, context)) return null;
+
+  const rawShapeType = q.shape?.type;
+  if (context.factorMultiple && ['bar_chart', 'line_chart', 'pie_chart'].includes(rawShapeType)) return null;
+  if (context.solidShape && rawShapeType && rawShapeType !== 'multi' && !['cuboid', 'cube', 'cylinder', 'cone', 'sphere'].includes(rawShapeType)) return null;
+
+  const shape = sanitizeShape(q.shape, context);
 
   const normalized = {
     question: String(q.question || '').trim(),
@@ -396,7 +443,7 @@ function normalizeQuestion(q, index, { sameDenomFocus = false, factorMultiple = 
   };
 
   const combinedText = [normalized.question, ...normalized.options, normalized.explanation].join('\n');
-  if (sameDenomFocus && violatesSameDenominatorAddition(combinedText)) return null;
+  if (context.sameDenomFocus && violatesSameDenominatorAddition(combinedText)) return null;
   if (!hasExactlyOneVerifiableAnswer(normalized)) return null;
 
   return normalized;
@@ -642,10 +689,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'AI 응답을 JSON으로 해석하지 못했습니다. 다시 시도해주세요.' });
     }
 
-    const sameDenomFocus = hasSameDenominatorFractionFocus(payload, ragSection);
-    const factorMultiple = isFactorMultipleLesson(payload);
-    const solidShape = isSolidShapeLesson(payload);
-    const result = normalizeContent(parsed, poolSize, { sameDenomFocus, factorMultiple, solidShape });
+    const lessonContextFlags = buildLessonContext(payload, ragSection);
+    const result = normalizeContent(parsed, poolSize, lessonContextFlags);
     const validationIssues = validateContent(result, poolSize);
 
     if (!result.questions.length) {
@@ -656,7 +701,7 @@ export default async function handler(req, res) {
       ...result,
       context,
       generatedBy: 'ai',
-      generatorVersion: 'quality-v10-fraction-score-guard',
+      generatorVersion: COURSEWARE_GENERATOR_VERSION,
       requestedQuestionCount: requested,
       poolSize: result.questions.length,
       validationIssues: validationIssues.length > 0 ? validationIssues : null,

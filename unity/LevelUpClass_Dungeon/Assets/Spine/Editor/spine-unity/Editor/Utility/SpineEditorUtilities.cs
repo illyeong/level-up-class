@@ -203,7 +203,10 @@ namespace Spine.Unity.Editor {
 			SceneView.onSceneGUIDelegate += DragAndDropInstantiation.SceneViewDragAndDrop;
 #endif
 
-#if UNITY_2021_2_OR_NEWER
+#if UNITY_6000_0_OR_NEWER
+			// Unity 6 passes UnityEngine.EntityId to hierarchy drop handlers.
+			// This older spine-unity handler expects int instance IDs and breaks normal hierarchy reordering.
+#elif UNITY_2021_2_OR_NEWER
 			DragAndDrop.RemoveDropHandler(HierarchyHandler.HandleDragAndDrop);
 			DragAndDrop.AddDropHandler(HierarchyHandler.HandleDragAndDrop);
 #else

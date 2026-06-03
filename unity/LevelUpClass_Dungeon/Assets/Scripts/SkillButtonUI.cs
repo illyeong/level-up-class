@@ -25,9 +25,13 @@ public class SkillButtonUI : MonoBehaviour
 
     [Header("스킬 아이콘 스프라이트")]
     public Sprite thunderGodSprite;   // 벽력일섬 아이콘
+    public Sprite fireBreathSprite;   // 불 뿜기 아이콘
+    public Sprite explosiveBombSprite; // 폭렬탄 아이콘
 
     [Header("스킬 컴포넌트")]
     public SkillThunderGod thunderGod; // Player 오브젝트에서 연결
+    public SkillFireBreath fireBreath; // Player 오브젝트에서 연결
+    public SkillExplosiveBomb explosiveBomb; // Player 오브젝트에서 연결
 
     // ── 내부 ──────────────────────────────────────────────────
     private string _activeSkillId = "";
@@ -37,10 +41,21 @@ public class SkillButtonUI : MonoBehaviour
     [Header("테스트")]
     [Tooltip("체크하면 시작 시 thunder_god 스킬을 자동으로 장착합니다")]
     public bool testThunderGod = false;
+    [Tooltip("에디터 테스트용 스킬 ID. 예: thunder_god, fire_breath, explosive_bomb")]
+    public string testSkillId = "";
 
     void Awake()
     {
-        if (cooldownFill) cooldownFill.fillAmount = 0f;
+        AutoBindChildren();
+
+        if (cooldownFill)
+        {
+            cooldownFill.type = Image.Type.Filled;
+            cooldownFill.fillMethod = Image.FillMethod.Radial360;
+            cooldownFill.fillOrigin = (int)Image.Origin360.Top;
+            cooldownFill.fillClockwise = false;
+            cooldownFill.fillAmount = 0f;
+        }
 
         // buttonRoot가 자기 자신이면 SetActive(false)하면 Start()가 안 돌아감
         // → 자기 자신이 아닌 경우에만 숨김 처리
@@ -50,9 +65,9 @@ public class SkillButtonUI : MonoBehaviour
 
     void Start()
     {
-        if (testThunderGod)
+        if (testThunderGod || !string.IsNullOrEmpty(testSkillId))
         {
-            ShowSkill("thunder_god");
+            ShowSkill(!string.IsNullOrEmpty(testSkillId) ? testSkillId : "thunder_god");
             return;
         }
 
@@ -104,6 +119,12 @@ public class SkillButtonUI : MonoBehaviour
             case "thunder_god":
                 SetupButton(thunderGodSprite, 45f);
                 break;
+            case "fire_breath":
+                SetupButton(fireBreathSprite, 25f);
+                break;
+            case "explosive_bomb":
+                SetupButton(explosiveBombSprite, 30f);
+                break;
             default:
                 if (buttonRoot) buttonRoot.SetActive(false);
                 _activeSkillId = "";
@@ -129,15 +150,42 @@ public class SkillButtonUI : MonoBehaviour
                     StartCooldown(45f);
                 }
                 break;
+            case "fire_breath":
+                if (fireBreath == null)
+                    fireBreath = FindFirstObjectByType<SkillFireBreath>();
+                if (fireBreath != null && fireBreath.IsReady)
+                {
+                    fireBreath.Activate();
+                    StartCooldown(25f);
+                }
+                break;
+            case "explosive_bomb":
+                if (explosiveBomb == null)
+                    explosiveBomb = FindFirstObjectByType<SkillExplosiveBomb>();
+                if (explosiveBomb != null && explosiveBomb.IsReady)
+                {
+                    explosiveBomb.Activate();
+                    StartCooldown(30f);
+                }
+                break;
         }
     }
 
     // ── 내부 헬퍼 ─────────────────────────────────────────────
     private void SetupButton(Sprite icon, float cooldown)
     {
+        AutoBindChildren();
+
         _cooldownMax = cooldown;
         if (skillIcon && icon) skillIcon.sprite = icon;
-        if (cooldownFill)     cooldownFill.fillAmount = 0f;
+        if (cooldownFill)
+        {
+            cooldownFill.type = Image.Type.Filled;
+            cooldownFill.fillMethod = Image.FillMethod.Radial360;
+            cooldownFill.fillOrigin = (int)Image.Origin360.Top;
+            cooldownFill.fillClockwise = false;
+            cooldownFill.fillAmount = 0f;
+        }
         if (cooldownText)     cooldownText.text = "";
     }
 
@@ -146,5 +194,22 @@ public class SkillButtonUI : MonoBehaviour
         _cooldownMax   = seconds;
         _cooldownTimer = seconds;
         if (cooldownFill) cooldownFill.fillAmount = 1f;
+        if (cooldownText)
+        {
+            cooldownText.transform.SetAsLastSibling();
+            cooldownText.text = Mathf.CeilToInt(seconds).ToString();
+        }
+    }
+
+    private void AutoBindChildren()
+    {
+        if (skillIcon == null)
+            skillIcon = transform.Find("Icon")?.GetComponent<Image>();
+        if (cooldownFill == null)
+            cooldownFill = transform.Find("CooldownFill")?.GetComponent<Image>();
+        if (cooldownText == null)
+            cooldownText = transform.Find("CooldownText")?.GetComponent<TMP_Text>();
+        if (cooldownText != null)
+            cooldownText.transform.SetAsLastSibling();
     }
 }

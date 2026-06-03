@@ -12,7 +12,7 @@ const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
 const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
 const MASTERY_ATTEMPTS = 4; // 숙달도 판정에 사용할 최고 점수 개수
-const COURSEWARE_QUALITY_VERSION = 'quality-v10-fraction-score-guard';
+const COURSEWARE_QUALITY_VERSION = 'quality-v11-topic-visual-fraction-guard';
 
 const questionFingerprint = (q) =>
   String(q?.question || '')
@@ -98,7 +98,7 @@ function UnitCircleProgress({ started, done, total, size = 50 }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center leading-none gap-0.5">
         <span className="text-white font-extrabold" style={{ fontSize: size * 0.23 }}>{started}</span>
-        <span className="text-white/40" style={{ fontSize: size * 0.15 }}>/{total}</span>
+        <span className="text-white/40" style={{ fontSize: size * 0.15 }}>전체 {total}</span>
       </div>
     </div>
   );
@@ -205,8 +205,15 @@ const fetchLessonContent = async (unit, lesson) => {
       lessonContext, // RAG 교과서 내용
     }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || '생성 실패');
+  const raw = await res.text();
+  let data = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    throw new Error(`AI 콘텐츠 응답을 읽을 수 없습니다. (${res.status})`);
+  }
+  if (!res.ok) throw new Error(data?.error || `생성 실패 (${res.status})`);
+  if (!data) throw new Error(`AI 콘텐츠 응답이 비어 있습니다. (${res.status})`);
   return data;
 };
 
@@ -809,7 +816,7 @@ export default function AICourseware({ studentCode }) {
                     <div className="mt-2 flex items-center gap-2.5">
                       <UnitCircleProgress started={unitMastery.started} done={unitMastery.done} total={unitMastery.total} size={50} />
                       <div>
-                        <div className="text-white/80 text-[10px] font-bold">{unitMastery.started}/{unitMastery.total}차시 진행중</div>
+                        <div className="text-white/80 text-[10px] font-bold">진행 {unitMastery.started}개 · 전체 {unitMastery.total}개</div>
                         {unitMastery.done > 0 && (
                           <div className="text-white/50 text-[9px]">{unitMastery.done}개 숙달도 완료</div>
                         )}
@@ -893,7 +900,7 @@ export default function AICourseware({ studentCode }) {
                             <div className="mt-1 flex items-center gap-1.5">
                               <UnitCircleProgress started={unitMastery2.started} done={unitMastery2.done} total={unitMastery2.total} size={36} />
                               <div>
-                                <div className="text-white/70 text-[9px] font-bold">{unitMastery2.started}/{unitMastery2.total} 진행중</div>
+                                <div className="text-white/70 text-[9px] font-bold">진행 {unitMastery2.started}개 · 전체 {unitMastery2.total}개</div>
                                 {unitMastery2.done > 0 && <div className="text-white/40 text-[8px]">{unitMastery2.done}개 완료</div>}
                               </div>
                             </div>

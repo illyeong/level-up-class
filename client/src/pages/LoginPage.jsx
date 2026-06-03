@@ -478,6 +478,26 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
     }
   };
 
+  const handleStudentTestLogin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'students'),
+        where('studentCode', '==', 'SINSEOK-5-15')
+      ));
+      if (!snap.empty) {
+        onStudentLogin({ id: snap.docs[0].id, ...snap.docs[0].data() });
+      } else {
+        onStudentLogin({ id: 'test', studentCode: 'SINSEOK-5-15', name: '테스트 학생' });
+      }
+    } catch {
+      setError('학생 테스트 페이지로 이동하는 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
       <div
@@ -618,11 +638,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
               교사 테스트
             </button>
             <button
-              onClick={() => {
-                const pw = window.prompt('비밀번호를 입력해 주세요');
-                if (pw === '0505') onStudentLogin({ id: 'test', studentCode: 'SINSEOK-5-15', name: '테스트 학생' });
-                else if (pw !== null) alert('비밀번호가 올바르지 않습니다.');
-              }}
+              onClick={handleStudentTestLogin}
               className="flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors"
             >
               학생 테스트

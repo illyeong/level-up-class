@@ -13,9 +13,7 @@ public class MegabearBossFSM : BossFSM
     private void Awake()
     {
         if (applyPresetOnAwake)
-        {
-            ApplyMegabearPreset();
-        }
+            ApplyMegabearRuntimeDefaults();
     }
 
     private void Reset()
@@ -59,6 +57,24 @@ public class MegabearBossFSM : BossFSM
         smashCastDelay = 0.45f;
         smashRadius = 3.4f;
         smashDamageMultiplier = 2.2f;
+        poisonPoolEffectPrefab = null;
+    }
+
+    private void ApplyMegabearRuntimeDefaults()
+    {
+        bossName = "\uD3EC\uC545\uD55C \uAC70\uB300\uACF0";
+
+        idleAnimName = "Ready";
+        walkAnimName = "Walk";
+        attackAnimName = "Attack";
+        deadAnimName = "Death";
+        hitAnimName = "Ready";
+        chargeAnimName = "AttackAlt";
+        jumpAnimName = "";
+        skillAnimName = "AttackAlt";
+        rageAnimName = "Attack";
+
+        phase2Skill = Phase2SkillType.Smash;
         poisonPoolEffectPrefab = null;
     }
 }

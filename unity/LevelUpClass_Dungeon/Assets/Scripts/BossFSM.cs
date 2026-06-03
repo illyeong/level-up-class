@@ -50,6 +50,7 @@ public class BossFSM : MonoBehaviour
     [Header("Smash Attack (Phase 2)")]
     public GameObject smashEffectPrefab;
     public float smashCooldown = 9f;
+    public float smashTriggerRange = 5f;
     public float smashCastDelay = 0.45f;
     public float smashRadius = 3.2f;
     public float smashDamageMultiplier = 2.1f;
@@ -182,7 +183,7 @@ public class BossFSM : MonoBehaviour
         }
 
         if (isPhase2 && phase2Skill == Phase2SkillType.Smash &&
-            dist <= 5f && Time.time >= lastJumpAttackTime + smashCooldown)
+            dist <= smashTriggerRange && Time.time >= lastJumpAttackTime + smashCooldown)
         {
             StartCoroutine(SmashAttack());
             return;

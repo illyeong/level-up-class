@@ -43,40 +43,6 @@ const DUNGEONS = [
 // ── 스킬 데이터 ───────────────────────────────────────────────
 export const DUNGEON_SKILLS = [
   {
-    id: 'fire_breath',
-    name: '불뿜기',
-    emoji: '🔥',
-    image: '/images/Skills/Skill_FireBreath.png',
-    rarity: 'common',
-    rarityLabel: '일반',
-    rarityColor: 'text-slate-400',
-    rarityBg: 'bg-slate-700 border-slate-500',
-    cost: 300,
-    cooldown: 8,
-    dmgMultiplier: 2.0,
-    aoe: false,
-    desc: '화염을 내뿜어 적에게 2배 데미지를 줍니다.',
-    unityEffect: 'FireBreath',
-    comingSoon: true,
-  },
-  {
-    id: 'explosive_bomb',
-    name: '폭렬탄',
-    emoji: '💣',
-    image: '/images/Skills/Skill_ExplosiveBomb.png',
-    rarity: 'rare',
-    rarityLabel: '희귀',
-    rarityColor: 'text-sky-400',
-    rarityBg: 'bg-sky-900/60 border-sky-500',
-    cost: 700,
-    cooldown: 12,
-    dmgMultiplier: 1.5,
-    aoe: true,
-    desc: '폭발하는 탄을 투척해 주변 모든 적에게 1.5배 데미지를 줍니다.',
-    unityEffect: 'ExplosiveBomb',
-    comingSoon: true,
-  },
-  {
     id: 'shadow_strike',
     name: '분신강타',
     emoji: '👊',
@@ -114,12 +80,13 @@ export const DUNGEON_SKILLS = [
     id: 'fire_breath',
     name: '불 뿜기',
     emoji: '🔥',
-    image: '/images/Skills/Skill_FireBreath.png',
+    image: '/images/Skills/Skill_FireBreath.png?v=2',
     rarity: 'epic',
     rarityLabel: '영웅',
     rarityColor: 'text-orange-400',
     rarityBg: 'bg-orange-900/60 border-orange-500',
     cost: 1800,
+    unlockLevel: 20,
     cooldown: 25,
     dmgMultiplier: 0.45,
     aoe: true,
@@ -131,12 +98,13 @@ export const DUNGEON_SKILLS = [
     id: 'explosive_bomb',
     name: '폭렬탄',
     emoji: '💥',
-    image: '/images/Skills/Skill_ExplosiveBomb.png',
+    image: '/images/Skills/Skill_ExplosiveBomb.png?v=2',
     rarity: 'legendary',
     rarityLabel: '전설',
     rarityColor: 'text-amber-400',
     rarityBg: 'bg-amber-900/60 border-amber-500',
     cost: 3000,
+    unlockLevel: 30,
     cooldown: 30,
     dmgMultiplier: 2.2,
     aoe: true,
@@ -153,13 +121,18 @@ export const DUNGEON_SKILLS = [
     rarityColor: 'text-yellow-300',
     rarityBg: 'bg-gradient-to-br from-yellow-900/80 to-indigo-900/80 border-yellow-400',
     cost: 7000,
+    unlockLevel: 40,
     cooldown: 45,
     dmgMultiplier: 10.0,
     aoe: true,
-    desc: '하늘에서 초거대 번개가 내리꽂혀 화면의 모든 적에게 10배 대미지를 줍니다!',
+    desc: '번개처럼 돌진한 뒤 화면을 가르는 6연속 참격으로 범위 안 적에게 큰 피해를 줍니다.',
     unityEffect: 'ThunderGod',
   },
 ];
+
+const isSkillUnlocked = (skill, studentLevel) => {
+  return studentLevel >= (skill.unlockLevel || 1);
+};
 
 // ── 순차 해금: 앞 던전 클리어해야 다음 Current.png ────────────
 // allDungeons = 전체 던전 목록 (active 관계없이 전부)
@@ -339,7 +312,7 @@ function DungeonPopup({ dungeon, state, onEnter, onClose, isBusy, dungeonTickets
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-slate-600 p-3 text-center text-slate-500 text-xs">
-              ⚡ 스킬 미선택 · 상점에서 스킬을 구매하고 선택하세요
+              ⚡ 스킬 미선택 · 레벨을 올려 스킬을 해금하고 선택하세요
             </div>
           )}
 
@@ -505,10 +478,13 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
           setStudent({ id: d.id, ...data });
           setProgress(data.dungeonProgress || {});
           // 스킬 로드
-          setPurchasedSkills(data.purchasedSkills || []);
+          const savedPurchasedSkills = data.purchasedSkills || [];
+          setPurchasedSkills(savedPurchasedSkills);
           const saved = data.selectedSkill || null;
-          setSelectedSkill(saved);
-          selectedSkillRef.current = saved;
+          const savedSkill = DUNGEON_SKILLS.find(skill => skill.id === saved);
+          const unlockedSaved = savedSkill && isSkillUnlocked(savedSkill, Number(data.level ?? 1) || 1);
+          setSelectedSkill(unlockedSaved ? saved : null);
+          selectedSkillRef.current = unlockedSaved ? saved : null;
           const mergedStats = getDungeonStatsFromStudent(data, equipmentItems);
           characterDataRef.current = {
             parts: data.parts ?? null,
@@ -780,18 +756,18 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
             <div className="flex items-center justify-between px-5 py-4 bg-slate-800 border-b border-slate-700">
               <div>
                 <h2 className="text-white font-extrabold text-lg">⚡ 스킬 상점</h2>
-                <p className="text-slate-400 text-xs mt-0.5">스킬을 구매하고 입장 전 1개를 선택하세요</p>
+                <p className="text-slate-400 text-xs mt-0.5">레벨을 달성하면 자동 해금됩니다. 입장 전 1개를 선택하세요</p>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-cyan-300 font-extrabold text-sm">💎 {(student?.diamonds || 0).toLocaleString()}</span>
+                <span className="text-cyan-300 font-extrabold text-sm">Lv.{Number(student?.level ?? 1) || 1}</span>
                 <button onClick={() => setShowSkillShop(false)} className="text-slate-400 hover:text-white text-xl">✕</button>
               </div>
             </div>
             <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
               {DUNGEON_SKILLS.map(skill => {
-                const owned = purchasedSkills.includes(skill.id);
+                const studentLevel = Number(student?.level ?? 1) || 1;
+                const owned = isSkillUnlocked(skill, studentLevel);
                 const selected = selectedSkill === skill.id;
-                const canAfford = (student?.diamonds || 0) >= skill.cost;
                 if (skill.comingSoon) return (
                   <div key={skill.id} className="rounded-2xl border-2 border-slate-700 bg-slate-900/60 p-4 opacity-50 relative overflow-hidden">
                     <div className="absolute inset-0 flex items-center justify-center z-10">
@@ -833,25 +809,9 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
                       </div>
                       <div className="shrink-0 flex flex-col gap-2 items-end">
                         {!owned ? (
-                          <button
-                            onClick={async () => {
-                              if (!canAfford) return;
-                              const docId = studentDocIdRef.current;
-                              if (!docId) return;
-                              const newDiamonds = (student.diamonds || 0) - skill.cost;
-                              const newPurchased = [...purchasedSkills, skill.id];
-                              await updateDoc(doc(db, 'students', docId), {
-                                diamonds: newDiamonds,
-                                purchasedSkills: newPurchased,
-                              });
-                              setStudent(p => ({ ...p, diamonds: newDiamonds }));
-                              setPurchasedSkills(newPurchased);
-                            }}
-                            disabled={!canAfford}
-                            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all
-                              ${canAfford ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
-                            💎 {skill.cost.toLocaleString()} 구매
-                          </button>
+                          <div className="px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-700 text-slate-400 border border-slate-600">
+                            Lv.{skill.unlockLevel} 해금
+                          </div>
                         ) : (
                           <button
                             onClick={async () => {
@@ -895,8 +855,10 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
           <button onClick={() => setShowSkillShop(true)}
             className="flex items-center gap-1.5 bg-indigo-700/60 border border-indigo-500 px-3 py-1.5 rounded-xl text-xs font-extrabold text-indigo-200 hover:bg-indigo-700 transition-colors">
             ⚡ 스킬
-            {purchasedSkills.length > 0 && (
-              <span className="bg-indigo-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full">{purchasedSkills.length}</span>
+            {DUNGEON_SKILLS.filter(skill => isSkillUnlocked(skill, Number(student?.level ?? 1) || 1)).length > 0 && (
+              <span className="bg-indigo-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full">
+                {DUNGEON_SKILLS.filter(skill => isSkillUnlocked(skill, Number(student?.level ?? 1) || 1)).length}
+              </span>
             )}
           </button>
           {!isTeacher && (

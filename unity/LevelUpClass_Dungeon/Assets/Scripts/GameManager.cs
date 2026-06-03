@@ -28,6 +28,9 @@ public class GameManager : MonoBehaviour
             var go = new GameObject("MobileInputReceiver");
             go.AddComponent<MobileInputReceiver>();
         }
+
+        if (GetComponent<DungeonSharedCanvasSpawner>() == null)
+            gameObject.AddComponent<DungeonSharedCanvasSpawner>();
     }
 
     // ── 씬 이름 상수 ──────────────────────────────────────────────
