@@ -14,6 +14,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
   const [loading, setLoading]     = useState(true);
   const [view, setView]           = useState('list'); // 'list' | 'write'
   const [selectedPost, setSelectedPost] = useState(null);
+  const [lightboxSrc, setLightboxSrc] = useState(null);
 
   // 교사 게시판 (boards 컬렉션)
   const [teacherBoards, setTeacherBoards] = useState([]);
@@ -395,7 +396,12 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                     <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words line-clamp-6">{post.content}</p>
                   )}
                   {post.imageBase64 && (
-                    <img src={post.imageBase64} alt="" className="w-full rounded-xl object-cover max-h-40 mt-2 border border-slate-200" />
+                    <img
+                      src={post.imageBase64}
+                      alt=""
+                      className="w-full rounded-xl object-cover max-h-40 mt-2 border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
+                      onClick={e => { e.stopPropagation(); setLightboxSrc(post.imageBase64); }}
+                    />
                   )}
                   {post.attachment?.dataUrl && (
                     <a href={post.attachment.dataUrl} download={post.attachment.name || 'file'}
@@ -433,15 +439,15 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
         <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4">
           {posts.map((post, idx) => (
             <div key={post.id} style={{ breakInside: 'avoid', marginBottom: '1rem' }}>
-              <div className={`rounded-2xl border-2 p-4 shadow-sm cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5
+              <div className={`rounded-2xl border-2 p-4 shadow-sm cursor-pointer relative group transition-all hover:shadow-md hover:-translate-y-0.5
                 ${POST_COLORS[idx % POST_COLORS.length]}`}
                 onClick={() => openDetail(post)}>
                 {/* 작성자 */}
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-12 h-12 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+                <div className="flex items-center gap-2 mb-3 mt-1">
+                  <div className="w-14 h-14 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
                     {post.authorImage
                       ? <img src={post.authorImage} alt="" className="w-full h-full object-contain scale-[2]" />
-                      : <span className="text-xl">🧑‍🎓</span>}
+                      : <span className="text-2xl">🧑‍🎓</span>}
                   </div>
                   <div className="min-w-0">
                     <div className="font-extrabold text-xs text-slate-700 truncate">{post.authorName}</div>
@@ -452,13 +458,13 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                 <div className="font-extrabold text-sm text-slate-800 mb-1 leading-snug">{post.title}</div>
                 {/* 내용 */}
                 {post.content && (() => {
-                  const isLong = post.content.length > 120 || post.content.split('\n').length > 5;
+                  const isLong = post.content.length > 50 || post.content.split('\n').length > 3;
                   return (
                     <>
-                      <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap break-words line-clamp-5 mb-1">{post.content}</p>
+                      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words line-clamp-5 mb-1">{post.content}</p>
                       {isLong && (
                         <button onClick={e => { e.stopPropagation(); openDetail(post); }}
-                          className="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold transition-colors">
+                          className="inline-flex items-center rounded-full bg-white/80 border border-indigo-100 px-2.5 py-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-white font-extrabold transition-colors">
                           더보기 ▾
                         </button>
                       )}
@@ -468,8 +474,8 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                 {/* 이미지 */}
                 {post.imageUrl && (
                   <img src={post.imageUrl} alt=""
-                    className="w-full rounded-xl object-cover max-h-40 mt-2 border border-slate-200"
-                    onClick={e => e.stopPropagation()} />
+                    className="w-full rounded-xl object-cover max-h-40 mt-2 border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
+                    onClick={e => { e.stopPropagation(); setLightboxSrc(post.imageUrl); }} />
                 )}
                 {/* 첨부파일 */}
                 {post.attachment?.name && (
@@ -593,7 +599,8 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
                   {selectedPost.imageUrl && (
                     <img src={selectedPost.imageUrl} alt=""
-                      className="w-full rounded-xl max-h-72 object-contain bg-slate-50 border border-slate-100" />
+                      className="w-full rounded-xl max-h-72 object-contain bg-slate-50 border border-slate-100 cursor-zoom-in hover:opacity-90 transition-opacity"
+                      onClick={() => setLightboxSrc(selectedPost.imageUrl)} />
                   )}
                   {selectedPost.attachment?.dataUrl && (
                     <a
@@ -642,6 +649,28 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <img
+            src={lightboxSrc}
+            alt=""
+            className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            onClick={() => setLightboxSrc(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white text-2xl font-bold"
+            aria-label="닫기"
+          >
+            ×
+          </button>
         </div>
       )}
     </div>
