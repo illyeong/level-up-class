@@ -64,10 +64,10 @@ const GROUP_COLORS = [
 ];
 
 const BOARD_TYPE_INFO = {
-  'vertical-group':   { label: '세로그룹형', emoji: '⊞' },
-  'horizontal-group': { label: '가로그룹형', emoji: '☰' },
-  'wall':             { label: '담벼락형',   emoji: '🧱' },
-  'map':              { label: '지도형',     emoji: '🗺️' },
+  'vertical-group':   { label: '세로그룹형', emoji: '⊞', strip: 'bg-red-500' },
+  'horizontal-group': { label: '가로그룹형', emoji: '☰', strip: 'bg-orange-500' },
+  'wall':             { label: '담벼락형',   emoji: '🧱', strip: 'bg-green-500' },
+  'map':              { label: '지도형',     emoji: '🗺️', strip: 'bg-purple-500' },
 };
 
 const getCardColor = (id) => CARD_COLORS.find(c => c.id === id) || CARD_COLORS[0];
@@ -249,7 +249,7 @@ function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinne
           </div>
         ) : post.content ? (
           <div className="mb-2">
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 line-clamp-6">{post.content}</p>
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 line-clamp-5">{post.content}</p>
             {isLongContent && (
               <button
                 type="button"
@@ -963,34 +963,38 @@ export default function LearningBoard({ studentCode }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {boards.map((board, i) => {
-            const color    = CARD_COLORS[i % CARD_COLORS.length];
+          {boards.map((board) => {
             const typeInfo = BOARD_TYPE_INFO[board.boardType];
+            const fmtCreatedAt = board.createdAt?.toDate
+              ? board.createdAt.toDate().toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
+              : board.createdAt?.seconds
+                ? new Date(board.createdAt.seconds * 1000).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
+                : '날짜 없음';
             return (
-              <button key={board.id} onClick={() => openBoard(board)}
-                className={`text-left rounded-2xl border-2 ${color.bg} ${color.border}
-                  shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all active:scale-[0.98] overflow-hidden`}>
-                {/* 색상 헤더 */}
-                <div className="px-4 py-2.5 border-b border-black/5" style={{ backgroundColor: board.bgColor || '#f8fafc' }}>
-                  <span className="text-xs font-extrabold text-slate-600 flex items-center gap-1.5">
-                    {typeInfo ? (
-                      <>
-                        <span className="text-base">{typeInfo.emoji}</span>
-                        {typeInfo.label}
-                      </>
-                    ) : '📋 게시판'}
-                  </span>
+              <div key={board.id}
+                className="bg-white rounded-2xl border-2 border-slate-200 shadow-sm overflow-hidden transition-all cursor-pointer group hover:shadow-lg hover:-translate-y-0.5"
+                onClick={() => openBoard(board)}>
+                <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center ${typeInfo?.strip || 'bg-slate-400'}`}>
+                  <span>{typeInfo?.label || '기본형'}</span>
+                  <span>🟢 공개</span>
                 </div>
-                <div className="p-5">
-                  <h3 className="font-extrabold text-slate-800 text-base mb-1 leading-tight">{board.title}</h3>
-                  {board.description && (
-                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{board.description}</p>
-                  )}
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="text-xs text-indigo-600 font-extrabold">입장하기 →</span>
+                <div className="p-4">
+                  <h3 className="font-extrabold text-slate-800 text-base mb-1 group-hover:text-indigo-700 transition-colors">{board.title}</h3>
+                  {board.description && <p className="text-xs text-slate-500 mb-2 line-clamp-2">{board.description}</p>}
+                  <div className="text-[11px] text-slate-400 mb-3 flex items-center gap-1">
+                    🗓 {fmtCreatedAt}
+                  </div>
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); openBoard(board); }}
+                      className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors"
+                    >
+                      입장하기
+                    </button>
                   </div>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>

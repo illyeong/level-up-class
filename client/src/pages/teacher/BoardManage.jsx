@@ -534,14 +534,16 @@ export default function BoardManage({ selectedClass, user }) {
         </span>
       </div>
       {post.content && (() => {
-        const LIMIT = 120;
-        const isLong = post.content.length > LIMIT || post.content.split('\n').length > 5;
+        const isLong = post.content.length > 50 || post.content.split('\n').length > 3;
         return (
           <>
             <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 line-clamp-5">{post.content}</p>
             {isLong && (
-              <button onClick={() => setExpandedPost(post)}
-                className="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold mb-1 transition-colors">
+              <button
+                type="button"
+                onClick={() => setExpandedPost(post)}
+                className="inline-flex items-center rounded-full bg-white/80 border border-indigo-100 px-2.5 py-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-white font-extrabold transition-colors mb-1"
+              >
                 더보기 ▾
               </button>
             )}
