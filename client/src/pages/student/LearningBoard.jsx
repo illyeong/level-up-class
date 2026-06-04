@@ -306,6 +306,7 @@ export default function LearningBoard({ studentCode }) {
   const [student, setStudent]             = useState(null);
   const [isLoading, setIsLoading]         = useState(true);
   const [loadingPosts, setLoadingPosts]   = useState(false);
+  const [hasNewPosts, setHasNewPosts]     = useState(false);
 
   // 글쓰기
   const [showWrite, setShowWrite]         = useState(false);
@@ -331,6 +332,7 @@ export default function LearningBoard({ studentCode }) {
   const attachFileRef  = useRef(null);
   const mapDivRef      = useRef(null);
   const mapInstance    = useRef(null);
+  const latestPostIdRef = useRef(null);
 
   // ── 학생 정보 + 게시판 목록 로드 ─────────────────────────────
   useEffect(() => {
@@ -359,6 +361,21 @@ export default function LearningBoard({ studentCode }) {
     })();
   }, [studentCode]);
 
+  const loadBoardPosts = async (board = selectedBoard) => {
+    if (!board?.id) return;
+    setLoadingPosts(true);
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'boards', board.id, 'posts'), orderBy('createdAt', 'desc'))
+      );
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setPosts(list);
+      latestPostIdRef.current = list[0]?.id || null;
+      setHasNewPosts(false);
+    } catch (e) { console.error(e); }
+    finally { setLoadingPosts(false); }
+  };
+
   const openBoard = async (board) => {
     setSelectedBoard(board);
     setPages(board.pages || []);
@@ -367,14 +384,9 @@ export default function LearningBoard({ studentCode }) {
     setSelectedSheetId(nextSheets[0]?.id || null);
     setShowWrite(false);
     setWriteLat(null); setWriteLng(null);
-    setLoadingPosts(true);
-    try {
-      const snap = await getDocs(
-        query(collection(db, 'boards', board.id, 'posts'), orderBy('createdAt', 'desc'))
-      );
-      setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) { console.error(e); }
-    finally { setLoadingPosts(false); }
+    latestPostIdRef.current = null;
+    setHasNewPosts(false);
+    await loadBoardPosts(board);
   };
 
   const addSheet = async () => {
@@ -435,6 +447,25 @@ export default function LearningBoard({ studentCode }) {
     window.L ? setTimeout(init, 100) : loadLeaflet();
     return () => { if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
   }, [selectedBoard?.boardType, loadingPosts, posts, selectedSheetId]);
+
+  useEffect(() => {
+    if (!selectedBoard?.id) return;
+    const timer = setInterval(async () => {
+      if (loadingPosts) return;
+      try {
+        const snap = await getDocs(
+          query(collection(db, 'boards', selectedBoard.id, 'posts'), orderBy('createdAt', 'desc'))
+        );
+        const latestId = snap.docs[0]?.id || null;
+        if (latestPostIdRef.current && latestId && latestId !== latestPostIdRef.current) {
+          setHasNewPosts(true);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }, 20000);
+    return () => clearInterval(timer);
+  }, [selectedBoard?.id, loadingPosts]);
 
   // ── 이미지 선택 ──────────────────────────────────────────────
   const handleImageSelect = async (e) => {

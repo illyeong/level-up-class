@@ -150,6 +150,8 @@ export default function BoardManage({ selectedClass, user }) {
   const resizeDragRef = useRef(null); // { pageId, startCoord, startSize, axis }
   const [isRenamingSheet, setIsRenamingSheet] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(false);
+  const [hasNewPosts, setHasNewPosts] = useState(false);
+  const latestPostIdRef = useRef(null);
 
   // write
   const [showWrite, setShowWrite]   = useState(false);
@@ -231,6 +233,21 @@ export default function BoardManage({ selectedClass, user }) {
   };
 
   // ── open board ────────────────────────────────────────────────
+  const loadBoardPosts = async (board = selectedBoard) => {
+    if (!board?.id) return;
+    setLoadingPosts(true);
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'boards', board.id, 'posts'), orderBy('createdAt', 'desc'))
+      );
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setPosts(list);
+      latestPostIdRef.current = list[0]?.id || null;
+      setHasNewPosts(false);
+    } catch (e) { console.error(e); }
+    finally { setLoadingPosts(false); }
+  };
+
   const openBoard = async (board) => {
     setSelectedBoard(board);
     setPages(board.pages || []);
@@ -239,14 +256,9 @@ export default function BoardManage({ selectedClass, user }) {
     setSelectedSheetId(nextSheets[0]?.id || null);
     setEditingSheetId(null);
     setEditingSheetTitle('');
-    setLoadingPosts(true);
-    try {
-      const snap = await getDocs(
-        query(collection(db, 'boards', board.id, 'posts'), orderBy('createdAt', 'desc'))
-      );
-      setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) { console.error(e); }
-    finally { setLoadingPosts(false); }
+    latestPostIdRef.current = null;
+    setHasNewPosts(false);
+    await loadBoardPosts(board);
   };
 
   const addPage = async () => {
@@ -551,6 +563,25 @@ export default function BoardManage({ selectedClass, user }) {
     window.L ? setTimeout(init, 100) : loadLeaflet();
     return () => { if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
   }, [selectedBoard?.boardType, loadingPosts, posts, selectedSheetId]);
+
+  useEffect(() => {
+    if (!selectedBoard?.id) return;
+    const timer = setInterval(async () => {
+      if (loadingPosts) return;
+      try {
+        const snap = await getDocs(
+          query(collection(db, 'boards', selectedBoard.id, 'posts'), orderBy('createdAt', 'desc'))
+        );
+        const latestId = snap.docs[0]?.id || null;
+        if (latestPostIdRef.current && latestId && latestId !== latestPostIdRef.current) {
+          setHasNewPosts(true);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }, 20000);
+    return () => clearInterval(timer);
+  }, [selectedBoard?.id, loadingPosts]);
 
   // ── PostCard ──────────────────────────────────────────────────
   const PostCard = ({ post, idx }) => (
@@ -877,6 +908,19 @@ export default function BoardManage({ selectedClass, user }) {
             <div className="bg-white/95 shadow-lg rounded-xl px-3 py-2 text-xs font-extrabold text-slate-600 border border-slate-200">
               📌 게시물 {sorted.length}개
             </div>
+            {hasNewPosts && (
+              <div className="bg-amber-100 shadow-lg rounded-xl px-3 py-2 text-xs font-extrabold text-amber-700 border border-amber-200">
+                새 글이 올라왔어요
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => loadBoardPosts()}
+              disabled={loadingPosts}
+              className="bg-white/95 shadow-lg rounded-xl px-3 py-2 text-xs font-extrabold text-slate-600 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50"
+            >
+              새로고침
+            </button>
           </div>
           <div className="absolute bottom-4 left-4 z-[1100] max-w-sm rounded-2xl border border-indigo-100 bg-white/95 px-4 py-3 text-xs text-slate-600 shadow-lg">
             <div className="font-extrabold text-slate-800">지도에 글 남기기</div>
@@ -1252,6 +1296,19 @@ export default function BoardManage({ selectedClass, user }) {
                 )}
                 <h1 className="text-sm font-extrabold text-slate-800 truncate">{selectedBoard.title}</h1>
               </div>
+              {hasNewPosts && (
+                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-extrabold text-amber-700 border border-amber-200 shrink-0">
+                  새 글이 올라왔어요
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => loadBoardPosts()}
+                disabled={loadingPosts}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-extrabold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 shrink-0"
+              >
+                새로고침
+              </button>
               <span className="text-xs text-slate-400 font-medium shrink-0">게시물 {sorted.length}개</span>
             </div>
             {/* 시트 탭 줄 */}
