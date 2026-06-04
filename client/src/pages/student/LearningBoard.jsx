@@ -526,6 +526,8 @@ export default function LearningBoard({ studentCode }) {
       };
       const ref = await addDoc(collection(db, 'boards', selectedBoard.id, 'posts'), newPost);
       const local = { id: ref.id, ...newPost, createdAt: { toDate: () => new Date() } };
+      latestPostIdRef.current = ref.id;
+      setHasNewPosts(false);
       setPosts(prev => [local, ...prev]);
       if (selectedBoard.boardType === 'map' && writeLat && mapInstance.current && window.L) {
         window.L.marker([writeLat, writeLng]).addTo(mapInstance.current)
@@ -734,14 +736,29 @@ export default function LearningBoard({ studentCode }) {
             className="absolute top-3 left-3 z-[1000] bg-white hover:bg-slate-50 shadow-lg rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:text-indigo-600 border border-slate-200 flex items-center gap-2 transition-all">
             ← 목록
           </button>
+          <div className="absolute top-3 right-3 z-[1000] flex flex-wrap items-center justify-end gap-2">
+            {filteredPosts.length > 0 && (
+              <div className="bg-white/90 shadow-lg rounded-xl px-3 py-2 text-xs font-bold text-slate-600 border border-slate-200">
+                📌 게시물 {filteredPosts.length}개
+              </div>
+            )}
+            {hasNewPosts && (
+              <div className="bg-amber-100 shadow-lg rounded-xl px-3 py-2 text-xs font-extrabold text-amber-700 border border-amber-200">
+                새 글이 올라왔어요
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => loadBoardPosts()}
+              disabled={loadingPosts}
+              className="bg-white/95 shadow-lg rounded-xl px-3 py-2 text-xs font-extrabold text-slate-600 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50"
+            >
+              새로고침
+            </button>
+          </div>
           <div className="absolute bottom-4 left-4 bg-white/90 rounded-xl px-3 py-2 text-xs text-slate-500 shadow pointer-events-none z-[1000]">
             📍 지도를 클릭하면 해당 위치에 게시물을 작성합니다
           </div>
-          {filteredPosts.length > 0 && (
-            <div className="absolute top-3 right-3 z-[1000] bg-white/90 shadow-lg rounded-xl px-3 py-2 text-xs font-bold text-slate-600 border border-slate-200">
-              📌 게시물 {filteredPosts.length}개
-            </div>
-          )}
         </div>
       );
     }
@@ -778,6 +795,19 @@ export default function LearningBoard({ studentCode }) {
                   <span className="text-xs text-slate-400 truncate hidden sm:block">— {selectedBoard.description}</span>
                 )}
               </div>
+              {hasNewPosts && (
+                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-extrabold text-amber-700 border border-amber-200 shrink-0">
+                  새 글이 올라왔어요
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => loadBoardPosts()}
+                disabled={loadingPosts}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-extrabold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 shrink-0"
+              >
+                새로고침
+              </button>
               <span className="text-xs text-slate-400 shrink-0 font-medium">{filteredPosts.length}개</span>
             </div>
             <div className="mb-3 bg-slate-50 border border-slate-200 rounded-xl p-1.5 flex items-center gap-1.5 overflow-x-auto">

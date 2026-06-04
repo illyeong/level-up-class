@@ -440,6 +440,8 @@ export default function BoardManage({ selectedClass, user }) {
         pinned: false, createdAt: serverTimestamp(),
       };
       const ref = await addDoc(collection(db, 'boards', selectedBoard.id, 'posts'), newPost);
+      latestPostIdRef.current = ref.id;
+      setHasNewPosts(false);
       setPosts(prev => [{ id: ref.id, ...newPost, createdAt: { toDate: () => new Date() } }, ...prev]);
       if (selectedBoard.boardType === 'map') {
         setSelectedMapPost({ id: ref.id, ...newPost, createdAt: { toDate: () => new Date() } });

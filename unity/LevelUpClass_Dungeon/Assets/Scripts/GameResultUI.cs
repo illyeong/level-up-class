@@ -55,7 +55,16 @@ public class GameResultUI : MonoBehaviour
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")]
     private static extern void SendDungeonResultToReact(string json);
+    [DllImport("__Internal")]
+    private static extern void SetHtmlControlsEnabled(int enabled);
 #endif
+
+    static void HtmlControls(bool on)
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        SetHtmlControlsEnabled(on ? 1 : 0);
+#endif
+    }
 
     // ── 내부 상태 ─────────────────────────────────────────────
     private RewardData[]        _rewards    = new RewardData[3];
@@ -82,7 +91,8 @@ public class GameResultUI : MonoBehaviour
     {
         _selected     = -1;
         _confirmReady = false;
-        joystickObject?.SetActive(false); // 조이스틱이 상자 클릭을 가로채지 않도록
+        joystickObject?.SetActive(false);
+        HtmlControls(false); // HTML 공격존·조이스틱 비활성 → 상자 탭이 공격으로 처리되지 않도록
         SpawnChests();
 
         if (rewardTitleText != null)
@@ -301,6 +311,7 @@ public class GameResultUI : MonoBehaviour
         if (_dimOverlay) Destroy(_dimOverlay);
         rewardPanel?.SetActive(false);
         joystickObject?.SetActive(true);
+        HtmlControls(true); // HTML 공격존·조이스틱 재활성
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         int monDia    = GameManager.Instance?.sessionEarnedDiamond ?? 0;
