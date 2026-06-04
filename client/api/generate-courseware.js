@@ -656,7 +656,10 @@ export default async function handler(req, res) {
 
   const isUnitTest = lessonTitle === '단원평가';
   const requested = Number(questionCount) || 5;
-  const poolSize = isUnitTest
+  const fastInitial = payload.fastInitial === true && !isUnitTest;
+  const poolSize = fastInitial
+    ? Math.min(Math.max(requested, 5), 6)
+    : isUnitTest
     ? Math.min(Math.max(requested + 5, 10), 12)
     : Math.min(Math.max(requested + 3, 8), 10);
 
@@ -681,7 +684,7 @@ export default async function handler(req, res) {
       apiKey,
       model,
       prompt,
-      maxTokens: isUnitTest ? 5500 : 4500,
+      maxTokens: fastInitial ? 3200 : isUnitTest ? 4800 : 3800,
     });
 
     const parsed = tryParseJson(rawText);
@@ -704,6 +707,7 @@ export default async function handler(req, res) {
       generatorVersion: COURSEWARE_GENERATOR_VERSION,
       requestedQuestionCount: requested,
       poolSize: result.questions.length,
+      isPartialPool: fastInitial,
       validationIssues: validationIssues.length > 0 ? validationIssues : null,
       validatedAt: new Date().toISOString(),
     });

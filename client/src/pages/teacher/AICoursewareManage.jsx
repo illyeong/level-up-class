@@ -803,6 +803,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
   const [text,            setText]            = useState('');
   const [existing,        setExisting]        = useState(null); // 기존 등록 내용
   const [saving,          setSaving]          = useState(false);
+  const [preGenerating,   setPreGenerating]   = useState(false);
   const [extracting,      setExtracting]      = useState(false);
   const [bulkGenerating,  setBulkGenerating]  = useState(false);
   const [toast,           setToast]           = useState(null);
@@ -820,6 +821,45 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     else { setExisting(null); setText(''); }
   };
 
+  const preGenerateLessonContent = async (unit, lesson, lessonContext) => {
+    const key = lkey(unit, lesson);
+    const response = await fetch('/api/generate-courseware', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grade: unit.grade,
+        semester: unit.semester,
+        publisher: unit.publisher || '국정',
+        unitName: unit.unitName,
+        lessonNo: lesson.no,
+        lessonTitle: lesson.title,
+        learningGoal: '',
+        keywords: lesson.keywords || [],
+        difficulty: 'normal',
+        questionCount: 5,
+        lessonContext,
+      }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data) {
+      throw new Error(data?.error || `문제 사전 생성 실패 (${response.status})`);
+    }
+
+    await setDoc(doc(db, 'aiLessonContent', key), {
+      ...data,
+      lessonKey: key,
+      grade: unit.grade,
+      semester: unit.semester,
+      publisher: unit.publisher,
+      unitId: unit.id,
+      unitName: unit.unitName,
+      lessonNo: lesson.no,
+      lessonTitle: lesson.title,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  };
+
   const saveContext = async () => {
     if (!selectedUnit || !selectedLesson) return;
     if (!text.trim()) { showToast('내용을 입력해주세요', 'error'); return; }
@@ -834,7 +874,13 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     await setDoc(doc(db, 'aiLessonContext', key), data);
     setExisting(data);
     setSaving(false);
-    showToast('✅ 교과서 내용이 저장됐습니다! 이제 AI가 이 내용으로 문제를 생성합니다.');
+    showToast('교과서 내용이 저장됐습니다. 문제를 미리 생성합니다.');
+
+    setPreGenerating(true);
+    preGenerateLessonContent(selectedUnit, selectedLesson, data.text)
+      .then(() => showToast('문제 사전 생성 완료! 학생은 바로 학습을 시작할 수 있습니다.'))
+      .catch(err => showToast(`문제 사전 생성 실패: ${err.message}`, 'error'))
+      .finally(() => setPreGenerating(false));
   };
 
   const deleteContext = async () => {
@@ -1089,9 +1135,9 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
 
             {/* 저장/삭제 버튼 */}
             <div className="flex gap-3">
-              <button onClick={saveContext} disabled={saving || !text.trim()}
+              <button onClick={saveContext} disabled={saving || preGenerating || !text.trim()}
                 className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl text-sm disabled:opacity-50 transition-colors shadow-md">
-                {saving ? '저장 중...' : '💾 교과서 내용 저장'}
+                {saving ? '저장 중...' : preGenerating ? '문제 미리 생성 중...' : '💾 교과서 내용 저장'}
               </button>
               {existing && (
                 <button onClick={deleteContext}
@@ -1105,8 +1151,8 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
               <p className="font-bold mb-1">💡 활용 방법</p>
               <ul className="space-y-0.5 list-disc list-inside">
                 <li>교과서 핵심 개념, 예제 문제, 공식을 입력하세요</li>
-                <li>등록 후 학생이 이 차시에 접속하면 입력한 내용 기반으로 문제가 생성됩니다</li>
-                <li>기존 캐시가 있다면 ↻ 버튼으로 재생성해야 적용됩니다</li>
+                <li>저장하면 입력한 내용을 기반으로 문제를 미리 생성합니다</li>
+                <li>사전 생성이 완료된 차시는 학생이 기다리지 않고 바로 시작할 수 있습니다</li>
                 <li>최대 3,000자까지 입력 가능합니다</li>
                 <li className="font-bold text-amber-900">📣 전체 적용: 등록된 교과서 내용은 같은 학년·단원·차시의 모든 AI 학습관 문제 생성에 반영됩니다 (반 구분 없이)</li>
               </ul>

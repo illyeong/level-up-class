@@ -44,7 +44,7 @@ function saveRecentQuestionKeys(key, selectedKeys, max = 20) {
 function shouldRefreshLessonContent(data) {
   if (!data) return true;
   if (data.generatorVersion !== COURSEWARE_QUALITY_VERSION) return true;
-  if (!Array.isArray(data.questions) || data.questions.length < 8) return true;
+  if (!Array.isArray(data.questions) || data.questions.length < SESSION_Q_NUM) return true;
   return false;
 }
 
@@ -182,8 +182,9 @@ const lessonKey = (unit, lesson) =>
 // ── 백그라운드 프리로딩 캐시 ─────────────────────────────────
 // 차시 목록 열릴 때 첫 번째 차시를 미리 API 호출 → 클릭 시 즉시 사용
 const preloadMap = new Map(); // key → Promise<data>
+const expansionMap = new Map(); // key → Promise<data>
 
-const fetchLessonContent = async (unit, lesson) => {
+const fetchLessonContent = async (unit, lesson, { fastInitial = true } = {}) => {
   // RAG: 교사가 등록한 교과서 내용이 있으면 가져와서 프롬프트에 포함
   const lKey = `v3_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
   let lessonContext = null;
@@ -203,6 +204,7 @@ const fetchLessonContent = async (unit, lesson) => {
       learningGoal: '', keywords: lesson.keywords || [],
       difficulty: 'normal', questionCount: SESSION_Q_NUM,
       lessonContext, // RAG 교과서 내용
+      fastInitial,
     }),
   });
   const raw = await res.text();
@@ -366,6 +368,39 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   }, [step, selectedUnit]);
 
   // ── 차시 선택 → AI 콘텐츠 로드/생성 후 바로 학습 시작 ──────
+  const expandLessonPoolInBackground = (unit, lesson, currentData) => {
+    if (!currentData?.isPartialPool && (currentData?.questions?.length || 0) >= 8) return;
+
+    const key = lessonKey(unit, lesson);
+    if (expansionMap.has(key)) return;
+
+    const promise = fetchLessonContent(unit, lesson, { fastInitial: false })
+      .then(async expanded => {
+        await setDoc(doc(db, 'aiLessonContent', key), {
+          ...expanded,
+          lessonKey: key,
+          grade: unit.grade,
+          semester: unit.semester,
+          publisher: unit.publisher,
+          unitId: unit.id,
+          unitName: unit.unitName,
+          lessonNo: lesson.no,
+          lessonTitle: lesson.title,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+        preloadMap.set(key, Promise.resolve(expanded));
+        return expanded;
+      })
+      .catch(err => {
+        console.warn('[AI Courseware] background pool expansion failed:', err);
+        return currentData;
+      })
+      .finally(() => expansionMap.delete(key));
+
+    expansionMap.set(key, promise);
+  };
+
   const openLesson = async (unit, lesson) => {
     setUnit(unit); setLesson(lesson);
     setCardIdx(0); setQIdx(0);
@@ -433,6 +468,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       stepTimer.clear();
       setContent(pickSessionQuestions(data, key)); // 최근 문항을 피해서 선택
       setStep('concept');
+      expandLessonPoolInBackground(unit, lesson, data);
     } catch (e) {
       stepTimer.clear();
       showToast('콘텐츠 로드에 실패했습니다. 다시 시도해주세요.', 'error');
