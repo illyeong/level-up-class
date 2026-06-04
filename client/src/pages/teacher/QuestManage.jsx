@@ -94,6 +94,12 @@ const DEFAULT_FORM = {
   shareToCommunity: false, importedFromShared: false, sharedSourceId: null,
 };
 
+const toRewardNumber = (value) => {
+  if (value === '' || value == null) return 0;
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+};
+
 const buildQuestPayload = (form) => ({
   title: String(form.title || '').trim(),
   description: form.description || '',
@@ -103,9 +109,9 @@ const buildQuestPayload = (form) => ({
   repeatWeekly: form.type === 'weekly' ? !!form.repeatWeekly : false,
   difficulty: form.difficulty || 'easy',
   rewards: {
-    exp: Number(form?.rewards?.exp) || 0,
-    gold: Number(form?.rewards?.gold) || 0,
-    diamond: Number(form?.rewards?.diamond) || 0,
+    exp: toRewardNumber(form?.rewards?.exp),
+    gold: toRewardNumber(form?.rewards?.gold),
+    diamond: toRewardNumber(form?.rewards?.diamond),
   },
   skills: Array.isArray(form.skills) ? form.skills : [],
   active: form.active !== false,
@@ -284,9 +290,18 @@ function EndedQuestCard({ quest, onReactivate, onDelete }) {
 // ─────────────────────── QuestFormModal ──────────────────────
 function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleSkill }) {
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
-  const setReward = (key, val) => setForm(prev => ({
-    ...prev, rewards: { ...prev.rewards, [key]: Number(val) || 0 },
-  }));
+  const setReward = (key, val) => setForm(prev => {
+    if (val === '') {
+      return { ...prev, rewards: { ...prev.rewards, [key]: '' } };
+    }
+
+    const next = Number(val);
+    if (!Number.isFinite(next)) return prev;
+    return {
+      ...prev,
+      rewards: { ...prev.rewards, [key]: Math.max(0, next) },
+    };
+  });
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -789,11 +804,12 @@ function QuestManage({ selectedClass }) {
     if (!form.title.trim()) return showToast('퀘스트 이름을 입력해주세요.', 'error');
     setIsLoading(true);
     try {
+      const payload = buildQuestPayload(form);
       if (editingQuestId) {
-        await updateDoc(doc(db, 'quests', editingQuestId), { ...form, updatedAt: serverTimestamp() });
+        await updateDoc(doc(db, 'quests', editingQuestId), { ...payload, updatedAt: serverTimestamp() });
       } else {
         await addDoc(collection(db, 'quests'), {
-          ...form,
+          ...payload,
           teacherUid: selectedClass?.teacherUid || null,
           classId:    selectedClass?.id          || null,
           createdAt:  serverTimestamp(),
