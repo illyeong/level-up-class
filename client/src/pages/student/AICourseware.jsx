@@ -230,8 +230,9 @@ const LOADING_MSGS = [
   '해설을 다듬는 중...',
 ];
 
-export default function AICourseware({ studentCode }) {
+export default function AICourseware({ studentCode, isTeacher = false, teacherUid }) {
   const [student, setStudent]   = useState(null);
+  // 교사 모드: 학생 데이터 없이 단원/차시 브라우징 및 미리보기 가능
 
   // 브라우징 상태
   const [step, setStep]         = useState('browse'); // 'browse' | 'lessons' | 'concept' | 'quiz' | 'result'
@@ -512,10 +513,10 @@ export default function AICourseware({ studentCode }) {
     const correctCount = Math.min(total, allAns.filter(a => a.correct).length);
     const score = Math.min(100, Math.max(0, Math.round((correctCount / total) * 100)));
     const today        = getSessionDate(); // KST 오전 8시 기준
-    // 오늘 이미 보상 받은 차시인지 (같은 차시 재도전 시 보상 없음)
-    const alreadyRewarded = myProgress?.date === today && myProgress?.rewarded;
+    // 교사 모드: 보상 없음
+    const alreadyRewarded = isTeacher || (myProgress?.date === today && myProgress?.rewarded);
     // 오늘 일일 한도 초과 여부
-    const overLimit = dailyCount >= DAILY_LIMIT;
+    const overLimit = isTeacher || (dailyCount >= DAILY_LIMIT);
     const canReward = !alreadyRewarded && !overLimit;
 
     // 정답 수에 따른 차등 보상
@@ -523,6 +524,14 @@ export default function AICourseware({ studentCode }) {
 
     setSaving(true);
     try {
+      // 교사 미리보기 모드: Firebase 저장 없이 결과만 표시
+      if (isTeacher) {
+        setFR({ score, correctCount, total, reward: { exp: 0, gold: 0, diamonds: 0 }, canReward: false });
+        setStep('result');
+        setSaving(false);
+        return;
+      }
+
       if (canReward && student && (reward.exp > 0 || reward.gold > 0 || reward.diamonds > 0)) {
         let newExp = (student.exp || 0) + reward.exp, newLv = student.level || 1;
         while (newExp >= getMaxExp(newLv)) { newExp -= getMaxExp(newLv); newLv++; }
@@ -1239,6 +1248,11 @@ export default function AICourseware({ studentCode }) {
           <p className="text-white/60 text-xs mt-0.5">{selectedUnit.unitName} · {selectedLesson.title}</p>
         </div>
         <div className="p-6 space-y-4">
+          {isTeacher && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-3 text-center text-xs text-indigo-700 font-bold">
+              👨‍🏫 교사 미리보기 모드 — 저장 및 보상이 적용되지 않습니다
+            </div>
+          )}
           {finalResult.rewarded && finalResult.reward && (
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
               <div className="font-bold text-amber-700 text-sm mb-2">

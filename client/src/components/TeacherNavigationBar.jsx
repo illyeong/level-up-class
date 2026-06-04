@@ -208,8 +208,11 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       ]
     },
     {
-      id: 'aiCourseware', icon: '🤖', title: 'AI 코스웨어', isReady: true,
-      subMenus: []
+      id: 'aiCourseware', icon: '🤖', title: 'AI 학습현황', isReady: true,
+      subMenus: [
+        { title: '📊 AI 학습현황', id: 'aiCourseware' },
+        { title: '🎓 AI 학습 보기', id: 'aiCoursewareView' },
+      ]
     },
     {
       id: 'boardManage', icon: '📋', title: '게시판 및 배움노트', isReady: true,

@@ -27,6 +27,7 @@ import ClassVoteManage from './ClassVoteManage';
 import FreeBoard          from '../student/FreeBoard';
 import HallOfFame         from '../student/HallOfFame';
 import AICoursewareManage from './AICoursewareManage';
+import AICourseware       from '../student/AICourseware';
 
 const STUDENT_MENU_IDS = [
   'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement',
@@ -417,6 +418,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'boardManage'        && <BoardManage selectedClass={selectedClass} user={user} />}
         {currentView === 'learningNoteManage' && <LearningNoteManage selectedClass={selectedClass} />}
         {currentView === 'aiCourseware'       && <AICoursewareManage selectedClass={selectedClass} />}
+        {currentView === 'aiCoursewareView'   && <AICourseware teacherUid={selectedClass?.teacherUid} isTeacher />}
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
         {currentView === 'dataReset'       && <DataReset selectedClass={selectedClass} onClassDeleted={onChangeClass} />}
         {currentView === 'systemSettings'  && (
