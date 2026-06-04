@@ -162,6 +162,10 @@ export default function BoardManage({ selectedClass, user }) {
   const [selectedMapPost, setSelectedMapPost] = useState(null);
   const [isPosting, setIsPosting]   = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [editingPost, setEditingPost] = useState(null);
+  const [editPostContent, setEditPostContent] = useState('');
+  const [editPostPageId, setEditPostPageId] = useState(null);
+  const [isSavingPostEdit, setIsSavingPostEdit] = useState(false);
 
   const [toast, setToast]           = useState(null);
   const [confirmState, setConfirmState] = useState(null);
@@ -447,6 +451,48 @@ export default function BoardManage({ selectedClass, user }) {
     setSelectedMapPost(prev => prev?.id === postId ? { ...prev, pinned: !cur } : prev);
   };
 
+  const openEditPost = (post) => {
+    setEditingPost(post);
+    setEditPostContent(post.content || '');
+    setEditPostPageId(post.pageId || '');
+  };
+
+  const closeEditPost = () => {
+    setEditingPost(null);
+    setEditPostContent('');
+    setEditPostPageId(null);
+    setIsSavingPostEdit(false);
+  };
+
+  const submitEditPost = async () => {
+    if (!selectedBoard || !editingPost) return;
+    const nextContent = editPostContent.trim();
+    if (!nextContent && !editingPost.imageBase64 && !editingPost.attachment) {
+      showToast('내용을 입력해주세요.', 'error');
+      return;
+    }
+
+    const isGroupType = selectedBoard.boardType === 'vertical-group' || selectedBoard.boardType === 'horizontal-group';
+    const updates = {
+      content: nextContent,
+      pageId: isGroupType ? (editPostPageId || null) : (editingPost.pageId || null),
+    };
+
+    setIsSavingPostEdit(true);
+    try {
+      await updateDoc(doc(db, 'boards', selectedBoard.id, 'posts', editingPost.id), updates);
+      const applyUpdate = (post) => post.id === editingPost.id ? { ...post, ...updates } : post;
+      setPosts(prev => prev.map(applyUpdate));
+      setSelectedMapPost(prev => prev?.id === editingPost.id ? { ...prev, ...updates } : prev);
+      setExpandedPost(prev => prev?.id === editingPost.id ? { ...prev, ...updates } : prev);
+      closeEditPost();
+      showToast('게시글을 수정했습니다.');
+    } catch {
+      showToast('게시글 수정에 실패했습니다.', 'error');
+      setIsSavingPostEdit(false);
+    }
+  };
+
   // ── Leaflet map init ──────────────────────────────────────────
   useEffect(() => {
     if (!selectedBoard || selectedBoard.boardType !== 'map' || loadingPosts) {
@@ -521,8 +567,22 @@ export default function BoardManage({ selectedClass, user }) {
             📌
           </button>
       }
-      <button onClick={() => deletePost(post.id)}
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 text-xs font-bold transition-all">✕</button>
+      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-10">
+        <button
+          type="button"
+          onClick={() => openEditPost(post)}
+          className="rounded-lg border border-slate-200 bg-white/90 px-2 py-0.5 text-[10px] font-extrabold text-slate-500 shadow-sm hover:border-indigo-200 hover:text-indigo-600"
+        >
+          수정
+        </button>
+        <button
+          type="button"
+          onClick={() => deletePost(post.id)}
+          className="rounded-lg border border-slate-200 bg-white/90 px-2 py-0.5 text-[10px] font-extrabold text-slate-500 shadow-sm hover:border-rose-200 hover:text-rose-500"
+        >
+          삭제
+        </button>
+      </div>
       <div className="flex items-center gap-2 mb-3 mt-1">
         <div className="w-14 h-14 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
           {post.isTeacher ? <span className="text-2xl">👑</span>
@@ -809,7 +869,7 @@ export default function BoardManage({ selectedClass, user }) {
           <div ref={mapDivRef} style={{ height: 'calc(100vh - 230px)', width: '100%' }} />
           <div className="absolute left-4 top-4 z-[1100] flex flex-wrap items-center gap-2">
             <button
-              onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); setEditingSheetId(null); setEditingSheetTitle(''); setSelectedMapPost(null); }}
+              onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); setEditingSheetId(null); setEditingSheetTitle(''); setSelectedMapPost(null); closeEditPost(); }}
               className="bg-white hover:bg-rose-50 shadow-lg rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center gap-2 transition-all"
             >
               ← 목록으로
@@ -865,12 +925,18 @@ export default function BoardManage({ selectedClass, user }) {
                       </a>
                     )}
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-3 grid grid-cols-3 gap-2">
                     <button
                       onClick={() => togglePin(selectedMapPost.id, selectedMapPost.pinned)}
                       className="rounded-xl border border-amber-200 bg-amber-50 py-2 text-xs font-extrabold text-amber-700 hover:bg-amber-100"
                     >
                       {selectedMapPost.pinned ? '고정 해제' : '상단 고정'}
+                    </button>
+                    <button
+                      onClick={() => openEditPost(selectedMapPost)}
+                      className="rounded-xl border border-indigo-200 bg-indigo-50 py-2 text-xs font-extrabold text-indigo-600 hover:bg-indigo-100"
+                    >
+                      수정
                     </button>
                     <button
                       onClick={() => {
@@ -1047,6 +1113,76 @@ export default function BoardManage({ selectedClass, user }) {
     );
   };
 
+  const EditPostModal = () => {
+    if (!editingPost) return null;
+    const isGroupType = selectedBoard?.boardType === 'vertical-group' || selectedBoard?.boardType === 'horizontal-group';
+
+    return (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1400] flex items-end sm:items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+          <div className="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center text-lg">✏️</div>
+            <div className="min-w-0">
+              <div className="font-extrabold text-indigo-800 text-sm">게시글 수정</div>
+              <div className="text-[10px] text-indigo-400 truncate">
+                {editingPost.studentName || '작성자'} · {selectedBoard?.title}
+              </div>
+            </div>
+            <button onClick={closeEditPost}
+              className="ml-auto text-slate-400 hover:text-slate-600 text-xl">✕</button>
+          </div>
+
+          <div className="p-4 space-y-4">
+            {isGroupType && (
+              <div>
+                <label className="text-xs font-extrabold text-slate-500 block mb-1.5">그룹 변경</label>
+                <select
+                  value={editPostPageId || ''}
+                  onChange={e => setEditPostPageId(e.target.value)}
+                  className="w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">그룹 없음</option>
+                  {pages.map(page => (
+                    <option key={page.id} value={page.id}>{page.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="text-xs font-extrabold text-slate-500 block mb-1.5">내용</label>
+              <textarea
+                value={editPostContent}
+                onChange={e => setEditPostContent(e.target.value)}
+                rows={7}
+                className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-indigo-500"
+                placeholder="게시글 내용을 입력하세요..."
+              />
+            </div>
+
+            {editingPost.imageBase64 && (
+              <img src={editingPost.imageBase64} alt="" className="w-full rounded-xl object-cover max-h-40 border border-slate-200" />
+            )}
+            {editingPost.attachment?.name && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+                📎 {editingPost.attachment.name}
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 border-t border-slate-100 flex gap-3">
+            <button onClick={closeEditPost}
+              className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm">취소</button>
+            <button onClick={submitEditPost} disabled={isSavingPostEdit}
+              className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40">
+              {isSavingPostEdit ? '저장 중...' : '저장하기'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ── board view ────────────────────────────────────────────────
   if (selectedBoard) {
     const typeInfo = BOARD_TYPES.find(t => t.id === selectedBoard.boardType);
@@ -1104,7 +1240,7 @@ export default function BoardManage({ selectedClass, user }) {
             {/* 상단 줄: 뒤로 + 제목 + 게시물 수 */}
             <div className="px-4 py-2.5 flex items-center gap-3">
               <button
-                onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); setEditingSheetId(null); setEditingSheetTitle(''); }}
+                onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); setEditingSheetId(null); setEditingSheetTitle(''); closeEditPost(); }}
                 className="text-slate-500 hover:text-slate-800 font-bold text-sm px-2.5 py-1 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors shrink-0">
                 ← 목록
               </button>
@@ -1147,6 +1283,7 @@ export default function BoardManage({ selectedClass, user }) {
         )}
 
         {showWrite && <WriteModal />}
+        {editingPost && <EditPostModal />}
         <Modals />
 
         {/* 더보기 팝업 */}
