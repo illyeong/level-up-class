@@ -154,6 +154,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
       attachment:   attachmentData || null,
       authorId:     isTeacher ? `teacher_${propTeacherUid}` : studentCode,
       authorName:   isTeacher ? '👨‍🏫 선생님' : myInfo.name,
+      authorImage:  isTeacher ? null : (myInfo.characterImage || null),
       teacherUid:   myInfo.teacherUid,
       createdAt:    serverTimestamp(),
       likes:        [],
@@ -289,56 +290,89 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
     );
   }
 
+  // ── 카드 색상 (교사 게시판과 동일) ─────────────────────────────
+  const POST_COLORS = [
+    'bg-yellow-50 border-yellow-200',
+    'bg-sky-50 border-sky-200',
+    'bg-pink-50 border-pink-200',
+    'bg-emerald-50 border-emerald-200',
+    'bg-violet-50 border-violet-200',
+    'bg-orange-50 border-orange-200',
+  ];
+
   // ── 목록 ──────────────────────────────────────────────────────
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-extrabold text-slate-800">📋 자유 게시판</h1>
+    <div className="p-5" style={{ background: '#f8fafc', minHeight: 'calc(100vh - 88px)' }}>
+      {/* 헤더 */}
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-xl font-extrabold text-slate-700">📋 자유 게시판</h1>
         <button onClick={() => setView('write')}
-          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors">
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors shadow-md">
           ✏️ 글쓰기
         </button>
       </div>
 
       {posts.length === 0 ? (
-        <div className="text-center py-24 text-slate-400">
-          <div className="text-5xl mb-4">📭</div>
-          <div className="font-bold text-lg">아직 게시글이 없어요</div>
-          <div className="text-sm mt-1">첫 번째 글을 작성해보세요!</div>
+        <div className="flex flex-col items-center justify-center py-24 gap-3 opacity-50">
+          <div className="text-6xl">📝</div>
+          <p className="text-slate-500 font-bold text-sm">첫 번째 글을 작성해보세요!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {posts.map(post => (
-            <div key={post.id} onClick={() => openDetail(post)}
-              className="bg-white rounded-2xl p-4 border border-slate-100 hover:border-indigo-200 hover:shadow-sm cursor-pointer transition-all">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="font-extrabold text-slate-800 truncate">{post.title}</div>
-                  <div className="text-sm text-slate-500 mt-1 line-clamp-2">{post.content}</div>
-                </div>
-                {post.imageUrl && (
-                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0">
-                    <img src={post.imageUrl} alt="" className="w-full h-full object-cover" />
+        /* 담벼락형 masonry 레이아웃 */
+        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4">
+          {posts.map((post, idx) => (
+            <div key={post.id} style={{ breakInside: 'avoid', marginBottom: '1rem' }}>
+              <div className={`rounded-2xl border-2 p-4 shadow-sm cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5
+                ${POST_COLORS[idx % POST_COLORS.length]}`}
+                onClick={() => openDetail(post)}>
+                {/* 작성자 */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-12 h-12 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+                    {post.authorImage
+                      ? <img src={post.authorImage} alt="" className="w-full h-full object-contain scale-[2]" />
+                      : <span className="text-xl">🧑‍🎓</span>}
                   </div>
+                  <div className="min-w-0">
+                    <div className="font-extrabold text-xs text-slate-700 truncate">{post.authorName}</div>
+                    <div className="text-[10px] text-slate-400">{formatDate(post.createdAt)}</div>
+                  </div>
+                </div>
+                {/* 제목 */}
+                <div className="font-extrabold text-sm text-slate-800 mb-1 leading-snug">{post.title}</div>
+                {/* 내용 */}
+                {post.content && (() => {
+                  const isLong = post.content.length > 120 || post.content.split('\n').length > 5;
+                  return (
+                    <>
+                      <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap break-words line-clamp-5 mb-1">{post.content}</p>
+                      {isLong && (
+                        <button onClick={e => { e.stopPropagation(); openDetail(post); }}
+                          className="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold transition-colors">
+                          더보기 ▾
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
+                {/* 이미지 */}
+                {post.imageUrl && (
+                  <img src={post.imageUrl} alt=""
+                    className="w-full rounded-xl object-cover max-h-40 mt-2 border border-slate-200"
+                    onClick={e => e.stopPropagation()} />
                 )}
-              </div>
-              {post.attachment?.name && (
-                <div className="mt-2 text-xs font-bold text-slate-500">📎 {post.attachment.name}</div>
-              )}
-              <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">
-                <span className="font-bold text-slate-500">{post.authorName}</span>
-                <span>{formatDate(post.createdAt)}</span>
-                {post.content.length > 60 && (
-                  <button
-                    onClick={e => { e.stopPropagation(); openDetail(post); }}
-                    className="text-indigo-500 font-extrabold hover:text-indigo-700 hover:underline shrink-0">
-                    더보기
-                  </button>
+                {/* 첨부파일 */}
+                {post.attachment?.name && (
+                  <div className="mt-2 text-[10px] font-bold text-slate-500">📎 {post.attachment.name}</div>
                 )}
-                <span className="ml-auto flex items-center gap-2">
-                  <span>❤️ {post.likes?.length || 0}</span>
-                  <span>💬 {post.commentCount || 0}</span>
-                </span>
+                {/* 반응 */}
+                <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+                  <span className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-2 py-0.5 border border-slate-200">
+                    ❤️ <span className="font-bold text-slate-600">{post.likes?.length || 0}</span>
+                  </span>
+                  <span className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-2 py-0.5 border border-slate-200">
+                    💬 <span className="font-bold text-slate-600">{post.commentCount || 0}</span>
+                  </span>
+                </div>
               </div>
             </div>
           ))}
