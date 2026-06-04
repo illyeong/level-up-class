@@ -45,6 +45,15 @@ const CARD_COLORS = [
   { id: 'indigo', bg: 'bg-indigo-50',  border: 'border-indigo-200', label: '남색' },
 ];
 
+const POST_COLORS = [
+  'bg-yellow-50 border-yellow-200',
+  'bg-sky-50 border-sky-200',
+  'bg-pink-50 border-pink-200',
+  'bg-emerald-50 border-emerald-200',
+  'bg-violet-50 border-violet-200',
+  'bg-orange-50 border-orange-200',
+];
+
 const GROUP_COLORS = [
   { bg: 'bg-rose-50',    border: 'border-rose-300',    header: 'bg-rose-400',    text: 'text-white', dot: 'bg-rose-400' },
   { bg: 'bg-sky-50',     border: 'border-sky-300',     header: 'bg-sky-400',     text: 'text-white', dot: 'bg-sky-400' },
@@ -176,11 +185,10 @@ function CommentSection({ post, boardId, student }) {
 }
 
 // ── 게시물 카드 ────────────────────────────────────────────────
-function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDelete, onEdit, onImageClick }) {
+function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinned, onDelete, onEdit, onImageClick, onExpand }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content || '');
   const [editSaving, setEditSaving]   = useState(false);
-  const [showDetail, setShowDetail] = useState(false);
   const isMyPost = post.studentId && post.studentId === studentId;
 
   const saveEdit = async () => {
@@ -195,21 +203,17 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
     finally { setEditSaving(false); }
   };
 
-  const color = post.isTeacher
-    ? { bg: 'bg-indigo-50', border: 'border-indigo-300' }
-    : getCardColor(post.cardColor);
-
   const reactionCounts = {};
   Object.values(post.reactions || {}).forEach(e => { reactionCounts[e] = (reactionCounts[e] || 0) + 1; });
   const myReaction = (post.reactions || {})[studentId];
   const isLongContent = (post.content || '').length > 50 || (post.content || '').split('\n').length > 3;
 
   return (
-    <>
-    <div className={`rounded-2xl border-2 ${color.bg} ${color.border} shadow-sm hover:shadow-md transition-all duration-200 relative group
+    <div className={`rounded-2xl border-2 p-4 shadow-sm relative group transition-all hover:shadow-md hover:-translate-y-0.5
+      ${post.isTeacher ? 'bg-indigo-50 border-indigo-200' : POST_COLORS[idx % POST_COLORS.length]}
       ${isPinned ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
       {isPinned && (
-        <div className="bg-amber-400 text-amber-900 text-[10px] font-extrabold px-3 py-0.5 flex items-center gap-1 rounded-t-2xl">
+        <div className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded-lg flex items-center gap-0.5 z-10">
           📌 고정
         </div>
       )}
@@ -221,8 +225,7 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
             className="text-[9px] text-slate-500 hover:text-rose-500 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm border border-slate-200">삭제</button>
         </div>
       )}
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-3 mt-1">
           <div className="w-14 h-14 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
             {post.isTeacher ? <span className="text-2xl">👑</span>
               : post.characterImage ? <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
@@ -250,7 +253,7 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
             {isLongContent && (
               <button
                 type="button"
-                onClick={() => setShowDetail(true)}
+                onClick={() => onExpand?.(post)}
                 className="inline-flex items-center rounded-full bg-white/80 border border-indigo-100 px-2.5 py-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-white font-extrabold transition-colors"
               >
                 더보기 ▾
@@ -288,62 +291,7 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
           })}
         </div>
         <CommentSection post={post} boardId={boardId} student={student} />
-      </div>
     </div>
-    {showDetail && (
-      <div
-        className="fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4"
-        onClick={() => setShowDetail(false)}
-      >
-        <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-200 shrink-0">
-              {post.isTeacher ? <span className="text-xl">👨‍🏫</span>
-                : post.characterImage
-                  ? <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
-                  : <span className="text-xl">🧑‍🎓</span>}
-            </div>
-            <div className="min-w-0">
-              <div className="font-extrabold text-slate-800 text-sm truncate">{post.studentName}</div>
-              <div className="text-[10px] text-slate-400">{fmtDate(post.createdAt)}</div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowDetail(false)}
-              className="ml-auto text-slate-400 hover:text-slate-600 text-xl font-bold"
-            >
-              ×
-            </button>
-          </div>
-          <div className="overflow-y-auto p-5 space-y-3">
-            {post.content && (
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{post.content}</p>
-            )}
-            {post.imageBase64 && (
-              <img
-                src={post.imageBase64}
-                alt=""
-                className="w-full rounded-xl object-contain border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
-                onClick={() => onImageClick?.(post.imageBase64)}
-              />
-            )}
-            {post.attachment?.dataUrl && (
-              <a
-                href={post.attachment.dataUrl}
-                download={post.attachment.name || 'attachment'}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
-              >
-                📎 {post.attachment.name || '첨부파일'}
-              </a>
-            )}
-          </div>
-        </div>
-      </div>
-    )}
-    </>
   );
 }
 
@@ -372,6 +320,7 @@ export default function LearningBoard({ studentCode }) {
   const [writeLng, setWriteLng]           = useState(null);
 
   const [lightboxSrc, setLightboxSrc] = useState(null); // 이미지 라이트박스
+  const [expandedPost, setExpandedPost] = useState(null);
 
   // 필터
   const [sort, setSort]               = useState('newest');
@@ -604,10 +553,10 @@ export default function LearningBoard({ studentCode }) {
       return 0;
     });
 
-  const postCardProps = (post) => ({
+  const postCardProps = (post, idx = 0) => ({
     post, studentId: student?.id, student, boardId: selectedBoard?.id,
     onReact: handleReact, isPinned: post.pinned, onDelete: handleDeletePost, onEdit: handleEditPost,
-    onImageClick: setLightboxSrc,
+    idx, onImageClick: setLightboxSrc, onExpand: setExpandedPost,
   });
 
   // ── 게시판 유형별 레이아웃 렌더링 ────────────────────────────
@@ -628,9 +577,9 @@ export default function LearningBoard({ studentCode }) {
             </div>
           ) : (
             <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 2xl:columns-5 gap-4">
-              {filteredPosts.map(post => (
+              {filteredPosts.map((post, idx) => (
                 <div key={post.id} style={{ breakInside: 'avoid', marginBottom: '1rem' }}>
-                  <PostCard {...postCardProps(post)} />
+                  <PostCard {...postCardProps(post, idx)} />
                 </div>
               ))}
             </div>
@@ -660,9 +609,9 @@ export default function LearningBoard({ studentCode }) {
                     <div className="w-full flex items-center justify-center gap-2 py-8 text-sm text-slate-400 opacity-60">
                       <span>📭</span> 게시물이 없습니다.
                     </div>
-                  ) : pagePosts.map(post => (
+                  ) : pagePosts.map((post, idx) => (
                     <div key={post.id} style={{ width: page.size || 200, flexShrink: 0 }}>
-                      <PostCard {...postCardProps(post)} />
+                      <PostCard {...postCardProps(post, idx)} />
                     </div>
                   ))}
                 </div>
@@ -673,9 +622,9 @@ export default function LearningBoard({ studentCode }) {
             <div className="bg-white/40 rounded-2xl p-4 border border-dashed border-slate-300">
               <h3 className="font-bold text-slate-400 text-xs mb-3">📌 그룹 없음</h3>
               <div className="flex gap-4 flex-wrap">
-                {ungrouped.map(post => (
+                {ungrouped.map((post, idx) => (
                   <div key={post.id} style={{ width: 200, flexShrink: 0 }}>
-                    <PostCard {...postCardProps(post)} />
+                    <PostCard {...postCardProps(post, idx)} />
                   </div>
                 ))}
               </div>
@@ -717,7 +666,7 @@ export default function LearningBoard({ studentCode }) {
                         <span className="text-2xl">📭</span>
                         게시물 없음
                       </div>
-                    ) : col.posts.map(post => <PostCard key={post.id} {...postCardProps(post)} />)}
+                    ) : col.posts.map((post, idx) => <PostCard key={post.id} {...postCardProps(post, idx)} />)}
                   </div>
                 </div>
               );
@@ -769,7 +718,7 @@ export default function LearningBoard({ studentCode }) {
     return (
       <div style={{ ...wrap, padding: '1rem' }}>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {filteredPosts.map(post => <PostCard key={post.id} {...postCardProps(post)} />)}
+          {filteredPosts.map((post, idx) => <PostCard key={post.id} {...postCardProps(post, idx)} />)}
         </div>
       </div>
     );
@@ -839,7 +788,7 @@ export default function LearningBoard({ studentCode }) {
         {/* 글쓰기 모달 */}
         {showWrite && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
-            <div className={`${getCardColor(cardColor).bg} ${getCardColor(cardColor).border} border-2 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden`}>
+            <div className={`${getCardColor(cardColor).bg} ${getCardColor(cardColor).border} border-2 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto`}>
               <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b border-black/10">
                 <div className="w-10 h-10 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden flex items-center justify-center shrink-0">
                   {student?.characterImage
@@ -876,10 +825,10 @@ export default function LearningBoard({ studentCode }) {
               <div className="p-4 space-y-3">
                 <textarea ref={textRef} value={content} onChange={e => setContent(e.target.value)}
                   placeholder="내용을 입력하세요..."
-                  className="w-full bg-transparent border-0 text-sm resize-none h-24 focus:outline-none placeholder-slate-400 text-slate-800" />
+                  className="w-full bg-white/50 border border-black/10 rounded-xl px-4 py-3 text-sm resize-none h-40 focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder-slate-400 text-slate-800" />
                 {imageBase64 && (
                   <div className="relative">
-                    <img src={imageBase64} alt="" className="w-full rounded-xl object-cover max-h-48 border border-black/10" />
+                    <img src={imageBase64} alt="" className="w-full rounded-xl object-cover max-h-64 border border-black/10" />
                     <button onClick={() => setImageBase64('')}
                       className="absolute top-2 right-2 bg-slate-900/60 text-white w-6 h-6 rounded-full text-xs flex items-center justify-center hover:bg-rose-500">✕</button>
                   </div>
@@ -931,6 +880,65 @@ export default function LearningBoard({ studentCode }) {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* 더보기 팝업 */}
+        {expandedPost && (
+          <div className="fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4"
+            onClick={() => setExpandedPost(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-200 shrink-0">
+                  {expandedPost.isTeacher ? <span className="text-xl">👑</span>
+                    : expandedPost.characterImage
+                      ? <img src={expandedPost.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
+                      : <span className="text-xl">🧑‍🎓</span>}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-extrabold text-slate-800 text-sm truncate">{expandedPost.studentName}</div>
+                  <div className="text-[10px] text-slate-400">{fmtDate(expandedPost.createdAt)}</div>
+                </div>
+                <button onClick={() => setExpandedPost(null)}
+                  className="ml-auto text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+              </div>
+              <div className="overflow-y-auto p-5 space-y-3">
+                {expandedPost.content && (
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{expandedPost.content}</p>
+                )}
+                {expandedPost.imageBase64 && (
+                  <img src={expandedPost.imageBase64} alt=""
+                    className="w-full rounded-xl object-contain border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
+                    onClick={() => setLightboxSrc(expandedPost.imageBase64)} />
+                )}
+                {expandedPost.attachment?.dataUrl && (
+                  <a href={expandedPost.attachment.dataUrl} download={expandedPost.attachment.name || 'attachment'}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">
+                    📎 {expandedPost.attachment.name || '첨부파일'}
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 이미지 라이트박스 */}
+        {lightboxSrc && (
+          <div
+            className="fixed inset-0 bg-black/90 z-[300] flex items-center justify-center p-4 cursor-zoom-out"
+            onClick={() => setLightboxSrc(null)}
+          >
+            <img
+              src={lightboxSrc}
+              alt=""
+              className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            />
+            <button
+              onClick={() => setLightboxSrc(null)}
+              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/20 hover:bg-white/40 text-white text-lg font-bold flex items-center justify-center transition-colors"
+            >✕</button>
           </div>
         )}
       </div>
