@@ -1,6 +1,7 @@
 using UnityEngine;
 using Spine.Unity;
 using StudioNAP;
+using UnityEngine.EventSystems;
 
 namespace LayerLab.ArtMaker
 {
@@ -108,13 +109,29 @@ namespace LayerLab.ArtMaker
 
             // HTML 오버레이 공격 버튼(MobileInputReceiver) 또는 조이스틱을 제외한 화면 탭
             bool attackInput = MobileInput.isAttackPressed
-                            || (Input.GetMouseButtonDown(0) && !MobileInput.isJoystickActive);
+                            || (Input.GetMouseButtonDown(0) && !MobileInput.isJoystickActive && !IsPointerOverAnyUI());
             // isAttackPressed는 MobileInputReceiver.LateUpdate에서 리셋되므로 여기선 처리만
             if (attackInput && Time.time >= nextAttackTime)
             {
                 Attack();
                 nextAttackTime = Time.time + attackCooldown;
             }
+        }
+
+        private static bool IsPointerOverAnyUI()
+        {
+            if (EventSystem.current == null) return false;
+
+            if (Input.touchCount > 0)
+            {
+                for (int i = 0; i < Input.touchCount; i++)
+                {
+                    if (EventSystem.current.IsPointerOverGameObject(Input.GetTouch(i).fingerId))
+                        return true;
+                }
+            }
+
+            return EventSystem.current.IsPointerOverGameObject();
         }
 
         public void TakePlayerDamage(int damage, Vector3 monsterPos)

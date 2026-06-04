@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.EventSystems;
+using LayerLab.ArtMaker;
 
 /// <summary>
 /// 스킬 버튼 UI 관리.
@@ -15,7 +17,7 @@ using TMPro;
 ///   cooldownText → 남은 시간 텍스트 (TMP, 선택)
 ///   thunderGod   → Player 오브젝트의 SkillThunderGod 컴포넌트
 /// </summary>
-public class SkillButtonUI : MonoBehaviour
+public class SkillButtonUI : MonoBehaviour, IPointerDownHandler
 {
     [Header("UI 참조")]
     public GameObject  buttonRoot;    // 버튼 전체 (Show/Hide용)
@@ -135,6 +137,14 @@ public class SkillButtonUI : MonoBehaviour
     }
 
     /// <summary>버튼 OnClick 이벤트에 연결</summary>
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        MobileInput.isAttackPressed = false;
+        MobileInput.isJoystickActive = false;
+        EnsureSkillManager();
+        OnSkillButtonClick();
+    }
+
     public void OnSkillButtonClick()
     {
         if (_cooldownTimer > 0f) return; // 쿨타임 중
