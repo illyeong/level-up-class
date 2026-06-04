@@ -16,12 +16,6 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
   const [selectedPost, setSelectedPost] = useState(null);
   const [lightboxSrc, setLightboxSrc] = useState(null);
 
-  // 교사 게시판 (boards 컬렉션)
-  const [teacherBoards, setTeacherBoards] = useState([]);
-  const [activeBoard, setActiveBoard]     = useState(null); // null = 자유게시판
-  const [boardPosts, setBoardPosts]       = useState([]);
-  const [loadingBoard, setLoadingBoard]   = useState(false);
-
   // 글쓰기 폼
   const [title, setTitle]         = useState('');
   const [content, setContent]     = useState('');
@@ -60,30 +54,6 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
       }
     })();
   }, [studentCode, propTeacherUid]);
-
-  // 교사가 만든 boards 로드
-  useEffect(() => {
-    if (!myInfo?.teacherUid) return;
-    getDocs(query(collection(db, 'boards'), where('teacherUid', '==', myInfo.teacherUid)))
-      .then(snap => {
-        const list = snap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .filter(b => b.active !== false)
-          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-        setTeacherBoards(list);
-      });
-  }, [myInfo?.teacherUid]);
-
-  // 선택한 교사 board의 posts 로드
-  useEffect(() => {
-    if (!activeBoard) return;
-    setLoadingBoard(true);
-    getDocs(query(collection(db, 'boards', activeBoard.id, 'posts'), orderBy('createdAt', 'desc')))
-      .then(snap => {
-        setBoardPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        setLoadingBoard(false);
-      });
-  }, [activeBoard]);
 
   useEffect(() => {
     if (!myInfo) return;
@@ -337,97 +307,11 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-extrabold text-slate-700">📋 게시판</h1>
-        {!activeBoard && (
-          <button onClick={() => setView('write')}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors shadow-md">
-            ✏️ 글쓰기
-          </button>
-        )}
+        <button onClick={() => setView('write')}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors shadow-md">
+          ✏️ 글쓰기
+        </button>
       </div>
-
-      {/* 게시판 탭 */}
-      {teacherBoards.length > 0 && (
-        <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
-          <button
-            onClick={() => setActiveBoard(null)}
-            className={`px-4 py-2 rounded-xl text-sm font-extrabold shrink-0 transition-all
-              ${!activeBoard ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-            ✏️ 자유 게시판
-          </button>
-          {teacherBoards.map(b => (
-            <button key={b.id}
-              onClick={() => setActiveBoard(b)}
-              className={`px-4 py-2 rounded-xl text-sm font-extrabold shrink-0 transition-all
-                ${activeBoard?.id === b.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-              {b.boardType === 'map' ? '🗺️' : b.boardType === 'wall' ? '📌' : '📋'} {b.title}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* 교사 게시판 뷰 */}
-      {activeBoard && (() => {
-        if (loadingBoard) return <div className="text-center py-20 text-slate-400 animate-pulse">불러오는 중...</div>;
-        const COLORS = ['bg-yellow-50 border-yellow-200','bg-sky-50 border-sky-200','bg-pink-50 border-pink-200','bg-emerald-50 border-emerald-200','bg-violet-50 border-violet-200','bg-orange-50 border-orange-200'];
-        return boardPosts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3 opacity-50">
-            <div className="text-6xl">📭</div>
-            <p className="text-slate-500 font-bold text-sm">아직 게시물이 없습니다</p>
-          </div>
-        ) : (
-          <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4">
-            {boardPosts.map((post, idx) => (
-              <div key={post.id} style={{ breakInside: 'avoid', marginBottom: '1rem' }}>
-                <div className={`rounded-2xl border-2 p-4 shadow-sm ${COLORS[idx % COLORS.length]}`}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-white border border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
-                      {post.isTeacher ? <span className="text-lg">👑</span>
-                        : post.characterImage ? <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
-                        : <span className="text-lg">🧑‍🎓</span>}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-extrabold text-xs text-slate-700 truncate">{post.isTeacher ? '선생님' : post.studentName}</div>
-                      <div className="text-[10px] text-slate-400">
-                        {post.createdAt?.toDate?.()?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) || ''}
-                      </div>
-                    </div>
-                  </div>
-                  {post.content && (
-                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words line-clamp-6">{post.content}</p>
-                  )}
-                  {post.imageBase64 && (
-                    <img
-                      src={post.imageBase64}
-                      alt=""
-                      className="w-full rounded-xl object-cover max-h-40 mt-2 border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
-                      onClick={e => { e.stopPropagation(); setLightboxSrc(post.imageBase64); }}
-                    />
-                  )}
-                  {post.attachment?.dataUrl && (
-                    <a href={post.attachment.dataUrl} download={post.attachment.name || 'file'}
-                      onClick={e => e.stopPropagation()}
-                      className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-600 bg-white/70 rounded-lg border border-slate-200 px-2 py-1 hover:bg-white">
-                      📎 {post.attachment.name || '첨부파일'}
-                    </a>
-                  )}
-                  {Object.keys(post.reactions || {}).length > 0 && (
-                    <div className="flex gap-1 mt-2 flex-wrap">
-                      {Object.entries(
-                        Object.values(post.reactions).reduce((acc, e) => { if(e) acc[e] = (acc[e]||0)+1; return acc; }, {})
-                      ).map(([emoji, cnt]) => (
-                        <span key={emoji} className="text-xs bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200">{emoji} <span className="font-bold">{cnt}</span></span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        );
-      })()}
-
-      {/* 자유 게시판 (activeBoard가 없을 때) */}
-      {!activeBoard && (<>
 
       {posts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3 opacity-50">
@@ -495,8 +379,6 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
           ))}
         </div>
       )}
-
-      </>)}
 
       {/* ── 상세 팝업 모달 (자유게시판용) ── */}
       {selectedPost && (

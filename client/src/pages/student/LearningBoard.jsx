@@ -180,6 +180,7 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content || '');
   const [editSaving, setEditSaving]   = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
   const isMyPost = post.studentId && post.studentId === studentId;
 
   const saveEdit = async () => {
@@ -201,8 +202,10 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
   const reactionCounts = {};
   Object.values(post.reactions || {}).forEach(e => { reactionCounts[e] = (reactionCounts[e] || 0) + 1; });
   const myReaction = (post.reactions || {})[studentId];
+  const isLongContent = (post.content || '').length > 50 || (post.content || '').split('\n').length > 3;
 
   return (
+    <>
     <div className={`rounded-2xl border-2 ${color.bg} ${color.border} shadow-sm hover:shadow-md transition-all duration-200 relative group
       ${isPinned ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
       {isPinned && (
@@ -242,7 +245,18 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
             </div>
           </div>
         ) : post.content ? (
-          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-2 line-clamp-6">{post.content}</p>
+          <div className="mb-2">
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 line-clamp-6">{post.content}</p>
+            {isLongContent && (
+              <button
+                type="button"
+                onClick={() => setShowDetail(true)}
+                className="inline-flex items-center rounded-full bg-white/80 border border-indigo-100 px-2.5 py-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-white font-extrabold transition-colors"
+              >
+                더보기 ▾
+              </button>
+            )}
+          </div>
         ) : null}
         {post.imageBase64 && (
           <img src={post.imageBase64} alt=""
@@ -276,6 +290,60 @@ function PostCard({ post, studentId, student, boardId, onReact, isPinned, onDele
         <CommentSection post={post} boardId={boardId} student={student} />
       </div>
     </div>
+    {showDetail && (
+      <div
+        className="fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4"
+        onClick={() => setShowDetail(false)}
+      >
+        <div
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-200 shrink-0">
+              {post.isTeacher ? <span className="text-xl">👨‍🏫</span>
+                : post.characterImage
+                  ? <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
+                  : <span className="text-xl">🧑‍🎓</span>}
+            </div>
+            <div className="min-w-0">
+              <div className="font-extrabold text-slate-800 text-sm truncate">{post.studentName}</div>
+              <div className="text-[10px] text-slate-400">{fmtDate(post.createdAt)}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDetail(false)}
+              className="ml-auto text-slate-400 hover:text-slate-600 text-xl font-bold"
+            >
+              ×
+            </button>
+          </div>
+          <div className="overflow-y-auto p-5 space-y-3">
+            {post.content && (
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{post.content}</p>
+            )}
+            {post.imageBase64 && (
+              <img
+                src={post.imageBase64}
+                alt=""
+                className="w-full rounded-xl object-contain border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
+                onClick={() => onImageClick?.(post.imageBase64)}
+              />
+            )}
+            {post.attachment?.dataUrl && (
+              <a
+                href={post.attachment.dataUrl}
+                download={post.attachment.name || 'attachment'}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
+              >
+                📎 {post.attachment.name || '첨부파일'}
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 
