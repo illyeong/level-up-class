@@ -185,23 +185,8 @@ function CommentSection({ post, boardId, student }) {
 }
 
 // ── 게시물 카드 ────────────────────────────────────────────────
-function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinned, onDelete, onEdit, onImageClick, onExpand }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(post.content || '');
-  const [editSaving, setEditSaving]   = useState(false);
+function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinned, onDelete, onEditRequest, onImageClick, onExpand }) {
   const isMyPost = post.studentId && post.studentId === studentId;
-
-  const saveEdit = async () => {
-    if (!editContent.trim() && !post.imageBase64) return;
-    setEditSaving(true);
-    try {
-      await updateDoc(doc(db, 'boards', boardId, 'posts', post.id), { content: editContent.trim() });
-      post.content = editContent.trim();
-      onEdit?.(post.id, editContent.trim());
-      setIsEditing(false);
-    } catch (e) { console.error(e); }
-    finally { setEditSaving(false); }
-  };
 
   const reactionCounts = {};
   Object.values(post.reactions || {}).forEach(e => { reactionCounts[e] = (reactionCounts[e] || 0) + 1; });
@@ -219,7 +204,7 @@ function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinne
       )}
       {isMyPost && (
         <div className="absolute top-2 right-2 flex gap-1 z-10">
-          <button onClick={() => setIsEditing(true)}
+          <button onClick={() => onEditRequest?.(post)}
             className="text-[9px] text-slate-500 hover:text-indigo-600 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm border border-slate-200">수정</button>
           <button onClick={() => onDelete?.(post.id)}
             className="text-[9px] text-slate-500 hover:text-rose-500 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm border border-slate-200">삭제</button>
@@ -240,19 +225,7 @@ function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinne
             {post.title}
           </h3>
         )}
-        {isEditing ? (
-          <div className="mb-3 space-y-2">
-            <textarea value={editContent} onChange={e => setEditContent(e.target.value)}
-              className="w-full text-sm bg-white/70 border-2 border-indigo-300 rounded-xl px-3 py-2 resize-none h-20 focus:outline-none" autoFocus />
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setIsEditing(false)} className="text-xs text-slate-500 hover:text-slate-700 font-bold px-2 py-1">취소</button>
-              <button onClick={saveEdit} disabled={editSaving}
-                className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1 rounded-lg disabled:opacity-50">
-                {editSaving ? '...' : '저장'}
-              </button>
-            </div>
-          </div>
-        ) : post.content ? (
+        {post.content ? (
           <div className="mb-2">
             <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 line-clamp-5">{post.content}</p>
             {isLongContent && (
@@ -328,6 +301,10 @@ export default function LearningBoard({ studentCode }) {
 
   const [lightboxSrc, setLightboxSrc] = useState(null); // 이미지 라이트박스
   const [expandedPost, setExpandedPost] = useState(null);
+  const [editingPost, setEditingPost] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   // 필터
   const [sort, setSort]               = useState('newest');
@@ -557,8 +534,37 @@ export default function LearningBoard({ studentCode }) {
     } catch (e) { console.error(e); }
   };
 
-  const handleEditPost = (postId, newContent) => {
-    setPosts(prev => prev.map(p => p.id === postId ? { ...p, content: newContent } : p));
+  const openEditPost = (post) => {
+    setEditingPost(post);
+    setEditTitle(post.title || '');
+    setEditContent(post.content || '');
+  };
+
+  const closeEditPost = () => {
+    setEditingPost(null);
+    setEditTitle('');
+    setEditContent('');
+    setEditSaving(false);
+  };
+
+  const submitEditPost = async () => {
+    if (!selectedBoard?.id || !editingPost) return;
+    const nextTitle = editTitle.trim();
+    const nextContent = editContent.trim();
+    if (!nextTitle && !nextContent && !editingPost.imageBase64 && !editingPost.attachment) return;
+
+    setEditSaving(true);
+    try {
+      const updates = { title: nextTitle, content: nextContent };
+      await updateDoc(doc(db, 'boards', selectedBoard.id, 'posts', editingPost.id), updates);
+      setPosts(prev => prev.map(p => p.id === editingPost.id ? { ...p, ...updates } : p));
+      setExpandedPost(prev => prev?.id === editingPost.id ? { ...prev, ...updates } : prev);
+      closeEditPost();
+    } catch (e) {
+      console.error(e);
+      setEditSaving(false);
+      alert('수정 중 오류가 발생했습니다.');
+    }
   };
 
   const handleReact = async (postId, emoji, currentMyReaction) => {
@@ -595,7 +601,7 @@ export default function LearningBoard({ studentCode }) {
 
   const postCardProps = (post, idx = 0) => ({
     post, studentId: student?.id, student, boardId: selectedBoard?.id,
-    onReact: handleReact, isPinned: post.pinned, onDelete: handleDeletePost, onEdit: handleEditPost,
+    onReact: handleReact, isPinned: post.pinned, onDelete: handleDeletePost, onEditRequest: openEditPost,
     idx, onImageClick: setLightboxSrc, onExpand: setExpandedPost,
   });
 
@@ -952,6 +958,73 @@ export default function LearningBoard({ studentCode }) {
                     {isPosting ? '게시 중...' : '게시 ✓'}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 게시글 수정 팝업 */}
+        {editingPost && (
+          <div
+            className="fixed inset-0 bg-black/60 z-[260] flex items-center justify-center p-4"
+            onClick={closeEditPost}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg font-extrabold">
+                  ✎
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900">게시글 수정</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">제목과 내용을 수정할 수 있습니다.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeEditPost}
+                  className="ml-auto text-slate-400 hover:text-slate-600 text-xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="p-5 space-y-3">
+                <input
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  placeholder="제목을 입력하세요"
+                  className="w-full h-12 rounded-xl border-2 border-slate-200 px-4 text-sm font-bold focus:outline-none focus:border-indigo-400"
+                  autoFocus
+                />
+                <textarea
+                  value={editContent}
+                  onChange={e => setEditContent(e.target.value)}
+                  placeholder="내용을 입력하세요"
+                  className="w-full min-h-[180px] rounded-xl border-2 border-slate-200 px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:border-indigo-400"
+                />
+                {(editingPost.imageBase64 || editingPost.attachment?.name) && (
+                  <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-500">
+                    이미 첨부된 이미지와 파일은 유지됩니다.
+                  </div>
+                )}
+              </div>
+              <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeEditPost}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={submitEditPost}
+                  disabled={editSaving || (!editTitle.trim() && !editContent.trim() && !editingPost.imageBase64 && !editingPost.attachment)}
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm disabled:opacity-40"
+                >
+                  {editSaving ? '저장 중...' : '저장'}
+                </button>
               </div>
             </div>
           </div>
