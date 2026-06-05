@@ -1300,7 +1300,7 @@ export default function BoardManage({ selectedClass, user }) {
         {!isMapType && (
           <div className="bg-white border-b border-slate-200 shadow-sm shrink-0">
             {/* 상단 줄: 뒤로 + 제목 + 게시물 수 */}
-            <div className="px-4 py-2.5 flex items-center gap-3">
+            <div className="px-4 pr-48 py-2.5 flex items-center gap-3">
               <button
                 onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); setEditingSheetId(null); setEditingSheetTitle(''); closeEditPost(); }}
                 className="text-slate-500 hover:text-slate-800 font-bold text-sm px-2.5 py-1 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors shrink-0">
