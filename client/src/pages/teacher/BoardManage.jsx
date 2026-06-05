@@ -155,6 +155,7 @@ export default function BoardManage({ selectedClass, user }) {
 
   // write
   const [showWrite, setShowWrite]   = useState(false);
+  const [writeTitle, setWriteTitle] = useState('');
   const [writeContent, setWriteContent] = useState('');
   const [writeImage, setWriteImage] = useState('');
   const [writeAttachment, setWriteAttachment] = useState(null);
@@ -425,12 +426,13 @@ export default function BoardManage({ selectedClass, user }) {
   };
 
   const submitPost = async () => {
-    if (!writeContent.trim() && !writeImage && !writeAttachment) return;
+    if (!writeTitle.trim() && !writeContent.trim() && !writeImage && !writeAttachment) return;
     setIsPosting(true);
     try {
       const newPost = {
         studentId: null, studentCode: null, studentName: '선생님',
         characterImage: '', isTeacher: true,
+        title: writeTitle.trim(),
         content: writeContent.trim(), imageBase64: writeImage || '',
         attachment: writeAttachment || null,
         reactions: {}, comments: [],
@@ -446,7 +448,7 @@ export default function BoardManage({ selectedClass, user }) {
       if (selectedBoard.boardType === 'map') {
         setSelectedMapPost({ id: ref.id, ...newPost, createdAt: { toDate: () => new Date() } });
       }
-      setWriteContent(''); setWriteImage(''); setWriteAttachment(null); setWritePageId(null);
+      setWriteTitle(''); setWriteContent(''); setWriteImage(''); setWriteAttachment(null); setWritePageId(null);
       setWriteLat(null); setWriteLng(null); setShowWrite(false);
     } catch { showToast('게시에 실패했습니다.', 'error'); }
     finally { setIsPosting(false); }
@@ -532,7 +534,7 @@ export default function BoardManage({ selectedClass, user }) {
             iconSize: [34, 34],
             iconAnchor: [17, 17],
           }),
-          title: p.content || '지도 게시물',
+          title: p.title || p.content || '지도 게시물',
         }).addTo(map);
         marker.on('click', (event) => {
           event.originalEvent?.stopPropagation?.();
@@ -626,6 +628,11 @@ export default function BoardManage({ selectedClass, user }) {
           {post.studentName}
         </span>
       </div>
+      {post.title && (
+        <h3 className="mb-2 text-base font-extrabold text-slate-900 leading-snug break-words">
+          {post.title}
+        </h3>
+      )}
       {post.content && (() => {
         const isLong = post.content.length > 50 || post.content.split('\n').length > 3;
         return (
@@ -955,6 +962,9 @@ export default function BoardManage({ selectedClass, user }) {
                 <div className="flex-1 overflow-y-auto p-4">
                   <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
                     <div className="mb-2 text-xs font-extrabold text-indigo-600">{selectedMapPost.studentName || '선생님'}</div>
+                    {selectedMapPost.title && (
+                      <div className="mb-2 text-sm font-extrabold text-slate-900">{selectedMapPost.title}</div>
+                    )}
                     <div className="whitespace-pre-wrap text-sm font-bold leading-relaxed text-slate-800">
                       {selectedMapPost.content || '내용 없음'}
                     </div>
@@ -1059,7 +1069,7 @@ export default function BoardManage({ selectedClass, user }) {
                 {writeLat ? ` · 📍 ${writeLat.toFixed(3)}, ${writeLng.toFixed(3)}` : ''}
               </div>
             </div>
-            <button onClick={() => { setShowWrite(false); setWriteContent(''); setWriteImage(''); setWriteAttachment(null); setWriteLat(null); setWriteLng(null); }}
+            <button onClick={() => { setShowWrite(false); setWriteTitle(''); setWriteContent(''); setWriteImage(''); setWriteAttachment(null); setWriteLat(null); setWriteLng(null); }}
               className="ml-auto text-slate-400 hover:text-slate-600 text-xl">✕</button>
           </div>
           {isGroupType && pages.length > 0 && (
@@ -1077,6 +1087,12 @@ export default function BoardManage({ selectedClass, user }) {
             </div>
           )}
           <div className="p-4 space-y-3">
+            <input
+              value={writeTitle}
+              onChange={e => setWriteTitle(e.target.value)}
+              placeholder="제목을 입력하세요"
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-indigo-500"
+            />
             <textarea ref={textRef} value={writeContent} onChange={e => setWriteContent(e.target.value)}
               placeholder="내용을 입력하세요..." rows={5}
               className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-indigo-500" />
@@ -1147,9 +1163,9 @@ export default function BoardManage({ selectedClass, user }) {
               📎 파일 첨부
             </button>
           <div className="p-4 border-t border-slate-100 flex gap-3">
-            <button onClick={() => { setShowWrite(false); setWriteContent(''); setWriteImage(''); setWriteAttachment(null); setWriteLat(null); setWriteLng(null); }}
+            <button onClick={() => { setShowWrite(false); setWriteTitle(''); setWriteContent(''); setWriteImage(''); setWriteAttachment(null); setWriteLat(null); setWriteLng(null); }}
               className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm">취소</button>
-            <button onClick={submitPost} disabled={isPosting || isCompressing || (!writeContent.trim() && !writeImage && !writeAttachment)}
+            <button onClick={submitPost} disabled={isPosting || isCompressing || (!writeTitle.trim() && !writeContent.trim() && !writeImage && !writeAttachment)}
               className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40">
               {isPosting ? '게시 중...' : '게시하기 ✓'}
             </button>
@@ -1368,6 +1384,9 @@ export default function BoardManage({ selectedClass, user }) {
                   className="ml-auto text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
               </div>
               <div className="overflow-y-auto p-5 space-y-3">
+                {expandedPost.title && (
+                  <h3 className="text-lg font-extrabold text-slate-900 leading-snug break-words">{expandedPost.title}</h3>
+                )}
                 {expandedPost.content && (
                   <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{expandedPost.content}</p>
                 )}

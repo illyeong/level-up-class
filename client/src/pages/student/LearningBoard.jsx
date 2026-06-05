@@ -235,6 +235,11 @@ function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinne
             {post.studentName}
           </span>
         </div>
+        {post.title && (
+          <h3 className="mb-2 text-base font-extrabold text-slate-900 leading-snug break-words">
+            {post.title}
+          </h3>
+        )}
         {isEditing ? (
           <div className="mb-3 space-y-2">
             <textarea value={editContent} onChange={e => setEditContent(e.target.value)}
@@ -310,6 +315,7 @@ export default function LearningBoard({ studentCode }) {
 
   // 글쓰기
   const [showWrite, setShowWrite]         = useState(false);
+  const [title, setTitle]                 = useState('');
   const [content, setContent]             = useState('');
   const [cardColor, setCardColor]         = useState('yellow');
   const [imageBase64, setImageBase64]     = useState('');
@@ -420,7 +426,7 @@ export default function LearningBoard({ studentCode }) {
         : posts;
       visiblePosts.forEach(p => {
         if (p.lat && p.lng)
-          L.marker([p.lat, p.lng]).addTo(map).bindPopup(`<b>${p.studentName}</b><br>${p.content || ''}`);
+          L.marker([p.lat, p.lng]).addTo(map).bindPopup(`<b>${p.title || p.studentName}</b><br>${p.content || ''}`);
       });
       const initTime = Date.now();
       map.on('click', e => {
@@ -503,7 +509,7 @@ export default function LearningBoard({ studentCode }) {
 
   // ── 게시물 작성 ──────────────────────────────────────────────
   const submitPost = async () => {
-    if (!content.trim() && !imageBase64 && !attachment) return;
+    if (!title.trim() && !content.trim() && !imageBase64 && !attachment) return;
     if (!student || !selectedBoard) return;
     setIsPosting(true);
     try {
@@ -512,6 +518,7 @@ export default function LearningBoard({ studentCode }) {
         studentCode:    student.studentCode,
         studentName:    student.name || student.studentCode,
         characterImage: student.characterImage || '',
+        title:          title.trim(),
         content:        content.trim(),
         imageBase64:    imageBase64 || '',
         attachment:     attachment || null,
@@ -531,9 +538,9 @@ export default function LearningBoard({ studentCode }) {
       setPosts(prev => [local, ...prev]);
       if (selectedBoard.boardType === 'map' && writeLat && mapInstance.current && window.L) {
         window.L.marker([writeLat, writeLng]).addTo(mapInstance.current)
-          .bindPopup(`<b>${student.name || student.studentCode}</b><br>${content.trim()}`);
+          .bindPopup(`<b>${title.trim() || student.name || student.studentCode}</b><br>${content.trim()}`);
       }
-      setContent(''); setImageBase64(''); setAttachment(null); setCardColor('yellow');
+      setTitle(''); setContent(''); setImageBase64(''); setAttachment(null); setCardColor('yellow');
       setWritePageId(null); setWriteLat(null); setWriteLng(null);
       setShowWrite(false);
     } catch { alert('게시 실패'); }
@@ -576,7 +583,7 @@ export default function LearningBoard({ studentCode }) {
   // ── 정렬 + 검색 + 핀 ──────────────────────────────────────────
   const filteredPosts = posts
     .filter(p => !selectedSheetId || (p.sheetId || 'sheet_1') === selectedSheetId)
-    .filter(p => !searchQuery || p.content?.includes(searchQuery) || p.studentName?.includes(searchQuery))
+    .filter(p => !searchQuery || p.title?.includes(searchQuery) || p.content?.includes(searchQuery) || p.studentName?.includes(searchQuery))
     .sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
@@ -863,7 +870,7 @@ export default function LearningBoard({ studentCode }) {
                     {writeLat ? ` · 📍 ${writeLat.toFixed(3)}, ${writeLng.toFixed(3)}` : ''}
                   </div>
                 </div>
-                <button onClick={() => { setShowWrite(false); setContent(''); setImageBase64(''); setAttachment(null); setWriteLat(null); setWriteLng(null); }}
+                <button onClick={() => { setShowWrite(false); setTitle(''); setContent(''); setImageBase64(''); setAttachment(null); setWriteLat(null); setWriteLng(null); }}
                   className="text-slate-400 hover:text-slate-600 text-xl w-8 h-8 flex items-center justify-center">✕</button>
               </div>
 
@@ -884,6 +891,12 @@ export default function LearningBoard({ studentCode }) {
               )}
 
               <div className="p-4 space-y-3">
+                <input
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  placeholder="제목을 입력하세요"
+                  className="w-full bg-white/60 border border-black/10 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder-slate-400 text-slate-800"
+                />
                 <textarea ref={textRef} value={content} onChange={e => setContent(e.target.value)}
                   placeholder="내용을 입력하세요..."
                   className="w-full bg-white/50 border border-black/10 rounded-xl px-4 py-3 text-sm resize-none h-40 focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder-slate-400 text-slate-800" />
@@ -932,9 +945,9 @@ export default function LearningBoard({ studentCode }) {
                     📎 파일
                   </button>
                   <div className="flex-1" />
-                  <button onClick={() => { setShowWrite(false); setContent(''); setImageBase64(''); setAttachment(null); setWriteLat(null); setWriteLng(null); }}
+                  <button onClick={() => { setShowWrite(false); setTitle(''); setContent(''); setImageBase64(''); setAttachment(null); setWriteLat(null); setWriteLng(null); }}
                     className="px-4 py-2 rounded-xl text-slate-600 font-bold text-sm hover:bg-black/5">취소</button>
-                  <button onClick={submitPost} disabled={isPosting || isCompressing || (!content.trim() && !imageBase64 && !attachment)}
+                  <button onClick={submitPost} disabled={isPosting || isCompressing || (!title.trim() && !content.trim() && !imageBase64 && !attachment)}
                     className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-extrabold text-sm disabled:opacity-40 active:scale-95 transition-all">
                     {isPosting ? '게시 중...' : '게시 ✓'}
                   </button>
@@ -965,6 +978,9 @@ export default function LearningBoard({ studentCode }) {
                   className="ml-auto text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
               </div>
               <div className="overflow-y-auto p-5 space-y-3">
+                {expandedPost.title && (
+                  <h3 className="text-lg font-extrabold text-slate-900 leading-snug break-words">{expandedPost.title}</h3>
+                )}
                 {expandedPost.content && (
                   <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{expandedPost.content}</p>
                 )}
