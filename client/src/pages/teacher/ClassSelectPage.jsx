@@ -4,6 +4,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { applyClassQuickSetup } from '../../utils/classQuickSetup';
+import { getOperationModeFields } from '../../utils/operationModePresets';
 
 // ?? ?숆탳紐????쎌묶 (珥덈벑?숆탳/以묓븰援?怨좊벑?숆탳 ?쒓굅) ??????????????
 const getSchoolAbbr = (name = '') =>
@@ -154,6 +155,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
         grade:        parseInt(grade),
         classNumber:  parseInt(classNum),
         studentCount: count,
+        ...getOperationModeFields('basic'),
         createdAt:    serverTimestamp(),
       });
 
@@ -486,10 +488,6 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
 
   const enterClassAfterQuickSetup = () => {
     if (!quickSetup?.newClass) return;
-    const classKey = quickSetup.newClass.id || quickSetup.newClass.teacherUid;
-    if (classKey) {
-      sessionStorage.setItem(`showQrPrintGuide:${classKey}`, '1');
-    }
     onClassSelected(quickSetup.newClass);
   };
 

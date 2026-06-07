@@ -11,6 +11,28 @@ import iconDiamond from '../../assets/images/icon-diamond.png';
 import iconQuest from '../../assets/images/icon-quest.png';
 
 const getSeatNum = (code) => parseInt(code?.slice(-2)) || 0;
+const getKstDateKey = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const map = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${map.year}-${map.month}-${map.day}`;
+};
+const isKstMonday = () => new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Seoul',
+  weekday: 'short',
+}).format(new Date()) === 'Mon';
+const toDate = value => value?.toDate?.() ?? (value?.seconds ? new Date(value.seconds * 1000) : null);
+const AI_ACTION_TONES = {
+  emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
+  amber: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
+  rose: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
+  sky: 'border-sky-500/30 bg-sky-500/10 text-sky-200',
+  violet: 'border-violet-500/30 bg-violet-500/10 text-violet-200',
+};
 
 // ── AI 코스웨어 현황 미니 카드 ────────────────────────────────
 function AICoursewareCard({ teacherUid, onNavigate }) {
@@ -102,7 +124,6 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   const [studentQuestMap, setStudentQuestMap] = useState({}); // { studentId: [{title, checked}] }
   const [quickSetupInfo, setQuickSetupInfo] = useState(null);
   const [isQuickSetupRunning, setIsQuickSetupRunning] = useState(false);
-  const [showQrPrintGuide, setShowQrPrintGuide] = useState(false);
   const [aiSummary, setAiSummary] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [approvingQuests, setApprovingQuests] = useState(false);
@@ -171,7 +192,8 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       }
       if (batchCount > 0) await batch.commit();
       showToast(totalRewarded > 0 ? `✅ ${totalRewarded}건 퀘스트 보상 지급 완료!` : '승인할 퀘스트가 없습니다.');
-      await fetchAiSummary(students, questStats);
+      const refreshedQuestStats = await fetchQuestStats(students.map(student => student.id));
+      await fetchAiSummary(students, refreshedQuestStats);
     } catch (e) {
       console.error(e);
       showToast('퀘스트 일괄 승인 중 오류가 발생했습니다.', 'error');
@@ -196,8 +218,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       const settSnap = await getDoc(doc(db, 'learningSettings', teacherUid));
       const settings = settSnap.exists() ? { rewardGold: 10, rewardDiamond: 10, rewardExp: 30, ...settSnap.data() } : { rewardGold: 10, rewardDiamond: 10, rewardExp: 30 };
       const getMaxExp = getMaxExpForLevel;
+      const classStudentIds = new Set(students.map(student => student.id));
 
-      for (const noteDoc of notesSnap.docs) {
+      for (const noteDoc of notesSnap.docs.filter(note => classStudentIds.has(note.data().studentId))) {
         const note = { id: noteDoc.id, ...noteDoc.data() };
         try {
           // 과목별 status 모두 approved로 업데이트
@@ -240,6 +263,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const todayTs = Timestamp.fromDate(todayStart);
+      const weekStart = new Date(todayStart);
+      weekStart.setDate(weekStart.getDate() - 7);
+      const weekTs = Timestamp.fromDate(weekStart);
 
       const [notesSnap, txSnap, quizSnap] = await Promise.all([
         // 배움노트 pending 건수
@@ -253,31 +279,47 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
           collection(db, 'transactions'),
           where('timestamp', '>=', todayTs)
         )),
-        // 오늘 퀴즈 결과
+        // 최근 7일 퀴즈 결과
         getDocs(query(
           collection(db, 'quizResults'),
-          where('completedAt', '>=', todayTs)
+          where('completedAt', '>=', weekTs)
         )),
       ]);
 
-      // 오늘 골드 지급/소비 합산
+      const studentIds = new Set((currentStudents || []).map(s => s.id));
+
+      // 오늘 골드 지급/소비 합산 (현재 학급 대상 거래만)
       let goldIssued = 0, goldConsumed = 0;
       txSnap.docs.forEach(d => {
         const t = d.data();
+        const belongsToClass = t.classId
+          ? t.classId === selectedClass?.id
+          : Array.isArray(t.targetIds) && t.targetIds.some(id => studentIds.has(id));
+        if (!belongsToClass) return;
         const g = Number(t.goldAmount || 0);
         if (g > 0) goldIssued += g * (t.targetCount || 1);
         else if (g < 0) goldConsumed += Math.abs(g) * (t.targetCount || 1);
       });
 
       // 퀴즈던전 참여 & 평균 정답률 (오늘 학급 학생만)
-      const studentIds = new Set((currentStudents || []).map(s => s.id));
       const todayQuizResults = quizSnap.docs
         .map(d => d.data())
-        .filter(r => studentIds.has(r.studentId));
+        .filter(r => studentIds.has(r.studentId) && toDate(r.completedAt) >= todayStart);
       const quizCount = todayQuizResults.length;
       const avgAccuracy = quizCount > 0
         ? Math.round(todayQuizResults.reduce((s, r) => s + (Number(r.accuracy) || 0), 0) / quizCount)
         : null;
+      const weeklyQuizResults = quizSnap.docs
+        .map(d => d.data())
+        .filter(r => studentIds.has(r.studentId));
+      const weeklyQuizStudentCount = new Set(weeklyQuizResults.map(result => result.studentId)).size;
+      const weeklyAvgAccuracy = weeklyQuizResults.length > 0
+        ? Math.round(weeklyQuizResults.reduce((sum, result) => sum + (Number(result.accuracy) || 0), 0) / weeklyQuizResults.length)
+        : null;
+      const weeklyActiveStudentCount = (currentStudents || []).filter(student => {
+        const activeAt = toDate(student.lastActiveAt || student.lastLoginAt);
+        return activeAt != null && activeAt >= weekStart;
+      }).length;
 
       // 퀘스트 완료율 계산 (daily 퀘스트 기준)
       const dailyQuests = (currentQuestStats || []).filter(q => q.type === 'daily');
@@ -286,12 +328,46 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         ? Math.round(dailyQuests.reduce((s, q) => s + (q.checkedCount || 0), 0) / dailyQuests.length / totalStu * 100)
         : null;
 
-      const pendingNotes = notesSnap.size;
+      const pendingNotes = notesSnap.docs.filter(note => studentIds.has(note.data().studentId)).length;
+      const pendingQuestRewards = (currentQuestStats || [])
+        .reduce((sum, quest) => sum + (quest.pendingRewardCount || 0), 0);
+      const todayDateKey = getKstDateKey();
+      const inactiveStudentCount = (currentStudents || [])
+        .filter(student => student.lastActiveDateKey !== todayDateKey)
+        .length;
+      const activeQuestCount = (currentQuestStats || []).length;
 
       // 요약 텍스트 규칙 생성
-      const summary = generateAiText({ questRate, pendingNotes, goldIssued, goldConsumed, totalStu, quizCount, avgAccuracy, dailyQuests });
+      const summary = generateAiText({
+        questRate,
+        pendingNotes,
+        pendingQuestRewards,
+        inactiveStudentCount,
+        goldIssued,
+        goldConsumed,
+        totalStu,
+        quizCount,
+        avgAccuracy,
+        dailyQuests,
+      });
 
-      setAiSummary({ questRate, pendingNotes, goldIssued, goldConsumed, quizCount, avgAccuracy, text: summary, refreshedAt: new Date() });
+      setAiSummary({
+        questRate,
+        pendingNotes,
+        pendingQuestRewards,
+        inactiveStudentCount,
+        activeQuestCount,
+        goldIssued,
+        goldConsumed,
+        quizCount,
+        avgAccuracy,
+        weeklyActiveStudentCount,
+        weeklyQuizStudentCount,
+        weeklyAvgAccuracy,
+        showWeeklyReport: isKstMonday(),
+        text: summary,
+        refreshedAt: new Date(),
+      });
     } catch (e) {
       console.error('AI 요약 fetch 실패:', e);
     } finally {
@@ -299,7 +375,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
     }
   }, [selectedClass]);
 
-  const generateAiText = ({ questRate, pendingNotes, goldIssued, goldConsumed, totalStu, quizCount, avgAccuracy, dailyQuests }) => {
+  const generateAiText = ({ questRate, pendingNotes, pendingQuestRewards, inactiveStudentCount, goldIssued, goldConsumed, totalStu, quizCount, avgAccuracy, dailyQuests }) => {
     const parts = [];
 
     if (dailyQuests.length === 0) {
@@ -318,6 +394,14 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
 
     if (pendingNotes > 0) {
       parts.push(`배움노트 승인 대기 ${pendingNotes}건이 있습니다. 확인 후 보상을 지급해주세요.`);
+    }
+
+    if (pendingQuestRewards > 0) {
+      parts.push(`보상 지급을 기다리는 퀘스트 완료 기록이 ${pendingQuestRewards}건 있습니다.`);
+    }
+
+    if (inactiveStudentCount > 0 && inactiveStudentCount < totalStu) {
+      parts.push(`오늘 아직 접속하지 않은 학생은 ${inactiveStudentCount}명입니다.`);
     }
 
     if (goldIssued > 0 && goldConsumed < goldIssued * 0.25) {
@@ -393,6 +477,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         activeQuests.map(async q => {
           const snap = await getDocs(collection(db, 'quests', q.id, 'completions'));
           let checkedCount = 0;
+          let pendingRewardCount = 0;
           snap.docs.forEach(d => {
             const sid = d.id;
             if (!studentIdSet.has(sid)) return;
@@ -406,7 +491,10 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
               validCheck = checkedAt != null && checkedAt >= todayMidnight;
             }
 
-            if (validCheck) checkedCount++;
+            if (validCheck) {
+              checkedCount++;
+              if (!data.rewarded) pendingRewardCount++;
+            }
             if (q.type === 'daily') {
               if (!sqMap[sid]) sqMap[sid] = [];
               sqMap[sid].push({
@@ -416,7 +504,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
               });
             }
           });
-          return { ...q, checkedCount };
+          return { ...q, checkedCount, pendingRewardCount };
         })
       );
 
@@ -430,7 +518,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
     }
   };
 
-  const loadQuickSetupStatus = async () => {
+  const loadQuickSetupStatus = async (currentStudents = students) => {
     if (!selectedClass?.id) {
       setQuickSetupInfo(null);
       return;
@@ -446,6 +534,12 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         completed: data.quickSetupCompleted === true,
         version: Number(data.quickSetupVersion || 0),
         summary: data.quickSetupSummary || null,
+        onboardingDismissed: data.onboardingChecklistDismissed === true,
+        studentLoginDone: (currentStudents || []).some(student =>
+          student.lastActiveAt || student.lastLoginAt || student.lastActiveDateKey
+        ),
+        questViewed: data.onboardingQuestViewed === true,
+        rewardGiven: data.onboardingRewardGiven === true,
       });
     } catch {
       setQuickSetupInfo(null);
@@ -456,28 +550,18 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
     const load = async () => {
       const studentList = await fetchStudents();
       const questList = await fetchQuestStats(studentList.map(s => s.id));
-      await loadQuickSetupStatus();
+      await loadQuickSetupStatus(studentList);
       await fetchAiSummary(studentList, questList);
     };
     load();
   }, [selectedClass]);
-
-  useEffect(() => {
-    const classKey = selectedClass?.id || selectedClass?.teacherUid;
-    if (!classKey) return;
-    const flagKey = `showQrPrintGuide:${classKey}`;
-    if (sessionStorage.getItem(flagKey) === '1') {
-      sessionStorage.removeItem(flagKey);
-      setShowQrPrintGuide(true);
-    }
-  }, [selectedClass?.id, selectedClass?.teacherUid]);
 
   const handleRunQuickSetup = async () => {
     if (!selectedClass?.id || isQuickSetupRunning) return;
     setIsQuickSetupRunning(true);
     try {
       const result = await applyClassQuickSetup(selectedClass);
-      await loadQuickSetupStatus();
+      await loadQuickSetupStatus(students);
       if (result?.alreadyCompleted) {
         showToast('이미 기본 셋팅이 완료된 학급입니다.');
       } else {
@@ -488,6 +572,27 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
     } finally {
       setIsQuickSetupRunning(false);
     }
+  };
+
+  const updateOnboardingStep = async (field, value = true) => {
+    if (!selectedClass?.id) return;
+    try {
+      await updateDoc(doc(db, 'classes', selectedClass.id), { [field]: value });
+      setQuickSetupInfo(prev => {
+        if (!prev) return prev;
+        if (field === 'onboardingQuestViewed') return { ...prev, questViewed: value };
+        if (field === 'onboardingRewardGiven') return { ...prev, rewardGiven: value };
+        if (field === 'onboardingChecklistDismissed') return { ...prev, onboardingDismissed: value };
+        return prev;
+      });
+    } catch (error) {
+      console.error('시작 체크리스트 저장 오류:', error);
+    }
+  };
+
+  const openQuestFromOnboarding = async () => {
+    await updateOnboardingStep('onboardingQuestViewed');
+    window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view: 'questManage' } }));
   };
 
   const openModal = (mode) => {
@@ -542,6 +647,8 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       const logRef = doc(collection(db, "transactions"));
       batch.set(logRef, {
         timestamp:   serverTimestamp(),
+        classId:     selectedClass?.id || null,
+        teacherUid:  selectedClass?.teacherUid || null,
         mode:        modalMode,
         diaAmount:   isAdd ? diaAmt  : -diaAmt,
         goldAmount:  isAdd ? goldAmt : -goldAmt,
@@ -551,6 +658,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       });
 
       await batch.commit();
+      if (selectedClass?.id && isAdd) {
+        await updateOnboardingStep('onboardingRewardGiven');
+      }
 
       const parts = [];
       if (diaAmt  > 0) parts.push(`다이아 ${diaAmt.toLocaleString()}`);
@@ -582,6 +692,112 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   };
 
   const filteredStudents = students.filter(s => s.studentCode.includes(searchQuery));
+  const aiActionItems = aiSummary ? [
+    aiSummary.pendingQuestRewards > 0 && {
+      id: 'questRewards',
+      tone: 'emerald',
+      icon: '⚔️',
+      title: `퀘스트 보상 ${aiSummary.pendingQuestRewards}건 지급 대기`,
+      description: '완료 체크된 퀘스트 보상을 한 번에 지급할 수 있습니다.',
+      label: '전체 승인',
+      action: 'approveQuests',
+    },
+    aiSummary.pendingNotes > 0 && {
+      id: 'pendingNotes',
+      tone: 'amber',
+      icon: '📚',
+      title: `배움노트 ${aiSummary.pendingNotes}건 승인 대기`,
+      description: '검토가 끝났다면 보상을 포함해 한 번에 승인할 수 있습니다.',
+      label: '모두 승인',
+      action: 'approveNotes',
+    },
+    aiSummary.activeQuestCount === 0 && {
+      id: 'noQuests',
+      tone: 'rose',
+      icon: '📋',
+      title: '현재 운영 중인 퀘스트가 없습니다',
+      description: '추천 퀘스트를 추가하면 학생들이 바로 참여할 수 있습니다.',
+      label: '퀘스트 만들기',
+      view: 'questManage',
+    },
+    aiSummary.activeQuestCount > 0 && aiSummary.questRate !== null && aiSummary.questRate < 50 && {
+      id: 'lowQuestRate',
+      tone: 'rose',
+      icon: '📣',
+      title: `오늘 퀘스트 참여율 ${aiSummary.questRate}%`,
+      description: '미완료 학생을 확인하거나 짧은 보상 퀘스트를 추가해보세요.',
+      label: '퀘스트 확인',
+      view: 'questManage',
+    },
+    aiSummary.inactiveStudentCount > 0 && students.length > 0 && {
+      id: 'inactiveStudents',
+      tone: 'sky',
+      icon: '👥',
+      title: `오늘 미접속 학생 ${aiSummary.inactiveStudentCount}명`,
+      description: '학생 계정과 접속 현황을 확인할 수 있습니다.',
+      label: '학생 보기',
+      view: 'accountIssue',
+    },
+    aiSummary.goldIssued > 0 && aiSummary.goldConsumed < aiSummary.goldIssued * 0.25 && {
+      id: 'lowGoldSpend',
+      tone: 'violet',
+      icon: '🛒',
+      title: '오늘 골드 소비가 적습니다',
+      description: '학생들이 사용할 만한 학급 상점 아이템을 확인해보세요.',
+      label: '상점 관리',
+      view: 'classShopManage',
+    },
+  ].filter(Boolean).slice(0, 3) : [];
+
+  const runAiAction = (item) => {
+    if (item.action === 'approveQuests') {
+      approveAllCheckedQuests();
+      return;
+    }
+    if (item.action === 'approveNotes') {
+      approveAllNotes();
+      return;
+    }
+    if (item.view) {
+      window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view: item.view } }));
+    }
+  };
+  const onboardingSteps = quickSetupInfo?.completed ? [
+    {
+      id: 'studentLogin',
+      icon: '👥',
+      title: '학생 접속 준비하기',
+      description: quickSetupInfo.studentLoginDone
+        ? '학생이 접속한 기록이 확인되었습니다.'
+        : '학생 계정과 로그인 안내를 확인해 주세요.',
+      done: quickSetupInfo.studentLoginDone,
+      label: '학생 계정 보기',
+      onClick: () => onGoAccountIssue?.(),
+    },
+    {
+      id: 'questViewed',
+      icon: '⚔️',
+      title: '첫 퀘스트 확인하기',
+      description: quickSetupInfo.questViewed
+        ? '첫 퀘스트 운영 준비를 확인했습니다.'
+        : '자동 생성된 추천 퀘스트를 확인해 주세요.',
+      done: quickSetupInfo.questViewed,
+      label: '퀘스트 확인',
+      onClick: openQuestFromOnboarding,
+    },
+    {
+      id: 'rewardGiven',
+      icon: '🎁',
+      title: '첫 보상 지급해 보기',
+      description: quickSetupInfo.rewardGiven
+        ? '학생 보상 지급을 완료했습니다.'
+        : '학생을 선택해 첫 보상을 지급해 보세요.',
+      done: quickSetupInfo.rewardGiven,
+      label: '보상 지급',
+      onClick: () => openModal('add'),
+    },
+  ] : [];
+  const onboardingDoneCount = onboardingSteps.filter(step => step.done).length;
 
   return (
     <div className="min-h-screen bg-slate-100 p-8 relative">
@@ -664,6 +880,78 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         </div>
       )}
 
+      {quickSetupInfo?.completed && !quickSetupInfo.onboardingDismissed && onboardingDoneCount < onboardingSteps.length && (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-indigo-100 bg-indigo-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🚀</span>
+                <h2 className="text-base font-extrabold text-slate-900">이번 주 시작하기</h2>
+                <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-extrabold text-white">
+                  {onboardingDoneCount} / {onboardingSteps.length}
+                </span>
+              </div>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                아래 세 가지만 완료하면 기본 학급 운영 준비가 끝납니다.
+              </p>
+            </div>
+            <div className="flex items-center gap-1 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view: 'systemSettings' } }))}
+                className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-indigo-600 hover:bg-white"
+              >
+                기능 더 사용하기
+              </button>
+              <button
+                type="button"
+                onClick={() => updateOnboardingStep('onboardingChecklistDismissed')}
+                className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-400 hover:bg-white hover:text-slate-600"
+              >
+                숨기기
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 p-4 lg:grid-cols-3">
+            {onboardingSteps.map(step => (
+              <div
+                key={step.id}
+                className={`rounded-xl border p-4 transition-colors ${
+                  step.done
+                    ? 'border-emerald-200 bg-emerald-50'
+                    : 'border-slate-200 bg-white'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base ${
+                    step.done ? 'bg-emerald-500 text-white' : 'bg-indigo-50'
+                  }`}>
+                    {step.done ? '✓' : step.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <div className={`text-sm font-extrabold ${step.done ? 'text-emerald-800' : 'text-slate-800'}`}>
+                      {step.title}
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{step.description}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={step.onClick}
+                  className={`mt-3 w-full rounded-lg border px-3 py-2 text-xs font-extrabold transition-colors ${
+                    step.done
+                      ? 'border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-100'
+                      : 'border-indigo-200 bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
+                >
+                  {step.done ? '다시 보기' : step.label} →
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── AI 오늘의 운영 요약 ── */}
       <div className="mb-6">
         <div className="rounded-2xl border border-indigo-800/60 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-900 shadow-lg overflow-hidden">
@@ -703,46 +991,103 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                 {/* 요약 텍스트 */}
                 <p className="text-slate-100 text-sm leading-relaxed mb-4">{aiSummary.text}</p>
 
+                {/* 지금 처리하면 좋은 항목 */}
+                {aiActionItems.length > 0 ? (
+                  <div className="mb-4">
+                    <div className="text-[11px] font-extrabold text-indigo-200 mb-2">지금 처리하면 좋은 항목</div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+                      {aiActionItems.map(item => (
+                        <div
+                          key={item.id}
+                          className={`rounded-xl border p-3 flex flex-col gap-2 ${AI_ACTION_TONES[item.tone] || AI_ACTION_TONES.sky}`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <span className="text-lg leading-none">{item.icon}</span>
+                            <div className="min-w-0">
+                              <div className="text-xs font-extrabold leading-snug">{item.title}</div>
+                              <p className="text-[10px] leading-relaxed opacity-75 mt-1">{item.description}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => runAiAction(item)}
+                            disabled={(item.action === 'approveQuests' && approvingQuests) || (item.action === 'approveNotes' && approvingNotes)}
+                            className="mt-auto w-full rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 px-3 py-1.5 text-[11px] font-extrabold transition-colors disabled:opacity-50"
+                          >
+                            {item.label} →
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 flex items-center gap-2 text-emerald-200">
+                    <span className="text-base">✓</span>
+                    <div>
+                      <div className="text-xs font-extrabold">지금 바로 처리할 항목이 없습니다.</div>
+                      <p className="text-[10px] text-emerald-200/70 mt-0.5">오늘 학급 운영 상태가 안정적입니다.</p>
+                    </div>
+                  </div>
+                )}
+
+                {aiSummary.showWeeklyReport && (
+                  <div className="mb-4 rounded-xl border border-violet-500/25 bg-violet-500/10 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">📊</span>
+                          <div className="text-xs font-extrabold text-violet-200">지난 7일 운영 리포트</div>
+                        </div>
+                        <p className="mt-1 text-[10px] text-violet-200/65">월요일마다 지난주 핵심 활동을 간단히 정리합니다.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view: 'accountIssue' } }))}
+                        className="self-start rounded-lg border border-violet-400/30 bg-violet-400/10 px-3 py-1.5 text-[10px] font-extrabold text-violet-200 hover:bg-violet-400/20"
+                      >
+                        학생 현황 보기 →
+                      </button>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+                      {[
+                        { label: '접속 학생', value: `${aiSummary.weeklyActiveStudentCount} / ${students.length}명` },
+                        { label: '퀴즈 참여 학생', value: `${aiSummary.weeklyQuizStudentCount}명` },
+                        { label: '퀴즈 평균 정답률', value: aiSummary.weeklyAvgAccuracy !== null ? `${aiSummary.weeklyAvgAccuracy}%` : '-' },
+                        { label: '현재 승인 대기', value: `${aiSummary.pendingNotes + aiSummary.pendingQuestRewards}건` },
+                      ].map(item => (
+                        <div key={item.label} className="rounded-lg border border-white/10 bg-black/10 px-3 py-2.5">
+                          <div className="text-sm font-extrabold text-white">{item.value}</div>
+                          <div className="mt-0.5 text-[10px] text-violet-200/60">{item.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* 지표 칩 + 빠른 승인 버튼 */}
                 <div className="flex flex-wrap gap-2 mb-4">
                   {aiSummary.questRate !== null && (
-                    <div className="flex items-center gap-1.5">
-                      <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
-                        ${aiSummary.questRate >= 70 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : aiSummary.questRate >= 40 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
-                        ⚔️ 퀘스트 완료율 {aiSummary.questRate}%
-                      </span>
-                      <button
-                        onClick={approveAllCheckedQuests}
-                        disabled={approvingQuests}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold bg-emerald-500/25 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/40 transition-colors disabled:opacity-50"
-                        title="체크한 학생 전원에게 퀘스트 보상 지급"
-                      >
-                        {approvingQuests
-                          ? <span className="inline-block w-3 h-3 border-2 border-emerald-300/30 border-t-emerald-300 rounded-full animate-spin" />
-                          : '✓'}
-                        전체 승인
-                      </button>
-                    </div>
+                    <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
+                      ${aiSummary.questRate >= 70 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : aiSummary.questRate >= 40 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
+                      ⚔️ 퀘스트 완료율 {aiSummary.questRate}%
+                    </span>
                   )}
                   {aiSummary.pendingNotes > 0 && (
-                    <div className="flex items-center gap-1.5">
-                      <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        📚 승인 대기 {aiSummary.pendingNotes}건
-                      </span>
-                      <button
-                        onClick={approveAllNotes}
-                        disabled={approvingNotes}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold bg-amber-500/25 hover:bg-amber-500/40 text-amber-300 border border-amber-500/40 transition-colors disabled:opacity-50"
-                        title="배움노트 대기 건 전체 승인"
-                      >
-                        {approvingNotes
-                          ? <span className="inline-block w-3 h-3 border-2 border-amber-300/30 border-t-amber-300 rounded-full animate-spin" />
-                          : '✓'}
-                        모두 승인
-                      </button>
-                    </div>
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      📚 승인 대기 {aiSummary.pendingNotes}건
+                    </span>
+                  )}
+                  {aiSummary.pendingQuestRewards > 0 && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      🎁 퀘스트 보상 대기 {aiSummary.pendingQuestRewards}건
+                    </span>
+                  )}
+                  {aiSummary.inactiveStudentCount > 0 && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                      👥 오늘 미접속 {aiSummary.inactiveStudentCount}명
+                    </span>
                   )}
                   {aiSummary.goldIssued > 0 && (
                     <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
@@ -1125,44 +1470,6 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
           characterImage={null}
           onClose={() => setShowLevelUpPreview(false)}
         />
-      )}
-
-      {showQrPrintGuide && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[180] p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="bg-indigo-600 px-5 py-4 text-white">
-              <h2 className="text-lg font-extrabold">학생 로그인 QR코드 출력</h2>
-              <p className="mt-1 text-xs font-bold text-indigo-100">
-                기본 셋팅이 완료되었습니다. 학생들이 쉽게 접속할 수 있도록 로그인 QR코드를 출력해두세요.
-              </p>
-            </div>
-            <div className="p-5 space-y-4">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                <div className="font-extrabold text-slate-800">학급/학생 관리 페이지에서 출력할 수 있습니다.</div>
-                <div className="mt-1 text-slate-500">
-                  출력물의 QR코드를 스캔하면 학생코드가 자동 입력되고, 학생은 PIN만 입력하면 로그인됩니다.
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowQrPrintGuide(false)}
-                  className="flex-1 rounded-xl border-2 border-slate-200 py-2.5 text-sm font-extrabold text-slate-600 hover:bg-slate-50"
-                >
-                  닫기
-                </button>
-                <button
-                  onClick={() => {
-                    setShowQrPrintGuide(false);
-                    onGoAccountIssue?.();
-                  }}
-                  className="flex-1 rounded-xl bg-indigo-600 py-2.5 text-sm font-extrabold text-white hover:bg-indigo-700"
-                >
-                  출력하러 가기
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
 
       {toast && (

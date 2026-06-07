@@ -28,66 +28,7 @@ import FreeBoard          from '../student/FreeBoard';
 import HallOfFame         from '../student/HallOfFame';
 import AICoursewareManage from './AICoursewareManage';
 import AICourseware       from '../student/AICourseware';
-
-const STUDENT_MENU_IDS = [
-  'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement',
-  'board','learningNote','adventure','quizDungeon','explorationDungeon','arena','bossRaid','trade',
-  'classBank','classShop','stockMarket','town','freeBoard','classVote','settings','editProfile','themeSettings'
-];
-
-const TEACHER_MENU_IDS = [
-  'dashboard','myCharacter','questManage','questKiosk','adventure','quizBank','quizDungeonManage','bossRaidManage',
-  'quizDungeon','explorationDungeon','bossRaid','adventureManage','boardManage','learningNoteManage','economyManage',
-  'classShopManage','bankManage','stockManage','townManage','freeBoard','hallOfFame','classVoteManage','studentManage',
-  'accountIssue','systemSettings','dataReset','inquiry'
-];
-
-const hideExcept = (allIds, visibleIds) => allIds.filter((id) => !visibleIds.includes(id));
-
-const OPERATION_MODE_PRESETS = {
-  basic: {
-    title: '가볍게 시작',
-    description: '퀘스트, 보상 지급/차감, 학급 상점, 배움노트 중심으로 운영합니다.',
-    studentHidden: hideExcept(STUDENT_MENU_IDS, [
-      'dashboard','classAll','myCharacter','quest','achievement','learningNote','trade','classShop','settings','editProfile','themeSettings'
-    ]),
-    teacherHidden: hideExcept(TEACHER_MENU_IDS, [
-      'dashboard','myCharacter','questManage','questKiosk','boardManage','learningNoteManage','economyManage','classShopManage',
-      'studentManage','accountIssue','systemSettings','dataReset','inquiry'
-    ]),
-  },
-  game: {
-    title: '게임형 학급 운영',
-    description: '퀘스트와 상점에 어드벤처, 퀴즈던전, 보스레이드, 투기장을 더합니다.',
-    studentHidden: hideExcept(STUDENT_MENU_IDS, [
-      'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement','learningNote',
-      'adventure','quizDungeon','explorationDungeon','arena','bossRaid','trade','classShop','settings','editProfile','themeSettings'
-    ]),
-    teacherHidden: hideExcept(TEACHER_MENU_IDS, [
-      'dashboard','myCharacter','questManage','questKiosk','adventure','quizBank','quizDungeonManage','bossRaidManage',
-      'quizDungeon','explorationDungeon','bossRaid','adventureManage','boardManage','learningNoteManage','economyManage',
-      'classShopManage','studentManage','accountIssue','systemSettings','dataReset','inquiry'
-    ]),
-  },
-  economy: {
-    title: '경제형 학급 운영',
-    description: '퀘스트, 상점, 은행, 주식 ETF로 학급 경제를 운영합니다.',
-    studentHidden: hideExcept(STUDENT_MENU_IDS, [
-      'dashboard','classAll','myCharacter','quest','achievement','learningNote','trade','classBank','classShop','stockMarket',
-      'settings','editProfile','themeSettings'
-    ]),
-    teacherHidden: hideExcept(TEACHER_MENU_IDS, [
-      'dashboard','myCharacter','questManage','questKiosk','boardManage','learningNoteManage','economyManage','classShopManage',
-      'bankManage','stockManage','studentManage','accountIssue','systemSettings','dataReset','inquiry'
-    ]),
-  },
-  full: {
-    title: '전체 기능 사용',
-    description: '모든 메뉴를 열어두고 학급 상황에 맞게 직접 운영합니다.',
-    studentHidden: [],
-    teacherHidden: [],
-  },
-};
+import { OPERATION_MODE_PRESETS, STUDENT_MENU_IDS, TEACHER_MENU_IDS } from '../../utils/operationModePresets';
 
 const KOREAN_STUDENT_MENU_LABELS = {
   dashboard: '대시보드',

@@ -73,10 +73,10 @@
         user-select: none; -webkit-user-select: none;
         box-shadow: 0 2px 12px rgba(239,68,68,0.5);
       }
-      /* 우측 절반 탭 공격 존 (조이스틱 오른쪽 전체) */
+      /* 우측 화면은 Unity UI가 직접 터치를 받아 스킬 버튼과 화면 탭 공격을 구분합니다. */
       #tap-attack-zone {
         position: absolute; left: 42%; right: 0; top: 0; bottom: 0;
-        pointer-events: auto; touch-action: none;
+        pointer-events: none; touch-action: none;
         /* 디버그용: background: rgba(255,0,0,0.05); */
       }
     </style>
@@ -242,13 +242,7 @@
         btnAttack.style.transform  = "scale(1)";
       }, { passive: false });
 
-      // ── 우측 탭 → 공격 (버튼 없이 화면 탭으로도 공격 가능) ────
-      const tapAttackZone = document.getElementById("tap-attack-zone");
-      tapAttackZone.addEventListener("touchstart", (e) => {
-        e.preventDefault();
-        sendAttack();
-      }, { passive: false });
-
+      // 우측 화면 탭 공격은 Unity가 처리합니다. HTML 오버레이가 Unity 스킬 버튼을 가로채면 안 됩니다.
       // ── Unity 인스턴스 생성 ──────────────────────────────────────
       const script = document.createElement("script");
       script.src = loaderUrl;
