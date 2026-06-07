@@ -26,6 +26,39 @@ const isKstMonday = () => new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
 }).format(new Date()) === 'Mon';
 const toDate = value => value?.toDate?.() ?? (value?.seconds ? new Date(value.seconds * 1000) : null);
+const formatLastAccess = student => {
+  const activeAt = toDate(student.lastActiveAt || student.lastLoginAt);
+  if (activeAt) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Seoul',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(activeAt);
+    const map = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return `${map.month}월 ${map.day}일 ${map.hour}시 ${map.minute}분`;
+  }
+  if (student.lastActiveDateKey) {
+    const [, month, day] = String(student.lastActiveDateKey).split('-');
+    if (month && day) return `${month}월 ${day}일 (시간 기록 없음)`;
+  }
+  return '접속 기록 없음';
+};
+const isStudentActiveToday = student => {
+  if (student.lastActiveDateKey === getKstDateKey()) return true;
+  const activeAt = toDate(student.lastActiveAt || student.lastLoginAt);
+  if (!activeAt) return false;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(activeAt);
+  const map = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${map.year}-${map.month}-${map.day}` === getKstDateKey();
+};
 const AI_ACTION_TONES = {
   emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
   amber: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
@@ -128,6 +161,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [approvingQuests, setApprovingQuests] = useState(false);
   const [approvingNotes,  setApprovingNotes]  = useState(false);
+  const [isAccessStatusOpen, setIsAccessStatusOpen] = useState(false);
 
   // ── 퀘스트 체크 학생 일괄 승인 ──────────────────────────────
   const approveAllCheckedQuests = async () => {
@@ -262,22 +296,16 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
     try {
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
-      const todayTs = Timestamp.fromDate(todayStart);
       const weekStart = new Date(todayStart);
       weekStart.setDate(weekStart.getDate() - 7);
       const weekTs = Timestamp.fromDate(weekStart);
 
-      const [notesSnap, txSnap, quizSnap] = await Promise.all([
+      const [notesSnap, quizSnap] = await Promise.all([
         // 배움노트 pending 건수
         getDocs(query(
           collection(db, 'learningNotes'),
           where('teacherUid', '==', teacherUid),
           where('status', '==', 'pending')
-        )),
-        // 오늘 재화 거래 내역
-        getDocs(query(
-          collection(db, 'transactions'),
-          where('timestamp', '>=', todayTs)
         )),
         // 최근 7일 퀴즈 결과
         getDocs(query(
@@ -287,19 +315,6 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       ]);
 
       const studentIds = new Set((currentStudents || []).map(s => s.id));
-
-      // 오늘 골드 지급/소비 합산 (현재 학급 대상 거래만)
-      let goldIssued = 0, goldConsumed = 0;
-      txSnap.docs.forEach(d => {
-        const t = d.data();
-        const belongsToClass = t.classId
-          ? t.classId === selectedClass?.id
-          : Array.isArray(t.targetIds) && t.targetIds.some(id => studentIds.has(id));
-        if (!belongsToClass) return;
-        const g = Number(t.goldAmount || 0);
-        if (g > 0) goldIssued += g * (t.targetCount || 1);
-        else if (g < 0) goldConsumed += Math.abs(g) * (t.targetCount || 1);
-      });
 
       // 퀴즈던전 참여 & 평균 정답률 (오늘 학급 학생만)
       const todayQuizResults = quizSnap.docs
@@ -333,7 +348,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         .reduce((sum, quest) => sum + (quest.pendingRewardCount || 0), 0);
       const todayDateKey = getKstDateKey();
       const inactiveStudentCount = (currentStudents || [])
-        .filter(student => student.lastActiveDateKey !== todayDateKey)
+        .filter(student => student.lastActiveDateKey !== todayDateKey && !isStudentActiveToday(student))
         .length;
       const activeQuestCount = (currentQuestStats || []).length;
 
@@ -343,8 +358,6 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         pendingNotes,
         pendingQuestRewards,
         inactiveStudentCount,
-        goldIssued,
-        goldConsumed,
         totalStu,
         quizCount,
         avgAccuracy,
@@ -357,8 +370,6 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         pendingQuestRewards,
         inactiveStudentCount,
         activeQuestCount,
-        goldIssued,
-        goldConsumed,
         quizCount,
         avgAccuracy,
         weeklyActiveStudentCount,
@@ -375,7 +386,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
     }
   }, [selectedClass]);
 
-  const generateAiText = ({ questRate, pendingNotes, pendingQuestRewards, inactiveStudentCount, goldIssued, goldConsumed, totalStu, quizCount, avgAccuracy, dailyQuests }) => {
+  const generateAiText = ({ questRate, pendingNotes, pendingQuestRewards, inactiveStudentCount, totalStu, quizCount, avgAccuracy, dailyQuests }) => {
     const parts = [];
 
     if (dailyQuests.length === 0) {
@@ -402,12 +413,6 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
 
     if (inactiveStudentCount > 0 && inactiveStudentCount < totalStu) {
       parts.push(`오늘 아직 접속하지 않은 학생은 ${inactiveStudentCount}명입니다.`);
-    }
-
-    if (goldIssued > 0 && goldConsumed < goldIssued * 0.25) {
-      parts.push(`오늘 골드 지급(${goldIssued.toLocaleString()}G) 대비 소비(${goldConsumed.toLocaleString()}G)가 낮습니다. 소형 상점 아이템 추가를 추천합니다.`);
-    } else if (goldIssued > 0 && goldConsumed >= goldIssued * 0.5) {
-      parts.push(`오늘 학급 경제는 지급과 소비가 균형 잡혀 있습니다.`);
     }
 
     if (quizCount > 0 && avgAccuracy !== null) {
@@ -535,7 +540,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         version: Number(data.quickSetupVersion || 0),
         summary: data.quickSetupSummary || null,
         onboardingDismissed: data.onboardingChecklistDismissed === true,
-        studentLoginDone: (currentStudents || []).some(student =>
+        studentLoginDone: data.onboardingStudentAccountsViewed === true || (currentStudents || []).some(student =>
           student.lastActiveAt || student.lastLoginAt || student.lastActiveDateKey
         ),
         questViewed: data.onboardingQuestViewed === true,
@@ -582,6 +587,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         if (!prev) return prev;
         if (field === 'onboardingQuestViewed') return { ...prev, questViewed: value };
         if (field === 'onboardingRewardGiven') return { ...prev, rewardGiven: value };
+        if (field === 'onboardingStudentAccountsViewed') return { ...prev, studentLoginDone: value };
         if (field === 'onboardingChecklistDismissed') return { ...prev, onboardingDismissed: value };
         return prev;
       });
@@ -734,18 +740,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
       tone: 'sky',
       icon: '👥',
       title: `오늘 미접속 학생 ${aiSummary.inactiveStudentCount}명`,
-      description: '학생 계정과 접속 현황을 확인할 수 있습니다.',
-      label: '학생 보기',
-      view: 'accountIssue',
-    },
-    aiSummary.goldIssued > 0 && aiSummary.goldConsumed < aiSummary.goldIssued * 0.25 && {
-      id: 'lowGoldSpend',
-      tone: 'violet',
-      icon: '🛒',
-      title: '오늘 골드 소비가 적습니다',
-      description: '학생들이 사용할 만한 학급 상점 아이템을 확인해보세요.',
-      label: '상점 관리',
-      view: 'classShopManage',
+      description: '학생별 최종 접속 시각을 바로 확인할 수 있습니다.',
+      label: '접속 현황',
+      action: 'showAccessStatus',
     },
   ].filter(Boolean).slice(0, 3) : [];
 
@@ -756,6 +753,10 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
     }
     if (item.action === 'approveNotes') {
       approveAllNotes();
+      return;
+    }
+    if (item.action === 'showAccessStatus') {
+      setIsAccessStatusOpen(true);
       return;
     }
     if (item.view) {
@@ -772,7 +773,10 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         : '학생 계정과 로그인 안내를 확인해 주세요.',
       done: quickSetupInfo.studentLoginDone,
       label: '학생 계정 보기',
-      onClick: () => onGoAccountIssue?.(),
+      onClick: async () => {
+        await updateOnboardingStep('onboardingStudentAccountsViewed');
+        onGoAccountIssue?.();
+      },
     },
     {
       id: 'questViewed',
@@ -899,9 +903,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view: 'systemSettings' } }))}
-                className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-indigo-600 hover:bg-white"
+                className="rounded-xl border border-indigo-200 bg-white px-3.5 py-2 text-xs font-extrabold text-indigo-700 shadow-sm hover:border-indigo-400 hover:bg-indigo-100"
               >
-                기능 더 사용하기
+                더 많은 기능 둘러보기 →
               </button>
               <button
                 type="button"
@@ -951,6 +955,23 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
           </div>
         </div>
       )}
+
+      <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-violet-300 bg-gradient-to-r from-indigo-700 via-violet-700 to-fuchsia-700 p-5 text-white shadow-lg md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="text-xs font-extrabold text-violet-200">LEVELUP CLASS 확장 기능</div>
+          <h2 className="mt-1 text-lg font-extrabold">기본 운영에 익숙해졌다면, 수업과 학급 활동을 더 확장해보세요.</h2>
+          <p className="mt-1 text-xs font-semibold leading-relaxed text-violet-100/90">
+            퀘스트·보상으로 간단히 시작하고, 필요할 때 어드벤처·AI 학습관·학급 경제·게시판 기능을 단계적으로 여는 방식으로 설계했습니다.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view: 'systemSettings' } }))}
+          className="shrink-0 rounded-xl bg-white px-5 py-3 text-sm font-extrabold text-violet-700 shadow-md transition hover:bg-violet-50"
+        >
+          사용할 기능 선택하기 →
+        </button>
+      </div>
 
       {/* ── AI 오늘의 운영 요약 ── */}
       <div className="mb-6">
@@ -1042,10 +1063,10 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                       </div>
                       <button
                         type="button"
-                        onClick={() => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view: 'accountIssue' } }))}
+                        onClick={() => setIsAccessStatusOpen(true)}
                         className="self-start rounded-lg border border-violet-400/30 bg-violet-400/10 px-3 py-1.5 text-[10px] font-extrabold text-violet-200 hover:bg-violet-400/20"
                       >
-                        학생 현황 보기 →
+                        접속 현황 보기 →
                       </button>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
@@ -1089,16 +1110,6 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                       👥 오늘 미접속 {aiSummary.inactiveStudentCount}명
                     </span>
                   )}
-                  {aiSummary.goldIssued > 0 && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
-                      🪙 오늘 지급 {aiSummary.goldIssued.toLocaleString()}G
-                    </span>
-                  )}
-                  {aiSummary.goldConsumed > 0 && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-500/20 text-slate-300 border border-slate-500/30">
-                      💸 오늘 소비 {aiSummary.goldConsumed.toLocaleString()}G
-                    </span>
-                  )}
                   {aiSummary.quizCount > 0 && (
                     <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                       🧩 퀴즈 참여 {aiSummary.quizCount}명
@@ -1117,12 +1128,15 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                 { label: '⚔️ 퀘스트 확인', view: 'questManage' },
                 { label: '📚 배움노트 승인', view: 'learningNoteManage' },
                 { label: '🛒 상점 관리', view: 'classShopManage' },
-                { label: '👥 학생 현황', view: 'accountIssue' },
-              ].map(({ label, view }) => (
+                { label: '👥 접속 현황', action: 'showAccessStatus' },
+              ].map(({ label, view, action }) => (
                 <button
-                  key={view}
+                  key={view || action}
                   onClick={() => {
-                    // TeacherLayout의 changeView 호출 — props로 올리거나 CustomEvent 사용
+                    if (action === 'showAccessStatus') {
+                      setIsAccessStatusOpen(true);
+                      return;
+                    }
                     window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view } }));
                   }}
                   className="px-3 py-1.5 rounded-xl bg-white/8 hover:bg-white/15 border border-white/15 text-slate-200 text-xs font-bold transition-colors"
@@ -1293,6 +1307,63 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
           );
         })}
       </div>
+
+      {isAccessStatusOpen && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-extrabold text-slate-900">학생 접속 현황</h2>
+                <p className="mt-1 text-xs font-semibold text-slate-500">오늘 접속 여부와 학생별 최종 접속 시각입니다.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAccessStatusOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-xl font-bold text-slate-500 hover:bg-slate-200"
+                aria-label="접속 현황 닫기"
+              >
+                ×
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 border-b border-slate-200 bg-slate-50 px-5 py-3">
+              <div className="rounded-xl bg-emerald-50 px-4 py-3">
+                <div className="text-lg font-extrabold text-emerald-700">
+                  {students.filter(isStudentActiveToday).length}명
+                </div>
+                <div className="text-[11px] font-bold text-emerald-600">오늘 접속</div>
+              </div>
+              <div className="rounded-xl bg-sky-50 px-4 py-3">
+                <div className="text-lg font-extrabold text-sky-700">
+                  {students.filter(student => !isStudentActiveToday(student)).length}명
+                </div>
+                <div className="text-[11px] font-bold text-sky-600">오늘 미접속</div>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {[...students].sort((a, b) => getSeatNum(a.studentCode) - getSeatNum(b.studentCode)).map(student => {
+                const accessedToday = isStudentActiveToday(student);
+                return (
+                  <div key={student.id} className="flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-slate-50">
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${accessedToday ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-extrabold text-slate-800">
+                        {getSeatNum(student.studentCode)}번 {student.name || student.studentCode}
+                      </div>
+                      <div className="truncate text-[10px] font-semibold text-slate-400">{student.studentCode}</div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className={`text-[11px] font-extrabold ${accessedToday ? 'text-emerald-600' : 'text-slate-500'}`}>
+                        {accessedToday ? '오늘 접속' : '미접속'}
+                      </div>
+                      <div className="mt-0.5 text-[10px] font-semibold text-slate-400">최종 접속 {formatLastAccess(student)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">

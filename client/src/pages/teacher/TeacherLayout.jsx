@@ -265,7 +265,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   };
 
   return (
-    <div className={`flex h-screen w-full ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
+    <div className={`flex h-screen w-full ${isDark ? 'teacher-theme-dark bg-slate-950 text-slate-100' : 'bg-slate-50'}`}>
       {/* 교사용 네비게이션 바 */}
       {shouldShowNav && (
         <TeacherNavigationBar

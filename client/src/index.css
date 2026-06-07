@@ -23,3 +23,81 @@
 /* 스크롤바 숨김 (ScrollPicker 등) */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Teacher mode uses many legacy light-only pages. Scope dark surfaces at the layout root. */
+.teacher-theme-dark {
+    color-scheme: dark;
+}
+
+.teacher-theme-dark .bg-white {
+    background-color: #0f172a !important;
+}
+
+.teacher-theme-dark .bg-slate-50,
+.teacher-theme-dark .bg-slate-100 {
+    background-color: #111827 !important;
+}
+
+.teacher-theme-dark .bg-indigo-50,
+.teacher-theme-dark .bg-violet-50,
+.teacher-theme-dark .bg-sky-50 {
+    background-color: rgb(30 41 59 / 0.92) !important;
+}
+
+.teacher-theme-dark .bg-emerald-50,
+.teacher-theme-dark .bg-amber-50,
+.teacher-theme-dark .bg-rose-50 {
+    background-color: rgb(30 41 59 / 0.88) !important;
+}
+
+.teacher-theme-dark .text-slate-900,
+.teacher-theme-dark .text-slate-800,
+.teacher-theme-dark .text-slate-700 {
+    color: #e2e8f0 !important;
+}
+
+.teacher-theme-dark .text-slate-600,
+.teacher-theme-dark .text-slate-500 {
+    color: #94a3b8 !important;
+}
+
+.teacher-theme-dark .text-indigo-900,
+.teacher-theme-dark .text-indigo-800,
+.teacher-theme-dark .text-indigo-700,
+.teacher-theme-dark .text-violet-800,
+.teacher-theme-dark .text-sky-800,
+.teacher-theme-dark .text-sky-700,
+.teacher-theme-dark .text-emerald-800,
+.teacher-theme-dark .text-emerald-700,
+.teacher-theme-dark .text-amber-900,
+.teacher-theme-dark .text-amber-800,
+.teacher-theme-dark .text-amber-700,
+.teacher-theme-dark .text-rose-700 {
+    color: #c7d2fe !important;
+}
+
+.teacher-theme-dark .border-slate-100,
+.teacher-theme-dark .border-slate-200,
+.teacher-theme-dark .border-slate-300,
+.teacher-theme-dark .border-indigo-100,
+.teacher-theme-dark .border-indigo-200,
+.teacher-theme-dark .border-violet-200,
+.teacher-theme-dark .border-sky-200,
+.teacher-theme-dark .border-emerald-200,
+.teacher-theme-dark .border-amber-200,
+.teacher-theme-dark .border-rose-200 {
+    border-color: #334155 !important;
+}
+
+.teacher-theme-dark input,
+.teacher-theme-dark textarea,
+.teacher-theme-dark select {
+    background-color: #0f172a;
+    border-color: #475569;
+    color: #e2e8f0;
+}
+
+.teacher-theme-dark input::placeholder,
+.teacher-theme-dark textarea::placeholder {
+    color: #64748b;
+}
