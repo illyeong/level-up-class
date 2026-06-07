@@ -183,15 +183,17 @@ const lessonKey = (unit, lesson) =>
 // 차시 목록 열릴 때 첫 번째 차시를 미리 API 호출 → 클릭 시 즉시 사용
 const preloadMap = new Map(); // key → Promise<data>
 const expansionMap = new Map(); // key → Promise<data>
+const lessonContextMap = new Map(); // key → Promise<string | null>
 
 const fetchLessonContent = async (unit, lesson, { fastInitial = true } = {}) => {
   // RAG: 교사가 등록한 교과서 내용이 있으면 가져와서 프롬프트에 포함
   const lKey = `v3_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
-  let lessonContext = null;
-  try {
-    const ctxSnap = await getDoc(doc(db, 'aiLessonContext', lKey));
-    if (ctxSnap.exists()) lessonContext = ctxSnap.data().text || null;
-  } catch {}
+  if (!lessonContextMap.has(lKey)) {
+    lessonContextMap.set(lKey, getDoc(doc(db, 'aiLessonContext', lKey))
+      .then(ctxSnap => ctxSnap.exists() ? (ctxSnap.data().text || null) : null)
+      .catch(() => null));
+  }
+  const lessonContext = await lessonContextMap.get(lKey);
 
   const res = await fetch('/api/generate-courseware', {
     method: 'POST',
@@ -208,7 +210,7 @@ const fetchLessonContent = async (unit, lesson, { fastInitial = true } = {}) => 
     }),
   });
   const raw = await res.text();
-  let data = null;
+  let data;
   try {
     data = raw ? JSON.parse(raw) : null;
   } catch {
@@ -219,8 +221,44 @@ const fetchLessonContent = async (unit, lesson, { fastInitial = true } = {}) => 
   return data;
 };
 
-// preloadLesson은 컴포넌트 외부에 있어 db/getDoc/doc을 직접 사용 불가
-// → openLesson 내부에서 호출하는 방식으로 변경 (아래 useEffect에서 처리)
+const saveLessonContentCache = (unit, lesson, data) => {
+  if (!data?.generatorVersion) return Promise.resolve();
+  const key = lessonKey(unit, lesson);
+  return setDoc(doc(db, 'aiLessonContent', key), {
+    ...data,
+    lessonKey: key,
+    grade: unit.grade,
+    semester: unit.semester,
+    publisher: unit.publisher,
+    unitId: unit.id,
+    unitName: unit.unitName,
+    lessonNo: lesson.no,
+    lessonTitle: lesson.title,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+};
+
+const queueLessonPreload = (unit, lesson) => {
+  const key = lessonKey(unit, lesson);
+  if (preloadMap.has(key)) return preloadMap.get(key);
+
+  const promise = (async () => {
+    const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
+    if (cacheDoc.exists() && !shouldRefreshLessonContent(cacheDoc.data())) return cacheDoc.data();
+
+    const generated = await fetchLessonContent(unit, lesson);
+    await saveLessonContentCache(unit, lesson, generated).catch(() => {});
+    return generated;
+  })().catch(err => {
+    preloadMap.delete(key);
+    console.warn('[AI Courseware] preload failed:', err);
+    return null;
+  });
+
+  preloadMap.set(key, promise);
+  return promise;
+};
 
 // 로딩 순환 메시지 (끝이 없이 반복)
 const LOADING_MSGS = [
@@ -346,23 +384,10 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     const lessons = selectedUnit.lessons || [];
     if (lessons.length === 0) return;
 
-    const runPreload = async (unit, lesson) => {
-      const key = lessonKey(unit, lesson);
-      if (preloadMap.has(key)) return;
-      const promise = (async () => {
-        try {
-          const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
-          if (cacheDoc.exists() && !shouldRefreshLessonContent(cacheDoc.data())) return cacheDoc.data();
-          return await fetchLessonContent(unit, lesson);
-        } catch { return null; }
-      })();
-      preloadMap.set(key, promise);
-    };
-
-    runPreload(selectedUnit, lessons[0]);
+    queueLessonPreload(selectedUnit, lessons[0]);
     let t;
     if (lessons.length > 1) {
-      t = setTimeout(() => runPreload(selectedUnit, lessons[1]), 1200);
+      t = setTimeout(() => queueLessonPreload(selectedUnit, lessons[1]), 1200);
     }
     return () => clearTimeout(t);
   }, [step, selectedUnit]);
@@ -418,52 +443,16 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     const stepTimer    = { clear: () => { clearInterval(elapsedTimer); clearInterval(msgTimer); } };
 
     try {
-      const today = new Date().toISOString().slice(0, 10);
       const progressId = `${studentCode}_${key}`;
 
-      // 1. 프리로드된 데이터 있으면 즉시 사용
-      const preloaded = preloadMap.get(key);
-      const [progDoc, preloadResult] = await Promise.all([
+      // 콘텐츠 캐시 확인/생성을 진행 데이터 조회와 동시에 시작합니다.
+      const contentPromise = queueLessonPreload(unit, lesson);
+      const [progDoc, data] = await Promise.all([
         getDoc(doc(db, 'aiStudentProgress', progressId)),
-        preloaded || Promise.resolve(null),
+        contentPromise,
       ]);
       if (progDoc.exists()) setMyProgress(progDoc.data());
-
-      let data;
-      if (preloadResult) {
-        // 프리로드 성공 — 즉시 사용
-        data = preloadResult;
-        // Firestore에 없으면 저장
-        if (data?.generatorVersion === COURSEWARE_QUALITY_VERSION) {
-          setDoc(doc(db, 'aiLessonContent', key), {
-            ...data, lessonKey: key,
-            grade: unit.grade, semester: unit.semester,
-            publisher: unit.publisher, unitId: unit.id, unitName: unit.unitName,
-            lessonNo: lesson.no, lessonTitle: lesson.title,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          }, { merge: true }).catch(() => {});
-        }
-      } else {
-        // 2. Firestore 캐시 확인
-        const cacheDoc = await getDoc(doc(db, 'aiLessonContent', key));
-        if (cacheDoc.exists() && !shouldRefreshLessonContent(cacheDoc.data())) {
-          data = cacheDoc.data();
-        } else {
-          // 3. 캐시 없으면 API 생성
-          data = await fetchLessonContent(unit, lesson);
-          if (!data) throw new Error('생성 실패');
-          // 캐시 저장
-          setDoc(doc(db, 'aiLessonContent', key), {
-            ...data, lessonKey: key,
-            grade: unit.grade, semester: unit.semester,
-            publisher: unit.publisher, unitId: unit.id, unitName: unit.unitName,
-            lessonNo: lesson.no, lessonTitle: lesson.title,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          }, { merge: true }).catch(() => {});
-        }
-      }
+      if (!data) throw new Error('생성 실패');
 
       stepTimer.clear();
       setContent(pickSessionQuestions(data, key)); // 최근 문항을 피해서 선택
@@ -994,6 +983,9 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           <div key={lesson.no} className="relative group/row">
             <button
               onClick={() => openLesson(selectedUnit, lesson)}
+              onPointerEnter={() => queueLessonPreload(selectedUnit, lesson)}
+              onFocus={() => queueLessonPreload(selectedUnit, lesson)}
+              onTouchStart={() => queueLessonPreload(selectedUnit, lesson)}
               className="w-full text-left rounded-xl border-2 border-slate-700 bg-slate-800/50 hover:border-indigo-500 hover:bg-indigo-900/40 px-4 py-3.5 transition-all group pr-12">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-extrabold w-14 shrink-0 text-indigo-400 group-hover:text-indigo-300">

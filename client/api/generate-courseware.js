@@ -657,6 +657,7 @@ export default async function handler(req, res) {
   const isUnitTest = lessonTitle === '단원평가';
   const requested = Number(questionCount) || 5;
   const fastInitial = payload.fastInitial === true && !isUnitTest;
+  const hasLessonContext = Boolean(String(lessonContext || '').trim());
   const poolSize = fastInitial
     ? Math.min(Math.max(requested, 5), 6)
     : isUnitTest
@@ -678,28 +679,67 @@ export default async function handler(req, res) {
     : '[교사가 등록한 교과서/수업 자료 없음]\n초등 교육과정 수준에 맞춰 차시 핵심 개념 중심으로 생성하세요.';
 
   try {
-    const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+    const startedAt = Date.now();
+    const qualityModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+    const fastModel = process.env.ANTHROPIC_FAST_MODEL || 'claude-haiku-4-5-20251001';
+    const useFastModel = fastInitial && hasLessonContext;
+    let model = useFastModel ? fastModel : qualityModel;
+    let fallbackUsed = false;
     const prompt = buildPrompt(payload, poolSize, isUnitTest, ragSection);
-    const rawText = await callClaude({
-      apiKey,
-      model,
-      prompt,
-      maxTokens: fastInitial ? 3200 : isUnitTest ? 4800 : 3800,
-    });
+    let rawText;
+    try {
+      rawText = await callClaude({
+        apiKey,
+        model,
+        prompt,
+        maxTokens: fastInitial ? 2800 : isUnitTest ? 4800 : 3800,
+      });
+    } catch (err) {
+      if (!useFastModel) throw err;
+      fallbackUsed = true;
+      model = qualityModel;
+      rawText = await callClaude({
+        apiKey,
+        model,
+        prompt,
+        maxTokens: 3200,
+      });
+    }
 
-    const parsed = tryParseJson(rawText);
+    let parsed = tryParseJson(rawText);
     if (!parsed) {
       return res.status(500).json({ error: 'AI 응답을 JSON으로 해석하지 못했습니다. 다시 시도해주세요.' });
     }
 
     const lessonContextFlags = buildLessonContext(payload, ragSection);
-    const result = normalizeContent(parsed, poolSize, lessonContextFlags);
-    const validationIssues = validateContent(result, poolSize);
+    let result = normalizeContent(parsed, poolSize, lessonContextFlags);
+    let validationIssues = validateContent(result, poolSize);
+
+    // Fast initial generation is only accepted when it passes the same quality checks.
+    // Otherwise retry once with the quality model before returning anything to students.
+    if (useFastModel && !fallbackUsed && (result.questions.length < requested || validationIssues.length > 0)) {
+      fallbackUsed = true;
+      model = qualityModel;
+      rawText = await callClaude({
+        apiKey,
+        model,
+        prompt,
+        maxTokens: 3200,
+      });
+      parsed = tryParseJson(rawText);
+      if (!parsed) {
+        return res.status(500).json({ error: 'AI 응답을 JSON으로 해석하지 못했습니다. 다시 시도해주세요.' });
+      }
+      result = normalizeContent(parsed, poolSize, lessonContextFlags);
+      validationIssues = validateContent(result, poolSize);
+    }
 
     if (!result.questions.length) {
       return res.status(500).json({ error: '사용 가능한 문제가 생성되지 않았습니다. 다시 시도해주세요.' });
     }
 
+    const generationMs = Date.now() - startedAt;
+    res.setHeader('Server-Timing', `courseware;dur=${generationMs}`);
     return res.status(200).json({
       ...result,
       context,
@@ -708,6 +748,9 @@ export default async function handler(req, res) {
       requestedQuestionCount: requested,
       poolSize: result.questions.length,
       isPartialPool: fastInitial,
+      generationMs,
+      generationTier: useFastModel && !fallbackUsed ? 'fast-initial' : 'quality',
+      fallbackUsed,
       validationIssues: validationIssues.length > 0 ? validationIssues : null,
       validatedAt: new Date().toISOString(),
     });
