@@ -10,6 +10,11 @@ const MASTERY = {
   retry:     { label: '재도전',   emoji: '🔄', bar: 'bg-rose-400',   text: 'text-rose-500',   light: 'bg-rose-50 border-rose-200'   },
 };
 const MASTERY_ATTEMPTS = 4;
+const COURSEWARE_QUALITY_VERSION = 'quality-v14-fast-session-pool';
+const isFreshLessonContent = (data) =>
+  data?.generatorVersion === COURSEWARE_QUALITY_VERSION &&
+  Array.isArray(data.questions) &&
+  data.questions.length >= 5;
 const getMasteryLevel = (avg) =>
   avg >= 90 ? 'excellent' : avg >= 75 ? 'good' : avg >= 60 ? 'normal' : 'retry';
 
@@ -806,6 +811,15 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
   const [preGenerating,   setPreGenerating]   = useState(false);
   const [extracting,      setExtracting]      = useState(false);
   const [bulkGenerating,  setBulkGenerating]  = useState(false);
+  const [bulkContentGenerating, setBulkContentGenerating] = useState(false);
+  const [bulkContentStatus, setBulkContentStatus] = useState({
+    total: 0,
+    done: 0,
+    created: 0,
+    skipped: 0,
+    failed: 0,
+    current: '',
+  });
   const [toast,           setToast]           = useState(null);
   const fileRef = React.useRef(null);
 
@@ -838,6 +852,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
         difficulty: 'normal',
         questionCount: 5,
         lessonContext,
+        fastInitial: true,
       }),
     });
     const data = await response.json().catch(() => null);
@@ -943,6 +958,111 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     }
   };
 
+  const getLessonContextForPreGenerate = async (unit, lesson) => {
+    const key = lkey(unit, lesson);
+    const snap = await getDoc(doc(db, 'aiLessonContext', key));
+    const savedText = snap.exists() ? String(snap.data()?.text || '').trim() : '';
+    if (savedText) return savedText.slice(0, 3000);
+    return buildAutoLessonContextV2(unit, lesson).slice(0, 3000);
+  };
+
+  const collectPreGenerateLessons = (targetUnits) => targetUnits.flatMap(unit => (unit.lessons || [])
+    .filter(lesson => !String(lesson.title || '').includes('도입'))
+    .map(lesson => ({ unit, lesson })));
+
+  const loadAllGradeUnitsForPreGenerate = async () => {
+    const snaps = await Promise.all(['1', '2', '3', '4', '5', '6'].map(grade =>
+      getDocs(query(
+        collection(db, 'curriculumUnits'),
+        where('grade', '==', parseInt(grade)),
+        where('subject', '==', '수학'),
+        where('status', '==', 'approved'),
+      ))
+    ));
+    return snaps.flatMap(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      .filter(unit => unitSem === 'all' || String(unit.semester || '') === unitSem)
+      .sort((a, b) =>
+        (a.grade || 0) - (b.grade || 0) ||
+        (a.semester || 0) - (b.semester || 0) ||
+        (a.unitNumber || 0) - (b.unitNumber || 0)
+      );
+  };
+
+  const bulkPreGenerateLessonContent = async ({ allGrades = false } = {}) => {
+    const targetUnits = allGrades
+      ? await loadAllGradeUnitsForPreGenerate()
+      : units.filter(u => unitSem === 'all' || String(u.semester || '') === unitSem);
+    const lessons = collectPreGenerateLessons(targetUnits);
+
+    if (!lessons.length) {
+      showToast('미리 생성할 차시가 없습니다.', 'error');
+      return;
+    }
+
+    const gradeLabel = allGrades ? '1~6학년' : `${unitGrade}학년`;
+    const semLabel = unitSem === 'all' ? '전체 학기' : `${unitSem}학기`;
+    if (!window.confirm(`${gradeLabel} ${semLabel} 전체 차시에 AI 학습 문제 5문항을 미리 생성할까요?\n이미 최신 5문항이 있는 차시는 건너뜁니다.`)) return;
+
+    setBulkContentGenerating(true);
+    setBulkContentStatus({
+      total: lessons.length,
+      done: 0,
+      created: 0,
+      skipped: 0,
+      failed: 0,
+      current: '',
+    });
+
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    try {
+      for (const { unit, lesson } of lessons) {
+        const current = `${unit.unitName} - ${lesson.title}`;
+        setBulkContentStatus(prev => ({ ...prev, current }));
+
+        try {
+          const key = lkey(unit, lesson);
+          const contentSnap = await getDoc(doc(db, 'aiLessonContent', key));
+          if (contentSnap.exists() && isFreshLessonContent(contentSnap.data())) {
+            skipped += 1;
+            setBulkContentStatus(prev => ({
+              ...prev,
+              done: prev.done + 1,
+              skipped,
+              current,
+            }));
+            continue;
+          }
+
+          const lessonContext = await getLessonContextForPreGenerate(unit, lesson);
+          await preGenerateLessonContent(unit, lesson, lessonContext);
+          created += 1;
+          setBulkContentStatus(prev => ({
+            ...prev,
+            done: prev.done + 1,
+            created,
+            current,
+          }));
+        } catch (err) {
+          console.error('[AI courseware pre-generate failed]', current, err);
+          failed += 1;
+          setBulkContentStatus(prev => ({
+            ...prev,
+            done: prev.done + 1,
+            failed,
+            current,
+          }));
+        }
+      }
+
+      showToast(`문제 미리 생성 완료: 생성 ${created}개, 건너뜀 ${skipped}개, 실패 ${failed}개`);
+    } finally {
+      setBulkContentGenerating(false);
+    }
+  };
+
   const extractFromFile = async (file) => {
     const ext = file.name.split('.').pop().toLowerCase();
     setExtracting(true);
@@ -1035,6 +1155,42 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
           <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
             등록된 단원/차시/키워드를 바탕으로 AI 출제용 맥락 자료를 만듭니다. 이미 입력된 차시는 건너뜁니다.
           </p>
+        </div>
+
+        <div className="bg-white border border-indigo-200 rounded-2xl p-3 shadow-sm">
+          <button
+            onClick={bulkPreGenerateLessonContent}
+            disabled={bulkContentGenerating || loadingUnits || !filteredUnits.length}
+            className="w-full px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold disabled:opacity-50 transition-colors"
+          >
+            {bulkContentGenerating ? '문제 생성 중...' : '전체 차시 5문항 미리 생성'}
+          </button>
+          <button
+            onClick={() => bulkPreGenerateLessonContent({ allGrades: true })}
+            disabled={bulkContentGenerating || loadingUnits}
+            className="w-full mt-2 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold disabled:opacity-50 transition-colors"
+          >
+            1~6학년 전체 미리 생성
+          </button>
+          <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+            선택한 학년/학기 또는 1~6학년 전체의 AI 학습 문제를 미리 만들어 학생 대기 시간을 줄입니다. 이미 생성된 차시는 자동으로 건너뜁니다.
+          </p>
+          {bulkContentGenerating && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                <span>{bulkContentStatus.done}/{bulkContentStatus.total}</span>
+                <span>생성 {bulkContentStatus.created} · 건너뜀 {bulkContentStatus.skipped} · 실패 {bulkContentStatus.failed}</span>
+              </div>
+              <ProgressBar
+                pct={bulkContentStatus.total ? (bulkContentStatus.done / bulkContentStatus.total) * 100 : 0}
+                color="bg-indigo-500"
+                h="h-2"
+              />
+              <p className="text-[10px] leading-relaxed text-indigo-600 line-clamp-2">
+                {bulkContentStatus.current || '준비 중...'}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden max-h-[500px] overflow-y-auto">
