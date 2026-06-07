@@ -5,6 +5,7 @@ import LevelUpEffect from '../../components/LevelUpEffect';
 import { applyClassQuickSetup, QUICK_SETUP_VERSION } from '../../utils/classQuickSetup';
 import { applyExpDelta, getMaxExpForLevel } from '../../utils/leveling';
 import { getEffectiveCosmeticStyles, getHallOfFameBadgeText } from '../../data/avatarCosmetics';
+import { OPERATION_MODE_PRESETS } from '../../utils/operationModePresets';
 
 import iconGold from '../../assets/images/icon-gold.png';
 import iconDiamond from '../../assets/images/icon-diamond.png';
@@ -130,7 +131,7 @@ function AICoursewareCard({ teacherUid, onNavigate }) {
   );
 }
 
-function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
+function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, operationMode = 'custom', onApplyOperationMode }) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [questStats, setQuestStats] = useState([]);
@@ -162,6 +163,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   const [approvingQuests, setApprovingQuests] = useState(false);
   const [approvingNotes,  setApprovingNotes]  = useState(false);
   const [isAccessStatusOpen, setIsAccessStatusOpen] = useState(false);
+  const [extensionBannerHidden, setExtensionBannerHidden] = useState(
+    () => localStorage.getItem('extensionBannerNeverShow') === '1'
+  );
 
   // ── 퀘스트 체크 학생 일괄 승인 ──────────────────────────────
   const approveAllCheckedQuests = async () => {
@@ -804,7 +808,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
   const onboardingDoneCount = onboardingSteps.filter(step => step.done).length;
 
   return (
-    <div className="min-h-screen bg-slate-100 p-8 relative">
+    <div className={`min-h-screen p-8 relative ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
       
       <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <div>
@@ -956,22 +960,55 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
         </div>
       )}
 
-      <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-violet-300 bg-gradient-to-r from-indigo-700 via-violet-700 to-fuchsia-700 p-5 text-white shadow-lg md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-xs font-extrabold text-violet-200">LEVELUP CLASS 확장 기능</div>
-          <h2 className="mt-1 text-lg font-extrabold">기본 운영에 익숙해졌다면, 수업과 학급 활동을 더 확장해보세요.</h2>
-          <p className="mt-1 text-xs font-semibold leading-relaxed text-violet-100/90">
-            퀘스트·보상으로 간단히 시작하고, 필요할 때 어드벤처·AI 학습관·학급 경제·게시판 기능을 단계적으로 여는 방식으로 설계했습니다.
-          </p>
+      {!extensionBannerHidden && (
+        <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-violet-300 bg-gradient-to-r from-indigo-700 via-violet-700 to-fuchsia-700 p-5 text-white shadow-lg">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-extrabold text-violet-200">LEVELUP CLASS 확장 기능</div>
+              <h2 className="mt-1 text-lg font-extrabold">운영 모드를 선택해 필요한 기능만 켜두세요.</h2>
+              <p className="mt-1 text-xs font-semibold leading-relaxed text-violet-100/90">
+                처음에는 퀘스트·보상만, 익숙해지면 어드벤처·경제·AI 학습 기능을 단계적으로 확장할 수 있습니다.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <button
+                type="button"
+                onClick={() => setExtensionBannerHidden(true)}
+                className="text-[11px] font-bold text-violet-200 hover:text-white transition-colors"
+              >
+                숨기기
+              </button>
+              <button
+                type="button"
+                onClick={() => { localStorage.setItem('extensionBannerNeverShow', '1'); setExtensionBannerHidden(true); }}
+                className="text-[11px] font-bold text-violet-300/70 hover:text-violet-100 transition-colors"
+              >
+                다시 보지 않기
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            {Object.entries(OPERATION_MODE_PRESETS).map(([mode, preset]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onApplyOperationMode?.(mode)}
+                className={`rounded-xl border p-3 text-left transition ${
+                  operationMode === mode
+                    ? 'border-white bg-white/25 ring-2 ring-white/40 shadow-sm'
+                    : 'border-white/25 bg-white/10 hover:bg-white/20'
+                }`}
+              >
+                <div className="text-sm font-extrabold text-white">{preset.title}</div>
+                <div className="mt-0.5 text-[10px] font-semibold leading-relaxed text-violet-100/80">{preset.description}</div>
+                {operationMode === mode && (
+                  <div className="mt-1.5 text-[10px] font-extrabold text-white/80">✓ 현재 모드</div>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view: 'systemSettings' } }))}
-          className="shrink-0 rounded-xl bg-white px-5 py-3 text-sm font-extrabold text-violet-700 shadow-md transition hover:bg-violet-50"
-        >
-          사용할 기능 선택하기 →
-        </button>
-      </div>
+      )}
 
       {/* ── AI 오늘의 운영 요약 ── */}
       <div className="mb-6">
@@ -1181,25 +1218,25 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue }) {
                 <div key={quest.id}
                   className={`shrink-0 w-52 rounded-2xl shadow-sm border-2 overflow-hidden
                     ${isDaily
-                      ? 'border-sky-200 bg-gradient-to-b from-sky-50 to-white'
-                      : 'border-violet-200 bg-gradient-to-b from-violet-50 to-white'}`}>
+                      ? isDark ? 'border-sky-700 bg-slate-800' : 'border-sky-200 bg-gradient-to-b from-sky-50 to-white'
+                      : isDark ? 'border-violet-700 bg-slate-800' : 'border-violet-200 bg-gradient-to-b from-violet-50 to-white'}`}>
                   {/* ?곷떒 ?????*/}
                   <div className={`px-3 py-1.5 text-[10px] font-extrabold tracking-wide
                     ${isDaily ? 'bg-sky-500 text-white' : 'bg-violet-500 text-white'}`}>
                     {isDaily ? '일일 퀘스트' : '주간 퀘스트'}
                   </div>
                   <div className="p-3">
-                    <div className="font-extrabold text-sm text-slate-800 mb-2 leading-tight truncate">
+                    <div className={`font-extrabold text-sm mb-2 leading-tight truncate ${isDark ? "text-slate-100" : "text-slate-800"}`}>
                       {quest.title}
                     </div>
                     {/* 吏꾪뻾瑜?*/}
                     <div className="flex justify-between text-xs font-bold mb-1">
-                      <span className={isDaily ? 'text-sky-600' : 'text-violet-600'}>
+                      <span className={isDaily ? 'text-sky-400' : 'text-violet-400'}>
                         {quest.checkedCount}명 / {students.length}명
                       </span>
-                      <span className="text-slate-500 font-extrabold">{pct}%</span>
+                      <span className={`font-extrabold ${isDark ? "text-slate-300" : "text-slate-500"}`}>{pct}%</span>
                     </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? "bg-slate-700" : "bg-slate-100"}`}>
                       <div
                         className={`h-full rounded-full transition-all
                           ${isDaily

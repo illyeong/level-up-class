@@ -389,13 +389,8 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
 
           {state.result?.summary && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
-              <div className="font-extrabold mb-1">적용 완료</div>
-              <div>생성된 퀘스트: {state.result.summary.createdQuestCount}개</div>
-              <div>생성된 상점 아이템: {state.result.summary.createdShopItemCount}개</div>
-              <div>제거된 기본 아이템: {state.result.summary.removedLegacyShopItemCount || 0}개</div>
-              <div>입장권 보정 학생 수: {state.result.summary.updatedStudentTicketCount}명</div>
-              <div>생성된 보스레이드 퀴즈: {state.result.summary.createdBossQuizSet ? '예' : '아니오'}</div>
-              <div>생성된 기본 보스레이드: {state.result.summary.createdBossRaid ? '예' : '아니오'}</div>
+              <div className="font-extrabold mb-1">✅ 기본 셋팅 완료!</div>
+              <div>퀘스트 {state.result.summary.createdQuestCount}개 및 퀴즈던전 등 기본 셋팅이 완료됐습니다.</div>
             </div>
           )}
         </div>

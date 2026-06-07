@@ -496,6 +496,12 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
   // 교사 캐릭터 데이터 로드 (isTeacher 모드)
   useEffect(() => {
     if (!isTeacher || !teacherUid) return;
+    // 교사 모드: 모든 스킬 자동 장착
+    const allSkillIds = DUNGEON_SKILLS.map(s => s.id);
+    setPurchasedSkills(allSkillIds);
+    setSelectedSkills(allSkillIds.slice(0, MAX_SKILL_SLOTS));
+    selectedSkillsRef.current = allSkillIds.slice(0, MAX_SKILL_SLOTS);
+    selectedSkillRef.current = allSkillIds[0] || null;
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'teacherProfiles', teacherUid));

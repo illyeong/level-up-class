@@ -337,6 +337,9 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             onStudentTestLogin={onStudentTestLogin}
             selectedClass={selectedClass}
             onGoAccountIssue={() => setCurrentView('accountIssue')}
+            isDark={isDark}
+            operationMode={operationMode}
+            onApplyOperationMode={applyOperationMode}
           />
         )}
 

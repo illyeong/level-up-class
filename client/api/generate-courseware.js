@@ -8,7 +8,7 @@ const SHAPE_TYPES = new Set([
   'cuboid', 'cube', 'cylinder', 'cone', 'sphere', 'factor_list',
 ]);
 
-const COURSEWARE_GENERATOR_VERSION = 'quality-v12-auto-verify-repair';
+const COURSEWARE_GENERATOR_VERSION = 'quality-v13-verified-fallback-pool';
 
 const stripOptionPrefix = (value) =>
   String(value ?? '')
@@ -255,6 +255,9 @@ const isSolidShapeLesson = (payload, ragSection = '') =>
 
 const buildLessonContext = (payload, ragSection = '') => {
   const text = lessonTopicText(payload, ragSection);
+  const lessonTitle = String(payload?.lessonTitle || '');
+  const titleAddition = includesAny(lessonTitle, ['덧셈', '더하기', '더한', '합']);
+  const titleSubtraction = includesAny(lessonTitle, ['뺄셈', '빼기', '뺀', '차']);
   return {
     sameDenomFocus: hasSameDenominatorFractionFocus(payload, ragSection),
     factorMultiple: isFactorMultipleLesson(payload, ragSection),
@@ -264,6 +267,11 @@ const buildLessonContext = (payload, ragSection = '') => {
     measurementLesson: includesAny(text, ['길이', '재기', 'cm', 'm', '자']),
     areaLesson: includesAny(text, ['넓이', '둘레']),
     fractionLesson: includesAny(text, ['분수', '진분수', '대분수', '통분', '약분']),
+    graphLesson: includesAny(text, ['그래프', '막대그래프', '꺾은선그래프', '원그래프']),
+    lineGraphLesson: includesAny(text, ['꺾은선그래프']),
+    pieGraphLesson: includesAny(text, ['원그래프']),
+    additionLesson: titleAddition || (!titleSubtraction && includesAny(text, ['덧셈', '더하기', '더한', '합'])),
+    subtractionLesson: titleSubtraction || (!titleAddition && includesAny(text, ['뺄셈', '빼기', '뺀', '차'])),
   };
 };
 
@@ -620,6 +628,11 @@ function normalizeQuestion(q, index, context = {}) {
 
   const combinedText = [normalized.question, ...normalized.options, normalized.explanation].join('\n');
   if (context.sameDenomFocus && violatesSameDenominatorAddition(combinedText)) return null;
+  if (
+    context.solidShape
+    && includesAny(normalized.question, ['잘못된 설명', '바르게 고친'])
+    && includesAny(normalized.explanation, ['만 바르게 고친', '일부만'])
+  ) return null;
   if (!hasExactlyOneVerifiableAnswer(normalized)) return null;
   if (!verifyShapeQuestionConsistency(normalized)) return null;
 
@@ -689,6 +702,130 @@ const mergeQuestionPools = (baseResult, repairResult, poolSize, context) => {
     if (merged.length >= poolSize) break;
   }
   return { ...baseResult, questions: merged };
+};
+
+const fractionFallbackQuestions = (context) => {
+  const sameDenominator = [
+    ['첫 번째 계산 2/9 + 4/9의 값을 구하세요.', ['5/9', '6/9', '6/18', '2/9'], 1, '분모 9는 그대로 두고 분자 2와 4를 더하면 2/9 + 4/9 = 6/9입니다.'],
+    ['두 번째 계산 3/10 + 5/10의 값을 구하세요.', ['8/10', '8/20', '2/10', '7/10'], 0, '분모 10은 그대로 두고 분자 3과 5를 더하면 3/10 + 5/10 = 8/10입니다.'],
+    ['세 번째 계산 7/12 - 2/12의 값을 구하세요.', ['5/12', '5/24', '9/12', '4/12'], 0, '분모 12는 그대로 두고 분자 7에서 2를 빼면 7/12 - 2/12 = 5/12입니다.'],
+    ['네 번째 계산 1/8 + 6/8의 값을 구하세요.', ['7/8', '7/16', '5/8', '6/8'], 0, '분모 8은 그대로 두고 분자 1과 6을 더하면 1/8 + 6/8 = 7/8입니다.'],
+    ['다섯 번째 계산 9/11 - 4/11의 값을 구하세요.', ['13/11', '5/11', '5/22', '4/11'], 1, '분모 11은 그대로 두고 분자 9에서 4를 빼면 9/11 - 4/11 = 5/11입니다.'],
+    ['여섯 번째 계산 4/7 + 2/7의 값을 구하세요.', ['2/7', '6/7', '6/14', '5/7'], 1, '분모 7은 그대로 두고 분자 4와 2를 더하면 4/7 + 2/7 = 6/7입니다.'],
+    ['일곱 번째 계산 8/13 - 3/13의 값을 구하세요.', ['11/13', '5/13', '5/26', '4/13'], 1, '분모 13은 그대로 두고 분자 8에서 3을 빼면 8/13 - 3/13 = 5/13입니다.'],
+    ['여덟 번째 계산 2/15 + 7/15의 값을 구하세요.', ['9/15', '9/30', '5/15', '8/15'], 0, '분모 15는 그대로 두고 분자 2와 7을 더하면 2/15 + 7/15 = 9/15입니다.'],
+    ['아홉 번째 계산 3/11 + 5/11의 값을 구하세요.', ['8/11', '8/22', '2/11', '7/11'], 0, '분모 11은 그대로 두고 분자 3과 5를 더하면 3/11 + 5/11 = 8/11입니다.'],
+    ['열 번째 계산 1/12 + 7/12의 값을 구하세요.', ['6/12', '8/12', '8/24', '7/12'], 1, '분모 12는 그대로 두고 분자 1과 7을 더하면 1/12 + 7/12 = 8/12입니다.'],
+    ['열한 번째 계산 4/13 + 6/13의 값을 구하세요.', ['10/13', '10/26', '2/13', '9/13'], 0, '분모 13은 그대로 두고 분자 4와 6을 더하면 4/13 + 6/13 = 10/13입니다.'],
+    ['열두 번째 계산 2/17 + 8/17의 값을 구하세요.', ['6/17', '10/17', '10/34', '9/17'], 1, '분모 17은 그대로 두고 분자 2와 8을 더하면 2/17 + 8/17 = 10/17입니다.'],
+    ['열세 번째 계산 10/13 - 4/13의 값을 구하세요.', ['6/13', '6/26', '14/13', '5/13'], 0, '분모 13은 그대로 두고 분자 10에서 4를 빼면 10/13 - 4/13 = 6/13입니다.'],
+    ['열네 번째 계산 11/15 - 3/15의 값을 구하세요.', ['14/15', '8/15', '8/30', '7/15'], 1, '분모 15는 그대로 두고 분자 11에서 3을 빼면 11/15 - 3/15 = 8/15입니다.'],
+    ['열다섯 번째 계산 9/14 - 2/14의 값을 구하세요.', ['11/14', '7/14', '7/28', '6/14'], 1, '분모 14는 그대로 두고 분자 9에서 2를 빼면 9/14 - 2/14 = 7/14입니다.'],
+    ['열여섯 번째 계산 12/17 - 5/17의 값을 구하세요.', ['17/17', '7/17', '7/34', '6/17'], 1, '분모 17은 그대로 두고 분자 12에서 5를 빼면 12/17 - 5/17 = 7/17입니다.'],
+    ['열일곱 번째 계산 13/18 - 4/18의 값을 구하세요.', ['17/18', '9/18', '9/36', '8/18'], 1, '분모 18은 그대로 두고 분자 13에서 4를 빼면 13/18 - 4/18 = 9/18입니다.'],
+  ];
+  const differentDenominator = [
+    ['첫 번째 통분 계산 5/6 - 1/4의 값을 구하세요.', ['7/12', '4/2', '1/2', '4/10'], 0, '통분한 뒤 계산하면 10/12 - 3/12 = 7/12입니다.'],
+    ['두 번째 통분 계산 3/4 - 1/6의 값을 구하세요.', ['2/2', '7/12', '2/10', '1/2'], 1, '통분한 뒤 계산하면 9/12 - 2/12 = 7/12입니다.'],
+    ['세 번째 통분 계산 2/3 + 1/4의 값을 구하세요.', ['3/7', '11/12', '3/12', '1/2'], 1, '통분한 뒤 계산하면 8/12 + 3/12 = 11/12입니다.'],
+    ['네 번째 통분 계산 7/8 - 1/3의 값을 구하세요.', ['6/5', '13/24', '6/24', '5/8'], 1, '통분한 뒤 계산하면 21/24 - 8/24 = 13/24입니다.'],
+    ['다섯 번째 통분 계산 1/2 + 2/5의 값을 구하세요.', ['3/7', '9/10', '3/10', '4/5'], 1, '통분한 뒤 계산하면 5/10 + 4/10 = 9/10입니다.'],
+    ['여섯 번째 통분 계산 5/6 - 2/9의 값을 구하세요.', ['3/3', '11/18', '3/15', '7/18'], 1, '통분한 뒤 계산하면 15/18 - 4/18 = 11/18입니다.'],
+    ['일곱 번째 통분 계산 3/5 + 1/6의 값을 구하세요.', ['4/11', '23/30', '4/30', '2/3'], 1, '통분한 뒤 계산하면 18/30 + 5/30 = 23/30입니다.'],
+    ['여덟 번째 통분 계산 11/12 - 1/8의 값을 구하세요.', ['10/4', '19/24', '10/20', '5/6'], 1, '통분한 뒤 계산하면 22/24 - 3/24 = 19/24입니다.'],
+    ['아홉 번째 통분 계산 1/3 + 1/5의 값을 구하세요.', ['2/8', '8/15', '2/15', '7/15'], 1, '통분한 뒤 계산하면 5/15 + 3/15 = 8/15입니다.'],
+    ['열 번째 통분 계산 3/8 + 2/3의 값을 구하세요.', ['5/11', '25/24', '5/24', '23/24'], 1, '통분한 뒤 계산하면 9/24 + 16/24 = 25/24입니다.'],
+    ['열한 번째 통분 계산 4/5 + 1/6의 값을 구하세요.', ['5/11', '29/30', '5/30', '28/30'], 1, '통분한 뒤 계산하면 24/30 + 5/30 = 29/30입니다.'],
+    ['열두 번째 통분 계산 5/7 + 1/4의 값을 구하세요.', ['6/11', '27/28', '6/28', '26/28'], 1, '통분한 뒤 계산하면 20/28 + 7/28 = 27/28입니다.'],
+    ['열세 번째 통분 계산 7/9 - 1/6의 값을 구하세요.', ['6/3', '11/18', '6/15', '10/18'], 1, '통분한 뒤 계산하면 14/18 - 3/18 = 11/18입니다.'],
+    ['열네 번째 통분 계산 5/8 - 1/5의 값을 구하세요.', ['4/3', '17/40', '4/13', '16/40'], 1, '통분한 뒤 계산하면 25/40 - 8/40 = 17/40입니다.'],
+    ['열다섯 번째 통분 계산 4/7 - 1/3의 값을 구하세요.', ['3/4', '5/21', '3/10', '4/21'], 1, '통분한 뒤 계산하면 12/21 - 7/21 = 5/21입니다.'],
+    ['열여섯 번째 통분 계산 9/10 - 1/4의 값을 구하세요.', ['8/6', '13/20', '8/14', '12/20'], 1, '통분한 뒤 계산하면 18/20 - 5/20 = 13/20입니다.'],
+    ['열일곱 번째 통분 계산 2/9 + 1/5의 값을 구하세요.', ['3/14', '19/45', '3/45', '18/45'], 1, '통분한 뒤 계산하면 10/45 + 9/45 = 19/45입니다.'],
+  ];
+  const candidates = context.sameDenomFocus ? sameDenominator : differentDenominator;
+  const operationMatched = candidates.filter(([question]) => (
+    context.subtractionLesson ? question.includes('-') : context.additionLesson ? question.includes('+') : true
+  ));
+  return operationMatched.map(([question, options, answerIndex, explanation], index) => ({
+    question, options, answerIndex, explanation, shape: null, skill: `계산 검산 ${index + 1}`, difficultyTag: '기초',
+  }));
+};
+
+const graphFallbackQuestions = (context) => {
+  const charts = [
+    { title: '좋아하는 과일', labels: ['사과', '배', '포도', '귤'], values: [8, 5, 11, 7], unit: '명' },
+    { title: '요일별 독서량', labels: ['월', '화', '수', '목'], values: [6, 10, 8, 12], unit: '권' },
+    { title: '좋아하는 운동', labels: ['축구', '농구', '수영', '달리기'], values: [9, 4, 7, 6], unit: '명' },
+    { title: '좋아하는 계절', labels: ['봄', '여름', '가을', '겨울'], values: [7, 13, 10, 5], unit: '명' },
+  ];
+  return charts.flatMap((chart, index) => {
+    const maxIndex = chart.values.indexOf(Math.max(...chart.values));
+    const minIndex = chart.values.indexOf(Math.min(...chart.values));
+    const total = chart.values.reduce((sum, value) => sum + value, 0);
+    const graphType = context.lineGraphLesson ? 'line_chart' : 'bar_chart';
+    const graphName = context.lineGraphLesson ? '꺾은선그래프' : '막대그래프';
+    const shape = { type: graphType, dimensions: { ...chart } };
+    return [
+      {
+        question: `${chart.title} ${graphName}에서 값이 가장 큰 항목은 무엇인가요?`,
+        options: [...chart.labels],
+        answerIndex: maxIndex,
+        explanation: `${chart.labels[maxIndex]}의 값이 ${chart.values[maxIndex]}${chart.unit}으로 가장 큽니다.`,
+        shape,
+        skill: `자료 ${index + 1} 그래프 최댓값 읽기`,
+        difficultyTag: '기초',
+      },
+      {
+        question: `${chart.title} ${graphName}의 모든 값을 합하면 얼마인가요?`,
+        options: [`${total - 3}${chart.unit}`, `${total}${chart.unit}`, `${total + 2}${chart.unit}`, `${total + 5}${chart.unit}`],
+        answerIndex: 1,
+        explanation: `${chart.values.join('+')}=${total}이므로 합계는 ${total}${chart.unit}입니다.`,
+        shape,
+        skill: `자료 ${index + 1} 그래프 합계 구하기`,
+        difficultyTag: '적용',
+      },
+      {
+        question: `${chart.title} ${graphName}에서 값이 가장 작은 항목은 무엇인가요?`,
+        options: [...chart.labels],
+        answerIndex: minIndex,
+        explanation: `${chart.labels[minIndex]}의 값이 ${chart.values[minIndex]}${chart.unit}으로 가장 작습니다.`,
+        shape,
+        skill: `자료 ${index + 1} 그래프 최솟값 읽기`,
+        difficultyTag: '기초',
+      },
+    ];
+  });
+};
+
+const solidShapeFallbackQuestions = () => [
+  ['밑면이 원 모양으로 1개이고 꼭짓점이 1개인 입체도형은 무엇인가요?', ['원뿔', '원기둥', '구', '정육면체'], 0, '원뿔은 원 모양의 밑면 1개와 꼭짓점 1개가 있습니다.'],
+  ['모든 면이 정사각형인 입체도형은 무엇인가요?', ['직육면체', '정육면체', '원기둥', '원뿔'], 1, '정육면체의 모든 면은 서로 같은 정사각형입니다.'],
+  ['평평한 면이 없고 어느 방향에서 보아도 둥근 입체도형은 무엇인가요?', ['구', '원뿔', '원기둥', '직육면체'], 0, '구는 평평한 면이 없고 어느 방향에서 보아도 둥글게 보입니다.'],
+  ['원 모양의 밑면이 2개인 입체도형은 무엇인가요?', ['원뿔', '구', '원기둥', '정육면체'], 2, '원기둥은 서로 평행하고 크기가 같은 원 모양의 밑면이 2개입니다.'],
+  ['직육면체의 면은 모두 몇 개인가요?', ['4개', '6개', '8개', '12개'], 1, '직육면체는 면이 모두 6개입니다.'],
+  ['정육면체의 꼭짓점은 모두 몇 개인가요?', ['6개', '8개', '10개', '12개'], 1, '정육면체의 꼭짓점은 모두 8개입니다.'],
+  ['직육면체의 모서리는 모두 몇 개인가요?', ['6개', '8개', '12개', '14개'], 2, '직육면체의 모서리는 모두 12개입니다.'],
+  ['다음 중 꼭짓점이 없는 입체도형은 무엇인가요?', ['원뿔', '정육면체', '직육면체', '구'], 3, '구에는 꼭짓점이 없습니다.'],
+].map(([question, options, answerIndex, explanation]) => ({
+  question, options, answerIndex, explanation, shape: null, skill: '입체도형 성질', difficultyTag: '기초',
+}));
+
+const deterministicFallbackQuestions = (context) => {
+  if (context.fractionLesson) return fractionFallbackQuestions(context);
+  if (context.graphLesson && !context.pieGraphLesson) return graphFallbackQuestions(context);
+  if (context.solidShape) return solidShapeFallbackQuestions();
+  return [];
+};
+
+const fillMinimumQuestionPool = (result, minimumCount, poolSize, context) => {
+  if (result.questions.length >= minimumCount) return result;
+  return mergeQuestionPools(
+    result,
+    { questions: deterministicFallbackQuestions(context) },
+    Math.min(minimumCount, poolSize),
+    context,
+  );
 };
 
 const buildRepairPrompt = ({ payload, missingCount, acceptedQuestions, ragSection }) => `
@@ -940,6 +1077,7 @@ export default async function handler(req, res) {
     let rejectedQuestionCount = Math.max(0, (parsed.questions?.length || 0) - result.questions.length);
     let repairAttempted = false;
     let repairedQuestionCount = 0;
+    let deterministicFallbackCount = 0;
 
     // Fast initial generation is only accepted when it passes the same quality checks.
     // Otherwise retry once with the quality model before returning anything to students.
@@ -959,6 +1097,13 @@ export default async function handler(req, res) {
       result = normalizeContent(parsed, poolSize, lessonContextFlags);
       validationIssues = validateContent(result, poolSize);
       rejectedQuestionCount = Math.max(0, (parsed.questions?.length || 0) - result.questions.length);
+    }
+
+    if (result.questions.length < poolSize) {
+      const beforeFallback = result.questions.length;
+      result = fillMinimumQuestionPool(result, poolSize, poolSize, lessonContextFlags);
+      deterministicFallbackCount = result.questions.length - beforeFallback;
+      validationIssues = validateContent(result, poolSize);
     }
 
     if (result.questions.length < poolSize) {
@@ -1010,6 +1155,7 @@ export default async function handler(req, res) {
       fallbackUsed,
       repairAttempted,
       repairedQuestionCount,
+      deterministicFallbackCount,
       rejectedQuestionCount,
       validationIssues: validationIssues.length > 0 ? validationIssues : null,
       validatedAt: new Date().toISOString(),
