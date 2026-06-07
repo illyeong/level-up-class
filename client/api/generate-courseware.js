@@ -8,7 +8,7 @@ const SHAPE_TYPES = new Set([
   'cuboid', 'cube', 'cylinder', 'cone', 'sphere', 'factor_list',
 ]);
 
-const COURSEWARE_GENERATOR_VERSION = 'quality-v13-verified-fallback-pool';
+const COURSEWARE_GENERATOR_VERSION = 'quality-v14-fast-session-pool';
 
 const stripOptionPrefix = (value) =>
   String(value ?? '')
@@ -256,7 +256,7 @@ const isSolidShapeLesson = (payload, ragSection = '') =>
 const buildLessonContext = (payload, ragSection = '') => {
   const text = lessonTopicText(payload, ragSection);
   const lessonTitle = String(payload?.lessonTitle || '');
-  const titleAddition = includesAny(lessonTitle, ['덧셈', '더하기', '더한', '합']);
+  const titleAddition = includesAny(lessonTitle, ['덧셈', '더하기', '더한', '합을', '합은', '합하면']);
   const titleSubtraction = includesAny(lessonTitle, ['뺄셈', '빼기', '뺀', '차']);
   return {
     sameDenomFocus: hasSameDenominatorFractionFocus(payload, ragSection),
@@ -270,7 +270,8 @@ const buildLessonContext = (payload, ragSection = '') => {
     graphLesson: includesAny(text, ['그래프', '막대그래프', '꺾은선그래프', '원그래프']),
     lineGraphLesson: includesAny(text, ['꺾은선그래프']),
     pieGraphLesson: includesAny(text, ['원그래프']),
-    additionLesson: titleAddition || (!titleSubtraction && includesAny(text, ['덧셈', '더하기', '더한', '합'])),
+    symmetryLesson: includesAny(text, ['대칭', '선대칭', '점대칭', '대칭축', '대응점']),
+    additionLesson: titleAddition || (!titleSubtraction && includesAny(text, ['덧셈', '더하기', '더한', '합을', '합은', '합하면'])),
     subtractionLesson: titleSubtraction || (!titleAddition && includesAny(text, ['뺄셈', '빼기', '뺀', '차'])),
   };
 };
@@ -811,11 +812,88 @@ const solidShapeFallbackQuestions = () => [
   question, options, answerIndex, explanation, shape: null, skill: '입체도형 성질', difficultyTag: '기초',
 }));
 
+const symmetryFallbackQuestions = () => [
+  [
+    '선대칭도형에서 대칭축의 뜻으로 알맞은 것은 무엇인가요?',
+    ['도형을 두 부분으로 접었을 때 완전히 겹치게 하는 직선', '도형의 가장 긴 변', '도형을 둘러싼 선 전체', '도형을 한 바퀴 돌리는 중심점'],
+    0,
+    '선대칭도형에서 대칭축은 도형을 접었을 때 양쪽이 완전히 겹치게 하는 직선입니다.',
+    null,
+  ],
+  [
+    '점대칭도형에서 대칭의 중심을 기준으로 대응점은 어떻게 놓이나요?',
+    ['대칭의 중심에서 같은 거리에 놓입니다.', '항상 도형의 위쪽에만 놓입니다.', '서로 다른 직선 위에 아무렇게나 놓입니다.', '한 점은 반드시 도형 밖에 놓입니다.'],
+    0,
+    '점대칭도형의 대응점은 대칭의 중심을 사이에 두고 같은 직선 위, 같은 거리에 놓입니다.',
+    null,
+  ],
+  [
+    '아래 격자에서 세로 대칭축을 기준으로 점 (2, 3)에 대응하는 점은 무엇인가요?',
+    ['(5, 3)', '(2, 5)', '(3, 2)', '(5, 2)'],
+    0,
+    '세로 대칭축을 기준으로 좌우 위치만 바뀌므로 (2, 3)의 대응점은 (5, 3)입니다.',
+    { type: 'symmetry', dimensions: { axis: 'vertical', cells: [{ x: 2, y: 3 }, { x: 5, y: 3 }] } },
+  ],
+  [
+    '선대칭도형에서 대응변의 길이는 어떻게 되나요?',
+    ['서로 같습니다.', '항상 2배입니다.', '항상 다릅니다.', '대칭축에 가까울수록 짧습니다.'],
+    0,
+    '선대칭도형에서 서로 대응하는 변의 길이는 같습니다.',
+    null,
+  ],
+  [
+    '점대칭도형을 대칭의 중심을 기준으로 몇 도 돌리면 처음 도형과 겹치나요?',
+    ['90도', '120도', '180도', '360도만 가능'],
+    2,
+    '점대칭도형은 대칭의 중심을 기준으로 180도 돌리면 처음 도형과 겹칩니다.',
+    null,
+  ],
+  [
+    '선대칭도형에서 대응점과 대칭축 사이의 거리는 어떻게 되나요?',
+    ['서로 같습니다.', '왼쪽 점이 항상 더 멉니다.', '오른쪽 점이 항상 더 멉니다.', '도형마다 반드시 다릅니다.'],
+    0,
+    '선대칭도형의 대응점은 대칭축에서 같은 거리에 있습니다.',
+    null,
+  ],
+  [
+    '점대칭도형에서 대칭의 중심은 두 대응점을 이은 선분의 어디에 있나요?',
+    ['한쪽 끝', '정중앙', '도형 밖', '항상 위쪽'],
+    1,
+    '대칭의 중심은 두 대응점을 이은 선분의 정중앙에 있습니다.',
+    null,
+  ],
+  [
+    '선대칭도형과 점대칭도형을 구분하는 설명으로 알맞은 것은 무엇인가요?',
+    ['선대칭은 접어서 겹치고, 점대칭은 180도 돌려서 겹칩니다.', '선대칭은 항상 원이고, 점대칭은 항상 삼각형입니다.', '두 도형은 언제나 같은 뜻입니다.', '점대칭은 대칭축이 반드시 3개입니다.'],
+    0,
+    '선대칭은 대칭축을 기준으로 접었을 때 겹치고, 점대칭은 대칭의 중심을 기준으로 180도 돌렸을 때 겹칩니다.',
+    null,
+  ],
+].map(([question, options, answerIndex, explanation, shape], index) => ({
+  question, options, answerIndex, explanation, shape, skill: `대칭 개념 ${index + 1}`, difficultyTag: '기초',
+}));
+
 const deterministicFallbackQuestions = (context) => {
   if (context.fractionLesson) return fractionFallbackQuestions(context);
   if (context.graphLesson && !context.pieGraphLesson) return graphFallbackQuestions(context);
+  if (context.symmetryLesson) return symmetryFallbackQuestions();
   if (context.solidShape) return solidShapeFallbackQuestions();
   return [];
+};
+
+const ensureConceptCards = (result, payload) => {
+  if (result.conceptCards?.length) return result;
+  const title = String(payload?.lessonTitle || payload?.unitName || '오늘의 개념');
+  return {
+    ...result,
+    conceptCards: [
+      {
+        title: `${title} 핵심`,
+        body: '이번 차시의 핵심 개념을 문제 상황에서 확인하며 익힙니다.',
+        example: '문제의 조건과 보기, 그림 자료가 서로 맞는지 차례대로 확인합니다.',
+      },
+    ],
+  };
 };
 
 const fillMinimumQuestionPool = (result, minimumCount, poolSize, context) => {
@@ -1017,9 +1095,8 @@ export default async function handler(req, res) {
   const isUnitTest = lessonTitle === '단원평가';
   const requested = Number(questionCount) || 5;
   const fastInitial = payload.fastInitial === true && !isUnitTest;
-  const hasLessonContext = Boolean(String(lessonContext || '').trim());
   const poolSize = fastInitial
-    ? Math.min(Math.max(requested, 5), 6)
+    ? Math.min(Math.max(requested, 5), 5)
     : isUnitTest
     ? Math.min(Math.max(requested + 5, 10), 12)
     : Math.min(Math.max(requested + 3, 8), 10);
@@ -1042,7 +1119,7 @@ export default async function handler(req, res) {
     const startedAt = Date.now();
     const qualityModel = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
     const fastModel = process.env.ANTHROPIC_FAST_MODEL || 'claude-haiku-4-5-20251001';
-    const useFastModel = fastInitial && hasLessonContext;
+    const useFastModel = fastInitial;
     let model = useFastModel ? fastModel : qualityModel;
     let fallbackUsed = false;
     const prompt = buildPrompt(payload, poolSize, isUnitTest, ragSection);
@@ -1052,7 +1129,7 @@ export default async function handler(req, res) {
         apiKey,
         model,
         prompt,
-        maxTokens: fastInitial ? 2800 : isUnitTest ? 4800 : 3800,
+        maxTokens: fastInitial ? 2200 : isUnitTest ? 4800 : 3800,
       });
     } catch (err) {
       if (!useFastModel) throw err;
@@ -1072,16 +1149,24 @@ export default async function handler(req, res) {
     }
 
     const lessonContextFlags = buildLessonContext(payload, ragSection);
-    let result = normalizeContent(parsed, poolSize, lessonContextFlags);
+    let result = ensureConceptCards(normalizeContent(parsed, poolSize, lessonContextFlags), payload);
     let validationIssues = validateContent(result, poolSize);
     let rejectedQuestionCount = Math.max(0, (parsed.questions?.length || 0) - result.questions.length);
     let repairAttempted = false;
     let repairedQuestionCount = 0;
     let deterministicFallbackCount = 0;
 
-    // Fast initial generation is only accepted when it passes the same quality checks.
-    // Otherwise retry once with the quality model before returning anything to students.
-    if (useFastModel && !fallbackUsed && (result.questions.length < requested || validationIssues.length > 0)) {
+    if (result.questions.length < poolSize) {
+      const beforeFallback = result.questions.length;
+      result = fillMinimumQuestionPool(result, poolSize, poolSize, lessonContextFlags);
+      deterministicFallbackCount = result.questions.length - beforeFallback;
+      validationIssues = validateContent(result, poolSize);
+    }
+
+    // Fast initial generation should return quickly. Only fall back to the quality
+    // model when the fast model plus deterministic fillers still cannot make a
+    // playable session.
+    if (useFastModel && !fallbackUsed && result.questions.length < requested) {
       fallbackUsed = true;
       model = qualityModel;
       rawText = await callClaude({
@@ -1094,16 +1179,15 @@ export default async function handler(req, res) {
       if (!parsed) {
         return res.status(500).json({ error: 'AI 응답을 JSON으로 해석하지 못했습니다. 다시 시도해주세요.' });
       }
-      result = normalizeContent(parsed, poolSize, lessonContextFlags);
+      result = ensureConceptCards(normalizeContent(parsed, poolSize, lessonContextFlags), payload);
       validationIssues = validateContent(result, poolSize);
       rejectedQuestionCount = Math.max(0, (parsed.questions?.length || 0) - result.questions.length);
-    }
-
-    if (result.questions.length < poolSize) {
-      const beforeFallback = result.questions.length;
-      result = fillMinimumQuestionPool(result, poolSize, poolSize, lessonContextFlags);
-      deterministicFallbackCount = result.questions.length - beforeFallback;
-      validationIssues = validateContent(result, poolSize);
+      if (result.questions.length < poolSize) {
+        const beforeFallback = result.questions.length;
+        result = fillMinimumQuestionPool(result, poolSize, poolSize, lessonContextFlags);
+        deterministicFallbackCount += result.questions.length - beforeFallback;
+        validationIssues = validateContent(result, poolSize);
+      }
     }
 
     if (result.questions.length < poolSize) {
