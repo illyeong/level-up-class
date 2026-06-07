@@ -8,7 +8,7 @@ const SHAPE_TYPES = new Set([
   'cuboid', 'cube', 'cylinder', 'cone', 'sphere', 'factor_list',
 ]);
 
-const COURSEWARE_GENERATOR_VERSION = 'quality-v11-topic-visual-fraction-guard';
+const COURSEWARE_GENERATOR_VERSION = 'quality-v12-auto-verify-repair';
 
 const stripOptionPrefix = (value) =>
   String(value ?? '')
@@ -23,6 +23,13 @@ const normalizeKey = (value) =>
   String(value ?? '').replace(/\s+/g, '').replace(/[①②③④0-9().,!?~]/g, '').slice(0, 80);
 
 const normalizeText = (value) => String(value ?? '').normalize('NFKC').toLowerCase();
+
+const normalizeMathText = (value) =>
+  normalizeText(value)
+    .replace(/[−–—]/g, '-')
+    .replace(/[×xX]/g, '*')
+    .replace(/[÷]/g, '/')
+    .replace(/(\d+)\s*(?:과|와)\s*(\d+)\s*\/\s*(\d+)/g, '$1 $2/$3');
 
 const includesAny = (text, words) => {
   const src = normalizeText(text);
@@ -55,14 +62,31 @@ const parseFractions = (text) => {
   return list;
 };
 
+const parseSingleFractionValue = (text) => {
+  const src = normalizeMathText(text).trim();
+  const mixed = src.match(/(-?\d+)\s+(\d+)\s*\/\s*(\d+)/);
+  if (mixed) {
+    const whole = Number(mixed[1]);
+    const numerator = Number(mixed[2]);
+    const denominator = Number(mixed[3]);
+    if (denominator <= 0 || numerator >= denominator) return null;
+    const sign = whole < 0 ? -1 : 1;
+    return simplifyFraction({ num: whole * denominator + sign * numerator, den: denominator });
+  }
+  const fraction = src.match(/(-?\d+)\s*\/\s*(\d+)/);
+  if (fraction) return simplifyFraction({ num: Number(fraction[1]), den: Number(fraction[2]) });
+  const integer = src.match(/^-?\d+$/);
+  return integer ? simplifyFraction({ num: Number(integer[0]), den: 1 }) : null;
+};
+
 const evalFractionExpression = (text) => {
-  const compact = String(text || '').replace(/\s+/g, '');
-  const parts = compact.match(/[+-]?[^+-]+/g) || [];
+  const compact = normalizeMathText(text).replace(/\s+(?=\d+\s*\/)/g, ' ');
+  const parts = compact.match(/[+-]?\s*\d+(?:\s+\d+\s*\/\s*\d+|\s*\/\s*\d+)?/g) || [];
   const fractions = parts.map(part => {
     const sign = part.startsWith('-') ? -1 : 1;
-    const raw = part.replace(/^[+-]/, '');
-    const fraction = parseFractions(raw)[0];
-    return fraction ? { n: fraction.n * sign, d: fraction.d } : null;
+    const raw = part.replace(/^[+-]/, '').trim();
+    const fraction = parseSingleFractionValue(raw);
+    return fraction ? { n: fraction.num * sign, d: fraction.den } : null;
   });
   if (!fractions.length || fractions.some(v => !v)) return null;
   let num = 0;
@@ -153,8 +177,8 @@ const fixFractionAnswer = (q) => {
   const expected = getFractionOperationExpected(q.question) || getSameDenominatorSum(q.question);
   if (expected) {
     const idx = uniqueIndex(options, opt => {
-      const fractions = parseFractions(opt);
-      return fractions.length === 1 && sameFraction(fractions[0], expected);
+      const value = parseSingleFractionValue(opt);
+      return value && sameFraction(value, expected);
     });
     return idx >= 0 ? { ...q, answerIndex: idx } : null;
   }
@@ -342,13 +366,163 @@ const sanitizeShape = (shape, context = {}) => {
   return { type, dimensions: d, unit };
 };
 
+const optionNumber = (value) => {
+  const match = String(value || '').replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+};
+
+const optionMatchesLabelOrValue = (option, label, value) => {
+  const text = normalizeText(option);
+  return (label && text.includes(normalizeText(label))) || optionNumber(option) === value;
+};
+
+const verifyChartAnswer = (q, shape) => {
+  const { labels = [], values = [] } = shape.dimensions || {};
+  if (labels.length < 2 || labels.length !== values.length) return false;
+  const question = normalizeText(q.question);
+  let expectedIndexes;
+
+  if (includesAny(question, ['가장 많', '가장 큰', '가장 높'])) {
+    const target = Math.max(...values);
+    expectedIndexes = values.map((v, i) => v === target ? i : -1).filter(i => i >= 0);
+  } else if (includesAny(question, ['가장 적', '가장 작은', '가장 낮'])) {
+    const target = Math.min(...values);
+    expectedIndexes = values.map((v, i) => v === target ? i : -1).filter(i => i >= 0);
+  } else if (includesAny(question, ['합계', '모두 합', '전체 수', '모두 몇'])) {
+    const total = values.reduce((sum, value) => sum + value, 0);
+    return optionNumber(q.options[q.answerIndex]) === total;
+  } else if (includesAny(question, ['차이', '얼마나 더'])) {
+    const mentioned = labels.map((label, i) => question.includes(normalizeText(label)) ? i : -1).filter(i => i >= 0);
+    const indexes = mentioned.length === 2 ? mentioned : values.length === 2 ? [0, 1] : [];
+    if (indexes.length !== 2) return true;
+    return optionNumber(q.options[q.answerIndex]) === Math.abs(values[indexes[0]] - values[indexes[1]]);
+  } else {
+    return true;
+  }
+
+  if (expectedIndexes.length !== 1) return false;
+  const expected = expectedIndexes[0];
+  return optionMatchesLabelOrValue(q.options[q.answerIndex], labels[expected], values[expected]);
+};
+
+const verifyFactorListShape = (shape) => {
+  const groups = shape.dimensions?.groups || [];
+  const highlight = shape.dimensions?.highlight || [];
+  if (groups.length < 2) return false;
+  const common = groups
+    .slice(1)
+    .reduce(
+      (values, group) => values.filter(value => group.values.includes(value)),
+      [...groups[0].values],
+    )
+    .sort((a, b) => a - b);
+  const shown = [...new Set(highlight)].sort((a, b) => a - b);
+  return common.length === shown.length && common.every((value, index) => value === shown[index]);
+};
+
+const getNamedNumber = (text, label) => {
+  const src = normalizeText(text).replace(/,/g, '');
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const after = src.match(new RegExp(`${escaped}\\s*(?:은|는|이|가|의|:)?\\s*(\\d+(?:\\.\\d+)?)`));
+  if (after) return Number(after[1]);
+  const before = src.match(new RegExp(`(\\d+(?:\\.\\d+)?)\\s*(?:cm|m|mm|㎝|도)?\\s*(?:인|인\\s*)?${escaped}`));
+  return before ? Number(before[1]) : null;
+};
+
+const verifyNamedShapeDimensions = (q, shape) => {
+  const d = shape.dimensions || {};
+  const checks = [];
+  const add = (label, actual) => {
+    const mentioned = getNamedNumber(q.question, label);
+    if (mentioned != null && finite(actual) != null) checks.push(mentioned === Number(actual));
+  };
+
+  if (['rectangle', 'cuboid'].includes(shape.type)) {
+    add('가로', d.width);
+    add('세로', d.height);
+  }
+  if (shape.type === 'cuboid') add('높이', d.depth ?? d.height);
+  if (['square', 'cube', 'polygon', 'equilateral_triangle'].includes(shape.type)) add('한 변', d.side);
+  if (['right_triangle', 'parallelogram', 'trapezoid'].includes(shape.type)) {
+    add('밑변', d.base);
+    add('높이', d.height);
+  }
+  if (['circle', 'semicircle', 'sphere', 'cylinder', 'cone'].includes(shape.type)) {
+    add('반지름', d.radius);
+    add('지름', d.diameter);
+  }
+  if (shape.type === 'angle') {
+    add('각도', d.degrees);
+    add('각의 크기', d.degrees);
+  }
+  return checks.every(Boolean);
+};
+
+const verifyShapeQuestionConsistency = (q) => {
+  const shape = q.shape;
+  if (!shape) return true;
+  if (!verifyNamedShapeDimensions(q, shape)) return false;
+
+  if (['bar_chart', 'line_chart', 'pie_chart'].includes(shape.type)) {
+    return verifyChartAnswer(q, shape);
+  }
+  if (shape.type === 'factor_list') return verifyFactorListShape(shape);
+  if (shape.type === 'fraction_bar') {
+    const asksShownFraction = includesAny(q.question, ['색칠', '나타낸 분수', '보이는 분수', '그림이 나타내']);
+    if (!asksShownFraction) return true;
+    const correct = parseSingleFractionValue(q.options[q.answerIndex]);
+    return !!correct && sameFraction(correct, {
+      num: shape.dimensions.filled,
+      den: shape.dimensions.total,
+    });
+  }
+  if (shape.type === 'clock' && includesAny(q.question, ['시각', '몇 시'])) {
+    const answer = String(q.options[q.answerIndex] || '').replace(/\s+/g, '');
+    const hour = shape.dimensions.hour;
+    const minute = shape.dimensions.minute;
+    return answer.includes(`${hour}시`) && (minute === 0 || answer.includes(`${minute}분`));
+  }
+  if (shape.type === 'symmetry') {
+    const cells = shape.dimensions?.cells || [];
+    return new Set(cells.map(cell => `${cell.x}:${cell.y}`)).size === cells.length;
+  }
+  return true;
+};
+
+const questionFingerprint = (q) => {
+  const question = normalizeText(q.question)
+    .replace(/\d+(?:\.\d+)?/g, '#')
+    .replace(/[^\p{L}#]/gu, '');
+  const skill = normalizeText(q.skill || '').replace(/\s+/g, '');
+  return `${skill}|${question}`;
+};
+
+const questionTokens = (q) =>
+  new Set(normalizeText(q.question).match(/[\p{L}]{2,}|#|\d+/gu) || []);
+
+const isNearDuplicate = (left, right) => {
+  if (questionFingerprint(left) === questionFingerprint(right)) return true;
+  const a = questionTokens(left);
+  const b = questionTokens(right);
+  if (!a.size || !b.size) return false;
+  const intersection = [...a].filter(token => b.has(token)).length;
+  const union = new Set([...a, ...b]).size;
+  return intersection / union >= 0.82;
+};
+
 const verifyFractionQuestionAnswer = (q) => {
   const question = String(q.question || '');
   const expected = getFractionOperationExpected(question);
   if (!expected) return true;
-  const correctFractions = parseFractions(q.options?.[q.answerIndex] || '');
-  if (correctFractions.length !== 1) return false;
-  return sameFraction(correctFractions[0], expected);
+  const correct = parseSingleFractionValue(q.options?.[q.answerIndex] || '');
+  return !!correct && sameFraction(correct, expected);
+};
+
+const verifyFractionExplanation = (q) => {
+  const equations = String(q.explanation || '').match(
+    /(?:\d+\s+(?:\d+\s*\/\s*\d+)|\d+\s*\/\s*\d+|\d+)(?:\s*[+-]\s*(?:\d+\s+(?:\d+\s*\/\s*\d+)|\d+\s*\/\s*\d+|\d+))+\s*=\s*(?:\d+\s+(?:\d+\s*\/\s*\d+)|\d+\s*\/\s*\d+|\d+)/g,
+  ) || [];
+  return equations.every(equation => evalFractionEquation(equation) === true);
 };
 
 const isOffTopicQuestion = (q, context = {}) => {
@@ -373,6 +547,7 @@ const hasExactlyOneVerifiableAnswer = (q) => {
     return matches.filter(Boolean).length === 1 && matches[q.answerIndex] === true;
   }
   if (!verifyFractionQuestionAnswer(q)) return false;
+  if (!verifyFractionExplanation(q)) return false;
   if (/올바른|맞는/.test(question) && options.some(opt => String(opt).includes('='))) {
     const checks = options.map(evalFractionEquation);
     if (checks.some(v => v === null)) return false;
@@ -431,6 +606,7 @@ function normalizeQuestion(q, index, context = {}) {
   if (context.solidShape && rawShapeType && rawShapeType !== 'multi' && !['cuboid', 'cube', 'cylinder', 'cone', 'sphere'].includes(rawShapeType)) return null;
 
   const shape = sanitizeShape(q.shape, context);
+  if (q.shape && !shape) return null;
 
   const normalized = {
     question: String(q.question || '').trim(),
@@ -445,6 +621,7 @@ function normalizeQuestion(q, index, context = {}) {
   const combinedText = [normalized.question, ...normalized.options, normalized.explanation].join('\n');
   if (context.sameDenomFocus && violatesSameDenominatorAddition(combinedText)) return null;
   if (!hasExactlyOneVerifiableAnswer(normalized)) return null;
+  if (!verifyShapeQuestionConsistency(normalized)) return null;
 
   return normalized;
 }
@@ -458,6 +635,7 @@ function normalizeContent(result, poolSize, options = {}) {
     if (!q) continue;
     const key = normalizeKey(q.question);
     if (!q.question || q.question.length < 8 || !q.explanation || seen.has(key)) continue;
+    if (questions.some(existing => isNearDuplicate(existing, q))) continue;
     seen.add(key);
     questions.push(q);
     if (questions.length >= poolSize) break;
@@ -494,10 +672,52 @@ function validateContent(result, poolSize) {
     if (!Number.isInteger(q.answerIndex) || q.answerIndex < 0 || q.answerIndex > 3) issues.push(`Q${n}: 정답 인덱스 오류`);
     if (!q.explanation || q.explanation.length < 6) issues.push(`Q${n}: 해설이 부족합니다.`);
     if (q.shape && !SHAPE_TYPES.has(q.shape.type)) issues.push(`Q${n}: 지원하지 않는 shape type`);
+    if (!verifyShapeQuestionConsistency(q)) issues.push(`Q${n}: 시각자료와 문제/정답 불일치`);
+    if (!hasExactlyOneVerifiableAnswer(q)) issues.push(`Q${n}: 정답 자동 검산 실패`);
+    if (result.questions.slice(0, i).some(previous => isNearDuplicate(previous, q))) issues.push(`Q${n}: 유사 문제 중복`);
   });
 
   return issues;
 }
+
+const mergeQuestionPools = (baseResult, repairResult, poolSize, context) => {
+  const merged = [...baseResult.questions];
+  for (const [index, raw] of (repairResult?.questions || []).entries()) {
+    const question = normalizeQuestion(raw, merged.length + index, context);
+    if (!question || merged.some(existing => isNearDuplicate(existing, question))) continue;
+    merged.push(question);
+    if (merged.length >= poolSize) break;
+  }
+  return { ...baseResult, questions: merged };
+};
+
+const buildRepairPrompt = ({ payload, missingCount, acceptedQuestions, ragSection }) => `
+아래 수업에 사용할 객관식 문제 중 자동 검증을 통과하지 못한 문항이 있어 대체 문항이 필요합니다.
+설명 없이 JSON 객체 하나만 반환하세요.
+
+[수업 정보]
+- 학년: ${payload.grade}학년
+- 학기: ${payload.semester || ''}
+- 출판사: ${payload.publisher || ''}
+- 단원: ${payload.unitName}
+- 차시: ${payload.lessonTitle}
+- 학습 목표: ${payload.learningGoal || ''}
+- 핵심 키워드: ${Array.isArray(payload.keywords) ? payload.keywords.join(', ') : payload.keywords || ''}
+${ragSection}
+
+[이미 통과한 문제 - 같은 유형과 문장 구조를 반복하지 마세요]
+${acceptedQuestions.map((question, index) => `${index + 1}. ${question.question}`).join('\n') || '없음'}
+
+[생성 요구]
+- 서로 다른 문제 ${missingCount}개를 생성하세요.
+- options는 정확히 4개이며 정답은 정확히 1개여야 합니다.
+- 분수 계산은 정답과 해설의 식을 직접 검산하세요. 분자가 빠진 "/8" 같은 표기는 금지합니다.
+- 도형·그래프 shape를 사용하면 shape의 숫자, 항목, 정답이 문제와 정확히 일치해야 합니다.
+- 그래프가 없어도 풀 수 있는 단순 계산에는 shape:null을 사용하세요.
+- 기존 문제와 숫자만 바꾼 문제를 만들지 마세요.
+
+{"questions":[{"question":"문제","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"검산된 해설","skill":"문항 유형","difficultyTag":"기초|적용|심화"}]}
+`;
 
 function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
   const {
@@ -569,6 +789,9 @@ ${solidShapeRules}
 6. 해설은 정답만 말하지 말고 왜 그런지 1~2문장으로 설명하세요.
 7. 단원평가는 단원 전체를 골고루 다루고, 일반 차시는 해당 차시 내용에 집중하세요.
 8. 시각 자료가 도움이 되는 문항은 shape를 반드시 넣으세요. 단순 계산 문항만 shape:null을 쓰세요.
+9. 분수 문제는 정답 보기와 해설 속 계산식을 직접 다시 계산해 검산하세요. 분자가 빠진 "/8" 같은 표기는 절대 만들지 마세요.
+10. shape를 넣으면 shape의 수치·항목·색칠 영역과 문제의 조건 및 정답이 정확히 일치해야 합니다.
+11. 같은 문장 구조에서 숫자만 바꾼 문제를 반복하지 마세요.
 
 [shape 예시]
 - 시계: {"type":"clock","dimensions":{"hour":3,"minute":30}}
@@ -613,7 +836,7 @@ ${solidShapeRules}
 JSON 외의 설명, 마크다운, 코드블록은 절대 쓰지 마세요.`;
 }
 
-async function callClaude({ apiKey, model, prompt, maxTokens }) {
+async function callClaude({ apiKey, model, prompt, maxTokens, temperature = 0.55 }) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -624,7 +847,7 @@ async function callClaude({ apiKey, model, prompt, maxTokens }) {
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
-      temperature: 0.75,
+      temperature,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
@@ -714,6 +937,9 @@ export default async function handler(req, res) {
     const lessonContextFlags = buildLessonContext(payload, ragSection);
     let result = normalizeContent(parsed, poolSize, lessonContextFlags);
     let validationIssues = validateContent(result, poolSize);
+    let rejectedQuestionCount = Math.max(0, (parsed.questions?.length || 0) - result.questions.length);
+    let repairAttempted = false;
+    let repairedQuestionCount = 0;
 
     // Fast initial generation is only accepted when it passes the same quality checks.
     // Otherwise retry once with the quality model before returning anything to students.
@@ -732,6 +958,37 @@ export default async function handler(req, res) {
       }
       result = normalizeContent(parsed, poolSize, lessonContextFlags);
       validationIssues = validateContent(result, poolSize);
+      rejectedQuestionCount = Math.max(0, (parsed.questions?.length || 0) - result.questions.length);
+    }
+
+    if (result.questions.length < poolSize) {
+      repairAttempted = true;
+      const beforeRepair = result.questions.length;
+      const missingCount = Math.min(6, poolSize - beforeRepair);
+      const repairPrompt = buildRepairPrompt({
+        payload,
+        missingCount,
+        acceptedQuestions: result.questions,
+        ragSection,
+      });
+      try {
+        const repairText = await callClaude({
+          apiKey,
+          model: fastModel,
+          prompt: repairPrompt,
+          maxTokens: Math.min(3000, 900 + missingCount * 360),
+          temperature: 0.35,
+        });
+        const repairParsed = tryParseJson(repairText);
+        if (repairParsed) {
+          result = mergeQuestionPools(result, repairParsed, poolSize, lessonContextFlags);
+          repairedQuestionCount = result.questions.length - beforeRepair;
+          rejectedQuestionCount += Math.max(0, (repairParsed.questions?.length || 0) - repairedQuestionCount);
+          validationIssues = validateContent(result, poolSize);
+        }
+      } catch (repairError) {
+        console.warn('courseware repair generation failed:', repairError);
+      }
     }
 
     if (!result.questions.length) {
@@ -751,6 +1008,9 @@ export default async function handler(req, res) {
       generationMs,
       generationTier: useFastModel && !fallbackUsed ? 'fast-initial' : 'quality',
       fallbackUsed,
+      repairAttempted,
+      repairedQuestionCount,
+      rejectedQuestionCount,
       validationIssues: validationIssues.length > 0 ? validationIssues : null,
       validatedAt: new Date().toISOString(),
     });

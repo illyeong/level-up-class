@@ -1,11 +1,37 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, doc, addDoc, updateDoc, deleteDoc,
-  query, where, serverTimestamp, orderBy,
+  query, where, serverTimestamp, orderBy, onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import SpriteMonster from '../../components/SpriteMonster';
 import { MONSTERS_DB } from '../../data/monsterData';
+
+const getKstDateKey = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const map = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${map.year}-${map.month}-${map.day}`;
+};
+const HUNGER_STEP_HOURS = 7.2;
+const HAPPINESS_DECAY_PER_DAY = 80;
+const toDate = value => value?.toDate?.() ?? (value?.seconds ? new Date(value.seconds * 1000) : null);
+const calculateTimedPetState = pet => {
+  const now = Date.now();
+  const hungerRef = toDate(pet.lastHungerDecay) || toDate(pet.lastCareAt) || toDate(pet.obtainedAt) || new Date();
+  const happinessRef = toDate(pet.lastHappinessDecay) || toDate(pet.lastCareAt) || toDate(pet.obtainedAt) || new Date();
+  const hungerSteps = Math.floor(Math.max(0, now - hungerRef.getTime()) / (HUNGER_STEP_HOURS * 3600000));
+  const happinessLoss = Math.floor(Math.max(0, now - happinessRef.getTime()) * HAPPINESS_DECAY_PER_DAY / 86400000);
+  return {
+    ...pet,
+    hunger: Math.max(0, (pet.hunger ?? 100) - hungerSteps * 10),
+    happiness: Math.max(0, Math.round((pet.happiness ?? 100) - happinessLoss)),
+  };
+};
 
 // ── 펫 등급 (5단계) ──────────────────────────────────────────
 const RARITY = {
@@ -491,6 +517,8 @@ export default function PetHouse({ studentCode }) {
   const [showHearts,  setShowHearts]  = useState(false); // 하트 이펙트
   const [careEffectPos, setCareEffectPos] = useState(null);
   const detailPetRef = useRef(null);
+  const careEffectTimerRef = useRef(null);
+  const petServerDataRef = useRef([]);
   const [hatchPhase,  setHatchPhase]  = useState('idle'); // idle|animating|result
   const [hatchingEgg, setHatchingEgg] = useState(null);
   const [hatchedPet,  setHatchedPet]  = useState(null);
@@ -524,6 +552,23 @@ export default function PetHouse({ studentCode }) {
     });
   };
 
+  const showCareEffect = (lines, { hearts = true, anim = null } = {}) => {
+    clearTimeout(careEffectTimerRef.current);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      captureCareEffectPos();
+      if (anim) setDetailAnim(anim);
+      setPetBubble(lines[Math.floor(Math.random() * lines.length)]);
+      setShowHearts(hearts);
+      careEffectTimerRef.current = setTimeout(() => {
+        setPetBubble(null);
+        setShowHearts(false);
+        setDetailAnim('idle');
+      }, 2500);
+    }));
+  };
+
+  useEffect(() => () => clearTimeout(careEffectTimerRef.current), []);
+
   const [toast, setToast] = useState(null);
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 2500); };
 
@@ -543,8 +588,6 @@ export default function PetHouse({ studentCode }) {
       // ── 펫 상태 시간 감소 ────────────────────────────────────
       // 배고픔: 7.2시간마다 -10 (72h=3일에 0), 행복도/청결: 하루마다 감소
       // lastHungerDecay: 배고픔 감소 전용 타임스탬프 (lastCareAt과 분리)
-      const HUNGER_STEP_HOURS = 7.2; // 10씩 감소 간격
-      const HAPPINESS_DECAY_PER_DAY = 80;
       const stateUpdates = petList.map(async pet => {
         const now = Date.now();
         // ① 배고픔 감소 (lastHungerDecay 기준)
@@ -559,8 +602,10 @@ export default function PetHouse({ studentCode }) {
         // ② 행복도·청결도·기력 감소 (lastCareAt 기준 일 단위, 기존 유지)
         const careRef  = pet.lastCareAt?.toDate?.() || new Date(0);
         const daysElapsed = Math.max(0, Math.floor((now - careRef.getTime()) / 86400000));
-        const today = new Date().toISOString().slice(0, 10);
-        const caredToday = pet.lastCareAt?.toDate?.()?.toISOString?.()?.slice(0, 10) >= today;
+        const today = getKstDateKey();
+        const caredToday = pet.lastCareAt?.toDate?.()
+          ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(pet.lastCareAt.toDate()) >= today
+          : false;
 
         if (hungerSteps === 0 && happinessLoss === 0 && (caredToday || daysElapsed === 0)) return pet;
 
@@ -597,6 +642,48 @@ export default function PetHouse({ studentCode }) {
     })();
   }, [studentCode]);
 
+  // 워킹펫과 펫하우스의 상태를 실시간으로 동일하게 유지합니다.
+  useEffect(() => {
+    if (!studentCode) return undefined;
+    const studentQuery = query(collection(db, 'students'), where('studentCode', '==', studentCode));
+    const petQuery = query(collection(db, 'studentPets'), where('studentCode', '==', studentCode));
+
+    const unsubscribeStudent = onSnapshot(studentQuery, snapshot => {
+      if (snapshot.empty) return;
+      const studentDoc = snapshot.docs[0];
+      const data = { id: studentDoc.id, ...studentDoc.data() };
+      setStudent(data);
+      setActivePetId(data.activePetId || null);
+    });
+    const unsubscribePets = onSnapshot(petQuery, snapshot => {
+      const serverPets = snapshot.docs.map(petDoc => ({ id: petDoc.id, ...petDoc.data() }));
+      petServerDataRef.current = serverPets;
+      const nextPets = serverPets.map(calculateTimedPetState);
+      setPets(nextPets);
+      setSelectedPet(previous => previous
+        ? nextPets.find(pet => pet.id === previous.id) || null
+        : previous);
+    });
+
+    return () => {
+      unsubscribeStudent();
+      unsubscribePets();
+    };
+  }, [studentCode]);
+
+  useEffect(() => {
+    const refreshTimedState = () => {
+      const nextPets = petServerDataRef.current.map(calculateTimedPetState);
+      if (nextPets.length === 0) return;
+      setPets(nextPets);
+      setSelectedPet(previous => previous
+        ? nextPets.find(pet => pet.id === previous.id) || null
+        : previous);
+    };
+    const timer = setInterval(refreshTimedState, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   // 알 버리기
   const discardEgg = async (egg) => {
     const r = RARITY[egg.eggType] || RARITY.common;
@@ -624,7 +711,7 @@ export default function PetHouse({ studentCode }) {
   };
 
   // ── 펫 케어 시스템 ─────────────────────────────────────────────
-  const TODAY = new Date().toISOString().slice(0, 10);
+  const TODAY = getKstDateKey();
 
   const getDailyCare = (pet) => {
     const base = { date: TODAY, feedCount: 0, petCount: 0, washCount: 0, playCount: 0 };
@@ -699,23 +786,16 @@ export default function PetHouse({ studentCode }) {
     const care = getDailyCare(pet);
     if (care.petCount >= 3) { showToast('오늘 쓰다듬기를 이미 3번 했습니다!', 'error'); return; }
     const newHappiness = Math.min(100, (pet.happiness ?? 50) + 15);
+    const newAffection = (pet.affection ?? 0) + 2;
     const newCare      = { ...care, petCount: care.petCount + 1 };
-    const updates = { happiness: newHappiness, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp() };
+    const updates = { happiness: newHappiness, affection: newAffection, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp() };
     await updateDoc(doc(db, 'studentPets', pet.id), updates);
     const patched = { ...pet, ...updates, dailyCare: newCare };
     setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
     if (selectedPet?.id === pet.id) setSelectedPet(patched);
-    setDetailAnim('idle');
-    requestAnimationFrame(() => {
-      const md = MONSTERS_DB[pet.monsterId];
-      setDetailAnim(md?.animations?.attack ? 'attack' : 'run');
-    });
     // 쓰다듬기 대사 + 하트 이펙트
     const lines = ['기분 좋아요~ 💕', '더 해줘요! 🥰', '행복해요! ✨', '좋아요~ 💝', '이게 최고야! 💖', '쓰다듬어줘서 고마워요!'];
-    captureCareEffectPos();
-    setPetBubble(lines[Math.floor(Math.random() * lines.length)]);
-    setShowHearts(true);
-    setTimeout(() => { setPetBubble(null); setShowHearts(false); setDetailAnim('idle'); }, 2500);
+    showCareEffect(lines, { hearts: true, anim: MONSTERS_DB[pet.monsterId]?.animations?.attack ? 'attack' : 'run' });
     addPetExp(patched, 5);
   };
 
@@ -744,10 +824,7 @@ export default function PetHouse({ studentCode }) {
     if (selectedPet?.id === pet.id) setSelectedPet(patched);
     // 씻기기 이펙트
     const washLines = ['개운해요! 🛁', '깨끗해졌어요! ✨', '상쾌해요~ 💧', '감사해요! 🧼', '몸이 가벼워요!'];
-    captureCareEffectPos();
-    setPetBubble(washLines[Math.floor(Math.random() * washLines.length)]);
-    setShowHearts(true);
-    setTimeout(() => { setPetBubble(null); setShowHearts(false); }, 2500);
+    showCareEffect(washLines);
     addPetExp(patched, 8);
   };
 
@@ -768,11 +845,7 @@ export default function PetHouse({ studentCode }) {
     if (selectedPet?.id === pet.id) setSelectedPet(patched);
     // 놀아주기 이펙트
     const playLines = ['신나요! 🎮', '같이 놀아서 행복해요! 🎉', '최고야! ⭐', '또 해요! 🥳', '재밌어요!!! 🎊'];
-    captureCareEffectPos();
-    setPetBubble(playLines[Math.floor(Math.random() * playLines.length)]);
-    setShowHearts(true);
-    setDetailAnim('run');
-    setTimeout(() => { setPetBubble(null); setShowHearts(false); setDetailAnim('idle'); }, 2500);
+    showCareEffect(playLines, { anim: 'run' });
     addPetExp(patched, 10);
   };
 
@@ -1256,7 +1329,10 @@ export default function PetHouse({ studentCode }) {
                           const full = hunger >= 100;
                           const maxed = care.feedCount >= 3;
                           return (
-                            <button key={food.id} onClick={() => feedPet(sp, food)}
+                            <button key={food.id} onClick={() => feedPet(sp, food).catch(error => {
+                              console.error('[PetHouse] feed failed:', error);
+                              showToast('먹이주기에 실패했습니다. 다시 시도해주세요.', 'error');
+                            })}
                               disabled={noMoney || full || maxed}
                               className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all
                                 ${noMoney || full || maxed ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-amber-600 hover:text-white text-slate-200'}`}>
@@ -1275,7 +1351,10 @@ export default function PetHouse({ studentCode }) {
                         </div>
                         {bar(happiness, happiness >= 70 ? '#38bdf8' : happiness >= 40 ? '#fbbf24' : '#f87171')}
                       </div>
-                      <button onClick={() => isDead ? feedPet(sp, FOOD_OPTIONS[0]) : petThePet(sp)}
+                      <button onClick={() => (isDead ? feedPet(sp, FOOD_OPTIONS[0]) : petThePet(sp)).catch(error => {
+                        console.error('[PetHouse] care failed:', error);
+                        showToast('펫 돌보기에 실패했습니다. 다시 시도해주세요.', 'error');
+                      })}
                         disabled={!isDead && (care.petCount >= 3 || happiness >= 100)}
                         className={`w-full py-2 rounded-xl font-extrabold text-xs mb-3 transition-all
                           ${isDead ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg' : care.petCount >= 3 || happiness >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg'}`}>
@@ -1302,13 +1381,19 @@ export default function PetHouse({ studentCode }) {
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-1.5 mb-3">
-                        <button onClick={() => washPet(sp)}
+                        <button onClick={() => washPet(sp).catch(error => {
+                          console.error('[PetHouse] wash failed:', error);
+                          showToast('씻기기에 실패했습니다. 다시 시도해주세요.', 'error');
+                        })}
                           disabled={isDead || care.washCount >= 1 || clean >= 100}
                           className={`py-2 rounded-xl font-bold text-xs transition-all
                             ${isDead || care.washCount >= 1 || clean >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-white'}`}>
                           {isDead ? '🍖' : care.washCount >= 1 ? '🛁 완료' : '🛁 씻기기'}
                         </button>
-                        <button onClick={() => playWithPet(sp)}
+                        <button onClick={() => playWithPet(sp).catch(error => {
+                          console.error('[PetHouse] play failed:', error);
+                          showToast('놀아주기에 실패했습니다. 다시 시도해주세요.', 'error');
+                        })}
                           disabled={isDead || care.playCount >= 2 || energy < 15}
                           className={`py-2 rounded-xl font-bold text-xs transition-all
                             ${isDead || care.playCount >= 2 || energy < 15 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-violet-500 hover:bg-violet-400 text-white'}`}>

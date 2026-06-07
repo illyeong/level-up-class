@@ -12,7 +12,7 @@ const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
 const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
 const MASTERY_ATTEMPTS = 4; // 숙달도 판정에 사용할 최고 점수 개수
-const COURSEWARE_QUALITY_VERSION = 'quality-v11-topic-visual-fraction-guard';
+const COURSEWARE_QUALITY_VERSION = 'quality-v12-auto-verify-repair';
 
 const questionFingerprint = (q) =>
   String(q?.question || '')

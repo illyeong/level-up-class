@@ -34,7 +34,7 @@ import SpriteMonster from './components/SpriteMonster';
 import { MONSTERS_DB } from './data/monsterData';
 
 // ── 전역 걷는 펫 (우측 하단 영역) ───────────────────────────
-function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef, posOutRef, actionAnim, actionKey = 0 }) {
+function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef, overlayRefs, posOutRef, actionAnim, actionKey = 0 }) {
   const wrapRef  = useRef(null);
   const rafRef   = useRef(null);
   const animRef  = useRef('run'); // 현재 애니: run | idle
@@ -76,8 +76,16 @@ function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef, pos
         }
       }
       // 말풍선 + 외부 위치 ref 항상 동기화 (run/idle 무관)
-      if (bubbleRef?.current) bubbleRef.current.style.left = p.x + 'px';
-      if (posOutRef?.current) posOutRef.current.x = p.x;
+      const petWidth = Math.round((monsterData?.frameWidth || 80) * (monsterData?.scale || 0.5) * 2);
+      const centerX = p.x + petWidth / 2;
+      if (bubbleRef?.current) bubbleRef.current.style.left = centerX + 'px';
+      if (overlayRefs?.hearts?.current) overlayRefs.hearts.current.style.left = centerX + 'px';
+      if (overlayRefs?.decor?.current) overlayRefs.decor.current.style.left = centerX + 'px';
+      if (overlayRefs?.poop?.current) overlayRefs.poop.current.style.left = (p.x + petWidth * 0.78) + 'px';
+      if (posOutRef?.current) {
+        posOutRef.current.x = p.x;
+        posOutRef.current.centerX = centerX;
+      }
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
@@ -253,6 +261,7 @@ function App() {
   const [activePetEnergy,      setActivePetEnergy]      = useState(100);
   const [activePetCleanliness, setActivePetCleanliness] = useState(100);
   const [showPetPopup,         setShowPetPopup]         = useState(false);
+  const [petActionBusy,        setPetActionBusy]        = useState(false);
   const [petSpeech,            setPetSpeech]            = useState(null);
   const [showPetHearts,        setShowPetHearts]        = useState(false); // 쓰다듬기 하트 이펙트
   const [heartsKey,            setHeartsKey]            = useState(0);     // 리마운트용
@@ -260,6 +269,9 @@ function App() {
   const [petActionAnim,        setPetActionAnim]        = useState(null);
   const [petActionKey,         setPetActionKey]         = useState(0);
   const petBubbleRef = useRef(null); // 말풍선 DOM ref (펫 따라다니기용)
+  const petHeartsRef = useRef(null);
+  const petDecorRef  = useRef(null);
+  const petPoopRef   = useRef(null);
   const petPosRef    = useRef({ x: Math.floor(window.innerWidth * 0.75) }); // 펫 실시간 X 위치
   const activePetUnsubRef = useRef(null);
   const [hasPoop,              setHasPoop]              = useState(false);
@@ -821,6 +833,7 @@ function App() {
             isDead={activePetHunger <= 0}
             energy={activePetEnergy}
             bubbleRef={petBubbleRef}
+            overlayRefs={{ hearts: petHeartsRef, decor: petDecorRef, poop: petPoopRef }}
             posOutRef={petPosRef}
             actionAnim={petActionAnim}
             actionKey={petActionKey}
@@ -835,15 +848,15 @@ function App() {
 
           {(() => {
             const petH = Math.round((activePetMonster?.frameHeight || 80) * (activePetMonster?.scale || 0.5) * 2);
-            const bubbleBottom = 4 + petH;
+            const bubbleBottom = 12 + petH;
             return petSpeech ? (
               <div ref={petBubbleRef}
-                style={{ position:'fixed', bottom: bubbleBottom, left: -9999, zIndex:25, maxWidth:220, pointerEvents:'none' }}
+                style={{ position:'fixed', bottom: bubbleBottom, left: -9999, transform:'translateX(-50%)', zIndex:25, maxWidth:220, pointerEvents:'none' }}
                 className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-slate-200 text-sm font-bold text-slate-700 select-none whitespace-nowrap">
                 {petSpeech}
-                <div style={{ position:'absolute', bottom:-7, left:14, width:12, height:12,
+                <div style={{ position:'absolute', bottom:-7, left:'50%', width:12, height:12,
                   background:'white', borderRight:'1px solid #e2e8f0', borderBottom:'1px solid #e2e8f0',
-                  transform:'rotate(45deg)' }} />
+                  transform:'translateX(-50%) rotate(45deg)' }} />
               </div>
             ) : null;
           })()}
@@ -852,7 +865,7 @@ function App() {
           {(activePetData?.affection ?? 0) >= 300 && (() => {
             const petH = Math.round((activePetMonster?.frameHeight||80)*(activePetMonster?.scale||0.5)*2);
             return (
-              <div style={{ position:'fixed', bottom:2, left: petPosRef.current.x - 20, width:80, height: petH+30, zIndex:19, pointerEvents:'none' }}>
+              <div ref={petDecorRef} style={{ position:'fixed', bottom:2, left:-9999, transform:'translateX(-50%)', width:80, height: petH+30, zIndex:19, pointerEvents:'none' }}>
                 <style>{`
                   @keyframes wpStar0{0%,100%{opacity:0.3;transform:scale(0.8) rotate(0deg)}50%{opacity:1;transform:scale(1.2) rotate(20deg)}}
                   @keyframes wpStar1{0%,100%{opacity:0.2;transform:scale(1) rotate(0deg)}50%{opacity:0.9;transform:scale(0.7) rotate(-15deg)}}
@@ -871,10 +884,11 @@ function App() {
           })()}
 
           {showPetHearts && (
-            <div key={heartsKey} style={{
+            <div ref={petHeartsRef} key={heartsKey} style={{
               position:'fixed',
-              bottom: 4 + Math.round((activePetMonster?.frameHeight||80)*(activePetMonster?.scale||0.5)*2),
-              left: petPosRef.current.x,
+              bottom: 10 + Math.round((activePetMonster?.frameHeight||80)*(activePetMonster?.scale||0.5)*2),
+              left: -9999,
+              transform:'translateX(-50%)',
               width:130, height:110, zIndex:26, pointerEvents:'none'
             }}>
               <style>{`
@@ -894,9 +908,9 @@ function App() {
 
           {hasPoop && (
             <button
+              ref={petPoopRef}
               type="button"
               onPointerDown={(e) => {
-                e.preventDefault();
                 e.stopPropagation();
               }}
               onClick={async (e) => {
@@ -924,7 +938,7 @@ function App() {
                   setPetSpeech('다시 눌러주세요.');
                 }
               }}
-              style={{ position:'fixed', bottom:45, right:30, zIndex:95, fontSize:28, background:'none', border:'none', cursor:'pointer', animation:'bounce 1s infinite' }}
+              style={{ position:'fixed', bottom:2, left:-9999, transform:'translateX(-50%)', zIndex:95, fontSize:28, background:'none', border:'none', cursor:'pointer', animation:'bounce 1s infinite', touchAction:'manipulation' }}
               title="클릭해서 치우기"
             >
               💩
@@ -939,12 +953,12 @@ function App() {
             if (!urgent) return null;
             return (
               <div ref={petBubbleRef}
-                style={{ position:'fixed', bottom: 4 + Math.round((activePetMonster?.frameHeight||80)*(activePetMonster?.scale||0.5)*2), left:-9999, zIndex:24, maxWidth:220, pointerEvents:'none' }}
+                style={{ position:'fixed', bottom: 12 + Math.round((activePetMonster?.frameHeight||80)*(activePetMonster?.scale||0.5)*2), left:-9999, transform:'translateX(-50%)', zIndex:24, maxWidth:220, pointerEvents:'none' }}
                 className="bg-white rounded-2xl px-3.5 py-2 shadow-lg border border-rose-200 text-sm font-bold text-rose-600 animate-bounce select-none whitespace-nowrap">
                 {urgent}
-                <div style={{ position:'absolute', bottom:-7, left:14, width:12, height:12,
+                <div style={{ position:'absolute', bottom:-7, left:'50%', width:12, height:12,
                   background:'white', borderRight:'1px solid #fecaca', borderBottom:'1px solid #fecaca',
-                  transform:'rotate(45deg)' }} />
+                  transform:'translateX(-50%) rotate(45deg)' }} />
               </div>
             );
           })()}
@@ -1008,19 +1022,21 @@ function App() {
               ))}
 
               {(() => {
-                const TODAY = new Date().toISOString().slice(0, 10);
+                const TODAY = getKstDateKey();
                 const care = activePetData?.dailyCare?.date === TODAY
                   ? { feedCount:0, petCount:0, washCount:0, playCount:0, ...activePetData.dailyCare }
                   : { date: TODAY, feedCount:0, petCount:0, washCount:0, playCount:0 };
                 const isDead = activePetHunger <= 0;
 
-                const showEffect = (speech, hearts) => {
+                const showEffect = (speech, hearts, animate = true) => {
                   setShowPetPopup(false);
                   requestAnimationFrame(() => {
                     setPetSpeech(speech);
-                    if (hearts) {
+                    if (animate) {
                       setPetActionAnim(activePetMonster?.animations?.attack ? 'attack' : 'run');
                       setPetActionKey(k => k + 1);
+                    }
+                    if (hearts) {
                       setHeartsKey(k => k + 1);
                       setShowPetHearts(true);
                     }
@@ -1032,40 +1048,48 @@ function App() {
                 const feedActivePet = async (f) => {
                   const full = !isDead && activePetHunger >= 100;
                   const maxed = care.feedCount >= 3;
-                  if (full || maxed) return;
+                  if (full || maxed || petActionBusy) return;
                   if (!activePetData?.id) {
                     showEffect('펫 정보를 불러오는 중이에요.', false);
                     return;
                   }
-                  const stuSnap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', activeStudentCode)));
-                  if (stuSnap.empty) {
-                    showEffect('학생 정보를 찾지 못했어요.', false);
-                    return;
-                  }
-                  const stuDoc = stuSnap.docs[0];
-                  const gold = stuDoc.data().gold || 0;
-                  if (gold < f.cost) {
-                    showEffect('골드가 부족해요.', false);
-                    return;
-                  }
+                  setPetActionBusy(true);
+                  try {
+                    const stuSnap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', activeStudentCode)));
+                    if (stuSnap.empty) {
+                      showEffect('학생 정보를 찾지 못했어요.', false, false);
+                      return;
+                    }
+                    const stuDoc = stuSnap.docs[0];
+                    const gold = stuDoc.data().gold || 0;
+                    if (gold < f.cost) {
+                      showEffect('골드가 부족해요.', false, false);
+                      return;
+                    }
 
-                  const newHunger = Math.min(100, activePetHunger + f.hunger);
-                  const newCare = { ...care, feedCount: (care.feedCount || 0) + 1 };
-                  const petUpdates = { hunger: newHunger, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHungerDecay: serverTimestamp() };
-                  if (f.happiness > 0) {
-                    const newHap = Math.min(100, activePetHappiness + f.happiness);
-                    setActivePetHappiness(newHap);
-                    petUpdates.happiness = newHap;
-                    petUpdates.lastHappinessDecay = serverTimestamp();
-                  }
+                    const newHunger = Math.min(100, activePetHunger + f.hunger);
+                    const newCare = { ...care, feedCount: (care.feedCount || 0) + 1 };
+                    const petUpdates = { hunger: newHunger, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHungerDecay: serverTimestamp() };
+                    if (f.happiness > 0) {
+                      const newHap = Math.min(100, activePetHappiness + f.happiness);
+                      setActivePetHappiness(newHap);
+                      petUpdates.happiness = newHap;
+                      petUpdates.lastHappinessDecay = serverTimestamp();
+                    }
 
-                  setActivePetHunger(newHunger);
-                  setActivePetData(p => ({ ...p, ...petUpdates, dailyCare: newCare }));
-                  await Promise.all([
-                    updateDoc(doc(db, 'students', stuDoc.id), { gold: gold - f.cost }),
-                    updateDoc(doc(db, 'studentPets', activePetData.id), petUpdates),
-                  ]);
-                  showEffect(['냠냠~ 맛있어요!', '고마워요!', '배부르다~'][Math.floor(Math.random() * 3)], f.happiness > 0);
+                    setActivePetHunger(newHunger);
+                    setActivePetData(p => ({ ...p, ...petUpdates, dailyCare: newCare }));
+                    await Promise.all([
+                      updateDoc(doc(db, 'students', stuDoc.id), { gold: gold - f.cost }),
+                      updateDoc(doc(db, 'studentPets', activePetData.id), petUpdates),
+                    ]);
+                    showEffect(['냠냠~ 맛있어요!', '고마워요!', '배부르다~'][Math.floor(Math.random() * 3)], f.happiness > 0);
+                  } catch (error) {
+                    console.error('[WalkingPet] feed failed:', error);
+                    showEffect('먹이주기에 실패했어요. 다시 시도해주세요.', false, false);
+                  } finally {
+                    setPetActionBusy(false);
+                  }
                 };
 
                 return (
@@ -1079,44 +1103,12 @@ function App() {
                       return (
                         <button key={f.name}
                           type="button"
-                          disabled={full || maxed}
+                          disabled={full || maxed || petActionBusy}
                           onClick={async (e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (full || maxed) return;
-                            if (!activePetData?.id) {
-                              showEffect('펫 정보를 불러오는 중이에요.', false);
-                              return;
-                            }
-                            const stuSnap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', activeStudentCode)));
-                            if (stuSnap.empty) {
-                              showEffect('학생 정보를 찾지 못했어요.', false);
-                              return;
-                            }
-                            const stuDoc = stuSnap.docs[0];
-                            const gold = stuDoc.data().gold || 0;
-                            if (gold < f.cost) {
-                              showEffect('골드가 부족해요.', false);
-                              return;
-                            }
-
-                            const newHunger = Math.min(100, activePetHunger + f.hunger);
-                            const newCare = { ...care, feedCount: (care.feedCount || 0) + 1 };
-                            const petUpdates = { hunger: newHunger, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHungerDecay: serverTimestamp() };
-                            if (f.happiness > 0) {
-                              const newHap = Math.min(100, activePetHappiness + f.happiness);
-                              setActivePetHappiness(newHap);
-                              petUpdates.happiness = newHap;
-                              petUpdates.lastHappinessDecay = serverTimestamp();
-                            }
-
-                            setActivePetHunger(newHunger);
-                            setActivePetData(p => ({ ...p, ...petUpdates, dailyCare: newCare }));
-                            await Promise.all([
-                              updateDoc(doc(db, 'students', stuDoc.id), { gold: gold - f.cost }),
-                              updateDoc(doc(db, 'studentPets', activePetData.id), petUpdates),
-                            ]);
-                            showEffect(['냠냠~ 맛있어요!', '고마워요!', '배부르다~'][Math.floor(Math.random() * 3)], f.happiness > 0);
+                            if (full || maxed || petActionBusy) return;
+                            await feedActivePet(f);
                           }}
                           className={`w-full flex justify-between items-center px-3 py-2 rounded-xl text-xs font-bold transition-colors
                             ${full || maxed ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-amber-600 text-slate-100'}`}>
@@ -1134,7 +1126,7 @@ function App() {
                       return (
                         <button
                           type="button"
-                          disabled={!isDead && (petDone || hapFull)}
+                          disabled={petActionBusy || (!isDead && (petDone || hapFull))}
                           onClick={async (e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -1142,19 +1134,27 @@ function App() {
                               await feedActivePet({ name:'작은 먹이', cost:100, hunger:20, happiness:0, emoji:'🌾' });
                               return;
                             }
-                            if (petDone || hapFull) return;
+                            if (petDone || hapFull || petActionBusy) return;
                             if (!activePetData?.id) {
                               showEffect('펫 정보를 불러오는 중이에요.', false);
                               return;
                             }
-                            const newHap = Math.min(100, activePetHappiness + 15);
-                            const newAff = (activePetData.affection || 0) + 2;
-                            const newCare = { ...care, petCount: (care.petCount || 0) + 1 };
-                            setActivePetHappiness(newHap);
-                            setActivePetData(p => ({ ...p, happiness: newHap, affection: newAff, dailyCare: newCare, lastHappinessDecay: new Date() }));
-                            await updateDoc(doc(db, 'studentPets', activePetData.id), { happiness: newHap, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp() });
-                            const lines = ['기분 좋아요!', '더 해줘요!', '행복해요!', '좋아요!', '고마워요!'];
-                            showEffect(lines[Math.floor(Math.random() * lines.length)], true);
+                            setPetActionBusy(true);
+                            try {
+                              const newHap = Math.min(100, activePetHappiness + 15);
+                              const newAff = (activePetData.affection || 0) + 2;
+                              const newCare = { ...care, petCount: (care.petCount || 0) + 1 };
+                              setActivePetHappiness(newHap);
+                              setActivePetData(p => ({ ...p, happiness: newHap, affection: newAff, dailyCare: newCare, lastHappinessDecay: new Date() }));
+                              await updateDoc(doc(db, 'studentPets', activePetData.id), { happiness: newHap, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp() });
+                              const lines = ['기분 좋아요!', '더 해줘요!', '행복해요!', '좋아요!', '고마워요!'];
+                              showEffect(lines[Math.floor(Math.random() * lines.length)], true);
+                            } catch (error) {
+                              console.error('[WalkingPet] petting failed:', error);
+                              showEffect('쓰다듬기에 실패했어요. 다시 시도해주세요.', false, false);
+                            } finally {
+                              setPetActionBusy(false);
+                            }
                           }}
                           className={`w-full px-3 py-2 rounded-xl text-xs font-extrabold transition-colors
                             ${isDead ? 'bg-amber-600 hover:bg-amber-500 text-white' : petDone || hapFull ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400'}`}>
