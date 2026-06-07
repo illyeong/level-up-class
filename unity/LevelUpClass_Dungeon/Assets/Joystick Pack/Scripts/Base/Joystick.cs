@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class Joystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
+public class Joystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler, ICanvasRaycastFilter
 {
     public float Horizontal { get { return (snapX) ? SnapFloat(input.x, AxisOptions.Horizontal) : input.x; } }
     public float Vertical { get { return (snapY) ? SnapFloat(input.y, AxisOptions.Vertical) : input.y; } }
@@ -157,10 +157,30 @@ public class Joystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoint
 
     public bool IsPointerInsideJoystick(PointerEventData eventData)
     {
-        Camera c = (canvas != null && canvas.renderMode == RenderMode.ScreenSpaceCamera)
-            ? canvas.worldCamera : null;
+        return IsScreenPointInsideJoystick(eventData.position, eventData.pressEventCamera);
+    }
+
+    /// <summary>
+    /// 전체 화면 크기의 조이스틱 터치 영역이 다른 UI 버튼을 가로채지 않도록
+    /// 실제 조이스틱 작동 반경 안에서만 UI 레이캐스트를 허용합니다.
+    /// </summary>
+    public bool IsRaycastLocationValid(Vector2 screenPoint, Camera eventCamera)
+    {
+        return IsScreenPointInsideJoystick(screenPoint, eventCamera);
+    }
+
+    private bool IsScreenPointInsideJoystick(Vector2 screenPoint, Camera eventCamera)
+    {
+        if (background == null)
+            return false;
+
+        Camera c = eventCamera;
+        if (c == null && canvas != null && canvas.renderMode == RenderMode.ScreenSpaceCamera)
+            c = canvas.worldCamera;
+
         Vector2 center = RectTransformUtility.WorldToScreenPoint(c, background.position);
-        return Vector2.Distance(eventData.position, center) <= activationRadiusPixels;
+        float scaledRadius = activationRadiusPixels * (canvas != null ? canvas.scaleFactor : 1f);
+        return Vector2.Distance(screenPoint, center) <= scaledRadius;
     }
 
     protected Vector2 ScreenPointToAnchoredPosition(Vector2 screenPosition)

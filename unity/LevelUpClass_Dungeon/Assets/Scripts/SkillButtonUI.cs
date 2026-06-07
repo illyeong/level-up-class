@@ -139,8 +139,8 @@ public class SkillButtonUI : MonoBehaviour, IPointerDownHandler
     /// <summary>버튼 OnClick 이벤트에 연결</summary>
     public void OnPointerDown(PointerEventData eventData)
     {
+        eventData.Use();
         MobileInput.isAttackPressed = false;
-        MobileInput.isJoystickActive = false;
         EnsureSkillManager();
         OnSkillButtonClick();
     }
