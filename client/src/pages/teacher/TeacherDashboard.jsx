@@ -101,15 +101,15 @@ function AICoursewareCard({ teacherUid, onNavigate }) {
   if (stats.publishedCount === 0 && stats.draftCount === 0) return null;
 
   return (
-    <div className="mb-6">
+    <div className="mb-4">
       <div className="rounded-2xl border border-violet-800/40 bg-gradient-to-br from-violet-950/80 via-slate-900 to-slate-900 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="text-xl">🤖</span>
-            <span className="text-white font-extrabold text-sm">AI 코스웨어 현황</span>
+            <span className="text-2xl">🤖</span>
+            <span className="text-white font-extrabold text-base">AI 코스웨어 현황</span>
           </div>
           <button onClick={() => onNavigate?.('aiCourseware')}
-            className="text-[11px] font-bold text-violet-300 hover:text-white border border-violet-600/50 px-2.5 py-1 rounded-lg hover:bg-violet-500/20 transition-colors">
+            className="text-xs font-bold text-violet-300 hover:text-white border border-violet-600/50 px-2.5 py-1 rounded-lg hover:bg-violet-500/20 transition-colors">
             관리하기 →
           </button>
         </div>
@@ -121,8 +121,8 @@ function AICoursewareCard({ teacherUid, onNavigate }) {
             { label: '검토 필요',      value: stats.draftCount, color: stats.draftCount > 0 ? 'text-amber-300' : 'text-slate-500' },
           ].map(({ label, value, color }) => (
             <div key={label} className="bg-white/5 rounded-xl px-3 py-2.5 text-center">
-              <div className={`text-lg font-extrabold ${color}`}>{value}</div>
-              <div className="text-[10px] text-slate-400 mt-0.5">{label}</div>
+              <div className={`text-xl font-extrabold ${color}`}>{value}</div>
+              <div className="text-[12px] text-slate-400 mt-0.5">{label}</div>
             </div>
           ))}
         </div>
@@ -165,6 +165,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
   const [isAccessStatusOpen, setIsAccessStatusOpen] = useState(false);
   const [extensionBannerHidden, setExtensionBannerHidden] = useState(
     () => localStorage.getItem('extensionBannerNeverShow') === '1'
+  );
+  const [aiSummaryExpanded, setAiSummaryExpanded] = useState(
+    () => localStorage.getItem('aiSummaryCollapsed') !== '1'
   );
 
   // ── 퀘스트 체크 학생 일괄 승인 ──────────────────────────────
@@ -808,14 +811,13 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
   const onboardingDoneCount = onboardingSteps.filter(step => step.done).length;
 
   return (
-    <div className={`min-h-screen p-8 relative ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
-      
-      <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+    <div className={`min-h-screen px-8 pt-4 pb-8 relative ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
+      <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-800 flex items-center">
+          <h1 className="text-4xl font-extrabold text-slate-800 flex items-center">
             학급 전체 대시보드
           </h1>
-          <p className="text-slate-500 mt-2 text-sm">학생들의 레벨과 재화를 관리합니다.</p>
+          <p className="text-slate-500 mt-2 text-base">학생들의 레벨과 재화를 관리합니다.</p>
         </div>
         
         <div className="flex flex-wrap gap-2">
@@ -825,7 +827,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                 setPreviewLevel(prev => prev + 1);
                 setShowLevelUpPreview(true);
               }}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-amber-900 px-4 py-2 rounded-lg font-extrabold text-sm shadow-sm transition-all border border-amber-300"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-amber-900 px-4 py-2 rounded-lg font-extrabold text-base shadow-sm transition-all border border-amber-300"
             >
               레벨업 효과 보기
             </button>
@@ -833,13 +835,13 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
           <button onClick={async () => {
             const list = await fetchStudents();
             await fetchQuestStats(list.map(s => s.id));
-          }} className="bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
+          }} className="bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base">
             새로고침
           </button>
           {onStudentTestLogin && (
             <button
               onClick={() => onStudentTestLogin('SINSEOK-5-15')}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base"
             >
               학생 테스트 (SINSEOK-5-15)
             </button>
@@ -848,31 +850,31 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
             href="https://github.com/illyeong/level-up-class/releases/download/v1.0.0/LevelUpTeacherWidgetSetup.exe"
             target="_blank"
             rel="noreferrer"
-            className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm"
+            className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base"
             title="교사용 바탕화면 미니 위젯을 설치합니다."
           >
             교사용 위젯 설치하기
           </a>
-          <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm">
+          <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base">
             지급/차감 내역 보기
           </button>
           <button onClick={() => openModal('add')}
-            className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors">
+            className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm transition-colors">
             지급하기
           </button>
           <button onClick={() => openModal('sub')}
-            className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors">
+            className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm transition-colors">
             차감하기
           </button>
         </div>
       </div>
 
       {quickSetupInfo && !quickSetupInfo.completed && (
-        <div className="mb-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div className="mb-4 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
-              <h2 className="text-lg font-extrabold text-slate-800">학급 기본 셋팅</h2>
-              <p className="text-sm text-slate-500 mt-1">
+              <h2 className="text-xl font-extrabold text-slate-800">학급 기본 셋팅</h2>
+              <p className="text-base text-slate-500 mt-1">
                 추천 퀘스트와 퀴즈던전 등 학급 운영에 필요한 기본 셋팅을 생성합니다.
               </p>
             </div>
@@ -880,7 +882,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
 <button
                 onClick={handleRunQuickSetup}
                 disabled={isQuickSetupRunning}
-                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-50">
+                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base disabled:opacity-50">
                 {isQuickSetupRunning ? '적용 중...' : '기본 셋팅 실행'}
               </button>
             </div>
@@ -889,17 +891,17 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
       )}
 
       {quickSetupInfo?.completed && !quickSetupInfo.onboardingDismissed && onboardingDoneCount < onboardingSteps.length && (
-        <div className="mb-6 overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
+        <div className="mb-4 overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-indigo-100 bg-indigo-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-lg">🚀</span>
-                <h2 className="text-base font-extrabold text-slate-900">이번 주 시작하기</h2>
-                <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-extrabold text-white">
+                <span className="text-xl">🚀</span>
+                <h2 className="text-lg font-extrabold text-slate-900">이번 주 시작하기</h2>
+                <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[12px] font-extrabold text-white">
                   {onboardingDoneCount} / {onboardingSteps.length}
                 </span>
               </div>
-              <p className="mt-1 text-xs font-semibold text-slate-500">
+              <p className="mt-1 text-sm font-semibold text-slate-500">
                 아래 세 가지만 완료하면 기본 학급 운영 준비가 끝납니다.
               </p>
             </div>
@@ -907,14 +909,14 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view: 'systemSettings' } }))}
-                className="rounded-xl border border-indigo-200 bg-white px-3.5 py-2 text-xs font-extrabold text-indigo-700 shadow-sm hover:border-indigo-400 hover:bg-indigo-100"
+                className="rounded-xl border border-indigo-200 bg-white px-3.5 py-2 text-sm font-extrabold text-indigo-700 shadow-sm hover:border-indigo-400 hover:bg-indigo-100"
               >
                 더 많은 기능 둘러보기 →
               </button>
               <button
                 type="button"
                 onClick={() => updateOnboardingStep('onboardingChecklistDismissed')}
-                className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-400 hover:bg-white hover:text-slate-600"
+                className="rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-400 hover:bg-white hover:text-slate-600"
               >
                 숨기기
               </button>
@@ -931,22 +933,22 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base ${
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg ${
                     step.done ? 'bg-emerald-500 text-white' : 'bg-indigo-50'
                   }`}>
                     {step.done ? '✓' : step.icon}
                   </div>
                   <div className="min-w-0">
-                    <div className={`text-sm font-extrabold ${step.done ? 'text-emerald-800' : 'text-slate-800'}`}>
+                    <div className={`text-base font-extrabold ${step.done ? 'text-emerald-800' : 'text-slate-800'}`}>
                       {step.title}
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{step.description}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-500">{step.description}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={step.onClick}
-                  className={`mt-3 w-full rounded-lg border px-3 py-2 text-xs font-extrabold transition-colors ${
+                  className={`mt-3 w-full rounded-lg border px-3 py-2 text-sm font-extrabold transition-colors ${
                     step.done
                       ? 'border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-100'
                       : 'border-indigo-200 bg-indigo-600 text-white hover:bg-indigo-700'
@@ -961,12 +963,12 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
       )}
 
       {!extensionBannerHidden && (
-        <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-violet-300 bg-gradient-to-r from-indigo-700 via-violet-700 to-fuchsia-700 p-5 text-white shadow-lg">
+        <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-violet-300 bg-gradient-to-r from-indigo-700 via-violet-700 to-fuchsia-700 p-5 text-white shadow-lg">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-xs font-extrabold text-violet-200">LEVELUP CLASS 확장 기능</div>
-              <h2 className="mt-1 text-lg font-extrabold">운영 모드를 선택해 필요한 기능만 켜두세요.</h2>
-              <p className="mt-1 text-xs font-semibold leading-relaxed text-violet-100/90">
+              <div className="text-sm font-extrabold text-violet-200">LEVELUP CLASS 확장 기능</div>
+              <h2 className="mt-1 text-xl font-extrabold">운영 모드를 선택해 필요한 기능만 켜두세요.</h2>
+              <p className="mt-1 text-sm font-semibold leading-relaxed text-violet-100/90">
                 처음에는 퀘스트·보상만, 익숙해지면 어드벤처·경제·AI 학습 기능을 단계적으로 확장할 수 있습니다.
               </p>
             </div>
@@ -974,14 +976,14 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
               <button
                 type="button"
                 onClick={() => setExtensionBannerHidden(true)}
-                className="text-[11px] font-bold text-violet-200 hover:text-white transition-colors"
+                className="text-xs font-bold text-violet-200 hover:text-white transition-colors"
               >
                 숨기기
               </button>
               <button
                 type="button"
                 onClick={() => { localStorage.setItem('extensionBannerNeverShow', '1'); setExtensionBannerHidden(true); }}
-                className="text-[11px] font-bold text-violet-300/70 hover:text-violet-100 transition-colors"
+                className="text-xs font-bold text-violet-300/70 hover:text-violet-100 transition-colors"
               >
                 다시 보지 않기
               </button>
@@ -999,10 +1001,10 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                     : 'border-white/25 bg-white/10 hover:bg-white/20'
                 }`}
               >
-                <div className="text-sm font-extrabold text-white">{preset.title}</div>
-                <div className="mt-0.5 text-[10px] font-semibold leading-relaxed text-violet-100/80">{preset.description}</div>
+                <div className="text-base font-extrabold text-white">{preset.title}</div>
+                <div className="mt-0.5 text-[12px] font-semibold leading-relaxed text-violet-100/80">{preset.description}</div>
                 {operationMode === mode && (
-                  <div className="mt-1.5 text-[10px] font-extrabold text-white/80">✓ 현재 모드</div>
+                  <div className="mt-1.5 text-[12px] font-extrabold text-white/80">✓ 현재 모드</div>
                 )}
               </button>
             ))}
@@ -1011,48 +1013,64 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
       )}
 
       {/* ── AI 오늘의 운영 요약 ── */}
-      <div className="mb-6">
+      <div className="mb-4">
         <div className="rounded-2xl border border-indigo-800/60 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-900 shadow-lg overflow-hidden">
           {/* 헤더 */}
           <div className="px-5 py-4 flex items-center justify-between border-b border-white/10">
             <div className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-500/20 text-lg">✨</span>
+              <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-500/20 text-xl">✨</span>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-white font-extrabold text-sm">AI 오늘의 운영 요약</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200">BETA</span>
+                  <span className="text-white font-extrabold text-base">AI 오늘의 운영 요약</span>
+                  <span className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200">BETA</span>
                 </div>
-                <p className="text-indigo-300/70 text-[11px] mt-0.5">오늘 학급 운영에서 확인하면 좋은 내용을 정리해드립니다.</p>
+                <p className="text-indigo-300/70 text-xs mt-0.5">오늘 학급 운영에서 확인하면 좋은 내용을 정리해드립니다.</p>
               </div>
             </div>
-            <button
-              onClick={() => fetchAiSummary(students, questStats)}
-              disabled={aiLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-colors disabled:opacity-50"
-            >
-              {aiLoading ? (
-                <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : '↻'}
-              새로고침
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => fetchAiSummary(students, questStats)}
+                disabled={aiLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-bold transition-colors disabled:opacity-50"
+              >
+                {aiLoading ? (
+                  <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : '↻'}
+                새로고침
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAiSummaryExpanded(prev => {
+                    const next = !prev;
+                    localStorage.setItem('aiSummaryCollapsed', next ? '0' : '1');
+                    return next;
+                  });
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-bold transition-colors"
+              >
+                {aiSummaryExpanded ? '접기 ▲' : '펼치기 ▼'}
+              </button>
+            </div>
           </div>
 
           {/* 본문 */}
+          {aiSummaryExpanded && (
           <div className="px-5 py-4">
             {aiLoading && !aiSummary ? (
-              <div className="flex items-center gap-2 text-indigo-300 text-sm py-2">
+              <div className="flex items-center gap-2 text-indigo-300 text-base py-2">
                 <span className="inline-block w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
                 분석 중...
               </div>
             ) : aiSummary ? (
               <>
                 {/* 요약 텍스트 */}
-                <p className="text-slate-100 text-sm leading-relaxed mb-4">{aiSummary.text}</p>
+                <p className="text-slate-100 text-base leading-relaxed mb-4">{aiSummary.text}</p>
 
                 {/* 지금 처리하면 좋은 항목 */}
                 {aiActionItems.length > 0 ? (
                   <div className="mb-4">
-                    <div className="text-[11px] font-extrabold text-indigo-200 mb-2">지금 처리하면 좋은 항목</div>
+                    <div className="text-xs font-extrabold text-indigo-200 mb-2">지금 처리하면 좋은 항목</div>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
                       {aiActionItems.map(item => (
                         <div
@@ -1060,17 +1078,17 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                           className={`rounded-xl border p-3 flex flex-col gap-2 ${AI_ACTION_TONES[item.tone] || AI_ACTION_TONES.sky}`}
                         >
                           <div className="flex items-start gap-2">
-                            <span className="text-lg leading-none">{item.icon}</span>
+                            <span className="text-xl leading-none">{item.icon}</span>
                             <div className="min-w-0">
-                              <div className="text-xs font-extrabold leading-snug">{item.title}</div>
-                              <p className="text-[10px] leading-relaxed opacity-75 mt-1">{item.description}</p>
+                              <div className="text-sm font-extrabold leading-snug">{item.title}</div>
+                              <p className="text-[12px] leading-relaxed opacity-75 mt-1">{item.description}</p>
                             </div>
                           </div>
                           <button
                             type="button"
                             onClick={() => runAiAction(item)}
                             disabled={(item.action === 'approveQuests' && approvingQuests) || (item.action === 'approveNotes' && approvingNotes)}
-                            className="mt-auto w-full rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 px-3 py-1.5 text-[11px] font-extrabold transition-colors disabled:opacity-50"
+                            className="mt-auto w-full rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs font-extrabold transition-colors disabled:opacity-50"
                           >
                             {item.label} →
                           </button>
@@ -1080,10 +1098,10 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                   </div>
                 ) : (
                   <div className="mb-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 flex items-center gap-2 text-emerald-200">
-                    <span className="text-base">✓</span>
+                    <span className="text-lg">✓</span>
                     <div>
-                      <div className="text-xs font-extrabold">지금 바로 처리할 항목이 없습니다.</div>
-                      <p className="text-[10px] text-emerald-200/70 mt-0.5">오늘 학급 운영 상태가 안정적입니다.</p>
+                      <div className="text-sm font-extrabold">지금 바로 처리할 항목이 없습니다.</div>
+                      <p className="text-[12px] text-emerald-200/70 mt-0.5">오늘 학급 운영 상태가 안정적입니다.</p>
                     </div>
                   </div>
                 )}
@@ -1093,15 +1111,15 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-base">📊</span>
-                          <div className="text-xs font-extrabold text-violet-200">지난 7일 운영 리포트</div>
+                          <span className="text-lg">📊</span>
+                          <div className="text-sm font-extrabold text-violet-200">지난 7일 운영 리포트</div>
                         </div>
-                        <p className="mt-1 text-[10px] text-violet-200/65">월요일마다 지난주 핵심 활동을 간단히 정리합니다.</p>
+                        <p className="mt-1 text-[12px] text-violet-200/65">월요일마다 지난주 핵심 활동을 간단히 정리합니다.</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setIsAccessStatusOpen(true)}
-                        className="self-start rounded-lg border border-violet-400/30 bg-violet-400/10 px-3 py-1.5 text-[10px] font-extrabold text-violet-200 hover:bg-violet-400/20"
+                        className="self-start rounded-lg border border-violet-400/30 bg-violet-400/10 px-3 py-1.5 text-[12px] font-extrabold text-violet-200 hover:bg-violet-400/20"
                       >
                         접속 현황 보기 →
                       </button>
@@ -1114,8 +1132,8 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                         { label: '현재 승인 대기', value: `${aiSummary.pendingNotes + aiSummary.pendingQuestRewards}건` },
                       ].map(item => (
                         <div key={item.label} className="rounded-lg border border-white/10 bg-black/10 px-3 py-2.5">
-                          <div className="text-sm font-extrabold text-white">{item.value}</div>
-                          <div className="mt-0.5 text-[10px] text-violet-200/60">{item.label}</div>
+                          <div className="text-base font-extrabold text-white">{item.value}</div>
+                          <div className="mt-0.5 text-[12px] text-violet-200/60">{item.label}</div>
                         </div>
                       ))}
                     </div>
@@ -1125,7 +1143,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                 {/* 지표 칩 + 빠른 승인 버튼 */}
                 <div className="flex flex-wrap gap-2 mb-4">
                   {aiSummary.questRate !== null && (
-                    <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
+                    <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold
                       ${aiSummary.questRate >= 70 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                         : aiSummary.questRate >= 40 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                         : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
@@ -1133,22 +1151,22 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                     </span>
                   )}
                   {aiSummary.pendingNotes > 0 && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
                       📚 승인 대기 {aiSummary.pendingNotes}건
                     </span>
                   )}
                   {aiSummary.pendingQuestRewards > 0 && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                       🎁 퀘스트 보상 대기 {aiSummary.pendingQuestRewards}건
                     </span>
                   )}
                   {aiSummary.inactiveStudentCount > 0 && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
                       👥 오늘 미접속 {aiSummary.inactiveStudentCount}명
                     </span>
                   )}
                   {aiSummary.quizCount > 0 && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                       🧩 퀴즈 참여 {aiSummary.quizCount}명
                       {aiSummary.avgAccuracy !== null && ` · 정답률 ${aiSummary.avgAccuracy}%`}
                     </span>
@@ -1156,7 +1174,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                 </div>
               </>
             ) : (
-              <p className="text-slate-400 text-sm py-2">데이터를 불러오려면 새로고침을 눌러주세요.</p>
+              <p className="text-slate-400 text-base py-2">데이터를 불러오려면 새로고침을 눌러주세요.</p>
             )}
 
             {/* 액션 버튼 */}
@@ -1176,7 +1194,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                     }
                     window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view } }));
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-white/8 hover:bg-white/15 border border-white/15 text-slate-200 text-xs font-bold transition-colors"
+                  className="px-3 py-1.5 rounded-xl bg-white/8 hover:bg-white/15 border border-white/15 text-slate-200 text-sm font-bold transition-colors"
                 >
                   {label}
                 </button>
@@ -1184,11 +1202,12 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
             </div>
 
             {aiSummary?.refreshedAt && (
-              <p className="text-slate-600 text-[10px] mt-2 text-right">
+              <p className="text-slate-600 text-[12px] mt-2 text-right">
                 {aiSummary.refreshedAt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준
               </p>
             )}
           </div>
+          )}
         </div>
       </div>
 
@@ -1196,16 +1215,16 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
       <AICoursewareCard teacherUid={selectedClass?.teacherUid} onNavigate={(view) => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view } }))} />
 
       {/* 퀘스트 현황 */}
-      <div className="mb-6">
+      <div className="mb-4">
         <div className="flex items-center gap-2 mb-3">
           <img src={iconQuest} alt="퀘스트" className="w-6 h-6 object-contain" />
-          <h2 className="font-extrabold text-slate-700 text-base">오늘의 퀘스트 현황</h2>
-          <span className="text-xs font-bold text-slate-500">
+          <h2 className="font-extrabold text-slate-700 text-lg">오늘의 퀘스트 현황</h2>
+          <span className="text-sm font-bold text-slate-500">
             학생들이 자체체크를 하면 매일 자정에 퀘스트가 초기화되면서 보상이 자동지급됩니다.
           </span>
         </div>
         {questStats.length === 0 ? (
-          <div className="text-slate-400 text-sm py-3 px-4 bg-white rounded-2xl border border-slate-200">
+          <div className="text-slate-400 text-base py-3 px-4 bg-white rounded-2xl border border-slate-200">
             활성 퀘스트가 없습니다. 퀘스트 관리소에서 퀘스트를 만들어보세요!
           </div>
         ) : (
@@ -1221,16 +1240,16 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                       ? isDark ? 'border-sky-700 bg-slate-800' : 'border-sky-200 bg-gradient-to-b from-sky-50 to-white'
                       : isDark ? 'border-violet-700 bg-slate-800' : 'border-violet-200 bg-gradient-to-b from-violet-50 to-white'}`}>
                   {/* ?곷떒 ?????*/}
-                  <div className={`px-3 py-1.5 text-[10px] font-extrabold tracking-wide
+                  <div className={`px-3 py-1.5 text-[12px] font-extrabold tracking-wide
                     ${isDaily ? 'bg-sky-500 text-white' : 'bg-violet-500 text-white'}`}>
                     {isDaily ? '일일 퀘스트' : '주간 퀘스트'}
                   </div>
                   <div className="p-3">
-                    <div className={`font-extrabold text-sm mb-2 leading-tight truncate ${isDark ? "text-slate-100" : "text-slate-800"}`}>
+                    <div className={`font-extrabold text-base mb-2 leading-tight truncate ${isDark ? "text-slate-100" : "text-slate-800"}`}>
                       {quest.title}
                     </div>
                     {/* 吏꾪뻾瑜?*/}
-                    <div className="flex justify-between text-xs font-bold mb-1">
+                    <div className="flex justify-between text-sm font-bold mb-1">
                       <span className={isDaily ? 'text-sky-400' : 'text-violet-400'}>
                         {quest.checkedCount}명 / {students.length}명
                       </span>
@@ -1270,7 +1289,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                   <div className="flex gap-1 flex-wrap">
                     {qs.filter(q => q.checked).map((q, i) => (
                       <span key={i} title={q.title}
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full truncate max-w-[80px]
+                        className={`text-[12px] font-bold px-1.5 py-0.5 rounded-full truncate max-w-[80px]
                           ${q.rewarded ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
                         {q.title.length > 6 ? `${q.title.slice(0, 6)}...` : q.title}
                       </span>
@@ -1284,7 +1303,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
               style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
             >
               {hallBadgeText && (
-                <div className="absolute top-2 right-2 z-20 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400 px-2.5 py-1 text-[10px] font-black text-amber-950 shadow-lg ring-2 ring-white/90">
+                <div className="absolute top-2 right-2 z-20 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400 px-2.5 py-1 text-[12px] font-black text-amber-950 shadow-lg ring-2 ring-white/90">
                   {hallBadgeText}
                 </div>
               )}
@@ -1309,32 +1328,32 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
               ) : (
                 <span className="relative z-10 text-6xl drop-shadow-sm opacity-30">?쭕</span>
               )}
-              <div className="absolute top-2 left-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
+              <div className="absolute top-2 left-2 bg-slate-800 text-white text-[12px] font-bold px-2 py-0.5 rounded shadow-sm">
                 {getSeatNum(student.studentCode)}번
               </div>
-              <div className="absolute bottom-2 right-2 bg-amber-400 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
+              <div className="absolute bottom-2 right-2 bg-amber-400 text-amber-900 text-[12px] font-black px-2 py-0.5 rounded-full shadow-sm">
                 LV.{student.level || 1}
               </div>
             </div>
             <div className="p-3 text-center">
-              <h3 className="text-sm font-bold text-slate-800 mb-1 truncate">
+              <h3 className="text-base font-bold text-slate-800 mb-1 truncate">
                 {student.name || student.studentCode}
               </h3>
               {student.name && (
-                <div className="text-[10px] text-slate-400 font-mono truncate mb-1">{student.studentCode}</div>
+                <div className="text-[12px] text-slate-400 font-mono truncate mb-1">{student.studentCode}</div>
               )}
-              <div className="flex flex-col gap-1 text-xs">
+              <div className="flex flex-col gap-1 text-sm">
                 <div className="flex justify-between items-center bg-indigo-50 px-2 py-1.5 rounded-md">
                   <div className="flex items-center gap-1">
                     <img src={iconDiamond} alt="Diamond" className="w-3 h-3" />
-                    <span className="text-[10px] text-indigo-400">다이아</span>
+                    <span className="text-[12px] text-indigo-400">다이아</span>
                   </div>
                   <span className="font-bold text-indigo-700">{(student.diamonds || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center bg-amber-50 px-2 py-1.5 rounded-md">
                   <div className="flex items-center gap-1">
                     <img src={iconGold} alt="Gold" className="w-3 h-3" />
-                    <span className="text-[10px] text-amber-500">골드</span>
+                    <span className="text-[12px] text-amber-500">골드</span>
                   </div>
                   <span className="font-bold text-amber-600">{(student.gold || 0).toLocaleString()}</span>
                 </div>
@@ -1350,13 +1369,13 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
           <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
               <div>
-                <h2 className="text-lg font-extrabold text-slate-900">학생 접속 현황</h2>
-                <p className="mt-1 text-xs font-semibold text-slate-500">오늘 접속 여부와 학생별 최종 접속 시각입니다.</p>
+                <h2 className="text-xl font-extrabold text-slate-900">학생 접속 현황</h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">오늘 접속 여부와 학생별 최종 접속 시각입니다.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAccessStatusOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-xl font-bold text-slate-500 hover:bg-slate-200"
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-2xl font-bold text-slate-500 hover:bg-slate-200"
                 aria-label="접속 현황 닫기"
               >
                 ×
@@ -1364,16 +1383,16 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
             </div>
             <div className="grid grid-cols-2 gap-2 border-b border-slate-200 bg-slate-50 px-5 py-3">
               <div className="rounded-xl bg-emerald-50 px-4 py-3">
-                <div className="text-lg font-extrabold text-emerald-700">
+                <div className="text-xl font-extrabold text-emerald-700">
                   {students.filter(isStudentActiveToday).length}명
                 </div>
-                <div className="text-[11px] font-bold text-emerald-600">오늘 접속</div>
+                <div className="text-xs font-bold text-emerald-600">오늘 접속</div>
               </div>
               <div className="rounded-xl bg-sky-50 px-4 py-3">
-                <div className="text-lg font-extrabold text-sky-700">
+                <div className="text-xl font-extrabold text-sky-700">
                   {students.filter(student => !isStudentActiveToday(student)).length}명
                 </div>
-                <div className="text-[11px] font-bold text-sky-600">오늘 미접속</div>
+                <div className="text-xs font-bold text-sky-600">오늘 미접속</div>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-3">
@@ -1383,16 +1402,16 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                   <div key={student.id} className="flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-slate-50">
                     <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${accessedToday ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-extrabold text-slate-800">
+                      <div className="truncate text-base font-extrabold text-slate-800">
                         {getSeatNum(student.studentCode)}번 {student.name || student.studentCode}
                       </div>
-                      <div className="truncate text-[10px] font-semibold text-slate-400">{student.studentCode}</div>
+                      <div className="truncate text-[12px] font-semibold text-slate-400">{student.studentCode}</div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <div className={`text-[11px] font-extrabold ${accessedToday ? 'text-emerald-600' : 'text-slate-500'}`}>
+                      <div className={`text-xs font-extrabold ${accessedToday ? 'text-emerald-600' : 'text-slate-500'}`}>
                         {accessedToday ? '오늘 접속' : '미접속'}
                       </div>
-                      <div className="mt-0.5 text-[10px] font-semibold text-slate-400">최종 접속 {formatLastAccess(student)}</div>
+                      <div className="mt-0.5 text-[12px] font-semibold text-slate-400">최종 접속 {formatLastAccess(student)}</div>
                     </div>
                   </div>
                 );
@@ -1405,7 +1424,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className={`p-5 text-white font-bold text-xl flex justify-between items-center
+            <div className={`p-5 text-white font-bold text-2xl flex justify-between items-center
               ${modalMode === 'add' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
               <h2 className="flex items-center gap-2">
                 {modalMode === 'add' ? '일괄 지급' : '일괄 차감'}
@@ -1420,9 +1439,9 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                     <input type="checkbox" id="selectAll" className="w-5 h-5 rounded text-indigo-600 cursor-pointer"
                       checked={selectedIds.length === filteredStudents.length && filteredStudents.length > 0}
                       onChange={() => toggleSelectAll(filteredStudents)} />
-                    <label htmlFor="selectAll" className="font-bold text-slate-700 cursor-pointer text-sm">전체 선택</label>
+                    <label htmlFor="selectAll" className="font-bold text-slate-700 cursor-pointer text-base">전체 선택</label>
                   </div>
-                  <input type="text" placeholder="이름/코드 검색" className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs w-32 focus:outline-none focus:border-indigo-500"
+                  <input type="text" placeholder="이름/코드 검색" className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-32 focus:outline-none focus:border-indigo-500"
                     value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
                 
@@ -1431,17 +1450,17 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                     <div key={student.id} onClick={() => toggleSelect(student.id)}
                       className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedIds.includes(student.id) ? 'border-indigo-500 bg-indigo-50 shadow-md' : 'border-slate-200 bg-white hover:border-indigo-300'}`}>
                       <div className="flex-1 min-w-0">
-                        <div className="font-extrabold text-sm text-slate-800 truncate">
+                        <div className="font-extrabold text-base text-slate-800 truncate">
                           {getSeatNum(student.studentCode)}번 {student.name || ''}
                         </div>
-                        <div className="font-mono text-[10px] text-slate-400 truncate">{student.studentCode}</div>
-                        <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-1">
+                        <div className="font-mono text-[12px] text-slate-400 truncate">{student.studentCode}</div>
+                        <div className="text-[12px] text-slate-500 flex items-center gap-1 mt-1">
                           <img src={iconDiamond} alt="다이아" className="w-3 h-3" /> {student.diamonds || 0}
                           <img src={iconGold} alt="골드" className="w-3 h-3 ml-1" /> {student.gold || 0}
                         </div>
                       </div>
                       {selectedIds.includes(student.id) && (
-                        <span className="text-indigo-500 text-base ml-1 shrink-0">✓</span>
+                        <span className="text-indigo-500 text-lg ml-1 shrink-0">✓</span>
                       )}
                     </div>
                   ))}
@@ -1451,24 +1470,24 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
               <div className="w-full lg:w-80 p-5 bg-white flex flex-col overflow-y-auto gap-4">
                 {/* ?좏깮 ?몄썝 */}
                 <div className="p-3 bg-slate-50 rounded-xl text-center border border-slate-200">
-                  <span className="text-slate-500 text-xs font-medium">선택한 학생</span>
-                  <div className="text-3xl font-black text-indigo-600 my-0.5">{selectedIds.length} <span className="text-lg text-slate-700">명</span></div>
+                  <span className="text-slate-500 text-sm font-medium">선택한 학생</span>
+                  <div className="text-4xl font-black text-indigo-600 my-0.5">{selectedIds.length} <span className="text-xl text-slate-700">명</span></div>
                 </div>
 
                 {/* ?뭿 ?ㅼ씠??*/}
                 <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 mb-2">
+                  <label className="flex items-center gap-1.5 text-sm font-bold text-indigo-700 mb-2">
                     <img src={iconDiamond} className="w-4 h-4" alt="다이아" /> 다이아 금액
                   </label>
                   <input
                     type="number" min="0" value={diaAmount}
                     onChange={e => setDiaAmount(e.target.value)}
-                    className="w-full border-2 border-indigo-200 rounded-xl px-4 py-2.5 font-bold text-lg text-slate-800 focus:outline-none focus:border-indigo-500 bg-white mb-2"
+                    className="w-full border-2 border-indigo-200 rounded-xl px-4 py-2.5 font-bold text-xl text-slate-800 focus:outline-none focus:border-indigo-500 bg-white mb-2"
                     placeholder="0" />
                   <div className="flex gap-1.5">
                     {[10, 50, 100, 500].map(v => (
                       <button key={v} onClick={() => addQuick('dia', v)}
-                        className="flex-1 bg-white hover:bg-indigo-100 text-indigo-600 font-bold py-1.5 rounded-lg text-xs border border-indigo-200 transition-colors">
+                        className="flex-1 bg-white hover:bg-indigo-100 text-indigo-600 font-bold py-1.5 rounded-lg text-sm border border-indigo-200 transition-colors">
                         +{v}
                       </button>
                     ))}
@@ -1477,18 +1496,18 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
 
                 {/* ?첌 怨⑤뱶 */}
                 <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-amber-700 mb-2">
+                  <label className="flex items-center gap-1.5 text-sm font-bold text-amber-700 mb-2">
                     <img src={iconGold} className="w-4 h-4" alt="골드" /> 골드 금액
                   </label>
                   <input
                     type="number" min="0" value={goldAmount}
                     onChange={e => setGoldAmount(e.target.value)}
-                    className="w-full border-2 border-amber-200 rounded-xl px-4 py-2.5 font-bold text-lg text-slate-800 focus:outline-none focus:border-amber-500 bg-white mb-2"
+                    className="w-full border-2 border-amber-200 rounded-xl px-4 py-2.5 font-bold text-xl text-slate-800 focus:outline-none focus:border-amber-500 bg-white mb-2"
                     placeholder="0" />
                   <div className="flex gap-1.5">
                     {[50, 100, 300, 500].map(v => (
                       <button key={v} onClick={() => addQuick('gold', v)}
-                        className="flex-1 bg-white hover:bg-amber-100 text-amber-600 font-bold py-1.5 rounded-lg text-xs border border-amber-200 transition-colors">
+                        className="flex-1 bg-white hover:bg-amber-100 text-amber-600 font-bold py-1.5 rounded-lg text-sm border border-amber-200 transition-colors">
                         +{v}
                       </button>
                     ))}
@@ -1497,14 +1516,14 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
 
                 {/* ?ъ쑀 */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">사유 (선택)</label>
+                  <label className="block text-sm font-bold text-slate-600 mb-1.5">사유 (선택)</label>
                   <textarea value={reason} onChange={e => setReason(e.target.value)}
-                    className="w-full h-16 border-2 border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-none"
+                    className="w-full h-16 border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-indigo-500 resize-none"
                     placeholder="비워두셔도 됩니다." />
                 </div>
 
                 <button onClick={submitTransaction}
-                  className={`w-full py-4 rounded-xl font-bold text-lg text-white shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]
+                  className={`w-full py-4 rounded-xl font-bold text-xl text-white shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]
                     ${modalMode === 'add' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
                   {modalMode === 'add' ? '지급 실행하기' : '차감 실행하기'}
                 </button>
@@ -1517,12 +1536,12 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
       {isLogOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden">
-            <div className="p-5 bg-slate-800 text-white font-bold text-xl flex justify-between items-center">
+            <div className="p-5 bg-slate-800 text-white font-bold text-2xl flex justify-between items-center">
               <h2>최근 지급/차감 내역</h2>
               <button onClick={() => setIsLogOpen(false)} className="text-slate-300 hover:text-white">×</button>
             </div>
             <div className="p-0 overflow-x-auto max-h-[70vh]">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full text-left border-collapse text-sm">
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
                     <th className="p-4 font-semibold">일시</th>
@@ -1552,7 +1571,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
                           {log.timestamp ? new Date(log.timestamp.toDate()).toLocaleString('ko-KR') : '방금 전'}
                         </td>
                         <td className="p-4">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isAdd ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
+                          <span className={`text-sm font-bold px-2 py-0.5 rounded-full ${isAdd ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
                             {isAdd ? '지급' : '차감'}
                           </span>
                         </td>
@@ -1581,7 +1600,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
       )}
 
       {toast && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-base shadow-2xl pointer-events-none
           ${toast.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}
           style={{ whiteSpace: 'nowrap' }}>
           {toast.message}
