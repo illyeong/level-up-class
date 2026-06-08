@@ -11,7 +11,7 @@ const MASTERY = {
 };
 const MASTERY_ATTEMPTS = 4;
 const COURSEWARE_PREGENERATE_COUNT = 20;
-const COURSEWARE_QUALITY_VERSION = 'quality-v14-fast-session-pool';
+const COURSEWARE_QUALITY_VERSION = 'quality-v15-balanced-question-types';
 const isFreshLessonContent = (data) =>
   data?.generatorVersion === COURSEWARE_QUALITY_VERSION &&
   Array.isArray(data.questions) &&

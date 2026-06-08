@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  collection, getDocs, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc,
+  collection, getDocs, doc, getDoc, setDoc, addDoc, updateDoc,
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -13,7 +13,6 @@ const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
 const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
 const POOL_TARGET_Q_NUM = 20;
 const MASTERY_ATTEMPTS = 4; // 숙달도 판정에 사용할 최고 점수 개수
-const COURSEWARE_QUALITY_VERSION = 'quality-v14-fast-session-pool';
 
 const questionFingerprint = (q) =>
   [q?.question, ...(Array.isArray(q?.options) ? q.options : []), q?.skill || '']
@@ -66,7 +65,6 @@ function saveRecentQuestionKeys(key, selectedKeys, max = 20) {
 
 function shouldRefreshLessonContent(data) {
   if (!data) return true;
-  if (data.generatorVersion !== COURSEWARE_QUALITY_VERSION) return true;
   if (!Array.isArray(data.questions) || data.questions.length < POOL_TARGET_Q_NUM) return true;
   return false;
 }
@@ -1197,13 +1195,13 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
             <p className="font-bold">이 단원에 등록된 차시가 없습니다</p>
           </div>
         ) : (selectedUnit.lessons || []).map(lesson => (
-          <div key={lesson.no} className="relative group/row">
+          <div key={lesson.no}>
             <button
               onClick={() => openLesson(selectedUnit, lesson)}
               onPointerEnter={() => queueLessonPreload(selectedUnit, lesson)}
               onFocus={() => queueLessonPreload(selectedUnit, lesson)}
               onTouchStart={() => queueLessonPreload(selectedUnit, lesson)}
-              className="w-full text-left rounded-xl border-2 border-slate-700 bg-slate-800/50 hover:border-indigo-500 hover:bg-indigo-900/40 px-4 py-3.5 transition-all group pr-12">
+              className="w-full text-left rounded-xl border-2 border-slate-700 bg-slate-800/50 hover:border-indigo-500 hover:bg-indigo-900/40 px-4 py-3.5 transition-all group">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-extrabold w-14 shrink-0 text-indigo-400 group-hover:text-indigo-300">
                   {lesson.no}차시
@@ -1253,18 +1251,6 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
                 );
               })()}
             </button>
-            {/* 캐시 삭제 후 재생성 버튼 */}
-            <button
-              onClick={async (e) => {
-                e.stopPropagation();
-                const key = lessonKey(selectedUnit, lesson);
-                try { await deleteDoc(doc(db, 'aiLessonContent', key)); } catch {}
-                preloadMap.delete(key);
-                openLesson(selectedUnit, lesson);
-              }}
-              title="콘텐츠 다시 생성"
-              className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity w-8 h-8 flex items-center justify-center rounded-lg bg-slate-700 hover:bg-amber-600 text-slate-300 hover:text-white text-base"
-            >↻</button>
           </div>
         ))}
       </div>
