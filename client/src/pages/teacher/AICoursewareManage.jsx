@@ -870,68 +870,71 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     const ref = doc(db, 'aiLessonContent', key);
     const existingSnap = await getDoc(ref);
     let mergedData = existingSnap.exists() ? existingSnap.data() : null;
-    let guard = 0;
 
-    while ((mergedData?.questions?.length || 0) < COURSEWARE_PREGENERATE_COUNT && guard < 5) {
-      guard += 1;
-      const existingQuestions = (mergedData?.questions || [])
-        .slice(-8)
-        .map((q, index) => `${index + 1}. ${q.question}`)
-        .join('\n');
-      const chunkContext = [
-        lessonContext,
-        existingQuestions
-          ? `[이미 생성된 문항 일부]\n${existingQuestions}\n위 문항과 같은 문제를 반복하지 말고 같은 차시 범위에서 새로운 숫자/상황으로 5문항을 생성하세요.`
-          : '',
-      ].filter(Boolean).join('\n\n');
+    if ((mergedData?.questions?.length || 0) >= COURSEWARE_PREGENERATE_COUNT) {
+      return { added: 0, total: mergedData.questions.length, complete: true };
+    }
 
-      const response = await fetch('/api/generate-courseware', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          grade: unit.grade,
-          semester: unit.semester,
-          publisher: unit.publisher || '국정',
-          unitName: unit.unitName,
-          lessonNo: lesson.no,
-          lessonTitle: lesson.title,
-          learningGoal: '',
-          keywords: lesson.keywords || [],
-          difficulty: 'normal',
-          questionCount: 5,
-          lessonContext: chunkContext,
-          fastInitial: true,
-        }),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data) {
-        throw new Error(data?.error || `문제 사전 생성 실패 (${response.status})`);
-      }
+    const existingQuestions = (mergedData?.questions || [])
+      .slice(-8)
+      .map((q, index) => `${index + 1}. ${q.question}`)
+      .join('\n');
+    const chunkContext = [
+      lessonContext,
+      existingQuestions
+        ? `[이미 생성된 문항 일부]\n${existingQuestions}\n위 문항과 같은 문제를 반복하지 말고 같은 차시 범위에서 새로운 숫자/상황으로 5문항을 생성하세요.`
+        : '',
+    ].filter(Boolean).join('\n\n');
 
-      const beforeCount = mergedData?.questions?.length || 0;
-      mergedData = mergeQuestionContent(mergedData, data);
-      if ((mergedData?.questions?.length || 0) <= beforeCount) {
-        throw new Error('중복이 아닌 새 문항을 충분히 생성하지 못했습니다.');
-      }
-
-      await setDoc(ref, {
-        ...mergedData,
-        lessonKey: key,
+    const response = await fetch('/api/generate-courseware', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         grade: unit.grade,
         semester: unit.semester,
-        publisher: unit.publisher,
-        unitId: unit.id,
+        publisher: unit.publisher || '국정',
         unitName: unit.unitName,
         lessonNo: lesson.no,
         lessonTitle: lesson.title,
-        createdAt: existingSnap.exists() ? existingSnap.data().createdAt || serverTimestamp() : serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+        learningGoal: '',
+        keywords: lesson.keywords || [],
+        difficulty: 'normal',
+        questionCount: 5,
+        lessonContext: chunkContext,
+        fastInitial: true,
+      }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data) {
+      throw new Error(data?.error || `문제 사전 생성 실패 (${response.status})`);
     }
 
-    if ((mergedData?.questions?.length || 0) < COURSEWARE_PREGENERATE_COUNT) {
-      throw new Error(`현재 ${mergedData?.questions?.length || 0}문항까지만 생성됐습니다. 다시 실행하면 이어서 생성합니다.`);
+    const beforeCount = mergedData?.questions?.length || 0;
+    mergedData = mergeQuestionContent(mergedData, data);
+    const afterCount = mergedData?.questions?.length || 0;
+    if (afterCount <= beforeCount) {
+      throw new Error('중복이 아닌 새 문항을 충분히 생성하지 못했습니다.');
     }
+
+    await setDoc(ref, {
+      ...mergedData,
+      lessonKey: key,
+      grade: unit.grade,
+      semester: unit.semester,
+      publisher: unit.publisher,
+      unitId: unit.id,
+      unitName: unit.unitName,
+      lessonNo: lesson.no,
+      lessonTitle: lesson.title,
+      createdAt: existingSnap.exists() ? existingSnap.data().createdAt || serverTimestamp() : serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
+    return {
+      added: afterCount - beforeCount,
+      total: afterCount,
+      complete: afterCount >= COURSEWARE_PREGENERATE_COUNT,
+    };
   };
 
   const saveContext = async () => {
@@ -1060,7 +1063,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
 
     const gradeLabel = allGrades ? '1~6학년' : `${targetGrade || unitGrade}학년`;
     const semLabel = unitSem === 'all' ? '전체 학기' : `${unitSem}학기`;
-    if (!window.confirm(`${gradeLabel} ${semLabel} 전체 차시에 AI 학습 문제 ${COURSEWARE_PREGENERATE_COUNT}문항을 미리 생성할까요?\n이미 최신 ${COURSEWARE_PREGENERATE_COUNT}문항이 있는 차시는 건너뜁니다.`)) return;
+    if (!window.confirm(`${gradeLabel} ${semLabel} 전체 차시에 AI 학습 문제를 5문항씩 추가 생성할까요?\n${COURSEWARE_PREGENERATE_COUNT}문항 이상 있는 차시는 건너뜁니다.`)) return;
 
     setBulkContentGenerating(true);
     setBulkContentStatus({
@@ -1222,7 +1225,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
             disabled={bulkContentGenerating || loadingUnits || !filteredUnits.length}
             className="w-full px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold disabled:opacity-50 transition-colors"
           >
-            {bulkContentGenerating ? '문제 생성 중...' : `전체 차시 ${COURSEWARE_PREGENERATE_COUNT}문항 미리 생성`}
+            {bulkContentGenerating ? '문제 생성 중...' : '전체 차시 5문항씩 추가 생성'}
           </button>
           <div className="grid grid-cols-3 gap-1.5 mt-2">
             {['1', '2', '3', '4', '5', '6'].map(grade => (
@@ -1237,7 +1240,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
             ))}
           </div>
           <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
-            선택한 학년/학기 또는 특정 학년의 AI 학습 문제를 미리 만들어 학생 대기 시간을 줄입니다. 이미 생성된 차시는 자동으로 건너뜁니다.
+            실행할 때마다 차시별로 최대 5문항씩 추가합니다. 여러 번 실행해 20문항까지 채우며, 20문항이 있는 차시는 자동으로 건너뜁니다.
           </p>
           {bulkContentGenerating && (
             <div className="mt-3 space-y-2">
