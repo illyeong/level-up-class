@@ -914,6 +914,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
         questionCount: 5,
         lessonContext: chunkContext,
         fastInitial: true,
+        allowPartial: true,
       }),
     });
     const data = await response.json().catch(() => null);
@@ -1111,8 +1112,8 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
           }
 
           const lessonContext = await getLessonContextForPreGenerate(unit, lesson);
-          await preGenerateLessonContent(unit, lesson, lessonContext);
-          created += 1;
+          const generated = await preGenerateLessonContent(unit, lesson, lessonContext);
+          created += generated.added;
           setBulkContentStatus(prev => ({
             ...prev,
             done: prev.done + 1,
@@ -1131,7 +1132,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
         }
       }
 
-      showToast(`문제 미리 생성 완료: 생성 ${created}개, 건너뜀 ${skipped}개, 실패 ${failed}개`);
+      showToast(`문제 미리 생성 완료: 새 문항 ${created}개, 완료 차시 건너뜀 ${skipped}개, 실패 차시 ${failed}개`);
     } finally {
       setBulkContentGenerating(false);
     }
@@ -1258,7 +1259,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
                 <span>{bulkContentStatus.done}/{bulkContentStatus.total}</span>
-                <span>생성 {bulkContentStatus.created} · 건너뜀 {bulkContentStatus.skipped} · 실패 {bulkContentStatus.failed}</span>
+                <span>새 문항 {bulkContentStatus.created} · 완료 차시 {bulkContentStatus.skipped} · 실패 차시 {bulkContentStatus.failed}</span>
               </div>
               <ProgressBar
                 pct={bulkContentStatus.total ? (bulkContentStatus.done / bulkContentStatus.total) * 100 : 0}

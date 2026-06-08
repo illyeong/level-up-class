@@ -1203,6 +1203,7 @@ export default async function handler(req, res) {
   const isUnitTest = lessonTitle === '단원평가';
   const requested = Number(questionCount) || 5;
   const fastInitial = payload.fastInitial === true && !isUnitTest;
+  const allowPartial = payload.allowPartial === true;
   const poolSize = fastInitial
     ? Math.min(Math.max(requested, 5), 5)
     : isUnitTest
@@ -1237,7 +1238,7 @@ export default async function handler(req, res) {
         apiKey,
         model,
         prompt,
-        maxTokens: fastInitial ? 2200 : Math.min(7000, isUnitTest ? 4800 + poolSize * 140 : 3200 + poolSize * 180),
+        maxTokens: fastInitial ? 3000 : Math.min(7000, isUnitTest ? 4800 + poolSize * 140 : 3200 + poolSize * 180),
       });
     } catch (err) {
       if (!useFastModel) throw err;
@@ -1274,7 +1275,7 @@ export default async function handler(req, res) {
     // Fast initial generation should return quickly. Only fall back to the quality
     // model when the fast model plus deterministic fillers still cannot make a
     // playable session.
-    if (useFastModel && !fallbackUsed && result.questions.length < requested) {
+    if (!allowPartial && useFastModel && !fallbackUsed && result.questions.length < requested) {
       fallbackUsed = true;
       model = qualityModel;
       rawText = await callClaude({
@@ -1298,7 +1299,7 @@ export default async function handler(req, res) {
       }
     }
 
-    if (result.questions.length < poolSize) {
+    if (!allowPartial && result.questions.length < poolSize) {
       repairAttempted = true;
       const beforeRepair = result.questions.length;
       const missingCount = Math.min(6, poolSize - beforeRepair);
@@ -1341,7 +1342,7 @@ export default async function handler(req, res) {
       generatorVersion: COURSEWARE_GENERATOR_VERSION,
       requestedQuestionCount: requested,
       poolSize: result.questions.length,
-      isPartialPool: fastInitial,
+      isPartialPool: result.questions.length < requested || fastInitial,
       generationMs,
       generationTier: useFastModel && !fallbackUsed ? 'fast-initial' : 'quality',
       fallbackUsed,
