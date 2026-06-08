@@ -877,10 +877,22 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
 
     const existingQuestions = (mergedData?.questions || [])
       .slice(-8)
-      .map((q, index) => `${index + 1}. ${q.question}`)
+      .map((q, index) => `${index + 1}. [${q.skill || '유형 미분류'}] ${q.question}`)
       .join('\n');
+    const existingSkillSummary = Object.entries(
+      (mergedData?.questions || []).reduce((acc, q) => {
+        const key = q.skill || '유형 미분류';
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {})
+    )
+      .map(([skill, count]) => `${skill}: ${count}문항`)
+      .join(', ');
     const chunkContext = [
       lessonContext,
+      existingSkillSummary
+        ? `[이미 생성된 문제 유형 분포]\n${existingSkillSummary}\n많이 나온 유형은 피하고 부족한 유형을 우선 생성하세요.`
+        : '',
       existingQuestions
         ? `[이미 생성된 문항 일부]\n${existingQuestions}\n위 문항과 같은 문제를 반복하지 말고 같은 차시 범위에서 새로운 숫자/상황으로 5문항을 생성하세요.`
         : '',

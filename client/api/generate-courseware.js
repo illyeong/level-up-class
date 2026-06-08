@@ -8,7 +8,7 @@ const SHAPE_TYPES = new Set([
   'cuboid', 'cube', 'cylinder', 'cone', 'sphere', 'factor_list',
 ]);
 
-const COURSEWARE_GENERATOR_VERSION = 'quality-v14-fast-session-pool';
+const COURSEWARE_GENERATOR_VERSION = 'quality-v15-balanced-question-types';
 
 const stripOptionPrefix = (value) =>
   String(value ?? '')
@@ -252,6 +252,73 @@ const isFactorMultipleLesson = (payload, ragSection = '') =>
 
 const isSolidShapeLesson = (payload, ragSection = '') =>
   includesAny(lessonTopicText(payload, ragSection), ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '구']);
+
+const classifyPracticeType = (payload, ragSection = '') => {
+  const text = lessonTopicText(payload, ragSection);
+  if (includesAny(text, ['그래프', '표', '자료', '막대', '꺾은선', '평균'])) return '그래프·표';
+  if (includesAny(text, ['가능성', '확률', '사건'])) return '확률·가능성';
+  if (includesAny(text, ['대칭', '합동', '대응점', '선대칭', '점대칭'])) return '대칭·합동';
+  if (isSolidShapeLesson(payload, ragSection)) return '입체도형';
+  if (includesAny(text, ['도형', '삼각형', '사각형', '원', '각도'])) return '도형';
+  if (includesAny(text, ['단위', '길이', '넓이', '둘레', '부피', '무게', '시간', '시각', '들이'])) return '측정';
+  if (includesAny(text, ['약수', '배수', '공약수', '공배수', '최대공약수', '최소공배수', '규칙', '비례식'])) return '약수·배수·규칙';
+  if (includesAny(text, ['덧셈', '뺄셈', '곱셈', '나눗셈', '계산', '분수', '소수', '자연수', '대분수', '진분수'])) return '사칙연산·분수·소수';
+  return '차시 핵심 기능';
+};
+
+const corePracticeSubtypes = (practiceType) => {
+  const map = {
+    '사칙연산·분수·소수': ['식 계산', '계산 순서 판단', '계산 오류 찾기', '빈칸 계산', '크기 비교 계산', '문장 계산'],
+    '약수·배수·규칙': ['약수/배수 찾기', '공통 관계 찾기', '규칙 이어가기', '조건에 맞는 수 고르기', '관계 설명 고르기', '오류 규칙 찾기'],
+    '도형': ['도형 판별', '성질 적용', '도형 구성', '다른 도형 찾기', '조건에 맞는 도형 고르기', '도형 설명 오류 찾기'],
+    '입체도형': ['입체 판별', '면 분석', '모서리 분석', '꼭짓점 분석', '전개/구성 판단', '생활 물건과 입체 연결'],
+    '측정': ['단위 변환', '길이 측정', '넓이/둘레 측정', '시간 계산', '어림과 비교', '단위 오류 찾기'],
+    '그래프·표': ['자료 읽기', '값 비교', '차이 구하기', '합계 해석', '그래프 설명 고르기', '잘못 읽은 해석 찾기'],
+    '확률·가능성': ['가능성 비교', '사건 판단', '확실/불가능 구분', '조건 변화 판단', '가능성 설명 고르기', '잘못된 가능성 설명 찾기'],
+    '대칭·합동': ['대응점 찾기', '합동 판별', '대칭축 찾기', '대칭 위치 찾기', '대칭 도형 완성', '잘못된 대응 찾기'],
+    '차시 핵심 기능': ['개념 적용', '조건 판단', '관계 찾기', '오류 찾기', '그림 해석', '생활 적용'],
+  };
+  return map[practiceType] || map['차시 핵심 기능'];
+};
+
+const buildQuestionMixGuide = (payload, poolSize, ragSection = '') => {
+  const practiceType = classifyPracticeType(payload, ragSection);
+  const subtypes = corePracticeSubtypes(practiceType);
+  const coreLabel = {
+    '사칙연산·분수·소수': '계산 연습',
+    '약수·배수·규칙': '관계 찾기·규칙 적용',
+    '도형': '도형 판별·성질 적용·구성',
+    '입체도형': '입체 판별·면/모서리/꼭짓점 분석',
+    '측정': '단위 변환·길이/넓이/시간 측정',
+    '그래프·표': '자료 읽기·비교·해석',
+    '확률·가능성': '가능성 비교·사건 판단',
+    '대칭·합동': '대응점 찾기·합동/대칭 판별',
+    '차시 핵심 기능': '차시 핵심 기능 적용',
+  }[practiceType];
+
+  if (poolSize >= 20) {
+    return `
+[문항 구성표 - 20문항 기준]
+- 차시 유형: ${practiceType}
+- 핵심 기능 연습: ${coreLabel}
+- 개념 확인 2문항: 용어/개념 의미 확인, 쉬운 예·아닌 예 구분
+- 핵심 기능 연습 12문항: ${subtypes.join(', ')}
+- 생활 문장제 4문항: 교실·생활 상황에서 차시 개념 적용
+- 응용/오류 찾기 2문항: 잘못된 풀이 찾기, 조건이 하나 더 있는 적용 문제
+- skill 필드는 반드시 "개념 확인 - ...", "핵심 기능 - ${subtypes[0]}", "생활 문장제 - ...", "응용/오류 - ..."처럼 유형과 세부 기능이 드러나게 쓰세요.
+- 같은 skill 세부 유형은 최대 2문항까지만 허용합니다. 같은 문장 틀에서 숫자만 바꾸는 문제는 금지합니다.
+`;
+  }
+
+  return `
+[문항 구성표 - ${poolSize}문항 추가 생성 기준]
+- 차시 유형: ${practiceType}
+- 핵심 기능 연습: ${coreLabel}
+- 이번 생성에서는 개념 확인 1문항, 핵심 기능 연습 ${Math.max(2, poolSize - 2)}문항, 생활 문장제 또는 응용/오류 찾기 1문항을 섞으세요.
+- 핵심 기능 연습은 다음 세부 유형 중 서로 다른 것을 우선 사용하세요: ${subtypes.join(', ')}
+- skill 필드는 유형과 세부 기능이 드러나게 쓰고, 이번 생성 안에서 같은 skill을 반복하지 마세요.
+`;
+};
 
 const buildLessonContext = (payload, ragSection = '') => {
   const text = lessonTopicText(payload, ragSection);
@@ -671,12 +738,50 @@ function normalizeContent(result, poolSize, options = {}) {
   };
 }
 
+const skillBucket = (skill = '') =>
+  String(skill || '')
+    .normalize('NFKC')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(/[-:：]/)[0]
+    .trim();
+
+const skillSubtype = (skill = '') =>
+  String(skill || '')
+    .normalize('NFKC')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const validateSkillDiversity = (questions = [], poolSize = 0) => {
+  const issues = [];
+  if (poolSize < 16 || questions.length < 12) return issues;
+
+  const buckets = new Map();
+  const subtypes = new Map();
+  questions.forEach(q => {
+    const bucket = skillBucket(q.skill || '미분류');
+    const subtype = skillSubtype(q.skill || '미분류');
+    buckets.set(bucket, (buckets.get(bucket) || 0) + 1);
+    subtypes.set(subtype, (subtypes.get(subtype) || 0) + 1);
+  });
+
+  if (buckets.size < 4) issues.push('문제 유형이 4종 미만입니다.');
+  for (const [bucket, count] of buckets.entries()) {
+    if (count > Math.ceil(questions.length * 0.7)) issues.push(`문제 유형이 "${bucket}"에 과도하게 몰렸습니다.`);
+  }
+  for (const [subtype, count] of subtypes.entries()) {
+    if (count > 3) issues.push(`세부 유형 "${subtype}" 반복이 많습니다.`);
+  }
+  return issues;
+};
+
 function validateContent(result, poolSize) {
   const issues = [];
   if (!result.conceptCards?.length) issues.push('개념 카드가 없습니다.');
   if ((result.questions?.length || 0) < Math.min(8, poolSize)) {
     issues.push(`문제 풀이 부족합니다. 현재 ${result.questions?.length || 0}개`);
   }
+  issues.push(...validateSkillDiversity(result.questions || [], poolSize));
 
   result.questions?.forEach((q, i) => {
     const n = i + 1;
@@ -919,6 +1024,7 @@ const buildRepairPrompt = ({ payload, missingCount, acceptedQuestions, ragSectio
 - 학습 목표: ${payload.learningGoal || ''}
 - 핵심 키워드: ${Array.isArray(payload.keywords) ? payload.keywords.join(', ') : payload.keywords || ''}
 ${ragSection}
+${buildQuestionMixGuide(payload, missingCount, ragSection)}
 
 [이미 통과한 문제 - 같은 유형과 문장 구조를 반복하지 마세요]
 ${acceptedQuestions.map((question, index) => `${index + 1}. ${question.question}`).join('\n') || '없음'}
@@ -944,6 +1050,7 @@ function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
   const keywordStr = Array.isArray(keywords) ? keywords.join(', ') : (keywords || '');
   const diffLabel = difficulty === 'easy' ? '기초' : difficulty === 'hard' ? '심화' : '기본';
   const lessonLabel = isUnitTest ? '단원평가' : `${lessonNo ? `${lessonNo}차시 ` : ''}${lessonTitle}`;
+  const questionMixGuide = buildQuestionMixGuide(payload, poolSize, ragSection);
 
   const sameDenomRules = hasSameDenominatorFractionFocus(payload, ragSection)
     ? `
@@ -984,6 +1091,7 @@ ${ragSection}
 ${sameDenomRules}
 ${factorRules}
 ${solidShapeRules}
+${questionMixGuide}
 [수업 정보]
 - 학년/학기: 초등학교 ${grade}학년${semester ? ` ${semester}학기` : ''}
 - 과목/출판사: 수학${publisher ? ` / ${publisher}` : ''}
@@ -997,7 +1105,7 @@ ${solidShapeRules}
 
 [품질 기준]
 1. 문제는 서로 다른 사고 과정을 요구해야 합니다. 숫자만 바꾼 반복 문제를 금지합니다.
-2. 문제 유형을 골고루 섞으세요: 개념 확인, 계산, 문장제, 그림/표 해석, 실생활 적용, 오류 찾기.
+2. 위 문항 구성표를 지키세요. 특히 핵심 기능 연습은 차시 유형에 맞는 세부 기능을 나누어 만들고, 같은 skill 세부 유형을 반복하지 마세요.
 3. 오답 보기는 학생이 실제로 할 법한 실수를 반영하세요. 터무니없는 보기는 금지합니다.
 4. 같은 정답 위치가 반복되지 않게 answerIndex를 0~3에 고르게 배치하세요.
 5. 문항은 초등학생이 읽기 쉬운 한국어로 쓰고, 한 문항 안에 불필요한 조건을 넣지 마세요.
