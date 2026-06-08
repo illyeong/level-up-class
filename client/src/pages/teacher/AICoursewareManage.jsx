@@ -971,8 +971,8 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     .filter(lesson => !String(lesson.title || '').includes('도입'))
     .map(lesson => ({ unit, lesson })));
 
-  const loadAllGradeUnitsForPreGenerate = async () => {
-    const snaps = await Promise.all(['1', '2', '3', '4', '5', '6'].map(grade =>
+  const loadGradeUnitsForPreGenerate = async (grades = ['1', '2', '3', '4', '5', '6']) => {
+    const snaps = await Promise.all(grades.map(grade =>
       getDocs(query(
         collection(db, 'curriculumUnits'),
         where('grade', '==', parseInt(grade)),
@@ -989,9 +989,9 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
       );
   };
 
-  const bulkPreGenerateLessonContent = async ({ allGrades = false } = {}) => {
-    const targetUnits = allGrades
-      ? await loadAllGradeUnitsForPreGenerate()
+  const bulkPreGenerateLessonContent = async ({ allGrades = false, targetGrade = null } = {}) => {
+    const targetUnits = allGrades || targetGrade
+      ? await loadGradeUnitsForPreGenerate(targetGrade ? [String(targetGrade)] : undefined)
       : units.filter(u => unitSem === 'all' || String(u.semester || '') === unitSem);
     const lessons = collectPreGenerateLessons(targetUnits);
 
@@ -1000,7 +1000,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
       return;
     }
 
-    const gradeLabel = allGrades ? '1~6학년' : `${unitGrade}학년`;
+    const gradeLabel = allGrades ? '1~6학년' : `${targetGrade || unitGrade}학년`;
     const semLabel = unitSem === 'all' ? '전체 학기' : `${unitSem}학기`;
     if (!window.confirm(`${gradeLabel} ${semLabel} 전체 차시에 AI 학습 문제 ${COURSEWARE_PREGENERATE_COUNT}문항을 미리 생성할까요?\n이미 최신 ${COURSEWARE_PREGENERATE_COUNT}문항이 있는 차시는 건너뜁니다.`)) return;
 
@@ -1166,15 +1166,20 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
           >
             {bulkContentGenerating ? '문제 생성 중...' : `전체 차시 ${COURSEWARE_PREGENERATE_COUNT}문항 미리 생성`}
           </button>
-          <button
-            onClick={() => bulkPreGenerateLessonContent({ allGrades: true })}
-            disabled={bulkContentGenerating || loadingUnits}
-            className="w-full mt-2 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold disabled:opacity-50 transition-colors"
-          >
-            1~6학년 전체 미리 생성
-          </button>
+          <div className="grid grid-cols-3 gap-1.5 mt-2">
+            {['1', '2', '3', '4', '5', '6'].map(grade => (
+              <button
+                key={grade}
+                onClick={() => bulkPreGenerateLessonContent({ targetGrade: grade })}
+                disabled={bulkContentGenerating || loadingUnits}
+                className="px-2 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-extrabold disabled:opacity-50 transition-colors"
+              >
+                {grade}학년
+              </button>
+            ))}
+          </div>
           <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
-            선택한 학년/학기 또는 1~6학년 전체의 AI 학습 문제를 미리 만들어 학생 대기 시간을 줄입니다. 이미 생성된 차시는 자동으로 건너뜁니다.
+            선택한 학년/학기 또는 특정 학년의 AI 학습 문제를 미리 만들어 학생 대기 시간을 줄입니다. 이미 생성된 차시는 자동으로 건너뜁니다.
           </p>
           {bulkContentGenerating && (
             <div className="mt-3 space-y-2">
