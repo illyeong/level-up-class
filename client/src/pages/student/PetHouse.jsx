@@ -245,8 +245,8 @@ const EGGS = [
     id: 'legendary', name: '전설 펫 알', cost: 2000,
     img: '/images/Eggs/Egg_Legendary_Gacha.png',
     gradient: 'from-amber-500 to-orange-700',
-    rates: { common: 0, rare: 37, epic: 50, legendary: 10, mythic: 3 },
-    rateRows: [{ label: '희귀 🔵', pct: 37 }, { label: '영웅 🟣', pct: 50 }, { label: '전설 🟡', pct: 10 }, { label: '신화 🌈', pct: 3 }],
+    rates: { common: 0, rare: 37, epic: 45, legendary: 15, mythic: 3 },
+    rateRows: [{ label: '희귀 🔵', pct: 37 }, { label: '영웅 🟣', pct: 45 }, { label: '전설 🟡', pct: 15 }, { label: '신화 🌈', pct: 3 }],
   },
   {
     id: 'mythic', name: '신화 펫 알', cost: 3000,
