@@ -836,44 +836,102 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     else { setExisting(null); setText(''); }
   };
 
+  const questionFingerprint = (q) =>
+    [q?.question, ...(Array.isArray(q?.options) ? q.options : []), q?.skill || '']
+      .join('|')
+      .normalize('NFKC')
+      .toLowerCase()
+      .replace(/\s+/g, '')
+      .slice(0, 90);
+
+  const mergeQuestionContent = (baseData, addData) => {
+    const baseQuestions = Array.isArray(baseData?.questions) ? baseData.questions : [];
+    const addQuestions = Array.isArray(addData?.questions) ? addData.questions : [];
+    const merged = [...baseQuestions];
+    const seen = new Set(baseQuestions.map(questionFingerprint));
+    for (const question of addQuestions) {
+      const key = questionFingerprint(question);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      merged.push(question);
+      if (merged.length >= COURSEWARE_PREGENERATE_COUNT) break;
+    }
+    return {
+      ...baseData,
+      ...addData,
+      questions: merged,
+      poolSize: merged.length,
+      isPartialPool: merged.length < COURSEWARE_PREGENERATE_COUNT,
+    };
+  };
+
   const preGenerateLessonContent = async (unit, lesson, lessonContext) => {
     const key = lkey(unit, lesson);
-    const response = await fetch('/api/generate-courseware', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const ref = doc(db, 'aiLessonContent', key);
+    const existingSnap = await getDoc(ref);
+    let mergedData = existingSnap.exists() ? existingSnap.data() : null;
+    let guard = 0;
+
+    while ((mergedData?.questions?.length || 0) < COURSEWARE_PREGENERATE_COUNT && guard < 5) {
+      guard += 1;
+      const existingQuestions = (mergedData?.questions || [])
+        .slice(-8)
+        .map((q, index) => `${index + 1}. ${q.question}`)
+        .join('\n');
+      const chunkContext = [
+        lessonContext,
+        existingQuestions
+          ? `[이미 생성된 문항 일부]\n${existingQuestions}\n위 문항과 같은 문제를 반복하지 말고 같은 차시 범위에서 새로운 숫자/상황으로 5문항을 생성하세요.`
+          : '',
+      ].filter(Boolean).join('\n\n');
+
+      const response = await fetch('/api/generate-courseware', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grade: unit.grade,
+          semester: unit.semester,
+          publisher: unit.publisher || '국정',
+          unitName: unit.unitName,
+          lessonNo: lesson.no,
+          lessonTitle: lesson.title,
+          learningGoal: '',
+          keywords: lesson.keywords || [],
+          difficulty: 'normal',
+          questionCount: 5,
+          lessonContext: chunkContext,
+          fastInitial: true,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) {
+        throw new Error(data?.error || `문제 사전 생성 실패 (${response.status})`);
+      }
+
+      const beforeCount = mergedData?.questions?.length || 0;
+      mergedData = mergeQuestionContent(mergedData, data);
+      if ((mergedData?.questions?.length || 0) <= beforeCount) {
+        throw new Error('중복이 아닌 새 문항을 충분히 생성하지 못했습니다.');
+      }
+
+      await setDoc(ref, {
+        ...mergedData,
+        lessonKey: key,
         grade: unit.grade,
         semester: unit.semester,
-        publisher: unit.publisher || '국정',
+        publisher: unit.publisher,
+        unitId: unit.id,
         unitName: unit.unitName,
         lessonNo: lesson.no,
         lessonTitle: lesson.title,
-        learningGoal: '',
-        keywords: lesson.keywords || [],
-        difficulty: 'normal',
-        questionCount: COURSEWARE_PREGENERATE_COUNT,
-        lessonContext,
-        fastInitial: false,
-      }),
-    });
-    const data = await response.json().catch(() => null);
-    if (!response.ok || !data) {
-      throw new Error(data?.error || `문제 사전 생성 실패 (${response.status})`);
+        createdAt: existingSnap.exists() ? existingSnap.data().createdAt || serverTimestamp() : serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
     }
 
-    await setDoc(doc(db, 'aiLessonContent', key), {
-      ...data,
-      lessonKey: key,
-      grade: unit.grade,
-      semester: unit.semester,
-      publisher: unit.publisher,
-      unitId: unit.id,
-      unitName: unit.unitName,
-      lessonNo: lesson.no,
-      lessonTitle: lesson.title,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+    if ((mergedData?.questions?.length || 0) < COURSEWARE_PREGENERATE_COUNT) {
+      throw new Error(`현재 ${mergedData?.questions?.length || 0}문항까지만 생성됐습니다. 다시 실행하면 이어서 생성합니다.`);
+    }
   };
 
   const saveContext = async () => {
