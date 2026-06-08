@@ -1202,7 +1202,7 @@ function ContentTab() {
                     <div className="flex items-center justify-between p-3 bg-violet-50 rounded-xl border border-violet-200">
                       <div>
                         <div className="text-sm font-bold text-violet-800">매주 반복</div>
-                        <div className="text-xs text-violet-500">매주 월요일 초기화</div>
+                        <div className="text-xs text-violet-500">매주 일요일 자정 초기화</div>
                       </div>
                       <button onClick={() => setQuests(prev => prev.map((x,j)=>j===i?{...x,repeatWeekly:!x.repeatWeekly}:x))}
                         className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${q.repeatWeekly!==false?'bg-violet-500':'bg-slate-300'}`}>

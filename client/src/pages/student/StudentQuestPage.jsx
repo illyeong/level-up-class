@@ -273,17 +273,28 @@ function StudentQuestPage({ studentCode, themeMode = 'dark' }) {
             const todayMidnight = new Date();
             todayMidnight.setHours(0, 0, 0, 0);
 
-            const dailyRepeat = allQuests.filter(q => q.type === 'daily' && q.repeatDaily && q.active !== false);
+            // 매주반복 퀘스트 일요일 자정(=이번 주 월요일 0시) 초기화
+            const weekStartMidnight = new Date(todayMidnight);
+            const dow = weekStartMidnight.getDay(); // 0=일, 1=월 ...
+            const daysToMonday = dow === 0 ? 6 : dow - 1;
+            weekStartMidnight.setDate(weekStartMidnight.getDate() - daysToMonday);
+
+            const dailyRepeat  = allQuests.filter(q => q.type === 'daily'  && q.repeatDaily  && q.active !== false);
+            const weeklyRepeat = allQuests.filter(q => q.type === 'weekly' && q.repeatWeekly && q.active !== false);
+            const repeatTargets = [
+              ...dailyRepeat.map(quest => ({ quest, boundary: todayMidnight })),
+              ...weeklyRepeat.map(quest => ({ quest, boundary: weekStartMidnight })),
+            ];
             const autoReward  = { gold: 0, exp: 0, diamond: 0, questIds: [] };
             const deleteIds   = []; // 삭제할 completion quest IDs
 
-            for (const quest of dailyRepeat) {
+            for (const { quest, boundary } of repeatTargets) {
               const comp = compMap[quest.id];
               if (!comp) continue;
 
               const relevantTs = comp.checkedAt || comp.rewardedAt;
               const compDate   = relevantTs?.toDate?.() ?? (relevantTs?.seconds ? new Date(relevantTs.seconds * 1000) : null);
-              if (!compDate || compDate >= todayMidnight) continue; // 오늘 completion
+              if (!compDate || compDate >= boundary) continue; // 이번 주기의 completion
 
               if (comp.checked && !comp.rewarded) {
                 if (quest.selfCheck) {
@@ -298,7 +309,7 @@ function StudentQuestPage({ studentCode, themeMode = 'dark' }) {
                   delete compMap[quest.id];
                 }
               } else if (comp.rewarded && comp.acknowledgedAt) {
-                // 보상받고 확인까지 완료 → 다음 날 새로 시작
+                // 보상받고 확인까지 완료 → 다음 주기에 새로 시작
                 deleteIds.push(quest.id);
                 delete compMap[quest.id];
               }

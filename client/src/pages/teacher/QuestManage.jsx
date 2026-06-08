@@ -385,7 +385,7 @@ function QuestFormModal({ form, setForm, isEditing, onSubmit, onClose, onToggleS
             <div className="flex items-center justify-between p-3 bg-violet-50 rounded-xl border border-violet-200">
               <div>
                 <div className="text-sm font-bold text-violet-800">매주 반복</div>
-                <div className="text-xs text-violet-600 mt-0.5">매주 월요일 자동 초기화되고 다시 활성화돼요</div>
+                <div className="text-xs text-violet-600 mt-0.5">매주 일요일 자정에 자동 초기화되고 다시 활성화돼요</div>
               </div>
               <button onClick={() => set('repeatWeekly', !form.repeatWeekly)}
                 className={`w-12 h-6 rounded-full transition-colors relative
