@@ -11,14 +11,37 @@ import { getMaxExpForLevel } from '../../utils/leveling';
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
 const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
+const POOL_TARGET_Q_NUM = 20;
 const MASTERY_ATTEMPTS = 4; // 숙달도 판정에 사용할 최고 점수 개수
 const COURSEWARE_QUALITY_VERSION = 'quality-v14-fast-session-pool';
 
 const questionFingerprint = (q) =>
-  String(q?.question || '')
+  [q?.question, ...(Array.isArray(q?.options) ? q.options : []), q?.skill || '']
+    .join('|')
+    .normalize('NFKC')
+    .toLowerCase()
     .replace(/\s+/g, '')
-    .replace(/[①②③④0-9().,!?~]/g, '')
     .slice(0, 90);
+
+const lessonAttemptId = (studentCode, key) => `${studentCode}_${key}`;
+
+const enrichQuestionPool = (data, key) => ({
+  ...data,
+  questions: (data?.questions || []).map((q, index) => ({
+    ...q,
+    __poolIndex: index,
+    __questionKey: `${key}_${questionFingerprint(q)}`,
+  })),
+});
+
+const uniquePush = (items, limit = 200) => {
+  const result = [];
+  for (const item of items) {
+    if (item && !result.includes(item)) result.push(item);
+    if (result.length >= limit) break;
+  }
+  return result;
+};
 
 function readRecentQuestionKeys(key) {
   if (!key) return [];
@@ -44,22 +67,43 @@ function saveRecentQuestionKeys(key, selectedKeys, max = 20) {
 function shouldRefreshLessonContent(data) {
   if (!data) return true;
   if (data.generatorVersion !== COURSEWARE_QUALITY_VERSION) return true;
-  if (!Array.isArray(data.questions) || data.questions.length < SESSION_Q_NUM) return true;
+  if (!Array.isArray(data.questions) || data.questions.length < POOL_TARGET_Q_NUM) return true;
   return false;
 }
 
 // 캐시된 문제 풀에서 최근 풀었던 문항은 뒤로 미뤄 세션마다 다른 조합을 출제
-function pickSessionQuestions(data, key) {
+function pickSessionQuestions(data, key, attemptState = null) {
   if (!data?.questions?.length) return data;
-  const pool = data.questions;
-  if (pool.length <= SESSION_Q_NUM) return data;
+  const enriched = enrichQuestionPool(data, key);
+  const pool = enriched.questions;
+  if (pool.length <= SESSION_Q_NUM) return enriched;
+
+  const byKey = new Map(pool.map(q => [q.__questionKey, q]));
+  const wrongReviewKeys = Array.isArray(attemptState?.wrongReviewKeys) ? attemptState.wrongReviewKeys : [];
+  const reviewQuestions = wrongReviewKeys
+    .map(qKey => byKey.get(qKey))
+    .filter(Boolean)
+    .slice(0, 2);
+
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
   const recent = new Set(readRecentQuestionKeys(key));
-  const fresh = shuffled.filter(q => !recent.has(questionFingerprint(q)));
-  const fallback = shuffled.filter(q => recent.has(questionFingerprint(q)));
-  const selected = [...fresh, ...fallback].slice(0, SESSION_Q_NUM);
+  const seen = new Set(Array.isArray(attemptState?.seenQuestionKeys) ? attemptState.seenQuestionKeys : []);
+  const selectedKeys = new Set(reviewQuestions.map(q => q.__questionKey));
+  const available = q => !selectedKeys.has(q.__questionKey);
+  const fresh = shuffled.filter(q => available(q) && !seen.has(q.__questionKey) && !recent.has(questionFingerprint(q)));
+  const unseenFallback = shuffled.filter(q => available(q) && !seen.has(q.__questionKey) && recent.has(questionFingerprint(q)));
+  const seenFallback = shuffled.filter(q => available(q) && seen.has(q.__questionKey));
+  const selected = [...reviewQuestions, ...fresh, ...unseenFallback, ...seenFallback].slice(0, SESSION_Q_NUM);
   saveRecentQuestionKeys(key, selected.map(questionFingerprint));
-  return { ...data, questions: selected };
+  return {
+    ...enriched,
+    questions: selected,
+    sessionMeta: {
+      reviewCount: reviewQuestions.length,
+      unseenAvailable: fresh.length + unseenFallback.length,
+      poolSize: pool.length,
+    },
+  };
 }
 
 // KST 오전 8시 기준 세션 날짜 (매일 8시 초기화)
@@ -185,7 +229,7 @@ const preloadMap = new Map(); // key → Promise<data>
 const expansionMap = new Map(); // key → Promise<data>
 const lessonContextMap = new Map(); // key → Promise<string | null>
 
-const fetchLessonContent = async (unit, lesson, { fastInitial = true } = {}) => {
+const fetchLessonContent = async (unit, lesson, { fastInitial = true, questionCount = POOL_TARGET_Q_NUM, extraLessonContext = '' } = {}) => {
   // RAG: 교사가 등록한 교과서 내용이 있으면 가져와서 프롬프트에 포함
   const lKey = `v3_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
   if (!lessonContextMap.has(lKey)) {
@@ -193,7 +237,8 @@ const fetchLessonContent = async (unit, lesson, { fastInitial = true } = {}) => 
       .then(ctxSnap => ctxSnap.exists() ? (ctxSnap.data().text || null) : null)
       .catch(() => null));
   }
-  const lessonContext = await lessonContextMap.get(lKey);
+  const baseLessonContext = await lessonContextMap.get(lKey);
+  const lessonContext = [baseLessonContext, extraLessonContext].filter(Boolean).join('\n\n');
 
   const res = await fetch('/api/generate-courseware', {
     method: 'POST',
@@ -204,7 +249,7 @@ const fetchLessonContent = async (unit, lesson, { fastInitial = true } = {}) => 
       unitName: unit.unitName,
       lessonNo: lesson.no, lessonTitle: lesson.title,
       learningGoal: '', keywords: lesson.keywords || [],
-      difficulty: 'normal', questionCount: SESSION_Q_NUM,
+      difficulty: 'normal', questionCount,
       lessonContext, // RAG 교과서 내용
       fastInitial,
     }),
@@ -237,6 +282,26 @@ const saveLessonContentCache = (unit, lesson, data) => {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }, { merge: true });
+};
+
+const mergeLessonContentQuestions = (baseData, addData) => {
+  const baseQuestions = Array.isArray(baseData?.questions) ? baseData.questions : [];
+  const addQuestions = Array.isArray(addData?.questions) ? addData.questions : [];
+  const merged = [...baseQuestions];
+  const seen = new Set(baseQuestions.map(questionFingerprint));
+  for (const question of addQuestions) {
+    const key = questionFingerprint(question);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(question);
+  }
+  return {
+    ...baseData,
+    questions: merged,
+    poolSize: merged.length,
+    isPartialPool: false,
+    expandedAt: new Date().toISOString(),
+  };
 };
 
 const queueLessonPreload = (unit, lesson) => {
@@ -394,15 +459,16 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
   // ── 차시 선택 → AI 콘텐츠 로드/생성 후 바로 학습 시작 ──────
   const expandLessonPoolInBackground = (unit, lesson, currentData) => {
-    if (!currentData?.isPartialPool && (currentData?.questions?.length || 0) >= 8) return;
+    if (!currentData?.isPartialPool && (currentData?.questions?.length || 0) >= POOL_TARGET_Q_NUM) return;
 
     const key = lessonKey(unit, lesson);
     if (expansionMap.has(key)) return;
 
     const promise = fetchLessonContent(unit, lesson, { fastInitial: false })
       .then(async expanded => {
+        const mergedContent = mergeLessonContentQuestions(currentData, expanded);
         await setDoc(doc(db, 'aiLessonContent', key), {
-          ...expanded,
+          ...mergedContent,
           lessonKey: key,
           grade: unit.grade,
           semester: unit.semester,
@@ -414,8 +480,8 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         }, { merge: true });
-        preloadMap.set(key, Promise.resolve(expanded));
-        return expanded;
+        preloadMap.set(key, Promise.resolve(mergedContent));
+        return mergedContent;
       })
       .catch(err => {
         console.warn('[AI Courseware] background pool expansion failed:', err);
@@ -444,18 +510,20 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
     try {
       const progressId = `${studentCode}_${key}`;
+      const attemptId = lessonAttemptId(studentCode, key);
 
       // 콘텐츠 캐시 확인/생성을 진행 데이터 조회와 동시에 시작합니다.
       const contentPromise = queueLessonPreload(unit, lesson);
-      const [progDoc, data] = await Promise.all([
+      const [progDoc, attemptDoc, data] = await Promise.all([
         getDoc(doc(db, 'aiStudentProgress', progressId)),
+        getDoc(doc(db, 'aiQuestionAttempts', attemptId)),
         contentPromise,
       ]);
       if (progDoc.exists()) setMyProgress(progDoc.data());
       if (!data) throw new Error('생성 실패');
 
       stepTimer.clear();
-      setContent(pickSessionQuestions(data, key)); // 최근 문항을 피해서 선택
+      setContent(pickSessionQuestions(data, key, attemptDoc.exists() ? attemptDoc.data() : null));
       setStep('concept');
       expandLessonPoolInBackground(unit, lesson, data);
     } catch (e) {
@@ -466,8 +534,14 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     } finally { setCL(false); }
   };
 
-  const startLearning = () => {
-    setContent(prev => prev ? pickSessionQuestions(prev, prev.lessonKey || lessonKey(selectedUnit, selectedLesson)) : prev); // 재도전 시 새 문제 조합
+  const startLearning = async () => {
+    const key = lessonKey(selectedUnit, selectedLesson);
+    const [cacheSnap, attemptSnap] = await Promise.all([
+      getDoc(doc(db, 'aiLessonContent', key)),
+      getDoc(doc(db, 'aiQuestionAttempts', lessonAttemptId(studentCode, key))),
+    ]);
+    const poolData = cacheSnap.exists() ? cacheSnap.data() : content;
+    setContent(pickSessionQuestions(poolData, key, attemptSnap.exists() ? attemptSnap.data() : null));
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
     setConsecWrong(0); setMinTimeLeft(0);
@@ -493,10 +567,18 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   const confirmAnswer = () => {
     if (selected === null || minTimeLeft > 0 || showResult || answerLockRef.current) return;
     answerLockRef.current = true;
-    const correct = selected === content.questions[qIdx].answerIndex;
+    const question = content.questions[qIdx];
+    const correct = selected === question.answerIndex;
     setAnswers(prev => {
       const withoutCurrent = prev.filter(a => a.questionIndex !== qIdx);
-      return [...withoutCurrent, { questionIndex: qIdx, selectedIndex: selected, correct }];
+      return [...withoutCurrent, {
+        questionIndex: qIdx,
+        selectedIndex: selected,
+        correct,
+        questionKey: question.__questionKey || `${lessonKey(selectedUnit, selectedLesson)}_${questionFingerprint(question)}`,
+        poolIndex: question.__poolIndex ?? qIdx,
+        skill: question.skill || '',
+      }];
     });
     setShowResult(true);
 
@@ -522,6 +604,121 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     if (qIdx < content.questions.length - 1) {
       setQIdx(q => q + 1); setSelected(null); setShowResult(false);
     } else { finishQuiz(); }
+  };
+
+  const appendSimilarQuestionsInBackground = (wrongQuestions, reason = 'wrong-type-repeat') => {
+    if (!selectedUnit || !selectedLesson || !wrongQuestions.length) return;
+    const key = lessonKey(selectedUnit, selectedLesson);
+    const expansionKey = `${key}:${reason}`;
+    if (expansionMap.has(expansionKey)) return;
+
+    const isExtension = reason === 'all-correct-extension';
+    const focusLines = wrongQuestions.slice(0, 3).map((q, index) =>
+      `${index + 1}. 유형: ${q.skill || '기본'} / 참고 문제: ${q.question}`
+    ).join('\n');
+    const extraLessonContext = [
+      isExtension ? '[추가 심화 문제 생성 요청]' : '[오답 유사 문제 추가 생성 요청]',
+      isExtension
+        ? '학생이 최근 세트를 모두 맞혔습니다. 같은 차시 범위 안에서 새로운 숫자/상황의 추가 문제를 생성하세요.'
+        : '아래 유형을 같은 개념, 다른 숫자/상황으로 바꾸어 새로운 문제를 생성하세요.',
+      '기존 문항을 그대로 반복하지 말고, 정답과 해설을 반드시 검산하세요.',
+      focusLines,
+    ].join('\n');
+
+    const task = fetchLessonContent(selectedUnit, selectedLesson, {
+      fastInitial: true,
+      questionCount: SESSION_Q_NUM,
+      extraLessonContext,
+    }).then(async generated => {
+      const cacheSnap = await getDoc(doc(db, 'aiLessonContent', key));
+      const baseData = cacheSnap.exists() ? cacheSnap.data() : content;
+      const merged = mergeLessonContentQuestions(baseData, generated);
+      await saveLessonContentCache(selectedUnit, selectedLesson, merged);
+      preloadMap.set(key, Promise.resolve(merged));
+      return merged;
+    }).catch(err => {
+      console.warn('[AI Courseware] similar wrong-question generation failed:', err);
+      return null;
+    }).finally(() => expansionMap.delete(expansionKey));
+
+    expansionMap.set(expansionKey, task);
+  };
+
+  const updateQuestionAttemptState = async ({ key, allAns, newAttemptNo }) => {
+    if (!studentCode || !content?.questions?.length) return null;
+    const attemptRef = doc(db, 'aiQuestionAttempts', lessonAttemptId(studentCode, key));
+    const prevSnap = await getDoc(attemptRef);
+    const prev = prevSnap.exists() ? prevSnap.data() : {};
+    const prevSeen = Array.isArray(prev.seenQuestionKeys) ? prev.seenQuestionKeys : [];
+    const prevWrongReview = Array.isArray(prev.wrongReviewKeys) ? prev.wrongReviewKeys : [];
+    const prevWrongBank = prev.wrongQuestionBank && typeof prev.wrongQuestionBank === 'object' ? prev.wrongQuestionBank : {};
+    const prevSkillCounts = prev.wrongSkillCounts && typeof prev.wrongSkillCounts === 'object' ? prev.wrongSkillCounts : {};
+
+    const answeredKeys = [];
+    const correctKeys = [];
+    const wrongKeys = [];
+    const wrongBank = { ...prevWrongBank };
+    const wrongSkillCounts = { ...prevSkillCounts };
+    const repeatedWrongQuestions = [];
+
+    for (const answer of allAns) {
+      const question = content.questions[answer.questionIndex];
+      if (!question) continue;
+      const questionKey = answer.questionKey || question.__questionKey || `${key}_${questionFingerprint(question)}`;
+      answeredKeys.push(questionKey);
+      if (answer.correct) {
+        correctKeys.push(questionKey);
+        continue;
+      }
+
+      wrongKeys.push(questionKey);
+      const skillKey = String(question.skill || '기본').trim() || '기본';
+      wrongSkillCounts[skillKey] = (wrongSkillCounts[skillKey] || 0) + 1;
+      wrongBank[questionKey] = {
+        questionKey,
+        lessonKey: key,
+        unitName: selectedUnit.unitName,
+        lessonTitle: selectedLesson.title,
+        grade: selectedUnit.grade,
+        semester: selectedUnit.semester,
+        question: question.question,
+        options: question.options || [],
+        answerIndex: question.answerIndex,
+        explanation: question.explanation || '',
+        skill: question.skill || '',
+        shape: question.shape || null,
+        lastWrongAt: new Date().toISOString(),
+      };
+      if (newAttemptNo >= 3 && wrongSkillCounts[skillKey] >= 2) {
+        repeatedWrongQuestions.push(question);
+      }
+    }
+
+    const nextWrongReview = uniquePush([
+      ...wrongKeys,
+      ...prevWrongReview.filter(qKey => !correctKeys.includes(qKey)),
+    ], 80);
+    const nextSeen = uniquePush([...answeredKeys, ...prevSeen], 300);
+
+    const attemptData = {
+      studentCode,
+      lessonKey: key,
+      unitId: selectedUnit.id,
+      unitName: selectedUnit.unitName,
+      lessonTitle: selectedLesson.title,
+      grade: selectedUnit.grade,
+      semester: selectedUnit.semester,
+      seenQuestionKeys: nextSeen,
+      wrongReviewKeys: nextWrongReview,
+      wrongQuestionBank: wrongBank,
+      wrongSkillCounts,
+      lastAttemptNo: newAttemptNo,
+      lastAttemptAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(attemptRef, attemptData, { merge: true });
+    return { ...attemptData, repeatedWrongQuestions, wrongCount: wrongKeys.length };
   };
 
   // ── 완료 + 차등 보상 ──────────────────────────────────────────
@@ -628,6 +825,16 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       setMasteryMap(prev => ({ ...prev, [key]: masteryData }));
       setAllMastery(prev => ({ ...prev, [key]: masteryData }));
 
+      const attemptState = await updateQuestionAttemptState({ key, allAns, newAttemptNo: newCount });
+      if (attemptState?.repeatedWrongQuestions?.length) {
+        appendSimilarQuestionsInBackground(attemptState.repeatedWrongQuestions, 'wrong-type-repeat');
+      } else if (attemptState && attemptState.wrongCount === 0) {
+        const remainingUnseen = Math.max(0, (content.sessionMeta?.poolSize || 0) - (attemptState.seenQuestionKeys?.length || 0));
+        if (remainingUnseen < SESSION_Q_NUM) {
+          appendSimilarQuestionsInBackground(content.questions, 'all-correct-extension');
+        }
+      }
+
       // ── 대표 펫 행복도 +10 (AI학습 완료 보상) ──────────────────
       try {
         const stuForPet = await getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)));
@@ -664,17 +871,27 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       // ── 오답 기록 저장 (교사 취약 분석용) ───────────────────────
       const wrongAnswers = allAns
         .filter(a => !a.correct)
-        .map(a => ({
-          studentCode, grade: selectedUnit.grade, semester: selectedUnit.semester,
-          unitName: selectedUnit.unitName, lessonTitle: selectedLesson.title,
-          lessonKey: key,
-          questionIdx: a.questionIndex,
-          questionText: (content.questions[a.questionIndex]?.question || '').slice(0, 120),
-          selectedIdx: a.selectedIndex,
-          correctIdx: content.questions[a.questionIndex]?.answerIndex,
-          completedAt: serverTimestamp(),
-          date: today,
-        }));
+        .map(a => {
+          const question = content.questions[a.questionIndex] || {};
+          return {
+            studentCode, grade: selectedUnit.grade, semester: selectedUnit.semester,
+            unitName: selectedUnit.unitName, lessonTitle: selectedLesson.title,
+            lessonKey: key,
+            questionKey: a.questionKey || question.__questionKey || `${key}_${questionFingerprint(question)}`,
+            questionIdx: a.questionIndex,
+            poolIndex: a.poolIndex ?? question.__poolIndex ?? a.questionIndex,
+            questionText: (question.question || '').slice(0, 120),
+            fullQuestion: question.question || '',
+            options: question.options || [],
+            explanation: question.explanation || '',
+            skill: question.skill || '',
+            shape: question.shape || null,
+            selectedIdx: a.selectedIndex,
+            correctIdx: question.answerIndex,
+            completedAt: serverTimestamp(),
+            date: today,
+          };
+        });
       if (wrongAnswers.length > 0) {
         wrongAnswers.forEach(wa => addDoc(collection(db, 'aiWrongAnswers'), wa).catch(() => {}));
       }
@@ -1336,7 +1553,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
                 <div className="text-base font-extrabold text-slate-700 mt-2">{finalResult.masteryAvg}점</div>
                 <div className="flex justify-center gap-1 mt-2">
                   {(finalResult.scores || []).map((s, i) => (
-                    <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${s === score ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-600'}`}>{s}</span>
+                    <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${s === finalResult.score ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-600'}`}>{s}</span>
                   ))}
                 </div>
                 <div className="text-[10px] text-slate-400 mt-1.5">

@@ -1098,8 +1098,8 @@ export default async function handler(req, res) {
   const poolSize = fastInitial
     ? Math.min(Math.max(requested, 5), 5)
     : isUnitTest
-    ? Math.min(Math.max(requested + 5, 10), 12)
-    : Math.min(Math.max(requested + 3, 8), 10);
+    ? Math.min(Math.max(requested + 5, 10), 20)
+    : Math.min(Math.max(requested, 8), 20);
 
   const context = [
     `초등학교 ${grade}학년`,
@@ -1129,7 +1129,7 @@ export default async function handler(req, res) {
         apiKey,
         model,
         prompt,
-        maxTokens: fastInitial ? 2200 : isUnitTest ? 4800 : 3800,
+        maxTokens: fastInitial ? 2200 : Math.min(7000, isUnitTest ? 4800 + poolSize * 140 : 3200 + poolSize * 180),
       });
     } catch (err) {
       if (!useFastModel) throw err;

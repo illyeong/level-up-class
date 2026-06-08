@@ -10,11 +10,12 @@ const MASTERY = {
   retry:     { label: '재도전',   emoji: '🔄', bar: 'bg-rose-400',   text: 'text-rose-500',   light: 'bg-rose-50 border-rose-200'   },
 };
 const MASTERY_ATTEMPTS = 4;
+const COURSEWARE_PREGENERATE_COUNT = 20;
 const COURSEWARE_QUALITY_VERSION = 'quality-v14-fast-session-pool';
 const isFreshLessonContent = (data) =>
   data?.generatorVersion === COURSEWARE_QUALITY_VERSION &&
   Array.isArray(data.questions) &&
-  data.questions.length >= 5;
+  data.questions.length >= COURSEWARE_PREGENERATE_COUNT;
 const getMasteryLevel = (avg) =>
   avg >= 90 ? 'excellent' : avg >= 75 ? 'good' : avg >= 60 ? 'normal' : 'retry';
 
@@ -850,9 +851,9 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
         learningGoal: '',
         keywords: lesson.keywords || [],
         difficulty: 'normal',
-        questionCount: 5,
+        questionCount: COURSEWARE_PREGENERATE_COUNT,
         lessonContext,
-        fastInitial: true,
+        fastInitial: false,
       }),
     });
     const data = await response.json().catch(() => null);
@@ -1001,7 +1002,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
 
     const gradeLabel = allGrades ? '1~6학년' : `${unitGrade}학년`;
     const semLabel = unitSem === 'all' ? '전체 학기' : `${unitSem}학기`;
-    if (!window.confirm(`${gradeLabel} ${semLabel} 전체 차시에 AI 학습 문제 5문항을 미리 생성할까요?\n이미 최신 5문항이 있는 차시는 건너뜁니다.`)) return;
+    if (!window.confirm(`${gradeLabel} ${semLabel} 전체 차시에 AI 학습 문제 ${COURSEWARE_PREGENERATE_COUNT}문항을 미리 생성할까요?\n이미 최신 ${COURSEWARE_PREGENERATE_COUNT}문항이 있는 차시는 건너뜁니다.`)) return;
 
     setBulkContentGenerating(true);
     setBulkContentStatus({
@@ -1163,7 +1164,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
             disabled={bulkContentGenerating || loadingUnits || !filteredUnits.length}
             className="w-full px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold disabled:opacity-50 transition-colors"
           >
-            {bulkContentGenerating ? '문제 생성 중...' : '전체 차시 5문항 미리 생성'}
+            {bulkContentGenerating ? '문제 생성 중...' : `전체 차시 ${COURSEWARE_PREGENERATE_COUNT}문항 미리 생성`}
           </button>
           <button
             onClick={() => bulkPreGenerateLessonContent({ allGrades: true })}
