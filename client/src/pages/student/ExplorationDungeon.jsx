@@ -5,6 +5,7 @@ import { STAT_LABEL } from '../../constants/equipment';
 import { getMaxExpForLevel } from '../../utils/leveling';
 
 const DUNGEON_URL = '/dungeon-wrapper.html';
+const MAX_SKILL_SLOTS = 3;
 
 // ── 던전 데이터 ───────────────────────────────────────────────
 const DUNGEONS = [
@@ -103,6 +104,15 @@ const TEST_ACCOUNTS = ['sinseok-5-15']; // 테스트 계정 전체 스킬 해금
 const isSkillUnlocked = (skill, studentLevel, studentCode = '', purchasedSkills = []) => {
   if (TEST_ACCOUNTS.includes((studentCode || '').toLowerCase())) return true;
   return studentLevel >= (skill.unlockLevel || 1) || purchasedSkills.includes(skill.id);
+};
+
+const dedupeSkillIds = (ids = []) => {
+  const result = [];
+  ids.forEach(id => {
+    if (!id || result.includes(id)) return;
+    result.push(id);
+  });
+  return result.slice(0, MAX_SKILL_SLOTS);
 };
 
 // ── 순차 해금: 앞 던전 클리어해야 다음 Current.png ────────────
@@ -392,7 +402,6 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
   const selectedDungeonRef = useRef(null);
   const [dungeonReward, setDungeonReward]     = useState(null);
   // 스킬 시스템
-  const MAX_SKILL_SLOTS = 3;
   const [purchasedSkills, setPurchasedSkills]   = useState([]);
   const [selectedSkills,  setSelectedSkills]    = useState([]); // skill.id[] (최대 3개)
   const selectedSkillsRef = useRef([]);
@@ -468,11 +477,11 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
           const validSkills = rawSkills
             .map(id => DUNGEON_SKILLS.find(s => s.id === id))
             .filter(s => s && isSkillUnlocked(s, lv, code, savedPurchasedSkills))
-            .map(s => s.id)
-            .slice(0, MAX_SKILL_SLOTS);
-          setSelectedSkills(validSkills);
-          selectedSkillsRef.current = validSkills;
-          selectedSkillRef.current = validSkills[0] || null;
+            .map(s => s.id);
+          const dedupedValidSkills = dedupeSkillIds(validSkills);
+          setSelectedSkills(dedupedValidSkills);
+          selectedSkillsRef.current = dedupedValidSkills;
+          selectedSkillRef.current = dedupedValidSkills[0] || null;
           const mergedStats = getDungeonStatsFromStudent(data, equipmentItems);
           characterDataRef.current = {
             parts: data.parts ?? null,
@@ -498,10 +507,11 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     if (!isTeacher || !teacherUid) return;
     // 교사 모드: 모든 스킬 자동 장착
     const allSkillIds = DUNGEON_SKILLS.map(s => s.id);
+    const teacherSkillIds = dedupeSkillIds(allSkillIds);
     setPurchasedSkills(allSkillIds);
-    setSelectedSkills(allSkillIds.slice(0, MAX_SKILL_SLOTS));
-    selectedSkillsRef.current = allSkillIds.slice(0, MAX_SKILL_SLOTS);
-    selectedSkillRef.current = allSkillIds[0] || null;
+    setSelectedSkills(teacherSkillIds);
+    selectedSkillsRef.current = teacherSkillIds;
+    selectedSkillRef.current = teacherSkillIds[0] || null;
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'teacherProfiles', teacherUid));
@@ -600,14 +610,15 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
       dungeonIndex = hasZeroBasedId ? selectedIdNum + 1 : selectedIdNum;
     }
     dungeonIndex = Math.max(1, dungeonIndex);
+    const selectedSkillIds = dedupeSkillIds(selectedSkillsRef.current);
 
     win.postMessage({
       type: 'REACT_LOAD_AVATAR',
       ...cd,
       stats: { ...cd.stats, classLevel: cd.stats?.level ?? 1, dungeonIndex },
       dungeonIndex,
-      selectedSkill:  selectedSkillsRef.current[0] || null,  // Unity 단일 하위 호환
-      selectedSkills: selectedSkillsRef.current,              // 다중 슬롯용
+      selectedSkill:  selectedSkillIds[0] || null,  // Unity 단일 하위 호환
+      selectedSkills: selectedSkillIds,              // 다중 슬롯용
     }, '*');
   };
 
@@ -818,6 +829,7 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
                               } else {
                                 return; // 슬롯 꽉 참
                               }
+                              next = dedupeSkillIds(next);
                               const docId = studentDocIdRef.current;
                               if (docId) await updateDoc(doc(db, 'students', docId), {
                                 selectedSkills: next,

@@ -91,6 +91,30 @@ const cleanExplanation = (text) => {
     .replace(/\s{2,}/g, ' ')
     .trim();
 };
+
+const getCorrectAnswerIndex = (question) => {
+  if (!question) return -1;
+
+  const answerIndex = Number(question.answerIndex);
+  if (Number.isInteger(answerIndex) && answerIndex >= 0 && answerIndex < 4) {
+    return answerIndex;
+  }
+
+  const answer = question.answer;
+  const numericAnswer = Number(answer);
+  if (Number.isInteger(numericAnswer) && numericAnswer >= 0 && numericAnswer < 4) {
+    return numericAnswer;
+  }
+
+  const circledIndex = ['①', '②', '③', '④'].indexOf(String(answer || '').trim());
+  if (circledIndex >= 0) return circledIndex;
+
+  const normalizedAnswer = String(answer || '').trim().toLowerCase();
+  return (question.options || []).findIndex(option =>
+    String(option || '').trim().toLowerCase() === normalizedAnswer
+  );
+};
+
 const hpGrad  = (pct) =>
   pct > 60 ? 'from-emerald-400 to-emerald-500'
   : pct > 30 ? 'from-amber-400 to-amber-500'
@@ -576,10 +600,11 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
     if (answered !== null) return;
     const q    = dungeon.questions[currentQ];
     const isSA = q.type === 'sa';
+    const correctAnswerIndex = getCorrectAnswerIndex(q);
     const ok   = !timeout && (
       isSA
         ? String(value || '').trim().toLowerCase() === String(q.answer || '').trim().toLowerCase()
-        : value === q.answer
+        : Number(value) === correctAnswerIndex
     );
 
     setSelectedOpt(isSA ? null : (timeout ? null : value));
@@ -932,9 +957,10 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {(q.options || []).map((opt, oi) => {
+                const correctAnswerIndex = getCorrectAnswerIndex(q);
                 let cls = 'bg-slate-800 border-2 border-slate-700 text-slate-200 hover:border-rose-400 hover:bg-slate-700';
                 if (answered !== null) {
-                  if (oi === q.answer)         cls = 'bg-emerald-900/60 border-2 border-emerald-500 text-emerald-200';
+                  if (oi === correctAnswerIndex) cls = 'bg-emerald-900/60 border-2 border-emerald-500 text-emerald-200';
                   else if (oi === selectedOpt) cls = 'bg-rose-900/40 border-2 border-rose-500 text-rose-300';
                   else                         cls = 'bg-slate-800/50 border-2 border-slate-700 text-slate-500 opacity-50';
                 }
@@ -958,7 +984,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
                 : 'bg-rose-900/30 text-rose-300 border border-rose-800 text-sm'}`}>
               {answered === 'correct'
                 ? '✅ 정답! '
-                : `❌ 정답: ${q.type === 'sa' ? q.answer : (q.options?.[q.answer] || '')} — `}
+                : `❌ 정답: ${q.type === 'sa' ? q.answer : (q.options?.[getCorrectAnswerIndex(q)] || '')} — `}
               {cleanExplanation(q.explanation)}
             </div>
           )}
@@ -1217,7 +1243,7 @@ function ResultScreen({
               const wq = dungeon.questions[i];
               const correctAnswer = wq.type === 'sa'
                 ? wq.answer
-                : (wq.options?.[wq.answer] || '');
+                : (wq.options?.[getCorrectAnswerIndex(wq)] || '');
               return (
                 <div key={i} className="text-xs bg-rose-50 rounded-lg p-2.5">
                   <div className="font-bold text-slate-700 mb-0.5">

@@ -23,14 +23,45 @@ public class CharacterAutoSetup : MonoBehaviour
         var skills = gm.selectedSkills;
         if (skills == null || skills.Length == 0)
         {
-            if (string.IsNullOrEmpty(gm.selectedSkill)) return;
+            if (string.IsNullOrEmpty(gm.selectedSkill))
+            {
+                HideAllSkillButtons();
+                return;
+            }
             skills = new[] { gm.selectedSkill };
         }
+        skills = DeduplicateSkills(skills);
 
         // 비활성 오브젝트도 포함해서 탐색
         var uiList = FindObjectsByType<SkillButtonUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        for (int i = 0; i < uiList.Length && i < skills.Length; i++)
-            uiList[i].ShowSkill(skills[i]);
+        for (int i = 0; i < uiList.Length; i++)
+        {
+            if (i < skills.Length)
+                uiList[i].ShowSkill(skills[i]);
+            else
+                uiList[i].HideSkill();
+        }
+    }
+
+    void HideAllSkillButtons()
+    {
+        var uiList = FindObjectsByType<SkillButtonUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var ui in uiList)
+            ui.HideSkill();
+    }
+
+    string[] DeduplicateSkills(string[] skills)
+    {
+        var result = new System.Collections.Generic.List<string>();
+        if (skills == null) return result.ToArray();
+
+        foreach (var skill in skills)
+        {
+            if (string.IsNullOrEmpty(skill)) continue;
+            if (result.Contains(skill)) continue;
+            result.Add(skill);
+        }
+        return result.ToArray();
     }
 
     /// <summary>

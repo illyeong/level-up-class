@@ -55,24 +55,48 @@ public class DungeonCharacterLoader : MonoBehaviour
             // 배열 우선, 없으면 단일값 변환
             if (data.selectedSkills != null && data.selectedSkills.Length > 0)
             {
-                GameManager.Instance.selectedSkills = data.selectedSkills;
-                GameManager.Instance.selectedSkill  = data.selectedSkills[0];
+                GameManager.Instance.selectedSkills = DeduplicateSkills(data.selectedSkills);
+                GameManager.Instance.selectedSkill  = GameManager.Instance.selectedSkills.Length > 0 ? GameManager.Instance.selectedSkills[0] : "";
             }
             else if (!string.IsNullOrEmpty(data.selectedSkill))
             {
                 GameManager.Instance.selectedSkill  = data.selectedSkill;
                 GameManager.Instance.selectedSkills = new[] { data.selectedSkill };
             }
+            else
+            {
+                GameManager.Instance.selectedSkill = "";
+                GameManager.Instance.selectedSkills = new string[0];
+            }
 
             // 이미 씬에 있는 SkillButtonUI에 직접 주입 (비활성 포함 — 숨겨진 버튼도 탐색)
             var uiList = FindObjectsByType<SkillButtonUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            for (int i = 0; i < uiList.Length && i < GameManager.Instance.selectedSkills.Length; i++)
-                uiList[i].ShowSkill(GameManager.Instance.selectedSkills[i]);
+            for (int i = 0; i < uiList.Length; i++)
+            {
+                if (i < GameManager.Instance.selectedSkills.Length)
+                    uiList[i].ShowSkill(GameManager.Instance.selectedSkills[i]);
+                else
+                    uiList[i].HideSkill();
+            }
         }
 
         // 캐릭터 데이터 적용이 끝난 뒤에만 던전 씬으로 이동
         if (GameManager.Instance != null)
             GameManager.Instance.RouteToSelectedDungeon();
+    }
+
+    static string[] DeduplicateSkills(string[] skills)
+    {
+        var result = new System.Collections.Generic.List<string>();
+        if (skills == null) return result.ToArray();
+
+        foreach (var skill in skills)
+        {
+            if (string.IsNullOrEmpty(skill)) continue;
+            if (result.Contains(skill)) continue;
+            result.Add(skill);
+        }
+        return result.ToArray();
     }
 
     static void ApplyStats(StatsData s)

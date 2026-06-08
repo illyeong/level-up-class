@@ -76,18 +76,7 @@ public class SkillButtonUI : MonoBehaviour, IPointerDownHandler
             return;
         }
 
-        // GameManager에 저장된 스킬 복원 (씬 전환 후에도 유지)
-        string saved = GameManager.Instance?.selectedSkill ?? "";
-        if (!string.IsNullOrEmpty(saved))
-        {
-            ShowSkill(saved);
-        }
-        else
-        {
-            // buttonRoot가 자기 자신인 경우 여기서 숨김
-            if (buttonRoot != null && buttonRoot == gameObject)
-                gameObject.SetActive(false);
-        }
+        HideSkill();
     }
 
     void Update()
@@ -117,6 +106,12 @@ public class SkillButtonUI : MonoBehaviour, IPointerDownHandler
     /// <summary>DungeonCharacterLoader가 호출 — selectedSkill에 따라 버튼 활성화</summary>
     public void ShowSkill(string skillId)
     {
+        if (string.IsNullOrEmpty(skillId))
+        {
+            HideSkill();
+            return;
+        }
+
         _activeSkillId = skillId;
 
         EnsureSkillManager();
@@ -134,6 +129,19 @@ public class SkillButtonUI : MonoBehaviour, IPointerDownHandler
         SetupButton(icon != null ? icon : GetFallbackIcon(skillId), GetCooldown(skillId));
 
         if (buttonRoot) buttonRoot.SetActive(true);
+    }
+
+    public void HideSkill()
+    {
+        _activeSkillId = "";
+        _cooldownTimer = 0f;
+        _cooldownMax = 0f;
+        if (cooldownFill) cooldownFill.fillAmount = 0f;
+        if (cooldownText) cooldownText.text = "";
+        if (buttonRoot != null)
+            buttonRoot.SetActive(false);
+        else
+            gameObject.SetActive(false);
     }
 
     /// <summary>버튼 OnClick 이벤트에 연결</summary>
