@@ -47,12 +47,18 @@ const isTodayDate = (value) => {
 };
 
 const getKstDateKey = () => {
+  return getKstDateKeyFrom(new Date());
+};
+
+const getKstDateKeyFrom = (value) => {
+  const date = toJsDate(value);
+  if (!date) return '';
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).formatToParts(new Date());
+  }).formatToParts(date);
   const map = Object.fromEntries(parts.map(p => [p.type, p.value]));
   return `${map.year}-${map.month}-${map.day}`;
 };
@@ -168,6 +174,7 @@ function DashboardTab() {
         });
 
         const studentToClass = {};
+        const globalTodayActiveStudents = new Set();
         const touchActivity = (classId, studentId, ts, forceToday = false) => {
           if (!classId || !classStats[classId]) return;
           const date = toJsDate(ts);
@@ -181,6 +188,11 @@ function DashboardTab() {
         };
 
         students.forEach(s => {
+          const activeAt = s.lastActiveAt || s.lastLoginAt;
+          if (s.lastActiveDateKey === todayKey || getKstDateKeyFrom(activeAt) === todayKey) {
+            globalTodayActiveStudents.add(s.id);
+          }
+
           let classId = s.classId || null;
           if (!classId && s.teacherUid && classesByTeacher[s.teacherUid]?.length === 1) {
             classId = classesByTeacher[s.teacherUid][0];
@@ -190,8 +202,7 @@ function DashboardTab() {
           classStats[classId].studentCount += 1;
           classStats[classId].totalGold += Number(s.gold || 0);
           classStats[classId].totalDiamonds += Number(s.diamonds || 0);
-          const activeAt = s.lastActiveAt || s.lastLoginAt;
-          if (s.lastActiveDateKey === todayKey || isTodayDate(activeAt)) {
+          if (s.lastActiveDateKey === todayKey || getKstDateKeyFrom(activeAt) === todayKey) {
             touchActivity(classId, s.id, activeAt || new Date(), s.lastActiveDateKey === todayKey);
           }
         });
@@ -302,7 +313,7 @@ function DashboardTab() {
           summary: {
             classCount: classes.length,
             studentCount: students.length,
-            todayActiveStudents: rows.reduce((s, r) => s + r.todayActiveCount, 0),
+            todayActiveStudents: globalTodayActiveStudents.size,
             todayActivityCount: rows.reduce((s, r) => s + r.todayActivityCount, 0),
           },
           rows,
