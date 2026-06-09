@@ -56,6 +56,29 @@ function MiniSolid({ type, cx, cy, s = 32 }) {
       </g>
     );
   }
+  if (type === 'triangular_prism') {
+    const w = s * 1.15, h = s * 0.9, dx = s * 0.35, dy = -s * 0.25;
+    const x = cx - w / 2, y = cy + h / 2;
+    return (
+      <g>
+        <polygon points={`${x},${y} ${x+w/2},${y-h} ${x+w},${y}`} fill={FILL} stroke={STROKE} strokeWidth="1.4" />
+        <polygon points={`${x+dx},${y+dy} ${x+w/2+dx},${y-h+dy} ${x+w+dx},${y+dy}`} fill="#eff6ff" stroke={STROKE} strokeWidth="1.4" />
+        <line x1={x} y1={y} x2={x+dx} y2={y+dy} stroke={STROKE} strokeWidth="1.4" />
+        <line x1={x+w/2} y1={y-h} x2={x+w/2+dx} y2={y-h+dy} stroke={STROKE} strokeWidth="1.4" />
+        <line x1={x+w} y1={y} x2={x+w+dx} y2={y+dy} stroke={STROKE} strokeWidth="1.4" />
+      </g>
+    );
+  }
+  if (type === 'square_pyramid') {
+    const w = s * 1.2, h = s * 1.15;
+    const x = cx - w / 2, y = cy + h / 2;
+    return (
+      <g>
+        <polygon points={`${x},${y} ${cx},${y+s*0.18} ${x+w},${y} ${cx},${cy-h/2}`} fill={FILL} stroke={STROKE} strokeWidth="1.4" />
+        <line x1={cx} y1={cy-h/2} x2={cx} y2={y+s*0.18} stroke="#93c5fd" strokeWidth="1.2" strokeDasharray="3,2" />
+      </g>
+    );
+  }
   if (type === 'cone') {
     const w = s * 1.25, h = s * 1.25;
     const x = cx - w / 2, y = cy + h / 2;
@@ -280,6 +303,14 @@ const renderers = {
     return <MiniSolid type="cube" cx={W/2} cy={H/2 + 4} s={78} />;
   },
 
+  triangular_prism() {
+    return <MiniSolid type="triangular_prism" cx={W/2 - 8} cy={H/2 + 8} s={72} />;
+  },
+
+  square_pyramid() {
+    return <MiniSolid type="square_pyramid" cx={W/2} cy={H/2 + 8} s={76} />;
+  },
+
   cylinder() {
     return <MiniSolid type="cylinder" cx={W/2} cy={H/2 + 4} s={78} />;
   },
@@ -343,7 +374,8 @@ const renderers = {
       equilateral_triangle:'정삼각형', isosceles_triangle:'이등변삼각형',
       right_triangle:'직각삼각형', parallelogram:'평행사변형',
       rhombus:'마름모', trapezoid:'사다리꼴', semicircle:'반원',
-      cuboid:'직육면체', cube:'정육면체', cylinder:'원기둥', cone:'원뿔', sphere:'구',
+      cuboid:'직육면체', cube:'정육면체', triangular_prism:'삼각기둥', square_pyramid:'사각뿔',
+      cylinder:'원기둥', cone:'원뿔', sphere:'구',
     };
     const positions = [
       { cx: W*0.25, cy: H*0.38 }, { cx: W*0.75, cy: H*0.38 },
@@ -354,6 +386,8 @@ const renderers = {
       switch (type) {
         case 'cuboid':
         case 'cube':
+        case 'triangular_prism':
+        case 'square_pyramid':
         case 'cylinder':
         case 'cone':
         case 'sphere':
@@ -687,6 +721,80 @@ const renderers = {
     );
   },
 
+  // ── 그림그래프 ───────────────────────────────────────────────
+  picture_graph({ d }) {
+    const labels = d.labels || [];
+    const values = d.values || [];
+    const unit = d.unit || '';
+    const each = Math.max(1, Number(d.each) || 1);
+    const n = Math.min(labels.length, values.length, 5);
+    const rowY = 38;
+    return (
+      <>
+        {d.title && <text x={W / 2} y={15} textAnchor="middle" fontSize={10} fill="#1e293b" fontWeight="600">{d.title}</text>}
+        {Array.from({ length: n }, (_, i) => {
+          const count = Math.min(15, Math.max(0, Math.round(values[i] / each)));
+          const y = rowY + i * 25;
+          return (
+            <React.Fragment key={i}>
+              <text x={8} y={y + 4} fontSize={9} fill="#475569">{labels[i]}</text>
+              {Array.from({ length: count }, (_, j) => (
+                <circle
+                  key={j}
+                  cx={68 + j * 11}
+                  cy={y}
+                  r={5}
+                  fill={j % 2 === 0 ? '#60a5fa' : '#34d399'}
+                  stroke="#1d4ed8"
+                  strokeWidth="1"
+                />
+              ))}
+            </React.Fragment>
+          );
+        })}
+        <circle cx={12} cy={H - 9} r={4} fill="#60a5fa" stroke="#1d4ed8" strokeWidth="1" />
+        <text x={20} y={H - 6} fontSize={8} fill="#64748b">1개 = {each}{unit}</text>
+      </>
+    );
+  },
+
+  // ── 띠그래프 ─────────────────────────────────────────────────
+  band_chart({ d }) {
+    const labels = d.labels || [];
+    const values = d.values || [];
+    const n = Math.min(labels.length, values.length, 6);
+    const total = values.slice(0, n).reduce((sum, value) => sum + value, 0) || 1;
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+    const x0 = 12, y0 = 55, width = W - 24, height = 42;
+    let offset = 0;
+    return (
+      <>
+        {d.title && <text x={W / 2} y={18} textAnchor="middle" fontSize={10} fill="#1e293b" fontWeight="600">{d.title}</text>}
+        {Array.from({ length: n }, (_, i) => {
+          const segmentWidth = width * (values[i] / total);
+          const x = x0 + offset;
+          offset += segmentWidth;
+          return (
+            <React.Fragment key={i}>
+              <rect x={x} y={y0} width={segmentWidth} height={height} fill={colors[i]} stroke="white" strokeWidth="1" />
+              {segmentWidth > 24 && (
+                <text x={x + segmentWidth / 2} y={y0 + 25} textAnchor="middle" fontSize={8} fill="white" fontWeight="700">
+                  {Math.round(values[i] / total * 100)}%
+                </text>
+              )}
+            </React.Fragment>
+          );
+        })}
+        {labels.slice(0, n).map((label, i) => (
+          <React.Fragment key={i}>
+            <rect x={8 + Math.floor(i / 3) * 88} y={H - 28 + (i % 3) * 10} width={8} height={8} fill={colors[i]} rx={1} />
+            <text x={18 + Math.floor(i / 3) * 88} y={H - 21 + (i % 3) * 10} fontSize={8} fill="#475569">{label}</text>
+          </React.Fragment>
+        ))}
+      </>
+    );
+  },
+
   // ── 원그래프 ─────────────────────────────────────────────────
   pie_chart({ d }) {
     const labels = d.labels || [];
@@ -859,7 +967,7 @@ export default function ShapeRenderer({ shape, className = '' }) {
 
   const element = renderer({ d: shape.dimensions || {}, u: shape.unit || '' });
   // bar_chart는 세로로 더 넓게
-  const isWideChart = ['bar_chart', 'line_chart'].includes(shape.type);
+  const isWideChart = ['picture_graph', 'bar_chart', 'line_chart', 'band_chart'].includes(shape.type);
   const vw = isWideChart ? 240 : W;
   const vh = isWideChart ? 160 : H;
 

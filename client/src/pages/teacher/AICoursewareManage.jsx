@@ -11,7 +11,7 @@ const MASTERY = {
 };
 const MASTERY_ATTEMPTS = 4;
 const COURSEWARE_PREGENERATE_COUNT = 20;
-const COURSEWARE_QUALITY_VERSION = 'quality-v17-low-grade-scope-guard';
+const COURSEWARE_QUALITY_VERSION = 'quality-v19-grade56-scope-guard';
 const isCurrentLessonContent = (data) =>
   data?.generatorVersion === COURSEWARE_QUALITY_VERSION &&
   Array.isArray(data.questions);

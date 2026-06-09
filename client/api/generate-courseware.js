@@ -1,14 +1,14 @@
 export const config = { maxDuration: 60 };
 
 const SHAPE_TYPES = new Set([
-  'clock', 'ruler', 'angle', 'fraction_bar', 'bar_chart', 'line_chart',
-  'pie_chart', 'number_line', 'polygon', 'multi', 'rectangle', 'square',
+  'clock', 'ruler', 'angle', 'fraction_bar', 'picture_graph', 'bar_chart', 'line_chart',
+  'pie_chart', 'band_chart', 'number_line', 'polygon', 'multi', 'rectangle', 'square',
   'circle', 'equilateral_triangle', 'isosceles_triangle', 'right_triangle',
   'parallelogram', 'rhombus', 'trapezoid', 'semicircle', 'symmetry',
-  'cuboid', 'cube', 'cylinder', 'cone', 'sphere', 'factor_list',
+  'cuboid', 'cube', 'triangular_prism', 'square_pyramid', 'cylinder', 'cone', 'sphere', 'factor_list',
 ]);
 
-const COURSEWARE_GENERATOR_VERSION = 'quality-v17-low-grade-scope-guard';
+const COURSEWARE_GENERATOR_VERSION = 'quality-v19-grade56-scope-guard';
 
 const stripOptionPrefix = (value) =>
   String(value ?? '')
@@ -152,28 +152,51 @@ const getFractionOperationExpected = (text) => {
   return simplifyFraction({ num, den });
 };
 
+const getFractionMulDivExpected = (text) => {
+  const operand = String.raw`(?:\d+\s+\d+\s*\/\s*\d+|\d+\s*\/\s*\d+|\d+)`;
+  const match = String(text || '').match(new RegExp(`(${operand})\\s*([×xX*÷])\\s*(${operand})`));
+  if (!match) return null;
+  const left = parseSingleFractionValue(match[1]);
+  const right = parseSingleFractionValue(match[3]);
+  if (!left || !right || (match[2] === '÷' && right.num === 0)) return null;
+  return match[2] === '÷'
+    ? simplifyFraction({ num: left.num * right.den, den: left.den * right.num })
+    : simplifyFraction({ num: left.num * right.num, den: left.den * right.den });
+};
+
+const evalFractionMulDivEquation = (text) => {
+  const parts = String(text || '').split('=');
+  if (parts.length !== 2) return null;
+  const left = getFractionMulDivExpected(parts[0]);
+  const right = parseSingleFractionValue(parts[1]);
+  return left && right ? sameFraction(left, right) : null;
+};
+
 const uniqueIndex = (items, predicate) => {
   const matches = items.map(predicate);
   return matches.filter(Boolean).length === 1 ? matches.findIndex(Boolean) : -1;
 };
 
 const evaluateWholeNumberExpression = (text) => {
-  const numbers = String(text || '').match(/\d+/g)?.map(Number) || [];
-  const operators = String(text || '').match(/[+\-×xX*]/g) || [];
+  const numbers = String(text || '').match(/\d+(?:\.\d+)?/g)?.map(Number) || [];
+  const operators = String(text || '').match(/[+\-×xX*÷]/g) || [];
   if (numbers.length < 2 || operators.length !== numbers.length - 1) return null;
-  return operators.reduce(
+  const result = operators.reduce(
     (value, operator, index) => {
       if (operator === '+') return value + numbers[index + 1];
       if (operator === '-') return value - numbers[index + 1];
+      if (operator === '÷') return numbers[index + 1] === 0 ? NaN : value / numbers[index + 1];
       return value * numbers[index + 1];
     },
     numbers[0],
   );
+  return Number.isFinite(result) ? result : null;
 };
 
 const getWholeNumberExpected = (text) => {
   const source = String(text || '');
-  const expressionPattern = /(\d+\s*[+\-×xX*]\s*\d+(?:\s*[+\-×xX*]\s*\d+)?)/;
+  const numberPattern = String.raw`\d+(?:\.\d+)?`;
+  const expressionPattern = new RegExp(`(${numberPattern}\\s*[+\\-×xX*÷]\\s*${numberPattern}(?:\\s*[+\\-×xX*÷]\\s*${numberPattern})?)`);
   const equation = source.match(new RegExp(`${expressionPattern.source}\\s*=\\s*[?□]`));
   if (equation) return evaluateWholeNumberExpression(equation[1]);
   if (!includesAny(source, ['계산하세요', '계산하면', '계산하여', '계산을 하세요', '값은 얼마'])) return null;
@@ -182,7 +205,7 @@ const getWholeNumberExpected = (text) => {
 };
 
 const parseWholeNumberOption = (value) => {
-  const match = String(value ?? '').trim().match(/^(-?\d+)(?:개|명|마리|자루|점)?$/);
+  const match = String(value ?? '').trim().match(/^(-?\d+(?:\.\d+)?)(?:개|명|마리|자루|점|m|cm|㎡|㎠|㎥|%|배)?$/);
   return match ? Number(match[1]) : null;
 };
 
@@ -191,7 +214,7 @@ const getWholeNumberComparisonIndex = (question, options) => {
   const asksSmallest = includesAny(question, ['계산 결과가 가장 작은']);
   if (!asksLargest && !asksSmallest) return null;
   const values = options.map(option => {
-    const expression = String(option || '').match(/^\s*\d+\s*[+\-×xX*]\s*\d+\s*$/);
+    const expression = String(option || '').match(/^\s*\d+(?:\.\d+)?\s*[+\-×xX*÷]\s*\d+(?:\.\d+)?\s*$/);
     return expression ? evaluateWholeNumberExpression(expression[0]) : parseWholeNumberOption(option);
   });
   if (values.some(value => value == null)) return -1;
@@ -216,7 +239,9 @@ const fixFractionAnswer = (q) => {
     return idx >= 0 ? { ...q, answerIndex: idx } : null;
   }
 
-  const expected = getFractionOperationExpected(q.question) || getSameDenominatorSum(q.question);
+  const expected = getFractionOperationExpected(q.question)
+    || getFractionMulDivExpected(q.question)
+    || getSameDenominatorSum(q.question);
   if (expected) {
     const idx = uniqueIndex(options, opt => {
       const value = parseSingleFractionValue(opt);
@@ -253,6 +278,34 @@ const violatesSameDenominatorAddition = (text) => {
     return fractions.length >= 2 && new Set(fractions.map(f => f.d)).size > 1;
   });
 };
+
+const fractionAddSubExpressions = (text) =>
+  String(text || '').match(/\d+\s*\/\s*\d+\s*[+\-]\s*\d+\s*\/\s*\d+/g) || [];
+
+const hasFractionAddSubExpression = (text) => fractionAddSubExpressions(text).length > 0;
+
+const hasUnlikeDenominatorAddSub = (text) =>
+  fractionAddSubExpressions(text).some(expression => {
+    const fractions = parseFractions(expression);
+    return fractions.length >= 2 && new Set(fractions.map(f => f.d)).size > 1;
+  });
+
+const hasFractionMultiplyDivideExpression = (text) =>
+  /\d+\s*\/\s*\d+\s*[×xX*÷]\s*\d+\s*\/\s*\d+/.test(String(text || ''));
+
+const hasFractionMultiplicationExpression = (text) =>
+  /\d+\s*\/\s*\d+\s*[×xX*]\s*(?:\d+\s*\/\s*\d+|\d+)/.test(String(text || ''))
+  || /\d+\s*[×xX*]\s*\d+\s*\/\s*\d+/.test(String(text || ''));
+
+const hasFractionDivisionExpression = (text) =>
+  /\d+\s*\/\s*\d+\s*÷\s*(?:\d+\s*\/\s*\d+|\d+)/.test(String(text || ''))
+  || /\d+\s*÷\s*\d+\s*\/\s*\d+/.test(String(text || ''));
+
+const hasDecimalMultiplicationExpression = (text) =>
+  /(?:\d+\.\d+\s*[×xX*]\s*\d+(?:\.\d+)?|\d+\s*[×xX*]\s*\d+\.\d+)/.test(String(text || ''));
+
+const hasDecimalDivisionExpression = (text) =>
+  /(?:\d+\.\d+\s*÷\s*\d+(?:\.\d+)?|\d+\s*÷\s*\d+\.\d+)/.test(String(text || ''));
 
 const hasMalformedFractionText = (text) =>
   /(^|[^\d])\/\s*\d+/.test(String(text || '')) || /\d+\s*\/(?!\s*\d)/.test(String(text || ''));
@@ -293,7 +346,7 @@ const isFactorMultipleLesson = (payload, ragSection = '') =>
   includesAny(lessonTopicText(payload), ['약수', '공약수', '최대공약수', '배수', '공배수', '최소공배수']);
 
 const isSolidShapeLesson = (payload, ragSection = '') =>
-  includesAny(lessonTopicText(payload), ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '구 모양', '구의 성질']);
+  includesAny(lessonTopicText(payload), ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '구 모양', '구의 성질', '공간과 입체', '쌓기나무']);
 
 const classifyPracticeType = (payload, ragSection = '') => {
   const text = lessonTopicText(payload);
@@ -377,14 +430,40 @@ const buildLessonContext = (payload, ragSection = '') => {
     measurementLesson: includesAny(text, ['길이', '재기', 'cm', '센티미터', '미터', '자로 재기']),
     areaLesson: includesAny(text, ['넓이', '둘레']),
     fractionLesson: includesAny(text, ['분수', '진분수', '대분수', '통분', '약분']),
+    fractionAddSubLesson: includesAny(text, ['분수의 덧셈', '분수의 뺄셈', '진분수의 덧셈', '진분수의 뺄셈', '대분수의 덧셈', '대분수의 뺄셈']),
+    fractionMultiplyLesson: includesAny(text, ['분수의 곱셈', '분수의 곱', '분수)×', '×(분수']),
+    fractionDivideLesson: includesAny(text, ['분수의 나눗셈', '분수)÷', '÷(분수']),
+    reductionCommonDenomLesson: includesAny(text, ['약분', '통분']),
+    decimalLesson: includesAny(text, ['소수']),
+    decimalMultiplyLesson: includesAny(text, ['소수의 곱셈', '소수)×', '×(소수']),
+    decimalDivideLesson: includesAny(text, ['소수의 나눗셈', '소수)÷', '÷(소수']),
+    ratioLesson: includesAny(text, ['비와 비율', '비율', '백분율', '비례식', '비례배분']),
+    probabilityLesson: includesAny(text, ['가능성', '확률']),
     graphLesson: includesAny(text, ['그래프', '막대그래프', '꺾은선그래프', '원그래프']),
+    pictureGraphLesson: includesAny(text, ['그림그래프']),
+    barGraphLesson: includesAny(text, ['막대그래프']),
     lineGraphLesson: includesAny(text, ['꺾은선그래프']),
     pieGraphLesson: includesAny(text, ['원그래프']),
+    bandGraphLesson: includesAny(text, ['띠그래프']),
     symmetryLesson: includesAny(text, ['대칭', '선대칭', '점대칭', '대칭축', '대응점']),
     multiplicationLesson: includesAny(text, ['곱셈', '곱셈구구', '몇 배', '묶어 세기', '묶어 세어']),
+    divisionLesson: includesAny(text, ['나눗셈', '나누기', '몫', '나머지']),
+    cuboidLesson: includesAny(text, ['직육면체', '정육면체', '부피', '겉넓이']),
+    prismPyramidLesson: includesAny(text, ['각기둥', '각뿔']),
+    roundSolidLesson: includesAny(text, ['원기둥', '원뿔', '구 모양', '구의 성질', '원기둥, 원뿔, 구']),
+    spaceBlockLesson: includesAny(text, ['공간과 입체', '쌓기나무', '쌓은 모양']),
     additionLesson: titleAddition || (!titleSubtraction && includesAny(text, ['덧셈', '더하기', '더한', '합을', '합은', '합하면'])),
     subtractionLesson: titleSubtraction || (!titleAddition && includesAny(text, ['뺄셈', '빼기', '뺀', '차'])),
   };
+};
+
+const allowedSolidShapeTypes = (context = {}) => {
+  const allowed = new Set();
+  if (context.cuboidLesson) ['cuboid', 'cube'].forEach(type => allowed.add(type));
+  if (context.prismPyramidLesson) ['triangular_prism', 'square_pyramid'].forEach(type => allowed.add(type));
+  if (context.roundSolidLesson) ['cylinder', 'cone', 'sphere'].forEach(type => allowed.add(type));
+  if (context.spaceBlockLesson) allowed.add('cube');
+  return allowed;
 };
 
 const sanitizeShape = (shape, context = {}) => {
@@ -392,7 +471,16 @@ const sanitizeShape = (shape, context = {}) => {
   const type = shape.type;
   const d = shape.dimensions && typeof shape.dimensions === 'object' ? { ...shape.dimensions } : {};
   const unit = String(shape.unit || d.unit || '').slice(0, 6);
-  if (context.factorMultiple && ['bar_chart', 'line_chart', 'pie_chart'].includes(type)) return null;
+  const solidTypes = new Set(['cuboid', 'cube', 'triangular_prism', 'square_pyramid', 'cylinder', 'cone', 'sphere']);
+  const chartTypes = new Set(['picture_graph', 'bar_chart', 'line_chart', 'pie_chart', 'band_chart']);
+  const allowedLessonSolids = allowedSolidShapeTypes(context);
+  if ([3, 4].includes(context.grade) && solidTypes.has(type)) return null;
+  if ([5, 6].includes(context.grade) && solidTypes.has(type) && !allowedLessonSolids.has(type)) return null;
+  if (chartTypes.has(type) && !context.graphLesson) return null;
+  if (context.grade === 3 && chartTypes.has(type) && type !== 'picture_graph') return null;
+  if (context.grade === 4 && ['picture_graph', 'pie_chart', 'band_chart'].includes(type)) return null;
+  if (context.grade === 6 && type === 'picture_graph') return null;
+  if (context.factorMultiple && ['picture_graph', 'bar_chart', 'line_chart', 'pie_chart', 'band_chart'].includes(type)) return null;
   if (type === 'factor_list') {
     const groups = asList(d.groups, 3)
       .map(group => ({
@@ -404,6 +492,13 @@ const sanitizeShape = (shape, context = {}) => {
     return groups.length ? { type, dimensions: { groups, highlight } } : null;
   }
 
+  if (type === 'picture_graph') {
+    const cleaned = cleanChart(d, 5, true);
+    if (!cleaned) return null;
+    const each = Math.max(1, Math.round(finite(d.each, 1)));
+    if (cleaned.values.some(value => value % each !== 0 || value / each > 15)) return null;
+    return { type, dimensions: { ...cleaned, each } };
+  }
   if (type === 'bar_chart') {
     const cleaned = cleanChart(d, 6);
     return cleaned ? { type, dimensions: cleaned } : null;
@@ -416,19 +511,26 @@ const sanitizeShape = (shape, context = {}) => {
     const cleaned = cleanChart(d, 6, true);
     return cleaned ? { type, dimensions: cleaned } : null;
   }
+  if (type === 'band_chart') {
+    const cleaned = cleanChart(d, 6, true);
+    return cleaned ? { type, dimensions: cleaned } : null;
+  }
   if (type === 'multi') {
-    const solidTypes = new Set(['cuboid', 'cube', 'cylinder', 'cone', 'sphere']);
     const allowed = context.solidShape
-      ? solidTypes
-      : new Set(['rectangle', 'square', 'circle', 'equilateral_triangle', 'isosceles_triangle', 'right_triangle', 'parallelogram', 'rhombus', 'trapezoid', 'semicircle', 'cuboid', 'cube', 'cylinder', 'cone', 'sphere']);
+      ? allowedLessonSolids
+      : new Set([
+        'rectangle', 'square', 'circle', 'equilateral_triangle', 'isosceles_triangle',
+        'right_triangle', 'parallelogram', 'rhombus', 'trapezoid', 'semicircle',
+        ...([3, 4].includes(context.grade) ? [] : solidTypes),
+      ]);
     const items = asList(d.items, 4)
       .map(v => String(v || '').trim())
       .map(v => v === 'triangle' ? 'equilateral_triangle' : v)
       .filter(v => allowed.has(v));
     return items.length >= 2 ? { type, dimensions: { ...d, items } } : null;
   }
-  if (context.solidShape && !['cuboid', 'cube', 'cylinder', 'cone', 'sphere'].includes(type)) return null;
-  if (['cuboid', 'cube', 'cylinder', 'cone', 'sphere'].includes(type)) {
+  if (context.solidShape && !solidTypes.has(type)) return null;
+  if (solidTypes.has(type)) {
     return { type, dimensions: d, unit };
   }
   if (type === 'polygon') {
@@ -583,7 +685,7 @@ const verifyShapeQuestionConsistency = (q) => {
   if (!shape) return true;
   if (!verifyNamedShapeDimensions(q, shape)) return false;
 
-  if (['bar_chart', 'line_chart', 'pie_chart'].includes(shape.type)) {
+  if (['picture_graph', 'bar_chart', 'line_chart', 'pie_chart', 'band_chart'].includes(shape.type)) {
     return verifyChartAnswer(q, shape);
   }
   if (shape.type === 'factor_list') return verifyFactorListShape(shape);
@@ -632,7 +734,7 @@ const isNearDuplicate = (left, right) => {
 
 const verifyFractionQuestionAnswer = (q) => {
   const question = String(q.question || '');
-  const expected = getFractionOperationExpected(question);
+  const expected = getFractionOperationExpected(question) || getFractionMulDivExpected(question);
   if (!expected) return true;
   const correct = parseSingleFractionValue(q.options?.[q.answerIndex] || '');
   return !!correct && sameFraction(correct, expected);
@@ -642,7 +744,11 @@ const verifyFractionExplanation = (q) => {
   const equations = String(q.explanation || '').match(
     /(?:\d+\s+(?:\d+\s*\/\s*\d+)|\d+\s*\/\s*\d+|\d+)(?:\s*[+-]\s*(?:\d+\s+(?:\d+\s*\/\s*\d+)|\d+\s*\/\s*\d+|\d+))+\s*=\s*(?:\d+\s+(?:\d+\s*\/\s*\d+)|\d+\s*\/\s*\d+|\d+)/g,
   ) || [];
-  return equations.every(equation => evalFractionEquation(equation) === true);
+  const mulDivEquations = String(q.explanation || '').match(
+    /(?:\d+\s+\d+\s*\/\s*\d+|\d+\s*\/\s*\d+|\d+)\s*[×xX*÷]\s*(?:\d+\s+\d+\s*\/\s*\d+|\d+\s*\/\s*\d+|\d+)\s*=\s*(?:\d+\s+\d+\s*\/\s*\d+|\d+\s*\/\s*\d+|\d+)(?!\s*[\/×xX*÷=])/g,
+  ) || [];
+  return equations.every(equation => evalFractionEquation(equation) === true)
+    && mulDivEquations.every(equation => evalFractionMulDivEquation(equation) === true);
 };
 
 const isOffTopicQuestion = (q, context = {}) => {
@@ -662,6 +768,55 @@ const isOffTopicQuestion = (q, context = {}) => {
     if (!context.graphLesson && includesAny(text, ['막대그래프', '꺾은선그래프', '원그래프'])) return true;
     if (!context.multiplicationLesson && (includesAny(text, ['곱셈', '곱셈구구']) || /[×xX]/.test(text))) return true;
     if ((text.match(/\d+/g) || []).some(value => Number(value) > 10000)) return true;
+  }
+  if (context.grade === 3) {
+    if (includesAny(text, ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '모서리'])) return true;
+    if (!context.fractionLesson && (includesAny(text, ['분수', '분모', '분자']) || /\d+\s*\/\s*\d+/.test(text))) return true;
+    if (includesAny(text, ['통분', '이분모', '약분']) || hasFractionAddSubExpression(text) || hasFractionMultiplyDivideExpression(text)) return true;
+    if (includesAny(text, ['막대그래프', '꺾은선그래프', '원그래프'])) return true;
+    if (!context.graphLesson && includesAny(text, ['그림그래프', '그래프'])) return true;
+    if (includesAny(text, ['예각', '둔각']) || /\d+\s*도/.test(text)) return true;
+    if (!context.multiplicationLesson && (includesAny(text, ['곱셈', '곱']) || /[×xX]/.test(text))) return true;
+    if (!context.divisionLesson && (includesAny(text, ['나눗셈', '나누기', '몫', '나머지']) || /÷/.test(text))) return true;
+  }
+  if (context.grade === 4) {
+    if (includesAny(text, ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '모서리'])) return true;
+    if (!context.fractionLesson && (includesAny(text, ['분수', '분모', '분자']) || /\d+\s*\/\s*\d+/.test(text))) return true;
+    if (includesAny(text, ['통분', '이분모', '약분']) || hasUnlikeDenominatorAddSub(text) || hasFractionMultiplyDivideExpression(text)) return true;
+    if (includesAny(text, ['원그래프', '그림그래프'])) return true;
+    if (!context.graphLesson && includesAny(text, ['막대그래프', '꺾은선그래프', '그래프'])) return true;
+    if (!context.multiplicationLesson && (includesAny(text, ['곱셈', '곱']) || /[×xX]/.test(text))) return true;
+    if (!context.divisionLesson && (includesAny(text, ['나눗셈', '나누기', '몫', '나머지']) || /÷/.test(text))) return true;
+  }
+  if (context.grade === 5) {
+    const fractionContext = context.fractionLesson || context.probabilityLesson;
+    if (!context.solidShape && includesAny(text, ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '모서리', '꼭짓점'])) return true;
+    if (context.solidShape && includesAny(text, ['각기둥', '각뿔', '원기둥', '원뿔', '구 모양', '구의 성질'])) return true;
+    if (!fractionContext && (includesAny(text, ['분수', '분모', '분자', '통분', '약분']) || /\d+\s*\/\s*\d+/.test(text))) return true;
+    if (hasFractionDivisionExpression(text)) return true;
+    if (hasFractionMultiplicationExpression(text) && !context.fractionMultiplyLesson) return true;
+    if (hasFractionAddSubExpression(text) && !context.fractionAddSubLesson) return true;
+    if (includesAny(text, ['통분', '약분']) && !(context.reductionCommonDenomLesson || context.fractionAddSubLesson)) return true;
+    if (hasDecimalDivisionExpression(text)) return true;
+    if (hasDecimalMultiplicationExpression(text) && !context.decimalMultiplyLesson) return true;
+    if (!context.graphLesson && includesAny(text, ['막대그래프', '꺾은선그래프', '원그래프', '띠그래프', '그림그래프'])) return true;
+  }
+  if (context.grade === 6) {
+    const fractionContext = context.fractionLesson || context.ratioLesson;
+    if (!context.solidShape && includesAny(text, ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '모서리', '꼭짓점'])) return true;
+    if (context.cuboidLesson && includesAny(text, ['각기둥', '각뿔', '원기둥', '원뿔', '구 모양', '구의 성질'])) return true;
+    if (context.prismPyramidLesson && includesAny(text, ['직육면체', '정육면체', '원기둥', '원뿔', '구 모양', '구의 성질'])) return true;
+    if (context.roundSolidLesson && includesAny(text, ['각기둥', '각뿔', '직육면체', '정육면체'])) return true;
+    if (context.spaceBlockLesson && includesAny(text, ['각기둥', '각뿔', '원기둥', '원뿔', '구 모양', '구의 성질'])) return true;
+    if (!fractionContext && (includesAny(text, ['분수', '분모', '분자', '통분', '약분']) || /\d+\s*\/\s*\d+/.test(text))) return true;
+    if (hasFractionAddSubExpression(text)) return true;
+    if (
+      (hasFractionDivisionExpression(text) || hasFractionMultiplicationExpression(text))
+      && !(context.fractionDivideLesson || context.ratioLesson)
+    ) return true;
+    if (hasDecimalMultiplicationExpression(text) && !context.decimalDivideLesson) return true;
+    if (hasDecimalDivisionExpression(text) && !context.decimalDivideLesson) return true;
+    if (!context.graphLesson && includesAny(text, ['막대그래프', '꺾은선그래프', '원그래프', '띠그래프', '그림그래프'])) return true;
   }
   if (!context.timeLesson && /시계|시침|분침|몇\s*시|몇\s*분|시간\s*(뒤|전)/.test(text)) return true;
   if (!context.angleLesson && /각도|몇\s*도|예각|둔각/.test(text)) return true;
@@ -734,7 +889,7 @@ function normalizeQuestion(q, index, context = {}) {
   if (wholeNumberExpected != null) {
     const wholeNumberOptions = options.map(parseWholeNumberOption);
     if (wholeNumberOptions.every(value => value != null)) {
-      const correctedIndex = uniqueIndex(wholeNumberOptions, value => value === wholeNumberExpected);
+      const correctedIndex = uniqueIndex(wholeNumberOptions, value => Math.abs(value - wholeNumberExpected) < 1e-9);
       if (correctedIndex < 0) return null;
       answerIndex = correctedIndex;
     }
@@ -752,8 +907,8 @@ function normalizeQuestion(q, index, context = {}) {
   if (isOffTopicQuestion(fractionFixed, context)) return null;
 
   const rawShapeType = q.shape?.type;
-  if (context.factorMultiple && ['bar_chart', 'line_chart', 'pie_chart'].includes(rawShapeType)) return null;
-  if (context.solidShape && rawShapeType && rawShapeType !== 'multi' && !['cuboid', 'cube', 'cylinder', 'cone', 'sphere'].includes(rawShapeType)) return null;
+  if (context.factorMultiple && ['picture_graph', 'bar_chart', 'line_chart', 'pie_chart', 'band_chart'].includes(rawShapeType)) return null;
+  if (context.solidShape && rawShapeType && rawShapeType !== 'multi' && !allowedSolidShapeTypes(context).has(rawShapeType)) return null;
 
   const shape = sanitizeShape(q.shape, context);
   if (q.shape && !shape) return null;
@@ -943,9 +1098,31 @@ const graphFallbackQuestions = (context) => {
     const maxIndex = chart.values.indexOf(Math.max(...chart.values));
     const minIndex = chart.values.indexOf(Math.min(...chart.values));
     const total = chart.values.reduce((sum, value) => sum + value, 0);
-    const graphType = context.lineGraphLesson ? 'line_chart' : 'bar_chart';
-    const graphName = context.lineGraphLesson ? '꺾은선그래프' : '막대그래프';
-    const shape = { type: graphType, dimensions: { ...chart } };
+    const graphType = context.pictureGraphLesson
+      ? 'picture_graph'
+      : context.bandGraphLesson
+        ? 'band_chart'
+        : context.pieGraphLesson
+          ? 'pie_chart'
+          : context.lineGraphLesson
+            ? 'line_chart'
+            : 'bar_chart';
+    const graphName = context.pictureGraphLesson
+      ? '그림그래프'
+      : context.bandGraphLesson
+        ? '띠그래프'
+        : context.pieGraphLesson
+          ? '원그래프'
+          : context.lineGraphLesson
+            ? '꺾은선그래프'
+            : '막대그래프';
+    const shape = {
+      type: graphType,
+      dimensions: {
+        ...chart,
+        ...(context.pictureGraphLesson ? { each: 1 } : {}),
+      },
+    };
     return [
       {
         question: `${chart.title} ${graphName}에서 값이 가장 큰 항목은 무엇인가요?`,
@@ -978,18 +1155,27 @@ const graphFallbackQuestions = (context) => {
   });
 };
 
-const solidShapeFallbackQuestions = () => [
-  ['밑면이 원 모양으로 1개이고 꼭짓점이 1개인 입체도형은 무엇인가요?', ['원뿔', '원기둥', '구', '정육면체'], 0, '원뿔은 원 모양의 밑면 1개와 꼭짓점 1개가 있습니다.'],
-  ['모든 면이 정사각형인 입체도형은 무엇인가요?', ['직육면체', '정육면체', '원기둥', '원뿔'], 1, '정육면체의 모든 면은 서로 같은 정사각형입니다.'],
-  ['평평한 면이 없고 어느 방향에서 보아도 둥근 입체도형은 무엇인가요?', ['구', '원뿔', '원기둥', '직육면체'], 0, '구는 평평한 면이 없고 어느 방향에서 보아도 둥글게 보입니다.'],
-  ['원 모양의 밑면이 2개인 입체도형은 무엇인가요?', ['원뿔', '구', '원기둥', '정육면체'], 2, '원기둥은 서로 평행하고 크기가 같은 원 모양의 밑면이 2개입니다.'],
-  ['직육면체의 면은 모두 몇 개인가요?', ['4개', '6개', '8개', '12개'], 1, '직육면체는 면이 모두 6개입니다.'],
-  ['정육면체의 꼭짓점은 모두 몇 개인가요?', ['6개', '8개', '10개', '12개'], 1, '정육면체의 꼭짓점은 모두 8개입니다.'],
-  ['직육면체의 모서리는 모두 몇 개인가요?', ['6개', '8개', '12개', '14개'], 2, '직육면체의 모서리는 모두 12개입니다.'],
-  ['다음 중 꼭짓점이 없는 입체도형은 무엇인가요?', ['원뿔', '정육면체', '직육면체', '구'], 3, '구에는 꼭짓점이 없습니다.'],
-].map(([question, options, answerIndex, explanation]) => ({
-  question, options, answerIndex, explanation, shape: null, skill: '입체도형 성질', difficultyTag: '기초',
-}));
+const solidShapeFallbackQuestions = (context) => {
+  const cuboid = [
+    ['모든 면이 정사각형인 입체도형은 무엇인가요?', ['직육면체', '정육면체', '직사각형', '정사각형'], 1, '정육면체의 모든 면은 서로 같은 정사각형입니다.'],
+    ['직육면체의 면은 모두 몇 개인가요?', ['4개', '6개', '8개', '12개'], 1, '직육면체는 면이 모두 6개입니다.'],
+    ['정육면체의 꼭짓점은 모두 몇 개인가요?', ['6개', '8개', '10개', '12개'], 1, '정육면체의 꼭짓점은 모두 8개입니다.'],
+    ['직육면체의 모서리는 모두 몇 개인가요?', ['6개', '8개', '12개', '14개'], 2, '직육면체의 모서리는 모두 12개입니다.'],
+  ];
+  const round = [
+    ['밑면이 원 모양으로 1개이고 꼭짓점이 1개인 입체도형은 무엇인가요?', ['원뿔', '원기둥', '구', '원'], 0, '원뿔은 원 모양의 밑면 1개와 꼭짓점 1개가 있습니다.'],
+    ['평평한 면이 없고 어느 방향에서 보아도 둥근 입체도형은 무엇인가요?', ['구', '원뿔', '원기둥', '원'], 0, '구는 평평한 면이 없고 어느 방향에서 보아도 둥글게 보입니다.'],
+    ['원 모양의 밑면이 2개인 입체도형은 무엇인가요?', ['원뿔', '구', '원기둥', '원'], 2, '원기둥은 서로 평행하고 크기가 같은 원 모양의 밑면이 2개입니다.'],
+    ['다음 중 꼭짓점이 없는 입체도형은 무엇인가요?', ['원뿔', '삼각형', '사각형', '구'], 3, '구에는 꼭짓점이 없습니다.'],
+  ];
+  const candidates = [
+    ...(context.cuboidLesson ? cuboid : []),
+    ...(context.roundSolidLesson ? round : []),
+  ];
+  return candidates.map(([question, options, answerIndex, explanation]) => ({
+    question, options, answerIndex, explanation, shape: null, skill: '입체도형 성질', difficultyTag: '기초',
+  }));
+};
 
 const symmetryFallbackQuestions = () => [
   [
@@ -1053,10 +1239,10 @@ const symmetryFallbackQuestions = () => [
 }));
 
 const deterministicFallbackQuestions = (context) => {
-  if (context.fractionLesson) return fractionFallbackQuestions(context);
-  if (context.graphLesson && !context.pieGraphLesson) return graphFallbackQuestions(context);
+  if (context.fractionLesson && context.fractionAddSubLesson) return fractionFallbackQuestions(context);
+  if (context.graphLesson) return graphFallbackQuestions(context);
   if (context.symmetryLesson) return symmetryFallbackQuestions();
-  if (context.solidShape) return solidShapeFallbackQuestions();
+  if (context.solidShape) return solidShapeFallbackQuestions(context);
   return [];
 };
 
@@ -1153,7 +1339,7 @@ function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
 [Solid-shape visual rules]
 - This lesson is about three-dimensional solids.
 - Do not use flat 2D shapes such as rectangle, square, circle, or triangle as the visual for solid-shape questions.
-- Use cuboid, cube, cylinder, cone, sphere, or multi with only those solid types.
+- Use cuboid, cube, triangular_prism, square_pyramid, cylinder, cone, sphere, or multi with only the solid types allowed by the exact lesson.
 - If the question asks about a real-life object, the visual must still show the matching solid type, not a flat face.
 `
     : '';
@@ -1180,6 +1366,47 @@ function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
 - For "여러 가지 도형", use grade-appropriate triangle, quadrilateral, circle, tangram, and block-stacking activities.
 `
     : '';
+  const gradeThreeRules = Number(grade) === 3
+    ? `
+[Grade 3 scope rules]
+- Use only the exact unit, lesson title, learning goal, and keywords shown below.
+- Never create formal solid-geometry questions. Cuboids, cubes, cylinders, cones, prisms, pyramids, faces, and edges are outside Grade 3 scope.
+- Fractions are limited to meaning, representation, size, and comparison. Never create fraction addition, subtraction, multiplication, division, reduction, or common-denominator questions.
+- Use only picture graphs for graph lessons. Never create bar, line, or pie graph questions.
+- Angle content is limited to right-angle recognition. Never use degree measures, acute angles, or obtuse angles.
+- Create multiplication or division questions only when the lesson title or unit explicitly covers that operation.
+`
+    : '';
+  const gradeFourRules = Number(grade) === 4
+    ? `
+[Grade 4 scope rules]
+- Use only the exact unit, lesson title, learning goal, and keywords shown below.
+- Never create formal solid-geometry questions. Cuboids, cubes, cylinders, cones, prisms, pyramids, faces, and edges are outside Grade 4 scope.
+- Fraction addition and subtraction must use the same denominator only. Never create unlike-denominator, common-denominator, reduction, fraction multiplication, or fraction division questions.
+- Graph questions may use bar graphs or line graphs only when the lesson explicitly covers them. Never create picture graphs or pie graphs.
+- Create multiplication or division questions only when the lesson title or unit explicitly covers that operation.
+`
+    : '';
+  const gradeFiveRules = Number(grade) === 5
+    ? `
+[Grade 5 scope rules]
+- Use only the exact unit, lesson title, learning goal, and keywords shown below.
+- Solid geometry is limited to cuboids and cubes, and only in the cuboid unit. Never use prisms, pyramids, cylinders, cones, or spheres.
+- Fraction addition/subtraction, fraction multiplication, reduction/common denominators, decimals multiplication, and probability must appear only in their matching units.
+- Never create fraction division or decimal division questions.
+- Do not create graph questions unless the lesson explicitly covers data, graphs, averages, or probability.
+`
+    : '';
+  const gradeSixRules = Number(grade) === 6
+    ? `
+[Grade 6 scope rules]
+- Use only the exact unit, lesson title, learning goal, and keywords shown below.
+- Match solid geometry to its unit: cuboids only for volume/surface-area lessons, prisms/pyramids only for prism/pyramid lessons, cubes only for block-stacking lessons, and cylinders/cones/spheres only for their named unit.
+- Fraction operations are limited to fraction division lessons. Ratios and percentages may use a fraction as a representation, but must not introduce unrelated fraction operations.
+- Decimal operations are limited to decimal division. Never create decimal multiplication questions.
+- Graph questions belong only to graph lessons. For the "여러 가지 그래프" unit, use band_chart or pie_chart when appropriate.
+`
+    : '';
 
   return `당신은 대한민국 초등 수학 평가 문항을 만드는 교사입니다.
 아래 수업 정보에 맞춰 학생용 AI 학습 콘텐츠를 완전한 JSON 하나로만 생성하세요.
@@ -1190,6 +1417,10 @@ ${factorRules}
 ${solidShapeRules}
 ${gradeOneRules}
 ${gradeTwoRules}
+${gradeThreeRules}
+${gradeFourRules}
+${gradeFiveRules}
+${gradeSixRules}
 ${questionMixGuide}
 [수업 정보]
 - 학년/학기: 초등학교 ${grade}학년${semester ? ` ${semester}학기` : ''}
@@ -1220,16 +1451,18 @@ ${questionMixGuide}
 - 자: {"type":"ruler","dimensions":{"total":10,"highlight":{"from":2,"to":7}},"unit":"cm"}
 - 분수막대: {"type":"fraction_bar","dimensions":{"total":5,"filled":3}}
 - 수직선: {"type":"number_line","dimensions":{"min":0,"max":10,"marks":[3,7],"highlight":{"from":3,"to":7}}}
+- 그림그래프: {"type":"picture_graph","dimensions":{"title":"좋아하는 과일","labels":["사과","배"],"values":[5,8],"unit":"명","each":1}}
 - 막대그래프: {"type":"bar_chart","dimensions":{"title":"좋아하는 과일","labels":["사과","배"],"values":[5,8],"unit":"명"}}
 - 꺾은선그래프: {"type":"line_chart","dimensions":{"title":"기온 변화","labels":["월","화","수"],"values":[12,15,13],"unit":"도"}}
 - 원그래프: {"type":"pie_chart","dimensions":{"title":"선호 조사","labels":["사과","배","귤"],"values":[4,3,3]}}
+- 띠그래프: {"type":"band_chart","dimensions":{"title":"선호 조사","labels":["사과","배","귤"],"values":[40,30,30],"unit":"%"}}
 - 도형 비교: {"type":"multi","dimensions":{"items":["circle","rectangle","triangle"]}}
 - 도형: rectangle, square, circle, right_triangle, parallelogram, rhombus, trapezoid 등을 사용할 수 있습니다.
-- 입체도형: cuboid(직육면체), cube(정육면체), cylinder(원기둥), cone(원뿔), sphere(구)를 사용할 수 있습니다.
+- 입체도형: cuboid(직육면체), cube(정육면체), triangular_prism(삼각기둥), square_pyramid(사각뿔), cylinder(원기둥), cone(원뿔), sphere(구)를 사용할 수 있습니다.
 - 입체도형 비교: {"type":"multi","dimensions":{"items":["cuboid","cube","cylinder","cone"]}}
 - 대칭: {"type":"symmetry","dimensions":{"axis":"vertical","cells":[{"x":1,"y":1},{"x":2,"y":3}]}}
 - 약수/공약수 목록: {"type":"factor_list","dimensions":{"groups":[{"label":"8의 약수","values":[1,2,4,8]},{"label":"12의 약수","values":[1,2,3,4,6,12]}],"highlight":[1,2,4]}}
-- 그래프는 labels와 values 개수를 반드시 같게 만들고, values에는 숫자만 넣으세요.
+- 그래프는 labels와 values 개수를 반드시 같게 만들고, values에는 숫자만 넣으세요. 그림그래프는 각 value가 each의 배수여야 합니다.
 - 대칭은 좌표평면 계산이 아니라 격자에서 대칭축을 기준으로 같은 위치를 찾는 초등 수준 문제에만 쓰세요.
 - 직육면체/정육면체/원기둥/원뿔/구 문제에서는 rectangle, square, circle 같은 2D 도형으로 대체하지 말고 입체도형 타입을 쓰세요.
 - 약수/공약수/배수/공배수 문제에서는 그래프를 쓰지 말고 factor_list를 쓰세요.
