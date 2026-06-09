@@ -11,13 +11,18 @@ const MASTERY = {
 };
 const MASTERY_ATTEMPTS = 4;
 const COURSEWARE_PREGENERATE_COUNT = 20;
+const COURSEWARE_MIN_COMPLETE_COUNT = 5;
 const COURSEWARE_QUALITY_VERSION = 'quality-v19-grade56-scope-guard';
+const LOW_GRADE_COMPATIBLE_VERSION = 'quality-v17-low-grade-scope-guard';
+const isCompatibleGeneratorVersion = (data) =>
+  data?.generatorVersion === COURSEWARE_QUALITY_VERSION ||
+  (Number(data?.grade) <= 2 && data?.generatorVersion === LOW_GRADE_COMPATIBLE_VERSION);
 const isCurrentLessonContent = (data) =>
-  data?.generatorVersion === COURSEWARE_QUALITY_VERSION &&
+  isCompatibleGeneratorVersion(data) &&
   Array.isArray(data.questions);
 const isFreshLessonContent = (data) =>
   isCurrentLessonContent(data) &&
-  data.questions.length >= COURSEWARE_PREGENERATE_COUNT;
+  data.questions.length >= COURSEWARE_MIN_COMPLETE_COUNT;
 const getMasteryLevel = (avg) =>
   avg >= 90 ? 'excellent' : avg >= 75 ? 'good' : avg >= 60 ? 'normal' : 'retry';
 
@@ -909,12 +914,23 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
       typeCounts[bucket] += 1;
       if (merged.length >= COURSEWARE_PREGENERATE_COUNT) break;
     }
+    // Prefer the target type balance, but accept other validated unique
+    // questions when a strict bucket target would keep the pool incomplete.
+    if (merged.length < COURSEWARE_MIN_COMPLETE_COUNT) {
+      for (const question of addQuestions) {
+        const key = questionFingerprint(question);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(question);
+        if (merged.length >= COURSEWARE_MIN_COMPLETE_COUNT) break;
+      }
+    }
     return {
       ...baseData,
       ...addData,
       questions: merged,
       poolSize: merged.length,
-      isPartialPool: merged.length < COURSEWARE_PREGENERATE_COUNT,
+      isPartialPool: merged.length < COURSEWARE_MIN_COMPLETE_COUNT,
     };
   };
 
@@ -1006,7 +1022,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     return {
       added: afterCount - beforeCount,
       total: afterCount,
-      complete: afterCount >= COURSEWARE_PREGENERATE_COUNT,
+      complete: afterCount >= COURSEWARE_MIN_COMPLETE_COUNT,
     };
   };
 
