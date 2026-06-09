@@ -24,6 +24,7 @@ public class SkillManager : MonoBehaviour
 
     private readonly Dictionary<string, SkillEntry> _entries = new Dictionary<string, SkillEntry>();
     private readonly Dictionary<string, IDungeonSkill> _runtimeSkills = new Dictionary<string, IDungeonSkill>();
+    private readonly Dictionary<string, float> _cooldownEndsAt = new Dictionary<string, float>();
 
     private void Awake()
     {
@@ -52,16 +53,22 @@ public class SkillManager : MonoBehaviour
     public bool IsReady(string skillId)
     {
         IDungeonSkill skill = GetOrCreateSkill(skillId);
-        return skill != null && skill.IsReady;
+        return skill != null && skill.IsReady && !IsOnCooldown(skillId);
     }
 
     public bool UseSkill(string skillId)
     {
         IDungeonSkill skill = GetOrCreateSkill(skillId);
-        if (skill == null || !skill.IsReady) return false;
+        if (skill == null || !skill.IsReady || IsOnCooldown(skillId)) return false;
 
         skill.Activate();
+        _cooldownEndsAt[skillId] = Time.time + Mathf.Max(0f, skill.Cooldown);
         return true;
+    }
+
+    private bool IsOnCooldown(string skillId)
+    {
+        return _cooldownEndsAt.TryGetValue(skillId, out float endsAt) && Time.time < endsAt;
     }
 
     private void RebuildCache()

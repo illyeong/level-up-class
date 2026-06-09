@@ -20,7 +20,15 @@ const isCurrentLessonContent = (data) =>
   Array.isArray(data.questions);
 const isFreshLessonContent = (data) =>
   isCurrentLessonContent(data) &&
-  data.questions.length >= COURSEWARE_PREGENERATE_COUNT;
+  data.questions.length >= COURSEWARE_PREGENERATE_COUNT &&
+  data.questions.every(question => {
+    const options = Array.isArray(question?.options) ? question.options : [];
+    return options.length === 4
+      && Number.isInteger(question?.answerIndex)
+      && question.answerIndex >= 0
+      && question.answerIndex <= 3
+      && new Set(options.map(option => String(option).normalize('NFKC').replace(/\s+/g, '').toLowerCase())).size === 4;
+  });
 const getMasteryLevel = (avg) =>
   avg >= 90 ? 'excellent' : avg >= 75 ? 'good' : avg >= 60 ? 'normal' : 'retry';
 
@@ -875,6 +883,13 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
       .replace(/\s+/g, '')
       .slice(0, 90);
 
+  const isUsablePoolQuestion = (question) => {
+    const options = Array.isArray(question?.options) ? question.options : [];
+    if (options.length !== 4) return false;
+    if (!Number.isInteger(question?.answerIndex) || question.answerIndex < 0 || question.answerIndex > 3) return false;
+    return new Set(options.map(option => String(option).normalize('NFKC').replace(/\s+/g, '').toLowerCase())).size === 4;
+  };
+
   const QUESTION_TYPE_TARGETS = {
     concept: 2,
     core: 12,
@@ -898,8 +913,8 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     }, { concept: 0, core: 0, word: 0, applied: 0 });
 
   const mergeQuestionContent = (baseData, addData) => {
-    const baseQuestions = Array.isArray(baseData?.questions) ? baseData.questions : [];
-    const addQuestions = Array.isArray(addData?.questions) ? addData.questions : [];
+    const baseQuestions = Array.isArray(baseData?.questions) ? baseData.questions.filter(isUsablePoolQuestion) : [];
+    const addQuestions = Array.isArray(addData?.questions) ? addData.questions.filter(isUsablePoolQuestion) : [];
     const merged = [...baseQuestions];
     const seen = new Set(baseQuestions.map(questionFingerprint));
     const typeCounts = questionTypeCounts(baseQuestions);

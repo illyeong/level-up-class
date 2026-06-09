@@ -3,6 +3,9 @@ using UnityEngine.UI;
 using TMPro;
 using UnityEngine.EventSystems;
 using LayerLab.ArtMaker;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
 /// 스킬 버튼 UI 관리.
@@ -48,6 +51,33 @@ public class SkillButtonUI : MonoBehaviour, IPointerDownHandler
     public bool testThunderGod = false;
     [Tooltip("에디터 테스트용 스킬 ID. 예: thunder_god, fire_breath, explosive_bomb")]
     public string testSkillId = "";
+
+    public static void ConfigureSlots(IEnumerable<string> skillIds)
+    {
+        var uniqueSkills = (skillIds ?? Array.Empty<string>())
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct()
+            .ToArray();
+
+        var allSlots = FindObjectsByType<SkillButtonUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        var sharedCanvas = DungeonSharedCanvas.Instance;
+        var slots = allSlots
+            .Where(slot => sharedCanvas == null || slot.transform.IsChildOf(sharedCanvas.transform))
+            .OrderBy(slot => slot.gameObject.name, StringComparer.Ordinal)
+            .ThenBy(slot => slot.transform.GetSiblingIndex())
+            .ToArray();
+
+        foreach (var slot in allSlots.Except(slots))
+            slot.HideSkill();
+
+        for (int i = 0; i < slots.Length; i++)
+        {
+            if (i < uniqueSkills.Length)
+                slots[i].ShowSkill(uniqueSkills[i]);
+            else
+                slots[i].HideSkill();
+        }
+    }
 
     void Awake()
     {

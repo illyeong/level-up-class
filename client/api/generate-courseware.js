@@ -181,14 +181,21 @@ const evaluateWholeNumberExpression = (text) => {
   const numbers = String(text || '').match(/\d+(?:\.\d+)?/g)?.map(Number) || [];
   const operators = String(text || '').match(/[+\-×xX*÷]/g) || [];
   if (numbers.length < 2 || operators.length !== numbers.length - 1) return null;
-  const result = operators.reduce(
-    (value, operator, index) => {
-      if (operator === '+') return value + numbers[index + 1];
-      if (operator === '-') return value - numbers[index + 1];
-      if (operator === '÷') return numbers[index + 1] === 0 ? NaN : value / numbers[index + 1];
-      return value * numbers[index + 1];
-    },
-    numbers[0],
+  const reducedNumbers = [numbers[0]];
+  const reducedOperators = [];
+  operators.forEach((operator, index) => {
+    const next = numbers[index + 1];
+    if (operator === '×' || operator === 'x' || operator === 'X' || operator === '*' || operator === '÷') {
+      const previous = reducedNumbers.pop();
+      reducedNumbers.push(operator === '÷' ? (next === 0 ? NaN : previous / next) : previous * next);
+    } else {
+      reducedOperators.push(operator);
+      reducedNumbers.push(next);
+    }
+  });
+  const result = reducedOperators.reduce(
+    (value, operator, index) => operator === '+' ? value + reducedNumbers[index + 1] : value - reducedNumbers[index + 1],
+    reducedNumbers[0],
   );
   return Number.isFinite(result) ? result : null;
 };
@@ -872,6 +879,7 @@ function normalizeQuestion(q, index, context = {}) {
     ? q.options.map(stripOptionPrefix).filter(Boolean).slice(0, 4)
     : [];
   if (options.length !== 4) return null;
+  if (new Set(options.map(option => normalizeText(option).replace(/\s+/g, ''))).size !== 4) return null;
 
   let answerIndex = Number(q.answerIndex);
   if (!Number.isInteger(answerIndex) || answerIndex < 0 || answerIndex > 3) answerIndex = 0;

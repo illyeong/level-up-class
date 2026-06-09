@@ -23,6 +23,13 @@ const questionFingerprint = (q) =>
     .replace(/\s+/g, '')
     .slice(0, 90);
 
+const isUsablePoolQuestion = (question) => {
+  const options = Array.isArray(question?.options) ? question.options : [];
+  if (options.length !== 4) return false;
+  if (!Number.isInteger(question?.answerIndex) || question.answerIndex < 0 || question.answerIndex > 3) return false;
+  return new Set(options.map(option => String(option).normalize('NFKC').replace(/\s+/g, '').toLowerCase())).size === 4;
+};
+
 const lessonAttemptId = (studentCode, key) => `${studentCode}_${key}`;
 
 const enrichQuestionPool = (data, key) => ({
@@ -68,6 +75,7 @@ function shouldRefreshLessonContent(data) {
   if (!data) return true;
   if (data.generatorVersion !== COURSEWARE_QUALITY_VERSION) return true;
   if (!Array.isArray(data.questions) || data.questions.length < POOL_TARGET_Q_NUM) return true;
+  if (data.questions.some(question => !isUsablePoolQuestion(question))) return true;
   return false;
 }
 
@@ -285,8 +293,8 @@ const saveLessonContentCache = (unit, lesson, data) => {
 };
 
 const mergeLessonContentQuestions = (baseData, addData) => {
-  const baseQuestions = Array.isArray(baseData?.questions) ? baseData.questions : [];
-  const addQuestions = Array.isArray(addData?.questions) ? addData.questions : [];
+  const baseQuestions = Array.isArray(baseData?.questions) ? baseData.questions.filter(isUsablePoolQuestion) : [];
+  const addQuestions = Array.isArray(addData?.questions) ? addData.questions.filter(isUsablePoolQuestion) : [];
   const merged = [...baseQuestions];
   const seen = new Set(baseQuestions.map(questionFingerprint));
   for (const question of addQuestions) {

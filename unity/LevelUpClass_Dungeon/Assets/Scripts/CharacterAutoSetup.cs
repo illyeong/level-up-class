@@ -33,21 +33,12 @@ public class CharacterAutoSetup : MonoBehaviour
         skills = DeduplicateSkills(skills);
 
         // 비활성 오브젝트도 포함해서 탐색
-        var uiList = FindObjectsByType<SkillButtonUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        for (int i = 0; i < uiList.Length; i++)
-        {
-            if (i < skills.Length)
-                uiList[i].ShowSkill(skills[i]);
-            else
-                uiList[i].HideSkill();
-        }
+        SkillButtonUI.ConfigureSlots(skills);
     }
 
     void HideAllSkillButtons()
     {
-        var uiList = FindObjectsByType<SkillButtonUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        foreach (var ui in uiList)
-            ui.HideSkill();
+        SkillButtonUI.ConfigureSlots(System.Array.Empty<string>());
     }
 
     string[] DeduplicateSkills(string[] skills)

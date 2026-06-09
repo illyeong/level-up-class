@@ -70,14 +70,7 @@ public class DungeonCharacterLoader : MonoBehaviour
             }
 
             // 이미 씬에 있는 SkillButtonUI에 직접 주입 (비활성 포함 — 숨겨진 버튼도 탐색)
-            var uiList = FindObjectsByType<SkillButtonUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            for (int i = 0; i < uiList.Length; i++)
-            {
-                if (i < GameManager.Instance.selectedSkills.Length)
-                    uiList[i].ShowSkill(GameManager.Instance.selectedSkills[i]);
-                else
-                    uiList[i].HideSkill();
-            }
+            SkillButtonUI.ConfigureSlots(GameManager.Instance.selectedSkills);
         }
 
         // 캐릭터 데이터 적용이 끝난 뒤에만 던전 씬으로 이동
