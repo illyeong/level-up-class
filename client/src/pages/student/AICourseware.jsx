@@ -12,6 +12,7 @@ const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
 const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
 const POOL_TARGET_Q_NUM = 20;
+const COURSEWARE_QUALITY_VERSION = 'quality-v17-low-grade-scope-guard';
 const MASTERY_ATTEMPTS = 4; // 숙달도 판정에 사용할 최고 점수 개수
 
 const questionFingerprint = (q) =>
@@ -65,6 +66,7 @@ function saveRecentQuestionKeys(key, selectedKeys, max = 20) {
 
 function shouldRefreshLessonContent(data) {
   if (!data) return true;
+  if (data.generatorVersion !== COURSEWARE_QUALITY_VERSION) return true;
   if (!Array.isArray(data.questions) || data.questions.length < POOL_TARGET_Q_NUM) return true;
   return false;
 }

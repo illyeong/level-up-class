@@ -11,10 +11,12 @@ const MASTERY = {
 };
 const MASTERY_ATTEMPTS = 4;
 const COURSEWARE_PREGENERATE_COUNT = 20;
-const COURSEWARE_QUALITY_VERSION = 'quality-v15-balanced-question-types';
-const isFreshLessonContent = (data) =>
+const COURSEWARE_QUALITY_VERSION = 'quality-v17-low-grade-scope-guard';
+const isCurrentLessonContent = (data) =>
   data?.generatorVersion === COURSEWARE_QUALITY_VERSION &&
-  Array.isArray(data.questions) &&
+  Array.isArray(data.questions);
+const isFreshLessonContent = (data) =>
+  isCurrentLessonContent(data) &&
   data.questions.length >= COURSEWARE_PREGENERATE_COUNT;
 const getMasteryLevel = (avg) =>
   avg >= 90 ? 'excellent' : avg >= 75 ? 'good' : avg >= 60 ? 'normal' : 'retry';
@@ -698,7 +700,10 @@ const buildAutoLessonContextV2 = (unit, lesson) => {
 
   const isLowerGrade = grade <= 2;
   const isUnitReview = has([/단원평가/, /단원\s*종합/, /복습/]);
-  const isShapeUnit = has([/여러\s*가지\s*모양/, /모양\s*찾기/, /모양\s*놀이/, /생활\s*속\s*모양/, /분류/]);
+  const isShapeUnit = has([/여러\s*가지\s*모양/, /모양\s*찾기/, /모양\s*놀이/, /생활\s*속\s*모양/]);
+  const isGradeTwoShapeUnit = grade === 2 && /여러\s*가지\s*도형/.test(unitName);
+  const isGradeTwoStacking = grade === 2 && has([/쌓은\s*모양/, /모양으로\s*쌓/, /쌓기나무/]);
+  const isClassification = has([/분류하기/, /분류는\s*어떻게/, /기준에\s*따라\s*분류/, /분류하고\s*세어/, /분류한\s*결과/]);
   const isSameDenomFraction = has([/분모가\s*같/, /같은\s*분모/, /동분모/, /분모는\s*그대로/, /분자끼리/, /분수의\s*덧셈/]);
   const isFraction = isSameDenomFraction || has([/분수/, /분모/, /분자/, /진분수/, /가분수/, /대분수/]);
   const isClock = has([/시각/, /시계/, /몇\s*시/, /몇\s*분/, /오전/, /오후/, /시간의\s*흐름/]);
@@ -706,6 +711,29 @@ const buildAutoLessonContextV2 = (unit, lesson) => {
   const isGeometry = isShapeUnit || has([/도형/, /각도/, /삼각형/, /사각형/, /원\b/, /둘레/, /넓이/, /부피/, /입체/]);
 
   const focusGuide = (() => {
+    if (isGradeTwoStacking) {
+      return [
+        '- 쌓기나무의 개수, 위치, 쌓은 순서와 모양을 관찰한다.',
+        '- 앞, 옆, 위에서 보이는 모양과 쌓기나무 개수를 차시 범위에 맞게 묻는다.',
+        '- 금지: 직육면체, 정육면체, 모서리 같은 고학년 입체도형 용어는 사용하지 않는다.',
+      ];
+    }
+    if (isGradeTwoShapeUnit) {
+      return [
+        '- 삼각형, 사각형, 원을 찾아보고 모양의 특징에 따라 구별한다.',
+        '- 삼각형은 변과 꼭짓점이 각각 3개, 사각형은 각각 4개임을 차시에 맞게 다룬다.',
+        '- 칠교판 활동은 도형을 합치거나 나누어 새로운 모양을 만드는 활동으로 구성한다.',
+        '- 금지: 각도, 둘레, 넓이, 직육면체, 정육면체 같은 상위 학년 개념은 사용하지 않는다.',
+      ];
+    }
+    if (isClassification) {
+      return [
+        '- 하나의 분명한 기준을 정해 자료를 빠짐없이 분류한다.',
+        '- 분류한 항목별 개수를 세고 가장 많은 것, 가장 적은 것, 개수 차이를 말한다.',
+        '- 분류 기준과 결과가 서로 맞는지 확인하는 문제를 만든다.',
+        '- 금지: 분류와 무관한 도형 성질, 시계, 곱셈 문제로 바꾸지 않는다.',
+      ];
+    }
     if (isShapeUnit && isLowerGrade) {
       return [
         '- 동그라미 모양, 세모 모양, 네모 모양처럼 생활 속 물건에서 비슷한 모양을 찾는다.',
@@ -844,16 +872,41 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
       .replace(/\s+/g, '')
       .slice(0, 90);
 
+  const QUESTION_TYPE_TARGETS = {
+    concept: 2,
+    core: 12,
+    word: 4,
+    applied: 2,
+  };
+
+  const questionTypeBucket = (question) => {
+    const text = `${question?.skill || ''} ${question?.question || ''}`;
+    if (/개념\s*확인|개념/.test(text)) return 'concept';
+    if (/생활\s*문장|문장제|생활\s*속|실생활/.test(text)) return 'word';
+    if (/응용|오류|잘못|틀린|바르지\s*않/.test(text)) return 'applied';
+    return 'core';
+  };
+
+  const questionTypeCounts = (questions = []) =>
+    questions.reduce((counts, question) => {
+      const bucket = questionTypeBucket(question);
+      counts[bucket] += 1;
+      return counts;
+    }, { concept: 0, core: 0, word: 0, applied: 0 });
+
   const mergeQuestionContent = (baseData, addData) => {
     const baseQuestions = Array.isArray(baseData?.questions) ? baseData.questions : [];
     const addQuestions = Array.isArray(addData?.questions) ? addData.questions : [];
     const merged = [...baseQuestions];
     const seen = new Set(baseQuestions.map(questionFingerprint));
+    const typeCounts = questionTypeCounts(baseQuestions);
     for (const question of addQuestions) {
       const key = questionFingerprint(question);
-      if (!key || seen.has(key)) continue;
+      const bucket = questionTypeBucket(question);
+      if (!key || seen.has(key) || typeCounts[bucket] >= QUESTION_TYPE_TARGETS[bucket]) continue;
       seen.add(key);
       merged.push(question);
+      typeCounts[bucket] += 1;
       if (merged.length >= COURSEWARE_PREGENERATE_COUNT) break;
     }
     return {
@@ -869,9 +922,11 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     const key = lkey(unit, lesson);
     const ref = doc(db, 'aiLessonContent', key);
     const existingSnap = await getDoc(ref);
-    let mergedData = existingSnap.exists() ? existingSnap.data() : null;
+    const existingData = existingSnap.exists() ? existingSnap.data() : null;
+    // 현재 버전의 미완성 풀만 이어서 채우고, 구버전 풀은 섞지 않고 새로 생성합니다.
+    let mergedData = isCurrentLessonContent(existingData) ? existingData : null;
 
-    if ((mergedData?.questions?.length || 0) >= COURSEWARE_PREGENERATE_COUNT) {
+    if (isFreshLessonContent(mergedData)) {
       return { added: 0, total: mergedData.questions.length, complete: true };
     }
 
@@ -888,8 +943,13 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     )
       .map(([skill, count]) => `${skill}: ${count}문항`)
       .join(', ');
+    const currentTypeCounts = questionTypeCounts(mergedData?.questions || []);
+    const typeDeficits = Object.entries(QUESTION_TYPE_TARGETS)
+      .map(([type, target]) => `${type}: ${currentTypeCounts[type]}/${target}`)
+      .join(', ');
     const chunkContext = [
       lessonContext,
+      `[최종 20문항 유형 목표]\n개념 확인 2, 핵심 기능 연습 12, 생활 문장제 4, 응용·오류 찾기 2\n현재 분포: ${typeDeficits}\n목표보다 부족한 유형을 우선 생성하세요.`,
       existingSkillSummary
         ? `[이미 생성된 문제 유형 분포]\n${existingSkillSummary}\n많이 나온 유형은 피하고 부족한 유형을 우선 생성하세요.`
         : '',
@@ -1036,14 +1096,18 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
   const getLessonContextForPreGenerate = async (unit, lesson) => {
     const key = lkey(unit, lesson);
     const snap = await getDoc(doc(db, 'aiLessonContext', key));
-    const savedText = snap.exists() ? String(snap.data()?.text || '').trim() : '';
+    const savedData = snap.exists() ? snap.data() : null;
+    const savedText = String(savedData?.text || '').trim();
+    if (savedData?.source === 'auto-generated') {
+      return buildAutoLessonContextV2(unit, lesson).slice(0, 3000);
+    }
     if (savedText) return savedText.slice(0, 3000);
     return buildAutoLessonContextV2(unit, lesson).slice(0, 3000);
   };
 
-  const collectPreGenerateLessons = (targetUnits) => targetUnits.flatMap(unit => (unit.lessons || [])
-    .filter(lesson => !String(lesson.title || '').includes('도입'))
-    .map(lesson => ({ unit, lesson })));
+  const collectPreGenerateLessons = (targetUnits) => targetUnits.flatMap(unit =>
+    (unit.lessons || []).map(lesson => ({ unit, lesson }))
+  );
 
   const loadGradeUnitsForPreGenerate = async (grades = ['1', '2', '3', '4', '5', '6']) => {
     const snaps = await Promise.all(grades.map(grade =>
@@ -1076,7 +1140,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
 
     const gradeLabel = allGrades ? '1~6학년' : `${targetGrade || unitGrade}학년`;
     const semLabel = unitSem === 'all' ? '전체 학기' : `${unitSem}학기`;
-    if (!window.confirm(`${gradeLabel} ${semLabel} 전체 차시에 AI 학습 문제를 5문항씩 추가 생성할까요?\n${COURSEWARE_PREGENERATE_COUNT}문항 이상 있는 차시는 건너뜁니다.`)) return;
+    if (!window.confirm(`${gradeLabel} ${semLabel}에서 20문항 미만 또는 구버전인 차시만 생성할까요?\n현재 버전 20문항이 준비된 차시는 자동으로 건너뜁니다.`)) return;
 
     setBulkContentGenerating(true);
     setBulkContentStatus({
@@ -1238,7 +1302,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
             disabled={bulkContentGenerating || loadingUnits || !filteredUnits.length}
             className="w-full px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold disabled:opacity-50 transition-colors"
           >
-            {bulkContentGenerating ? '문제 생성 중...' : '전체 차시 5문항씩 추가 생성'}
+            {bulkContentGenerating ? '문제 생성 중...' : '미완성·구버전 차시 문제 생성'}
           </button>
           <div className="grid grid-cols-3 gap-1.5 mt-2">
             {['1', '2', '3', '4', '5', '6'].map(grade => (
@@ -1253,7 +1317,10 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
             ))}
           </div>
           <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
-            실행할 때마다 차시별로 최대 5문항씩 추가합니다. 여러 번 실행해 20문항까지 채우며, 20문항이 있는 차시는 자동으로 건너뜁니다.
+            현재 버전 문제 20문항 미만이거나 구버전인 차시만 생성합니다. 구버전 문제는 섞지 않고 새 문제로 교체하며, 실행할 때마다 차시별 최대 5문항씩 20문항까지 채웁니다.
+          </p>
+          <p className="mt-1 text-[10px] leading-relaxed text-indigo-600">
+            유형 목표: 개념 확인 2 · 핵심 기능 12 · 생활 문장제 4 · 응용·오류 2
           </p>
           {bulkContentGenerating && (
             <div className="mt-3 space-y-2">

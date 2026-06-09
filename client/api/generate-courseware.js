@@ -8,7 +8,7 @@ const SHAPE_TYPES = new Set([
   'cuboid', 'cube', 'cylinder', 'cone', 'sphere', 'factor_list',
 ]);
 
-const COURSEWARE_GENERATOR_VERSION = 'quality-v15-balanced-question-types';
+const COURSEWARE_GENERATOR_VERSION = 'quality-v17-low-grade-scope-guard';
 
 const stripOptionPrefix = (value) =>
   String(value ?? '')
@@ -157,6 +157,48 @@ const uniqueIndex = (items, predicate) => {
   return matches.filter(Boolean).length === 1 ? matches.findIndex(Boolean) : -1;
 };
 
+const evaluateWholeNumberExpression = (text) => {
+  const numbers = String(text || '').match(/\d+/g)?.map(Number) || [];
+  const operators = String(text || '').match(/[+\-×xX*]/g) || [];
+  if (numbers.length < 2 || operators.length !== numbers.length - 1) return null;
+  return operators.reduce(
+    (value, operator, index) => {
+      if (operator === '+') return value + numbers[index + 1];
+      if (operator === '-') return value - numbers[index + 1];
+      return value * numbers[index + 1];
+    },
+    numbers[0],
+  );
+};
+
+const getWholeNumberExpected = (text) => {
+  const source = String(text || '');
+  const expressionPattern = /(\d+\s*[+\-×xX*]\s*\d+(?:\s*[+\-×xX*]\s*\d+)?)/;
+  const equation = source.match(new RegExp(`${expressionPattern.source}\\s*=\\s*[?□]`));
+  if (equation) return evaluateWholeNumberExpression(equation[1]);
+  if (!includesAny(source, ['계산하세요', '계산하면', '계산하여', '계산을 하세요', '값은 얼마'])) return null;
+  const expressions = source.match(new RegExp(expressionPattern.source, 'g')) || [];
+  return expressions.length === 1 ? evaluateWholeNumberExpression(expressions[0]) : null;
+};
+
+const parseWholeNumberOption = (value) => {
+  const match = String(value ?? '').trim().match(/^(-?\d+)(?:개|명|마리|자루|점)?$/);
+  return match ? Number(match[1]) : null;
+};
+
+const getWholeNumberComparisonIndex = (question, options) => {
+  const asksLargest = includesAny(question, ['계산 결과가 가장 큰']);
+  const asksSmallest = includesAny(question, ['계산 결과가 가장 작은']);
+  if (!asksLargest && !asksSmallest) return null;
+  const values = options.map(option => {
+    const expression = String(option || '').match(/^\s*\d+\s*[+\-×xX*]\s*\d+\s*$/);
+    return expression ? evaluateWholeNumberExpression(expression[0]) : parseWholeNumberOption(option);
+  });
+  if (values.some(value => value == null)) return -1;
+  const target = asksSmallest ? Math.min(...values) : Math.max(...values);
+  return uniqueIndex(values, value => value === target);
+};
+
 const hasKoreanPhrase = (text, phrases) => {
   const src = normalizeText(text);
   return phrases.some(phrase => src.includes(normalizeText(phrase)));
@@ -197,7 +239,7 @@ const fixFractionAnswer = (q) => {
 };
 
 const hasSameDenominatorFractionFocus = (payload, ragSection) => {
-  const text = lessonTopicText(payload, ragSection);
+  const text = lessonTopicText(payload);
   if (includesAny(text, ['이분모', '통분', '분모가 다른'])) return false;
   return includesAny(text, ['분모가 같은', '같은 분모', '동분모', '분모는 그대로', '분자끼리']);
 };
@@ -248,18 +290,18 @@ const cleanChart = (d, maxItems, positiveOnly = false) => {
 };
 
 const isFactorMultipleLesson = (payload, ragSection = '') =>
-  includesAny(lessonTopicText(payload, ragSection), ['약수', '공약수', '최대공약수', '배수', '공배수', '최소공배수']);
+  includesAny(lessonTopicText(payload), ['약수', '공약수', '최대공약수', '배수', '공배수', '최소공배수']);
 
 const isSolidShapeLesson = (payload, ragSection = '') =>
-  includesAny(lessonTopicText(payload, ragSection), ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '구']);
+  includesAny(lessonTopicText(payload), ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '구 모양', '구의 성질']);
 
 const classifyPracticeType = (payload, ragSection = '') => {
-  const text = lessonTopicText(payload, ragSection);
-  if (includesAny(text, ['그래프', '표', '자료', '막대', '꺾은선', '평균'])) return '그래프·표';
+  const text = lessonTopicText(payload);
+  if (includesAny(text, ['그래프', '표를 보고', '표로 나타', '자료를 표', '막대그래프', '꺾은선그래프', '평균'])) return '그래프·표';
   if (includesAny(text, ['가능성', '확률', '사건'])) return '확률·가능성';
   if (includesAny(text, ['대칭', '합동', '대응점', '선대칭', '점대칭'])) return '대칭·합동';
   if (isSolidShapeLesson(payload, ragSection)) return '입체도형';
-  if (includesAny(text, ['도형', '삼각형', '사각형', '원', '각도'])) return '도형';
+  if (includesAny(text, ['도형', '삼각형', '사각형', '원 모양', '원의 성질', '각도'])) return '도형';
   if (includesAny(text, ['단위', '길이', '넓이', '둘레', '부피', '무게', '시간', '시각', '들이'])) return '측정';
   if (includesAny(text, ['약수', '배수', '공약수', '공배수', '최대공약수', '최소공배수', '규칙', '비례식'])) return '약수·배수·규칙';
   if (includesAny(text, ['덧셈', '뺄셈', '곱셈', '나눗셈', '계산', '분수', '소수', '자연수', '대분수', '진분수'])) return '사칙연산·분수·소수';
@@ -321,23 +363,25 @@ const buildQuestionMixGuide = (payload, poolSize, ragSection = '') => {
 };
 
 const buildLessonContext = (payload, ragSection = '') => {
-  const text = lessonTopicText(payload, ragSection);
+  const text = lessonTopicText(payload);
   const lessonTitle = String(payload?.lessonTitle || '');
   const titleAddition = includesAny(lessonTitle, ['덧셈', '더하기', '더한', '합을', '합은', '합하면']);
   const titleSubtraction = includesAny(lessonTitle, ['뺄셈', '빼기', '뺀', '차']);
   return {
-    sameDenomFocus: hasSameDenominatorFractionFocus(payload, ragSection),
-    factorMultiple: isFactorMultipleLesson(payload, ragSection),
-    solidShape: isSolidShapeLesson(payload, ragSection),
+    grade: Number(payload?.grade) || 0,
+    sameDenomFocus: hasSameDenominatorFractionFocus(payload, ''),
+    factorMultiple: isFactorMultipleLesson(payload, ''),
+    solidShape: isSolidShapeLesson(payload, ''),
     timeLesson: includesAny(text, ['시각', '시간', '시계', '몇 시', '몇 분']),
     angleLesson: includesAny(text, ['각도', '각의 크기', '몇 도', '예각', '둔각']),
-    measurementLesson: includesAny(text, ['길이', '재기', 'cm', 'm', '자']),
+    measurementLesson: includesAny(text, ['길이', '재기', 'cm', '센티미터', '미터', '자로 재기']),
     areaLesson: includesAny(text, ['넓이', '둘레']),
     fractionLesson: includesAny(text, ['분수', '진분수', '대분수', '통분', '약분']),
     graphLesson: includesAny(text, ['그래프', '막대그래프', '꺾은선그래프', '원그래프']),
     lineGraphLesson: includesAny(text, ['꺾은선그래프']),
     pieGraphLesson: includesAny(text, ['원그래프']),
     symmetryLesson: includesAny(text, ['대칭', '선대칭', '점대칭', '대칭축', '대응점']),
+    multiplicationLesson: includesAny(text, ['곱셈', '곱셈구구', '몇 배', '묶어 세기', '묶어 세어']),
     additionLesson: titleAddition || (!titleSubtraction && includesAny(text, ['덧셈', '더하기', '더한', '합을', '합은', '합하면'])),
     subtractionLesson: titleSubtraction || (!titleAddition && includesAny(text, ['뺄셈', '빼기', '뺀', '차'])),
   };
@@ -603,6 +647,22 @@ const verifyFractionExplanation = (q) => {
 
 const isOffTopicQuestion = (q, context = {}) => {
   const text = [q.question, ...(q.options || []), q.explanation].join(' ');
+  if (context.grade === 1) {
+    if (includesAny(text, ['직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '꼭짓점', '모서리'])) return true;
+    if (!context.graphLesson && includesAny(text, ['막대그래프', '꺾은선그래프', '원그래프'])) return true;
+    if (!context.timeLesson && includesAny(text, ['시계', '시침', '분침', '몇 시', '몇 분'])) return true;
+    if (includesAny(text, ['곱셈', '나눗셈']) || /[×÷]/.test(text) || /\d+\s*\/\s*\d+/.test(text)) return true;
+    if ((text.match(/\d+/g) || []).some(value => Number(value) > 100)) return true;
+    if (/\d+\s*(?:cm|kg|mL|L)\b/i.test(text)) return true;
+  }
+  if (context.grade === 2) {
+    if (includesAny(text, ['직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '모서리'])) return true;
+    if (includesAny(text, ['분수', '분모', '분자', '나눗셈']) || /[÷]/.test(text) || /\d+\s*\/\s*\d+/.test(text)) return true;
+    if (includesAny(text, ['각도', '예각', '둔각', '넓이', '둘레'])) return true;
+    if (!context.graphLesson && includesAny(text, ['막대그래프', '꺾은선그래프', '원그래프'])) return true;
+    if (!context.multiplicationLesson && (includesAny(text, ['곱셈', '곱셈구구']) || /[×xX]/.test(text))) return true;
+    if ((text.match(/\d+/g) || []).some(value => Number(value) > 10000)) return true;
+  }
   if (!context.timeLesson && /시계|시침|분침|몇\s*시|몇\s*분|시간\s*(뒤|전)/.test(text)) return true;
   if (!context.angleLesson && /각도|몇\s*도|예각|둔각/.test(text)) return true;
   if (!context.areaLesson && /넓이|둘레/.test(text)) return true;
@@ -670,6 +730,20 @@ function normalizeQuestion(q, index, context = {}) {
   if (!fractionFixed) return null;
 
   answerIndex = fractionFixed.answerIndex;
+  const wholeNumberExpected = getWholeNumberExpected(fractionFixed.question);
+  if (wholeNumberExpected != null) {
+    const wholeNumberOptions = options.map(parseWholeNumberOption);
+    if (wholeNumberOptions.every(value => value != null)) {
+      const correctedIndex = uniqueIndex(wholeNumberOptions, value => value === wholeNumberExpected);
+      if (correctedIndex < 0) return null;
+      answerIndex = correctedIndex;
+    }
+  }
+  const wholeNumberComparisonIndex = getWholeNumberComparisonIndex(fractionFixed.question, options);
+  if (wholeNumberComparisonIndex != null) {
+    if (wholeNumberComparisonIndex < 0) return null;
+    answerIndex = wholeNumberComparisonIndex;
+  }
   const correct = options[answerIndex];
   const shift = index % 4;
   const rotated = [...options.slice(shift), ...options.slice(0, shift)];
@@ -1083,6 +1157,29 @@ function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
 - If the question asks about a real-life object, the visual must still show the matching solid type, not a flat face.
 `
     : '';
+  const gradeOneRules = Number(grade) === 1
+    ? `
+[Grade 1 scope rules]
+- Use only the exact unit, lesson title, learning goal, and keywords shown below.
+- Never use formal solid-geometry terms such as cuboid, cube, cylinder, cone, vertex, or edge.
+- Never create fraction, multiplication, or division questions.
+- Do not create graph questions unless the lesson title or unit explicitly mentions graphs.
+- Do not create clock or time questions unless the lesson title or unit explicitly mentions time or clocks.
+- For "여러 가지 모양", use familiar descriptions such as 상자 모양, 둥근 기둥 모양, 공 모양, 네모/세모/동그라미.
+`
+    : '';
+  const gradeTwoRules = Number(grade) === 2
+    ? `
+[Grade 2 scope rules]
+- Use only the exact unit, lesson title, learning goal, and keywords shown below.
+- Never use formal solid-geometry terms such as cuboid, cube, cylinder, cone, edge, angle, area, or perimeter.
+- Never create fraction or division questions.
+- Create multiplication questions only for multiplication or multiplication-table lessons.
+- Do not create graph questions unless the lesson title or unit explicitly mentions tables or graphs.
+- Use numbers no greater than 10,000.
+- For "여러 가지 도형", use grade-appropriate triangle, quadrilateral, circle, tangram, and block-stacking activities.
+`
+    : '';
 
   return `당신은 대한민국 초등 수학 평가 문항을 만드는 교사입니다.
 아래 수업 정보에 맞춰 학생용 AI 학습 콘텐츠를 완전한 JSON 하나로만 생성하세요.
@@ -1091,6 +1188,8 @@ ${ragSection}
 ${sameDenomRules}
 ${factorRules}
 ${solidShapeRules}
+${gradeOneRules}
+${gradeTwoRules}
 ${questionMixGuide}
 [수업 정보]
 - 학년/학기: 초등학교 ${grade}학년${semester ? ` ${semester}학기` : ''}
