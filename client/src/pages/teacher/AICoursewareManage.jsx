@@ -11,18 +11,16 @@ const MASTERY = {
 };
 const MASTERY_ATTEMPTS = 4;
 const COURSEWARE_PREGENERATE_COUNT = 20;
-const COURSEWARE_MIN_COMPLETE_COUNT = 5;
+const COURSEWARE_CHUNK_SIZE = 5;
+const COURSEWARE_MAX_CHUNK_CALLS = 6;
+const COURSEWARE_MAX_CHUNK_FAILURES = 2;
 const COURSEWARE_QUALITY_VERSION = 'quality-v19-grade56-scope-guard';
-const LOW_GRADE_COMPATIBLE_VERSION = 'quality-v17-low-grade-scope-guard';
-const isCompatibleGeneratorVersion = (data) =>
-  data?.generatorVersion === COURSEWARE_QUALITY_VERSION ||
-  (Number(data?.grade) <= 2 && data?.generatorVersion === LOW_GRADE_COMPATIBLE_VERSION);
 const isCurrentLessonContent = (data) =>
-  isCompatibleGeneratorVersion(data) &&
+  data?.generatorVersion === COURSEWARE_QUALITY_VERSION &&
   Array.isArray(data.questions);
 const isFreshLessonContent = (data) =>
   isCurrentLessonContent(data) &&
-  data.questions.length >= COURSEWARE_MIN_COMPLETE_COUNT;
+  data.questions.length >= COURSEWARE_PREGENERATE_COUNT;
 const getMasteryLevel = (avg) =>
   avg >= 90 ? 'excellent' : avg >= 75 ? 'good' : avg >= 60 ? 'normal' : 'retry';
 
@@ -914,23 +912,12 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
       typeCounts[bucket] += 1;
       if (merged.length >= COURSEWARE_PREGENERATE_COUNT) break;
     }
-    // Prefer the target type balance, but accept other validated unique
-    // questions when a strict bucket target would keep the pool incomplete.
-    if (merged.length < COURSEWARE_MIN_COMPLETE_COUNT) {
-      for (const question of addQuestions) {
-        const key = questionFingerprint(question);
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        merged.push(question);
-        if (merged.length >= COURSEWARE_MIN_COMPLETE_COUNT) break;
-      }
-    }
     return {
       ...baseData,
       ...addData,
       questions: merged,
       poolSize: merged.length,
-      isPartialPool: merged.length < COURSEWARE_MIN_COMPLETE_COUNT,
+      isPartialPool: merged.length < COURSEWARE_PREGENERATE_COUNT,
     };
   };
 
@@ -987,7 +974,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
         learningGoal: '',
         keywords: lesson.keywords || [],
         difficulty: 'normal',
-        questionCount: 5,
+        questionCount: COURSEWARE_CHUNK_SIZE,
         lessonContext: chunkContext,
         fastInitial: true,
         allowPartial: true,
@@ -1022,8 +1009,39 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     return {
       added: afterCount - beforeCount,
       total: afterCount,
-      complete: afterCount >= COURSEWARE_MIN_COMPLETE_COUNT,
+      complete: afterCount >= COURSEWARE_PREGENERATE_COUNT,
     };
+  };
+
+  const fillLessonContentToTarget = async (unit, lesson, lessonContext, onChunkSaved) => {
+    let added = 0;
+    let total = 0;
+    let calls = 0;
+    let consecutiveFailures = 0;
+    let lastError = null;
+
+    while (total < COURSEWARE_PREGENERATE_COUNT && calls < COURSEWARE_MAX_CHUNK_CALLS) {
+      calls += 1;
+      try {
+        const generated = await preGenerateLessonContent(unit, lesson, lessonContext);
+        added += generated.added;
+        total = generated.total;
+        consecutiveFailures = 0;
+        onChunkSaved?.(generated);
+        if (generated.complete) {
+          return { added, total, complete: true, calls };
+        }
+      } catch (err) {
+        lastError = err;
+        consecutiveFailures += 1;
+        if (consecutiveFailures >= COURSEWARE_MAX_CHUNK_FAILURES) throw err;
+      }
+    }
+
+    if (total < COURSEWARE_PREGENERATE_COUNT) {
+      throw lastError || new Error(`20문항 중 ${total}문항까지 저장되었습니다. 부족한 문항만 다시 생성해 주세요.`);
+    }
+    return { added, total, complete: true, calls };
   };
 
   const saveContext = async () => {
@@ -1043,7 +1061,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     showToast('교과서 내용이 저장됐습니다. 문제를 미리 생성합니다.');
 
     setPreGenerating(true);
-    preGenerateLessonContent(selectedUnit, selectedLesson, data.text)
+    fillLessonContentToTarget(selectedUnit, selectedLesson, data.text)
       .then(() => showToast('문제 사전 생성 완료! 학생은 바로 학습을 시작할 수 있습니다.'))
       .catch(err => showToast(`문제 사전 생성 실패: ${err.message}`, 'error'))
       .finally(() => setPreGenerating(false));
@@ -1192,8 +1210,14 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
           }
 
           const lessonContext = await getLessonContextForPreGenerate(unit, lesson);
-          const generated = await preGenerateLessonContent(unit, lesson, lessonContext);
-          created += generated.added;
+          await fillLessonContentToTarget(unit, lesson, lessonContext, generated => {
+            created += generated.added;
+            setBulkContentStatus(prev => ({
+              ...prev,
+              created,
+              current: `${current} (${generated.total}/${COURSEWARE_PREGENERATE_COUNT})`,
+            }));
+          });
           setBulkContentStatus(prev => ({
             ...prev,
             done: prev.done + 1,

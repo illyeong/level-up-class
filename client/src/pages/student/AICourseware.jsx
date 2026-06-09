@@ -12,10 +12,7 @@ const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
 const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
 const POOL_TARGET_Q_NUM = 20;
-const POOL_MIN_READY_Q_NUM = 5;
-const POOL_BACKGROUND_TARGET_Q_NUM = 15;
 const COURSEWARE_QUALITY_VERSION = 'quality-v19-grade56-scope-guard';
-const LOW_GRADE_COMPATIBLE_VERSION = 'quality-v17-low-grade-scope-guard';
 const MASTERY_ATTEMPTS = 4; // 숙달도 판정에 사용할 최고 점수 개수
 
 const questionFingerprint = (q) =>
@@ -69,11 +66,8 @@ function saveRecentQuestionKeys(key, selectedKeys, max = 20) {
 
 function shouldRefreshLessonContent(data) {
   if (!data) return true;
-  const compatibleVersion =
-    data.generatorVersion === COURSEWARE_QUALITY_VERSION ||
-    (Number(data.grade) <= 2 && data.generatorVersion === LOW_GRADE_COMPATIBLE_VERSION);
-  if (!compatibleVersion) return true;
-  if (!Array.isArray(data.questions) || data.questions.length < POOL_MIN_READY_Q_NUM) return true;
+  if (data.generatorVersion !== COURSEWARE_QUALITY_VERSION) return true;
+  if (!Array.isArray(data.questions) || data.questions.length < POOL_TARGET_Q_NUM) return true;
   return false;
 }
 
@@ -305,7 +299,7 @@ const mergeLessonContentQuestions = (baseData, addData) => {
     ...baseData,
     questions: merged,
     poolSize: merged.length,
-    isPartialPool: merged.length < POOL_BACKGROUND_TARGET_Q_NUM,
+    isPartialPool: false,
     expandedAt: new Date().toISOString(),
   };
 };
@@ -465,7 +459,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
   // ── 차시 선택 → AI 콘텐츠 로드/생성 후 바로 학습 시작 ──────
   const expandLessonPoolInBackground = (unit, lesson, currentData) => {
-    if ((currentData?.questions?.length || 0) >= POOL_BACKGROUND_TARGET_Q_NUM) return;
+    if (!currentData?.isPartialPool && (currentData?.questions?.length || 0) >= POOL_TARGET_Q_NUM) return;
 
     const key = lessonKey(unit, lesson);
     if (expansionMap.has(key)) return;
