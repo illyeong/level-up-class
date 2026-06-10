@@ -1268,7 +1268,7 @@ function App() {
         {currentView === 'petHouse'  && <PetHouse studentCode={activeStudentCode} />}
         {currentView === 'equipment' && <Equipment studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'gachaBox'     && <GachaBox     studentCode={activeStudentCode} />}
-        {currentView === 'aiCourseware' && <AICourseware studentCode={activeStudentCode} />}
+        {currentView === 'aiCourseware' && <AICourseware studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'academy' && (
           <div className="p-8 text-2xl font-bold text-slate-800">아카데미 화면 (준비 중 📚)</div>
         )}

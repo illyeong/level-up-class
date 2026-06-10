@@ -234,10 +234,25 @@ const hasKoreanPhrase = (text, phrases) => {
   return phrases.some(phrase => src.includes(normalizeText(phrase)));
 };
 
+const getEquivalentFractionPairIndex = (question, options = []) => {
+  if (!includesAny(question, ['크기가 같은 분수끼리', '같은 크기의 분수', '서로 같은 분수', '같은 분수끼리'])) return null;
+  const checks = options.map(option => {
+    const fractions = parseFractions(option);
+    return fractions.length === 2 ? sameFraction(fractions[0], fractions[1]) : null;
+  });
+  if (checks.some(check => check === null)) return -1;
+  return uniqueIndex(checks, Boolean);
+};
+
 const fixFractionAnswer = (q) => {
   const options = q.options || [];
   const combined = [q.question, ...options, q.explanation].join('\n');
   if (hasMalformedFractionText(combined)) return null;
+
+  const equivalentPairIndex = getEquivalentFractionPairIndex(q.question, options);
+  if (equivalentPairIndex != null) {
+    return equivalentPairIndex >= 0 ? { ...q, answerIndex: equivalentPairIndex } : null;
+  }
 
   const equationChecks = options.map(evalFractionEquation);
   if (equationChecks.some(v => v !== null)) {
@@ -839,6 +854,8 @@ const hasExactlyOneVerifiableAnswer = (q) => {
   const options = q.options || [];
   const combined = [question, ...options, q.explanation].join('\n');
   if (hasMalformedFractionText(combined)) return false;
+  const equivalentPairIndex = getEquivalentFractionPairIndex(question, options);
+  if (equivalentPairIndex != null) return equivalentPairIndex >= 0 && q.answerIndex === equivalentPairIndex;
   if (/가장\s*큰|가장\s*작은/.test(question) && options.some(opt => String(opt).includes('/'))) {
     const values = options.map(getComparableFractionValue);
     if (values.some(v => v == null)) return false;

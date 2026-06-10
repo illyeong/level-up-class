@@ -86,19 +86,23 @@ function MixedNumber({ whole, num, den }) {
 export function renderMath(text) {
   if (!text || typeof text !== 'string') return text;
   if (!text.includes('/')) return text;
+  const displayText = text.replace(
+    /(\d+\s*\/\s*\d+)\s+(?=\d+\s*\/\s*\d+)/g,
+    '$1  ↔  ',
+  );
 
   const matches = [];
   let m;
 
   // 대분수: 한국어 (과/와) — 공백 여부 무관
   const rKor = /(\d+)\s*[과와]\s*(\d+)\/(\d+)/g;
-  while ((m = rKor.exec(text)) !== null) {
+  while ((m = rKor.exec(displayText)) !== null) {
     matches.push({ start: m.index, end: m.index + m[0].length, type: 'mixed', whole: m[1], num: m[2], den: m[3] });
   }
 
   // 대분수: 공백 구분 "2 3/5" (1칸 이상)
   const rSpc = /(\d+)[ \t]+(\d+)\/(\d+)/g;
-  while ((m = rSpc.exec(text)) !== null) {
+  while ((m = rSpc.exec(displayText)) !== null) {
     if (!matches.some(mx => m.index >= mx.start && m.index < mx.end)) {
       matches.push({ start: m.index, end: m.index + m[0].length, type: 'mixed', whole: m[1], num: m[2], den: m[3] });
     }
@@ -106,7 +110,7 @@ export function renderMath(text) {
 
   // 진분수: "3/5" (대분수 범위 제외)
   const rFrac = /(\d+)\/(\d+)/g;
-  while ((m = rFrac.exec(text)) !== null) {
+  while ((m = rFrac.exec(displayText)) !== null) {
     if (!matches.some(mx => m.index >= mx.start && m.index < mx.end)) {
       matches.push({ start: m.index, end: m.index + m[0].length, type: 'frac', num: m[1], den: m[2] });
     }
@@ -118,7 +122,7 @@ export function renderMath(text) {
   const result = [];
   let pos = 0;
   matches.forEach((match, i) => {
-    if (match.start > pos) result.push(text.slice(pos, match.start));
+    if (match.start > pos) result.push(displayText.slice(pos, match.start));
     if (match.type === 'mixed') {
       result.push(<MixedNumber key={i} whole={match.whole} num={match.num} den={match.den} />);
     } else {
@@ -126,6 +130,6 @@ export function renderMath(text) {
     }
     pos = match.end;
   });
-  if (pos < text.length) result.push(text.slice(pos));
+  if (pos < displayText.length) result.push(displayText.slice(pos));
   return <>{result}</>;
 }
