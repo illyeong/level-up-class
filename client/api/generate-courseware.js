@@ -790,6 +790,8 @@ const isOffTopicQuestion = (q, context = {}) => {
     if (includesAny(text, ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '모서리'])) return true;
     if (!context.fractionLesson && (includesAny(text, ['분수', '분모', '분자']) || /\d+\s*\/\s*\d+/.test(text))) return true;
     if (includesAny(text, ['통분', '이분모', '약분']) || hasUnlikeDenominatorAddSub(text) || hasFractionMultiplyDivideExpression(text)) return true;
+    if (hasFractionAddSubExpression(text) && !context.fractionAddSubLesson) return true;
+    if (hasDecimalMultiplicationExpression(text) || hasDecimalDivisionExpression(text)) return true;
     if (includesAny(text, ['원그래프', '그림그래프'])) return true;
     if (!context.graphLesson && includesAny(text, ['막대그래프', '꺾은선그래프', '그래프'])) return true;
     if (!context.multiplicationLesson && (includesAny(text, ['곱셈', '곱']) || /[×xX]/.test(text))) return true;
@@ -819,9 +821,9 @@ const isOffTopicQuestion = (q, context = {}) => {
     if (hasFractionAddSubExpression(text)) return true;
     if (
       (hasFractionDivisionExpression(text) || hasFractionMultiplicationExpression(text))
-      && !(context.fractionDivideLesson || context.ratioLesson)
+      && !context.fractionDivideLesson
     ) return true;
-    if (hasDecimalMultiplicationExpression(text) && !context.decimalDivideLesson) return true;
+    if (hasDecimalMultiplicationExpression(text)) return true;
     if (hasDecimalDivisionExpression(text) && !context.decimalDivideLesson) return true;
     if (!context.graphLesson && includesAny(text, ['막대그래프', '꺾은선그래프', '원그래프', '띠그래프', '그림그래프'])) return true;
   }
@@ -1390,7 +1392,8 @@ function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
 [Grade 4 scope rules]
 - Use only the exact unit, lesson title, learning goal, and keywords shown below.
 - Never create formal solid-geometry questions. Cuboids, cubes, cylinders, cones, prisms, pyramids, faces, and edges are outside Grade 4 scope.
-- Fraction addition and subtraction must use the same denominator only. Never create unlike-denominator, common-denominator, reduction, fraction multiplication, or fraction division questions.
+- Fraction addition and subtraction may appear only in their matching lesson and must use the same denominator. Never create unlike-denominator, common-denominator, reduction, fraction multiplication, or fraction division questions.
+- Decimal addition and subtraction may appear only in their matching lesson. Never create decimal multiplication or decimal division questions.
 - Graph questions may use bar graphs or line graphs only when the lesson explicitly covers them. Never create picture graphs or pie graphs.
 - Create multiplication or division questions only when the lesson title or unit explicitly covers that operation.
 `
