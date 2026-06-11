@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, getDocs, getDoc, doc, setDoc, deleteDoc, updateDoc, query, where, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -43,6 +43,28 @@ const fmtDate = (str) => {
   return new Date(str).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 };
 
+const LEARNING_STATUS = {
+  excellent: { label: '우수', tone: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400' },
+  stable:    { label: '안정', tone: 'bg-sky-50 text-sky-700 border-sky-200', dot: 'bg-sky-400' },
+  learning:  { label: '학습 중', tone: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-400' },
+  support:   { label: '지원 필요', tone: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-400' },
+  inactive:  { label: '미학습', tone: 'bg-slate-100 text-slate-500 border-slate-200', dot: 'bg-slate-300' },
+};
+
+const getCompletedSeconds = (progress) =>
+  progress?.completedAt?.seconds || progress?.completedAt?._seconds || 0;
+
+const classifyWeakConcept = (wrong) => {
+  const text = `${wrong?.unitName || ''} ${wrong?.lessonTitle || ''} ${wrong?.skill || ''} ${wrong?.fullQuestion || wrong?.questionText || ''}`;
+  if (/분수|분모|분자|소수/.test(text)) return '분수·소수';
+  if (/약수|배수|공약수|공배수|규칙/.test(text)) return '약수·배수·규칙';
+  if (/그래프|표|자료|평균|가능성|확률/.test(text)) return '자료·그래프·가능성';
+  if (/대칭|합동|도형|각도|직육면체|정육면체|원뿔|원기둥|꼭짓점|모서리|면/.test(text)) return '도형·대칭·입체';
+  if (/길이|넓이|부피|무게|시간|시각|단위/.test(text)) return '측정';
+  if (/더하|빼기|덧셈|뺄셈|곱셈|나눗셈|계산/.test(text)) return '수와 연산';
+  return '기타 핵심 개념';
+};
+
 // ── 미니 컴포넌트 ─────────────────────────────────────────────
 const Spinner = ({ label = '불러오는 중...' }) => (
   <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
@@ -84,11 +106,46 @@ const ProgressBar = ({ pct, color = 'bg-indigo-400', h = 'h-1.5' }) => (
   </div>
 );
 
+const LearningStatusPill = ({ status }) => {
+  const item = LEARNING_STATUS[status] || LEARNING_STATUS.inactive;
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${item.tone}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${item.dot}`} />
+      {item.label}
+    </span>
+  );
+};
+
 // ── 메인 컴포넌트 ─────────────────────────────────────────────
-export default function AICoursewareManage({ selectedClass }) {
+export default function AICoursewareManage({ selectedClass, onNavigate }) {
   const teacherUid = selectedClass?.teacherUid;
 
-  const [tab, setTab] = useState('units');
+  const [tab, setTab] = useState('overview');
+  const [selectedStudent, setSelectedStudent] = useState(null);
+
+  const createReviewQuizDraft = useCallback((wrongAnswers, title = 'AI 학습관 취약 개념 복습') => {
+    const unique = [];
+    const seen = new Set();
+    wrongAnswers.forEach(item => {
+      const question = item.fullQuestion || item.questionText || '';
+      if (!question || seen.has(question)) return;
+      seen.add(question);
+      unique.push({
+        type: 'mc',
+        question,
+        options: Array.isArray(item.options) ? item.options : [],
+        answer: Number.isInteger(item.correctIdx) ? item.correctIdx : 0,
+        explanation: item.explanation || '',
+      });
+    });
+    if (!unique.length) return;
+    sessionStorage.setItem('aiReviewQuizDraft', JSON.stringify({
+      title,
+      grade: selectedClass?.grade || '',
+      questions: unique.slice(0, 10),
+    }));
+    onNavigate?.('quizBank');
+  }, [onNavigate, selectedClass?.grade]);
 
   // 공통 데이터
   const [students,    setStudents]    = useState([]);
@@ -153,12 +210,40 @@ export default function AICoursewareManage({ selectedClass }) {
     const progs = allProgress.filter(p => p.studentCode === stu.studentCode);
     const sc = progs.map(p => p.score).filter(s => s != null);
     const stuMasteries = Object.values(allMastery).map(lm => lm[stu.studentCode]).filter(m => m?.masteryLevel);
+    const recentProgress = [...progs].sort((a, b) => getCompletedSeconds(b) - getCompletedSeconds(a));
+    const recentScores = recentProgress.slice(0, 4).map(p => p.score).filter(s => s != null);
+    const masteryScores = stuMasteries.map(m => m.masteryAvg).filter(s => s != null);
+    const masteryAvg = masteryScores.length
+      ? Math.round(masteryScores.reduce((sum, score) => sum + score, 0) / masteryScores.length)
+      : null;
+    const latestScore = recentScores[0] ?? null;
+    const previousAvg = recentScores.length > 1
+      ? Math.round(recentScores.slice(1).reduce((sum, score) => sum + score, 0) / (recentScores.length - 1))
+      : null;
+    const trend = latestScore == null || previousAvg == null
+      ? 'none'
+      : latestScore >= previousAvg + 5 ? 'up' : latestScore <= previousAvg - 5 ? 'down' : 'steady';
+    const retryCount = stuMasteries.filter(m => m.masteryLevel === 'retry').length;
+    const status = !progs.length
+      ? 'inactive'
+      : retryCount >= 2 || (masteryAvg != null && masteryAvg < 60) || (sc.length && Math.round(sc.reduce((a, b) => a + b, 0) / sc.length) < 60)
+        ? 'support'
+        : masteryAvg != null && masteryAvg >= 90
+          ? 'excellent'
+          : masteryAvg != null && masteryAvg >= 75
+            ? 'stable'
+            : 'learning';
     return {
       ...stu, completions: progs.length,
       avgScore: sc.length ? Math.round(sc.reduce((a, b) => a + b, 0) / sc.length) : null,
-      lastDate: progs.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0))[0]?.date || null,
+      lastDate: recentProgress[0]?.date || null,
       todayCount: progs.filter(p => p.date === today).length,
       masteries: stuMasteries,
+      masteryAvg,
+      retryCount,
+      status,
+      trend,
+      recentProgress,
     };
   });
 
@@ -200,10 +285,11 @@ export default function AICoursewareManage({ selectedClass }) {
 
   // ── 렌더 ────────────────────────────────────────────────────
   const TABS = [
-    { id: 'units',     label: '📚 단원별 현황', desc: '차시별 숙달도 분석' },
-    { id: 'weakness',  label: '🔍 취약 분석',   desc: '오답 기록 리포트' },
-    { id: 'students',  label: '👥 학생별 분석', desc: '개인 학습 현황' },
-    { id: 'dashboard', label: '📊 종합 현황',   desc: '전체 학습 통계' },
+    { id: 'overview',  label: '학급 학습 현황', desc: '도움이 필요한 학생 확인' },
+    { id: 'units',     label: '단원·차시 분석', desc: '차시별 숙달도 분석' },
+    { id: 'students',  label: '학생별 분석', desc: '개인 학습 현황' },
+    { id: 'weakness',  label: '취약 개념', desc: '오답 기록 리포트' },
+    { id: 'dashboard', label: '학습 기록', desc: '최근 학습 활동' },
   ];
 
   return (
@@ -213,8 +299,8 @@ export default function AICoursewareManage({ selectedClass }) {
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-800">🤖 AI 학습관 현황</h1>
-            <p className="text-slate-400 text-sm mt-0.5">학생 자율 학습 데이터 분석</p>
+            <h1 className="text-2xl font-extrabold text-slate-800">AI 학습 관리</h1>
+            <p className="text-slate-500 text-sm mt-1">학생의 현재 실력과 학습 변화를 확인하고 다음 수업을 준비하세요.</p>
           </div>
           <button onClick={loadAll} disabled={loadingData}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition-all disabled:opacity-50">
@@ -226,7 +312,7 @@ export default function AICoursewareManage({ selectedClass }) {
         </div>
 
         {/* 탭 */}
-        <div className="flex gap-1 p-1 bg-white border border-slate-200 rounded-2xl shadow-sm mb-6 w-fit">
+        <div className="flex max-w-full gap-1 overflow-x-auto p-1 bg-white border border-slate-200 rounded-2xl shadow-sm mb-6 w-fit">
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all
@@ -235,6 +321,19 @@ export default function AICoursewareManage({ selectedClass }) {
             </button>
           ))}
         </div>
+
+        {/* ═══════════════ 학급 학습 현황 ═══════════════ */}
+        {tab === 'overview' && (
+          <LearningOverviewTab
+            loading={loadingData}
+            students={studentStats}
+            allProgress={allProgress}
+            allMastery={allMastery}
+            onOpenStudent={setSelectedStudent}
+            onOpenUnits={() => setTab('units')}
+            onOpenWeakness={() => setTab('weakness')}
+          />
+        )}
 
         {/* ═══════════════ 단원별 현황 ═══════════════ */}
         {tab === 'units' && (
@@ -491,7 +590,7 @@ export default function AICoursewareManage({ selectedClass }) {
 
         {/* ═══════════════ 취약 분석 ═══════════════ */}
         {tab === 'weakness' && (
-          <WeaknessTab teacherUid={teacherUid} students={students} />
+          <WeaknessTab teacherUid={teacherUid} students={students} onCreateReview={createReviewQuizDraft} />
         )}
 
         {/* ═══════════════ 학생별 분석 ═══════════════ */}
@@ -519,7 +618,8 @@ export default function AICoursewareManage({ selectedClass }) {
                   stu.masteries.forEach(m => { if (dist[m.masteryLevel] !== undefined) dist[m.masteryLevel]++; });
                   const totalMast = stu.masteries.length;
                   return (
-                    <div key={stu.id} className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 flex items-start gap-4">
+                    <button type="button" onClick={() => setSelectedStudent(stu)} key={stu.id}
+                      className="w-full text-left bg-white border border-slate-200 rounded-2xl shadow-sm p-4 flex items-start gap-4 hover:border-indigo-300 hover:shadow-md transition-all">
                       {/* 아바타 */}
                       <div className="w-10 h-10 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center shrink-0 overflow-hidden">
                         {stu.characterImage
@@ -550,7 +650,7 @@ export default function AICoursewareManage({ selectedClass }) {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -603,6 +703,363 @@ export default function AICoursewareManage({ selectedClass }) {
           </div>
         )}
 
+      </div>
+      {selectedStudent && (
+        <StudentLearningDetail
+          student={selectedStudent}
+          teacherUid={teacherUid}
+          classId={selectedClass?.id}
+          onClose={() => setSelectedStudent(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function LearningOverviewTab({ loading, students, allProgress, allMastery, onOpenStudent, onOpenUnits, onOpenWeakness }) {
+  const [queryText, setQueryText] = useState('');
+  const [sortBy, setSortBy] = useState('support');
+
+  const summary = useMemo(() => {
+    const active = students.filter(student => student.completions > 0);
+    const avgScores = active.map(student => student.avgScore).filter(score => score != null);
+    const masteryScores = active.map(student => student.masteryAvg).filter(score => score != null);
+    return {
+      activeCount: active.length,
+      avgScore: avgScores.length ? Math.round(avgScores.reduce((sum, score) => sum + score, 0) / avgScores.length) : null,
+      masteryAvg: masteryScores.length ? Math.round(masteryScores.reduce((sum, score) => sum + score, 0) / masteryScores.length) : null,
+      supportCount: students.filter(student => student.status === 'support').length,
+      inactiveCount: students.filter(student => student.status === 'inactive').length,
+      todayCount: students.filter(student => student.todayCount > 0).length,
+    };
+  }, [students]);
+
+  const weakLessons = useMemo(() => {
+    const lessons = Object.values(allMastery).map(lessonStudents => {
+      const records = Object.values(lessonStudents).filter(item => item?.masteryAvg != null);
+      if (!records.length) return null;
+      const supportCount = records.filter(item => item.masteryLevel === 'retry').length;
+      const average = Math.round(records.reduce((sum, item) => sum + item.masteryAvg, 0) / records.length);
+      const sample = records[0] || {};
+      return {
+        key: sample.lessonKey || `${sample.unitName}_${sample.lessonTitle}`,
+        unitName: sample.unitName || '단원 정보 없음',
+        lessonTitle: sample.lessonTitle || '차시 정보 없음',
+        average,
+        supportCount,
+        learnedCount: records.length,
+      };
+    }).filter(Boolean);
+    return lessons.sort((a, b) => b.supportCount - a.supportCount || a.average - b.average).slice(0, 3);
+  }, [allMastery]);
+
+  const visibleStudents = useMemo(() => {
+    const statusOrder = { support: 0, inactive: 1, learning: 2, stable: 3, excellent: 4 };
+    const normalized = queryText.trim().toLowerCase();
+    const filtered = students.filter(student => {
+      const name = String(student.name || student.studentName || student.studentCode || '').toLowerCase();
+      return !normalized || name.includes(normalized);
+    });
+    return [...filtered].sort((a, b) => {
+      if (sortBy === 'score') return (a.avgScore ?? 999) - (b.avgScore ?? 999);
+      if (sortBy === 'growth') {
+        const rank = { up: 0, steady: 1, down: 2, none: 3 };
+        return rank[a.trend] - rank[b.trend];
+      }
+      if (sortBy === 'recent') return getCompletedSeconds(b.recentProgress?.[0]) - getCompletedSeconds(a.recentProgress?.[0]);
+      return statusOrder[a.status] - statusOrder[b.status] || (a.avgScore ?? 999) - (b.avgScore ?? 999);
+    });
+  }, [students, queryText, sortBy]);
+
+  if (loading) return <Spinner label="학급 학습 현황을 정리하는 중..." />;
+
+  const overviewCards = [
+    { label: '학습 참여 학생', value: `${summary.activeCount} / ${students.length}명`, note: `오늘 ${summary.todayCount}명 학습`, accent: 'border-indigo-200 bg-indigo-50 text-indigo-700' },
+    { label: '평균 정답률', value: summary.avgScore == null ? '-' : `${summary.avgScore}%`, note: `${allProgress.length}건의 완료 기록`, accent: 'border-sky-200 bg-sky-50 text-sky-700' },
+    { label: '평균 숙달도', value: summary.masteryAvg == null ? '-' : `${summary.masteryAvg}%`, note: '최근 4회 학습 기반', accent: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+    { label: '지원 필요 학생', value: `${summary.supportCount}명`, note: `미학습 ${summary.inactiveCount}명`, accent: 'border-rose-200 bg-rose-50 text-rose-700' },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {overviewCards.map(card => (
+          <div key={card.label} className={`rounded-2xl border p-4 ${card.accent}`}>
+            <p className="text-xs font-bold opacity-70">{card.label}</p>
+            <p className="mt-2 text-2xl font-black">{card.value}</p>
+            <p className="mt-1 text-xs font-semibold opacity-65">{card.note}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-extrabold text-indigo-600">오늘의 학습 판단</p>
+              <h2 className="mt-1 text-lg font-black text-slate-800">
+                {summary.supportCount > 0
+                  ? `${summary.supportCount}명의 학생에게 교사 확인이 필요합니다.`
+                  : summary.inactiveCount > 0
+                    ? `${summary.inactiveCount}명의 학생이 아직 AI 학습을 시작하지 않았습니다.`
+                    : '현재 학급은 안정적으로 학습하고 있습니다.'}
+              </h2>
+              <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                점수 한 번보다 최근 학습 결과, 반복 재도전, 숙달도 변화를 함께 반영했습니다.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setSortBy('support')}
+                className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-extrabold text-white hover:bg-slate-700">
+                지원 필요 학생 보기
+              </button>
+              <button type="button" onClick={onOpenWeakness}
+                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-100">
+                취약 개념 확인
+              </button>
+              <button type="button" onClick={onOpenUnits}
+                className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-extrabold text-indigo-700 hover:bg-indigo-100">
+                차시 숙달도 확인
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h3 className="font-black text-slate-800">어려워한 차시</h3>
+            <button type="button" onClick={onOpenWeakness} className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800">
+              취약 개념 전체 보기
+            </button>
+          </div>
+          <div className="mt-3 space-y-2">
+            {weakLessons.length ? weakLessons.map(lesson => (
+              <div key={lesson.key} className="rounded-xl bg-slate-50 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-xs font-extrabold text-slate-700">{lesson.lessonTitle}</p>
+                  <span className="shrink-0 text-xs font-black text-rose-600">{lesson.average}%</span>
+                </div>
+                <p className="mt-1 truncate text-[11px] font-medium text-slate-400">
+                  {lesson.unitName} · 지원 필요 {lesson.supportCount}명
+                </p>
+              </div>
+            )) : (
+              <p className="py-6 text-center text-xs font-semibold text-slate-400">숙달도 기록이 쌓이면 표시됩니다.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h3 className="font-black text-slate-800">학생 학습 현황</h3>
+            <p className="mt-1 text-xs font-medium text-slate-400">학생을 누르면 최근 학습과 숙달도를 자세히 확인할 수 있습니다.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input value={queryText} onChange={event => setQueryText(event.target.value)}
+              placeholder="학생 이름 검색"
+              className="w-36 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-400" />
+            <select value={sortBy} onChange={event => setSortBy(event.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-400">
+              <option value="support">지원 필요 순</option>
+              <option value="score">정답률 낮은 순</option>
+              <option value="growth">성장 추세 순</option>
+              <option value="recent">최근 학습 순</option>
+            </select>
+            <button type="button" onClick={onOpenUnits}
+              className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-extrabold text-indigo-700 hover:bg-indigo-100">
+              단원·차시 보기
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <div className="min-w-[760px]">
+            <div className="grid grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr_1fr] gap-3 bg-slate-50 px-5 py-3 text-[11px] font-extrabold text-slate-400">
+              <span>학생</span><span>학습 상태</span><span>평균 정답률</span><span>평균 숙달도</span><span>최근 변화</span><span>최근 학습</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {visibleStudents.map(student => (
+                <button type="button" key={student.id} onClick={() => onOpenStudent(student)}
+                  className={`grid w-full grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr_1fr] items-center gap-3 px-5 py-3 text-left hover:bg-indigo-50/50
+                    ${student.status === 'support' ? 'bg-rose-50/40' : ''}`}>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-extrabold text-slate-800">{student.name || student.studentName || student.studentCode}</span>
+                    <span className="block truncate text-[10px] font-medium text-slate-400">{student.studentCode}</span>
+                  </span>
+                  <LearningStatusPill status={student.status} />
+                  <span className={`text-sm font-black ${student.avgScore == null ? 'text-slate-300' : scoreColor(student.avgScore)}`}>
+                    {student.avgScore == null ? '-' : `${student.avgScore}%`}
+                  </span>
+                  <span className={`text-sm font-black ${student.masteryAvg == null ? 'text-slate-300' : scoreColor(student.masteryAvg)}`}>
+                    {student.masteryAvg == null ? '-' : `${student.masteryAvg}%`}
+                  </span>
+                  <span className={`text-xs font-extrabold ${student.trend === 'up' ? 'text-emerald-600' : student.trend === 'down' ? 'text-rose-600' : 'text-slate-400'}`}>
+                    {student.trend === 'up' ? '↑ 상승' : student.trend === 'down' ? '↓ 하락' : student.trend === 'steady' ? '→ 유지' : '-'}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500">{student.lastDate ? fmtDate(student.lastDate) : '학습 기록 없음'}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudentLearningDetail({ student, teacherUid, classId, onClose }) {
+  const [memo, setMemo] = useState('');
+  const [memoLoading, setMemoLoading] = useState(true);
+  const [memoSaving, setMemoSaving] = useState(false);
+  const [memoSaved, setMemoSaved] = useState(false);
+  const masteryDist = student.masteries.reduce((acc, item) => {
+    if (acc[item.masteryLevel] !== undefined) acc[item.masteryLevel] += 1;
+    return acc;
+  }, { excellent: 0, good: 0, normal: 0, retry: 0 });
+  const retryLessons = student.masteries.filter(item => item.masteryLevel === 'retry').slice(0, 5);
+
+  useEffect(() => {
+    if (!teacherUid || !student.studentCode) return;
+    const memoId = `${teacherUid}_${student.studentCode}`;
+    setMemoLoading(true);
+    getDoc(doc(db, 'aiTeacherMemos', memoId))
+      .then(snapshot => setMemo(snapshot.data()?.memo || ''))
+      .finally(() => setMemoLoading(false));
+  }, [teacherUid, student.studentCode]);
+
+  const saveMemo = async () => {
+    if (!teacherUid || !student.studentCode) return;
+    setMemoSaving(true);
+    try {
+      await setDoc(doc(db, 'aiTeacherMemos', `${teacherUid}_${student.studentCode}`), {
+        teacherUid,
+        classId: classId || null,
+        studentCode: student.studentCode,
+        studentName: student.name || student.studentName || '',
+        memo: memo.trim(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setMemoSaved(true);
+      setTimeout(() => setMemoSaved(false), 1800);
+    } finally {
+      setMemoSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/55 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-slate-50 shadow-2xl" onClick={event => event.stopPropagation()}>
+        <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-black text-slate-800">{student.name || student.studentName || student.studentCode}</h2>
+              <LearningStatusPill status={student.status} />
+            </div>
+            <p className="mt-1 text-xs font-semibold text-slate-400">{student.studentCode} · 최근 학습 {student.lastDate ? fmtDate(student.lastDate) : '없음'}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="닫기" className="h-9 w-9 rounded-full bg-slate-100 text-lg font-bold text-slate-500 hover:bg-slate-200">×</button>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[
+              ['평균 정답률', student.avgScore == null ? '-' : `${student.avgScore}%`],
+              ['평균 숙달도', student.masteryAvg == null ? '-' : `${student.masteryAvg}%`],
+              ['완료한 학습', `${student.completions}회`],
+              ['재도전 차시', `${student.retryCount}개`],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-[11px] font-bold text-slate-400">{label}</p>
+                <p className="mt-1 text-xl font-black text-slate-800">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <h3 className="font-black text-slate-800">숙달도 분포</h3>
+              <div className="mt-4 space-y-3">
+                {Object.entries(MASTERY).map(([level, item]) => {
+                  const count = masteryDist[level];
+                  const total = Math.max(1, student.masteries.length);
+                  return (
+                    <div key={level}>
+                      <div className="mb-1 flex justify-between text-xs font-bold">
+                        <span className={item.text}>{item.label}</span>
+                        <span className="text-slate-400">{count}개 차시</span>
+                      </div>
+                      <ProgressBar pct={(count / total) * 100} color={item.bar} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <h3 className="font-black text-slate-800">교사 확인이 필요한 차시</h3>
+              <div className="mt-3 space-y-2">
+                {retryLessons.length ? retryLessons.map((item, index) => (
+                  <div key={`${item.lessonKey}_${index}`} className="rounded-xl bg-rose-50 px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-xs font-extrabold text-rose-800">{item.lessonTitle || '차시 정보 없음'}</p>
+                      <span className="shrink-0 text-xs font-black text-rose-600">{item.masteryAvg ?? '-'}%</span>
+                    </div>
+                    <p className="mt-1 truncate text-[11px] font-medium text-rose-400">{item.unitName || '단원 정보 없음'}</p>
+                  </div>
+                )) : (
+                  <p className="py-8 text-center text-xs font-semibold text-slate-400">지원이 필요한 차시가 없습니다.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h3 className="font-black text-slate-800">최근 학습 기록</h3>
+            </div>
+            {student.recentProgress.length ? (
+              <div className="divide-y divide-slate-100">
+                {student.recentProgress.slice(0, 8).map((progress, index) => (
+                  <div key={`${progress.lessonKey}_${index}`} className="flex items-center gap-3 px-5 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-extrabold text-slate-700">{progress.lessonTitle || '차시 정보 없음'}</p>
+                      <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">{progress.unitName || '단원 정보 없음'} · {fmtDate(progress.date)}</p>
+                    </div>
+                    <span className={`text-sm font-black ${scoreColor(progress.score || 0)}`}>{progress.score ?? '-'}%</span>
+                    <span className="text-xs font-bold text-slate-400">{progress.correctCount ?? '-'}/{progress.totalCount ?? '-'}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-12 text-center text-sm font-semibold text-slate-400">아직 완료한 학습이 없습니다.</p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-black text-slate-800">교사 메모 및 지도 기록</h3>
+                <p className="mt-1 text-xs font-medium text-slate-400">학생 지도 시 확인할 내용과 다음 지원 계획을 기록합니다.</p>
+              </div>
+              {memoSaved && <span className="text-xs font-extrabold text-emerald-600">저장 완료</span>}
+            </div>
+            <textarea
+              value={memo}
+              onChange={event => setMemo(event.target.value)}
+              disabled={memoLoading}
+              placeholder={memoLoading ? '메모를 불러오는 중입니다.' : '예: 분수 덧셈에서 분모를 더하는 오류가 반복됨. 다음 수업에서 분수 막대로 확인하기.'}
+              className="mt-4 min-h-28 w-full resize-y rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-700 outline-none focus:border-indigo-400 focus:bg-white disabled:opacity-60"
+            />
+            <div className="mt-3 flex justify-end">
+              <button type="button" onClick={saveMemo} disabled={memoLoading || memoSaving}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-indigo-700 disabled:opacity-50">
+                {memoSaving ? '저장 중...' : '지도 기록 저장'}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1712,7 +2169,7 @@ export function QuestionReviewTab({ teacherUid, students, unitGrade, setUnitGrad
 }
 
 // ── 취약 분석 탭 ─────────────────────────────────────────────
-function WeaknessTab({ teacherUid, students }) {
+function WeaknessTab({ teacherUid, students, onCreateReview }) {
   const [wrongData,  setWrongData]  = useState([]);
   const [loading,    setLoading]    = useState(false);
   const [filterUnit, setFilterUnit] = useState('');
@@ -1735,8 +2192,9 @@ function WeaknessTab({ teacherUid, students }) {
   const lessonMap = {};
   wrongData.forEach(w => {
     const key = w.lessonKey || `${w.unitName}_${w.lessonTitle}`;
-    if (!lessonMap[key]) lessonMap[key] = { unitName: w.unitName, lessonTitle: w.lessonTitle, count: 0, questions: {} };
+    if (!lessonMap[key]) lessonMap[key] = { unitName: w.unitName, lessonTitle: w.lessonTitle, count: 0, questions: {}, wrongAnswers: [] };
     lessonMap[key].count++;
+    lessonMap[key].wrongAnswers.push(w);
     const qt = (w.questionText || '').slice(0, 60);
     if (!lessonMap[key].questions[qt]) lessonMap[key].questions[qt] = 0;
     lessonMap[key].questions[qt]++;
@@ -1745,9 +2203,50 @@ function WeaknessTab({ teacherUid, students }) {
   const unitNames = [...new Set(sorted.map(s => s.unitName))];
 
   const filtered = filterUnit ? sorted.filter(s => s.unitName === filterUnit) : sorted;
+  const conceptSummary = Object.values(wrongData.reduce((acc, wrong) => {
+    const concept = classifyWeakConcept(wrong);
+    if (!acc[concept]) acc[concept] = { concept, count: 0, students: new Set(), wrongAnswers: [] };
+    acc[concept].count += 1;
+    acc[concept].students.add(wrong.studentCode);
+    acc[concept].wrongAnswers.push(wrong);
+    return acc;
+  }, {}))
+    .map(item => ({ ...item, studentCount: item.students.size }))
+    .sort((a, b) => b.count - a.count);
 
   return (
     <div className="space-y-4">
+      {!!conceptSummary.length && (
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-extrabold text-indigo-600">AI 학습 요약</p>
+              <h3 className="mt-1 font-black text-slate-800">
+                가장 먼저 지도할 개념은 {conceptSummary[0].concept}입니다.
+              </h3>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                오답 {conceptSummary[0].count}건, 관련 학생 {conceptSummary[0].studentCount}명으로 분류되었습니다.
+              </p>
+            </div>
+            <button type="button"
+              onClick={() => onCreateReview?.(conceptSummary[0].wrongAnswers, `${conceptSummary[0].concept} 복습 퀴즈`)}
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-indigo-700">
+              복습 퀴즈 바로 만들기
+            </button>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {conceptSummary.slice(0, 8).map(item => (
+              <button type="button" key={item.concept}
+                onClick={() => onCreateReview?.(item.wrongAnswers, `${item.concept} 복습 퀴즈`)}
+                className="rounded-xl border border-indigo-100 bg-white px-3 py-3 text-left hover:border-indigo-300 hover:bg-indigo-50">
+                <p className="text-xs font-black text-slate-700">{item.concept}</p>
+                <p className="mt-1 text-[11px] font-bold text-slate-400">오답 {item.count}건 · 학생 {item.studentCount}명</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 flex-wrap">
         <h3 className="font-extrabold text-slate-700">🔍 오답 기록 분석</h3>
         <select value={filterUnit} onChange={e => setFilterUnit(e.target.value)}
@@ -1772,10 +2271,17 @@ function WeaknessTab({ teacherUid, students }) {
                 <span className="font-extrabold text-slate-800 text-sm">{item.lessonTitle}</span>
                 <span className="text-xs text-slate-500 ml-2">{item.unitName}</span>
               </div>
-              <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full
-                ${item.count >= 10 ? 'bg-rose-100 text-rose-700' : item.count >= 5 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                {item.count}회 오답
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full
+                  ${item.count >= 10 ? 'bg-rose-100 text-rose-700' : item.count >= 5 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {item.count}회 오답
+                </span>
+                <button type="button"
+                  onClick={() => onCreateReview?.(item.wrongAnswers, `${item.unitName || ''} ${item.lessonTitle || ''} 복습 퀴즈`.trim())}
+                  className="rounded-lg border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-extrabold text-indigo-600 hover:bg-indigo-50">
+                  복습 퀴즈
+                </button>
+              </div>
             </div>
             <div className="px-5 py-3 space-y-1.5">
               {Object.entries(item.questions)

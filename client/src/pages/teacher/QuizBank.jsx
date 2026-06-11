@@ -609,6 +609,32 @@ export default function QuizBank({ selectedClass = null }) {
     if (tab === 'bank') fetchBankSets();
   }, [tab, currentClassId]);
 
+  useEffect(() => {
+    const rawDraft = sessionStorage.getItem('aiReviewQuizDraft');
+    if (!rawDraft) return;
+    try {
+      const draft = JSON.parse(rawDraft);
+      const questions = Array.isArray(draft.questions)
+        ? draft.questions.filter(question =>
+            question?.question &&
+            Array.isArray(question?.options) &&
+            question.options.filter(Boolean).length >= 2
+          )
+        : [];
+      if (!questions.length) return;
+      setTab('manual');
+      setManualTitle(draft.title || 'AI 학습관 취약 개념 복습');
+      setMGrade(draft.grade ? String(draft.grade) : '');
+      setMSubject('수학');
+      setManualQuestions(questions);
+      showToast(`오답 기록에서 복습 문제 ${questions.length}개를 불러왔습니다.`);
+    } catch (error) {
+      console.error('Failed to load AI review quiz draft:', error);
+    } finally {
+      sessionStorage.removeItem('aiReviewQuizDraft');
+    }
+  }, []);
+
   const fetchMySets = async () => {
     setIsLoadingMine(true);
     try {

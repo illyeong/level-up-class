@@ -361,7 +361,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'adventureManage' && <AdventureManage selectedClass={selectedClass} />}
         {currentView === 'boardManage'        && <BoardManage selectedClass={selectedClass} user={user} />}
         {currentView === 'learningNoteManage' && <LearningNoteManage selectedClass={selectedClass} />}
-        {currentView === 'aiCourseware'       && <AICoursewareManage selectedClass={selectedClass} />}
+        {currentView === 'aiCourseware'       && <AICoursewareManage selectedClass={selectedClass} onNavigate={setCurrentView} />}
         {currentView === 'aiCoursewareView'   && <AICourseware teacherUid={selectedClass?.teacherUid} isTeacher themeMode={teacherThemeMode} />}
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
         {currentView === 'dataReset'       && <DataReset selectedClass={selectedClass} onClassDeleted={onChangeClass} />}
