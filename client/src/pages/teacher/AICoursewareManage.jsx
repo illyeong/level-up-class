@@ -250,20 +250,31 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
   const getUnitStats = (unit) => {
     const countable = (unit.lessons || []).filter(l => l.title !== '단원 도입');
     if (!countable.length) return { completedStudents: 0, totalStudents: students.length, classAvg: null, progressPct: 0, needed: countable.length };
-    let totalRated = 0, completedStudents = 0;
+    let completedStudents = 0;
     const completedAvgs = [];
+    const lessonTitles = new Set(countable.map(lesson => lesson.title));
+    const completedPairs = new Set(
+      allProgress
+        .filter(progress =>
+          progress.unitName === unit.unitName &&
+          lessonTitles.has(progress.lessonTitle) &&
+          students.some(student => student.studentCode === progress.studentCode)
+        )
+        .map(progress => `${progress.studentCode}_${progress.lessonTitle}`)
+    );
     students.forEach(stu => {
       const rated = countable.filter(l => (allMastery[lessonKey(unit, l)] || {})[stu.studentCode]?.masteryAvg != null);
-      totalRated += rated.length;
       if (rated.length === countable.length) {
         completedStudents++;
         completedAvgs.push(Math.round(rated.reduce((s, l) => s + (allMastery[lessonKey(unit, l)] || {})[stu.studentCode].masteryAvg, 0) / rated.length));
       }
     });
+    const totalPossible = countable.length * students.length;
+    const rawProgress = totalPossible ? (completedPairs.size / totalPossible) * 100 : 0;
     return {
       completedStudents, totalStudents: students.length,
       classAvg: completedAvgs.length ? Math.round(completedAvgs.reduce((a, b) => a + b, 0) / completedAvgs.length) : null,
-      progressPct: students.length ? Math.round((totalRated / (countable.length * students.length)) * 100) : 0,
+      progressPct: rawProgress > 0 ? Math.max(1, Math.round(rawProgress)) : 0,
       needed: countable.length,
     };
   };
