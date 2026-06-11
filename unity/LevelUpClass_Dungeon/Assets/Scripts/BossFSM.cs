@@ -641,6 +641,13 @@ public class BossFSM : MonoBehaviour
         SpriteFont.ShowDamage("RAGE!!", transform.position + new Vector3(0, 2.5f, 0), FontType.Rainbow);
 
         yield return new WaitForSeconds(0.5f);
+
+        if (phase2Skill == Phase2SkillType.StoneGolem)
+        {
+            lastStoneSkillTime = Time.time - stoneSkillCooldown;
+            firstStoneRockPending = true;
+        }
+
         isAttacking = false;
     }
 
