@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, doc, setDoc, deleteDoc,
+  collection, getDocs, doc, setDoc, deleteDoc, runTransaction,
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { getMaxExpForLevel } from '../utils/leveling';
+import { applyExpDelta, getMaxExpForLevel } from '../utils/leveling';
 import AttendanceCheck from '../pages/student/AttendanceCheck';
 import HallOfFame from '../pages/student/HallOfFame';
 import LevelUpEffect from './LevelUpEffect';
@@ -12,11 +12,19 @@ import iconDashboard from '../assets/images/icon-dashboard.png';
 import { getEffectiveCosmeticStyles, getHallOfFameBadgeText } from '../data/avatarCosmetics';
 
 // ── 오늘의 퀘스트 위젯 ────────────────────────────────────────
-function TodayQuestWidget({ studentId, teacherUid, onYesterdayLog }) {
+function TodayQuestWidget({ studentId, teacherUid, onYesterdayLog, onStudentRewarded }) {
   const [quests, setQuests]           = useState([]);
   const [completions, setCompletions] = useState({});
   const [busyId, setBusyId]           = useState(null);
   const [isLoading, setIsLoading]     = useState(true);
+  const [dayKey, setDayKey]           = useState(() => new Date().toDateString());
+
+  useEffect(() => {
+    const nextMidnight = new Date();
+    nextMidnight.setHours(24, 0, 1, 0);
+    const timer = window.setTimeout(() => setDayKey(new Date().toDateString()), nextMidnight.getTime() - Date.now());
+    return () => window.clearTimeout(timer);
+  }, [dayKey]);
 
   useEffect(() => {
     if (!studentId) { setIsLoading(false); return; }
@@ -56,21 +64,56 @@ function TodayQuestWidget({ studentId, teacherUid, onYesterdayLog }) {
         const todayMidnight = new Date();
         todayMidnight.setHours(0, 0, 0, 0);
         const cleanedQuests = [];
-        await Promise.all(
-          list
-            .filter(q => q.type === 'daily' && q.repeatDaily && q.active !== false)
-            .map(async q => {
-              const comp = cMap[q.id];
-              if (!comp || comp.rewarded) return; // 보상된 건 유지
-              const ts = comp.checkedAt;
-              const checkedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
-              if (checkedAt && checkedAt < todayMidnight) {
-                if (comp.checked) cleanedQuests.push({ questId: q.id, title: q.title, rewards: q.rewards });
-                await deleteDoc(doc(db, 'quests', q.id, 'completions', studentId));
-                delete cMap[q.id];
+        const dailyRepeatQuests = list.filter(q => q.type === 'daily' && q.repeatDaily && q.active !== false);
+        for (const quest of dailyRepeatQuests) {
+          const cachedComp = cMap[quest.id];
+          if (!cachedComp) continue;
+
+          const relevantTs = cachedComp.checkedAt || cachedComp.rewardedAt;
+          const relevantDate = relevantTs?.toDate?.()
+            ?? (relevantTs?.seconds ? new Date(relevantTs.seconds * 1000) : null);
+          if (!relevantDate || relevantDate >= todayMidnight) continue;
+
+          const result = await runTransaction(db, async transaction => {
+            const completionRef = doc(db, 'quests', quest.id, 'completions', studentId);
+            const completionSnap = await transaction.get(completionRef);
+            if (!completionSnap.exists()) return null;
+
+            const completion = completionSnap.data();
+            const timestamp = completion.checkedAt || completion.rewardedAt;
+            const completionDate = timestamp?.toDate?.()
+              ?? (timestamp?.seconds ? new Date(timestamp.seconds * 1000) : null);
+            if (!completionDate || completionDate >= todayMidnight) return null;
+
+            let updatedStudent = null;
+            const shouldReward = quest.selfCheck && completion.checked && !completion.rewarded;
+            if (shouldReward) {
+              const studentRef = doc(db, 'students', studentId);
+              const studentSnap = await transaction.get(studentRef);
+              if (studentSnap.exists()) {
+                const student = studentSnap.data();
+                const progress = applyExpDelta(student.level ?? 1, student.exp ?? 0, quest.rewards?.exp || 0);
+                updatedStudent = {
+                  gold: (student.gold || 0) + (quest.rewards?.gold || 0),
+                  diamonds: (student.diamonds || 0) + (quest.rewards?.diamond || 0),
+                  level: progress.level,
+                  exp: progress.exp,
+                  maxExp: progress.maxExp,
+                };
+                transaction.update(studentRef, updatedStudent);
               }
-            })
-        );
+            }
+
+            transaction.delete(completionRef);
+            return { rewarded: shouldReward, updatedStudent };
+          });
+
+          delete cMap[quest.id];
+          if (result?.rewarded) {
+            cleanedQuests.push({ questId: quest.id, title: quest.title, rewards: quest.rewards });
+            if (result.updatedStudent) onStudentRewarded?.(result.updatedStudent);
+          }
+        }
         if (cleanedQuests.length > 0) {
           const todayStr = new Date().toDateString();
           localStorage.setItem(`levelup_yesterday_log_${studentId}`, JSON.stringify({ date: todayStr, quests: cleanedQuests }));
@@ -81,7 +124,7 @@ function TodayQuestWidget({ studentId, teacherUid, onYesterdayLog }) {
       } catch (e) { console.error(e); }
       finally { setIsLoading(false); }
     })();
-  }, [studentId]);
+  }, [studentId, teacherUid, dayKey]);
 
   const toggleCheck = async (quest) => {
     if (!studentId || busyId) return;
@@ -827,7 +870,12 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
           <AttendanceCheck studentCode={studentCode} />
 
           {/* 오늘의 퀘스트 */}
-          <TodayQuestWidget studentId={studentData?.id} teacherUid={studentData?.teacherUid} onYesterdayLog={handleYesterdayLog} />
+          <TodayQuestWidget
+            studentId={studentData?.id}
+            teacherUid={studentData?.teacherUid}
+            onYesterdayLog={handleYesterdayLog}
+            onStudentRewarded={(rewardedData) => setStudentData(prev => prev ? { ...prev, ...rewardedData } : prev)}
+          />
           <RewardLogModalWidget studentId={studentData?.id} />
         </div>
       </div>
