@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Rendering;
 using StudioNAP;
 using Spine.Unity;
 
@@ -16,7 +17,8 @@ public class BossFSM : MonoBehaviour
     {
         Jump,
         PoisonPool,
-        Smash
+        Smash,
+        StoneGolem
     }
 
     public UnityEngine.UI.Slider bossHpBar;
@@ -48,12 +50,34 @@ public class BossFSM : MonoBehaviour
     public float poisonCastDelay = 0.35f;
 
     [Header("Smash Attack (Phase 2)")]
+    public GameObject smashWarningEffectPrefab;
     public GameObject smashEffectPrefab;
     public float smashCooldown = 9f;
     public float smashTriggerRange = 5f;
     public float smashCastDelay = 0.45f;
     public float smashRadius = 3.2f;
     public float smashDamageMultiplier = 2.1f;
+
+    [Header("Stone Golem Attacks (Phase 2)")]
+    public StoneGolemFallingRock fallingRockPrefab;
+    public GameObject rockWarningEffectPrefab;
+    public GameObject rockImpactEffectPrefab;
+    public float stoneSkillCooldown = 8f;
+    public float rockFallCastDelay = 0.45f;
+    public float rockFallInterval = 0.3f;
+    public float rockFallHeight = 7f;
+    public float rockFallDuration = 0.8f;
+    public float rockFallRadius = 1.5f;
+    public float rockFallDamageMultiplier = 1.25f;
+    public int rockFallCount = 3;
+    public int phase2RockFallCount = 5;
+    public float rockFallSpread = 2.2f;
+    public int firstRockFallHitThreshold = 2;
+    public float stoneJumpPower = 7f;
+    public float stoneJumpMoveSpeed = 4f;
+    public float stoneJumpTrackDuration = 0.8f;
+    public float stoneJumpRadius = 3.5f;
+    public float stoneJumpDamageMultiplier = 1.8f;
 
     [Header("지형 감지")]
     public Transform frontCheck;
@@ -116,6 +140,11 @@ public class BossFSM : MonoBehaviour
     private float lastChargeAttackTime = 0f;
     private float lastJumpAttackTime   = 0f;
     private float lastPoisonAttackTime = 0f;
+    private float lastStoneSkillTime   = 0f;
+    private bool useStoneJumpNext      = true;
+    private int stoneGolemHitCount     = 0;
+    private bool firstStoneRockTriggered = false;
+    private bool firstStoneRockPending = false;
 
     void Start()
     {
@@ -157,6 +186,12 @@ public class BossFSM : MonoBehaviour
         if (frozen) { if (rb) rb.linearVelocity = Vector2.zero; return; }
         if (playerTarget == null) return;
 
+        if (phase2Skill == Phase2SkillType.StoneGolem && firstStoneRockPending)
+        {
+            StartCoroutine(StoneGolemSkill(true));
+            return;
+        }
+
         // Phase 2 전환 감지
         if (!phase2Triggered && currentHealth <= maxHealth / 2)
         {
@@ -189,6 +224,13 @@ public class BossFSM : MonoBehaviour
             return;
         }
 
+        if (phase2Skill == Phase2SkillType.StoneGolem && firstStoneRockTriggered &&
+            dist <= 9f && Time.time >= lastStoneSkillTime + stoneSkillCooldown)
+        {
+            StartCoroutine(StoneGolemSkill(false));
+            return;
+        }
+
         // 돌진 공격
         if (dist > attackRange && Time.time >= lastChargeAttackTime + chargeAttackCooldown)
         {
@@ -217,7 +259,7 @@ public class BossFSM : MonoBehaviour
     void PlayAnim(string animName, bool loop = true)
     {
         if (string.IsNullOrEmpty(animName)) return;
-        if (animName == currentAnimName) return; // 이미 재생 중이면 스킵
+        if (animName == currentAnimName && IsAnimatorPlaying(animName)) return;
         currentAnimName = animName;
 
         if (skeletonGraphic != null && skeletonGraphic.AnimationState != null)
@@ -226,7 +268,9 @@ public class BossFSM : MonoBehaviour
             skeletonAnim.AnimationState.SetAnimation(0, animName, loop);
         else if (animator != null)
         {
-            ApplyAnimatorParams(animName);
+            bool isAttackState = animName == "Attack" || animName == "AttackAlt";
+            if (!isAttackState)
+                ApplyAnimatorParams(animName);
 
             int stateHash = Animator.StringToHash(animName);
             int fullPathHash = Animator.StringToHash("Base Layer." + animName);
@@ -234,7 +278,17 @@ public class BossFSM : MonoBehaviour
                 animator.Play(stateHash, 0, 0f);
             else if (animator.HasState(0, fullPathHash))
                 animator.Play(fullPathHash, 0, 0f);
+            else
+                ApplyAnimatorParams(animName);
         }
+    }
+
+    bool IsAnimatorPlaying(string animName)
+    {
+        if (animator == null) return true;
+
+        AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
+        return state.IsName(animName) || state.IsName("Base Layer." + animName);
     }
 
     void ApplyAnimatorParams(string animName)
@@ -431,6 +485,139 @@ public class BossFSM : MonoBehaviour
         isAttacking = false;
     }
 
+    IEnumerator StoneGolemSkill(bool forceRockFall)
+    {
+        isAttacking = true;
+        lastStoneSkillTime = Time.time;
+        rb.linearVelocity = Vector2.zero;
+
+        PlayAnim(attackAnimName, false);
+
+        if (!forceRockFall && useStoneJumpNext)
+        {
+            rb.AddForce(Vector2.up * stoneJumpPower, ForceMode2D.Impulse);
+            float trackElapsed = 0f;
+            while (trackElapsed < stoneJumpTrackDuration)
+            {
+                trackElapsed += Time.fixedDeltaTime;
+
+                if (playerTarget != null)
+                {
+                    float horizontalDelta = playerTarget.position.x - transform.position.x;
+                    float dir = Mathf.Sign(horizontalDelta);
+                    float trackingSpeed = Mathf.Min(stoneJumpMoveSpeed, Mathf.Abs(horizontalDelta) * 4f);
+
+                    if (Mathf.Abs(horizontalDelta) > 0.15f)
+                    {
+                        transform.localScale = new Vector3(-dir, 1f, 1f);
+                        rb.linearVelocity = new Vector2(dir * trackingSpeed, rb.linearVelocity.y);
+                    }
+                    else
+                    {
+                        rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+                    }
+                }
+
+                yield return new WaitForFixedUpdate();
+            }
+
+            rb.linearVelocity = new Vector2(0f, -12f);
+            yield return new WaitForSeconds(0.25f);
+
+            Vector3 center = transform.position;
+            if (landingEffectPrefab != null)
+            {
+                var fx = Instantiate(landingEffectPrefab, center, Quaternion.identity);
+                Destroy(fx, 2f);
+            }
+
+            CameraFollow.Instance?.Shake(shakeDuration, shakeMagnitude);
+            DamagePlayersInRadius(center, stoneJumpRadius, Mathf.RoundToInt(attackPower * stoneJumpDamageMultiplier));
+            yield return new WaitForSeconds(0.45f);
+        }
+        else
+        {
+            yield return new WaitForSeconds(rockFallCastDelay);
+
+            int count = isPhase2 ? phase2RockFallCount : rockFallCount;
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 center = playerTarget != null ? playerTarget.position : transform.position;
+                float offset = Random.Range(-rockFallSpread, rockFallSpread);
+                Vector3 target = new Vector3(center.x + offset, center.y, transform.position.z);
+                SpawnFallingRock(target);
+                yield return new WaitForSeconds(rockFallInterval);
+            }
+        }
+
+        if (forceRockFall)
+        {
+            firstStoneRockPending = false;
+            firstStoneRockTriggered = true;
+            useStoneJumpNext = true;
+        }
+        else
+        {
+            useStoneJumpNext = !useStoneJumpNext;
+        }
+
+        yield return new WaitForSeconds(0.35f);
+        isAttacking = false;
+    }
+
+    void SpawnFallingRock(Vector3 target)
+    {
+        if (fallingRockPrefab != null)
+        {
+            StoneGolemFallingRock rock = Instantiate(
+                fallingRockPrefab,
+                target + Vector3.up * rockFallHeight,
+                Quaternion.identity
+            );
+            rock.Initialize(
+                target,
+                rockFallDuration,
+                rockFallRadius,
+                Mathf.RoundToInt(attackPower * rockFallDamageMultiplier),
+                rockWarningEffectPrefab,
+                rockImpactEffectPrefab
+            );
+            return;
+        }
+
+        StartCoroutine(FallbackRockImpact(target));
+    }
+
+    IEnumerator FallbackRockImpact(Vector3 target)
+    {
+        GameObject warning = null;
+        if (rockWarningEffectPrefab != null)
+            warning = Instantiate(rockWarningEffectPrefab, target, Quaternion.identity);
+
+        yield return new WaitForSeconds(rockFallDuration);
+
+        if (warning != null) Destroy(warning);
+        if (rockImpactEffectPrefab != null)
+        {
+            var fx = Instantiate(rockImpactEffectPrefab, target, Quaternion.identity);
+            Destroy(fx, 2f);
+        }
+
+        CameraFollow.Instance?.Shake(shakeDuration * 0.65f, shakeMagnitude * 0.65f);
+        DamagePlayersInRadius(target, rockFallRadius, Mathf.RoundToInt(attackPower * rockFallDamageMultiplier));
+    }
+
+    void DamagePlayersInRadius(Vector3 center, float radius, int damage)
+    {
+        Collider2D[] hits = Physics2D.OverlapCircleAll(center, radius, LayerMask.GetMask("Player"));
+        foreach (var hit in hits)
+        {
+            var pc = hit.GetComponent<LayerLab.ArtMaker.PlayerCombat>();
+            if (pc != null)
+                pc.TakePlayerDamage(damage, center);
+        }
+    }
+
     IEnumerator TriggerPhase2()
     {
         phase2Triggered = true;
@@ -485,13 +672,16 @@ public class BossFSM : MonoBehaviour
 
     [HideInInspector] public bool suppressDeath = false;
 
-    public void TakeDamage(int damage, bool isCritical = false)
+    public void TakeDamage(int damage, bool isCritical = false, bool countsAsBasicAttack = false)
     {
         if (isDead) return;
         currentHealth -= damage;
 
-        Vector3 textPos = transform.position + new Vector3(0, 1.5f, 0);
-        SpriteFont.ShowDamage(damage.ToString(), textPos, FontType.Rainbow);
+        Vector3 textPos = GetDamageTextPosition();
+        Transform damageText = SpriteFont.ShowDamage(damage.ToString(), textPos, FontType.Rainbow);
+        SetEffectSorting(damageText != null ? damageText.gameObject : null, 32000);
+        if (damageText != null)
+            damageText.position = new Vector3(damageText.position.x, damageText.position.y, transform.position.z - 0.1f);
 
         GetComponentInChildren<MonsterHpBar>(true)?.Show();
         if (bossHpFillImage != null)
@@ -502,6 +692,7 @@ public class BossFSM : MonoBehaviour
         if (effectToSpawn != null)
         {
             var fx = Instantiate(effectToSpawn, transform.position, Quaternion.identity);
+            BringEffectToFront(fx, 5);
             Destroy(fx, 2f);
         }
 
@@ -509,13 +700,88 @@ public class BossFSM : MonoBehaviour
         {
             Vector3 boomPos = transform.position + new Vector3(0, 2.5f, 0);
             var boom = Instantiate(critBoomEffectPrefab, boomPos, Quaternion.identity);
+            BringEffectToFront(boom, 10);
             Destroy(boom, 2f);
         }
 
         if (currentHealth <= 0 && !suppressDeath) { Die(); return; }
 
-        isAttacking = false;
-        isCharging  = false;
+        if (countsAsBasicAttack && phase2Skill == Phase2SkillType.StoneGolem && !firstStoneRockTriggered)
+        {
+            stoneGolemHitCount++;
+            if (stoneGolemHitCount >= Mathf.Max(1, firstRockFallHitThreshold))
+                firstStoneRockPending = true;
+        }
+
+    }
+
+    void BringEffectToFront(GameObject target, int orderOffset)
+    {
+        if (target == null) return;
+
+        SortingGroup bossSortingGroup = GetComponentInChildren<SortingGroup>(true);
+        int baseOrder = bossSortingGroup != null ? bossSortingGroup.sortingOrder : 0;
+        string layerName = bossSortingGroup != null ? bossSortingGroup.sortingLayerName : "Default";
+
+        if (bossSortingGroup == null)
+        {
+            foreach (Renderer bossRenderer in GetComponentsInChildren<Renderer>(true))
+            {
+                if (bossRenderer.sortingOrder >= baseOrder)
+                {
+                    baseOrder = bossRenderer.sortingOrder;
+                    layerName = bossRenderer.sortingLayerName;
+                }
+            }
+        }
+
+        SetEffectSorting(target, Mathf.Min(30000, baseOrder + orderOffset), layerName);
+    }
+
+    void SetEffectSorting(GameObject target, int sortingOrder, string layerName = null)
+    {
+        if (target == null) return;
+        if (string.IsNullOrEmpty(layerName))
+        {
+            SortingGroup bossSortingGroup = GetComponentInChildren<SortingGroup>(true);
+            layerName = bossSortingGroup != null ? bossSortingGroup.sortingLayerName : "Default";
+        }
+
+        foreach (SortingGroup effectGroup in target.GetComponentsInChildren<SortingGroup>(true))
+        {
+            effectGroup.sortingLayerName = layerName;
+            effectGroup.sortingOrder = sortingOrder;
+        }
+
+        SpriteFont spriteFont = target.GetComponent<SpriteFont>();
+        if (spriteFont != null)
+        {
+            SortingGroup fontSortingGroup = target.GetComponent<SortingGroup>();
+            if (fontSortingGroup == null)
+                fontSortingGroup = target.AddComponent<SortingGroup>();
+
+            fontSortingGroup.sortingLayerName = layerName;
+            fontSortingGroup.sortingOrder = sortingOrder;
+            spriteFont.SetSorting(layerName, sortingOrder);
+        }
+
+        foreach (Renderer effectRenderer in target.GetComponentsInChildren<Renderer>(true))
+        {
+            effectRenderer.sortingLayerName = layerName;
+            effectRenderer.sortingOrder = sortingOrder;
+        }
+    }
+
+    Vector3 GetDamageTextPosition()
+    {
+        if (bossCollider == null)
+            bossCollider = GetComponent<Collider2D>();
+
+        float y = bossCollider != null
+            ? bossCollider.bounds.max.y + 0.6f
+            : transform.position.y + 2.5f;
+
+        return new Vector3(transform.position.x, y, transform.position.z);
     }
 
     public void ReleaseSuppressDeath()

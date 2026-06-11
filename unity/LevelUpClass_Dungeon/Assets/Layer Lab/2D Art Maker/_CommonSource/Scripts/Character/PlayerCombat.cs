@@ -282,7 +282,7 @@ namespace LayerLab.ArtMaker
                     BossFSM boss = monster.GetComponent<BossFSM>();
                     if (boss != null && !boss.isDead)
                     {
-                        boss.TakeDamage(finalDamage, isCrit);
+                        boss.TakeDamage(finalDamage, isCrit, true);
                         continue;
                     }
 

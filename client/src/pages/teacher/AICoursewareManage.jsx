@@ -54,6 +54,20 @@ const LEARNING_STATUS = {
 const getCompletedSeconds = (progress) =>
   progress?.completedAt?.seconds || progress?.completedAt?._seconds || 0;
 
+const isWithinPeriod = (progress, period) => {
+  if (period === 'all') return true;
+  const days = Number(period);
+  const completedSeconds = getCompletedSeconds(progress);
+  const completedDate = completedSeconds
+    ? new Date(completedSeconds * 1000)
+    : progress?.date ? new Date(`${progress.date}T23:59:59`) : null;
+  if (!completedDate || Number.isNaN(completedDate.getTime())) return false;
+  const threshold = new Date();
+  threshold.setHours(0, 0, 0, 0);
+  threshold.setDate(threshold.getDate() - (days - 1));
+  return completedDate >= threshold;
+};
+
 const classifyWeakConcept = (wrong) => {
   const text = `${wrong?.unitName || ''} ${wrong?.lessonTitle || ''} ${wrong?.skill || ''} ${wrong?.fullQuestion || wrong?.questionText || ''}`;
   if (/분수|분모|분자|소수/.test(text)) return '분수·소수';
@@ -122,6 +136,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
 
   const [tab, setTab] = useState('overview');
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [analysisPeriod, setAnalysisPeriod] = useState('7');
 
   const createReviewQuizDraft = useCallback((wrongAnswers, title = 'AI 학습관 취약 개념 복습') => {
     const unique = [];
@@ -202,12 +217,16 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
 
   // ── 파생 데이터 ─────────────────────────────────────────────
   const today = new Date().toISOString().slice(0, 10);
-  const todayProg = allProgress.filter(p => p.date === today);
-  const scores = allProgress.map(p => p.score).filter(s => s != null);
+  const analysisProgress = allProgress.filter(progress => isWithinPeriod(progress, analysisPeriod));
+  const todayProg = analysisProgress.filter(p => p.date === today);
+  const scores = analysisProgress.map(p => p.score).filter(s => s != null);
   const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
 
   const studentStats = students.map(stu => {
-    const progs = allProgress.filter(p => p.studentCode === stu.studentCode);
+    const progs = analysisProgress.filter(p => p.studentCode === stu.studentCode);
+    const allStudentProgress = allProgress
+      .filter(p => p.studentCode === stu.studentCode)
+      .sort((a, b) => getCompletedSeconds(b) - getCompletedSeconds(a));
     const sc = progs.map(p => p.score).filter(s => s != null);
     const stuMasteries = Object.values(allMastery).map(lm => lm[stu.studentCode]).filter(m => m?.masteryLevel);
     const recentProgress = [...progs].sort((a, b) => getCompletedSeconds(b) - getCompletedSeconds(a));
@@ -224,9 +243,24 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
       ? 'none'
       : latestScore >= previousAvg + 5 ? 'up' : latestScore <= previousAvg - 5 ? 'down' : 'steady';
     const retryCount = stuMasteries.filter(m => m.masteryLevel === 'retry').length;
-    const status = !progs.length
+    const supportReasons = [];
+    const averageScore = sc.length ? Math.round(sc.reduce((a, b) => a + b, 0) / sc.length) : null;
+    const latestActivitySeconds = getCompletedSeconds(allStudentProgress[0]);
+    const latestActivityDate = latestActivitySeconds
+      ? new Date(latestActivitySeconds * 1000)
+      : allStudentProgress[0]?.date ? new Date(`${allStudentProgress[0].date}T23:59:59`) : null;
+    const inactiveDays = latestActivityDate && !Number.isNaN(latestActivityDate.getTime())
+      ? Math.floor((Date.now() - latestActivityDate.getTime()) / 86400000)
+      : null;
+    if (retryCount >= 2) supportReasons.push(`재도전 필요 차시 ${retryCount}개`);
+    if (masteryAvg != null && masteryAvg < 60) supportReasons.push(`누적 숙달도 ${masteryAvg}%`);
+    if (averageScore != null && averageScore < 60) supportReasons.push(`기간 평균 정답률 ${averageScore}%`);
+    if (trend === 'down') supportReasons.push('최근 점수 하락');
+    if (!allStudentProgress.length) supportReasons.push('AI 학습 미시작');
+    else if (inactiveDays >= 7) supportReasons.push(`${inactiveDays}일간 미학습`);
+    const status = !allStudentProgress.length
       ? 'inactive'
-      : retryCount >= 2 || (masteryAvg != null && masteryAvg < 60) || (sc.length && Math.round(sc.reduce((a, b) => a + b, 0) / sc.length) < 60)
+      : supportReasons.length > 0
         ? 'support'
         : masteryAvg != null && masteryAvg >= 90
           ? 'excellent'
@@ -235,8 +269,8 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
             : 'learning';
     return {
       ...stu, completions: progs.length,
-      avgScore: sc.length ? Math.round(sc.reduce((a, b) => a + b, 0) / sc.length) : null,
-      lastDate: recentProgress[0]?.date || null,
+      avgScore: averageScore,
+      lastDate: allStudentProgress[0]?.date || null,
       todayCount: progs.filter(p => p.date === today).length,
       masteries: stuMasteries,
       masteryAvg,
@@ -244,6 +278,8 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
       status,
       trend,
       recentProgress,
+      allRecentProgress: allStudentProgress,
+      supportReasons,
     };
   });
 
@@ -338,11 +374,13 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
           <LearningOverviewTab
             loading={loadingData}
             students={studentStats}
-            allProgress={allProgress}
+            allProgress={analysisProgress}
             allMastery={allMastery}
             onOpenStudent={setSelectedStudent}
             onOpenUnits={() => setTab('units')}
             onOpenWeakness={() => setTab('weakness')}
+            analysisPeriod={analysisPeriod}
+            onPeriodChange={setAnalysisPeriod}
           />
         )}
 
@@ -716,10 +754,12 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
 
       </div>
       {selectedStudent && (
-        <StudentLearningDetail
+          <StudentLearningDetail
           student={selectedStudent}
           teacherUid={teacherUid}
           classId={selectedClass?.id}
+          onCreateReview={createReviewQuizDraft}
+          onOpenWeakness={() => setTab('weakness')}
           onClose={() => setSelectedStudent(null)}
         />
       )}
@@ -727,7 +767,17 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
   );
 }
 
-function LearningOverviewTab({ loading, students, allProgress, allMastery, onOpenStudent, onOpenUnits, onOpenWeakness }) {
+function LearningOverviewTab({
+  loading,
+  students,
+  allProgress,
+  allMastery,
+  onOpenStudent,
+  onOpenUnits,
+  onOpenWeakness,
+  analysisPeriod,
+  onPeriodChange,
+}) {
   const [queryText, setQueryText] = useState('');
   const [sortBy, setSortBy] = useState('support');
 
@@ -793,6 +843,23 @@ function LearningOverviewTab({ loading, students, allProgress, allMastery, onOpe
 
   return (
     <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div>
+          <p className="text-sm font-black text-slate-800">분석 기간</p>
+          <p className="mt-0.5 text-[11px] font-medium text-slate-400">활동·정답률·성장 추세에 적용되며 숙달도는 누적 기준입니다.</p>
+        </div>
+        <div className="flex rounded-xl bg-slate-100 p-1">
+          {[['1', '오늘'], ['7', '최근 7일'], ['30', '최근 30일'], ['all', '전체']].map(([value, label]) => (
+            <button type="button" key={value} onClick={() => onPeriodChange(value)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition-colors ${
+                analysisPeriod === value ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {overviewCards.map(card => (
           <div key={card.label} className={`rounded-2xl border p-4 ${card.accent}`}>
@@ -898,6 +965,9 @@ function LearningOverviewTab({ loading, students, allProgress, allMastery, onOpe
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-extrabold text-slate-800">{student.name || student.studentName || student.studentCode}</span>
                     <span className="block truncate text-[10px] font-medium text-slate-400">{student.studentCode}</span>
+                    {student.supportReasons?.length > 0 && (
+                      <span className="mt-1 block truncate text-[10px] font-bold text-rose-500">{student.supportReasons[0]}</span>
+                    )}
                   </span>
                   <LearningStatusPill status={student.status} />
                   <span className={`text-sm font-black ${student.avgScore == null ? 'text-slate-300' : scoreColor(student.avgScore)}`}>
@@ -920,11 +990,14 @@ function LearningOverviewTab({ loading, students, allProgress, allMastery, onOpe
   );
 }
 
-function StudentLearningDetail({ student, teacherUid, classId, onClose }) {
+function StudentLearningDetail({ student, teacherUid, classId, onCreateReview, onOpenWeakness, onClose }) {
   const [memo, setMemo] = useState('');
   const [memoLoading, setMemoLoading] = useState(true);
   const [memoSaving, setMemoSaving] = useState(false);
   const [memoSaved, setMemoSaved] = useState(false);
+  const [wrongAnswers, setWrongAnswers] = useState([]);
+  const [wrongLoading, setWrongLoading] = useState(true);
+  const memoRef = React.useRef(null);
   const masteryDist = student.masteries.reduce((acc, item) => {
     if (acc[item.masteryLevel] !== undefined) acc[item.masteryLevel] += 1;
     return acc;
@@ -939,6 +1012,31 @@ function StudentLearningDetail({ student, teacherUid, classId, onClose }) {
       .then(snapshot => setMemo(snapshot.data()?.memo || ''))
       .finally(() => setMemoLoading(false));
   }, [teacherUid, student.studentCode]);
+
+  useEffect(() => {
+    if (!student.studentCode) return;
+    setWrongLoading(true);
+    getDocs(query(collection(db, 'aiWrongAnswers'), where('studentCode', '==', student.studentCode)))
+      .then(snapshot => {
+        const deduped = new Map();
+        snapshot.docs.forEach(document => {
+          const item = { id: document.id, ...document.data() };
+          const key = item.questionKey || item.id;
+          const previous = deduped.get(key);
+          if (!previous) {
+            deduped.set(key, item);
+            return;
+          }
+          previous.wrongCount = Math.max(previous.wrongCount || 1, item.wrongCount || 1);
+          if (item.resolved || item.status === 'resolved') {
+            previous.resolved = true;
+            previous.status = 'resolved';
+          }
+        });
+        setWrongAnswers([...deduped.values()]);
+      })
+      .finally(() => setWrongLoading(false));
+  }, [student.studentCode]);
 
   const saveMemo = async () => {
     if (!teacherUid || !student.studentCode) return;
@@ -974,6 +1072,53 @@ function StudentLearningDetail({ student, teacherUid, classId, onClose }) {
         </div>
 
         <div className="space-y-4 p-5">
+          <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-extrabold text-indigo-600">교사 실행 메뉴</p>
+                <p className="mt-1 text-sm font-black text-slate-800">분석 결과를 바로 지도 활동으로 연결합니다.</p>
+                {!wrongLoading && (
+                  <p className="mt-1 text-[11px] font-bold text-slate-500">
+                    미해결 오답 {wrongAnswers.filter(item => !item.resolved && item.status !== 'resolved').length}개 ·
+                    해결 완료 {wrongAnswers.filter(item => item.resolved || item.status === 'resolved').length}개
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button"
+                  disabled={wrongLoading || wrongAnswers.filter(item => !item.resolved && item.status !== 'resolved').length === 0}
+                  onClick={() => onCreateReview?.(
+                    wrongAnswers.filter(item => !item.resolved && item.status !== 'resolved'),
+                    `${student.name || student.studentName || student.studentCode} 맞춤 복습 퀴즈`
+                  )}
+                  className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-extrabold text-white hover:bg-indigo-700 disabled:opacity-40">
+                  {wrongLoading ? '오답 확인 중...' : `복습 퀴즈 만들기 (${wrongAnswers.filter(item => !item.resolved && item.status !== 'resolved').length})`}
+                </button>
+                <button type="button" onClick={() => { onClose(); onOpenWeakness?.(); }}
+                  className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-50">
+                  취약 개념 전체 보기
+                </button>
+                <button type="button" onClick={() => memoRef.current?.focus()}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-50">
+                  지도 메모 작성
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {student.supportReasons?.length > 0 && (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+              <p className="text-xs font-extrabold text-rose-600">지원 필요 사유</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {student.supportReasons.map(reason => (
+                  <span key={reason} className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-bold text-rose-700">
+                    {reason}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[
               ['평균 정답률', student.avgScore == null ? '-' : `${student.avgScore}%`],
@@ -1057,6 +1202,7 @@ function StudentLearningDetail({ student, teacherUid, classId, onClose }) {
               {memoSaved && <span className="text-xs font-extrabold text-emerald-600">저장 완료</span>}
             </div>
             <textarea
+              ref={memoRef}
               value={memo}
               onChange={event => setMemo(event.target.value)}
               disabled={memoLoading}
@@ -2184,6 +2330,7 @@ function WeaknessTab({ teacherUid, students, onCreateReview }) {
   const [wrongData,  setWrongData]  = useState([]);
   const [loading,    setLoading]    = useState(false);
   const [filterUnit, setFilterUnit] = useState('');
+  const [filterStatus, setFilterStatus] = useState('active');
 
   useEffect(() => {
     if (!students.length) return;
@@ -2194,14 +2341,35 @@ function WeaknessTab({ teacherUid, students, onCreateReview }) {
     Promise.all(batches.map(b =>
       getDocs(query(collection(db, 'aiWrongAnswers'), where('studentCode', 'in', b)))
     )).then(snaps => {
-      const all = snaps.flatMap(s => s.docs.map(d => d.data()));
-      setWrongData(all);
+      const all = snaps.flatMap(s => s.docs.map(d => ({ id: d.id, ...d.data() })));
+      const deduped = new Map();
+      all.forEach(item => {
+        const key = `${item.studentCode}_${item.questionKey || item.id}`;
+        const previous = deduped.get(key);
+        if (!previous) {
+          deduped.set(key, item);
+          return;
+        }
+        previous.wrongCount = Math.max(previous.wrongCount || 1, item.wrongCount || 1);
+        if (item.resolved || item.status === 'resolved') {
+          previous.resolved = true;
+          previous.status = 'resolved';
+        }
+      });
+      setWrongData([...deduped.values()]);
     }).finally(() => setLoading(false));
   }, [students]);
 
+  const statusFilteredData = wrongData.filter(item => {
+    const status = item.status || (item.resolved ? 'resolved' : 'unresolved');
+    if (filterStatus === 'all') return true;
+    if (filterStatus === 'resolved') return status === 'resolved';
+    return status !== 'resolved';
+  });
+
   // 차시별 오답 집계
   const lessonMap = {};
-  wrongData.forEach(w => {
+  statusFilteredData.forEach(w => {
     const key = w.lessonKey || `${w.unitName}_${w.lessonTitle}`;
     if (!lessonMap[key]) lessonMap[key] = { unitName: w.unitName, lessonTitle: w.lessonTitle, count: 0, questions: {}, wrongAnswers: [] };
     lessonMap[key].count++;
@@ -2214,7 +2382,7 @@ function WeaknessTab({ teacherUid, students, onCreateReview }) {
   const unitNames = [...new Set(sorted.map(s => s.unitName))];
 
   const filtered = filterUnit ? sorted.filter(s => s.unitName === filterUnit) : sorted;
-  const conceptSummary = Object.values(wrongData.reduce((acc, wrong) => {
+  const conceptSummary = Object.values(statusFilteredData.reduce((acc, wrong) => {
     const concept = classifyWeakConcept(wrong);
     if (!acc[concept]) acc[concept] = { concept, count: 0, students: new Set(), wrongAnswers: [] };
     acc[concept].count += 1;
@@ -2240,16 +2408,24 @@ function WeaknessTab({ teacherUid, students, onCreateReview }) {
               </p>
             </div>
             <button type="button"
-              onClick={() => onCreateReview?.(conceptSummary[0].wrongAnswers, `${conceptSummary[0].concept} 복습 퀴즈`)}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-indigo-700">
+              onClick={() => onCreateReview?.(
+                conceptSummary[0].wrongAnswers.filter(item => !item.resolved && item.status !== 'resolved'),
+                `${conceptSummary[0].concept} 복습 퀴즈`
+              )}
+              disabled={!conceptSummary[0].wrongAnswers.some(item => !item.resolved && item.status !== 'resolved')}
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40">
               복습 퀴즈 바로 만들기
             </button>
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {conceptSummary.slice(0, 8).map(item => (
               <button type="button" key={item.concept}
-                onClick={() => onCreateReview?.(item.wrongAnswers, `${item.concept} 복습 퀴즈`)}
-                className="rounded-xl border border-indigo-100 bg-white px-3 py-3 text-left hover:border-indigo-300 hover:bg-indigo-50">
+                onClick={() => onCreateReview?.(
+                  item.wrongAnswers.filter(wrong => !wrong.resolved && wrong.status !== 'resolved'),
+                  `${item.concept} 복습 퀴즈`
+                )}
+                disabled={!item.wrongAnswers.some(wrong => !wrong.resolved && wrong.status !== 'resolved')}
+                className="rounded-xl border border-indigo-100 bg-white px-3 py-3 text-left hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40">
                 <p className="text-xs font-black text-slate-700">{item.concept}</p>
                 <p className="mt-1 text-[11px] font-bold text-slate-400">오답 {item.count}건 · 학생 {item.studentCount}명</p>
               </button>
@@ -2265,7 +2441,15 @@ function WeaknessTab({ teacherUid, students, onCreateReview }) {
           <option value="">전체 단원</option>
           {unitNames.map(u => <option key={u} value={u}>{u}</option>)}
         </select>
-        <span className="text-xs text-slate-400">총 {wrongData.length}건 오답 기록</span>
+        <div className="flex rounded-xl bg-slate-100 p-1">
+          {[['active', '미해결'], ['resolved', '해결'], ['all', '전체']].map(([value, label]) => (
+            <button type="button" key={value} onClick={() => setFilterStatus(value)}
+              className={`rounded-lg px-3 py-1 text-xs font-extrabold ${filterStatus === value ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-slate-400">표시 {statusFilteredData.length}건 · 전체 {wrongData.length}건</span>
       </div>
 
       {loading ? <div className="text-center py-10 text-slate-400 animate-pulse">불러오는 중...</div>
@@ -2288,8 +2472,12 @@ function WeaknessTab({ teacherUid, students, onCreateReview }) {
                   {item.count}회 오답
                 </span>
                 <button type="button"
-                  onClick={() => onCreateReview?.(item.wrongAnswers, `${item.unitName || ''} ${item.lessonTitle || ''} 복습 퀴즈`.trim())}
-                  className="rounded-lg border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-extrabold text-indigo-600 hover:bg-indigo-50">
+                  onClick={() => onCreateReview?.(
+                    item.wrongAnswers.filter(wrong => !wrong.resolved && wrong.status !== 'resolved'),
+                    `${item.unitName || ''} ${item.lessonTitle || ''} 복습 퀴즈`.trim()
+                  )}
+                  disabled={!item.wrongAnswers.some(wrong => !wrong.resolved && wrong.status !== 'resolved')}
+                  className="rounded-lg border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-extrabold text-indigo-600 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40">
                   복습 퀴즈
                 </button>
               </div>

@@ -35,6 +35,19 @@ namespace StudioNAP
         [SerializeField] private int sortingOrder = 0;
         [SerializeField] private string sortingLayerName = "Default";
 
+        public void SetSorting(string layerName, int order)
+        {
+            sortingLayerName = layerName;
+            sortingOrder = order;
+
+            foreach (SpriteRenderer renderer in _spriteRenderers)
+            {
+                if (renderer == null) continue;
+                renderer.sortingLayerName = sortingLayerName;
+                renderer.sortingOrder = sortingOrder;
+            }
+        }
+
         [SerializeField] private SpriteAtlas myAtlas;
 
         public SpriteAtlas Atlas

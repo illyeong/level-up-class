@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  collection, getDocs, doc, getDoc, setDoc, addDoc, updateDoc,
+  collection, getDocs, doc, getDoc, setDoc, updateDoc,
   query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -46,6 +46,8 @@ const normalizeEquivalentFractionPairAnswer = (question) => {
 };
 
 const lessonAttemptId = (studentCode, key) => `${studentCode}_${key}`;
+const wrongAnswerId = (studentCode, questionKey) =>
+  `${studentCode}_${questionKey}`.replace(/\//g, '_').slice(0, 1400);
 
 const enrichQuestionPool = (data, key) => ({
   ...data,
@@ -390,13 +392,91 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   const [masteryMap, setMasteryMap]   = useState({});  // lessonKey → mastery 데이터
   const [allMastery, setAllMastery]   = useState({});  // 전체 mastery 캐시 (browse 화면용)
   const [minTimeLeft, setMinTimeLeft] = useState(0);  // 최소 응답 시간 남은 초 (5→0)
-  const [consecWrong, setConsecWrong] = useState(0); // 연속 오답 횟수
   const [loadingElapsed, setLoadingElapsed]  = useState(0);  // 경과 시간(초)
   const [loadingMsgIdx,  setLoadingMsgIdx]   = useState(0);  // 순환 메시지 인덱스
 
   const [dailyCount, setDailyCount] = useState(0); // 오늘 완료 횟수
   const [toast, setToast] = useState(null);
+  const [expandedResult, setExpandedResult] = useState(null);
+  const [wrongNotebook, setWrongNotebook] = useState([]);
+  const [wrongLoading, setWrongLoading] = useState(false);
+  const [wrongSelections, setWrongSelections] = useState({});
+  const [wrongFeedback, setWrongFeedback] = useState({});
+  const [wrongFilter, setWrongFilter] = useState('active');
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
+
+  const loadWrongNotebook = async () => {
+    if (!studentCode) return;
+    setWrongLoading(true);
+    try {
+      const snap = await getDocs(query(collection(db, 'aiWrongAnswers'), where('studentCode', '==', studentCode)));
+      const rawItems = snap.docs
+        .map(item => ({ id: item.id, ...item.data() }))
+        .sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+      const byQuestion = new Map();
+      rawItems.forEach(item => {
+        const key = item.questionKey || item.id;
+        const previous = byQuestion.get(key);
+        if (!previous) {
+          byQuestion.set(key, { ...item, duplicateIds: [item.id] });
+          return;
+        }
+        previous.duplicateIds.push(item.id);
+        previous.wrongCount = Math.max(previous.wrongCount || 1, item.wrongCount || 1);
+        if (item.resolved || item.status === 'resolved') {
+          previous.resolved = true;
+          previous.status = 'resolved';
+        }
+      });
+      const items = [...byQuestion.values()];
+      setWrongNotebook(items);
+      setWrongSelections({});
+      setWrongFeedback({});
+      setStep('wrongNote');
+    } finally {
+      setWrongLoading(false);
+    }
+  };
+
+  const checkWrongNotebookAnswer = async (item) => {
+    const selectedIndex = wrongSelections[item.id];
+    if (!Number.isInteger(selectedIndex)) return;
+    const correct = selectedIndex === item.correctIdx;
+    const nextCorrectCount = correct ? (item.reviewCorrectCount || 0) + 1 : 0;
+    const nextStatus = correct ? (nextCorrectCount >= 2 ? 'resolved' : 'reviewing') : 'unresolved';
+    const update = {
+      status: nextStatus,
+      resolved: nextStatus === 'resolved',
+      reviewCorrectCount: nextCorrectCount,
+      wrongCount: (item.wrongCount || 1) + (correct ? 0 : 1),
+      lastReviewedAt: serverTimestamp(),
+      ...(nextStatus === 'resolved' ? { resolvedAt: serverTimestamp() } : {}),
+    };
+    const matchingIds = item.duplicateIds?.length ? item.duplicateIds : [item.id];
+    await Promise.all(matchingIds.map(id =>
+      setDoc(doc(db, 'aiWrongAnswers', id), update, { merge: true })
+    ));
+
+    if (nextStatus === 'resolved' && item.lessonKey && item.questionKey) {
+      const attemptRef = doc(db, 'aiQuestionAttempts', lessonAttemptId(studentCode, item.lessonKey));
+      const attemptSnap = await getDoc(attemptRef);
+      if (attemptSnap.exists()) {
+        const attempt = attemptSnap.data();
+        const bank = { ...(attempt.wrongQuestionBank || {}) };
+        delete bank[item.questionKey];
+        await setDoc(attemptRef, {
+          wrongQuestionBank: bank,
+          wrongReviewKeys: (attempt.wrongReviewKeys || []).filter(key => key !== item.questionKey),
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      }
+    }
+
+    setWrongFeedback(prev => ({ ...prev, [item.id]: { correct, status: nextStatus } }));
+    setWrongNotebook(prev => prev.map(entry =>
+      entry.id === item.id ? { ...entry, ...update } : entry
+    ));
+  };
 
   // ── 학생 로드 + 학년 즉시 자동 설정 ─────────────────────────
   useEffect(() => {
@@ -519,8 +599,8 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   const openLesson = async (unit, lesson) => {
     setUnit(unit); setLesson(lesson);
     setCardIdx(0); setQIdx(0);
-    setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
-    setConsecWrong(0); setMinTimeLeft(0);
+    setAnswers([]); setSelected(null); setShowResult(false); setFR(null); setExpandedResult(null);
+    setMinTimeLeft(0);
     setCL(true); setContent(null); setMyProgress(null);
     setLoadingElapsed(0);
     setLoadingMsgIdx(0);
@@ -567,8 +647,8 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     const poolData = cacheSnap.exists() ? cacheSnap.data() : content;
     setContent(pickSessionQuestions(poolData, key, attemptSnap.exists() ? attemptSnap.data() : null));
     setCardIdx(0); setQIdx(0);
-    setAnswers([]); setSelected(null); setShowResult(false); setFR(null);
-    setConsecWrong(0); setMinTimeLeft(0);
+    setAnswers([]); setSelected(null); setShowResult(false); setFR(null); setExpandedResult(null);
+    setMinTimeLeft(0);
     setStep('concept');
   };
 
@@ -606,25 +686,9 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     });
     setShowResult(true);
 
-    // 연속 오답 카운터 업데이트
-    if (!correct) {
-      setConsecWrong(prev => prev + 1);
-    } else {
-      setConsecWrong(0); // 정답이면 리셋
-    }
   };
 
   const nextQuestion = () => {
-    const lastAnswer = answers[answers.length - 1];
-
-    // 연속 2번 오답 → 개념 카드로 강제 복귀
-    if (!lastAnswer?.correct && consecWrong >= 2) {
-      setConsecWrong(0);
-      setCardIdx(0);
-      setStep('concept');
-      return;
-    }
-
     if (qIdx < content.questions.length - 1) {
       setQIdx(q => q + 1); setSelected(null); setShowResult(false);
     } else { finishQuiz(); }
@@ -680,6 +744,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
     const answeredKeys = [];
     const correctKeys = [];
+    const resolvedKeys = [];
     const wrongKeys = [];
     const wrongBank = { ...prevWrongBank };
     const wrongSkillCounts = { ...prevSkillCounts };
@@ -692,6 +757,20 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       answeredKeys.push(questionKey);
       if (answer.correct) {
         correctKeys.push(questionKey);
+        if (wrongBank[questionKey]) {
+          const reviewCorrectCount = (wrongBank[questionKey].reviewCorrectCount || 0) + 1;
+          if (reviewCorrectCount >= 2) {
+            delete wrongBank[questionKey];
+            resolvedKeys.push(questionKey);
+          } else {
+            wrongBank[questionKey] = {
+              ...wrongBank[questionKey],
+              status: 'reviewing',
+              reviewCorrectCount,
+              lastReviewedAt: new Date().toISOString(),
+            };
+          }
+        }
         continue;
       }
 
@@ -699,6 +778,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       const skillKey = String(question.skill || '기본').trim() || '기본';
       wrongSkillCounts[skillKey] = (wrongSkillCounts[skillKey] || 0) + 1;
       wrongBank[questionKey] = {
+        ...(wrongBank[questionKey] || {}),
         questionKey,
         lessonKey: key,
         unitName: selectedUnit.unitName,
@@ -711,6 +791,9 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         explanation: question.explanation || '',
         skill: question.skill || '',
         shape: question.shape || null,
+        status: 'unresolved',
+        wrongCount: (wrongBank[questionKey]?.wrongCount || 0) + 1,
+        reviewCorrectCount: 0,
         lastWrongAt: new Date().toISOString(),
       };
       if (newAttemptNo >= 3 && wrongSkillCounts[skillKey] >= 2) {
@@ -720,7 +803,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
     const nextWrongReview = uniquePush([
       ...wrongKeys,
-      ...prevWrongReview.filter(qKey => !correctKeys.includes(qKey)),
+      ...prevWrongReview.filter(qKey => !resolvedKeys.includes(qKey)),
     ], 80);
     const nextSeen = uniquePush([...answeredKeys, ...prevSeen], 300);
 
@@ -893,32 +976,50 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       } catch (eggErr) { console.error('알 카운터 오류:', eggErr); }
 
       // ── 오답 기록 저장 (교사 취약 분석용) ───────────────────────
-      const wrongAnswers = allAns
-        .filter(a => !a.correct)
-        .map(a => {
-          const question = content.questions[a.questionIndex] || {};
-          return {
-            studentCode, grade: selectedUnit.grade, semester: selectedUnit.semester,
-            unitName: selectedUnit.unitName, lessonTitle: selectedLesson.title,
-            lessonKey: key,
-            questionKey: a.questionKey || question.__questionKey || `${key}_${questionFingerprint(question)}`,
-            questionIdx: a.questionIndex,
-            poolIndex: a.poolIndex ?? question.__poolIndex ?? a.questionIndex,
-            questionText: (question.question || '').slice(0, 120),
-            fullQuestion: question.question || '',
-            options: question.options || [],
-            explanation: question.explanation || '',
-            skill: question.skill || '',
-            shape: question.shape || null,
-            selectedIdx: a.selectedIndex,
-            correctIdx: question.answerIndex,
-            completedAt: serverTimestamp(),
-            date: today,
-          };
-        });
-      if (wrongAnswers.length > 0) {
-        wrongAnswers.forEach(wa => addDoc(collection(db, 'aiWrongAnswers'), wa).catch(() => {}));
-      }
+      await Promise.all(allAns.map(async answer => {
+        const question = content.questions[answer.questionIndex] || {};
+        const questionKey = answer.questionKey || question.__questionKey || `${key}_${questionFingerprint(question)}`;
+        const wrongRef = doc(db, 'aiWrongAnswers', wrongAnswerId(studentCode, questionKey));
+        const previousSnap = await getDoc(wrongRef);
+        const previous = previousSnap.exists() ? previousSnap.data() : {};
+
+        if (answer.correct) {
+          if (!previousSnap.exists() || previous.status === 'resolved' || previous.resolved) return;
+          const reviewCorrectCount = (previous.reviewCorrectCount || 0) + 1;
+          const resolved = reviewCorrectCount >= 2;
+          await setDoc(wrongRef, {
+            status: resolved ? 'resolved' : 'reviewing',
+            resolved,
+            reviewCorrectCount,
+            lastReviewedAt: serverTimestamp(),
+            ...(resolved ? { resolvedAt: serverTimestamp() } : {}),
+          }, { merge: true });
+          return;
+        }
+
+        await setDoc(wrongRef, {
+          studentCode, grade: selectedUnit.grade, semester: selectedUnit.semester,
+          unitName: selectedUnit.unitName, lessonTitle: selectedLesson.title,
+          lessonKey: key,
+          questionKey,
+          questionIdx: answer.questionIndex,
+          poolIndex: answer.poolIndex ?? question.__poolIndex ?? answer.questionIndex,
+          questionText: (question.question || '').slice(0, 120),
+          fullQuestion: question.question || '',
+          options: question.options || [],
+          explanation: question.explanation || '',
+          skill: question.skill || '',
+          shape: question.shape || null,
+          selectedIdx: answer.selectedIndex,
+          correctIdx: question.answerIndex,
+          status: 'unresolved',
+          resolved: false,
+          wrongCount: (previous.wrongCount || 0) + 1,
+          reviewCorrectCount: 0,
+          completedAt: serverTimestamp(),
+          date: today,
+        }, { merge: true });
+      }));
 
       // 일일 카운트 증가 (새로운 완료만)
       if (!alreadyRewarded) setDailyCount(prev => prev + 1);
@@ -979,6 +1080,23 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           )}
         </div>
       </div>
+
+      {!isTeacher && (
+        <button type="button" onClick={loadWrongNotebook} disabled={wrongLoading}
+          className={`mb-5 flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-colors ${
+            isDark ? 'border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/15' : 'border-rose-200 bg-rose-50 hover:bg-rose-100'
+          }`}>
+          <div>
+            <p className={`font-extrabold ${isDark ? 'text-rose-200' : 'text-rose-800'}`}>📒 나의 오답노트</p>
+            <p className={`mt-1 text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              틀린 문제를 다시 풀고 해결한 개념을 확인해보세요.
+            </p>
+          </div>
+          <span className={`rounded-xl px-3 py-2 text-xs font-extrabold ${isDark ? 'bg-rose-400/20 text-rose-200' : 'bg-white text-rose-700'}`}>
+            {wrongLoading ? '불러오는 중...' : '오답 다시 풀기 →'}
+          </span>
+        </button>
+      )}
 
       {/* 필터 */}
       <div className="flex items-center gap-3 flex-wrap mb-5">
@@ -1336,6 +1454,106 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     </div>
   );
 
+  if (step === 'wrongNote') {
+    const visibleWrong = wrongNotebook.filter(item => {
+      const status = item.status || (item.resolved ? 'resolved' : 'unresolved');
+      if (wrongFilter === 'all') return true;
+      if (wrongFilter === 'resolved') return status === 'resolved';
+      return status !== 'resolved';
+    });
+    const unresolvedCount = wrongNotebook.filter(item => !item.resolved && item.status !== 'resolved').length;
+    const resolvedCount = wrongNotebook.filter(item => item.resolved || item.status === 'resolved').length;
+
+    return (
+      <div className="fixed inset-0 z-[80] min-h-screen overflow-y-auto bg-slate-950 p-4 md:static md:z-auto md:p-8">
+        <div className="mx-auto max-w-3xl space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <button type="button" onClick={backToBrowse} className="mb-2 text-sm font-bold text-indigo-300 hover:text-white">← AI 학습관</button>
+              <h1 className="text-2xl font-black text-white">📒 나의 오답노트</h1>
+              <p className="mt-1 text-sm font-medium text-slate-400">같은 문제를 두 번 다시 맞히면 해결 완료됩니다.</p>
+            </div>
+            <div className="flex gap-2">
+              <span className="rounded-xl bg-rose-500/15 px-3 py-2 text-xs font-extrabold text-rose-300">복습 필요 {unresolvedCount}</span>
+              <span className="rounded-xl bg-emerald-500/15 px-3 py-2 text-xs font-extrabold text-emerald-300">해결 {resolvedCount}</span>
+            </div>
+          </div>
+
+          <div className="flex rounded-xl bg-slate-900 p-1">
+            {[['active', '복습 필요'], ['resolved', '해결 완료'], ['all', '전체']].map(([value, label]) => (
+              <button type="button" key={value} onClick={() => setWrongFilter(value)}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-extrabold ${wrongFilter === value ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {visibleWrong.length === 0 ? (
+            <div className="rounded-3xl border border-slate-800 bg-slate-900 p-12 text-center">
+              <p className="text-4xl">✅</p>
+              <p className="mt-3 font-extrabold text-white">표시할 오답이 없습니다.</p>
+            </div>
+          ) : visibleWrong.map((item, index) => {
+            const status = item.status || (item.resolved ? 'resolved' : 'unresolved');
+            const feedback = wrongFeedback[item.id];
+            const locked = status === 'resolved' || !!feedback;
+            return (
+              <div key={item.id} className="rounded-3xl border border-slate-700 bg-white p-5 shadow-xl">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-extrabold text-indigo-600">{item.unitName} · {item.lessonTitle}</p>
+                    <h2 className="mt-2 text-lg font-black leading-7 text-slate-800">Q{index + 1}. {renderMath(item.fullQuestion || item.questionText)}</h2>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-[11px] font-extrabold ${
+                    status === 'resolved' ? 'bg-emerald-100 text-emerald-700' : status === 'reviewing' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                  }`}>
+                    {status === 'resolved' ? '해결 완료' : status === 'reviewing' ? '한 번 더 확인' : `오답 ${item.wrongCount || 1}회`}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-2">
+                  {(item.options || []).map((option, optionIndex) => (
+                    <button type="button" key={optionIndex} disabled={locked}
+                      onClick={() => setWrongSelections(prev => ({ ...prev, [item.id]: optionIndex }))}
+                      className={`rounded-xl border px-4 py-3 text-left text-sm font-bold ${
+                        wrongSelections[item.id] === optionIndex ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      } disabled:cursor-default`}>
+                      {optionIndex + 1}. {renderMath(option)}
+                    </button>
+                  ))}
+                </div>
+
+                {feedback && (
+                  <div className={`mt-4 rounded-xl border p-4 ${feedback.correct ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}>
+                    <p className="font-extrabold">{feedback.correct ? (feedback.status === 'resolved' ? '해결 완료!' : '정답입니다. 다음에 한 번 더 확인해요.') : '아직 다시 살펴볼 필요가 있어요.'}</p>
+                    <p className="mt-2 text-sm">정답: {renderMath(item.options?.[item.correctIdx] || '')}</p>
+                    {item.explanation && <p className="mt-1 text-sm">{renderMath(item.explanation)}</p>}
+                  </div>
+                )}
+
+                {status === 'resolved' && !feedback && (
+                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
+                    <p className="font-extrabold">해결한 문제입니다.</p>
+                    <p className="mt-2 text-sm">정답: {renderMath(item.options?.[item.correctIdx] || '')}</p>
+                    {item.explanation && <p className="mt-1 text-sm">{renderMath(item.explanation)}</p>}
+                  </div>
+                )}
+
+                {!locked && (
+                  <button type="button" onClick={() => checkWrongNotebookAnswer(item)}
+                    disabled={!Number.isInteger(wrongSelections[item.id])}
+                    className="mt-4 w-full rounded-xl bg-indigo-600 py-3 text-sm font-extrabold text-white hover:bg-indigo-700 disabled:opacity-40">
+                    정답 확인
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   if (!content || !selectedUnit || !selectedLesson) return null;
   const currentCard = content.conceptCards?.[cardIdx];
   const currentQ    = content.questions?.[qIdx];
@@ -1349,17 +1567,6 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           <button onClick={backToLessons} className="text-white/50 hover:text-white text-sm font-bold">← {selectedLesson.no}차시 목록</button>
           <span className="text-white/40 text-sm">{cardIdx + 1} / {content.conceptCards.length}</span>
         </div>
-
-        {/* 연속 오답으로 복귀한 경우 안내 배너 */}
-        {answers.length > 0 && consecWrong === 0 && (
-          <div className="bg-amber-500/20 border border-amber-400/40 rounded-2xl px-4 py-3 flex items-center gap-2">
-            <span className="text-xl">📖</span>
-            <div>
-              <p className="text-amber-200 text-sm font-bold">개념을 다시 확인해봐요!</p>
-              <p className="text-amber-300/60 text-xs">2문제 연속 오답으로 돌아왔어요. 개념 카드를 잘 읽고 다시 도전!</p>
-            </div>
-          </div>
-        )}
 
         {/* 진행 바 */}
         <div className="flex items-center gap-2">
@@ -1484,19 +1691,10 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           </button>
         ) : (
           <>
-            {/* 연속 2번 오답 경고 */}
-            {!answers[answers.length-1]?.correct && consecWrong >= 2 && (
-              <div className="bg-rose-900/40 border border-rose-500/50 rounded-2xl px-4 py-3 text-center">
-                <p className="text-rose-300 text-sm font-bold">⚠️ 연속 2번 틀렸어요</p>
-                <p className="text-rose-400/70 text-xs mt-0.5">개념 카드를 다시 읽어볼게요</p>
-              </div>
-            )}
             <button onClick={nextQuestion} disabled={saving}
               className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xl rounded-2xl disabled:opacity-40 shadow-lg">
               {saving ? '저장 중...'
-                : !answers[answers.length-1]?.correct && consecWrong >= 2
-                  ? '📖 개념 카드 다시 보기'
-                  : qIdx < content.questions.length - 1 ? '다음 문제 →' : '결과 보기 →'}
+                : qIdx < content.questions.length - 1 ? '다음 문제 →' : '결과 보기 →'}
             </button>
           </>
         )}
@@ -1595,11 +1793,23 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
           <div className="space-y-1.5">
             {content.questions.map((q, i) => {
-              const ans = answers[i] || { correct: false };
+              const ans = answers.find(answer => answer.questionIndex === i) || { correct: false };
+              const isOpen = expandedResult === i;
               return (
-                <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${ans.correct ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'}`}>
-                  <span className="font-extrabold shrink-0">{ans.correct ? '✅' : '❌'} Q{i+1}</span>
-                  <span className="line-clamp-1 text-xs">{q.question}</span>
+                <div key={i} className={`rounded-xl text-sm ${ans.correct ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                  <button type="button" onClick={() => setExpandedResult(isOpen ? null : i)}
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left">
+                    <span className="font-extrabold shrink-0">{ans.correct ? '✅' : '❌'} Q{i+1}</span>
+                    <span className="line-clamp-1 flex-1 text-xs">{q.question}</span>
+                    <span className="text-xs font-bold">{isOpen ? '접기' : '해설 보기'}</span>
+                  </button>
+                  {isOpen && (
+                    <div className="border-t border-current/10 px-4 py-3 text-xs leading-6">
+                      <p><strong>내가 고른 답:</strong> {renderMath(q.options?.[ans.selectedIndex] || '-')}</p>
+                      <p><strong>정답:</strong> {renderMath(q.options?.[q.answerIndex] || '-')}</p>
+                      {q.explanation && <p className="mt-1"><strong>해설:</strong> {renderMath(q.explanation)}</p>}
+                    </div>
+                  )}
                 </div>
               );
             })}
