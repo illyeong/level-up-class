@@ -156,6 +156,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
   const [students,    setStudents]    = useState([]);
   const [allProgress, setAllProgress] = useState([]);
   const [allMastery,  setAllMastery]  = useState({});
+  const [allWrongAnswers, setAllWrongAnswers] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
 
   // 단원별 탭
@@ -195,6 +196,9 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
       const mMap = {};
       snaps.forEach(s => s.forEach(d => { const m = d.data(); if (!mMap[m.lessonKey]) mMap[m.lessonKey] = {}; mMap[m.lessonKey][m.studentCode] = m; }));
       setAllMastery(mMap);
+
+      const wrongSnaps = await Promise.all(batches.map(b => getDocs(query(collection(db, 'aiWrongAnswers'), where('studentCode', 'in', b)))));
+      setAllWrongAnswers(wrongSnaps.flatMap(s => s.docs.map(d => d.data())));
     } catch (e) { console.error(e); }
     finally { setLoadingData(false); }
   }, [teacherUid]);
@@ -247,12 +251,10 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
     const inactiveDays = latestActivityDate && !Number.isNaN(latestActivityDate.getTime())
       ? Math.floor((Date.now() - latestActivityDate.getTime()) / 86400000)
       : null;
-    if (retryCount >= 2) supportReasons.push(`재도전 필요 차시 ${retryCount}개`);
-    if (masteryAvg != null && masteryAvg < 60) supportReasons.push(`누적 숙달도 ${masteryAvg}%`);
-    if (averageScore != null && averageScore < 60) supportReasons.push(`기간 평균 정답률 ${averageScore}%`);
-    if (trend === 'down') supportReasons.push('최근 점수 하락');
+    const unresolvedWrongCount = allWrongAnswers.filter(w => w.studentCode === stu.studentCode && !w.resolved && w.status !== 'resolved').length;
     if (!allStudentProgress.length) supportReasons.push('AI 학습 미시작');
-    else if (inactiveDays >= 7) supportReasons.push(`${inactiveDays}일간 미학습`);
+    else if (inactiveDays != null && inactiveDays >= 7) supportReasons.push(`${inactiveDays}일간 미학습`);
+    if (unresolvedWrongCount >= 3) supportReasons.push(`미해결 오답 ${unresolvedWrongCount}개`);
     const status = !allStudentProgress.length
       ? 'inactive'
       : supportReasons.length > 0
@@ -270,6 +272,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
       masteries: stuMasteries,
       masteryAvg,
       retryCount,
+      unresolvedWrongCount,
       status,
       trend,
       recentProgress,
