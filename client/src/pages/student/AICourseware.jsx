@@ -360,7 +360,7 @@ const LOADING_MSGS = [
   '해설을 다듬는 중...',
 ];
 
-export default function AICourseware({ studentCode, isTeacher = false, teacherUid, themeMode = 'dark' }) {
+export default function AICourseware({ studentCode, isTeacher = false, teacherUid, classGrade, themeMode = 'dark' }) {
   const isDark = themeMode === 'dark';
   const [student, setStudent]   = useState(null);
   // 교사 모드: 학생 데이터 없이 단원/차시 브라우징 및 미리보기 가능
@@ -503,6 +503,20 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       setDailyCount(progSnap.size);
     });
   }, [studentCode]);
+
+  // ── 교사 모드: 학급 학년 자동 선택 ─────────────────────────
+  useEffect(() => {
+    if (!isTeacher || studentCode) return;
+    if (classGrade) { setFG(String(classGrade)); return; }
+    if (!teacherUid) return;
+    getDocs(query(collection(db, 'students'), where('teacherUid', '==', teacherUid)))
+      .then(snap => {
+        const detected = snap.docs
+          .map(d => gradeFromCode(d.data().studentCode))
+          .find(Boolean);
+        if (detected) setFG(detected);
+      });
+  }, [isTeacher, studentCode, teacherUid, classGrade]);
 
   // ── 단원 로드 ──────────────────────────────────────────────────
   useEffect(() => {
