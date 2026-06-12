@@ -1058,7 +1058,7 @@ function LearningOverviewTab({
                     <span className="block truncate text-sm font-extrabold text-slate-800">{student.name || student.studentName || student.studentCode}</span>
                     <span className="block truncate text-[10px] font-medium text-slate-400">{student.studentCode}</span>
                     {student.supportReasons?.length > 0 && (
-                      <span className="mt-1 block truncate text-[10px] font-bold text-rose-500">{student.supportReasons[0]}</span>
+                      <span className="mt-1 block truncate text-[10px] font-bold text-rose-500">{student.supportReasons.join(' · ')}</span>
                     )}
                   </span>
                   <LearningStatusPill status={student.status} />
