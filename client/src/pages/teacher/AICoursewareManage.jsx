@@ -69,17 +69,6 @@ const isWithinPeriod = (progress, period) => {
   return completedDate >= threshold;
 };
 
-const classifyWeakConcept = (wrong) => {
-  const text = `${wrong?.unitName || ''} ${wrong?.lessonTitle || ''} ${wrong?.skill || ''} ${wrong?.fullQuestion || wrong?.questionText || ''}`;
-  if (/분수|분모|분자|소수/.test(text)) return '분수·소수';
-  if (/약수|배수|공약수|공배수|규칙/.test(text)) return '약수·배수·규칙';
-  if (/그래프|표|자료|평균|가능성|확률/.test(text)) return '자료·그래프·가능성';
-  if (/대칭|합동|도형|각도|직육면체|정육면체|원뿔|원기둥|꼭짓점|모서리|면/.test(text)) return '도형·대칭·입체';
-  if (/길이|넓이|부피|무게|시간|시각|단위/.test(text)) return '측정';
-  if (/더하|빼기|덧셈|뺄셈|곱셈|나눗셈|계산/.test(text)) return '수와 연산';
-  return '기타 핵심 개념';
-};
-
 // ── 미니 컴포넌트 ─────────────────────────────────────────────
 const Spinner = ({ label = '불러오는 중...' }) => (
   <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
@@ -173,7 +162,12 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
   const classGrade = selectedClass?.grade ? String(selectedClass.grade) : '';
   const [unitGrade, setUnitGrade] = useState(classGrade);
   const [unitSem,   setUnitSem]   = useState('all');
-  useEffect(() => { if (classGrade && !unitGrade) setUnitGrade(classGrade); }, [classGrade]);
+  useEffect(() => {
+    if (unitGrade) return;
+    if (classGrade) { setUnitGrade(classGrade); return; }
+    const codeGrade = students[0]?.studentCode?.split('-')?.[1];
+    if (codeGrade && /^[1-6]$/.test(codeGrade)) setUnitGrade(codeGrade);
+  }, [classGrade, students, unitGrade]);
   const [units,          setUnits]          = useState([]);
   const [loadingUnits,   setLoadingUnits]   = useState(false);
   const [selectedUnit,   setSelectedUnit]   = useState(null);
@@ -335,7 +329,6 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
     { id: 'overview',  label: '학급 학습 현황', desc: '도움이 필요한 학생 확인' },
     { id: 'units',     label: '단원·차시 분석', desc: '차시별 숙달도 분석' },
     { id: 'students',  label: '학생별 분석', desc: '개인 학습 현황' },
-    { id: 'weakness',  label: '취약 개념', desc: '오답 기록 리포트' },
     { id: 'dashboard', label: '학습 기록', desc: '최근 학습 활동' },
   ];
 
@@ -378,7 +371,6 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
             allMastery={allMastery}
             onOpenStudent={setSelectedStudent}
             onOpenUnits={() => setTab('units')}
-            onOpenWeakness={() => setTab('weakness')}
             analysisPeriod={analysisPeriod}
             onPeriodChange={setAnalysisPeriod}
           />
@@ -739,11 +731,6 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
           </div>
         )}
 
-        {/* ═══════════════ 취약 분석 ═══════════════ */}
-        {tab === 'weakness' && (
-          <WeaknessTab teacherUid={teacherUid} students={students} onCreateReview={createReviewQuizDraft} />
-        )}
-
         {/* ═══════════════ 학생별 분석 ═══════════════ */}
         {tab === 'students' && (
           loadingData ? <Spinner /> : (
@@ -861,7 +848,6 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
           teacherUid={teacherUid}
           classId={selectedClass?.id}
           onCreateReview={createReviewQuizDraft}
-          onOpenWeakness={() => setTab('weakness')}
           onClose={() => setSelectedStudent(null)}
         />
       )}
@@ -876,7 +862,6 @@ function LearningOverviewTab({
   allMastery,
   onOpenStudent,
   onOpenUnits,
-  onOpenWeakness,
   analysisPeriod,
   onPeriodChange,
 }) {
@@ -993,10 +978,6 @@ function LearningOverviewTab({
                 className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-extrabold text-white hover:bg-slate-700">
                 지원 필요 학생 보기
               </button>
-              <button type="button" onClick={onOpenWeakness}
-                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-100">
-                취약 개념 확인
-              </button>
               <button type="button" onClick={onOpenUnits}
                 className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-extrabold text-indigo-700 hover:bg-indigo-100">
                 차시 숙달도 확인
@@ -1008,9 +989,6 @@ function LearningOverviewTab({
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <h3 className="font-black text-slate-800">어려워한 차시</h3>
-            <button type="button" onClick={onOpenWeakness} className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800">
-              취약 개념 전체 보기
-            </button>
           </div>
           <div className="mt-3 space-y-2">
             {weakLessons.length ? weakLessons.map(lesson => (
@@ -1033,7 +1011,15 @@ function LearningOverviewTab({
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
-            <h3 className="font-black text-slate-800">학생 학습 현황</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-black text-slate-800">학생 학습 현황</h3>
+              <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-extrabold text-indigo-600">
+                학습 참여 {summary.activeCount} / {students.length}명
+              </span>
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-extrabold text-emerald-600">
+                오늘 참여 {summary.todayCount}명
+              </span>
+            </div>
             <p className="mt-1 text-xs font-medium text-slate-400">학생을 누르면 최근 학습과 숙달도를 자세히 확인할 수 있습니다.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1092,7 +1078,7 @@ function LearningOverviewTab({
   );
 }
 
-function StudentLearningDetail({ student, teacherUid, classId, onCreateReview, onOpenWeakness, onClose }) {
+function StudentLearningDetail({ student, teacherUid, classId, onCreateReview, onClose }) {
   const [memo, setMemo] = useState('');
   const [memoLoading, setMemoLoading] = useState(true);
   const [memoSaving, setMemoSaving] = useState(false);
@@ -1195,10 +1181,6 @@ function StudentLearningDetail({ student, teacherUid, classId, onCreateReview, o
                   )}
                   className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-extrabold text-white hover:bg-indigo-700 disabled:opacity-40">
                   {wrongLoading ? '오답 확인 중...' : `복습 퀴즈 만들기 (${wrongAnswers.filter(item => !item.resolved && item.status !== 'resolved').length})`}
-                </button>
-                <button type="button" onClick={() => { onClose(); onOpenWeakness?.(); }}
-                  className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-50">
-                  취약 개념 전체 보기
                 </button>
                 <button type="button" onClick={() => memoRef.current?.focus()}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-50">
@@ -2423,187 +2405,6 @@ export function QuestionReviewTab({ teacherUid, students, unitGrade, setUnitGrad
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-// ── 취약 분석 탭 ─────────────────────────────────────────────
-function WeaknessTab({ teacherUid, students, onCreateReview }) {
-  const [wrongData,  setWrongData]  = useState([]);
-  const [loading,    setLoading]    = useState(false);
-  const [filterUnit, setFilterUnit] = useState('');
-  const [filterStatus, setFilterStatus] = useState('active');
-
-  useEffect(() => {
-    if (!students.length) return;
-    setLoading(true);
-    const codes = students.map(s => s.studentCode).filter(Boolean);
-    const batches = [];
-    for (let i = 0; i < codes.length; i += 10) batches.push(codes.slice(i, i + 10));
-    Promise.all(batches.map(b =>
-      getDocs(query(collection(db, 'aiWrongAnswers'), where('studentCode', 'in', b)))
-    )).then(snaps => {
-      const all = snaps.flatMap(s => s.docs.map(d => ({ id: d.id, ...d.data() })));
-      const deduped = new Map();
-      all.forEach(item => {
-        const key = `${item.studentCode}_${item.questionKey || item.id}`;
-        const previous = deduped.get(key);
-        if (!previous) {
-          deduped.set(key, item);
-          return;
-        }
-        previous.wrongCount = Math.max(previous.wrongCount || 1, item.wrongCount || 1);
-        if (item.resolved || item.status === 'resolved') {
-          previous.resolved = true;
-          previous.status = 'resolved';
-        }
-      });
-      setWrongData([...deduped.values()]);
-    }).finally(() => setLoading(false));
-  }, [students]);
-
-  const statusFilteredData = wrongData.filter(item => {
-    const status = item.status || (item.resolved ? 'resolved' : 'unresolved');
-    if (filterStatus === 'all') return true;
-    if (filterStatus === 'resolved') return status === 'resolved';
-    return status !== 'resolved';
-  });
-
-  // 차시별 오답 집계
-  const lessonMap = {};
-  statusFilteredData.forEach(w => {
-    const key = w.lessonKey || `${w.unitName}_${w.lessonTitle}`;
-    if (!lessonMap[key]) lessonMap[key] = { unitName: w.unitName, lessonTitle: w.lessonTitle, count: 0, questions: {}, wrongAnswers: [] };
-    lessonMap[key].count++;
-    lessonMap[key].wrongAnswers.push(w);
-    const qt = (w.questionText || '').slice(0, 60);
-    if (!lessonMap[key].questions[qt]) lessonMap[key].questions[qt] = 0;
-    lessonMap[key].questions[qt]++;
-  });
-  const sorted = Object.values(lessonMap).sort((a, b) => b.count - a.count);
-  const unitNames = [...new Set(sorted.map(s => s.unitName))];
-
-  const filtered = filterUnit ? sorted.filter(s => s.unitName === filterUnit) : sorted;
-  const conceptSummary = Object.values(statusFilteredData.reduce((acc, wrong) => {
-    const concept = classifyWeakConcept(wrong);
-    if (!acc[concept]) acc[concept] = { concept, count: 0, students: new Set(), wrongAnswers: [] };
-    acc[concept].count += 1;
-    acc[concept].students.add(wrong.studentCode);
-    acc[concept].wrongAnswers.push(wrong);
-    return acc;
-  }, {}))
-    .map(item => ({ ...item, studentCount: item.students.size }))
-    .sort((a, b) => b.count - a.count);
-
-  return (
-    <div className="space-y-4">
-      {!!conceptSummary.length && (
-        <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-extrabold text-indigo-600">AI 학습 요약</p>
-              <h3 className="mt-1 font-black text-slate-800">
-                가장 먼저 지도할 개념은 {conceptSummary[0].concept}입니다.
-              </h3>
-              <p className="mt-1 text-xs font-semibold text-slate-500">
-                오답 {conceptSummary[0].count}건, 관련 학생 {conceptSummary[0].studentCount}명으로 분류되었습니다.
-              </p>
-            </div>
-            <button type="button"
-              onClick={() => onCreateReview?.(
-                conceptSummary[0].wrongAnswers.filter(item => !item.resolved && item.status !== 'resolved'),
-                `${conceptSummary[0].concept} 복습 퀴즈`
-              )}
-              disabled={!conceptSummary[0].wrongAnswers.some(item => !item.resolved && item.status !== 'resolved')}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40">
-              복습 퀴즈 바로 만들기
-            </button>
-          </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {conceptSummary.slice(0, 8).map(item => (
-              <button type="button" key={item.concept}
-                onClick={() => onCreateReview?.(
-                  item.wrongAnswers.filter(wrong => !wrong.resolved && wrong.status !== 'resolved'),
-                  `${item.concept} 복습 퀴즈`
-                )}
-                disabled={!item.wrongAnswers.some(wrong => !wrong.resolved && wrong.status !== 'resolved')}
-                className="rounded-xl border border-indigo-100 bg-white px-3 py-3 text-left hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40">
-                <p className="text-xs font-black text-slate-700">{item.concept}</p>
-                <p className="mt-1 text-[11px] font-bold text-slate-400">오답 {item.count}건 · 학생 {item.studentCount}명</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <h3 className="font-extrabold text-slate-700">🔍 오답 기록 분석</h3>
-        <select value={filterUnit} onChange={e => setFilterUnit(e.target.value)}
-          className="text-sm border border-slate-200 rounded-xl px-3 py-1.5 bg-white focus:outline-none focus:border-indigo-400">
-          <option value="">전체 단원</option>
-          {unitNames.map(u => <option key={u} value={u}>{u}</option>)}
-        </select>
-        <div className="flex rounded-xl bg-slate-100 p-1">
-          {[['active', '미해결'], ['resolved', '해결'], ['all', '전체']].map(([value, label]) => (
-            <button type="button" key={value} onClick={() => setFilterStatus(value)}
-              className={`rounded-lg px-3 py-1 text-xs font-extrabold ${filterStatus === value ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <span className="text-xs text-slate-400">표시 {statusFilteredData.length}건 · 전체 {wrongData.length}건</span>
-      </div>
-
-      {loading ? <div className="text-center py-10 text-slate-400 animate-pulse">불러오는 중...</div>
-        : filtered.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400">
-            <div className="text-3xl mb-2">📭</div>
-            <p className="font-bold">오답 기록이 없습니다</p>
-            <p className="text-xs mt-1">학생들이 AI 학습을 완료하면 기록이 쌓입니다</p>
-          </div>
-        ) : filtered.map((item, i) => (
-          <div key={i} className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-200">
-              <div>
-                <span className="font-extrabold text-slate-800 text-sm">{item.lessonTitle}</span>
-                <span className="text-xs text-slate-500 ml-2">{item.unitName}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full
-                  ${item.count >= 10 ? 'bg-rose-100 text-rose-700' : item.count >= 5 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                  {item.count}회 오답
-                </span>
-                <button type="button"
-                  onClick={() => onCreateReview?.(
-                    item.wrongAnswers.filter(wrong => !wrong.resolved && wrong.status !== 'resolved'),
-                    `${item.unitName || ''} ${item.lessonTitle || ''} 복습 퀴즈`.trim()
-                  )}
-                  disabled={!item.wrongAnswers.some(wrong => !wrong.resolved && wrong.status !== 'resolved')}
-                  className="rounded-lg border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-extrabold text-indigo-600 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40">
-                  복습 퀴즈
-                </button>
-              </div>
-            </div>
-            <div className="px-5 py-3 space-y-1.5">
-              {Object.entries(item.questions)
-                .sort(([,a],[,b]) => b - a)
-                .slice(0, 5)
-                .map(([qt, cnt], qi) => (
-                  <div key={qi} className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-rose-400 rounded-full"
-                          style={{ width: `${Math.min(100, (cnt / item.count) * 100)}%` }} />
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-rose-600 shrink-0 w-10 text-right">{cnt}회</span>
-                    <p className="text-xs text-slate-600 truncate" style={{ maxWidth: 240 }}>{qt || '(문제 내용 없음)'}</p>
-                  </div>
-                ))
-              }
-            </div>
-          </div>
-        ))}
     </div>
   );
 }
