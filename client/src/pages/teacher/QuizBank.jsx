@@ -526,6 +526,7 @@ function EditModal({ set, onSave, onClose }) {
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────
 export default function QuizBank({ selectedClass = null }) {
+  const selectedClassGrade = String(selectedClass?.grade || '').match(/[1-6]/)?.[0] || '';
   const [tab, setTab] = useState('mine'); // 'mine' | 'ai' | 'manual' | 'bank'
 
   // ── 내 퀴즈 상태 ─────────────────────────────────────────────────
@@ -586,7 +587,8 @@ export default function QuizBank({ selectedClass = null }) {
   // ── 퀴즈은행 탭 상태 ─────────────────────────────────────────────
   const [bankSets, setBankSets]             = useState([]);
   const [isLoadingBank, setIsLoadingBank]   = useState(false);
-  const [bankFilter, setBankFilter]         = useState({ grade: '', subject: '' });
+  const [bankFilter, setBankFilter]         = useState({ grade: selectedClassGrade, subject: '' });
+  const [bankSearch, setBankSearch]         = useState('');
 
   // ── 공통 ─────────────────────────────────────────────────────────
   const [toast, setToast]           = useState(null);
@@ -608,6 +610,14 @@ export default function QuizBank({ selectedClass = null }) {
     if (tab === 'mine') fetchMySets();
     if (tab === 'bank') fetchBankSets();
   }, [tab, currentClassId]);
+
+  useEffect(() => {
+    setBankFilter({
+      grade: selectedClassGrade,
+      subject: '',
+    });
+    setBankSearch('');
+  }, [selectedClass?.id, selectedClassGrade]);
 
   useEffect(() => {
     const rawDraft = sessionStorage.getItem('aiReviewQuizDraft');
@@ -989,11 +999,17 @@ export default function QuizBank({ selectedClass = null }) {
     (!myFilter.grade   || String(s.grade) === myFilter.grade) &&
     (!myFilter.subject || s.subject === myFilter.subject)
   );
+  const bankSubjects = [...new Set(bankSets
+    .filter(s => !bankFilter.grade || String(s.grade) === bankFilter.grade)
+    .map(s => s.subject)
+    .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b, 'ko'));
+  const normalizedBankSearch = bankSearch.trim().toLowerCase();
   const filteredBankSets = bankSets.filter(s =>
     (!bankFilter.grade   || String(s.grade) === bankFilter.grade) &&
-    (!bankFilter.subject || s.subject === bankFilter.subject)
+    (!bankFilter.subject || s.subject === bankFilter.subject) &&
+    (!normalizedBankSearch || String(s.title || '').toLowerCase().includes(normalizedBankSearch))
   );
-  const allSubjects = [...new Set(bankSets.map(s => s.subject).filter(Boolean))];
 
   return (
     <>
@@ -1502,37 +1518,72 @@ export default function QuizBank({ selectedClass = null }) {
         {tab === 'bank' && (
           <div className="space-y-4">
             {/* 필터 */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
-              <div className="flex flex-wrap gap-3 items-end">
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1">학년</label>
-                  <select value={bankFilter.grade} onChange={e => setBankFilter(f => ({ ...f, grade: e.target.value }))}
-                    className="border-2 border-slate-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500">
-                    <option value="">전체 학년</option>
-                    {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}학년</option>)}
-                  </select>
+                  <h2 className="font-extrabold text-slate-800">공유 문제 찾기</h2>
+                  <p className="text-xs text-slate-400 mt-1">학년과 과목을 선택해 필요한 퀴즈만 확인하세요.</p>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 mb-1">과목</label>
-                  <select value={bankFilter.subject} onChange={e => setBankFilter(f => ({ ...f, subject: e.target.value }))}
-                    className="border-2 border-slate-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500">
-                    <option value="">전체 과목</option>
-                    {allSubjects.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                <div className="flex items-center gap-2">
+                  <input value={bankSearch} onChange={e => setBankSearch(e.target.value)}
+                    placeholder="퀴즈 제목 검색"
+                    className="w-44 rounded-xl border-2 border-slate-200 px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-500" />
+                  <span className="shrink-0 text-xs font-bold text-slate-400">{filteredBankSets.length}개</span>
                 </div>
-                <button onClick={() => setBankFilter({ grade: '', subject: '' })}
-                  className="text-xs text-slate-400 hover:text-slate-600 font-bold px-2 py-1.5">초기화</button>
-                <div className="ml-auto flex items-center gap-2 self-center">
-                  <span className="text-xs text-slate-400">{filteredBankSets.length}개 퀴즈</span>
-                  {canAdminMode && (
-                    <button onClick={() => setIsAdminMode(v => !v)}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors
-                        ${isAdminMode ? 'bg-rose-500 text-white border-rose-500' : 'border-slate-200 text-slate-500 hover:border-slate-400'}`}>
-                      {isAdminMode ? '🔒 관리자 모드 ON' : '🔑 관리자 모드'}
+              </div>
+
+              <div>
+                <div className="mb-2 text-[11px] font-extrabold text-slate-400">학년</div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setBankFilter({ grade: '', subject: '' })}
+                    className={`min-w-16 rounded-xl border px-3 py-2 text-xs font-extrabold transition-colors ${
+                      !bankFilter.grade ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
+                    }`}>
+                    전체
+                  </button>
+                  {[1,2,3,4,5,6].map(n => (
+                    <button key={n} onClick={() => setBankFilter({ grade: String(n), subject: '' })}
+                      className={`min-w-16 rounded-xl border px-3 py-2 text-xs font-extrabold transition-colors ${
+                        bankFilter.grade === String(n) ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
+                      }`}>
+                      {n}학년
                     </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-4">
+                <div className="mb-2 text-[11px] font-extrabold text-slate-400">과목</div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setBankFilter(f => ({ ...f, subject: '' }))}
+                    className={`rounded-xl border px-4 py-2 text-xs font-extrabold transition-colors ${
+                      !bankFilter.subject ? 'border-slate-800 bg-slate-800 text-white' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-400'
+                    }`}>
+                    전체 과목
+                  </button>
+                  {bankSubjects.map(subjectName => (
+                    <button key={subjectName} onClick={() => setBankFilter(f => ({ ...f, subject: subjectName }))}
+                      className={`rounded-xl border px-4 py-2 text-xs font-extrabold transition-colors ${
+                        bankFilter.subject === subjectName ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
+                      }`}>
+                      {subjectName}
+                    </button>
+                  ))}
+                  {bankSubjects.length === 0 && (
+                    <span className="px-1 py-2 text-xs font-semibold text-slate-400">해당 학년에 등록된 과목이 없습니다.</span>
                   )}
                 </div>
               </div>
+
+              {canAdminMode && (
+                <div className="flex justify-end border-t border-slate-100 pt-3">
+                  <button onClick={() => setIsAdminMode(v => !v)}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors
+                      ${isAdminMode ? 'bg-rose-500 text-white border-rose-500' : 'border-slate-200 text-slate-500 hover:border-slate-400'}`}>
+                    {isAdminMode ? '관리자 모드 종료' : '관리자 모드'}
+                  </button>
+                </div>
+              )}
             </div>
 
             {isLoadingBank ? (
@@ -1549,11 +1600,11 @@ export default function QuizBank({ selectedClass = null }) {
                 <p className="text-sm mt-1">내 퀴즈에서 "공유하기" 버튼을 눌러 퀴즈를 공유해보세요!</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {filteredBankSets.map(set => (
-                  <div key={set.id} className="bg-white rounded-2xl border-2 border-slate-200 hover:shadow-md transition-all overflow-hidden group">
+                  <div key={set.id} className="bg-white rounded-2xl border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all overflow-hidden group">
                     {/* 색깔 띠 */}
-                    <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center
+                    <div className={`px-4 py-2 text-white text-[10px] font-extrabold flex justify-between items-center
                       ${set.difficulty === 'easy' ? 'bg-emerald-500' : set.difficulty === 'hard' ? 'bg-rose-500' : 'bg-sky-500'}`}>
                       <span>{DIFF_LABEL[set.difficulty] || '보통'}</span>
                       <span>{set.questionCount || 0}문항{(set.importCount || 0) > 0 ? ` · 📥 ${set.importCount}회` : ''}</span>
@@ -1567,17 +1618,17 @@ export default function QuizBank({ selectedClass = null }) {
                         {set.semester && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.semester}학기</span>}
                         {set.subject && <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-full">{set.subject}</span>}
                       </div>
-                      <div className="text-[11px] text-slate-400">{fmtDate(set.sharedAt || set.createdAt)}</div>
+                      <div className="text-[11px] font-semibold text-slate-400">{fmtDate(set.sharedAt || set.createdAt)} 공유</div>
                     </div>
                     {/* 하단 액션 */}
-                    <div className="px-3 pb-3 flex gap-1.5 border-t border-slate-100 pt-2.5 flex-wrap">
+                    <div className="px-4 pb-4 flex gap-2 border-t border-slate-100 pt-3 flex-wrap">
                       <button onClick={() => setPreviewSet(set)}
-                        className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
-                        👁 미리보기
+                        className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+                        미리보기
                       </button>
                       <button onClick={() => importFromBank(set)}
-                        className="flex-1 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors text-center">
-                        📥 가져오기
+                        className="flex-1 px-4 py-2 rounded-xl text-xs font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors text-center">
+                        내 퀴즈로 가져오기
                       </button>
                       {/* 관리자 모드: 수정/삭제 */}
                       {(isAdminMode || set.ownerId === currentUid) && (

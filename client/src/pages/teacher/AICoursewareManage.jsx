@@ -39,6 +39,15 @@ const lessonKey = (unit, lesson) =>
 const scoreColor = (s) =>
   s >= 90 ? 'text-amber-500' : s >= 75 ? 'text-sky-500' : s >= 60 ? 'text-emerald-500' : 'text-rose-500';
 
+const normalizeScore = (score) => Math.min(100, Math.max(0, Math.round(Number(score) || 0)));
+
+// 학생 AI 학습관과 동일한 KST 오전 8시 기준 학습 날짜
+const getSessionDate = () => {
+  const kst = new Date(Date.now() + 9 * 3_600_000);
+  if (kst.getUTCHours() < 8) kst.setUTCDate(kst.getUTCDate() - 1);
+  return kst.toISOString().slice(0, 10);
+};
+
 const fmtDate = (str) => {
   if (!str) return '-';
   return new Date(str).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
@@ -185,13 +194,18 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
       setStudents(stuList);
 
       const codes = stuList.map(s => s.studentCode).filter(Boolean);
-      if (!codes.length) return;
-
-      const progSnap = await getDocs(collection(db, 'aiStudentProgress'));
-      setAllProgress(progSnap.docs.map(d => d.data()).filter(p => codes.includes(p.studentCode) && p.status === 'completed'));
-
       const batches = [];
       for (let i = 0; i < codes.length; i += 10) batches.push(codes.slice(i, i + 10));
+      if (!codes.length) {
+        setAllProgress([]);
+        setAllMastery({});
+        setAllWrongAnswers([]);
+        return;
+      }
+
+      const progSnaps = await Promise.all(batches.map(b => getDocs(query(collection(db, 'aiStudentProgress'), where('studentCode', 'in', b)))));
+      setAllProgress(progSnaps.flatMap(s => s.docs.map(d => d.data())).filter(p => p.status === 'completed'));
+
       const snaps = await Promise.all(batches.map(b => getDocs(query(collection(db, 'aiLessonMastery'), where('studentCode', 'in', b)))));
       const mMap = {};
       snaps.forEach(s => s.forEach(d => { const m = d.data(); if (!mMap[m.lessonKey]) mMap[m.lessonKey] = {}; mMap[m.lessonKey][m.studentCode] = m; }));
@@ -215,10 +229,10 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
   }, [unitGrade]);
 
   // ── 파생 데이터 ─────────────────────────────────────────────
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getSessionDate();
   const analysisProgress = allProgress.filter(progress => isWithinPeriod(progress, analysisPeriod));
   const todayProg = analysisProgress.filter(p => p.date === today);
-  const scores = analysisProgress.map(p => p.score).filter(s => s != null);
+  const scores = analysisProgress.map(p => p.score).filter(s => s != null).map(normalizeScore);
   const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
 
   const studentStats = students.map(stu => {
@@ -226,11 +240,11 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
     const allStudentProgress = allProgress
       .filter(p => p.studentCode === stu.studentCode)
       .sort((a, b) => getCompletedSeconds(b) - getCompletedSeconds(a));
-    const sc = progs.map(p => p.score).filter(s => s != null);
+    const sc = progs.map(p => p.score).filter(s => s != null).map(normalizeScore);
     const stuMasteries = Object.values(allMastery).map(lm => lm[stu.studentCode]).filter(m => m?.masteryLevel);
     const recentProgress = [...progs].sort((a, b) => getCompletedSeconds(b) - getCompletedSeconds(a));
-    const recentScores = recentProgress.slice(0, 4).map(p => p.score).filter(s => s != null);
-    const masteryScores = stuMasteries.map(m => m.masteryAvg).filter(s => s != null);
+    const recentScores = recentProgress.slice(0, 4).map(p => p.score).filter(s => s != null).map(normalizeScore);
+    const masteryScores = stuMasteries.map(m => m.masteryAvg).filter(s => s != null).map(normalizeScore);
     const masteryAvg = masteryScores.length
       ? Math.round(masteryScores.reduce((sum, score) => sum + score, 0) / masteryScores.length)
       : null;
@@ -287,19 +301,27 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
     if (!countable.length) return { completedStudents: 0, participatingStudents: 0, completedPairs: 0, totalStudents: students.length, classAvg: null, progressPct: 0, needed: countable.length };
     let completedStudents = 0;
     const completedAvgs = [];
-    const lessonTitles = new Set(countable.map(lesson => lesson.title));
-    const matchingProgress = allProgress.filter(progress =>
-      progress.unitName === unit.unitName &&
-      lessonTitles.has(progress.lessonTitle) &&
-      students.some(student => student.studentCode === progress.studentCode)
-    );
-    const completedPairs = new Set(matchingProgress.map(progress => `${progress.studentCode}_${progress.lessonTitle}`));
+    const studentCodes = new Set(students.map(student => student.studentCode).filter(Boolean));
+    const lessonKeysByTitle = new Map(countable.map(lesson => [lesson.title, lessonKey(unit, lesson)]));
+    const matchingProgress = allProgress.filter(progress => {
+      const expectedLessonKey = lessonKeysByTitle.get(progress.lessonTitle);
+      if (!expectedLessonKey || !studentCodes.has(progress.studentCode)) return false;
+      if (progress.lessonKey) return progress.lessonKey === expectedLessonKey;
+      return Number(progress.grade) === Number(unit.grade) &&
+        Number(progress.semester || 0) === Number(unit.semester || 0) &&
+        progress.unitName === unit.unitName;
+    });
+    const completedPairs = new Set(matchingProgress.map(progress =>
+      `${progress.studentCode}::${progress.lessonKey || lessonKeysByTitle.get(progress.lessonTitle)}`
+    ));
     const participatingStudents = new Set(matchingProgress.map(progress => progress.studentCode)).size;
     students.forEach(stu => {
       const rated = countable.filter(l => (allMastery[lessonKey(unit, l)] || {})[stu.studentCode]?.masteryAvg != null);
       if (rated.length === countable.length) {
         completedStudents++;
-        completedAvgs.push(Math.round(rated.reduce((s, l) => s + (allMastery[lessonKey(unit, l)] || {})[stu.studentCode].masteryAvg, 0) / rated.length));
+        completedAvgs.push(Math.round(rated.reduce((s, l) =>
+          s + normalizeScore((allMastery[lessonKey(unit, l)] || {})[stu.studentCode].masteryAvg), 0
+        ) / rated.length));
       }
     });
     const totalPossible = countable.length * students.length;
@@ -319,7 +341,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
     const rated = entries.filter(m => m.masteryAvg != null);
     const dist = { excellent: 0, good: 0, normal: 0, retry: 0 };
     rated.forEach(m => { if (dist[m.masteryLevel] !== undefined) dist[m.masteryLevel]++; });
-    const avgs = rated.map(m => m.masteryAvg);
+    const avgs = rated.map(m => normalizeScore(m.masteryAvg));
     return {
       participated: participated.length, rated: rated.length, total: students.length, dist,
       classAvg: avgs.length ? Math.round(avgs.reduce((a, b) => a + b, 0) / avgs.length) : null,
@@ -528,7 +550,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
                     const allAvgs = [];
                     (selectedUnit.lessons || []).forEach(l => {
                       const lk = lessonKey(selectedUnit, l);
-                      Object.values(allMastery[lk] || {}).forEach(m => { if (m.masteryAvg != null) allAvgs.push(m.masteryAvg); });
+                      Object.values(allMastery[lk] || {}).forEach(m => { if (m.masteryAvg != null) allAvgs.push(normalizeScore(m.masteryAvg)); });
                     });
                     const unitAvg = allAvgs.length ? Math.round(allAvgs.reduce((a, b) => a + b, 0) / allAvgs.length) : null;
                     const dist = { excellent: 0, good: 0, normal: 0, retry: 0 };
@@ -566,7 +588,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
                       const m = (allMastery[plk] || {})[stu.studentCode];
                       const attempts = m?.attemptCount || m?.scores?.length || 0;
                       if (attempts > 0) count++;
-                      return { no: l.no, title: l.title, attempts, masteryLevel: m?.masteryLevel || null, masteryAvg: m?.masteryAvg ?? null };
+                      return { no: l.no, title: l.title, attempts, masteryLevel: m?.masteryLevel || null, masteryAvg: m?.masteryAvg != null ? normalizeScore(m.masteryAvg) : null };
                     });
                     const avgs = perLesson.map(p => p.masteryAvg).filter(v => v != null);
                     const avgScore = avgs.length ? Math.round(avgs.reduce((a, b) => a + b, 0) / avgs.length) : null;
@@ -714,11 +736,11 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
                                           </span>
                                         : <span className="text-slate-400">{done}/{MASTERY_ATTEMPTS} 도전중</span>}
                                     </div>
-                                    <div className={`col-span-1 text-center font-extrabold ${m.masteryAvg != null ? scoreColor(m.masteryAvg) : 'text-slate-300'}`}>
-                                      {m.masteryAvg != null ? `${m.masteryAvg}점` : '-'}
+                                    <div className={`col-span-1 text-center font-extrabold ${m.masteryAvg != null ? scoreColor(normalizeScore(m.masteryAvg)) : 'text-slate-300'}`}>
+                                      {m.masteryAvg != null ? `${normalizeScore(m.masteryAvg)}점` : '-'}
                                     </div>
-                                    <div className={`col-span-1 text-center font-bold ${m.lastScore != null ? scoreColor(m.lastScore) : 'text-slate-300'}`}>
-                                      {m.lastScore != null ? `${m.lastScore}점` : '-'}
+                                    <div className={`col-span-1 text-center font-bold ${m.lastScore != null ? scoreColor(normalizeScore(m.lastScore)) : 'text-slate-300'}`}>
+                                      {m.lastScore != null ? `${normalizeScore(m.lastScore)}점` : '-'}
                                     </div>
                                   </div>
                                 );
@@ -755,7 +777,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
 
               {/* 학생 카드 그리드 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {studentStats.sort((a, b) => (b.completions || 0) - (a.completions || 0)).map(stu => {
+                {[...studentStats].sort((a, b) => (b.completions || 0) - (a.completions || 0)).map(stu => {
                   const dist = { excellent: 0, good: 0, normal: 0, retry: 0 };
                   stu.masteries.forEach(m => { if (dist[m.masteryLevel] !== undefined) dist[m.masteryLevel]++; });
                   const totalMast = stu.masteries.length;
@@ -835,7 +857,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
                         {students.find(s => s.studentCode === p.studentCode)?.name || p.studentCode?.slice(-5)}
                       </div>
                       <div className="flex-1 text-xs text-slate-400 truncate">{p.unitName} · {p.lessonTitle}</div>
-                      <div className={`text-sm font-extrabold shrink-0 ${scoreColor(p.score || 0)}`}>{p.score}점</div>
+                      <div className={`text-sm font-extrabold shrink-0 ${scoreColor(normalizeScore(p.score))}`}>{normalizeScore(p.score)}점</div>
                       <div className="text-xs text-slate-300 shrink-0">{p.correctCount}/{p.totalCount}</div>
                     </div>
                   ))}
@@ -892,7 +914,7 @@ function LearningOverviewTab({
       const records = Object.values(lessonStudents).filter(item => item?.masteryAvg != null);
       if (!records.length) return null;
       const supportCount = records.filter(item => item.masteryLevel === 'retry').length;
-      const average = Math.round(records.reduce((sum, item) => sum + item.masteryAvg, 0) / records.length);
+      const average = Math.round(records.reduce((sum, item) => sum + normalizeScore(item.masteryAvg), 0) / records.length);
       const sample = records[0] || {};
       return {
         key: sample.lessonKey || `${sample.unitName}_${sample.lessonTitle}`,
@@ -1272,7 +1294,7 @@ function StudentLearningDetail({ student, teacherUid, classId, onCreateReview, o
                       <p className="truncate text-sm font-extrabold text-slate-700">{progress.lessonTitle || '차시 정보 없음'}</p>
                       <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">{progress.unitName || '단원 정보 없음'} · {fmtDate(progress.date)}</p>
                     </div>
-                    <span className={`text-sm font-black ${scoreColor(progress.score || 0)}`}>{progress.score ?? '-'}%</span>
+                    <span className={`text-sm font-black ${scoreColor(normalizeScore(progress.score))}`}>{progress.score == null ? '-' : normalizeScore(progress.score)}%</span>
                     <span className="text-xs font-bold text-slate-400">{progress.correctCount ?? '-'}/{progress.totalCount ?? '-'}</span>
                   </div>
                 ))}
