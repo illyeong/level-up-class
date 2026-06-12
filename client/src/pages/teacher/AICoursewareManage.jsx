@@ -116,7 +116,7 @@ const MasteryPill = ({ level }) => {
 
 const ProgressBar = ({ pct, color = 'bg-indigo-400', h = 'h-1.5' }) => (
   <div className={`w-full ${h} bg-slate-100 rounded-full overflow-hidden`}>
-    <div className={`${h} ${color} rounded-full transition-all`} style={{ width: `${Math.max(2, pct)}%` }} />
+    <div className={`${h} ${color} rounded-full transition-all`} style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
   </div>
 );
 
@@ -285,19 +285,17 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
 
   const getUnitStats = (unit) => {
     const countable = (unit.lessons || []).filter(l => l.title !== '단원 도입');
-    if (!countable.length) return { completedStudents: 0, totalStudents: students.length, classAvg: null, progressPct: 0, needed: countable.length };
+    if (!countable.length) return { completedStudents: 0, participatingStudents: 0, completedPairs: 0, totalStudents: students.length, classAvg: null, progressPct: 0, needed: countable.length };
     let completedStudents = 0;
     const completedAvgs = [];
     const lessonTitles = new Set(countable.map(lesson => lesson.title));
-    const completedPairs = new Set(
-      allProgress
-        .filter(progress =>
-          progress.unitName === unit.unitName &&
-          lessonTitles.has(progress.lessonTitle) &&
-          students.some(student => student.studentCode === progress.studentCode)
-        )
-        .map(progress => `${progress.studentCode}_${progress.lessonTitle}`)
+    const matchingProgress = allProgress.filter(progress =>
+      progress.unitName === unit.unitName &&
+      lessonTitles.has(progress.lessonTitle) &&
+      students.some(student => student.studentCode === progress.studentCode)
     );
+    const completedPairs = new Set(matchingProgress.map(progress => `${progress.studentCode}_${progress.lessonTitle}`));
+    const participatingStudents = new Set(matchingProgress.map(progress => progress.studentCode)).size;
     students.forEach(stu => {
       const rated = countable.filter(l => (allMastery[lessonKey(unit, l)] || {})[stu.studentCode]?.masteryAvg != null);
       if (rated.length === countable.length) {
@@ -308,7 +306,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
     const totalPossible = countable.length * students.length;
     const rawProgress = totalPossible ? (completedPairs.size / totalPossible) * 100 : 0;
     return {
-      completedStudents, totalStudents: students.length,
+      completedStudents, participatingStudents, completedPairs: completedPairs.size, totalStudents: students.length,
       classAvg: completedAvgs.length ? Math.round(completedAvgs.reduce((a, b) => a + b, 0) / completedAvgs.length) : null,
       progressPct: rawProgress > 0 ? Math.max(1, Math.round(rawProgress)) : 0,
       needed: countable.length,
@@ -432,28 +430,63 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
                 {filteredUnits.map(unit => {
                   const s = getUnitStats(unit);
                   const mastCfg = s.classAvg != null ? MASTERY[getMasteryLevel(s.classAvg)] : null;
+                  const hasProgress = s.progressPct > 0;
+                  const progressBorder = s.progressPct >= 70
+                    ? 'border-emerald-300'
+                    : s.progressPct >= 30
+                      ? 'border-sky-300'
+                      : hasProgress
+                        ? 'border-indigo-300'
+                        : 'border-slate-200';
+                  const progressBar = s.progressPct >= 70
+                    ? 'bg-emerald-500'
+                    : s.progressPct >= 30
+                      ? 'bg-sky-500'
+                      : hasProgress
+                        ? 'bg-indigo-500'
+                        : 'bg-slate-300';
                   return (
                     <button key={unit.id} onClick={() => { setSelectedUnit(unit); setExpandedLesson(null); }}
-                      className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md hover:border-indigo-300 p-5 text-left transition-all group">
+                      className={`relative overflow-hidden bg-white border-2 rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 p-5 text-left transition-all group ${progressBorder}`}>
+                      <div className={`absolute inset-x-0 top-0 h-1.5 ${progressBar}`} />
 
                       {/* 헤더 */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-baseline gap-1.5 flex-1 min-w-0 pr-2">
-                          <span className="text-xl font-black text-slate-200 shrink-0">{unit.unitNumber}</span>
-                          <span className="font-extrabold text-slate-800 text-sm leading-snug line-clamp-2">{unit.unitName}</span>
+                      <div className="flex items-start justify-between gap-3 mb-4 pt-1">
+                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                          <span className={`flex h-9 w-9 items-center justify-center rounded-xl text-base font-black shrink-0 ${
+                            hasProgress ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'
+                          }`}>{unit.unitNumber}</span>
+                          <div className="min-w-0">
+                            <span className="block font-extrabold text-slate-900 text-sm leading-snug line-clamp-2">{unit.unitName}</span>
+                            <span className="mt-0.5 block text-[10px] font-bold text-slate-500">{unit.semester || '-'}학기 수학</span>
+                          </div>
                         </div>
-                        <span className="shrink-0 text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">
+                        <span className="shrink-0 text-[10px] bg-slate-100 text-slate-600 font-extrabold px-2 py-1 rounded-full">
                           {(unit.lessons || []).length}차시
                         </span>
                       </div>
 
                       {/* 진행률 */}
-                      <div className="mb-3">
-                        <div className="flex justify-between mb-1.5">
-                          <span className="text-[11px] text-slate-500 font-bold">{s.progressPct}% 진행</span>
-                          <span className="text-[11px] text-slate-400">단원 완료 {s.completedStudents}/{s.totalStudents}명</span>
+                      <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 mb-3">
+                        <div className="flex items-end justify-between mb-2">
+                          <div>
+                            <span className={`text-2xl font-black ${hasProgress ? 'text-indigo-600' : 'text-slate-400'}`}>{s.progressPct}%</span>
+                            <span className="ml-1 text-[11px] font-bold text-slate-500">학급 진행률</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-500">{s.completedPairs}/{s.needed * s.totalStudents} 학습 완료</span>
                         </div>
-                        <ProgressBar pct={s.progressPct} color={s.completedStudents > 0 ? 'bg-indigo-400' : 'bg-slate-300'} h="h-2" />
+                        <ProgressBar pct={s.progressPct} color={progressBar} h="h-2.5" />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2">
+                          <div className="text-[10px] font-bold text-sky-600">참여 학생</div>
+                          <div className="mt-0.5 text-sm font-black text-sky-800">{s.participatingStudents}<span className="text-[10px] font-bold text-sky-600"> / {s.totalStudents}명</span></div>
+                        </div>
+                        <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+                          <div className="text-[10px] font-bold text-emerald-600">단원 완료</div>
+                          <div className="mt-0.5 text-sm font-black text-emerald-800">{s.completedStudents}<span className="text-[10px] font-bold text-emerald-600"> / {s.totalStudents}명</span></div>
+                        </div>
                       </div>
 
                       {/* 숙달도 또는 안내 */}
@@ -465,8 +498,11 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
                           <span className="text-[10px] opacity-70">{s.completedStudents}명 기준</span>
                         </div>
                       ) : (
-                        <div className="text-[11px] text-slate-400 px-1">
-                          {s.progressPct > 0 ? `${s.needed}차시 전체 완료 학생 없음` : `${s.needed}개 차시 완료 시 숙달도 표시`}
+                        <div className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-bold ${
+                          hasProgress ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                        }`}>
+                          <span>{hasProgress ? '⏳' : '○'}</span>
+                          <span>{hasProgress ? '단원 완료 학생이 생기면 평균 숙달도를 표시합니다.' : '아직 이 단원을 시작한 학생이 없습니다.'}</span>
                         </div>
                       )}
                     </button>
