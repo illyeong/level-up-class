@@ -254,7 +254,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
     const unresolvedWrongCount = allWrongAnswers.filter(w => w.studentCode === stu.studentCode && !w.resolved && w.status !== 'resolved').length;
     if (!allStudentProgress.length) supportReasons.push('AI 학습 미시작');
     else if (inactiveDays != null && inactiveDays >= 7) supportReasons.push(`${inactiveDays}일간 미학습`);
-    if (unresolvedWrongCount >= 3) supportReasons.push(`미해결 오답 ${unresolvedWrongCount}개`);
+    if (unresolvedWrongCount >= 30) supportReasons.push(`미해결 오답 ${unresolvedWrongCount}개`);
     const status = !allStudentProgress.length
       ? 'inactive'
       : supportReasons.length > 0
