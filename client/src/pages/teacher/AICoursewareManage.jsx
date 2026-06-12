@@ -255,6 +255,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
     if (!allStudentProgress.length) supportReasons.push('AI 학습 미시작');
     else if (inactiveDays != null && inactiveDays >= 7) supportReasons.push(`${inactiveDays}일간 미학습`);
     if (unresolvedWrongCount >= 30) supportReasons.push(`미해결 오답 ${unresolvedWrongCount}개`);
+    if (averageScore != null && averageScore < 60) supportReasons.push(`기간 평균 정답률 ${averageScore}%`);
     const status = !allStudentProgress.length
       ? 'inactive'
       : supportReasons.length > 0
