@@ -922,7 +922,7 @@ function LearningOverviewTab({
   if (loading) return <Spinner label="학급 학습 현황을 정리하는 중..." />;
 
   const overviewCards = [
-    { label: '학습 참여 학생', value: `${summary.activeCount} / ${students.length}명`, note: `오늘 ${summary.todayCount}명 학습`, accent: 'border-indigo-200 bg-indigo-50 text-indigo-700' },
+    { label: '오늘 참여 학생', value: `${summary.todayCount} / ${students.length}명`, note: `학습 참여 ${summary.activeCount}명`, accent: 'border-indigo-200 bg-indigo-50 text-indigo-700' },
     { label: '평균 정답률', value: summary.avgScore == null ? '-' : `${summary.avgScore}%`, note: `${allProgress.length}건의 완료 기록`, accent: 'border-sky-200 bg-sky-50 text-sky-700' },
     { label: '평균 숙달도', value: summary.masteryAvg == null ? '-' : `${summary.masteryAvg}%`, note: '최근 4회 학습 기반', accent: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
     { label: '지원 필요 학생', value: `${summary.supportCount}명`, note: `미학습 ${summary.inactiveCount}명`, accent: 'border-rose-200 bg-rose-50 text-rose-700' },
