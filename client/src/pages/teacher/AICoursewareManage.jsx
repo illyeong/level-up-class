@@ -32,8 +32,9 @@ const isFreshLessonContent = (data) =>
 const getMasteryLevel = (avg) =>
   avg >= 90 ? 'excellent' : avg >= 75 ? 'good' : avg >= 60 ? 'normal' : 'retry';
 
+// 학생 측 AICourseware.jsx의 CACHE_VER('v3')와 반드시 일치해야 함 — 불일치 시 참여/숙달도 데이터가 연동되지 않음
 const lessonKey = (unit, lesson) =>
-  `v2_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
+  `v3_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
 
 const scoreColor = (s) =>
   s >= 90 ? 'text-amber-500' : s >= 75 ? 'text-sky-500' : s >= 60 ? 'text-emerald-500' : 'text-rose-500';
@@ -316,12 +317,13 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
   const getLessonStats = (lk) => {
     const lm = allMastery[lk] || {};
     const entries = Object.values(lm);
+    const participated = entries.filter(m => (m.attemptCount || 0) > 0 || (m.scores?.length || 0) > 0);
     const rated = entries.filter(m => m.masteryAvg != null);
     const dist = { excellent: 0, good: 0, normal: 0, retry: 0 };
     rated.forEach(m => { if (dist[m.masteryLevel] !== undefined) dist[m.masteryLevel]++; });
     const avgs = rated.map(m => m.masteryAvg);
     return {
-      rated: rated.length, total: students.length, dist,
+      participated: participated.length, rated: rated.length, total: students.length, dist,
       classAvg: avgs.length ? Math.round(avgs.reduce((a, b) => a + b, 0) / avgs.length) : null,
     };
   };
@@ -558,6 +560,69 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
                   })()}
                 </div>
 
+                {/* 학생별 참여 한눈에 보기 */}
+                {(() => {
+                  const countableLessons = (selectedUnit.lessons || []).filter(l => l.title !== '단원 도입');
+                  const rows = students.map(stu => {
+                    let count = 0;
+                    const perLesson = countableLessons.map(l => {
+                      const plk = lessonKey(selectedUnit, l);
+                      const m = (allMastery[plk] || {})[stu.studentCode];
+                      const attempts = m?.attemptCount || m?.scores?.length || 0;
+                      if (attempts > 0) count++;
+                      return { no: l.no, title: l.title, attempts, masteryLevel: m?.masteryLevel || null, masteryAvg: m?.masteryAvg ?? null };
+                    });
+                    const avgs = perLesson.map(p => p.masteryAvg).filter(v => v != null);
+                    const avgScore = avgs.length ? Math.round(avgs.reduce((a, b) => a + b, 0) / avgs.length) : null;
+                    return { stu, count, perLesson, avgScore };
+                  }).sort((a, b) => b.count - a.count || (b.avgScore ?? -1) - (a.avgScore ?? -1));
+
+                  return (
+                    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-4">
+                      <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between flex-wrap gap-1">
+                        <span className="text-sm font-extrabold text-slate-700">👥 학생별 참여 한눈에 보기</span>
+                        <span className="text-[11px] text-slate-400">참여 차시 많은 순 · 숫자=도전 횟수</span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs whitespace-nowrap">
+                          <thead>
+                            <tr className="text-slate-400 font-bold uppercase tracking-wide">
+                              <th className="px-3 py-2 text-left sticky left-0 bg-white z-10">학생</th>
+                              <th className="px-2 py-2 text-center">참여</th>
+                              {countableLessons.map(l => (
+                                <th key={l.no} className="px-2 py-2 text-center min-w-[40px]" title={l.title}>
+                                  {l.title === '단원평가' ? '📝' : `${l.no}차시`}
+                                </th>
+                              ))}
+                              <th className="px-3 py-2 text-center">평균</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {rows.map(({ stu, count, perLesson, avgScore }) => (
+                              <tr key={stu.id} className={count === 0 ? 'opacity-40' : 'hover:bg-slate-50'}>
+                                <td className="px-3 py-2 font-extrabold text-slate-700 sticky left-0 bg-white truncate max-w-[80px]">{stu.name || stu.studentCode?.slice(-5)}</td>
+                                <td className="px-2 py-2 text-center font-bold text-slate-600">{count}/{countableLessons.length}</td>
+                                {perLesson.map((p, i) => (
+                                  <td key={i} className="px-2 py-2 text-center">
+                                    {p.masteryLevel
+                                      ? <span title={`${p.masteryAvg}점 · ${p.attempts}회`}>{MASTERY[p.masteryLevel].emoji}</span>
+                                      : p.attempts > 0
+                                        ? <span className="text-indigo-500 font-extrabold" title={`${p.attempts}회 도전 중`}>{p.attempts}</span>
+                                        : <span className="text-slate-300">-</span>}
+                                  </td>
+                                ))}
+                                <td className={`px-3 py-2 text-center font-extrabold ${avgScore != null ? scoreColor(avgScore) : 'text-slate-300'}`}>
+                                  {avgScore != null ? `${avgScore}점` : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* 차시 테이블 */}
                 <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                   <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 grid grid-cols-12 text-[11px] font-bold text-slate-400 uppercase tracking-wide">
@@ -570,7 +635,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
 
                   {(selectedUnit.lessons || []).map((lesson, li) => {
                     const lk = lessonKey(selectedUnit, lesson);
-                    const { rated, total, dist, classAvg } = getLessonStats(lk);
+                    const { participated, rated, total, dist, classAvg } = getLessonStats(lk);
                     const isUnitTest = lesson.title === '단원평가';
                     const isExpanded = expandedLesson === lk;
                     const stuMastery = Object.entries(allMastery[lk] || {});
@@ -599,8 +664,9 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
                               : <span className="text-xs text-slate-300">-</span>}
                           </div>
                           <div className="col-span-2 text-center">
-                            <div className="text-xs font-bold text-slate-600">{rated}/{total}</div>
-                            <ProgressBar pct={total > 0 ? (rated / total) * 100 : 0} color="bg-indigo-300" h="h-1" />
+                            <div className="text-xs font-bold text-slate-600">{participated}/{total}</div>
+                            <ProgressBar pct={total > 0 ? (participated / total) * 100 : 0} color="bg-indigo-300" h="h-1" />
+                            {rated > 0 && <div className="text-[10px] text-slate-400 mt-0.5">숙달판정 {rated}명</div>}
                           </div>
                           <div className="col-span-2 text-right flex items-center justify-end gap-1">
                             {classAvg != null ? (
