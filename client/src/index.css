@@ -101,3 +101,167 @@
 .teacher-theme-dark textarea::placeholder {
     color: #64748b;
 }
+
+/* AI learning management uses dense status cards and tables. Preserve their
+   semantic colors while keeping text and controls readable in teacher dark mode. */
+.teacher-theme-dark .ai-learning-manage {
+    background-color: #080f1f !important;
+    color: #e5edf8;
+}
+
+.teacher-theme-dark .ai-learning-manage .bg-white {
+    background-color: #111c2f !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .bg-slate-50 {
+    background-color: #0d1728 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .bg-slate-100 {
+    background-color: #1b2940 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .bg-slate-200 {
+    background-color: #334155 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .text-slate-900,
+.teacher-theme-dark .ai-learning-manage .text-slate-800,
+.teacher-theme-dark .ai-learning-manage .text-slate-700 {
+    color: #f1f5f9 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .text-slate-600,
+.teacher-theme-dark .ai-learning-manage .text-slate-500 {
+    color: #cbd5e1 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .text-slate-400 {
+    color: #aebed3 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .text-slate-300 {
+    color: #8294ad !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .border-slate-100,
+.teacher-theme-dark .ai-learning-manage .border-slate-200,
+.teacher-theme-dark .ai-learning-manage .border-slate-300 {
+    border-color: #40516a !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .bg-indigo-50,
+.teacher-theme-dark .ai-learning-manage .bg-indigo-100 {
+    background-color: rgb(49 46 129 / 0.42) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .bg-sky-50,
+.teacher-theme-dark .ai-learning-manage .bg-blue-50 {
+    background-color: rgb(8 47 73 / 0.62) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .bg-emerald-50 {
+    background-color: rgb(6 78 59 / 0.48) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .bg-amber-50 {
+    background-color: rgb(120 53 15 / 0.38) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .bg-rose-50 {
+    background-color: rgb(136 19 55 / 0.38) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .text-indigo-500,
+.teacher-theme-dark .ai-learning-manage .text-indigo-600,
+.teacher-theme-dark .ai-learning-manage .text-indigo-700,
+.teacher-theme-dark .ai-learning-manage .text-indigo-800 {
+    color: #aebcff !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .text-sky-500,
+.teacher-theme-dark .ai-learning-manage .text-sky-600,
+.teacher-theme-dark .ai-learning-manage .text-sky-700,
+.teacher-theme-dark .ai-learning-manage .text-sky-800,
+.teacher-theme-dark .ai-learning-manage .text-blue-500,
+.teacher-theme-dark .ai-learning-manage .text-blue-600,
+.teacher-theme-dark .ai-learning-manage .text-blue-800 {
+    color: #7dd3fc !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .text-emerald-500,
+.teacher-theme-dark .ai-learning-manage .text-emerald-600,
+.teacher-theme-dark .ai-learning-manage .text-emerald-700,
+.teacher-theme-dark .ai-learning-manage .text-emerald-800 {
+    color: #6ee7b7 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .text-amber-500,
+.teacher-theme-dark .ai-learning-manage .text-amber-600,
+.teacher-theme-dark .ai-learning-manage .text-amber-700,
+.teacher-theme-dark .ai-learning-manage .text-amber-800,
+.teacher-theme-dark .ai-learning-manage .text-amber-900 {
+    color: #fcd34d !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .text-rose-400,
+.teacher-theme-dark .ai-learning-manage .text-rose-500,
+.teacher-theme-dark .ai-learning-manage .text-rose-600,
+.teacher-theme-dark .ai-learning-manage .text-rose-700,
+.teacher-theme-dark .ai-learning-manage .text-rose-800 {
+    color: #fda4af !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .border-indigo-200,
+.teacher-theme-dark .ai-learning-manage .border-indigo-300,
+.teacher-theme-dark .ai-learning-manage .border-indigo-400 {
+    border-color: #6366f1 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .border-sky-100,
+.teacher-theme-dark .ai-learning-manage .border-sky-200,
+.teacher-theme-dark .ai-learning-manage .border-sky-300,
+.teacher-theme-dark .ai-learning-manage .border-blue-200 {
+    border-color: #0ea5e9 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .border-emerald-100,
+.teacher-theme-dark .ai-learning-manage .border-emerald-200,
+.teacher-theme-dark .ai-learning-manage .border-emerald-300,
+.teacher-theme-dark .ai-learning-manage .border-emerald-400,
+.teacher-theme-dark .ai-learning-manage .border-emerald-500 {
+    border-color: #10b981 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .border-amber-100,
+.teacher-theme-dark .ai-learning-manage .border-amber-200 {
+    border-color: #d97706 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .border-rose-200,
+.teacher-theme-dark .ai-learning-manage .border-rose-300 {
+    border-color: #e11d48 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .shadow-sm,
+.teacher-theme-dark .ai-learning-manage .shadow-md,
+.teacher-theme-dark .ai-learning-manage .shadow-lg,
+.teacher-theme-dark .ai-learning-manage .shadow-2xl {
+    box-shadow: 0 12px 28px rgb(0 0 0 / 0.28) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .opacity-40 {
+    opacity: 0.68 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .opacity-50 {
+    opacity: 0.72 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage input,
+.teacher-theme-dark .ai-learning-manage textarea,
+.teacher-theme-dark .ai-learning-manage select {
+    background-color: #0b1526 !important;
+    border-color: #52647e !important;
+    color: #f1f5f9 !important;
+}

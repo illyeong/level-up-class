@@ -337,7 +337,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-5">
+    <div className="ai-learning-manage min-h-screen bg-slate-50 p-5">
       <div className="max-w-6xl mx-auto">
 
         {/* 헤더 */}
@@ -1151,7 +1151,7 @@ function StudentLearningDetail({ student, teacherUid, classId, onCreateReview, o
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/55 p-4" onClick={onClose}>
+    <div className="ai-learning-manage fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/55 p-4" onClick={onClose}>
       <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-slate-50 shadow-2xl" onClick={event => event.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5">
           <div>
