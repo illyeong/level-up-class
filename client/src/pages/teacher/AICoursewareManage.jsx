@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { collection, getDocs, getDoc, doc, setDoc, deleteDoc, updateDoc, query, where, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -867,6 +867,7 @@ function LearningOverviewTab({
 }) {
   const [queryText, setQueryText] = useState('');
   const [sortBy, setSortBy] = useState('support');
+  const studentTableRef = useRef(null);
 
   const summary = useMemo(() => {
     const active = students.filter(student => student.completions > 0);
@@ -974,7 +975,7 @@ function LearningOverviewTab({
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setSortBy('support')}
+              <button type="button" onClick={() => { setSortBy('support'); studentTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
                 className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-extrabold text-white hover:bg-slate-700">
                 지원 필요 학생 보기
               </button>
@@ -1008,7 +1009,7 @@ function LearningOverviewTab({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div ref={studentTableRef} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
