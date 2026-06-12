@@ -1150,26 +1150,26 @@ export default function PetHouse({ studentCode }) {
           )}
         </div>
       )}
-      <div className="max-w-3xl mx-auto">
+      <div className="w-full max-w-[1240px] mx-auto px-3 sm:px-5">
 
         {/* 헤더 */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-xl font-extrabold text-white">🐾 펫 하우스</h1>
-            <p className="text-indigo-300/70 text-xs mt-0.5">보유 펫 {pets.length}마리</p>
+            <h1 className="text-2xl font-black text-white">🐾 펫 하우스</h1>
+            <p className="text-indigo-300/70 text-xs mt-1">함께 성장할 대표 펫을 돌보고 관리하세요</p>
           </div>
-          <div className="flex items-center gap-1.5 bg-indigo-900/60 border border-indigo-700 px-3 py-1.5 rounded-xl">
+          <div className="flex items-center gap-2 bg-indigo-900/60 border border-indigo-600/80 px-4 py-2 rounded-xl shadow-lg shadow-indigo-950/30">
             <span>💎</span>
-            <span className="text-white font-extrabold text-sm">{student?.diamonds ?? '--'}</span>
+            <span className="text-white font-black text-sm">{student?.diamonds ?? '--'}</span>
           </div>
         </div>
 
         {/* 탭 */}
-        <div className="flex gap-2 mb-5">
+        <div className="flex gap-2 mb-5 border-b border-indigo-900/70 pb-4">
           {[{ id: 'myPets', label: '🐾 내 펫' }, { id: 'hatch', label: '🥚 알 부화' }, { id: 'gacha', label: '💎 펫 알 뽑기' }].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`px-5 py-2 rounded-xl font-extrabold text-sm transition-colors
-                ${tab === t.id ? 'bg-indigo-500 text-white shadow-md' : 'bg-indigo-900/40 text-indigo-300 hover:bg-indigo-900/60'}`}>
+              className={`px-5 py-2.5 rounded-xl font-extrabold text-sm transition-all
+                ${tab === t.id ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/30' : 'bg-indigo-900/40 text-indigo-300 hover:bg-indigo-900/70 hover:text-white'}`}>
               {t.label}
             </button>
           ))}
@@ -1178,9 +1178,9 @@ export default function PetHouse({ studentCode }) {
         {/* 내 펫 */}
         {tab === 'myPets' && (() => {
           // 티어별 상세 패널 표시 높이
-          const DETAIL_H = { tiny:80, small:115, medium:160, large:240, boss:290 };
+          const DETAIL_H = { tiny:125, small:145, medium:175, large:225, boss:255 };
           // 티어별 목록 썸네일 높이
-          const LIST_H   = { tiny:26, small:36,  medium:50,  large:80,  boss:98  };
+          const LIST_H   = { tiny:40, small:50, medium:62, large:78, boss:88 };
 
           const sp = selectedPet ? pets.find(p => p.id === selectedPet.id) || selectedPet : pets[0] || null;
           const spMd = sp ? MONSTERS_DB[sp.monsterId] : null;
@@ -1204,7 +1204,7 @@ export default function PetHouse({ studentCode }) {
           );
 
           return (
-            <div className="flex gap-3" style={{ minHeight: 720 }}>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[280px_350px_minmax(0,1fr)]">
 
               {/* 정보 카드 + 조작 카드 */}
               {sp && spMd ? (() => {
@@ -1239,16 +1239,22 @@ export default function PetHouse({ studentCode }) {
                 return (
                   <>
                     {/* 정보 카드 */}
-                    <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl flex flex-col overflow-y-auto p-4 items-center" style={{ width: 250, maxHeight: 720 }}>
-                      {isActive && <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border mb-2 ${r.bg} ${r.text} ${r.border}`}>★ 대표 펫</span>}
-                      <div ref={detailPetRef} className="flex justify-center items-end mb-2 cursor-pointer"
+                    <section className="bg-slate-800/75 border border-slate-700 rounded-2xl flex flex-col overflow-hidden p-5 items-center shadow-xl shadow-slate-950/20">
+                      <div className="w-full flex items-center justify-between mb-3">
+                        <div>
+                          <p className="text-[10px] font-extrabold text-indigo-300">선택한 펫</p>
+                          <p className="text-xs font-bold text-slate-500">상세 정보와 능력치</p>
+                        </div>
+                        {isActive && <span className={`text-[9px] font-extrabold px-2 py-1 rounded-full border ${r.bg} ${r.text} ${r.border}`}>★ 대표 펫</span>}
+                      </div>
+                      <div ref={detailPetRef} className="w-full flex justify-center items-end mb-3 cursor-pointer rounded-2xl border border-slate-700/80 bg-gradient-to-b from-indigo-950/20 to-slate-900/60"
                         style={{ height: dh + 10, filter: isMythic ? 'drop-shadow(0 0 10px #f43f5e)' : `drop-shadow(0 0 8px ${RARITY_THEME[sp.rarity]?.glow || '#60a5fa'})`, opacity: isDead ? 0.5 : 1 }}
                         onClick={() => !isDead && setDetailAnim(a => a === 'idle' ? 'attack' : 'idle')}>
                         <SpriteMonster data={spMd} anim={currentAnim} scale={dScale} onAnimEnd={() => !isDead && setDetailAnim('idle')} />
                       </div>
                       {isDead && <p className="text-rose-400 text-[10px] font-bold text-center mb-1 animate-pulse">🍖 먹이가 필요해요</p>}
-                      <p className="text-white font-extrabold text-sm mb-0.5 text-center w-full truncate">{sp.nickname || spMd.name}</p>
-                      <p className={`text-[10px] font-bold ${r.text} mb-2 text-center`}>{r.badge} {r.label}</p>
+                      <p className="text-white font-black text-lg mb-0.5 text-center w-full truncate">{sp.nickname || spMd.name}</p>
+                      <p className={`text-[11px] font-bold ${r.text} mb-3 text-center`}>{r.badge} {r.label}</p>
                       <div className="w-full space-y-1 mb-2">
                         {Object.entries(baseStats).filter(([, v]) => v > 0).map(([k, base], i) => {
                           const eff = effStats[k] || 0;
@@ -1305,12 +1311,21 @@ export default function PetHouse({ studentCode }) {
                           <p className="text-[9px] text-slate-600 text-center">이름 변경 (친밀도 {50 - aff} 남음)</p>
                         )}
                       </div>
-                      <p className="text-slate-600 text-[9px] text-center mt-2">클릭 = 애니</p>
-                    </div>
+                      <p className="text-slate-500 text-[9px] text-center mt-3">펫을 눌러 움직임을 확인하세요</p>
+                    </section>
 
                     {/* 조작 카드 */}
-                    <div className="shrink-0 bg-slate-800/70 border border-slate-700 rounded-2xl flex flex-col overflow-y-auto p-4" style={{ width: 250, maxHeight: 720 }}>
-                      <div className="bg-slate-700/50 rounded-xl px-3 py-2 text-center text-xs text-slate-200 font-bold italic mb-3">
+                    <section className="bg-slate-800/75 border border-slate-700 rounded-2xl flex flex-col p-5 shadow-xl shadow-slate-950/20">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="text-sm font-black text-white">오늘의 돌봄</p>
+                          <p className="text-[10px] font-bold text-slate-500">상태를 확인하고 펫과 교감하세요</p>
+                        </div>
+                        <span className="rounded-full bg-slate-700 px-2.5 py-1 text-[10px] font-extrabold text-slate-300">
+                          Lv.{level}
+                        </span>
+                      </div>
+                      <div className="bg-slate-700/50 border border-slate-600/60 rounded-xl px-3 py-2.5 text-center text-xs text-slate-200 font-bold italic mb-4">
                         💬 "{dialogue}"
                       </div>
                       <div className="mb-2">
@@ -1322,7 +1337,7 @@ export default function PetHouse({ studentCode }) {
                         </div>
                         {bar(hunger, hunger >= 70 ? '#34d399' : hunger >= 40 ? '#fbbf24' : '#f87171')}
                       </div>
-                      <div className="space-y-1 mb-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-1.5 mb-4">
                         {FOOD_OPTIONS.map(food => {
                           const bal = food.costType === 'gold' ? (student?.gold || 0) : (student?.diamonds || 0);
                           const noMoney = bal < food.cost;
@@ -1360,7 +1375,7 @@ export default function PetHouse({ studentCode }) {
                           ${isDead ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg' : care.petCount >= 3 || happiness >= 100 ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg'}`}>
                         {isDead ? '🍖 먹이 필요' : care.petCount >= 3 ? '💝 완료' : `💝 쓰다듬기 (${3 - care.petCount}회)`}
                       </button>
-                      <div className="grid grid-cols-2 gap-1.5 mb-2">
+                      <div className="grid grid-cols-2 gap-2 mb-3">
                         <div className="bg-slate-800/60 rounded-xl p-2">
                           <div className="flex justify-between mb-1">
                             <span className="text-[10px] text-slate-300 font-bold">🛁 청결</span>
@@ -1380,7 +1395,7 @@ export default function PetHouse({ studentCode }) {
                           </div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-1.5 mb-3">
+                      <div className="grid grid-cols-2 gap-2 mb-4">
                         <button onClick={() => washPet(sp).catch(error => {
                           console.error('[PetHouse] wash failed:', error);
                           showToast('씻기기에 실패했습니다. 다시 시도해주세요.', 'error');
@@ -1400,7 +1415,7 @@ export default function PetHouse({ studentCode }) {
                           {isDead ? '🍖' : care.playCount >= 2 ? '🎮 완료' : `🎮 놀기(${2 - care.playCount})`}
                         </button>
                       </div>
-                      <div className="bg-slate-800/60 rounded-xl p-2.5">
+                      <div className="bg-slate-900/45 border border-slate-700/70 rounded-xl p-3">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-[10px] text-slate-300 font-extrabold">🤝 친밀도</span>
                           <span className="text-[10px] text-amber-400 font-extrabold">{aff} / {nextMs?.val || 'MAX'}</span>
@@ -1428,22 +1443,31 @@ export default function PetHouse({ studentCode }) {
                         </div>
                         {nextMs && <p className="text-[9px] text-slate-400 text-center mt-1.5">다음까지 <span className="text-amber-400 font-bold">{nextMs.val - aff}</span> 필요</p>}
                       </div>
-                      <p className="text-[9px] text-slate-600 text-center mt-2">⚔️ 대표 펫 능력치 적용</p>
-                    </div>
+                      <p className="text-[9px] text-slate-500 text-center mt-3">⚔️ 대표 펫으로 설정하면 능력치가 적용됩니다</p>
+                    </section>
                   </>
                 );
               })() : (
                 <>
-                  <div className="shrink-0 bg-slate-800/40 border border-slate-700 rounded-2xl flex items-center justify-center" style={{ width: 250, minHeight: 200 }}>
+                  <div className="bg-slate-800/40 border border-slate-700 rounded-2xl flex items-center justify-center min-h-52">
                     <p className="text-slate-600 text-xs text-center p-4">펫을 선택하세요</p>
                   </div>
-                  <div className="shrink-0 bg-slate-800/40 border border-slate-700 rounded-2xl" style={{ width: 250 }} />
+                  <div className="bg-slate-800/40 border border-slate-700 rounded-2xl min-h-52" />
                 </>
               )}
 
               {/* ── 오른쪽: 3열 그리드 목록 ─────────────────────── */}
-              <div className="flex-1 overflow-y-auto" style={{ maxHeight: 720 }}>
-                <div className="grid grid-cols-3 gap-2">
+              <section className="rounded-2xl border border-slate-700 bg-slate-800/50 p-4 lg:col-span-2 xl:col-span-1 shadow-xl shadow-slate-950/20">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-black text-white">보유 펫</p>
+                    <p className="text-[10px] font-bold text-slate-500">펫을 선택해 상세 정보와 돌봄 상태를 확인하세요</p>
+                  </div>
+                  <span className="rounded-full bg-indigo-500/15 px-2.5 py-1 text-[10px] font-extrabold text-indigo-300">
+                    {pets.length}마리
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-2">
                   {pets.map(pet => {
                     const md    = MONSTERS_DB[pet.monsterId];
                     const r     = RARITY[pet.rarity] || RARITY.common;
@@ -1454,17 +1478,21 @@ export default function PetHouse({ studentCode }) {
                     return (
                       <button key={pet.id}
                         onClick={() => { setSelectedPet(pet); setDetailAnim('idle'); }}
-                        className={`flex flex-col items-center px-2 py-3 rounded-xl border transition-all
-                          ${isSel ? 'border-indigo-500 bg-indigo-900/50 shadow-md' : 'border-slate-700 bg-slate-800/50 hover:border-slate-500 hover:bg-slate-700/50'}`}>
+                        className={`relative flex min-h-[154px] flex-col items-center justify-end px-2 py-3 rounded-xl border transition-all
+                          ${isSel ? 'border-indigo-400 bg-indigo-900/60 shadow-lg shadow-indigo-950/30 ring-1 ring-indigo-500/30' : 'border-slate-700 bg-slate-900/45 hover:border-slate-500 hover:bg-slate-700/50'}`}>
+                        {isAct && (
+                          <span className="absolute left-2 top-2 rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[8px] font-black text-amber-300">
+                            대표
+                          </span>
+                        )}
                         {/* 티어별 크기 스프라이트 */}
                         <div className="flex items-end justify-center mb-1.5 overflow-hidden"
-                          style={{ height: LIST_H.boss + 4, width: '100%' }}>
+                          style={{ height: 96, width: '100%' }}>
                           {md && <SpriteMonster data={md} anim="idle" scale={lScale} />}
                         </div>
                         {/* 이름 + 등급 */}
                         <div className="w-full text-center">
                           <div className="flex items-center justify-center gap-0.5 mb-0.5">
-                            {isAct && <span className="text-[9px] text-indigo-400 font-bold">★</span>}
                             <p className="text-slate-200 text-[10px] font-extrabold truncate max-w-full">{pet.nickname || md?.name}</p>
                           </div>
                           <div className="flex items-center justify-center gap-1">
@@ -1476,7 +1504,7 @@ export default function PetHouse({ studentCode }) {
                     );
                   })}
                 </div>
-              </div>
+              </section>
             </div>
           );
         })()}

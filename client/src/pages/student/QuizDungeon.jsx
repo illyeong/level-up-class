@@ -115,6 +115,57 @@ const getCorrectAnswerIndex = (question) => {
   );
 };
 
+const getQuestionKey = (question) => {
+  const source = JSON.stringify([
+    question?.id || '',
+    question?.question || '',
+    question?.options || [],
+    question?.answerIndex ?? question?.answer ?? '',
+  ]);
+  let hash = 0;
+  for (let i = 0; i < source.length; i += 1) {
+    hash = ((hash << 5) - hash + source.charCodeAt(i)) | 0;
+  }
+  return `q_${Math.abs(hash).toString(36)}`;
+};
+
+const makeWrongAnswerDocId = (studentId, dungeonId, questionKey) =>
+  `${studentId}_${dungeonId}_${questionKey}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+const createAnswerDetail = (question, questionIndex, value, timeout, isCorrect) => {
+  const correctAnswerIndex = getCorrectAnswerIndex(question);
+  const isShortAnswer = question?.type === 'sa';
+  const selectedIndex = isShortAnswer || timeout ? null : Number(value);
+  const selectedAnswer = timeout
+    ? '시간 초과'
+    : isShortAnswer
+      ? String(value || '')
+      : String(question?.options?.[selectedIndex] || '');
+  const correctAnswer = isShortAnswer
+    ? String(question?.answer || '')
+    : String(question?.options?.[correctAnswerIndex] || '');
+
+  return JSON.parse(JSON.stringify({
+    questionKey: getQuestionKey(question),
+    questionIndex,
+    question: question?.question || '',
+    type: question?.type || 'mc',
+    options: Array.isArray(question?.options) ? question.options : [],
+    answer: question?.answer ?? '',
+    answerIndex: correctAnswerIndex,
+    selectedIndex,
+    selectedAnswer,
+    correctAnswer,
+    explanation: cleanExplanation(question?.explanation),
+    shape: question?.shape || null,
+    table: question?.table || null,
+    sourceDungeonId: question?.sourceDungeonId || null,
+    sourceDungeonTitle: question?.sourceDungeonTitle || null,
+    isCorrect,
+    timeout,
+  }));
+};
+
 const hpGrad  = (pct) =>
   pct > 60 ? 'from-emerald-400 to-emerald-500'
   : pct > 30 ? 'from-amber-400 to-amber-500'
@@ -216,7 +267,10 @@ const DIFF_THEME = {
 };
 
 // ── 던전 로비 ─────────────────────────────────────────────────
-function DungeonLobby({ dungeons, bestScores, onPreview, onRetryPreview, isLoading }) {
+function DungeonLobby({
+  dungeons, bestScores, onPreview, onRetryPreview, isLoading,
+  wrongAnswerCount = 0, onOpenWrongNotes,
+}) {
   if (isLoading) return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex items-center justify-center">
       <div className="text-center">
@@ -232,6 +286,13 @@ function DungeonLobby({ dungeons, bestScores, onPreview, onRetryPreview, isLoadi
         <div className="text-7xl mb-5 opacity-20">⚔️</div>
         <p className="font-extrabold text-xl text-slate-400 mb-2">열린 퀴즈 던전이 없습니다</p>
         <p className="text-slate-600 text-sm">선생님이 퀴즈를 만들면 여기 표시됩니다</p>
+        <button
+          type="button"
+          onClick={onOpenWrongNotes}
+          className="mt-5 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs font-extrabold text-rose-200"
+        >
+          📒 오답노트 {wrongAnswerCount > 0 ? wrongAnswerCount : ''}
+        </button>
       </div>
     </div>
   );
@@ -246,6 +307,13 @@ function DungeonLobby({ dungeons, bestScores, onPreview, onRetryPreview, isLoadi
           <span className="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
             {dungeons.length}개
           </span>
+          <button
+            type="button"
+            onClick={onOpenWrongNotes}
+            className="ml-auto rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs font-extrabold text-rose-200 hover:bg-rose-500/20"
+          >
+            📒 오답노트 {wrongAnswerCount > 0 ? wrongAnswerCount : ''}
+          </button>
         </div>
       </div>
 
@@ -573,6 +641,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
   const [playerHP,     setPlayerHP]     = useState(playerMaxHP);
   const [score,        setScore]        = useState(0);
   const [wrongIdxs,    setWrongIdxs]    = useState([]);
+  const [answerDetails, setAnswerDetails] = useState([]);
   const [combo,        setCombo]        = useState(0);
   const [maxCombo,     setMaxCombo]     = useState(0);
   const [timeBonus,    setTimeBonus]    = useState(0);
@@ -612,6 +681,10 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
 
     const newScore = ok ? score + 1 : score;
     const newWrong = ok ? wrongIdxs : [...wrongIdxs, currentQ];
+    const newAnswerDetails = [
+      ...answerDetails,
+      createAnswerDetail(q, currentQ, value, timeout, ok),
+    ];
     let newWaveHP   = waveMonsterHP;
     let newPlayerHP = playerHP;
     let newCombo    = combo;
@@ -678,6 +751,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       }
     }
     setWrongIdxs(newWrong);
+    setAnswerDetails(newAnswerDetails);
 
     const nextQ            = currentQ + 1;
     const waveCleared      = newWaveHP <= 0;
@@ -697,6 +771,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
           score: newScore, cleared,
           playerHP: newPlayerHP,
           wrongIdxs: newWrong,
+          answerDetails: newAnswerDetails,
           maxCombo: Math.max(maxCombo, newCombo),
           timeBonus: newTimeBonus,
         });
@@ -726,7 +801,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       setWaitingConfirm(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answered, currentQ, score, wrongIdxs, waveMonsterHP, playerHP,
+  }, [answered, currentQ, score, wrongIdxs, answerDetails, waveMonsterHP, playerHP,
       combo, timeBonus, timeLeft, maxCombo, maxTime, dungeon,
       currentWaveIdx, waves, totalQ]);
 
@@ -1119,6 +1194,7 @@ function PetDropPopup({ pet, onClose }) {
 // ── 결과 화면 ──────────────────────────────────────────────────
 function ResultScreen({
   dungeon, score, totalQ, wrongIdxs, cleared,
+  answerDetails = [],
   earnedRewards, leveledUp, isSaving, maxCombo,
   petDropped,
   canRetry, onRetry, onReturnLobby, isRetryAttempt = false,
@@ -1241,6 +1317,7 @@ function ResultScreen({
           <div className="space-y-2 max-h-40 overflow-y-auto">
             {wrongIdxs.map(i => {
               const wq = dungeon.questions[i];
+              const detail = answerDetails.find(item => item.questionIndex === i);
               const correctAnswer = wq.type === 'sa'
                 ? wq.answer
                 : (wq.options?.[getCorrectAnswerIndex(wq)] || '');
@@ -1250,6 +1327,7 @@ function ResultScreen({
                     Q{i+1}. {wq.question}
                     {wq.type === 'sa' && <span className="ml-1 text-amber-500 font-normal">[주관식]</span>}
                   </div>
+                  <div className="text-rose-500">내 답: {detail?.selectedAnswer || '선택하지 않음'}</div>
                   <div className="text-emerald-600">정답: {correctAnswer}</div>
                   {cleanExplanation(wq.explanation) && (
                     <div className="text-slate-500 mt-0.5">{cleanExplanation(wq.explanation)}</div>
@@ -1263,8 +1341,11 @@ function ResultScreen({
 
       <div className={`grid gap-3 w-full max-w-xs ${canRetry ? 'grid-cols-2' : 'grid-cols-1'}`}>
         {canRetry && (
-          <button onClick={onRetry}
-            className="py-3.5 bg-amber-500 hover:bg-amber-400 text-white font-extrabold rounded-2xl active:scale-95 transition-all">
+          <button
+            onClick={onRetry}
+            disabled={isSaving}
+            className="py-3.5 bg-amber-500 hover:bg-amber-400 text-white font-extrabold rounded-2xl active:scale-95 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+          >
             🔄 재도전
           </button>
         )}
@@ -1275,6 +1356,74 @@ function ResultScreen({
       </div>
     </div>
     </>
+  );
+}
+
+function WrongNotesScreen({ items, onBack, onReview }) {
+  const unresolved = items.filter(item => !item.resolved && item.status !== 'resolved');
+  const resolved = items.filter(item => item.resolved || item.status === 'resolved');
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 px-4 py-5 text-white">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-5 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-extrabold text-slate-300"
+          >
+            ← 던전 목록
+          </button>
+          <div>
+            <h2 className="text-xl font-black">📒 퀴즈던전 오답노트</h2>
+            <p className="mt-0.5 text-xs text-slate-400">틀린 문제를 두 번 연속 맞히면 해결 완료됩니다.</p>
+          </div>
+          <button
+            type="button"
+            disabled={!unresolved.length}
+            onClick={() => onReview(unresolved)}
+            className="ml-auto rounded-xl bg-rose-500 px-4 py-2 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            오답 다시 풀기 ({unresolved.length})
+          </button>
+        </div>
+
+        {!items.length ? (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 py-20 text-center text-sm text-slate-400">
+            아직 저장된 오답이 없습니다.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {[...unresolved, ...resolved].map(item => {
+              const isResolved = item.resolved || item.status === 'resolved';
+              return (
+                <div key={item.id} className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+                      isResolved ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'
+                    }`}>
+                      {isResolved ? '해결 완료' : `오답 ${item.wrongCount || 1}회`}
+                    </span>
+                    {item.teacherAssigned && !isResolved && (
+                      <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-extrabold text-indigo-300">
+                        선생님 복습 배정
+                      </span>
+                    )}
+                    <span className="truncate text-[11px] font-bold text-slate-500">{item.dungeonTitle}</span>
+                  </div>
+                  <p className="text-sm font-extrabold text-slate-100">{item.question}</p>
+                  <div className="mt-2 grid gap-1 text-xs">
+                    <span className="text-rose-300">마지막 답: {item.selectedAnswer || '선택하지 않음'}</span>
+                    <span className="text-emerald-300">정답: {item.correctAnswer}</span>
+                    {item.explanation && <span className="text-slate-400">{item.explanation}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1306,6 +1455,32 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
   const [petDropped,      setPetDropped]     = useState(null); // 펫 드롭 결과
   const [layoutCfg,       setLayoutCfg]      = useState(BATTLE_LAYOUT_DEFAULTS);
   const [isRetryAttempt,  setIsRetryAttempt] = useState(false);
+  const [wrongAnswers,    setWrongAnswers]   = useState([]);
+
+  const loadWrongAnswers = useCallback(async () => {
+    if (!studentDocId) {
+      setWrongAnswers([]);
+      return;
+    }
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'quizDungeonWrongAnswers'),
+        where('studentId', '==', studentDocId),
+      ));
+      setWrongAnswers(
+        snap.docs
+          .map(item => ({ id: item.id, ...item.data() }))
+          .sort((a, b) => (b.lastWrongAt?.seconds || 0) - (a.lastWrongAt?.seconds || 0))
+      );
+    } catch (error) {
+      console.error('퀴즈던전 오답 로드 에러:', error);
+    }
+  }, [studentDocId]);
+
+  useEffect(() => {
+    const timer = setTimeout(loadWrongAnswers, 0);
+    return () => clearTimeout(timer);
+  }, [loadWrongAnswers]);
 
   useEffect(() => {
     getDoc(doc(db, 'siteConfig', 'battleLayout')).then(snap => {
@@ -1411,7 +1586,9 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
     await doSaveResult(result);
   };
 
-  const doSaveResult = async ({ score, cleared: battleCleared, playerHP, wrongIdxs, timeBonus }) => {
+  const doSaveResult = async ({
+    score, cleared: battleCleared, wrongIdxs, answerDetails = [],
+  }) => {
     if (!selectedDungeon) return;
     setIsSaving(true);
     const dungeon  = selectedDungeon;
@@ -1448,21 +1625,76 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
         diamonds: (studentData.diamonds || 0) + diamondEarned,
         exp, level, maxExp,
       });
-      batch.set(doc(collection(db, 'quizResults')), {
-        studentId: studentDocId,
-        studentCode: studentData.studentCode,
-        studentName: studentData.name || studentData.studentCode,
-        dungeonId: dungeon.id,
-        dungeonTitle: dungeon.title,
-        score, totalQuestions: totalQ, accuracy,
-        cleared, wrongIndexes: wrongIdxs,
-        goldEarned, expEarned, diamondEarned,
-        completedAt: serverTimestamp(),
-      });
-      batch.update(doc(db, 'quizDungeons', dungeon.id), {
-        playCount: (dungeon.playCount || 0) + 1,
+      if (!dungeon.isWrongReview) {
+        batch.set(doc(collection(db, 'quizResults')), {
+          studentId: studentDocId,
+          studentCode: studentData.studentCode,
+          studentName: studentData.name || studentData.studentCode,
+          teacherUid: studentData.teacherUid || '',
+          dungeonId: dungeon.id,
+          dungeonTitle: dungeon.title,
+          score, totalQuestions: totalQ, accuracy,
+          cleared, wrongIndexes: wrongIdxs, answerDetails,
+          goldEarned, expEarned, diamondEarned,
+          completedAt: serverTimestamp(),
+        });
+        batch.update(doc(db, 'quizDungeons', dungeon.id), {
+          playCount: (dungeon.playCount || 0) + 1,
+        });
+      }
+
+      answerDetails.forEach(detail => {
+        const sourceDungeonId = detail.sourceDungeonId || dungeon.sourceDungeonId || dungeon.id;
+        const sourceDungeonTitle = detail.sourceDungeonTitle || dungeon.sourceDungeonTitle || dungeon.title;
+        const existing = wrongAnswers.find(item =>
+          item.questionKey === detail.questionKey && item.dungeonId === sourceDungeonId
+        );
+        const wrongRef = doc(
+          db,
+          'quizDungeonWrongAnswers',
+          existing?.id || makeWrongAnswerDocId(studentDocId, sourceDungeonId, detail.questionKey),
+        );
+
+        if (!detail.isCorrect) {
+          batch.set(wrongRef, {
+            studentId: studentDocId,
+            studentCode: studentData.studentCode,
+            studentName: studentData.name || studentData.studentCode,
+            teacherUid: studentData.teacherUid || '',
+            dungeonId: sourceDungeonId,
+            dungeonTitle: sourceDungeonTitle,
+            questionKey: detail.questionKey,
+            question: detail.question,
+            type: detail.type,
+            options: detail.options,
+            answer: detail.answer,
+            answerIndex: detail.answerIndex,
+            correctAnswer: detail.correctAnswer,
+            selectedAnswer: detail.selectedAnswer,
+            explanation: detail.explanation,
+            shape: detail.shape,
+            table: detail.table,
+            wrongCount: (existing?.wrongCount || 0) + 1,
+            reviewCorrectCount: 0,
+            status: 'unresolved',
+            resolved: false,
+            lastWrongAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+        } else if (existing && !existing.resolved && existing.status !== 'resolved') {
+          const reviewCorrectCount = (existing.reviewCorrectCount || 0) + 1;
+          const resolved = reviewCorrectCount >= 2;
+          batch.set(wrongRef, {
+            reviewCorrectCount,
+            status: resolved ? 'resolved' : 'reviewing',
+            resolved,
+            resolvedAt: resolved ? serverTimestamp() : null,
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+        }
       });
       await batch.commit();
+      await loadWrongAnswers();
 
       // ── 펫 드롭 시도 ─────────────────────────────────────────
       if (!isRetryAttempt) {
@@ -1526,12 +1758,14 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
         diamonds: (prev?.diamonds || 0) + diamondEarned,
         exp, level, maxExp,
       }));
-      setBestScores(prev => {
-        const cur = prev[dungeon.id];
-        const updated = cur && cur.accuracy >= accuracy ? cur : { accuracy, stars: toStars(accuracy) };
-        if (cleared) updated.cleared = true;
-        return { ...prev, [dungeon.id]: updated };
-      });
+      if (!dungeon.isWrongReview) {
+        setBestScores(prev => {
+          const cur = prev[dungeon.id];
+          const updated = cur && cur.accuracy >= accuracy ? cur : { accuracy, stars: toStars(accuracy) };
+          if (cleared) updated.cleared = true;
+          return { ...prev, [dungeon.id]: updated };
+        });
+      }
     } catch (err) { console.error('결과 저장 에러:', err); }
     finally { setIsSaving(false); }
   };
@@ -1563,6 +1797,38 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
     setPreviewDungeon({ ...d, waves, retry: true });
   };
 
+  const startWrongReview = (items) => {
+    const questions = items.slice(0, 10).map(item => ({
+      id: item.questionKey,
+      question: item.question,
+      type: item.type || 'mc',
+      options: item.options || [],
+      answer: item.answer,
+      answerIndex: item.answerIndex,
+      explanation: item.explanation || '',
+      shape: item.shape || null,
+      table: item.table || null,
+      sourceDungeonId: item.dungeonId,
+      sourceDungeonTitle: item.dungeonTitle,
+    }));
+    if (!questions.length) return;
+    const reviewDungeon = {
+      id: 'wrong-review',
+      title: '퀴즈던전 오답 복습',
+      difficulty: 'normal',
+      questions,
+      questionCount: questions.length,
+      rewards: { gold: 0, exp: 0, diamond: 0 },
+      waves: generateWaves(questions.length, null, 'wrong-review'),
+      isWrongReview: true,
+    };
+    setSelectedDungeon(reviewDungeon);
+    setIsRetryAttempt(true);
+    setBattleRes(null);
+    setEarnedRewards(null);
+    setScreen('battle');
+  };
+
   if (screen === 'lobby') return (
     <>
       <DungeonLobby
@@ -1571,6 +1837,8 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
         onPreview={handlePreview}
         onRetryPreview={handleRetryPreview}
         isLoading={isLoading}
+        wrongAnswerCount={wrongAnswers.filter(item => !item.resolved && item.status !== 'resolved').length}
+        onOpenWrongNotes={() => setScreen('wrongNotes')}
       />
       {previewDungeon && (
         <BossIntroModal
@@ -1580,6 +1848,14 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
         />
       )}
     </>
+  );
+
+  if (screen === 'wrongNotes') return (
+    <WrongNotesScreen
+      items={wrongAnswers}
+      onBack={() => setScreen('lobby')}
+      onReview={startWrongReview}
+    />
   );
 
   if (screen === 'battle' && selectedDungeon) return (
@@ -1597,6 +1873,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
       score={battleRes.score}
       totalQ={(selectedDungeon.questions || []).length || selectedDungeon.questionCount || 0}
       wrongIdxs={battleRes.wrongIdxs}
+      answerDetails={battleRes.answerDetails}
       cleared={!!battleRes.cleared}
       earnedRewards={earnedRewards}
       leveledUp={leveledUp}

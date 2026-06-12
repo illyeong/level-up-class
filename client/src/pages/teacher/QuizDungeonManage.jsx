@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, serverTimestamp, query, where } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { MONSTERS_DB, TIER_LABEL, TIER_COST } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
@@ -22,6 +22,9 @@ const fmtDate = (ts) => {
   const d = ts.toDate ? ts.toDate() : new Date(ts.seconds * 1000);
   return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 };
+
+const makeWrongAnswerDocId = (studentId, dungeonId, questionKey) =>
+  `${studentId}_${dungeonId}_${questionKey}`.replace(/[^a-zA-Z0-9_-]/g, '_');
 
 // ── 정적 썸네일 ────────────────────────────────────────────────────
 const MonsterThumb = React.memo(function MonsterThumb({ data }) {
@@ -304,6 +307,7 @@ function QuizDungeonManage({ selectedClass }) {
   const [resultsMap,      setResultsMap]      = useState({}); // dungeonId → { title, items[] }
   const [resultsLoading,  setResultsLoading]  = useState(false);
   const [expandedDungeon, setExpandedDungeon] = useState(null);
+  const [selectedResult,  setSelectedResult]  = useState(null);
 
   const [toast, setToast]               = useState(null);
   const [confirmState, setConfirmState] = useState(null);
@@ -312,6 +316,78 @@ function QuizDungeonManage({ selectedClass }) {
     setTimeout(() => setToast(null), 3000);
   };
   const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
+
+  const createReviewQuizDraft = (answerDetails, title = '퀴즈던전 오답 복습') => {
+    const unique = [];
+    const seen = new Set();
+    (answerDetails || []).filter(item => !item.isCorrect).forEach(item => {
+      if (!item.question || seen.has(item.question)) return;
+      seen.add(item.question);
+      unique.push({
+        type: item.type || 'mc',
+        question: item.question,
+        options: Array.isArray(item.options) ? item.options : [],
+        answer: Number.isInteger(item.answerIndex) ? item.answerIndex : item.answer,
+        explanation: item.explanation || '',
+      });
+    });
+    if (!unique.length) {
+      showToast('복습 퀴즈로 만들 상세 오답 기록이 없습니다.', 'error');
+      return;
+    }
+    sessionStorage.setItem('aiReviewQuizDraft', JSON.stringify({
+      title,
+      grade: selectedClass?.grade || '',
+      questions: unique.slice(0, 10),
+    }));
+    showToast('복습 퀴즈 초안을 저장했습니다. 퀴즈 은행에서 불러올 수 있습니다.');
+  };
+
+  const assignWrongAnswerReview = async (result) => {
+    const wrongDetails = (result?.answerDetails || []).filter(item => !item.isCorrect && item.questionKey);
+    if (!result?.studentId || !wrongDetails.length) {
+      showToast('배정할 상세 오답 기록이 없습니다.', 'error');
+      return;
+    }
+    try {
+      const batch = writeBatch(db);
+      wrongDetails.forEach(detail => {
+        const wrongRef = doc(
+          db,
+          'quizDungeonWrongAnswers',
+          makeWrongAnswerDocId(result.studentId, result.dungeonId, detail.questionKey),
+        );
+        batch.set(wrongRef, {
+          studentId: result.studentId,
+          studentCode: result.studentCode || '',
+          studentName: result.studentName || result.studentCode || '',
+          teacherUid,
+          dungeonId: result.dungeonId,
+          dungeonTitle: result.dungeonTitle || '',
+          questionKey: detail.questionKey,
+          question: detail.question || '',
+          type: detail.type || 'mc',
+          options: detail.options || [],
+          answer: detail.answer ?? '',
+          answerIndex: detail.answerIndex ?? -1,
+          correctAnswer: detail.correctAnswer || '',
+          selectedAnswer: detail.selectedAnswer || '',
+          explanation: detail.explanation || '',
+          status: 'unresolved',
+          resolved: false,
+          teacherAssigned: true,
+          assignedAt: serverTimestamp(),
+          assignedBy: teacherUid,
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      });
+      await batch.commit();
+      showToast(`${result.studentName || result.studentCode} 학생에게 오답 복습을 배정했습니다.`);
+    } catch (error) {
+      console.error('퀴즈던전 오답 복습 배정 에러:', error);
+      showToast('오답 복습 배정 중 오류가 발생했습니다.', 'error');
+    }
+  };
 
   useEffect(() => {
     if (tab === 'dungeons') fetchDungeons();
@@ -612,6 +688,23 @@ function QuizDungeonManage({ selectedClass }) {
                   .map(([dungeonId, { title, questionCount, items }]) => {
                     const clearedCount = items.filter(r => r.cleared).length;
                     const isExpanded   = expandedDungeon === dungeonId;
+                    const wrongMap = new Map();
+                    items.forEach(result => {
+                      (result.answerDetails || []).filter(detail => !detail.isCorrect).forEach(detail => {
+                        const key = detail.questionKey || detail.question;
+                        const current = wrongMap.get(key) || {
+                          ...detail,
+                          count: 0,
+                          students: new Set(),
+                        };
+                        current.count += 1;
+                        current.students.add(result.studentId || result.studentCode);
+                        wrongMap.set(key, current);
+                      });
+                    });
+                    const wrongSummary = [...wrongMap.values()]
+                      .sort((a, b) => b.count - a.count)
+                      .slice(0, 5);
                     return (
                       <div key={dungeonId} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                         <button
@@ -633,6 +726,33 @@ function QuizDungeonManage({ selectedClass }) {
 
                         {isExpanded && (
                           <div className="border-t border-slate-100">
+                            {wrongSummary.length > 0 && (
+                              <div className="border-b border-slate-100 bg-rose-50/50 p-4">
+                                <div className="mb-3 flex items-center justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-extrabold text-slate-800">자주 틀린 문항</p>
+                                    <p className="text-[11px] font-bold text-slate-400">새 상세 결과부터 집계됩니다.</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => createReviewQuizDraft(wrongSummary, `${title} 오답 복습`)}
+                                    className="rounded-xl bg-rose-500 px-3 py-2 text-xs font-extrabold text-white hover:bg-rose-600"
+                                  >
+                                    복습 퀴즈 초안 만들기
+                                  </button>
+                                </div>
+                                <div className="grid gap-2 md:grid-cols-2">
+                                  {wrongSummary.map(item => (
+                                    <div key={item.questionKey || item.question} className="rounded-xl border border-rose-100 bg-white p-3">
+                                      <p className="line-clamp-2 text-xs font-extrabold text-slate-700">{item.question}</p>
+                                      <p className="mt-1 text-[11px] font-bold text-rose-500">
+                                        오답 {item.count}회 · 학생 {item.students.size}명
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             {items.length === 0 ? (
                               <div className="text-center py-6 text-slate-400 text-sm">아직 플레이한 학생이 없습니다.</div>
                             ) : (
@@ -645,6 +765,7 @@ function QuizDungeonManage({ selectedClass }) {
                                       <th className="px-3 py-2.5 text-center">오답</th>
                                       <th className="px-3 py-2.5 text-center">정확도</th>
                                       <th className="px-3 py-2.5 text-center">클리어</th>
+                                      <th className="px-3 py-2.5 text-center">상세</th>
                                       <th className="px-3 py-2.5 text-right">날짜</th>
                                     </tr>
                                   </thead>
@@ -664,6 +785,16 @@ function QuizDungeonManage({ selectedClass }) {
                                             {r.cleared
                                               ? <span className="text-emerald-600 font-bold">✓ 클리어</span>
                                               : <span className="text-slate-400">—</span>}
+                                          </td>
+                                          <td className="px-3 py-2.5 text-center">
+                                            <button
+                                              type="button"
+                                              disabled={!r.answerDetails?.length}
+                                              onClick={() => setSelectedResult(r)}
+                                              className="rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 font-bold text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30"
+                                            >
+                                              답안 보기
+                                            </button>
                                           </td>
                                           <td className="px-3 py-2.5 text-right text-slate-400">{dateStr}</td>
                                         </tr>
@@ -769,6 +900,60 @@ function QuizDungeonManage({ selectedClass }) {
         )}
       </div>
     </div>
+
+    {selectedResult && (
+      <div
+        className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 p-4"
+        onClick={event => event.target === event.currentTarget && setSelectedResult(null)}
+      >
+        <div className="max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+          <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
+            <div>
+              <h3 className="font-extrabold text-slate-800">{selectedResult.studentName || selectedResult.studentCode} 답안 상세</h3>
+              <p className="text-xs font-bold text-slate-400">{selectedResult.dungeonTitle}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => assignWrongAnswerReview(selectedResult)}
+              className="ml-auto rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-600"
+            >
+              학생에게 복습 배정
+            </button>
+            <button
+              type="button"
+              onClick={() => createReviewQuizDraft(
+                selectedResult.answerDetails,
+                `${selectedResult.studentName || selectedResult.studentCode} 퀴즈던전 오답 복습`,
+              )}
+              className="rounded-xl bg-rose-500 px-3 py-2 text-xs font-extrabold text-white"
+            >
+              오답 복습 퀴즈 만들기
+            </button>
+            <button type="button" onClick={() => setSelectedResult(null)} className="text-xl text-slate-400">×</button>
+          </div>
+          <div className="max-h-[70vh] space-y-3 overflow-y-auto p-5">
+            {(selectedResult.answerDetails || []).map((detail, index) => (
+              <div
+                key={`${detail.questionKey || detail.question}-${index}`}
+                className={`rounded-2xl border p-4 ${detail.isCorrect ? 'border-emerald-200 bg-emerald-50/50' : 'border-rose-200 bg-rose-50/60'}`}
+              >
+                <div className="mb-2 flex items-start gap-2">
+                  <span className={`text-xs font-black ${detail.isCorrect ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    Q{detail.questionIndex + 1}
+                  </span>
+                  <p className="text-sm font-extrabold text-slate-800">{detail.question}</p>
+                </div>
+                <div className="space-y-1 text-xs font-bold">
+                  <p className="text-slate-500">학생 답: {detail.selectedAnswer || '선택하지 않음'}</p>
+                  <p className="text-emerald-600">정답: {detail.correctAnswer}</p>
+                  {detail.explanation && <p className="font-medium text-slate-500">{detail.explanation}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
 
     {toast && (
       <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none

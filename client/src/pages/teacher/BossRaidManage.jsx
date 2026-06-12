@@ -176,27 +176,9 @@ const fitScale = (data, maxW, maxH) =>
   Math.min(maxH / data.frameHeight, maxW / data.frameWidth) * 0.88;
 
 // ── 보스 몬스터 피커 ─────────────────────────────────────────────
-const ANIM_KO = { idle: '대기', run: '이동', attack: '공격', death: '사망' };
-
-// 배치 지연 로딩 — PNG 동시 요청 분산 (6개씩 200ms 간격)
-function LazyPickerSprite({ data, scale, w, h, loadDelay = 0 }) {
-  const [visible, setVisible] = useState(loadDelay === 0);
-  useEffect(() => {
-    if (loadDelay === 0) return;
-    const t = setTimeout(() => setVisible(true), loadDelay);
-    return () => clearTimeout(t);
-  }, [loadDelay]);
-  return (
-    <div style={{ width: w, height: h }} className="flex items-center justify-center">
-      {visible && <SpriteMonster data={data} anim="idle" scale={scale} frozen />}
-    </div>
-  );
-}
-
 function BossMonsterPicker({ selectedId, onSelect, onClose }) {
   const [filter, setFilter]   = useState('all');
   const [previewId, setPreviewId] = useState(null);
-  const [previewAnim, setPreviewAnim] = useState('idle');
   const list = filter === 'all' ? BOSS_MONSTERS : BOSS_MONSTERS.filter(m => m.tier === filter);
 
   return (
@@ -216,29 +198,30 @@ function BossMonsterPicker({ selectedId, onSelect, onClose }) {
               {l}
             </button>
           ))}
-          <span className="ml-auto text-[10px] text-slate-400 self-center">목록은 정지 이미지 · 👁 버튼으로 애니 미리보기</span>
+          <span className="ml-auto text-[10px] text-slate-400 self-center">미리보기는 선택한 보스만 불러옵니다.</span>
         </div>
 
-        {/* 몬스터 그리드 — frozen으로 렉 방지 */}
-        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 gap-3">
-          {list.map((m, idx) => (
+        {/* 고용량 스프라이트는 미리보기에서 한 개만 불러와 선택창 렉을 방지합니다. */}
+        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {list.map((m) => (
             <div key={m.id}
-              className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all
+              className={`flex flex-col gap-2 p-3 rounded-2xl border-2 transition-all
                 ${selectedId === m.id
                   ? 'border-rose-500 bg-rose-50 shadow-md'
                   : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
-              <button className="w-full flex flex-col items-center gap-1" onClick={() => { onSelect(m.id); onClose(); }}>
-                <div className="flex items-center justify-center overflow-hidden" style={{ width: 120, height: 120 }}>
-                  <LazyPickerSprite data={m} scale={fitScale(m, 120, 120)} w={120} h={120} loadDelay={Math.floor(idx / 6) * 200} />
+              <button className="w-full flex items-center gap-2 text-left" onClick={() => { onSelect(m.id); onClose(); }}>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-lg">👹</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-slate-700 truncate">{m.name}</div>
+                  <div className="text-[9px] text-slate-400 mt-0.5">선택하기</div>
                 </div>
-                <div className="text-xs font-bold text-slate-700 text-center leading-tight">{m.name}</div>
                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${TIER_COLOR[m.tier]}`}>
                   {TIER_LABEL[m.tier]}
                 </span>
               </button>
-              <button onClick={() => { setPreviewId(m.id); setPreviewAnim('idle'); }}
-                className="text-[10px] text-slate-400 hover:text-rose-500 font-bold px-2 py-0.5 rounded-lg hover:bg-rose-50 transition-colors w-full text-center">
-                👁 미리보기
+              <button onClick={() => setPreviewId(m.id)}
+                className="text-[10px] text-slate-500 hover:text-rose-500 font-bold px-2 py-1 rounded-lg bg-slate-100 hover:bg-rose-50 transition-colors w-full text-center">
+                미리보기
               </button>
             </div>
           ))}
@@ -256,18 +239,10 @@ function BossMonsterPicker({ selectedId, onSelect, onClose }) {
             <div className="bg-slate-900 rounded-3xl p-8 flex flex-col items-center gap-5 shadow-2xl min-w-[320px]"
               onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-center" style={{ width: 320, height: 320 }}>
-                <SpriteMonster data={pm} anim={previewAnim} scale={ps} />
+                <SpriteMonster data={pm} anim="idle" scale={ps} frozen />
               </div>
               <div className="text-white font-extrabold text-xl">{pm.name}</div>
-              <div className="flex gap-2 flex-wrap justify-center">
-                {['idle','run','attack','death'].map(a => pm.animations?.[a] && (
-                  <button key={a} onClick={() => setPreviewAnim(a)}
-                    className={`text-sm font-bold px-4 py-1.5 rounded-lg transition-colors
-                      ${previewAnim === a ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
-                    {ANIM_KO[a]}
-                  </button>
-                ))}
-              </div>
+              <p className="text-xs text-slate-400">선택창 성능을 위해 정지 화면으로 표시합니다.</p>
               <button onClick={() => setPreviewId(null)}
                 className="text-slate-400 hover:text-white text-sm font-bold">닫기</button>
             </div>
@@ -295,8 +270,58 @@ function HpBar({ current, max, height = 'h-4' }) {
   );
 }
 
+function QuestionDetailModal({ question, questionNumber, onClose }) {
+  if (!question) return null;
+  const options = question.options || question.choices || [];
+  const rawAnswer = question.answer ?? question.answerIndex ?? question.correctAnswer;
+  const answerIndex = Number.isFinite(Number(rawAnswer)) ? Number(rawAnswer) : -1;
+
+  return (
+    <div className="fixed inset-0 z-[400] bg-black/60 flex items-center justify-center p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <p className="text-[11px] font-extrabold text-indigo-500">문항 상세</p>
+            <h3 className="text-lg font-extrabold text-slate-800">Q{questionNumber}</h3>
+          </div>
+          <button onClick={onClose} className="text-2xl font-bold text-slate-400 hover:text-slate-700">×</button>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto p-5">
+          <p className="whitespace-pre-wrap text-sm font-bold leading-relaxed text-slate-800">
+            {question.question || question.text || '문제 내용이 없습니다.'}
+          </p>
+          {options.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {options.map((option, index) => (
+                <div key={index}
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${
+                    index === answerIndex
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                      : 'border-slate-200 bg-slate-50 text-slate-600'
+                  }`}>
+                  <span className="mr-2 text-xs font-extrabold">{index + 1}.</span>
+                  {option}
+                  {index === answerIndex && <span className="ml-2 text-xs font-extrabold">정답</span>}
+                </div>
+              ))}
+            </div>
+          )}
+          {question.explanation && (
+            <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-3">
+              <p className="text-[11px] font-extrabold text-indigo-500">해설</p>
+              <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-indigo-800">{question.explanation}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 결과 보기 모달 ───────────────────────────────────────────────
 function RaidResultModal({ raid, onClose }) {
+  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(null);
   const questions = (raid.questions || []).filter(q => q.type !== 'short');
   const pList = Object.entries(raid.participants || {})
     .map(([id, p]) => ({ id, ...p }))
@@ -326,7 +351,11 @@ function RaidResultModal({ raid, onClose }) {
                   <th className="px-2 py-2 font-bold text-rose-600 border-b border-slate-200">데미지</th>
                   {questions.map((q, qi) => (
                     <th key={qi} className="px-2 py-2 font-bold text-slate-500 border-b border-slate-200 min-w-[32px]">
-                      Q{qi + 1}
+                      <button onClick={() => setSelectedQuestionIndex(qi)}
+                        className="rounded-lg px-1.5 py-1 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-800"
+                        title={`Q${qi + 1} 문제 보기`}>
+                        Q{qi + 1}
+                      </button>
                     </th>
                   ))}
                 </tr>
@@ -367,6 +396,13 @@ function RaidResultModal({ raid, onClose }) {
           )}
         </div>
       </div>
+      {selectedQuestionIndex !== null && (
+        <QuestionDetailModal
+          question={questions[selectedQuestionIndex]}
+          questionNumber={selectedQuestionIndex + 1}
+          onClose={() => setSelectedQuestionIndex(null)}
+        />
+      )}
     </div>
   );
 }
@@ -531,6 +567,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
   const [toast, setToast]           = useState(null);
   const [confirmState, setConfirmState] = useState(null);
   const [resultRaid, setResultRaid] = useState(null);
+  const [historyQuestion, setHistoryQuestion] = useState(null);
   const [expandedRaidId, setExpandedRaidId] = useState(null);
   const autoHpRef = useRef(null);
   const autoPayRaidRef = useRef(null);
@@ -888,7 +925,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
                 <div className="flex items-center justify-center shrink-0 bg-slate-900 rounded-2xl overflow-hidden"
                   style={{ width: 150, height: 150 }}>
                   {bossData
-                    ? <SpriteMonster data={bossData} anim="idle" scale={fitScale(bossData, 150, 150)} />
+                    ? <SpriteMonster data={bossData} anim="idle" scale={fitScale(bossData, 150, 150)} frozen />
                     : <div className="text-5xl">👾</div>
                   }
                 </div>
@@ -1088,7 +1125,6 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
               </div>
               {pastRaids.map(raid => {
                 const pCount    = Object.keys(raid.participants || {}).length;
-                const bd        = resolveBossDataFromRaid(raid);
                 const isCleared = raid.status === 'cleared';
                 const isExpanded = expandedRaidId === raid.id;
                 const questions = (raid.questions || []).filter(q => q.type !== 'short');
@@ -1099,21 +1135,15 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
                   <div key={raid.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     {/* 카드 헤더 */}
                     <div className="flex items-center gap-4 px-5 py-4">
-                      {/* 보스 이미지 + 이름 */}
-                      <div className="flex flex-col items-center shrink-0 gap-1" style={{ width: 64 }}>
-                        <div className="flex items-center justify-center" style={{ width: 64, height: 64 }}>
-                          {bd
-                            ? <SpriteMonster data={bd} anim="idle" scale={fitScale(bd, 64, 64)} frozen />
-                            : <div className="text-4xl">👾</div>}
-                        </div>
-                        <span className="text-[9px] font-bold text-slate-500 text-center leading-tight truncate w-full">
-                          {raid.bossName}
-                        </span>
+                      {/* 결과 목록에서는 고용량 보스 이미지를 렌더링하지 않습니다. */}
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-xl" title={raid.bossName}>
+                        👾
                       </div>
 
                       {/* 중앙: 퀴즈명 + 날짜 + 참가 */}
                       <div className="flex-1 min-w-0">
                         <div className="font-extrabold text-slate-800 text-sm truncate">{raid.title}</div>
+                        <div className="mt-0.5 text-[11px] font-bold text-slate-500 truncate">{raid.bossName}</div>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <span className="text-[11px] text-slate-400">{fmtDate(raid.clearedAt)}</span>
                           <span className="text-[11px] text-slate-400">·</span>
@@ -1162,8 +1192,14 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
                                 <th className="px-3 py-2 font-bold text-emerald-600 border-b border-slate-200">정답</th>
                                 <th className="px-3 py-2 font-bold text-rose-500 border-b border-slate-200">오답</th>
                                 <th className="px-3 py-2 font-bold text-rose-600 border-b border-slate-200">데미지</th>
-                                {questions.map((_, qi) => (
-                                  <th key={qi} className="px-2 py-2 font-bold text-slate-500 border-b border-slate-200 min-w-[28px]">Q{qi+1}</th>
+                                {questions.map((question, qi) => (
+                                  <th key={qi} className="px-2 py-2 font-bold text-slate-500 border-b border-slate-200 min-w-[36px]">
+                                    <button onClick={() => setHistoryQuestion({ question, number: qi + 1 })}
+                                      className="rounded-lg px-1.5 py-1 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-800"
+                                      title={`Q${qi + 1} 문제 보기`}>
+                                      Q{qi + 1}
+                                    </button>
+                                  </th>
                                 ))}
                               </tr>
                             </thead>
@@ -1210,6 +1246,13 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
     </div>
 
     {resultRaid && <RaidResultModal raid={resultRaid} onClose={() => setResultRaid(null)} />}
+    {historyQuestion && (
+      <QuestionDetailModal
+        question={historyQuestion.question}
+        questionNumber={historyQuestion.number}
+        onClose={() => setHistoryQuestion(null)}
+      />
+    )}
 
     {toast && (
       <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none
