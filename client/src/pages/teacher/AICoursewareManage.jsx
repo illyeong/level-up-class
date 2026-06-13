@@ -15,6 +15,7 @@ const COURSEWARE_CHUNK_SIZE = 5;
 const COURSEWARE_MAX_CHUNK_CALLS = 6;
 const COURSEWARE_MAX_CHUNK_FAILURES = 2;
 const COURSEWARE_QUALITY_VERSION = 'quality-v19-grade56-scope-guard';
+const COURSEWARE_FAILURE_COLLECTION = 'aiCoursewareGenerationFailures';
 const isCurrentLessonContent = (data) =>
   data?.generatorVersion === COURSEWARE_QUALITY_VERSION &&
   Array.isArray(data.questions);
@@ -1585,6 +1586,9 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     failed: 0,
     current: '',
   });
+  const [qaRunning,        setQaRunning]        = useState(false);
+  const [qaStatus,         setQaStatus]         = useState({ total: 0, done: 0, passed: 0, failed: 0, current: '' });
+  const [failedLessons,    setFailedLessons]    = useState([]);
   const [toast,           setToast]           = useState(null);
   const fileRef = React.useRef(null);
 
@@ -1636,6 +1640,195 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
       counts[bucket] += 1;
       return counts;
     }, { concept: 0, core: 0, word: 0, applied: 0 });
+
+  const failureReasonLabel = (code) => ({
+    missing_content: '생성된 문제 없음',
+    outdated_version: '구버전 문제 풀',
+    incomplete_pool: '20문항 미만',
+    invalid_question: '문항 구조 오류',
+    duplicate_questions: '중복 문항 과다',
+    unbalanced_types: '문제 유형 분포 부족',
+    validation_issue: '자동 검증 오류',
+    api_timeout: 'AI 생성 시간 초과',
+    api_rate_limit: 'AI 요청 한도 초과',
+    api_response: 'AI 응답 해석 실패',
+    permission_denied: 'Firestore 권한 오류',
+    network_error: '네트워크 오류',
+    generation_failed: '문제 생성 실패',
+  }[code] || '문제 생성 실패');
+
+  const analyzeLessonContent = (data, serverQa = null) => {
+    if (!data) {
+      return { passed: false, reasonCode: 'missing_content', issues: ['생성된 문제 풀이 없습니다.'], currentCount: 0, requiresReset: false };
+    }
+
+    const questions = Array.isArray(data.questions) ? data.questions : [];
+    const usableQuestions = questions.filter(isUsablePoolQuestion);
+    const issues = [];
+    let reasonCode = '';
+    let requiresReset = false;
+
+    if (!isCurrentLessonContent(data)) {
+      reasonCode = 'outdated_version';
+      requiresReset = true;
+      issues.push(`현재 생성 버전(${COURSEWARE_QUALITY_VERSION})이 아닙니다.`);
+    }
+    if (usableQuestions.length !== questions.length) {
+      reasonCode ||= 'invalid_question';
+      requiresReset = true;
+      issues.push(`보기·정답 구조가 잘못된 문항 ${questions.length - usableQuestions.length}개`);
+    }
+
+    const fingerprints = usableQuestions.map(questionFingerprint).filter(Boolean);
+    const duplicateCount = fingerprints.length - new Set(fingerprints).size;
+    if (duplicateCount > 0) {
+      reasonCode ||= 'duplicate_questions';
+      requiresReset = true;
+      issues.push(`완전히 중복된 문항 ${duplicateCount}개`);
+    }
+
+    if (usableQuestions.length < COURSEWARE_PREGENERATE_COUNT) {
+      reasonCode ||= 'incomplete_pool';
+      issues.push(`유효 문항 ${usableQuestions.length}/${COURSEWARE_PREGENERATE_COUNT}개`);
+    }
+
+    const typeCounts = questionTypeCounts(usableQuestions);
+    const missingTypes = Object.entries(QUESTION_TYPE_TARGETS)
+      .filter(([type, target]) => typeCounts[type] < target)
+      .map(([type, target]) => `${type} ${typeCounts[type]}/${target}`);
+    if (usableQuestions.length >= COURSEWARE_PREGENERATE_COUNT && missingTypes.length) {
+      reasonCode ||= 'unbalanced_types';
+      requiresReset = true;
+      issues.push(`유형 분포 부족: ${missingTypes.join(', ')}`);
+    }
+
+    const validationIssues = [
+      ...(Array.isArray(data.validationIssues) ? data.validationIssues : []),
+      ...(Array.isArray(serverQa?.issues) ? serverQa.issues : []),
+    ].filter(Boolean).filter((issue, index, list) => list.indexOf(issue) === index).slice(0, 12);
+    if (validationIssues.length) {
+      reasonCode ||= 'validation_issue';
+      requiresReset = true;
+      issues.push(...validationIssues.map(issue => `자동 검증: ${issue}`));
+    }
+
+    return {
+      passed: issues.length === 0 && isFreshLessonContent(data),
+      reasonCode: reasonCode || 'generation_failed',
+      issues,
+      currentCount: usableQuestions.length,
+      requiresReset,
+    };
+  };
+
+  const runServerQaBatches = async (lessonItems, contentByKey) => {
+    const qaByKey = new Map();
+    const available = lessonItems
+      .map(({ unit, lesson }) => {
+        const key = lkey(unit, lesson);
+        const content = contentByKey.get(key);
+        if (!content) return null;
+        return {
+          lessonKey: key,
+          grade: unit.grade,
+          semester: unit.semester,
+          publisher: unit.publisher || '국정',
+          unitName: unit.unitName,
+          lessonNo: lesson.no,
+          lessonTitle: lesson.title,
+          targetCount: COURSEWARE_PREGENERATE_COUNT,
+          content,
+        };
+      })
+      .filter(Boolean);
+
+    for (let index = 0; index < available.length; index += 20) {
+      const batch = available.slice(index, index + 20);
+      setQaStatus(prev => ({
+        ...prev,
+        current: `정답·해설·시각자료 자동 검산 중 ${Math.min(index + batch.length, available.length)}/${available.length}`,
+      }));
+      const response = await fetch('/api/generate-courseware', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'qa-batch', items: batch }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.results) {
+        throw new Error(data?.error || `자동 검산 요청 실패 (${response.status})`);
+      }
+      data.results.forEach(result => qaByKey.set(result.lessonKey, result));
+    }
+    return qaByKey;
+  };
+
+  const classifyGenerationFailure = (error, currentCount = 0) => {
+    const message = String(error?.message || error || '알 수 없는 오류');
+    const normalized = message.toLowerCase();
+    let reasonCode = 'generation_failed';
+    if (/timeout|시간 초과|timed out|deadline/.test(normalized)) reasonCode = 'api_timeout';
+    else if (/429|rate limit|resource-exhausted|한도/.test(normalized)) reasonCode = 'api_rate_limit';
+    else if (/json|해석|응답/.test(normalized)) reasonCode = 'api_response';
+    else if (/permission|권한|permission-denied/.test(normalized)) reasonCode = 'permission_denied';
+    else if (/fetch|network|네트워크|internet/.test(normalized)) reasonCode = 'network_error';
+    else if (/중복|새 문항/.test(normalized)) reasonCode = 'duplicate_questions';
+    else if (/20문항|부족/.test(normalized)) reasonCode = 'incomplete_pool';
+    return { reasonCode, issues: [message], currentCount, requiresReset: false };
+  };
+
+  const failurePayload = (unit, lesson, analysis, source = 'qa') => ({
+    lessonKey: lkey(unit, lesson),
+    grade: Number(unit.grade) || 0,
+    semester: Number(unit.semester) || 0,
+    subject: unit.subject || '수학',
+    publisher: unit.publisher || '국정',
+    unitId: unit.id,
+    unitNumber: Number(unit.unitNumber) || 0,
+    unitName: unit.unitName || '',
+    lessonNo: lesson.no,
+    lessonTitle: lesson.title || '',
+    reasonCode: analysis.reasonCode,
+    reasonLabel: failureReasonLabel(analysis.reasonCode),
+    issues: analysis.issues || [],
+    currentCount: Number(analysis.currentCount) || 0,
+    requiresReset: analysis.requiresReset === true,
+    source,
+    status: 'failed',
+    teacherUid: teacherUid || null,
+    updatedAt: serverTimestamp(),
+  });
+
+  const loadFailedLessons = useCallback(async () => {
+    const snap = await getDocs(collection(db, COURSEWARE_FAILURE_COLLECTION));
+    const rows = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(item => item.status === 'failed')
+      .sort((a, b) =>
+        (a.grade || 0) - (b.grade || 0) ||
+        (a.semester || 0) - (b.semester || 0) ||
+        (a.unitNumber || 0) - (b.unitNumber || 0) ||
+        String(a.lessonNo || '').localeCompare(String(b.lessonNo || ''), 'ko')
+      );
+    setFailedLessons(rows);
+    return rows;
+  }, []);
+
+  useEffect(() => {
+    getDocs(collection(db, COURSEWARE_FAILURE_COLLECTION))
+      .then(snap => {
+        const rows = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(item => item.status === 'failed')
+          .sort((a, b) =>
+            (a.grade || 0) - (b.grade || 0) ||
+            (a.semester || 0) - (b.semester || 0) ||
+            (a.unitNumber || 0) - (b.unitNumber || 0) ||
+            String(a.lessonNo || '').localeCompare(String(b.lessonNo || ''), 'ko')
+          );
+        setFailedLessons(rows);
+      })
+      .catch(err => console.warn('[AI courseware failure list load failed]', err));
+  }, []);
 
   const mergeQuestionContent = (baseData, addData) => {
     const baseQuestions = Array.isArray(baseData?.questions) ? baseData.questions.filter(isUsablePoolQuestion) : [];
@@ -1883,7 +2076,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     (unit.lessons || []).map(lesson => ({ unit, lesson }))
   );
 
-  const loadGradeUnitsForPreGenerate = async (grades = ['1', '2', '3', '4', '5', '6']) => {
+  const loadGradeUnitsForPreGenerate = async (grades = ['1', '2', '3', '4', '5', '6'], { allSemesters = false } = {}) => {
     const snaps = await Promise.all(grades.map(grade =>
       getDocs(query(
         collection(db, 'curriculumUnits'),
@@ -1893,12 +2086,150 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
       ))
     ));
     return snaps.flatMap(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
-      .filter(unit => unitSem === 'all' || String(unit.semester || '') === unitSem)
+      .filter(unit => allSemesters || unitSem === 'all' || String(unit.semester || '') === unitSem)
       .sort((a, b) =>
         (a.grade || 0) - (b.grade || 0) ||
         (a.semester || 0) - (b.semester || 0) ||
         (a.unitNumber || 0) - (b.unitNumber || 0)
       );
+  };
+
+  const saveFailedLesson = async (unit, lesson, analysis, source = 'qa') => {
+    const key = lkey(unit, lesson);
+    await setDoc(doc(db, COURSEWARE_FAILURE_COLLECTION, key), failurePayload(unit, lesson, analysis, source), { merge: true });
+  };
+
+  const clearFailedLesson = async (key) => {
+    await deleteDoc(doc(db, COURSEWARE_FAILURE_COLLECTION, key));
+  };
+
+  const runAllGradesQa = async () => {
+    setQaRunning(true);
+    setQaStatus({ total: 0, done: 0, passed: 0, failed: 0, current: '1~6학년 차시 목록을 불러오는 중...' });
+    try {
+      const targetUnits = await loadGradeUnitsForPreGenerate(undefined, { allSemesters: true });
+      const lessons = collectPreGenerateLessons(targetUnits);
+      const [contentSnap, failureSnap] = await Promise.all([
+        getDocs(collection(db, 'aiLessonContent')),
+        getDocs(collection(db, COURSEWARE_FAILURE_COLLECTION)),
+      ]);
+      const contentByKey = new Map(contentSnap.docs.map(d => [d.id, d.data()]));
+      const knownFailureIds = new Set(failureSnap.docs.map(d => d.id));
+      const serverQaByKey = await runServerQaBatches(lessons, contentByKey);
+      let passed = 0;
+      let failed = 0;
+
+      setQaStatus(prev => ({ ...prev, total: lessons.length }));
+      for (const { unit, lesson } of lessons) {
+        const key = lkey(unit, lesson);
+        const current = `${unit.grade}학년 ${unit.unitName} - ${lesson.title}`;
+        const analysis = analyzeLessonContent(contentByKey.get(key), serverQaByKey.get(key));
+        if (analysis.passed) {
+          passed += 1;
+          if (knownFailureIds.has(key)) await clearFailedLesson(key);
+        } else {
+          failed += 1;
+          await saveFailedLesson(unit, lesson, analysis, 'qa');
+        }
+        setQaStatus(prev => ({
+          ...prev,
+          done: prev.done + 1,
+          passed,
+          failed,
+          current,
+        }));
+      }
+
+      await loadFailedLessons();
+      showToast(`1~6학년 문제 QA 완료: 통과 ${passed}차시, 실패 ${failed}차시`);
+    } catch (err) {
+      console.error('[AI courseware QA failed]', err);
+      showToast(`문제 QA 실패: ${err.message}`, 'error');
+    } finally {
+      setQaRunning(false);
+    }
+  };
+
+  const retryFailedLessonContent = async () => {
+    const failures = await loadFailedLessons();
+    if (!failures.length) {
+      showToast('다시 생성할 실패 차시가 없습니다.');
+      return;
+    }
+    if (!window.confirm(`실패 차시 ${failures.length}개만 다시 생성할까요?\n구버전·문항 구조·중복·유형 분포 오류가 있는 풀은 새 문제로 교체합니다.`)) return;
+
+    const targetUnits = await loadGradeUnitsForPreGenerate(undefined, { allSemesters: true });
+    const unitById = new Map(targetUnits.map(unit => [unit.id, unit]));
+    setBulkContentGenerating(true);
+    setBulkContentStatus({
+      total: failures.length,
+      done: 0,
+      created: 0,
+      skipped: 0,
+      failed: 0,
+      current: '',
+    });
+
+    let created = 0;
+    let recovered = 0;
+    let failed = 0;
+    try {
+      for (const failure of failures) {
+        const unit = unitById.get(failure.unitId);
+        const lesson = unit?.lessons?.find(item => String(item.no) === String(failure.lessonNo));
+        const current = `${failure.grade}학년 ${failure.unitName} - ${failure.lessonTitle}`;
+        setBulkContentStatus(prev => ({ ...prev, current }));
+
+        if (!unit || !lesson) {
+          failed += 1;
+          await setDoc(doc(db, COURSEWARE_FAILURE_COLLECTION, failure.id), {
+            reasonCode: 'generation_failed',
+            reasonLabel: '교육과정 차시를 찾을 수 없음',
+            issues: ['curriculumUnits에서 해당 단원 또는 차시를 찾을 수 없습니다.'],
+            status: 'failed',
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+          setBulkContentStatus(prev => ({ ...prev, done: prev.done + 1, failed, current }));
+          continue;
+        }
+
+        try {
+          if (failure.requiresReset) {
+            await deleteDoc(doc(db, 'aiLessonContent', lkey(unit, lesson)));
+          }
+          const lessonContext = await getLessonContextForPreGenerate(unit, lesson);
+          await fillLessonContentToTarget(unit, lesson, lessonContext, generated => {
+            created += generated.added;
+            setBulkContentStatus(prev => ({
+              ...prev,
+              created,
+              current: `${current} (${generated.total}/${COURSEWARE_PREGENERATE_COUNT})`,
+            }));
+          });
+
+          const refreshed = await getDoc(doc(db, 'aiLessonContent', lkey(unit, lesson)));
+          const analysis = analyzeLessonContent(refreshed.exists() ? refreshed.data() : null);
+          if (!analysis.passed) {
+            throw new Error(analysis.issues.join(' / ') || '재생성 후 QA를 통과하지 못했습니다.');
+          }
+          recovered += 1;
+          await clearFailedLesson(failure.id);
+          setBulkContentStatus(prev => ({ ...prev, done: prev.done + 1, skipped: recovered, created, current }));
+        } catch (err) {
+          failed += 1;
+          const currentSnap = await getDoc(doc(db, 'aiLessonContent', lkey(unit, lesson))).catch(() => null);
+          const currentCount = currentSnap?.exists() && Array.isArray(currentSnap.data()?.questions)
+            ? currentSnap.data().questions.filter(isUsablePoolQuestion).length
+            : 0;
+          await saveFailedLesson(unit, lesson, classifyGenerationFailure(err, currentCount), 'retry');
+          setBulkContentStatus(prev => ({ ...prev, done: prev.done + 1, failed, created, current }));
+        }
+      }
+      await loadFailedLessons();
+      showToast(`실패 차시 재생성 완료: 복구 ${recovered}차시, 여전히 실패 ${failed}차시`);
+    } finally {
+      setBulkContentGenerating(false);
+    }
   };
 
   const bulkPreGenerateLessonContent = async ({ allGrades = false, targetGrade = null } = {}) => {
@@ -1958,6 +2289,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
               current: `${current} (${generated.total}/${COURSEWARE_PREGENERATE_COUNT})`,
             }));
           });
+          await clearFailedLesson(lkey(unit, lesson));
           setBulkContentStatus(prev => ({
             ...prev,
             done: prev.done + 1,
@@ -1967,6 +2299,11 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
         } catch (err) {
           console.error('[AI courseware pre-generate failed]', current, err);
           failed += 1;
+          const contentSnap = await getDoc(doc(db, 'aiLessonContent', lkey(unit, lesson))).catch(() => null);
+          const currentCount = contentSnap?.exists() && Array.isArray(contentSnap.data()?.questions)
+            ? contentSnap.data().questions.filter(isUsablePoolQuestion).length
+            : 0;
+          await saveFailedLesson(unit, lesson, classifyGenerationFailure(err, currentCount), 'bulk-generation');
           setBulkContentStatus(prev => ({
             ...prev,
             done: prev.done + 1,
@@ -1976,6 +2313,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
         }
       }
 
+      await loadFailedLessons();
       showToast(`문제 미리 생성 완료: 새 문항 ${created}개, 완료 차시 건너뜀 ${skipped}개, 실패 차시 ${failed}개`);
     } finally {
       setBulkContentGenerating(false);
@@ -2116,6 +2454,75 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
               <p className="text-[10px] leading-relaxed text-indigo-600 line-clamp-2">
                 {bulkContentStatus.current || '준비 중...'}
               </p>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white border border-amber-200 rounded-2xl p-3 shadow-sm">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-extrabold text-slate-800">문제 풀 QA</p>
+              <p className="text-[10px] text-slate-500">1~6학년 기존 문제를 점검합니다.</p>
+            </div>
+            <span className={`shrink-0 px-2 py-1 rounded-full text-[10px] font-extrabold ${
+              failedLessons.length ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+            }`}>
+              실패 {failedLessons.length}
+            </span>
+          </div>
+          <button
+            onClick={runAllGradesQa}
+            disabled={qaRunning || bulkContentGenerating || loadingUnits}
+            className="w-full mt-3 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold disabled:opacity-50 transition-colors"
+          >
+            {qaRunning ? '1~6학년 QA 중...' : '1~6학년 문제 QA'}
+          </button>
+          <button
+            onClick={retryFailedLessonContent}
+            disabled={qaRunning || bulkContentGenerating || !failedLessons.length}
+            className="w-full mt-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold disabled:opacity-40 transition-colors"
+          >
+            실패 차시만 다시 생성
+          </button>
+          <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+            QA는 새 문제를 만들지 않습니다. 실패 차시 재생성 버튼을 눌렀을 때만 AI 생성 요청을 보냅니다.
+          </p>
+          {(qaRunning || qaStatus.done > 0) && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                <span>{qaStatus.done}/{qaStatus.total || '?'}</span>
+                <span className="text-emerald-600">통과 {qaStatus.passed}</span>
+                <span className="text-rose-600">실패 {qaStatus.failed}</span>
+              </div>
+              <ProgressBar
+                pct={qaStatus.total ? (qaStatus.done / qaStatus.total) * 100 : 0}
+                color="bg-amber-500"
+                h="h-2"
+              />
+              <p className="text-[10px] leading-relaxed text-amber-700 line-clamp-2">
+                {qaStatus.current}
+              </p>
+            </div>
+          )}
+          {failedLessons.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-amber-100 space-y-2 max-h-64 overflow-y-auto pr-1">
+              {failedLessons.map(item => (
+                <div key={item.id} className="rounded-xl border border-rose-100 bg-rose-50/70 p-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 text-[10px] font-extrabold text-slate-700 leading-relaxed">
+                      {item.grade}학년 · {item.unitName}<br />
+                      <span className="font-semibold text-slate-500">{item.lessonNo}차시 {item.lessonTitle}</span>
+                    </p>
+                    <span className="shrink-0 rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-extrabold text-rose-700">
+                      {item.currentCount || 0}/20
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[10px] font-bold text-rose-700">{item.reasonLabel || failureReasonLabel(item.reasonCode)}</p>
+                  <p className="mt-0.5 text-[9px] leading-relaxed text-rose-600 line-clamp-3">
+                    {(item.issues || []).join(' · ') || '상세 오류 정보가 없습니다.'}
+                  </p>
+                </div>
+              ))}
             </div>
           )}
         </div>

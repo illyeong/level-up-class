@@ -1551,10 +1551,32 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: '허용되지 않는 메서드입니다.' });
 
+  const payload = req.body || {};
+  if (payload.action === 'qa-batch') {
+    const items = Array.isArray(payload.items) ? payload.items.slice(0, 20) : [];
+    const results = items.map(item => {
+      const rawContent = item?.content || {};
+      const rawQuestionCount = Array.isArray(rawContent.questions) ? rawContent.questions.length : 0;
+      const poolSize = Math.min(20, Math.max(5, Number(item?.targetCount) || rawQuestionCount || 20));
+      const context = buildLessonContext(item || {}, '');
+      const normalized = ensureConceptCards(normalizeContent(rawContent, poolSize, context), item || {});
+      const issues = validateContent(normalized, poolSize);
+      const rejectedCount = Math.max(0, rawQuestionCount - normalized.questions.length);
+      if (rejectedCount > 0) issues.unshift(`자동 검산에서 제외된 문항 ${rejectedCount}개`);
+      return {
+        lessonKey: item?.lessonKey || '',
+        validCount: normalized.questions.length,
+        rejectedCount,
+        issues: [...new Set(issues)].slice(0, 20),
+        passed: issues.length === 0 && normalized.questions.length >= poolSize,
+      };
+    });
+    return res.status(200).json({ results, validatorVersion: COURSEWARE_GENERATOR_VERSION });
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY가 설정되지 않았습니다.' });
 
-  const payload = req.body || {};
   const { grade, semester, publisher, unitName, lessonNo, lessonTitle, questionCount = 5, lessonContext } = payload;
   if (!grade || !unitName || !lessonTitle) {
     return res.status(400).json({ error: '학년, 단원명, 차시명을 입력해주세요.' });
