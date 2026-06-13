@@ -51,6 +51,7 @@ const getDeadlineText = (quest) => {
 
 // ─────────────────────── 진행 중 카드 ──────────────────────
 function ActiveQuestCard({ quest, completion, onToggleCheck, onAcknowledge, isBusy }) {
+  const [showCoach, setShowCoach] = useState(false);
   const isChecked      = completion?.checked      === true;
   const isRewarded     = completion?.rewarded     === true;
   const isAcknowledged = !!completion?.acknowledgedAt;
@@ -122,6 +123,25 @@ function ActiveQuestCard({ quest, completion, onToggleCheck, onAcknowledge, isBu
             </div>
           )}
         </div>
+
+        <button type="button" onClick={() => setShowCoach(value => !value)}
+          className="mb-3 w-full rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-left text-xs font-extrabold text-indigo-700 hover:bg-indigo-100">
+          🤖 {isChecked || isRewarded ? '실천을 돌아보기' : '실천 방법 도움받기'} {showCoach ? '▲' : '▼'}
+        </button>
+        {showCoach && (
+          <div className="mb-4 rounded-xl border border-indigo-100 bg-slate-50 p-3">
+            <p className="text-xs font-extrabold leading-relaxed text-slate-700">
+              {isChecked || isRewarded
+                ? '실천하기 전과 후에 내 행동이나 기분이 어떻게 달라졌는지 한 문장으로 떠올려 보세요.'
+                : `먼저 "${quest.title}"을 실천할 수 있는 가장 쉬운 순간을 하나 정하고, 시작 전에 해야 할 행동을 짧게 메모해 보세요.`}
+            </p>
+            <p className="mt-2 text-[11px] font-semibold text-indigo-600">
+              {isChecked || isRewarded
+                ? '다음에는 더 잘 실천하기 위해 바꾸고 싶은 점이 있나요?'
+                : '오늘 언제, 어디에서, 무엇부터 시작할지 정하면 실천하기 쉬워집니다.'}
+            </p>
+          </div>
+        )}
 
 
         {/* 액션 */}

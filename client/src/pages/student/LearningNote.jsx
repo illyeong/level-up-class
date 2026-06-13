@@ -142,6 +142,7 @@ export default function LearningNote({ studentCode, themeMode = 'dark' }) {
   const [subjects, setSubjects]         = useState([{ subject: '', coreContent: '', myThought: '', imageBase64: '' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [compressingIdx, setCompressingIdx] = useState(null);
+  const [noteCoachPrompt, setNoteCoachPrompt] = useState('');
   const fileRefs = useRef([]);
 
   // ── 데이터 로드 ──────────────────────────────────────────────
@@ -359,6 +360,33 @@ export default function LearningNote({ studentCode, themeMode = 'dark' }) {
                 <div className="text-xs text-purple-600 font-bold">⭐ {settings.rewardExp} EXP</div>
               </div>
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-extrabold text-indigo-900">🤖 배움노트 생각 도우미</p>
+                <p className="mt-1 text-xs font-semibold text-indigo-600">AI가 대신 쓰지 않고, 생각을 시작할 질문을 제안합니다.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  '오늘 가장 새롭게 알게 된 것은 무엇인가요?',
+                  '어려웠던 부분을 어떻게 해결했나요?',
+                  '친구에게 설명한다면 어떻게 말할 수 있나요?',
+                  '다음 시간에 더 알고 싶은 것은 무엇인가요?',
+                ].map(prompt => (
+                  <button type="button" key={prompt} onClick={() => setNoteCoachPrompt(prompt)}
+                    className="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-[11px] font-extrabold text-indigo-700 hover:border-indigo-400">
+                    {prompt.replace('무엇인가요?', '').replace('어떻게 말할 수 있나요?', '')}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {noteCoachPrompt && (
+              <div className="mt-3 rounded-xl bg-white px-4 py-3 text-sm font-bold leading-relaxed text-slate-700">
+                💬 {noteCoachPrompt}
+              </div>
+            )}
           </div>
 
           {subjects.map((sub, idx) => {

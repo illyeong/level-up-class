@@ -388,58 +388,56 @@ function UnitSelector({ grade, semester, subject, publisher, unitId, topic, onUn
 
 // ─── 미리보기 모달 ───────────────────────────────────────────────
 function PreviewModal({ set, onClose }) {
-  const [page, setPage] = useState(0);
   const qs = set.questions || [];
-  const q = qs[page];
   return (
     <div className="fixed inset-0 bg-black/60 z-[400] flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 bg-indigo-600 text-white">
+      <div className="bg-slate-100 rounded-2xl w-full max-w-3xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 bg-indigo-600 text-white shrink-0">
           <div>
             <div className="font-extrabold">{set.title}</div>
             <div className="text-xs opacity-75">{qs.length}문항 · {DIFF_LABEL[set.difficulty] || '보통'}</div>
           </div>
           <button onClick={onClose} className="text-indigo-200 hover:text-white text-2xl font-bold">×</button>
         </div>
-        {q ? (
-          <div className="p-5 space-y-3">
-            <div className="flex justify-between items-center text-xs text-slate-400 font-bold">
-              <span>Q{page + 1} / {qs.length}</span>
-              <span className={`px-2 py-0.5 rounded-full border text-xs font-bold ${(q.type === 'sa' || q.type === 'short') ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`}>
-                {(q.type === 'sa' || q.type === 'short') ? '주관식' : '객관식'}
-              </span>
-            </div>
-            <div className="text-base font-bold text-slate-800 leading-relaxed">{renderMath(q.question)}</div>
-            {!(q.type === 'sa' || q.type === 'short') && (
-              <div className="space-y-2">
-                {(q.options || []).map((opt, oi) => (
-                  <div key={oi} className={`px-4 py-2 rounded-xl text-sm border ${q.answer === oi ? 'bg-emerald-50 border-emerald-400 text-emerald-800 font-bold' : 'border-slate-200 text-slate-700'}`}>
-                    {oi + 1}. {renderMath(stripOptionPrefix(opt))}
+        {qs.length ? (
+          <div className="overflow-y-auto p-5 space-y-4">
+            {qs.map((q, index) => {
+              const isShortAnswer = q.type === 'sa' || q.type === 'short';
+              return (
+                <section key={index} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex justify-between items-center text-xs text-slate-400 font-bold mb-3">
+                    <span className="text-indigo-600">Q{index + 1}</span>
+                    <span className={`px-2 py-0.5 rounded-full border text-xs font-bold ${isShortAnswer ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`}>
+                      {isShortAnswer ? '주관식' : '객관식'}
+                    </span>
                   </div>
-                ))}
-              </div>
-            )}
-            {(q.type === 'sa' || q.type === 'short') && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 text-sm text-amber-800 font-bold">
-                정답: {q.answer}
-              </div>
-            )}
-            {q.explanation && (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs text-slate-600">
-                💡 {q.explanation}
-              </div>
-            )}
+                  <div className="text-base font-bold text-slate-800 leading-relaxed mb-3">{renderMath(q.question)}</div>
+                  {!isShortAnswer && (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {(q.options || []).map((opt, oi) => (
+                        <div key={oi} className={`px-4 py-2.5 rounded-xl text-sm border ${q.answer === oi ? 'bg-emerald-50 border-emerald-400 text-emerald-800 font-bold' : 'border-slate-200 text-slate-700'}`}>
+                          {oi + 1}. {renderMath(stripOptionPrefix(opt))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {isShortAnswer && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-amber-800 font-bold">
+                      정답: {q.answer}
+                    </div>
+                  )}
+                  {q.explanation && (
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-600 mt-3">
+                      💡 {q.explanation}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
           </div>
         ) : (
           <div className="p-8 text-center text-slate-400">문제가 없습니다.</div>
         )}
-        <div className="px-5 pb-4 flex justify-between">
-          <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-            className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 disabled:opacity-30">← 이전</button>
-          <span className="text-xs text-slate-400 self-center">{page + 1} / {qs.length}</span>
-          <button onClick={() => setPage(p => Math.min(qs.length - 1, p + 1))} disabled={page === qs.length - 1}
-            className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 disabled:opacity-30">다음 →</button>
-        </div>
       </div>
     </div>
   );

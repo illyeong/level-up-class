@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   collection, getDocs, doc, getDoc, setDoc, updateDoc,
   query, where, serverTimestamp,
@@ -14,6 +14,25 @@ const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜�
 const POOL_TARGET_Q_NUM = 20;
 const COURSEWARE_QUALITY_VERSION = 'quality-v19-grade56-scope-guard';
 const MASTERY_ATTEMPTS = 4; // 숙달도 판정에 사용할 최고 점수 개수
+const WRONG_CAUSES = [
+  ['concept', '개념을 헷갈렸어요'],
+  ['calculation', '계산 실수였어요'],
+  ['condition', '문제 조건을 놓쳤어요'],
+  ['visual', '단위·그림을 잘못 읽었어요'],
+  ['rushed', '너무 빠르게 골랐어요'],
+];
+
+const getQuestionHint = (question, level) => {
+  if (level === 1) return '문제에서 무엇을 묻는지와 주어진 숫자·조건을 먼저 찾아보세요.';
+  if (level === 2) {
+    return question?.skill
+      ? `이 문제는 '${question.skill}' 개념을 사용합니다. 관련 규칙이나 성질을 떠올려 보세요.`
+      : '관련된 개념이나 규칙을 한 문장으로 먼저 떠올려 보세요.';
+  }
+  return question?.shape
+    ? '그림의 표시와 문제 조건을 하나씩 대응해 보고, 보기 중 조건에 맞지 않는 것을 지워보세요.'
+    : '보기를 하나씩 계산하거나 조건에 대입해 맞지 않는 답부터 지워보세요.';
+};
 
 const questionFingerprint = (q) =>
   [q?.question, ...(Array.isArray(q?.options) ? q.options : []), q?.skill || '']
@@ -386,6 +405,8 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   const [answers, setAnswers]   = useState([]);
   const [selected, setSelected] = useState(null);
   const [showResult, setShowResult] = useState(false);
+  const [hintLevel, setHintLevel] = useState(0);
+  const [wrongCauseByQuestion, setWrongCauseByQuestion] = useState({});
   const answerLockRef = useRef(false);
   const [finalResult, setFR]    = useState(null);
   const [saving, setSaving]     = useState(false);
@@ -405,7 +426,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   const [wrongFilter, setWrongFilter] = useState('active');
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
-  const loadWrongNotebook = async () => {
+  const loadWrongNotebook = useCallback(async () => {
     if (!studentCode) return;
     setWrongLoading(true);
     try {
@@ -436,7 +457,16 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     } finally {
       setWrongLoading(false);
     }
-  };
+  }, [studentCode]);
+
+  useEffect(() => {
+    if (!studentCode) return;
+    const intent = sessionStorage.getItem('aiCoursewareIntent');
+    if (intent !== 'wrongNote') return;
+    sessionStorage.removeItem('aiCoursewareIntent');
+    const timer = window.setTimeout(() => loadWrongNotebook(), 0);
+    return () => window.clearTimeout(timer);
+  }, [studentCode, loadWrongNotebook]);
 
   const checkWrongNotebookAnswer = async (item) => {
     const selectedIndex = wrongSelections[item.id];
@@ -614,6 +644,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     setUnit(unit); setLesson(lesson);
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null); setExpandedResult(null);
+    setHintLevel(0); setWrongCauseByQuestion({});
     setMinTimeLeft(0);
     setCL(true); setContent(null); setMyProgress(null);
     setLoadingElapsed(0);
@@ -662,6 +693,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     setContent(pickSessionQuestions(poolData, key, attemptSnap.exists() ? attemptSnap.data() : null));
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null); setExpandedResult(null);
+    setHintLevel(0); setWrongCauseByQuestion({});
     setMinTimeLeft(0);
     setStep('concept');
   };
@@ -696,6 +728,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         questionKey: question.__questionKey || `${lessonKey(selectedUnit, selectedLesson)}_${questionFingerprint(question)}`,
         poolIndex: question.__poolIndex ?? qIdx,
         skill: question.skill || '',
+        hintLevel,
       }];
     });
     setShowResult(true);
@@ -704,7 +737,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
   const nextQuestion = () => {
     if (qIdx < content.questions.length - 1) {
-      setQIdx(q => q + 1); setSelected(null); setShowResult(false);
+      setQIdx(q => q + 1); setSelected(null); setShowResult(false); setHintLevel(0);
     } else { finishQuiz(); }
   };
 
@@ -805,6 +838,8 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         explanation: question.explanation || '',
         skill: question.skill || '',
         shape: question.shape || null,
+        hintLevel: answer.hintLevel || 0,
+        wrongCause: answer.wrongCause || wrongCauseByQuestion[answer.questionIndex] || '',
         status: 'unresolved',
         wrongCount: (wrongBank[questionKey]?.wrongCount || 0) + 1,
         reviewCorrectCount: 0,
@@ -1024,6 +1059,8 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           explanation: question.explanation || '',
           skill: question.skill || '',
           shape: question.shape || null,
+          hintLevel: answer.hintLevel || 0,
+          wrongCause: answer.wrongCause || wrongCauseByQuestion[answer.questionIndex] || '',
           selectedIdx: answer.selectedIndex,
           correctIdx: question.answerIndex,
           status: 'unresolved',
@@ -1658,6 +1695,31 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           <TableRenderer table={currentQ.table} />
           <ShapeRenderer shape={currentQ.shape} />
 
+          {!showResult && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-extrabold text-amber-800">막히면 단계별 힌트를 사용해 보세요</p>
+                  <p className="mt-0.5 text-xs font-semibold text-amber-600">정답을 바로 알려주지 않고 풀이 방향만 안내합니다.</p>
+                </div>
+                <button type="button" onClick={() => setHintLevel(level => Math.min(3, level + 1))}
+                  disabled={hintLevel >= 3}
+                  className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-extrabold text-white hover:bg-amber-600 disabled:opacity-50">
+                  {hintLevel >= 3 ? '힌트 모두 확인' : `힌트 보기 ${hintLevel + 1}/3`}
+                </button>
+              </div>
+              {hintLevel > 0 && (
+                <div className="mt-3 space-y-2 border-t border-amber-200 pt-3">
+                  {Array.from({ length: hintLevel }, (_, index) => (
+                    <p key={index} className="text-sm font-bold leading-relaxed text-amber-900">
+                      {index + 1}. {getQuestionHint(currentQ, index + 1)}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 보기 — 세로 배치, 크게 */}
           <div className="space-y-3">
             {currentQ.options.map((opt, oi) => {
@@ -1684,6 +1746,31 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
             <div className={`rounded-2xl px-5 py-4 text-base ${(answers[answers.length-1]?.correct || selected === currentQ.answerIndex) ? 'bg-emerald-50 border-2 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-2 border-rose-200 text-rose-800'}`}>
               <div className="font-extrabold text-lg mb-1">{(answers[answers.length-1]?.correct || selected === currentQ.answerIndex) ? '✅ 정답!' : '❌ 오답'}</div>
               <p className="text-sm leading-relaxed">{renderMath(currentQ.explanation)}</p>
+            </div>
+          )}
+
+          {showResult && selected !== currentQ.answerIndex && (
+            <div className="rounded-2xl border-2 border-violet-200 bg-violet-50 p-4">
+              <p className="font-extrabold text-violet-900">이번에는 왜 틀렸다고 생각하나요?</p>
+              <p className="mt-1 text-xs font-semibold text-violet-600">선택한 내용은 다음 복습 추천에 활용됩니다.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {WRONG_CAUSES.map(([value, label]) => (
+                  <button type="button" key={value}
+                    onClick={() => {
+                      setWrongCauseByQuestion(prev => ({ ...prev, [qIdx]: value }));
+                      setAnswers(prev => prev.map(answer =>
+                        answer.questionIndex === qIdx ? { ...answer, wrongCause: value } : answer
+                      ));
+                    }}
+                    className={`rounded-xl border px-3 py-2 text-xs font-extrabold transition-colors ${
+                      wrongCauseByQuestion[qIdx] === value
+                        ? 'border-violet-600 bg-violet-600 text-white'
+                        : 'border-violet-200 bg-white text-violet-700 hover:border-violet-400'
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -8,6 +8,7 @@ import { applyExpDelta, getMaxExpForLevel } from '../utils/leveling';
 import AttendanceCheck from '../pages/student/AttendanceCheck';
 import HallOfFame from '../pages/student/HallOfFame';
 import LevelUpEffect from './LevelUpEffect';
+import StudentAIGrowthCoach from './StudentAIGrowthCoach';
 import iconDashboard from '../assets/images/icon-dashboard.png';
 import { getEffectiveCosmeticStyles, getHallOfFameBadgeText } from '../data/avatarCosmetics';
 
@@ -866,6 +867,12 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
 
         {/* 우측: 출석 체크 + 퀘스트 안내 */}
         <div className="flex flex-col gap-4">
+          <StudentAIGrowthCoach
+            studentCode={studentCode}
+            onChangeView={onChangeView}
+            themeMode={themeMode}
+          />
+
           {/* 출석 체크 */}
           <AttendanceCheck studentCode={studentCode} />
 
