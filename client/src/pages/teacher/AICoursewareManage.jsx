@@ -1665,6 +1665,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     const questions = Array.isArray(data.questions) ? data.questions : [];
     const usableQuestions = questions.filter(isUsablePoolQuestion);
     const issues = [];
+    const qualityWarnings = [];
     let reasonCode = '';
     let requiresReset = false;
 
@@ -1688,34 +1689,37 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     }
 
     if (usableQuestions.length < COURSEWARE_PREGENERATE_COUNT) {
-      reasonCode ||= 'incomplete_pool';
-      issues.push(`유효 문항 ${usableQuestions.length}/${COURSEWARE_PREGENERATE_COUNT}개`);
+      qualityWarnings.push(`유효 문항 ${usableQuestions.length}/${COURSEWARE_PREGENERATE_COUNT}개 · 학생 학습은 가능하며 자동 재생성하지 않음`);
     }
 
     const typeCounts = questionTypeCounts(usableQuestions);
     const missingTypes = Object.entries(QUESTION_TYPE_TARGETS)
       .filter(([type, target]) => typeCounts[type] < target)
       .map(([type, target]) => `${type} ${typeCounts[type]}/${target}`);
-    if (usableQuestions.length >= COURSEWARE_PREGENERATE_COUNT && missingTypes.length) {
-      reasonCode ||= 'unbalanced_types';
-      requiresReset = true;
-      issues.push(`유형 분포 부족: ${missingTypes.join(', ')}`);
-    }
+    if (missingTypes.length) qualityWarnings.push(`유형 분포 확인 권장: ${missingTypes.join(', ')}`);
 
     const validationIssues = [
       ...(Array.isArray(data.validationIssues) ? data.validationIssues : []),
       ...(Array.isArray(serverQa?.issues) ? serverQa.issues : []),
     ].filter(Boolean).filter((issue, index, list) => list.indexOf(issue) === index).slice(0, 12);
-    if (validationIssues.length) {
+
+    const criticalValidationIssues = validationIssues.filter(issue =>
+      /정답 자동 검산 실패|시각자료와 문제\/정답 불일치|정답 인덱스 오류|보기가 4개가 아닙니다|중복 보기가 있습니다|지원하지 않는 shape type/.test(issue)
+    );
+    const warningValidationIssues = validationIssues.filter(issue => !criticalValidationIssues.includes(issue));
+    qualityWarnings.push(...warningValidationIssues);
+
+    if (criticalValidationIssues.length) {
       reasonCode ||= 'validation_issue';
       requiresReset = true;
-      issues.push(...validationIssues.map(issue => `자동 검증: ${issue}`));
+      issues.push(...criticalValidationIssues.map(issue => `자동 검증: ${issue}`));
     }
 
     return {
-      passed: issues.length === 0 && isFreshLessonContent(data),
+      passed: issues.length === 0,
       reasonCode: reasonCode || 'generation_failed',
       issues,
+      warnings: qualityWarnings.slice(0, 12),
       currentCount: usableQuestions.length,
       requiresReset,
     };
@@ -1790,6 +1794,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     reasonCode: analysis.reasonCode,
     reasonLabel: failureReasonLabel(analysis.reasonCode),
     issues: analysis.issues || [],
+    warnings: analysis.warnings || [],
     currentCount: Number(analysis.currentCount) || 0,
     requiresReset: analysis.requiresReset === true,
     source,
@@ -1802,7 +1807,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     const snap = await getDocs(collection(db, COURSEWARE_FAILURE_COLLECTION));
     const rows = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
-      .filter(item => item.status === 'failed')
+      .filter(item => item.status === 'failed' && !['incomplete_pool', 'unbalanced_types'].includes(item.reasonCode))
       .sort((a, b) =>
         (a.grade || 0) - (b.grade || 0) ||
         (a.semester || 0) - (b.semester || 0) ||
@@ -1818,7 +1823,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
       .then(snap => {
         const rows = snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
-          .filter(item => item.status === 'failed')
+          .filter(item => item.status === 'failed' && !['incomplete_pool', 'unbalanced_types'].includes(item.reasonCode))
           .sort((a, b) =>
             (a.grade || 0) - (b.grade || 0) ||
             (a.semester || 0) - (b.semester || 0) ||
@@ -2141,7 +2146,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
       }
 
       await loadFailedLessons();
-      showToast(`1~6학년 문제 QA 완료: 통과 ${passed}차시, 실패 ${failed}차시`);
+      showToast(`1~6학년 문제 QA 완료: 준비 완료 ${passed}차시, 조치 필요 ${failed}차시`);
     } catch (err) {
       console.error('[AI courseware QA failed]', err);
       showToast(`문제 QA 실패: ${err.message}`, 'error');
@@ -2156,7 +2161,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
       showToast('다시 생성할 실패 차시가 없습니다.');
       return;
     }
-    if (!window.confirm(`실패 차시 ${failures.length}개만 다시 생성할까요?\n구버전·문항 구조·중복·유형 분포 오류가 있는 풀은 새 문제로 교체합니다.`)) return;
+    if (!window.confirm(`실제 오류가 확인된 차시 ${failures.length}개만 다시 생성할까요?\n문항 수 부족과 유형 분포 경고만 있는 차시는 재생성하지 않습니다.`)) return;
 
     const targetUnits = await loadGradeUnitsForPreGenerate(undefined, { allSemesters: true });
     const unitById = new Map(targetUnits.map(unit => [unit.id, unit]));
@@ -2227,94 +2232,6 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
       }
       await loadFailedLessons();
       showToast(`실패 차시 재생성 완료: 복구 ${recovered}차시, 여전히 실패 ${failed}차시`);
-    } finally {
-      setBulkContentGenerating(false);
-    }
-  };
-
-  const bulkPreGenerateLessonContent = async ({ allGrades = false, targetGrade = null } = {}) => {
-    const targetUnits = allGrades || targetGrade
-      ? await loadGradeUnitsForPreGenerate(targetGrade ? [String(targetGrade)] : undefined)
-      : units.filter(u => unitSem === 'all' || String(u.semester || '') === unitSem);
-    const lessons = collectPreGenerateLessons(targetUnits);
-
-    if (!lessons.length) {
-      showToast('미리 생성할 차시가 없습니다.', 'error');
-      return;
-    }
-
-    const gradeLabel = allGrades ? '1~6학년' : `${targetGrade || unitGrade}학년`;
-    const semLabel = unitSem === 'all' ? '전체 학기' : `${unitSem}학기`;
-    if (!window.confirm(`${gradeLabel} ${semLabel}에서 20문항 미만 또는 구버전인 차시만 생성할까요?\n현재 버전 20문항이 준비된 차시는 자동으로 건너뜁니다.`)) return;
-
-    setBulkContentGenerating(true);
-    setBulkContentStatus({
-      total: lessons.length,
-      done: 0,
-      created: 0,
-      skipped: 0,
-      failed: 0,
-      current: '',
-    });
-
-    let created = 0;
-    let skipped = 0;
-    let failed = 0;
-
-    try {
-      for (const { unit, lesson } of lessons) {
-        const current = `${unit.unitName} - ${lesson.title}`;
-        setBulkContentStatus(prev => ({ ...prev, current }));
-
-        try {
-          const key = lkey(unit, lesson);
-          const contentSnap = await getDoc(doc(db, 'aiLessonContent', key));
-          if (contentSnap.exists() && isFreshLessonContent(contentSnap.data())) {
-            skipped += 1;
-            setBulkContentStatus(prev => ({
-              ...prev,
-              done: prev.done + 1,
-              skipped,
-              current,
-            }));
-            continue;
-          }
-
-          const lessonContext = await getLessonContextForPreGenerate(unit, lesson);
-          await fillLessonContentToTarget(unit, lesson, lessonContext, generated => {
-            created += generated.added;
-            setBulkContentStatus(prev => ({
-              ...prev,
-              created,
-              current: `${current} (${generated.total}/${COURSEWARE_PREGENERATE_COUNT})`,
-            }));
-          });
-          await clearFailedLesson(lkey(unit, lesson));
-          setBulkContentStatus(prev => ({
-            ...prev,
-            done: prev.done + 1,
-            created,
-            current,
-          }));
-        } catch (err) {
-          console.error('[AI courseware pre-generate failed]', current, err);
-          failed += 1;
-          const contentSnap = await getDoc(doc(db, 'aiLessonContent', lkey(unit, lesson))).catch(() => null);
-          const currentCount = contentSnap?.exists() && Array.isArray(contentSnap.data()?.questions)
-            ? contentSnap.data().questions.filter(isUsablePoolQuestion).length
-            : 0;
-          await saveFailedLesson(unit, lesson, classifyGenerationFailure(err, currentCount), 'bulk-generation');
-          setBulkContentStatus(prev => ({
-            ...prev,
-            done: prev.done + 1,
-            failed,
-            current,
-          }));
-        }
-      }
-
-      await loadFailedLessons();
-      showToast(`문제 미리 생성 완료: 새 문항 ${created}개, 완료 차시 건너뜀 ${skipped}개, 실패 차시 ${failed}개`);
     } finally {
       setBulkContentGenerating(false);
     }
@@ -2415,30 +2332,12 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
         </div>
 
         <div className="bg-white border border-indigo-200 rounded-2xl p-3 shadow-sm">
-          <button
-            onClick={bulkPreGenerateLessonContent}
-            disabled={bulkContentGenerating || loadingUnits || !filteredUnits.length}
-            className="w-full px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold disabled:opacity-50 transition-colors"
-          >
-            {bulkContentGenerating ? '문제 생성 중...' : '미완성·구버전 차시 문제 생성'}
-          </button>
-          <div className="grid grid-cols-3 gap-1.5 mt-2">
-            {['1', '2', '3', '4', '5', '6'].map(grade => (
-              <button
-                key={grade}
-                onClick={() => bulkPreGenerateLessonContent({ targetGrade: grade })}
-                disabled={bulkContentGenerating || loadingUnits}
-                className="px-2 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-extrabold disabled:opacity-50 transition-colors"
-              >
-                {grade}학년
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
-            현재 버전 문제 20문항 미만이거나 구버전인 차시만 생성합니다. 구버전 문제는 섞지 않고 새 문제로 교체하며, 실행할 때마다 차시별 최대 5문항씩 20문항까지 채웁니다.
+          <p className="text-xs font-extrabold text-indigo-700">대량 문제 생성 중단</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+            비용 절감을 위해 20문항 미만 차시를 일괄 생성하지 않습니다. 문제 수가 부족해도 학생 학습에 필요한 문항이 있으면 그대로 사용합니다.
           </p>
-          <p className="mt-1 text-[10px] leading-relaxed text-indigo-600">
-            유형 목표: 개념 확인 2 · 핵심 기능 12 · 생활 문장제 4 · 응용·오류 2
+          <p className="mt-1 text-[10px] leading-relaxed font-bold text-indigo-600">
+            아래 QA에서 실제 오류가 확인된 차시만 다시 생성합니다.
           </p>
           {bulkContentGenerating && (
             <div className="mt-3 space-y-2">
@@ -2467,7 +2366,7 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
             <span className={`shrink-0 px-2 py-1 rounded-full text-[10px] font-extrabold ${
               failedLessons.length ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
             }`}>
-              실패 {failedLessons.length}
+              조치 필요 {failedLessons.length}
             </span>
           </div>
           <button
@@ -2482,17 +2381,17 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
             disabled={qaRunning || bulkContentGenerating || !failedLessons.length}
             className="w-full mt-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold disabled:opacity-40 transition-colors"
           >
-            실패 차시만 다시 생성
+            실제 오류 차시만 다시 생성
           </button>
           <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
-            QA는 새 문제를 만들지 않습니다. 실패 차시 재생성 버튼을 눌렀을 때만 AI 생성 요청을 보냅니다.
+            QA는 새 문제를 만들지 않습니다. 구버전·문항 구조·정답 검산 오류가 확인된 차시만 AI 재생성 대상이 됩니다.
           </p>
           {(qaRunning || qaStatus.done > 0) && (
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
                 <span>{qaStatus.done}/{qaStatus.total || '?'}</span>
                 <span className="text-emerald-600">통과 {qaStatus.passed}</span>
-                <span className="text-rose-600">실패 {qaStatus.failed}</span>
+                <span className="text-rose-600">조치 필요 {qaStatus.failed}</span>
               </div>
               <ProgressBar
                 pct={qaStatus.total ? (qaStatus.done / qaStatus.total) * 100 : 0}
