@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   collection, getDocs, doc, getDoc, setDoc, updateDoc,
-  query, where, serverTimestamp,
+  query, where, serverTimestamp, runTransaction,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { renderMath, TableRenderer, stripOptionPrefix } from '../../utils/renderMath';
@@ -12,7 +12,10 @@ const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
 const SESSION_Q_NUM = 5;  // 매 세션에 출제할 문제 수 (풀에서 랜덤 선택)
 const POOL_TARGET_Q_NUM = 20;
-const COURSEWARE_QUALITY_VERSION = 'quality-v19-grade56-scope-guard';
+const SHARED_POOL_MAX_Q_NUM = 40;
+const SHARED_POOL_GROW_Q_NUM = 5;
+const SHARED_POOL_GROW_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const SHARED_POOL_GROW_LOCK_MS = 2 * 60 * 1000;
 const MASTERY_ATTEMPTS = 4; // 숙달도 판정에 사용할 최고 점수 개수
 const WRONG_CAUSES = [
   ['concept', '개념을 헷갈렸어요'],
@@ -70,7 +73,7 @@ const wrongAnswerId = (studentCode, questionKey) =>
 
 const enrichQuestionPool = (data, key) => ({
   ...data,
-  questions: (data?.questions || []).map((q, index) => ({
+  questions: (data?.questions || []).filter(isUsablePoolQuestion).map((q, index) => ({
     ...normalizeEquivalentFractionPairAnswer(q),
     __poolIndex: index,
     __questionKey: `${key}_${questionFingerprint(q)}`,
@@ -109,10 +112,10 @@ function saveRecentQuestionKeys(key, selectedKeys, max = 20) {
 
 function shouldRefreshLessonContent(data) {
   if (!data) return true;
-  if (data.generatorVersion !== COURSEWARE_QUALITY_VERSION) return true;
-  if (!Array.isArray(data.questions) || data.questions.length < POOL_TARGET_Q_NUM) return true;
-  if (data.questions.some(question => !isUsablePoolQuestion(question))) return true;
-  return false;
+  const usableCount = Array.isArray(data.questions)
+    ? data.questions.filter(isUsablePoolQuestion).length
+    : 0;
+  return usableCount < SESSION_Q_NUM;
 }
 
 // 캐시된 문제 풀에서 최근 풀었던 문항은 뒤로 미뤄 세션마다 다른 조합을 출제
@@ -273,7 +276,12 @@ const preloadMap = new Map(); // key → Promise<data>
 const expansionMap = new Map(); // key → Promise<data>
 const lessonContextMap = new Map(); // key → Promise<string | null>
 
-const fetchLessonContent = async (unit, lesson, { fastInitial = true, questionCount = POOL_TARGET_Q_NUM, extraLessonContext = '' } = {}) => {
+const fetchLessonContent = async (unit, lesson, {
+  fastInitial = true,
+  allowPartial = false,
+  questionCount = POOL_TARGET_Q_NUM,
+  extraLessonContext = '',
+} = {}) => {
   // RAG: 교사가 등록한 교과서 내용이 있으면 가져와서 프롬프트에 포함
   const lKey = `v3_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
   if (!lessonContextMap.has(lKey)) {
@@ -296,6 +304,7 @@ const fetchLessonContent = async (unit, lesson, { fastInitial = true, questionCo
       difficulty: 'normal', questionCount,
       lessonContext, // RAG 교과서 내용
       fastInitial,
+      allowPartial,
     }),
   });
   const raw = await res.text();
@@ -328,8 +337,10 @@ const saveLessonContentCache = (unit, lesson, data) => {
   }, { merge: true });
 };
 
-const mergeLessonContentQuestions = (baseData, addData) => {
-  const baseQuestions = Array.isArray(baseData?.questions) ? baseData.questions.filter(isUsablePoolQuestion) : [];
+const mergeLessonContentQuestions = (baseData, addData, maxQuestions = SHARED_POOL_MAX_Q_NUM) => {
+  const baseQuestions = Array.isArray(baseData?.questions)
+    ? baseData.questions.filter(isUsablePoolQuestion).slice(0, maxQuestions)
+    : [];
   const addQuestions = Array.isArray(addData?.questions) ? addData.questions.filter(isUsablePoolQuestion) : [];
   const merged = [...baseQuestions];
   const seen = new Set(baseQuestions.map(questionFingerprint));
@@ -337,11 +348,12 @@ const mergeLessonContentQuestions = (baseData, addData) => {
     const key = questionFingerprint(question);
     if (!key || seen.has(key)) continue;
     seen.add(key);
+    if (merged.length >= maxQuestions) break;
     merged.push(question);
   }
   return {
     ...baseData,
-    questions: merged,
+    questions: merged.slice(0, maxQuestions),
     poolSize: merged.length,
     isPartialPool: false,
     expandedAt: new Date().toISOString(),
@@ -606,17 +618,67 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   }, [step, selectedUnit]);
 
   // ── 차시 선택 → AI 콘텐츠 로드/생성 후 바로 학습 시작 ──────
-  const expandLessonPoolInBackground = (unit, lesson, currentData) => {
-    if (!currentData?.isPartialPool && (currentData?.questions?.length || 0) >= POOL_TARGET_Q_NUM) return;
-
+  const expandLessonPoolInBackground = (unit, lesson, currentData, attemptState = null, extraLessonContext = '') => {
     const key = lessonKey(unit, lesson);
-    if (expansionMap.has(key)) return;
+    const expansionKey = `shared-pool:${key}`;
+    if (expansionMap.has(expansionKey)) return;
 
-    const promise = fetchLessonContent(unit, lesson, { fastInitial: false })
-      .then(async expanded => {
-        const mergedContent = mergeLessonContentQuestions(currentData, expanded);
-        await setDoc(doc(db, 'aiLessonContent', key), {
-          ...mergedContent,
+    const usableQuestions = (currentData?.questions || []).filter(isUsablePoolQuestion);
+    const seenKeys = new Set(Array.isArray(attemptState?.seenQuestionKeys) ? attemptState.seenQuestionKeys : []);
+    const unseenCount = usableQuestions.filter(question => !seenKeys.has(`${key}_${questionFingerprint(question)}`)).length;
+    if (usableQuestions.length >= SHARED_POOL_MAX_Q_NUM || unseenCount >= SESSION_Q_NUM) return;
+
+    const contentRef = doc(db, 'aiLessonContent', key);
+    let lockOwner = '';
+
+    const promise = (async () => {
+      const now = Date.now();
+      lockOwner = `${studentCode || 'student'}:${now}:${Math.random().toString(36).slice(2, 8)}`;
+      const lockAcquired = await runTransaction(db, async transaction => {
+        const snap = await transaction.get(contentRef);
+        const latest = snap.exists() ? snap.data() : currentData;
+        const latestQuestions = (latest?.questions || []).filter(isUsablePoolQuestion);
+        const latestUnseenCount = latestQuestions.filter(question =>
+          !seenKeys.has(`${key}_${questionFingerprint(question)}`)
+        ).length;
+        const lockUntil = Number(latest?.studentPoolGrowthLockUntilMs || 0);
+        const lastGrowthAt = Number(latest?.studentPoolGrowthLastAtMs || 0);
+
+        if (latestQuestions.length >= SHARED_POOL_MAX_Q_NUM || latestUnseenCount >= SESSION_Q_NUM) return false;
+        if (lockUntil > now || now - lastGrowthAt < SHARED_POOL_GROW_COOLDOWN_MS) return false;
+
+        transaction.set(contentRef, {
+          studentPoolGrowthLockOwner: lockOwner,
+          studentPoolGrowthLockUntilMs: now + SHARED_POOL_GROW_LOCK_MS,
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+        return true;
+      });
+      if (!lockAcquired) return currentData;
+
+      const existingQuestionGuide = usableQuestions.slice(-12)
+        .map((question, index) => `${index + 1}. ${question.question}`)
+        .join('\n');
+      const generated = await fetchLessonContent(unit, lesson, {
+        fastInitial: true,
+        allowPartial: true,
+        questionCount: SHARED_POOL_GROW_Q_NUM,
+        extraLessonContext: [
+          extraLessonContext,
+          '[공용 문제 풀 추가 생성]',
+          '아래 기존 문제와 문장·숫자·상황이 겹치지 않는 새로운 문제만 생성하세요.',
+          existingQuestionGuide,
+        ].filter(Boolean).join('\n\n'),
+      });
+
+      const mergedContent = await runTransaction(db, async transaction => {
+        const snap = await transaction.get(contentRef);
+        const latest = snap.exists() ? snap.data() : currentData;
+        if (latest?.studentPoolGrowthLockOwner !== lockOwner) return latest;
+
+        const merged = mergeLessonContentQuestions(latest, generated, SHARED_POOL_MAX_Q_NUM);
+        transaction.set(contentRef, {
+          ...merged,
           lessonKey: key,
           grade: unit.grade,
           semester: unit.semester,
@@ -625,19 +687,42 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           unitName: unit.unitName,
           lessonNo: lesson.no,
           lessonTitle: lesson.title,
-          createdAt: serverTimestamp(),
+          studentPoolGrowthLockOwner: null,
+          studentPoolGrowthLockUntilMs: 0,
+          studentPoolGrowthLastAtMs: Date.now(),
+          studentPoolGrowthAddedCount: Math.max(
+            0,
+            (merged.questions?.length || 0) - ((latest?.questions || []).filter(isUsablePoolQuestion).length),
+          ),
           updatedAt: serverTimestamp(),
         }, { merge: true });
-        preloadMap.set(key, Promise.resolve(mergedContent));
-        return mergedContent;
-      })
-      .catch(err => {
-        console.warn('[AI Courseware] background pool expansion failed:', err);
+        return merged;
+      });
+
+      preloadMap.set(key, Promise.resolve(mergedContent));
+      return mergedContent;
+    })()
+      .catch(async err => {
+        console.warn('[AI Courseware] shared pool expansion failed:', err);
+        try {
+          await runTransaction(db, async transaction => {
+            const snap = await transaction.get(contentRef);
+            if (snap.exists() && snap.data().studentPoolGrowthLockOwner === lockOwner) {
+              transaction.set(contentRef, {
+                studentPoolGrowthLockOwner: null,
+                studentPoolGrowthLockUntilMs: 0,
+                updatedAt: serverTimestamp(),
+              }, { merge: true });
+            }
+          });
+        } catch {
+          // 잠금 해제 실패 시 짧은 만료 시간 이후 다른 학생이 다시 시도합니다.
+        }
         return currentData;
       })
-      .finally(() => expansionMap.delete(key));
+      .finally(() => expansionMap.delete(expansionKey));
 
-    expansionMap.set(key, promise);
+    expansionMap.set(expansionKey, promise);
   };
 
   const openLesson = async (unit, lesson) => {
@@ -674,7 +759,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       stepTimer.clear();
       setContent(pickSessionQuestions(data, key, attemptDoc.exists() ? attemptDoc.data() : null));
       setStep('concept');
-      expandLessonPoolInBackground(unit, lesson, data);
+      expandLessonPoolInBackground(unit, lesson, data, attemptDoc.exists() ? attemptDoc.data() : null);
     } catch (e) {
       stepTimer.clear();
       showToast('콘텐츠 로드에 실패했습니다. 다시 시도해주세요.', 'error');
@@ -690,7 +775,9 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       getDoc(doc(db, 'aiQuestionAttempts', lessonAttemptId(studentCode, key))),
     ]);
     const poolData = cacheSnap.exists() ? cacheSnap.data() : content;
-    setContent(pickSessionQuestions(poolData, key, attemptSnap.exists() ? attemptSnap.data() : null));
+    const attemptState = attemptSnap.exists() ? attemptSnap.data() : null;
+    setContent(pickSessionQuestions(poolData, key, attemptState));
+    expandLessonPoolInBackground(selectedUnit, selectedLesson, poolData, attemptState);
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null); setExpandedResult(null);
     setHintLevel(0); setWrongCauseByQuestion({});
@@ -743,9 +830,6 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
   const appendSimilarQuestionsInBackground = (wrongQuestions, reason = 'wrong-type-repeat') => {
     if (!selectedUnit || !selectedLesson || !wrongQuestions.length) return;
-    const key = lessonKey(selectedUnit, selectedLesson);
-    const expansionKey = `${key}:${reason}`;
-    if (expansionMap.has(expansionKey)) return;
 
     const isExtension = reason === 'all-correct-extension';
     const focusLines = wrongQuestions.slice(0, 3).map((q, index) =>
@@ -759,24 +843,16 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       '기존 문항을 그대로 반복하지 말고, 정답과 해설을 반드시 검산하세요.',
       focusLines,
     ].join('\n');
-
-    const task = fetchLessonContent(selectedUnit, selectedLesson, {
-      fastInitial: true,
-      questionCount: SESSION_Q_NUM,
-      extraLessonContext,
-    }).then(async generated => {
-      const cacheSnap = await getDoc(doc(db, 'aiLessonContent', key));
-      const baseData = cacheSnap.exists() ? cacheSnap.data() : content;
-      const merged = mergeLessonContentQuestions(baseData, generated);
-      await saveLessonContentCache(selectedUnit, selectedLesson, merged);
-      preloadMap.set(key, Promise.resolve(merged));
-      return merged;
-    }).catch(err => {
-      console.warn('[AI Courseware] similar wrong-question generation failed:', err);
-      return null;
-    }).finally(() => expansionMap.delete(expansionKey));
-
-    expansionMap.set(expansionKey, task);
+    const key = lessonKey(selectedUnit, selectedLesson);
+    getDoc(doc(db, 'aiQuestionAttempts', lessonAttemptId(studentCode, key)))
+      .then(attemptSnap => expandLessonPoolInBackground(
+        selectedUnit,
+        selectedLesson,
+        content,
+        attemptSnap.exists() ? attemptSnap.data() : null,
+        extraLessonContext,
+      ))
+      .catch(err => console.warn('[AI Courseware] similar wrong-question generation failed:', err));
   };
 
   const updateQuestionAttemptState = async ({ key, allAns, newAttemptNo }) => {
