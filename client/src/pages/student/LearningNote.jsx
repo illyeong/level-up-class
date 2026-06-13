@@ -142,8 +142,10 @@ export default function LearningNote({ studentCode, themeMode = 'dark' }) {
   const [subjects, setSubjects]         = useState([{ subject: '', coreContent: '', myThought: '', imageBase64: '' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [compressingIdx, setCompressingIdx] = useState(null);
-  const [noteCoachPrompt, setNoteCoachPrompt] = useState('');
+  const [noteCoach, setNoteCoach] = useState({});
   const fileRefs = useRef([]);
+  const coreRefs = useRef([]);
+  const thoughtRefs = useRef([]);
 
   // ── 데이터 로드 ──────────────────────────────────────────────
   useEffect(() => {
@@ -202,14 +204,66 @@ export default function LearningNote({ studentCode, themeMode = 'dark' }) {
     setSubjects(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   };
 
+  const getCoachState = (sub) => {
+    const subjectName = sub.subject || '이 과목';
+    if (!sub.subject) {
+      return {
+        stage: '과목 선택',
+        message: '먼저 과목을 선택하면 과목에 맞는 생각 질문을 추천해 드려요.',
+        prompts: [],
+      };
+    }
+    if (sub.coreContent.length < settings.minCoreLength) {
+      return {
+        stage: '핵심 내용 정리',
+        message: `${subjectName} 시간에 배운 내용을 한 문장으로 먼저 정리해 보세요.`,
+        prompts: [
+          ['오늘 배운 것의 이름이나 핵심 낱말은 무엇인가요?', 'coreContent'],
+          ['수업에서 본 예시를 하나 떠올려 볼까요?', 'coreContent'],
+          ['친구에게 한 문장으로 설명하면 어떻게 말할까요?', 'coreContent'],
+        ],
+      };
+    }
+    if (sub.myThought.length < settings.minThoughtLength) {
+      return {
+        stage: '나의 생각 확장',
+        message: '핵심 내용은 충분해요. 이제 내가 이해한 방법이나 궁금한 점을 덧붙여 보세요.',
+        prompts: [
+          ['처음에는 어려웠지만 이해하게 된 부분은 무엇인가요?', 'myThought'],
+          ['오늘 배운 내용을 어디에 활용할 수 있을까요?', 'myThought'],
+          ['아직 더 알아보고 싶은 질문은 무엇인가요?', 'myThought'],
+        ],
+      };
+    }
+    return {
+      stage: '마무리 점검',
+      message: '내용과 생각이 모두 작성됐어요. 구체적인 예시가 들어갔는지 마지막으로 확인해 보세요.',
+      prompts: [
+        ['내 글에 실제 예시나 이유가 한 가지 들어갔나요?', 'coreContent'],
+        ['내가 성장한 점이 드러나나요?', 'myThought'],
+        ['다음 시간의 목표를 한 문장으로 적어 볼까요?', 'myThought'],
+      ],
+    };
+  };
+
+  const selectCoachPrompt = (idx, prompt, target) => {
+    setNoteCoach(prev => ({ ...prev, [idx]: { prompt, target } }));
+    window.requestAnimationFrame(() => {
+      const ref = target === 'coreContent' ? coreRefs.current[idx] : thoughtRefs.current[idx];
+      ref?.focus();
+    });
+  };
+
   const addSubjectRow = () => {
     if (subjects.length >= 6) return;
     setSubjects(prev => [...prev, { subject: '', coreContent: '', myThought: '', imageBase64: '' }]);
+    setNoteCoach({});
   };
 
   const removeSubjectRow = (idx) => {
     if (subjects.length === 1) return;
     setSubjects(prev => prev.filter((_, i) => i !== idx));
+    setNoteCoach({});
   };
 
   const isFormValid = subjects.every(s =>
@@ -238,6 +292,7 @@ export default function LearningNote({ studentCode, themeMode = 'dark' }) {
     setEditingNoteId(null);
     setSubjects([{ subject: '', coreContent: '', myThought: '', imageBase64: '' }]);
     setWriteDate(today);
+    setNoteCoach({});
   };
 
   // ── 제출 (신규 or 수정) ──────────────────────────────────────
@@ -362,39 +417,14 @@ export default function LearningNote({ studentCode, themeMode = 'dark' }) {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-extrabold text-indigo-900">🤖 배움노트 생각 도우미</p>
-                <p className="mt-1 text-xs font-semibold text-indigo-600">AI가 대신 쓰지 않고, 생각을 시작할 질문을 제안합니다.</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  '오늘 가장 새롭게 알게 된 것은 무엇인가요?',
-                  '어려웠던 부분을 어떻게 해결했나요?',
-                  '친구에게 설명한다면 어떻게 말할 수 있나요?',
-                  '다음 시간에 더 알고 싶은 것은 무엇인가요?',
-                ].map(prompt => (
-                  <button type="button" key={prompt} onClick={() => setNoteCoachPrompt(prompt)}
-                    className="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-[11px] font-extrabold text-indigo-700 hover:border-indigo-400">
-                    {prompt.replace('무엇인가요?', '').replace('어떻게 말할 수 있나요?', '')}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {noteCoachPrompt && (
-              <div className="mt-3 rounded-xl bg-white px-4 py-3 text-sm font-bold leading-relaxed text-slate-700">
-                💬 {noteCoachPrompt}
-              </div>
-            )}
-          </div>
-
           {subjects.map((sub, idx) => {
             const coreOk    = sub.coreContent.length >= settings.minCoreLength;
             const thoughtOk = sub.myThought.length   >= settings.minThoughtLength;
             const dupSubject = dateSubjects.has(sub.subject);
             const dupInForm  = sub.subject && subjects.filter((s, i) => i !== idx && s.subject === sub.subject).length > 0;
             const isComplete = coreOk && thoughtOk && sub.subject && !dupSubject && !dupInForm;
+            const coach = getCoachState(sub);
+            const activeCoach = noteCoach[idx];
             return (
               <div key={idx} className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all
                 ${isComplete ? 'border-emerald-300' : 'border-slate-100'}`}>
@@ -435,6 +465,41 @@ export default function LearningNote({ studentCode, themeMode = 'dark' }) {
                     )}
                   </div>
 
+                  <div className="overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-50/80">
+                    <div className="flex items-start justify-between gap-3 border-b border-indigo-100 px-4 py-3">
+                      <div>
+                        <p className="text-xs font-black text-indigo-900">🤖 생각 코치 · {coach.stage}</p>
+                        <p className="mt-1 text-[11px] font-semibold leading-relaxed text-indigo-700">{coach.message}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[10px] font-extrabold text-indigo-600">
+                        {isComplete ? '작성 완료' : '작성 중'}
+                      </span>
+                    </div>
+                    {coach.prompts.length > 0 && (
+                      <div className="grid gap-2 p-3 sm:grid-cols-3">
+                        {coach.prompts.map(([prompt, target]) => (
+                          <button
+                            type="button"
+                            key={prompt}
+                            onClick={() => selectCoachPrompt(idx, prompt, target)}
+                            className={`rounded-xl border px-3 py-2 text-left text-[11px] font-bold leading-relaxed transition-colors ${
+                              activeCoach?.prompt === prompt
+                                ? 'border-indigo-500 bg-indigo-600 text-white'
+                                : 'border-indigo-100 bg-white text-slate-700 hover:border-indigo-300'
+                            }`}
+                          >
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {activeCoach && (
+                      <div className="mx-3 mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-relaxed text-amber-800">
+                        이 질문에 답하듯 직접 작성해 보세요: {activeCoach.prompt}
+                      </div>
+                    )}
+                  </div>
+
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-[11px] font-bold text-slate-500">📌 핵심 배움 내용</label>
@@ -448,7 +513,7 @@ export default function LearningNote({ studentCode, themeMode = 'dark' }) {
                         </span>
                       </div>
                     </div>
-                    <textarea value={sub.coreContent} onChange={e => updateField(idx, 'coreContent', e.target.value)}
+                    <textarea ref={el => coreRefs.current[idx] = el} value={sub.coreContent} onChange={e => updateField(idx, 'coreContent', e.target.value)}
                       placeholder={`오늘 배운 핵심 내용을 적어주세요. (최소 ${settings.minCoreLength}자)`}
                       rows={3}
                       className={`w-full border-2 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none transition-colors
@@ -468,7 +533,7 @@ export default function LearningNote({ studentCode, themeMode = 'dark' }) {
                         </span>
                       </div>
                     </div>
-                    <textarea value={sub.myThought} onChange={e => updateField(idx, 'myThought', e.target.value)}
+                    <textarea ref={el => thoughtRefs.current[idx] = el} value={sub.myThought} onChange={e => updateField(idx, 'myThought', e.target.value)}
                       placeholder={`나의 생각이나 더 알고 싶은 점을 적어주세요. (최소 ${settings.minThoughtLength}자)`}
                       rows={3}
                       className={`w-full border-2 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none transition-colors

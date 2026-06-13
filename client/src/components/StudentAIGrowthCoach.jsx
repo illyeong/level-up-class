@@ -80,6 +80,9 @@ export default function StudentAIGrowthCoach({ studentCode, onChangeView, themeM
             ? `${unresolved[0].lessonTitle}부터 차근차근 다시 확인해 보세요.`
             : '틀린 문제를 다시 풀며 헷갈린 개념을 확인해 보세요.',
         primary: { label: '오답 복습하기', view: 'aiCourseware', intent: 'wrongNote' },
+        secondary: { label: '새 차시 학습하기', view: 'aiCourseware' },
+        focus: topCause ? causeLabels[topCause] || topCause : '오답 복습',
+        todayCount: todayLearning.length,
       };
     }
     if (retryLessons.length > 0) {
@@ -87,6 +90,9 @@ export default function StudentAIGrowthCoach({ studentCode, onChangeView, themeM
         headline: `${retryLessons[0].lessonTitle || '최근 학습 차시'}를 한 번 더 연습해 보세요.`,
         detail: `현재 숙달도 ${retryLessons[0].masteryAvg ?? '평가 중'}점이에요. 한 번 더 풀면 성장 기록이 달라집니다.`,
         primary: { label: '이어서 학습하기', view: 'aiCourseware' },
+        secondary: { label: '배움노트 기록하기', view: 'learningNote' },
+        focus: retryLessons[0].lessonTitle || '숙달도 올리기',
+        todayCount: todayLearning.length,
       };
     }
     if (todayLearning.length === 0) {
@@ -96,12 +102,18 @@ export default function StudentAIGrowthCoach({ studentCode, onChangeView, themeM
           ? `최근에는 ${recentProgress.lessonTitle}을 학습했어요. 오늘도 한 차시만 도전해 보세요.`
           : 'AI 학습관에서 원하는 차시를 골라 첫 학습을 시작해 보세요.',
         primary: { label: '오늘 학습 시작하기', view: 'aiCourseware' },
+        secondary: { label: '배움노트 기록하기', view: 'learningNote' },
+        focus: recentProgress?.lessonTitle || '첫 학습 시작',
+        todayCount: 0,
       };
     }
     return {
       headline: `오늘 ${todayLearning.length}개 차시를 학습했어요.`,
       detail: '학습 내용을 배움노트에 정리하면 오늘의 성장을 더 오래 기억할 수 있어요.',
       primary: { label: '배움노트 작성하기', view: 'learningNote' },
+      secondary: { label: '학습 더 이어가기', view: 'aiCourseware' },
+      focus: '오늘 배운 내용 정리',
+      todayCount: todayLearning.length,
     };
   }, [data]);
 
@@ -129,22 +141,32 @@ export default function StudentAIGrowthCoach({ studentCode, onChangeView, themeM
 
   const dark = themeMode === 'dark';
   return (
-    <section className={`rounded-3xl border p-5 shadow-sm ${
-      dark ? 'border-indigo-400/20 bg-slate-900/80 text-white' : 'border-indigo-100 bg-white text-slate-800'
+    <section className={`overflow-hidden rounded-3xl border shadow-sm ${
+      dark ? 'border-indigo-400/20 bg-slate-900/90 text-white' : 'border-indigo-100 bg-white text-slate-800'
     }`}>
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0">
-          <div className="mb-2 flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-indigo-600 text-lg">🤖</span>
+      <div className={`border-b px-5 py-3 ${dark ? 'border-slate-800 bg-indigo-500/10' : 'border-indigo-100 bg-indigo-50/70'}`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-lg">🤖</span>
             <div>
               <h2 className="text-base font-black">AI 오늘의 성장 코치</h2>
-              <p className={`text-[11px] font-semibold ${dark ? 'text-slate-400' : 'text-slate-500'}`}>학습 기록을 바탕으로 다음 행동을 추천해요</p>
+              <p className={`text-[11px] font-semibold ${dark ? 'text-slate-400' : 'text-slate-500'}`}>지금 가장 도움이 되는 행동을 골랐어요</p>
             </div>
           </div>
+          {!data.loading && (
+            <span className={`rounded-full px-3 py-1 text-[11px] font-extrabold ${dark ? 'bg-slate-800 text-indigo-200' : 'bg-white text-indigo-700'}`}>
+              오늘 {summary.todayCount}차시 학습
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex flex-col gap-5 p-5 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
           {data.loading ? (
             <p className={`text-sm font-bold ${dark ? 'text-slate-400' : 'text-slate-500'}`}>오늘의 추천을 준비하는 중...</p>
           ) : (
             <>
+              <p className={`mb-1 text-[11px] font-extrabold ${dark ? 'text-indigo-300' : 'text-indigo-600'}`}>오늘의 집중 목표 · {summary.focus}</p>
               <p className="text-lg font-black leading-snug">{summary.headline}</p>
               <p className={`mt-1 text-sm font-semibold leading-relaxed ${dark ? 'text-slate-300' : 'text-slate-600'}`}>{summary.detail}</p>
             </>
@@ -155,16 +177,16 @@ export default function StudentAIGrowthCoach({ studentCode, onChangeView, themeM
             className="rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-extrabold text-white shadow-md hover:bg-indigo-700 disabled:opacity-40">
             {summary.primary.label}
           </button>
-          <button type="button" onClick={() => onChangeView?.('quest')}
+          <button type="button" disabled={data.loading} onClick={() => move(summary.secondary)}
             className={`rounded-2xl border px-4 py-3 text-sm font-extrabold ${
               dark ? 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700' : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
             }`}>
-            오늘의 퀘스트
+            {summary.secondary.label}
           </button>
         </div>
       </div>
       {!data.loading && (
-        <div className={`mt-4 grid grid-cols-3 gap-2 border-t pt-4 ${dark ? 'border-slate-700' : 'border-slate-100'}`}>
+        <div className={`grid grid-cols-3 gap-2 border-t px-5 py-4 ${dark ? 'border-slate-800 bg-slate-950/30' : 'border-slate-100 bg-slate-50/70'}`}>
           {[
             ['이번 주 학습', `${weekStats.learned}차시`],
             ['해결한 오답', `${weekStats.resolved}개`],

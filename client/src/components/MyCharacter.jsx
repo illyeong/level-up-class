@@ -13,7 +13,7 @@ const RARITY_BADGE = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟡',
 const RARITY_LABEL = { common:'일반', rare:'희귀', epic:'영웅', legendary:'전설', mythic:'신화' };
 const RARITY_COLOR = { common:'text-slate-500', rare:'text-blue-600', epic:'text-purple-600', legendary:'text-amber-600', mythic:'text-rose-600' };
 
-export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
+export default function MyCharacter({ studentCode, themeMode = 'dark', onChangeView }) {
   const { t } = useTranslation();
   const [studentData, setStudentData] = useState(null);
   const [allItems, setAllItems]       = useState([]);
@@ -106,16 +106,46 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
   const equippedCount = Object.keys(equipped).length;
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto w-full">
-      <h1 className={`text-3xl font-bold mb-6 drop-shadow-sm ${themeMode === 'dark' ? 'text-white' : 'text-slate-800'}`}>
-        {t('character.title')}
-      </h1>
+    <div className="p-5 md:p-8 max-w-7xl mx-auto w-full">
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className={`text-3xl font-black drop-shadow-sm ${themeMode === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+            {t('character.title')}
+          </h1>
+          <p className={`mt-1 text-sm font-semibold ${themeMode === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+            성장 상태와 장착 효과를 한눈에 확인하세요.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[
+            ['아바타 꾸미기', 'avatarRoom'],
+            ['꾸미기 상점', 'cosmeticShop'],
+            ['장비 관리', 'equipment'],
+            ['펫 하우스', 'petHouse'],
+          ].map(([label, view], index) => (
+            <button
+              key={view}
+              type="button"
+              onClick={() => onChangeView?.(view)}
+              className={`rounded-xl border px-3 py-2 text-xs font-extrabold transition-colors ${
+                index === 0
+                  ? 'border-indigo-500 bg-indigo-600 text-white hover:bg-indigo-700'
+                  : themeMode === 'dark'
+                    ? 'border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
         {/* ── 왼쪽: 캐릭터 카드 ── */}
-        <div className="lg:col-span-1 bg-white rounded-3xl shadow-lg border border-slate-100 p-8 flex flex-col items-center justify-center transform transition-all hover:-translate-y-1 hover:shadow-xl">
-          <div className="relative w-48 h-56 mb-6">
+        <div className={`${activePet ? 'lg:col-span-7' : 'lg:col-span-12'} bg-white rounded-3xl shadow-lg border border-slate-100 p-6 md:p-8 flex flex-col md:flex-row items-center gap-7`}>
+          <div className="relative w-48 h-56 shrink-0">
             <div
               className="relative w-full h-full bg-indigo-50 border-2 border-indigo-200 rounded-2xl flex items-center justify-center shadow-inner overflow-hidden"
               style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
@@ -143,17 +173,29 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-800 mb-6">{name}</h2>
-
-          <div className="w-full">
-            <div className="flex justify-between text-sm font-bold text-slate-500 mb-2">
-              <span>{t('character.exp')}</span>
-              <span>{exp} / {maxExp}</span>
+          <div className="w-full min-w-0">
+            <p className="text-xs font-extrabold uppercase text-indigo-500">나의 성장 현황</p>
+            <h2 className="mt-1 text-3xl font-black text-slate-800">{name}</h2>
+            <div className="mt-6">
+              <div className="flex justify-between text-sm font-bold text-slate-500 mb-2">
+                <span>{t('character.exp')}</span>
+                <span>{exp} / {maxExp}</span>
+              </div>
+              <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden shadow-inner border border-slate-200">
+                <div className="h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full transition-all duration-1000 ease-out relative"
+                  style={{ width: `${expPct}%` }}>
+                  <div className="absolute top-0 left-0 right-0 h-1/2 bg-white/30 rounded-t-full" />
+                </div>
+              </div>
             </div>
-            <div className="w-full h-5 bg-slate-100 rounded-full overflow-hidden shadow-inner border border-slate-200">
-              <div className="h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full transition-all duration-1000 ease-out relative"
-                style={{ width: `${expPct}%` }}>
-                <div className="absolute top-0 left-0 right-0 h-1/2 bg-white/30 rounded-t-full" />
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <p className="text-xs font-bold text-amber-600">{t('character.gold')}</p>
+                <p className="mt-1 text-2xl font-black text-amber-500">🪙 {gold.toLocaleString()}</p>
+              </div>
+              <div className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4">
+                <p className="text-xs font-bold text-cyan-600">{t('character.diamond')}</p>
+                <p className="mt-1 text-2xl font-black text-cyan-500">💎 {diamond.toLocaleString()}</p>
               </div>
             </div>
           </div>
@@ -174,7 +216,7 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
           const statLines = formatStats(boostedStats);
           const rc = RARITY_COLOR[activePet.rarity] || 'text-slate-500';
           return (
-            <div className="lg:col-span-1 bg-white rounded-3xl shadow-lg border border-slate-100 p-5 flex flex-col items-center">
+            <div className="lg:col-span-5 bg-white rounded-3xl shadow-lg border border-slate-100 p-6 flex flex-col items-center justify-center">
               <p className="text-xs font-extrabold text-slate-400 mb-3 tracking-wide">🐾 착용 펫</p>
               <div className="flex justify-center items-end mb-3 cursor-pointer"
                 onClick={() => setPetAnim(a => a === 'idle' ? 'attack' : 'idle')}>
@@ -196,10 +238,10 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
         })()}
 
         {/* ── 오른쪽 ── */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
+        <div className="lg:col-span-12 grid grid-cols-1 xl:grid-cols-2 gap-6">
 
           {/* 재화 */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="hidden grid-cols-2 gap-4 xl:col-span-2">
             <div className="bg-white rounded-3xl shadow-md border border-slate-100 p-6 flex items-center justify-between hover:scale-[1.02] transition-transform cursor-pointer">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-2xl shadow-sm">🪙</div>
@@ -226,7 +268,6 @@ export default function MyCharacter({ studentCode, themeMode = 'dark' }) {
             </p>
             <div className="grid grid-cols-2 gap-3">
               {STAT_META.map(s => {
-                const base  = levelStats[s.key];
                 const bonus = equipBonus[s.key] || 0;
                 const total = totalStats[s.key];
                 return (

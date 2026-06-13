@@ -752,7 +752,7 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
       </div>
     )}
     <div className={`min-h-screen p-6 md:p-8 ${themeMode === 'dark' ? '' : 'bg-slate-50'}`}>
-      <div className="max-w-7xl mx-auto flex items-center justify-between mb-8 gap-4 flex-wrap">
+      <div className="max-w-7xl mx-auto flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className={`text-3xl font-bold flex items-center gap-2 ${themeMode === 'dark' ? 'text-white' : 'text-slate-800'}`}>
           <img src={iconDashboard} alt="대시보드" className="w-8 h-8 object-contain" />
           학생 대시보드
@@ -800,9 +800,9 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] items-start gap-6">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)] items-start gap-6">
         {/* 캐릭터 카드 */}
-        <div className="bg-white p-5 rounded-3xl shadow-lg border border-gray-100 text-center self-start">
+        <div className="bg-white p-5 rounded-3xl shadow-lg border border-gray-100 text-center self-start xl:sticky xl:top-6">
           <div
             className="w-full h-44 md:h-48 mx-auto flex items-center justify-center mb-4 relative bg-indigo-50 rounded-2xl overflow-hidden border border-indigo-100"
             style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
@@ -866,24 +866,33 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
         </div>
 
         {/* 우측: 출석 체크 + 퀘스트 안내 */}
-        <div className="flex flex-col gap-4">
-          <StudentAIGrowthCoach
-            studentCode={studentCode}
-            onChangeView={onChangeView}
-            themeMode={themeMode}
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="lg:col-span-2">
+            <StudentAIGrowthCoach
+              studentCode={studentCode}
+              onChangeView={onChangeView}
+              themeMode={themeMode}
+            />
+          </div>
 
           {/* 출석 체크 */}
-          <AttendanceCheck studentCode={studentCode} />
+          <div className="min-w-0">
+            <AttendanceCheck studentCode={studentCode} />
+          </div>
+
+          <div className="min-w-0">
+            <RewardLogModalWidget studentId={studentData?.id} />
+          </div>
 
           {/* 오늘의 퀘스트 */}
-          <TodayQuestWidget
-            studentId={studentData?.id}
-            teacherUid={studentData?.teacherUid}
-            onYesterdayLog={handleYesterdayLog}
-            onStudentRewarded={(rewardedData) => setStudentData(prev => prev ? { ...prev, ...rewardedData } : prev)}
-          />
-          <RewardLogModalWidget studentId={studentData?.id} />
+          <div className="lg:col-span-2 min-w-0">
+            <TodayQuestWidget
+              studentId={studentData?.id}
+              teacherUid={studentData?.teacherUid}
+              onYesterdayLog={handleYesterdayLog}
+              onStudentRewarded={(rewardedData) => setStudentData(prev => prev ? { ...prev, ...rewardedData } : prev)}
+            />
+          </div>
         </div>
       </div>
 
