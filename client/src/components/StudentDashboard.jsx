@@ -657,18 +657,6 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
     }
   };
 
-  const openHomeShortcutGuide = () => {
-    setInstallGuide({
-      title: '홈화면/바탕화면에 추가하기',
-      description: isIOS
-        ? 'iPhone/iPad에서는 Safari 하단 공유 버튼을 누른 뒤 "홈 화면에 추가"를 선택해 주세요.'
-        : '브라우저 주소창 오른쪽 또는 메뉴에서 "홈 화면에 추가", "바로가기 만들기", "앱 설치"를 선택해 주세요.',
-      steps: isIOS
-        ? ['Safari로 접속하기', '하단 공유 버튼 누르기', '"홈 화면에 추가" 선택']
-        : ['Chrome 또는 Edge로 접속하기', '주소창 오른쪽 설치 아이콘 또는 메뉴 열기', '"홈 화면에 추가" 또는 "바로가기 만들기" 선택'],
-    });
-  };
-
   const handleAppInstallClick = async () => {
     if (installPrompt) {
       installPrompt.prompt();
@@ -758,22 +746,6 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
           학생 대시보드
         </h1>
         <div className="flex items-center gap-3 flex-wrap">
-          {installPrompt && (
-            <button
-              onClick={openHomeShortcutGuide}
-              className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 border border-slate-800 text-white font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm"
-            >
-              홈화면/바탕화면 추가
-            </button>
-          )}
-          {!installPrompt && (
-            <button
-              onClick={openHomeShortcutGuide}
-              className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 border border-slate-800 text-white font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm"
-            >
-              홈화면/바탕화면 추가
-            </button>
-          )}
           <button
             onClick={handleAppInstallClick}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 border border-indigo-700 text-white font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm"
