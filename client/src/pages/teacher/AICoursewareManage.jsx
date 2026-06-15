@@ -958,7 +958,7 @@ function LearningOverviewTab({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+      <div className="ai-overview-toolbar flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div>
           <p className="text-sm font-black text-slate-800">분석 기간</p>
           <p className="mt-0.5 text-[11px] font-medium text-slate-400">활동·정답률·성장 추세에 적용되며 숙달도는 누적 기준입니다.</p>
@@ -977,7 +977,7 @@ function LearningOverviewTab({
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {overviewCards.map(card => (
-          <div key={card.label} className={`rounded-2xl border p-4 ${card.accent}`}>
+          <div key={card.label} className={`ai-overview-stat rounded-2xl border p-4 ${card.accent}`}>
             <p className="text-xs font-bold opacity-70">{card.label}</p>
             <p className="mt-2 text-2xl font-black">{card.value}</p>
             <p className="mt-1 text-xs font-semibold opacity-65">{card.note}</p>
@@ -986,7 +986,7 @@ function LearningOverviewTab({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="ai-overview-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-extrabold text-indigo-600">오늘의 학습 판단</p>
@@ -1014,13 +1014,13 @@ function LearningOverviewTab({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="ai-overview-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <h3 className="font-black text-slate-800">어려워한 차시</h3>
           </div>
           <div className="mt-3 space-y-2">
             {weakLessons.length ? weakLessons.map(lesson => (
-              <div key={lesson.key} className="rounded-xl bg-slate-50 px-3 py-2.5">
+              <div key={lesson.key} className="ai-weak-lesson rounded-xl bg-slate-50 px-3 py-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <p className="truncate text-xs font-extrabold text-slate-700">{lesson.lessonTitle}</p>
                   <span className="shrink-0 text-xs font-black text-rose-600">{lesson.average}%</span>
@@ -1036,7 +1036,7 @@ function LearningOverviewTab({
         </div>
       </div>
 
-      <div ref={studentTableRef} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div ref={studentTableRef} className="ai-student-table overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -1070,14 +1070,14 @@ function LearningOverviewTab({
 
         <div className="overflow-x-auto">
           <div className="min-w-[760px]">
-            <div className="grid grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr_1fr] gap-3 bg-slate-50 px-5 py-3 text-[11px] font-extrabold text-slate-400">
+            <div className="ai-student-table-head grid grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr_1fr] gap-3 bg-slate-50 px-5 py-3 text-[11px] font-extrabold text-slate-400">
               <span>학생</span><span>학습 상태</span><span>평균 정답률</span><span>평균 숙달도</span><span>최근 변화</span><span>최근 학습</span>
             </div>
             <div className="divide-y divide-slate-100">
               {visibleStudents.map(student => (
                 <button type="button" key={student.id} onClick={() => onOpenStudent(student)}
-                  className={`grid w-full grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr_1fr] items-center gap-3 px-5 py-3 text-left hover:bg-indigo-50/50
-                    ${student.status === 'support' ? 'bg-rose-50/40' : ''}`}>
+                  className={`ai-student-row grid w-full grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr_1fr] items-center gap-3 px-5 py-3 text-left hover:bg-indigo-50/50
+                    ${student.status === 'support' ? 'ai-student-row-support bg-rose-50/40' : ''}`}>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-extrabold text-slate-800">{student.name || student.studentName || student.studentCode}</span>
                     <span className="block truncate text-[10px] font-medium text-slate-400">{student.studentCode}</span>

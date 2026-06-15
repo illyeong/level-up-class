@@ -1011,11 +1011,11 @@ export default function QuizBank({ selectedClass = null }) {
 
   return (
     <>
-    <div className="min-h-screen bg-slate-100 p-8">
+    <div className="quiz-bank-page min-h-screen bg-slate-100 p-8">
       <div className="max-w-5xl mx-auto">
 
         {/* 헤더 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-3 mb-6">
+        <div className="quiz-bank-header bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-extrabold text-slate-800">📚 퀴즈 은행</h1>
             <p className="text-slate-500 text-sm mt-0.5">퀴즈를 만들고 관리하세요. 던전과 레이드에 바로 활용할 수 있습니다.</p>
@@ -1040,7 +1040,7 @@ export default function QuizBank({ selectedClass = null }) {
         {tab === 'mine' && (
           <div className="space-y-4">
             {/* 필터 */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+            <div className="quiz-bank-toolbar bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
               <div className="flex flex-wrap gap-3 items-end">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 mb-1">학년</label>
@@ -1087,7 +1087,7 @@ export default function QuizBank({ selectedClass = null }) {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {filteredMySets.map(set => (
-                  <div key={set.id} className="rounded-2xl border-2 border-slate-200 bg-white overflow-hidden hover:shadow-md transition-all group">
+                  <div key={set.id} className="quiz-bank-card rounded-2xl border-2 border-slate-200 bg-white overflow-hidden hover:shadow-md transition-all group">
                     {/* 색깔 띠 */}
                     <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center
                       ${set.difficulty === 'easy' ? 'bg-emerald-500' : set.difficulty === 'hard' ? 'bg-rose-500' : 'bg-sky-500'}`}>
@@ -1516,7 +1516,7 @@ export default function QuizBank({ selectedClass = null }) {
         {tab === 'bank' && (
           <div className="space-y-4">
             {/* 필터 */}
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+            <div className="quiz-bank-toolbar bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="font-extrabold text-slate-800">공유 문제 찾기</h2>
@@ -1600,7 +1600,7 @@ export default function QuizBank({ selectedClass = null }) {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {filteredBankSets.map(set => (
-                  <div key={set.id} className="bg-white rounded-2xl border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all overflow-hidden group">
+                  <div key={set.id} className="quiz-bank-card bg-white rounded-2xl border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all overflow-hidden group">
                     {/* 색깔 띠 */}
                     <div className={`px-4 py-2 text-white text-[10px] font-extrabold flex justify-between items-center
                       ${set.difficulty === 'easy' ? 'bg-emerald-500' : set.difficulty === 'hard' ? 'bg-rose-500' : 'bg-sky-500'}`}>

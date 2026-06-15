@@ -102,6 +102,82 @@
     color: #64748b;
 }
 
+/* Quiz bank needs stronger surface separation than the shared teacher dark theme. */
+.teacher-theme-dark .quiz-bank-page {
+    background-color: #080f1f !important;
+    color: #e8eef8;
+}
+
+.teacher-theme-dark .quiz-bank-header {
+    background-color: #101b2f !important;
+    border-color: #3b4f70 !important;
+    box-shadow: 0 12px 30px rgb(0 0 0 / 0.18);
+}
+
+.teacher-theme-dark .quiz-bank-toolbar {
+    background-color: #111e33 !important;
+    border-color: #405777 !important;
+    box-shadow: 0 10px 24px rgb(0 0 0 / 0.16);
+}
+
+.teacher-theme-dark .quiz-bank-card {
+    background-color: #16243b !important;
+    border-color: #3d5272 !important;
+    box-shadow: 0 8px 20px rgb(0 0 0 / 0.14);
+}
+
+.teacher-theme-dark .quiz-bank-card:hover {
+    background-color: #1b2d49 !important;
+    border-color: #818cf8 !important;
+    box-shadow: 0 14px 30px rgb(0 0 0 / 0.28);
+}
+
+.teacher-theme-dark .quiz-bank-page .text-slate-800,
+.teacher-theme-dark .quiz-bank-page .text-slate-700 {
+    color: #f8fafc !important;
+}
+
+.teacher-theme-dark .quiz-bank-page .text-slate-600,
+.teacher-theme-dark .quiz-bank-page .text-slate-500 {
+    color: #cbd5e1 !important;
+}
+
+.teacher-theme-dark .quiz-bank-page .text-slate-400 {
+    color: #a8bad2 !important;
+}
+
+.teacher-theme-dark .quiz-bank-page .border-slate-100,
+.teacher-theme-dark .quiz-bank-page .border-slate-200,
+.teacher-theme-dark .quiz-bank-page .border-slate-300 {
+    border-color: #405777 !important;
+}
+
+.teacher-theme-dark .quiz-bank-page .bg-slate-50,
+.teacher-theme-dark .quiz-bank-page .bg-slate-100 {
+    background-color: #223450 !important;
+}
+
+.teacher-theme-dark .quiz-bank-page input,
+.teacher-theme-dark .quiz-bank-page select {
+    background-color: #0b1629;
+    border-color: #4b6385;
+    color: #f1f5f9;
+}
+
+.teacher-theme-dark .quiz-bank-page input::placeholder {
+    color: #91a5bf;
+}
+
+.teacher-theme-dark .quiz-bank-page button.border-slate-200 {
+    background-color: #172740;
+    color: #dbe7f5 !important;
+}
+
+.teacher-theme-dark .quiz-bank-page button.border-slate-200:hover {
+    background-color: #243956 !important;
+    border-color: #7185a3 !important;
+}
+
 /* AI learning management uses dense status cards and tables. Preserve their
    semantic colors while keeping text and controls readable in teacher dark mode. */
 .teacher-theme-dark .ai-learning-manage {
@@ -264,4 +340,65 @@
     background-color: #0b1526 !important;
     border-color: #52647e !important;
     color: #f1f5f9 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-overview-toolbar {
+    background-color: #101d31 !important;
+    border-color: #425a79 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-overview-stat {
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 10px 22px rgb(0 0 0 / 0.18) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-overview-stat p:first-child {
+    opacity: 0.92 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-overview-stat p:last-child {
+    opacity: 0.82 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-overview-panel,
+.teacher-theme-dark .ai-learning-manage .ai-student-table {
+    background-color: #111e33 !important;
+    border-color: #425a79 !important;
+    box-shadow: 0 12px 28px rgb(0 0 0 / 0.22) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-weak-lesson {
+    background-color: #0b1729 !important;
+    border: 1px solid #2f4462;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-student-table-head {
+    background-color: #0a1628 !important;
+    color: #b9cae0 !important;
+    border-bottom: 1px solid #425a79;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-student-row {
+    background-color: #132239 !important;
+    color: #e8eef8;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-student-row:nth-child(even) {
+    background-color: #101d31 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-student-row:hover {
+    background-color: #1c3150 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-student-row-support {
+    background-color: rgb(76 20 42 / 0.72) !important;
+    box-shadow: inset 4px 0 0 #fb7185;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-student-row-support:nth-child(even) {
+    background-color: rgb(66 18 38 / 0.78) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-student-row-support:hover {
+    background-color: rgb(96 25 50 / 0.82) !important;
 }
