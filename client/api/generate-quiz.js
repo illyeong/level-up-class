@@ -153,7 +153,7 @@ ${sourceSection}`;
       },
       body: JSON.stringify({
         model:      'claude-sonnet-4-6',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages:   [{ role: 'user', content: messageContent }],
       }),
     });
@@ -168,8 +168,9 @@ ${sourceSection}`;
     const data    = await response.json();
     const rawText = data.content?.[0]?.text || '';
 
-    // JSON 추출
-    const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+    // 마크다운 코드블록 제거 후 JSON 추출
+    const stripped = rawText.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
+    const jsonMatch = stripped.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
       return res.status(500).json({
         error: '퀴즈 형식이 올바르지 않습니다. 다시 시도해주세요.',
