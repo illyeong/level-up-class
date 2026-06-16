@@ -1,4 +1,4 @@
-export const config = { maxDuration: 60 };
+export const config = { maxDuration: 60, api: { bodyParser: { sizeLimit: '30mb' } } };
 /**
  * Vercel Serverless Function — 퀴즈 자동 생성
  * Claude API (Anthropic) 사용

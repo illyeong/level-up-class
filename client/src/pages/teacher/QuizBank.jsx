@@ -739,7 +739,9 @@ export default function QuizBank({ selectedClass = null }) {
           count, difficulty, saCount,
         }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { throw new Error(`서버 오류 (${res.status}): 응답을 파싱할 수 없습니다.`); }
       if (!res.ok) { setGenError(data.error || '생성 중 오류가 발생했습니다.'); return; }
       setAiQuestions(data.questions);
       setAiStep('preview');

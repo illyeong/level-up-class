@@ -177,7 +177,9 @@ export default function AILessonQuizSetBuilder({
           saCount: 0,
         }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { throw new Error(`서버 오류 (${res.status}): 응답을 파싱할 수 없습니다.`); }
       if (!res.ok) throw new Error(data.error || '문제 생성 중 오류가 발생했습니다.');
 
       const questions = normalizeQuizQuestions(data.questions || []);
