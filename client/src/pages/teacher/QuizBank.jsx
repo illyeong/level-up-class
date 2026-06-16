@@ -691,7 +691,7 @@ export default function QuizBank({ selectedClass = null }) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== 'application/pdf') { showToast('PDF 파일만 업로드 가능합니다.', 'error'); return; }
-    if (file.size > 20 * 1024 * 1024) { showToast('파일 크기는 20MB 이하여야 합니다.', 'error'); return; }
+    if (file.size > 30 * 1024 * 1024) { showToast('파일 크기는 30MB 이하여야 합니다.', 'error'); return; }
     const reader = new FileReader();
     reader.onload = (ev) => { setPdfBase64(ev.target.result.split(',')[1]); setPdfName(file.name); };
     reader.readAsDataURL(file);
