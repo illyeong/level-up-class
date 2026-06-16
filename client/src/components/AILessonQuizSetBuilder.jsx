@@ -120,12 +120,14 @@ export default function AILessonQuizSetBuilder({
       border: 'focus:border-rose-500',
       button: 'bg-rose-600 hover:bg-rose-700',
       selected: 'border-rose-500 bg-rose-50 text-rose-700',
+      darkSelected: 'dark:bg-rose-950/30 dark:text-rose-200',
       chip: 'bg-rose-50 text-rose-700 border-rose-200',
     }
     : {
       border: 'focus:border-indigo-500',
       button: 'bg-indigo-600 hover:bg-indigo-700',
       selected: 'border-indigo-500 bg-indigo-50 text-indigo-700',
+      darkSelected: 'dark:bg-indigo-950/30 dark:text-indigo-200',
       chip: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     };
 
@@ -223,11 +225,11 @@ export default function AILessonQuizSetBuilder({
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4">
+    <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 dark:border-slate-700 dark:from-slate-950 dark:to-slate-900">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-sm font-extrabold text-slate-800">{title}</h3>
-          <p className="text-xs text-slate-500 mt-0.5">{description}</p>
+          <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">{title}</h3>
+          <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">{description}</p>
         </div>
         {selectedLesson && (
           <div className={`text-[11px] font-extrabold px-3 py-1.5 rounded-xl border ${accentClasses.chip}`}>
@@ -245,28 +247,28 @@ export default function AILessonQuizSetBuilder({
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
             <select value={filters.grade} onChange={e => updateFilter('grade', e.target.value)}
-              className={`border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-white focus:outline-none ${accentClasses.border}`}>
+              className={`border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-white text-slate-800 focus:outline-none dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 ${accentClasses.border}`}>
               <option value="">학년</option>
               {grades.map(v => <option key={v} value={v}>{v}학년</option>)}
             </select>
             <select value={filters.semester} onChange={e => updateFilter('semester', e.target.value)}
-              className={`border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-white focus:outline-none ${accentClasses.border}`}>
+              className={`border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-white text-slate-800 focus:outline-none dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 ${accentClasses.border}`}>
               <option value="">학기</option>
               {semesters.map(v => <option key={v} value={v}>{v}학기</option>)}
             </select>
             <select value={filters.publisher} onChange={e => updateFilter('publisher', e.target.value)}
-              className={`border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-white focus:outline-none ${accentClasses.border}`}>
+              className={`border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-white text-slate-800 focus:outline-none dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 ${accentClasses.border}`}>
               <option value="">출판사</option>
               {publishers.map(v => <option key={v} value={v}>{v}</option>)}
             </select>
             <select value={filters.unitId} onChange={e => updateFilter('unitId', e.target.value)}
-              className={`border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-white focus:outline-none ${accentClasses.border}`}>
+              className={`border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-white text-slate-800 focus:outline-none dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 ${accentClasses.border}`}>
               <option value="">단원</option>
               {unitOptions.map(u => <option key={u.id} value={u.id}>{u.unitNumber ? `${u.unitNumber}. ` : ''}{u.unitName}</option>)}
             </select>
             <select value={filters.lessonNo} onChange={e => updateFilter('lessonNo', e.target.value)}
               disabled={!selectedUnit}
-              className={`border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-white focus:outline-none disabled:bg-slate-100 disabled:text-slate-300 ${accentClasses.border}`}>
+              className={`border-2 border-slate-200 rounded-xl px-3 py-2 text-xs font-bold bg-white text-slate-800 focus:outline-none disabled:bg-slate-100 disabled:text-slate-300 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:disabled:bg-slate-900 dark:disabled:text-slate-600 ${accentClasses.border}`}>
               <option value="">차시</option>
               {lessonOptions.map(l => <option key={l.no} value={l.no}>{l.no}차시 - {l.title}</option>)}
             </select>
@@ -274,11 +276,11 @@ export default function AILessonQuizSetBuilder({
 
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-end">
             <div>
-              <label className="block text-[11px] text-slate-500 font-bold mb-1">난이도</label>
+              <label className="block text-[11px] text-slate-500 font-bold mb-1 dark:text-slate-300">난이도</label>
               <div className="flex gap-2">
                 {DIFFICULTY_OPTIONS.map(opt => (
                   <button key={opt.value} onClick={() => setDifficulty(opt.value)}
-                    className={`flex-1 rounded-xl border-2 px-3 py-2 text-left transition-colors ${difficulty === opt.value ? accentClasses.selected : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
+                    className={`flex-1 rounded-xl border-2 px-3 py-2 text-left transition-colors ${difficulty === opt.value ? `${accentClasses.selected} ${accentClasses.darkSelected}` : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900'}`}>
                     <div className="text-xs font-extrabold">{opt.label}</div>
                     <div className="text-[10px] opacity-70">{opt.desc}</div>
                   </button>
@@ -286,10 +288,10 @@ export default function AILessonQuizSetBuilder({
               </div>
             </div>
             <div>
-              <label className="block text-[11px] text-slate-500 font-bold mb-1">문항 수</label>
+              <label className="block text-[11px] text-slate-500 font-bold mb-1 dark:text-slate-300">문항 수</label>
               <input type="number" min="3" max="12" value={questionCount}
                 onChange={e => setQuestionCount(Math.max(3, Math.min(12, Number(e.target.value) || defaultQuestionCount)))}
-                className={`w-24 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:outline-none ${accentClasses.border}`} />
+                className={`w-24 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center text-slate-800 focus:outline-none dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 ${accentClasses.border}`} />
             </div>
             <button onClick={createQuizSet} disabled={isGenerating || !selectedLesson}
               className={`h-11 px-5 rounded-xl text-white text-sm font-extrabold transition-colors disabled:opacity-40 ${accentClasses.button}`}>

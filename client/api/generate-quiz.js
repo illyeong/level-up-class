@@ -49,8 +49,9 @@ export default async function handler(req, res) {
   if (!grade || !subject)
     return res.status(400).json({ error: '학년과 과목을 선택해주세요.' });
 
-  const saCount = Math.max(0, parseInt(bodySaCount) || 0);
-  const mcCount = Math.max(0, count - saCount);
+  const totalCount = Math.max(1, Math.min(20, parseInt(count) || 5));
+  const saCount = Math.min(totalCount, Math.max(0, parseInt(bodySaCount) || 0));
+  const mcCount = Math.max(0, totalCount - saCount);
   const hasSA   = saCount > 0;
 
   const contextParts = [
@@ -61,18 +62,18 @@ export default async function handler(req, res) {
     unit || '',
   ].filter(Boolean).join(' ');
 
-  const typeRules = hasSA
-    ? `- 객관식 ${mcCount}개: 4지 선다형, 보기 4개, 보기는 비슷한 길이
-- 주관식 ${saCount}개: 단답형, 정답은 짧은 단어/구문 (최대 10자)`
+  const buildTypeRules = (batchMcCount, batchSaCount) => batchSaCount > 0
+    ? `- 객관식 ${batchMcCount}개: 4지 선다형, 보기 4개, 보기는 비슷한 길이
+- 주관식 ${batchSaCount}개: 단답형, 정답은 짧은 단어/구문 (최대 10자)`
     : `- 4지 선다형 객관식 (보기 4개), 보기는 모두 비슷한 길이와 형식`;
 
-  const jsonExample = hasSA
+  const buildJsonExample = (batchMcCount, batchSaCount) => batchSaCount > 0
     ? `객관식 예시: {"type":"mc","question":"문제","table":null,"shape":null,"options":["①보기1","②보기2","③보기3","④보기4"],"answer":0,"explanation":"해설"}
 주관식 예시: {"type":"sa","question":"문제","table":null,"shape":null,"answer":"정답단어","explanation":"해설"}
 
 answer(객관식): 0~3 사이 정수 (0=①, 1=②, 2=③, 3=④)
 answer(주관식): 정답 문자열 (짧은 단어/구문)
-배열 순서: 객관식 ${mcCount}개 먼저, 주관식 ${saCount}개 나중에`
+배열 순서: 객관식 ${batchMcCount}개 먼저, 주관식 ${batchSaCount}개 나중에`
     : `[{"question":"문제","table":null,"shape":null,"options":["①보기1","②보기2","③보기3","④보기4"],"answer":0,"explanation":"해설"}]
 answer 값은 0~3 사이 정수 (0=①, 1=②, 2=③, 3=④)
 
@@ -98,17 +99,18 @@ ${Array.isArray(lessonKeywords) && lessonKeywords.length ? `핵심 키워드: ${
       ? '차시 정보와 수업 자료를 함께 참고하여'
       : '아래 수업 자료를 바탕으로';
 
-  const prompt = `당신은 15년 경력의 초등학교 수학 교사이자 교육과정 전문가입니다.
-${basisDesc} ${contextParts} 수준의 고품질 퀴즈 ${count}개를 만들어주세요.${hasSA ? ` (객관식 ${mcCount}개 + 주관식 ${saCount}개)` : ''}
+  const buildPrompt = (batchCount, batchMcCount, batchSaCount, batchIndex = 0) => `당신은 15년 경력의 초등학교 수학 교사이자 교육과정 전문가입니다.
+${basisDesc} ${contextParts} 수준의 고품질 퀴즈 ${batchCount}개를 만들어주세요.${batchSaCount > 0 ? ` (객관식 ${batchMcCount}개 + 주관식 ${batchSaCount}개)` : ''}
+${batchIndex > 0 ? `\n※ 이번 요청은 전체 ${totalCount}문항 중 추가 묶음입니다. 앞선 묶음과 문제 상황, 숫자, 정답이 겹치지 않게 만들어주세요.` : ''}
 ${lessonContext}
 ═══ 품질 기준 ═══
 
 【난이도】: ${DIFFICULTY_MAP[difficulty] || DIFFICULTY_MAP.normal}
 
 【문제 유형 균형】
-${typeRules}
+${buildTypeRules(batchMcCount, batchSaCount)}
 - 단순 암기로 풀 수 있는 문제 금지 — 반드시 계산하거나 개념을 적용해야 풀 수 있도록
-- ${count}개 중 최소 2개는 실생활 맥락의 문장제 (이름, 상황 포함)
+- ${batchCount >= 5 ? `${batchCount}개 중 최소 2개` : `${batchCount}개 중 최소 1개`}는 실생활 맥락의 문장제 (이름, 상황 포함)
 - 같은 유형 반복 금지
 
 【오답 설계 원칙 — 핵심】
@@ -127,58 +129,74 @@ ${typeRules}
 - 해설에서 오답이 왜 틀렸는지 1줄씩 설명
 
 【JSON 배열로만 응답】 (설명 없이 JSON만)
-${jsonExample}
+${buildJsonExample(batchMcCount, batchSaCount)}
 
 options 주의: ①②③④ 기호 없이 보기 내용만 (기호는 자동 추가됨)
 ${sourceSection}`;
 
   try {
-    // PDF 포함 여부에 따라 메시지 구성
-    let messageContent;
-    if (pdfBase64) {
-      messageContent = [
-        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
-        { type: 'text', text: prompt },
-      ];
-    } else {
-      messageContent = prompt;
-    }
+    const callClaudeBatch = async ({ batchCount, batchMcCount, batchSaCount, batchIndex }) => {
+      const prompt = buildPrompt(batchCount, batchMcCount, batchSaCount, batchIndex);
+      const messageContent = pdfBase64
+        ? [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
+            { type: 'text', text: prompt },
+          ]
+        : prompt;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type':      'application/json',
-        'x-api-key':         ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model:      'claude-sonnet-4-6',
-        max_tokens: 8000,
-        messages:   [{ role: 'user', content: messageContent }],
-      }),
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      return res.status(response.status).json({
-        error: `Claude API 오류: ${err.error?.message || response.statusText}`,
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type':      'application/json',
+          'x-api-key':         ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model:      'claude-sonnet-4-6',
+          max_tokens: Math.min(8000, 1800 + batchCount * 650),
+          messages:   [{ role: 'user', content: messageContent }],
+        }),
       });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(`Claude API 오류: ${err.error?.message || response.statusText}`);
+      }
+
+      const data    = await response.json();
+      const rawText = data.content?.[0]?.text || '';
+
+      // 마크다운 코드블록 제거 후 JSON 추출
+      const stripped = rawText.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
+      const jsonMatch = stripped.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error('퀴즈 형식이 올바르지 않습니다. 다시 시도해주세요.');
+      }
+
+      return JSON.parse(jsonMatch[0]);
+    };
+
+    const batches = [];
+    let remainingCount = totalCount;
+    let remainingSaCount = saCount;
+    let batchIndex = 0;
+    while (remainingCount > 0) {
+      const batchCount = Math.min(10, remainingCount);
+      const batchSaCount = Math.min(remainingSaCount, batchCount);
+      const batchMcCount = batchCount - batchSaCount;
+      batches.push({ batchCount, batchMcCount, batchSaCount, batchIndex });
+      remainingCount -= batchCount;
+      remainingSaCount -= batchSaCount;
+      batchIndex += 1;
     }
 
-    const data    = await response.json();
-    const rawText = data.content?.[0]?.text || '';
+    const questions = (await Promise.all(batches.map(callClaudeBatch))).flat().slice(0, totalCount);
 
-    // 마크다운 코드블록 제거 후 JSON 추출
-    const stripped = rawText.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
-    const jsonMatch = stripped.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
+    if (questions.length !== totalCount) {
       return res.status(500).json({
-        error: '퀴즈 형식이 올바르지 않습니다. 다시 시도해주세요.',
-        raw: rawText,
+        error: `생성된 문항 수가 부족합니다. 요청 ${totalCount}개 / 생성 ${questions.length}개`,
       });
     }
-
-    const questions = JSON.parse(jsonMatch[0]);
 
     // 유효성 검사 (객관식/주관식 모두 지원)
     const valid = questions.every(q => {

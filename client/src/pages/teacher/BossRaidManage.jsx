@@ -97,13 +97,13 @@ function QuizSetPicker({ selectedSetId, onSelect }) {
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         <select value={filter.grade} onChange={e => setFilter(f => ({ ...f, grade: e.target.value }))}
-          className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-rose-500 bg-white">
+          className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-rose-500 bg-white text-slate-800 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100">
           <option value="">전체 학년</option>
           {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}학년</option>)}
         </select>
         <input value={filter.subject} onChange={e => setFilter(f => ({ ...f, subject: e.target.value }))}
           placeholder="과목명 검색"
-          className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-rose-500 w-28 bg-white" />
+          className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-rose-500 w-28 bg-white text-slate-800 placeholder:text-slate-400 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500" />
         {(filter.grade || filter.subject) && (
           <button onClick={() => setFilter({ grade: '', subject: '' })}
             className="text-xs text-slate-400 hover:text-slate-600 font-bold px-2">초기화</button>
@@ -127,17 +127,17 @@ function QuizSetPicker({ selectedSetId, onSelect }) {
             return (
               <button key={s.id} onClick={() => onSelect(s.id === selectedSetId ? null : s)}
                 className={`w-full text-left p-3 rounded-xl border-2 transition-all
-                  ${selectedSetId === s.id ? 'border-rose-500 bg-rose-50' : 'border-slate-200 hover:border-rose-300 hover:bg-slate-50 bg-white'}`}>
+                  ${selectedSetId === s.id ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/30' : 'border-slate-200 hover:border-rose-300 hover:bg-slate-50 bg-white dark:bg-slate-950 dark:border-slate-700 dark:hover:border-rose-500/70 dark:hover:bg-slate-900'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-sm text-slate-800 truncate">{s.title}</div>
+                    <div className="font-bold text-sm text-slate-800 truncate dark:text-slate-100">{s.title}</div>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {s.grade && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded">{s.grade}학년</span>}
+                      {s.grade && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded dark:bg-slate-800 dark:text-slate-300">{s.grade}학년</span>}
                       {s.subject && <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-1.5 py-0.5 rounded">{s.subject}</span>}
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${DIFF_COLOR_SM[s.difficulty] || 'bg-slate-100 text-slate-500'}`}>
                         {DIFF_LABEL_SM[s.difficulty] || '보통'}
                       </span>
-                      <span className="text-[10px] text-slate-400 px-1">객관식 {choiceCount}문항</span>
+                      <span className="text-[10px] text-slate-400 px-1 dark:text-slate-500">객관식 {choiceCount}문항</span>
                     </div>
                   </div>
                   <div className={`shrink-0 ml-3 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors
@@ -864,20 +864,20 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
 
   return (
     <>
-    <div className="min-h-screen bg-slate-100 p-6">
+    <div className="min-h-screen bg-slate-100 p-6 dark:bg-slate-950">
       <div className="max-w-4xl mx-auto space-y-5">
 
         {/* 헤더 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-3">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-3 dark:bg-slate-900 dark:border-slate-700">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-800">🐉 보스 레이드 관리</h1>
-            <p className="text-slate-500 text-sm mt-0.5">학급 전체 협동 이벤트 — 퀴즈를 맞혀 보스를 쓰러뜨려요</p>
+            <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">🐉 보스 레이드 관리</h1>
+            <p className="text-slate-500 text-sm mt-0.5 dark:text-slate-400">학급 전체 협동 이벤트 — 퀴즈를 맞혀 보스를 쓰러뜨려요</p>
           </div>
           <div className="flex gap-2">
             {[['active', '진행/대기'], ['create', '레이드 생성'], ['history', '결과 확인']].map(([t, l]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-3 py-2 rounded-xl font-bold text-sm transition-colors
-                  ${tab === t ? 'bg-rose-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                  ${tab === t ? 'bg-rose-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 dark:bg-slate-950 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800'}`}>
                 {l}
               </button>
             ))}
@@ -913,14 +913,14 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
         {tab === 'create' && (
           <div className="space-y-5">
             {hasOpenRaid && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-sm text-amber-700 font-medium">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-sm text-amber-700 font-medium dark:bg-amber-950/30 dark:border-amber-700/60 dark:text-amber-200">
                 ⚠️ 이미 열려 있는 레이드가 있습니다. 기존 레이드를 종료한 후 새로 만들 수 있습니다.
               </div>
             )}
 
             {/* 보스 선택 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-              <h2 className="font-bold text-slate-700 text-sm mb-4">👾 보스 선택</h2>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-700">
+              <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">👾 보스 선택</h2>
               <div className="flex items-center gap-4">
                 <div className="flex items-center justify-center shrink-0 bg-slate-900 rounded-2xl overflow-hidden"
                   style={{ width: 150, height: 150 }}>
@@ -930,7 +930,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
                   }
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-extrabold text-slate-800 text-lg mb-1">
+                  <div className="font-extrabold text-slate-800 text-lg mb-1 dark:text-slate-100">
                     {bossData?.name || '선택 안 됨'}
                     {bossData && (
                       <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${TIER_COLOR[bossData.tier]}`}>
@@ -939,11 +939,11 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
                     )}
                   </div>
                   <div className="mb-2">
-                    <label className="block text-xs font-bold text-slate-500 mb-1">보스 이름 (표시용)</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 dark:text-slate-300">보스 이름 (표시용)</label>
                     <input value={form.bossName}
                       onChange={e => setF('bossName', e.target.value)}
                       placeholder={bossData?.name || '보스 이름'}
-                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-rose-500"
+                      className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-rose-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -965,16 +965,16 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
             </div>
 
             {/* 퀴즈 선택 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-700">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="font-bold text-slate-700 text-sm">📝 퀴즈 선택</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">AI학습관 차시로 새로 만들거나, 기존 내 퀴즈를 선택하세요.</p>
+                  <h2 className="font-bold text-slate-700 text-sm dark:text-slate-100">📝 퀴즈 선택</h2>
+                  <p className="text-xs text-slate-400 mt-0.5 dark:text-slate-400">AI학습관 차시로 새로 만들거나, 기존 내 퀴즈를 선택하세요.</p>
                 </div>
                 {selectedQuizSet && (
-                  <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5">
-                    <span className="text-xs font-extrabold text-rose-700 truncate max-w-[180px]">✓ {selectedQuizSet.title}</span>
-                    <span className="text-[10px] text-rose-500 shrink-0">
+                  <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5 dark:bg-rose-950/40 dark:border-rose-700/60">
+                    <span className="text-xs font-extrabold text-rose-700 truncate max-w-[180px] dark:text-rose-200">✓ {selectedQuizSet.title}</span>
+                    <span className="text-[10px] text-rose-500 shrink-0 dark:text-rose-300">
                       {(selectedQuizSet.questions || []).filter(q => q.type !== 'short' && q.type !== 'sa').length}문항
                     </span>
                   </div>
@@ -993,31 +993,31 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
                 />
               </div>
               <div className="flex items-center gap-3 mb-3">
-                <div className="h-px flex-1 bg-slate-200" />
-                <span className="text-[11px] font-bold text-slate-400">또는 기존 내 퀴즈 선택</span>
-                <div className="h-px flex-1 bg-slate-200" />
+                <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">또는 기존 내 퀴즈 선택</span>
+                <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
               </div>
               <QuizSetPicker selectedSetId={selectedQuizSet?.id} onSelect={setSelectedQuizSet} />
             </div>
 
             {/* 전투 설정 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-              <h2 className="font-bold text-slate-700 text-sm mb-4">⚙️ 전투 설정</h2>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-700">
+              <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">⚙️ 전투 설정</h2>
               <div className="grid grid-cols-2 gap-4">
                 {/* HP */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">
+                  <label className="block text-xs font-bold text-slate-500 mb-1 dark:text-slate-300">
                     보스 HP
                     {autoHP && <span className="text-indigo-500 ml-1">(추천: {autoHP.toLocaleString()})</span>}
                   </label>
-                  <div className="text-[10px] text-slate-400 mb-1">
+                  <div className="text-[10px] text-slate-400 mb-1 dark:text-slate-500">
                     인원 {classStudentCount}명 × {questionCount}문항 × 데미지 {Number(form.damagePerHit) || 0}
                     = 총 {totalPerfectDamage.toLocaleString()} 기준의 75%
                   </div>
                   <div className="flex gap-2 items-center">
                     <input type="number" min="100" step="100" value={form.maxHP}
                       onChange={e => setF('maxHP', Number(e.target.value))}
-                      className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:outline-none focus:border-rose-500" />
+                      className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center text-slate-800 focus:outline-none focus:border-rose-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100" />
                     {autoHP && (
                       <button onClick={() => setF('maxHP', autoHP)}
                         className="text-xs text-indigo-500 font-bold hover:text-indigo-700 shrink-0">자동</button>
@@ -1026,29 +1026,29 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
                 </div>
                 {/* 타격량 */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">정답 1개당 데미지</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1 dark:text-slate-300">정답 1개당 데미지</label>
                   <input type="number" min="10" step="10" value={form.damagePerHit}
                     onChange={e => setF('damagePerHit', Number(e.target.value))}
-                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:outline-none focus:border-rose-500" />
+                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center text-slate-800 focus:outline-none focus:border-rose-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100" />
                 </div>
                 {/* 문제당 시간 */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">문제당 시간 (초): {form.questionDuration}초</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1 dark:text-slate-300">문제당 시간 (초): {form.questionDuration}초</label>
                   <input type="range" min="10" max="60" step="5" value={form.questionDuration}
                     onChange={e => setF('questionDuration', Number(e.target.value))}
                     className="w-full accent-rose-500" />
-                  <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                  <div className="flex justify-between text-[10px] text-slate-400 mt-0.5 dark:text-slate-500">
                     <span>10초</span><span>60초</span>
                   </div>
                 </div>
                 {/* 자동 진행 */}
                 <div className="flex flex-col justify-center">
-                  <label className="block text-xs font-bold text-slate-500 mb-2">문제 자동 진행</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-2 dark:text-slate-300">문제 자동 진행</label>
                   <button onClick={() => setF('autoAdvance', !form.autoAdvance)}
                     className={`w-full py-2 rounded-xl font-bold text-sm transition-colors border-2
                       ${form.autoAdvance
                         ? 'bg-emerald-100 border-emerald-400 text-emerald-700'
-                        : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
+                        : 'bg-slate-100 border-slate-200 text-slate-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-300'}`}>
                     {form.autoAdvance ? '✅ 자동 (타이머 후 진행)' : '🖐️ 수동 (교사가 진행)'}
                   </button>
                 </div>
@@ -1056,8 +1056,8 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
             </div>
 
             {/* 오답 패널티 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-              <h2 className="font-bold text-slate-700 text-sm mb-4">⚡ 오답 패널티</h2>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-700">
+              <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">⚡ 오답 패널티</h2>
               <div className="flex gap-3 mb-3">
                 {[
                   { v: 'none',       l: '없음',      d: '오답이어도 보스 HP 변화 없음' },
@@ -1066,35 +1066,35 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
                   <button key={opt.v} onClick={() => setF('penaltyType', opt.v)}
                     className={`flex-1 py-3 px-4 rounded-xl border-2 text-left transition-colors
                       ${form.penaltyType === opt.v
-                        ? 'border-rose-500 bg-rose-50'
-                        : 'border-slate-200 hover:bg-slate-50'}`}>
-                    <div className={`text-sm font-bold mb-0.5 ${form.penaltyType === opt.v ? 'text-rose-700' : 'text-slate-700'}`}>
+                        ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/30'
+                        : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800'}`}>
+                    <div className={`text-sm font-bold mb-0.5 ${form.penaltyType === opt.v ? 'text-rose-700 dark:text-rose-200' : 'text-slate-700 dark:text-slate-200'}`}>
                       {opt.l}
                     </div>
-                    <div className="text-[11px] text-slate-500">{opt.d}</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">{opt.d}</div>
                   </button>
                 ))}
               </div>
               {form.penaltyType === 'hp_restore' && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">오답 시 HP 회복량</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1 dark:text-slate-300">오답 시 HP 회복량</label>
                   <input type="number" min="0" step="10" value={form.penaltyAmount}
                     onChange={e => setF('penaltyAmount', Number(e.target.value))}
-                    className="w-32 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:outline-none focus:border-rose-500" />
+                    className="w-32 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center text-slate-800 focus:outline-none focus:border-rose-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100" />
                 </div>
               )}
             </div>
 
             {/* 보상 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-              <h2 className="font-bold text-slate-700 text-sm mb-4">🎁 클리어 보상 (참가자 전원)</h2>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-700">
+              <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">🎁 클리어 보상 (참가자 전원)</h2>
               <div className="flex gap-3">
                 {[['gold', '🪙 골드'], ['exp', '⭐ EXP'], ['diamond', '💎 다이아']].map(([k, l]) => (
                   <div key={k}>
-                    <div className="text-[10px] text-slate-400 font-semibold mb-1">{l}</div>
+                    <div className="text-[10px] text-slate-400 font-semibold mb-1 dark:text-slate-400">{l}</div>
                     <input type="number" min="0" value={form.rewards[k]}
                       onChange={e => setForm(p => ({ ...p, rewards: { ...p.rewards, [k]: Number(e.target.value) || 0 } }))}
-                      className="w-24 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:outline-none focus:border-rose-500" />
+                      className="w-24 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center text-slate-800 focus:outline-none focus:border-rose-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100" />
                   </div>
                 ))}
               </div>

@@ -745,7 +745,9 @@ export default function QuizBank({ selectedClass = null }) {
       if (!res.ok) { setGenError(data.error || '생성 중 오류가 발생했습니다.'); return; }
       setAiQuestions(data.questions);
       setAiStep('preview');
-    } catch { setGenError('네트워크 오류가 발생했습니다.'); }
+    } catch (err) {
+      setGenError(err.message || '네트워크 오류가 발생했습니다.');
+    }
     finally { setIsGenerating(false); }
   };
 
