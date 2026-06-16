@@ -178,6 +178,80 @@
     border-color: #7185a3 !important;
 }
 
+/* Adventure management is a dense operational page. Keep controls, ticket
+   summaries, and student rows visually separated in teacher dark mode. */
+.teacher-theme-dark .adventure-manage-page {
+    background-color: #080f1f !important;
+    color: #e8eef8;
+}
+
+.teacher-theme-dark .adventure-manage-header,
+.teacher-theme-dark .adventure-level-panel,
+.teacher-theme-dark .adventure-student-table {
+    background-color: #111e33 !important;
+    border-color: #425a79 !important;
+    box-shadow: 0 12px 28px rgb(0 0 0 / 0.22) !important;
+}
+
+.teacher-theme-dark .adventure-auto-guide {
+    background-color: rgb(8 47 73 / 0.72) !important;
+    border-color: #0ea5e9 !important;
+    color: #bae6fd !important;
+}
+
+.teacher-theme-dark .adventure-auto-guide .text-sky-700,
+.teacher-theme-dark .adventure-auto-guide .text-sky-800 {
+    color: #bae6fd !important;
+}
+
+.teacher-theme-dark .adventure-ticket-summary {
+    background-color: #16243b !important;
+    box-shadow: 0 10px 22px rgb(0 0 0 / 0.18) !important;
+}
+
+.teacher-theme-dark .adventure-ticket-summary .bg-slate-100 {
+    background-color: #334155 !important;
+}
+
+.teacher-theme-dark .adventure-student-toolbar,
+.teacher-theme-dark .adventure-table-head {
+    background-color: #0a1628 !important;
+    border-color: #425a79 !important;
+}
+
+.teacher-theme-dark .adventure-student-toolbar span.bg-white {
+    background-color: #172740 !important;
+    border-color: #4b6385 !important;
+    color: #dbe7f5 !important;
+}
+
+.teacher-theme-dark .adventure-student-row {
+    background-color: #132239 !important;
+}
+
+.teacher-theme-dark .adventure-student-row:nth-child(even) {
+    background-color: #101d31 !important;
+}
+
+.teacher-theme-dark .adventure-student-row:hover {
+    background-color: #1c3150 !important;
+}
+
+.teacher-theme-dark .adventure-student-row.bg-indigo-50 {
+    background-color: rgb(49 46 129 / 0.52) !important;
+    box-shadow: inset 4px 0 0 #818cf8;
+}
+
+.teacher-theme-dark .adventure-manage-page input {
+    background-color: #0b1526 !important;
+    border-color: #52647e !important;
+    color: #f1f5f9 !important;
+}
+
+.teacher-theme-dark .adventure-manage-page input::placeholder {
+    color: #91a5bf !important;
+}
+
 /* AI learning management uses dense status cards and tables. Preserve their
    semantic colors while keeping text and controls readable in teacher dark mode. */
 .teacher-theme-dark .ai-learning-manage {

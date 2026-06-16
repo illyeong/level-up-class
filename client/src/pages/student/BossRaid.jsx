@@ -14,7 +14,7 @@ const cleanExplanation = (text) => {
 };
 import {
   collection, doc, updateDoc, onSnapshot,
-  increment, serverTimestamp, getDoc, getDocs, deleteField, writeBatch, query, where,
+  increment, serverTimestamp, getDoc, getDocs, deleteField, writeBatch, query, where, setDoc,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg as resolveBossBackground } from '../../data/monsterData';
@@ -107,6 +107,32 @@ const resolveBossBg = (raid) => {
 const resolveBossData = (raid) => {
   const bossKey = resolveCanonicalBossId(raid);
   return bossKey ? MONSTERS_DB[bossKey] : null;
+};
+
+const questionFingerprint = (q) =>
+  [q?.question, ...(Array.isArray(q?.options) ? q.options : []), q?.answer ?? q?.answerIndex ?? '']
+    .join('|')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^\w가-힣]/g, '')
+    .slice(0, 80);
+
+const bossQuestionKey = (raid, question, questionIdx) =>
+  `bossRaid_${raid?.id || 'raid'}_${questionIdx}_${questionFingerprint(question)}`;
+
+const wrongAnswerDocId = (studentCode, questionKey) =>
+  `${studentCode}_${questionKey}`.replace(/[/.#[\]]/g, '_').slice(0, 1400);
+
+const getCorrectIndex = (question) => {
+  const raw = question?.answer ?? question?.answerIndex ?? question?.correctAnswer;
+  const idx = Number(raw);
+  return Number.isInteger(idx) ? idx : -1;
+};
+
+const answerText = (question, index) => {
+  if (!Number.isInteger(index) || index < 0) return '선택하지 않음';
+  return stripOptionPrefix(question?.options?.[index] || '');
 };
 
 // ── HP 바 ────────────────────────────────────────────────────────
@@ -496,6 +522,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
   const questions = (raid.questions || []).filter(q => q.type !== 'short');
   const qIdx      = raid.currentQuestionIdx ?? 0;
   const q         = questions[qIdx];
+  const correctIdx = q ? getCorrectIndex(q) : -1;
   const totalQ    = questions.length;
   const myP       = raid.participants?.[myId] || {};
   const bossAreaRef = useRef(null);
@@ -642,7 +669,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
           {(q.options || []).map((opt, oi) => {
             let cls = 'bg-slate-800 border-2 border-slate-700 text-slate-200 hover:border-rose-400 hover:bg-slate-700 active:scale-95';
             if (displayAnswer !== null) {
-              if (oi === q.answer)                   cls = 'bg-emerald-900/60 border-2 border-emerald-500 text-emerald-200';
+              if (oi === correctIdx)                 cls = 'bg-emerald-900/60 border-2 border-emerald-500 text-emerald-200';
               else if (oi === displayAnswer?.idx)     cls = 'bg-rose-900/40 border-2 border-rose-500 text-rose-300';
               else                                    cls = 'bg-slate-800/50 border-2 border-slate-700 text-slate-500 opacity-50';
             }
@@ -663,7 +690,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
             ${displayAnswer?.correct
               ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700'
               : 'bg-rose-900/30 text-rose-300 border border-rose-800'}`}>
-            {displayAnswer?.correct ? '✅ 정답!' : `❌ 정답: ${q.options?.[q.answer]}`}
+            {displayAnswer?.correct ? '✅ 정답!' : `❌ 정답: ${answerText(q, correctIdx)}`}
             {cleanExplanation(q.explanation) && <span className="ml-1 opacity-80">{cleanExplanation(q.explanation)}</span>}
           </div>
         )}
@@ -685,11 +712,14 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
     .map(([id, p]) => ({ id, ...p }))
     .sort((a, b) => (b.totalDamage || 0) - (a.totalDamage || 0));
   const myRank    = sorted.findIndex(p => p.id === myId) + 1;
+  const answerDetails = Object.values(myP.answerDetails || {})
+    .sort((a, b) => (a.questionIdx || 0) - (b.questionIdx || 0));
+  const wrongDetails = answerDetails.filter(item => !item.isCorrect);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center justify-center p-6 text-center">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center p-6 text-center">
       {/* 보스 최종 상태 */}
-      <div className="flex items-end justify-center mb-4" style={{ height: 120 }}>
+      <div className="flex items-end justify-center mb-4 mt-4" style={{ height: 120 }}>
         <BossSprite bossData={bossData} anim={isCleared ? 'death' : 'idle'} scale={1.8} />
       </div>
 
@@ -733,6 +763,54 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
           </div>
         </div>
       )}
+
+      <div className="bg-slate-800 rounded-2xl border border-slate-700 p-5 w-full max-w-2xl mb-4 shadow-lg text-left">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <div className="text-xs text-slate-400 font-bold">문제별 확인</div>
+            <h3 className="text-lg font-extrabold text-white">내가 틀린 문제와 정답</h3>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${
+            wrongDetails.length ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'
+          }`}>
+            오답 {wrongDetails.length}개
+          </span>
+        </div>
+
+        {answerDetails.length === 0 ? (
+          <div className="rounded-xl bg-slate-900/70 border border-slate-700 p-4 text-sm text-slate-400 text-center">
+            문제별 기록은 새로 진행한 보스레이드부터 표시됩니다.
+          </div>
+        ) : wrongDetails.length === 0 ? (
+          <div className="rounded-xl bg-emerald-950/40 border border-emerald-700/60 p-4 text-sm font-bold text-emerald-200 text-center">
+            모든 문제를 맞혔습니다.
+          </div>
+        ) : (
+          <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+            {wrongDetails.map((detail, index) => (
+              <div key={detail.questionKey || index} className="rounded-xl border border-rose-800/70 bg-rose-950/30 p-4">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-xs font-extrabold text-rose-300">Q{(detail.questionIdx ?? index) + 1}</span>
+                  <span className="rounded-full bg-slate-900/70 px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                    오답노트 저장됨
+                  </span>
+                </div>
+                <p className="text-sm font-extrabold leading-6 text-white">{renderMath(detail.question || '')}</p>
+                {detail.shape && <div className="mt-2 rounded-lg bg-white/95 p-2"><ShapeRenderer shape={detail.shape} /></div>}
+                <div className="mt-3 grid gap-1 text-xs font-bold">
+                  <div className="text-rose-200">내 답: {renderMath(detail.selectedAnswer || '선택하지 않음')}</div>
+                  <div className="text-emerald-200">정답: {renderMath(detail.correctAnswer || '')}</div>
+                  {cleanExplanation(detail.explanation) && (
+                    <div className="mt-1 rounded-lg bg-slate-950/50 p-2 text-slate-300 font-medium leading-5">
+                      {renderMath(cleanExplanation(detail.explanation))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* 초기화면으로 */}
       {onGoToIntro && (
@@ -1050,7 +1128,25 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
     const q = questions[raid.currentQuestionIdx];
     if (!q) return;
 
-    const correct = answerIdx === q.answer;
+    const correctIdx = getCorrectIndex(q);
+    const correct = answerIdx === correctIdx;
+    const questionKey = bossQuestionKey(raid, q, raid.currentQuestionIdx);
+    const detail = {
+      questionIdx: raid.currentQuestionIdx,
+      questionKey,
+      question: q.question || '',
+      type: q.type || 'mc',
+      options: q.options || [],
+      selectedIdx: answerIdx,
+      correctIdx,
+      selectedAnswer: answerText(q, answerIdx),
+      correctAnswer: answerText(q, correctIdx),
+      explanation: cleanExplanation(q.explanation || ''),
+      shape: q.shape || null,
+      table: q.table || null,
+      isCorrect: correct,
+      answeredAt: new Date().toISOString(),
+    };
     setMyAnswer({ idx: answerIdx, correct });
 
     const updates = {
@@ -1058,6 +1154,7 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
       [`participants.${studentDocId}.lastAnsweredCorrect`]: correct,
       [`participants.${studentDocId}.answeredCount`]:      increment(1),
       [`participants.${studentDocId}.qResults.${raid.currentQuestionIdx}`]: correct ? 1 : 0,
+      [`participants.${studentDocId}.answerDetails.q${raid.currentQuestionIdx}`]: detail,
     };
     if (correct) {
       updates.currentHP = increment(-raid.damagePerHit);
@@ -1071,6 +1168,45 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
     }
 
     await updateDoc(doc(db, 'worldBossRaids', raid.id), updates).catch(() => {});
+
+    if (!correct) {
+      const code = studentData?.studentCode || studentCode || studentDocId;
+      const wrongRef = doc(db, 'aiWrongAnswers', wrongAnswerDocId(code, questionKey));
+      const previousSnap = await getDoc(wrongRef).catch(() => null);
+      const previous = previousSnap?.exists?.() ? previousSnap.data() : {};
+      await setDoc(wrongRef, {
+        studentCode: code,
+        studentName: studentData?.name || code,
+        teacherUid: studentData?.teacherUid || raid.teacherUid || '',
+        classId: studentData?.classId || raid.classId || '',
+        source: 'bossRaid',
+        unitName: '보스레이드',
+        lessonTitle: raid.title || raid.bossName || '보스레이드',
+        lessonKey: `bossRaid_${raid.id}`,
+        raidId: raid.id,
+        raidTitle: raid.title || '',
+        bossName: raid.bossName || '',
+        questionKey,
+        questionIdx: raid.currentQuestionIdx,
+        questionText: (q.question || '').slice(0, 120),
+        fullQuestion: q.question || '',
+        options: q.options || [],
+        explanation: cleanExplanation(q.explanation || ''),
+        skill: '보스레이드',
+        shape: q.shape || null,
+        table: q.table || null,
+        selectedIdx: answerIdx,
+        correctIdx,
+        selectedAnswer: answerText(q, answerIdx),
+        correctAnswer: answerText(q, correctIdx),
+        status: 'unresolved',
+        resolved: false,
+        wrongCount: (previous.wrongCount || 0) + 1,
+        reviewCorrectCount: 0,
+        completedAt: serverTimestamp(),
+        date: new Date().toISOString().slice(0, 10),
+      }, { merge: true }).catch(err => console.error('보스레이드 오답 저장 오류:', err));
+    }
   };
 
   // ── 렌더링 ──────────────────────────────────────────────────

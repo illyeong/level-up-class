@@ -225,113 +225,141 @@ function AdventureManage({ selectedClass }) {
   }, {});
 
   return (
-    <div className="min-h-screen bg-slate-100 p-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="adventure-manage-page min-h-screen bg-slate-100 px-4 py-6 md:p-8">
+      <div className="max-w-6xl mx-auto">
 
         {/* 헤더 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="adventure-manage-header bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-slate-200 mb-4">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
             <div>
               <h1 className="text-2xl font-extrabold text-slate-800">⚔️ 어드벤처 관리</h1>
-              <p className="text-slate-500 text-sm mt-0.5">학생별 이용권 현황 조회 및 부여</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-500">
-              자동 지급: 탐험던전 매일 1장(최대 3장), 투기장 매일 2장(최대 5장), 월요일 보너스 탐험 +1장/투기장 +2장
+              <p className="text-slate-500 text-sm mt-1">교사 레벨과 학생별 이용권을 한 화면에서 관리합니다.</p>
             </div>
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => { setGrantAmounts({ dungeon: 0, arena: 0 }); setGrantModal('all'); }}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors shadow-sm">
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors shadow-sm">
                 🎁 전체 학생 부여
               </button>
               {selected.length > 0 && (
                 <button
                   onClick={() => { setGrantAmounts({ dungeon: 0, arena: 0 }); setGrantModal('selected'); }}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl transition-colors shadow-sm">
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl transition-colors shadow-sm">
                   ✅ 선택 {selected.length}명 부여
                 </button>
               )}
               <button
                 onClick={resetAll} disabled={isBusy}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm rounded-xl transition-colors border border-slate-200 disabled:opacity-50">
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm rounded-xl transition-colors border border-slate-200 disabled:opacity-50">
                 🔄 전체 최대치 초기화
               </button>
             </div>
           </div>
         </div>
 
-        {/* 교사 레벨 설정 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 mb-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h2 className="text-base font-extrabold text-slate-800">🎓 교사 레벨 설정</h2>
-              <p className="text-xs text-slate-400 mt-0.5">교사가 퀴즈던전·탐험던전 플레이 시 사용되는 레벨 (초기값 50)</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-indigo-50 border-2 border-indigo-200 rounded-2xl px-4 py-2">
+        <div className="adventure-auto-guide mb-5 flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3.5 text-sky-800">
+          <span className="mt-0.5 text-lg">⏱️</span>
+          <div>
+            <p className="text-sm font-extrabold">이용권은 매일 자동 충전됩니다.</p>
+            <p className="mt-0.5 text-xs font-medium leading-relaxed text-sky-700">
+              탐험던전 매일 1장(최대 3장), 투기장 매일 2장(최대 5장) · 월요일에는 탐험 +1장, 투기장 +2장 보너스
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr] mb-6">
+          {/* 교사 레벨 설정 */}
+          <div className="adventure-level-panel bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-extrabold text-indigo-500">교사 플레이 설정</p>
+                <h2 className="mt-1 text-lg font-extrabold text-slate-800">🎓 교사 레벨</h2>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">교사가 퀴즈던전·탐험던전을 플레이할 때 적용됩니다.</p>
+              </div>
+              <div className="flex items-baseline gap-1 rounded-xl bg-indigo-50 border border-indigo-200 px-3 py-2">
                 <span className="text-xs font-bold text-indigo-500">현재</span>
                 <span className="text-2xl font-extrabold text-indigo-700">Lv.{teacherLevel}</span>
               </div>
-              <div className="flex items-center gap-2">
+            </div>
+            <div className="mt-5 flex items-center gap-2">
+              <label className="text-xs font-bold text-slate-500 shrink-0">레벨 변경</label>
+              <div className="flex flex-1 items-center gap-2">
                 <input
                   type="number" min="1" max="99"
                   value={teacherLevelInput}
                   onChange={e => setTeacherLevelInput(e.target.value)}
-                  className="w-20 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:outline-none focus:border-indigo-400"
+                  className="min-w-0 flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:outline-none focus:border-indigo-400"
                   placeholder="1~99"
                 />
                 <button
                   onClick={saveTeacherLevel} disabled={isSavingLevel}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50 shadow-sm">
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50 shadow-sm">
                   {isSavingLevel ? '저장 중...' : '저장'}
                 </button>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* 이용권 현황 요약 */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          {Object.entries(TICKET_CONFIG).map(([key, cfg]) => {
-            const c = COLOR_MAP[cfg.color];
-            return (
-              <div key={key} className={`bg-white rounded-2xl p-4 shadow-sm border-2 ${c.border}`}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-2xl">{cfg.icon}</span>
-                  <span className={`text-sm font-bold ${c.text}`}>{cfg.label}</span>
+          {/* 이용권 현황 요약 */}
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries(TICKET_CONFIG).map(([key, cfg]) => {
+              const c = COLOR_MAP[cfg.color];
+              const maxTotal = students.length * cfg.max;
+              const fillRate = maxTotal > 0 ? Math.round((stats[key] / maxTotal) * 100) : 0;
+              return (
+                <div key={key} className={`adventure-ticket-summary bg-white rounded-2xl p-4 shadow-sm border-2 ${c.border}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-2xl">{cfg.icon}</span>
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-extrabold ${c.badge}`}>{fillRate}% 보유</span>
+                  </div>
+                  <p className={`mt-3 text-xs font-bold ${c.text}`}>{cfg.label}</p>
+                  <div className="mt-1 flex items-end gap-1">
+                    <span className="text-2xl font-extrabold text-slate-800">{stats[key]}</span>
+                    <span className="pb-1 text-xs font-bold text-slate-400">/ {maxTotal}장</span>
+                  </div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    <div className={`h-full rounded-full ${cfg.color === 'sky' ? 'bg-sky-500' : 'bg-violet-500'}`} style={{ width: `${fillRate}%` }} />
+                  </div>
                 </div>
-                <div className="text-2xl font-extrabold text-slate-800">{stats[key]}</div>
-                <div className="text-xs text-slate-400 mt-0.5">
-                  전체 보유 / 최대 {cfg.max}개
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
         {/* 학생 목록 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="adventure-student-table bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           {/* 검색 + 전체선택 */}
-          <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
+          <div className="adventure-student-toolbar px-5 py-4 bg-slate-50 border-b border-slate-200">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-extrabold text-slate-800">학생별 이용권 현황</h2>
+                <p className="mt-0.5 text-xs text-slate-400">수량을 바로 조정하거나 학생을 선택해 일괄 부여할 수 있습니다.</p>
+              </div>
+              <span className="rounded-full bg-white border border-slate-200 px-3 py-1.5 text-xs text-slate-500 font-bold shrink-0">
+                총 {filteredStudents.length}명
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
             <input
               type="checkbox"
               checked={selected.length === filteredStudents.length && filteredStudents.length > 0}
               onChange={toggleSelectAll}
               className="w-4 h-4 rounded"
+              title="전체 학생 선택"
             />
             <input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="학생 이름 또는 코드 검색..."
-              className="flex-1 border border-slate-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-400"
+              className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
             />
-            <span className="text-xs text-slate-400 font-medium shrink-0">
-              {filteredStudents.length}명
-            </span>
+            </div>
           </div>
 
+          <div className="overflow-x-auto">
+          <div className="min-w-[720px]">
           {/* 컬럼 헤더 */}
-          <div className="grid grid-cols-[auto_1fr_repeat(2,_auto)_auto] gap-0 px-5 py-2 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500">
+          <div className="adventure-table-head grid grid-cols-[auto_1fr_repeat(2,_auto)_auto] gap-0 px-5 py-3 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500">
             <div className="w-6 mr-3" />
             <div>학생</div>
             {Object.values(TICKET_CONFIG).map(cfg => (
@@ -358,7 +386,7 @@ function AdventureManage({ selectedClass }) {
                 return (
                   <div
                     key={student.id}
-                    className={`grid grid-cols-[auto_1fr_repeat(2,_auto)_auto] gap-0 px-5 py-3 items-center hover:bg-slate-50 transition-colors
+                    className={`adventure-student-row grid grid-cols-[auto_1fr_repeat(2,_auto)_auto] gap-0 px-5 py-3.5 items-center hover:bg-slate-50 transition-colors
                       ${isSelected ? 'bg-indigo-50' : ''}`}>
 
                     {/* 체크박스 */}
@@ -424,6 +452,8 @@ function AdventureManage({ selectedClass }) {
               })}
             </div>
           )}
+          </div>
+          </div>
         </div>
       </div>
 
