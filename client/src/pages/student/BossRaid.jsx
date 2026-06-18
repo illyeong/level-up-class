@@ -124,6 +124,25 @@ const bossQuestionKey = (raid, question, questionIdx) =>
 const wrongAnswerDocId = (studentCode, questionKey) =>
   `${studentCode}_${questionKey}`.replace(/[/.#[\]]/g, '_').slice(0, 1400);
 
+const BOSS_SKILL_WRONG_THRESHOLD = 5;
+
+const resolveBossSkill = (bossData, raid) => {
+  const id = [raid?.bossId, raid?.bossName, bossData?.id, bossData?.name]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  if (/demon|devil|ghost|undead|skull/.test(id)) {
+    return { name: '심연의 파동', icon: '☠', tone: 'violet' };
+  }
+  if (/golem|stone|rock|minotaur|bear/.test(id)) {
+    return { name: '대지 붕괴', icon: '◆', tone: 'amber' };
+  }
+  if (/dragon|lizard|croc|fire/.test(id)) {
+    return { name: '지옥의 화염', icon: '🔥', tone: 'rose' };
+  }
+  return { name: '파멸의 일격', icon: '⚡', tone: 'rose' };
+};
+
 const getCorrectIndex = (question) => {
   const raw = question?.answer ?? question?.answerIndex ?? question?.correctAnswer;
   const idx = Number(raw);
@@ -540,11 +559,14 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
   const playerActorRef = useRef(null);
   const effectTimersRef = useRef(new Set());
   const impactIdRef = useRef(0);
+  const skillTriggeredQuestionsRef = useRef(new Set());
 
   const [impactFx, setImpactFx] = useState(null);
   const [bossHitTier, setBossHitTier] = useState(0);
   const [playerHitTier, setPlayerHitTier] = useState(0);
   const [damageFloats, setDamageFloats] = useState([]);
+  const [bossSkillFx, setBossSkillFx] = useState(null);
+  const activeBossSkillFx = bossSkillFx?.questionIdx === qIdx ? bossSkillFx : null;
 
   const scheduleEffect = (callback, delay) => {
     const timer = setTimeout(() => {
@@ -579,6 +601,31 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
     effectTimersRef.current.forEach(clearTimeout);
     effectTimersRef.current.clear();
   }, []);
+
+  useEffect(() => {
+    const wrongCount = Object.values(raid.participants || {}).filter((participant) =>
+      participant?.qResults?.[qIdx] === 0
+    ).length;
+    const skillKey = `${raid.id}:${qIdx}`;
+
+    if (wrongCount < BOSS_SKILL_WRONG_THRESHOLD || skillTriggeredQuestionsRef.current.has(skillKey)) return;
+    skillTriggeredQuestionsRef.current.add(skillKey);
+
+    const skill = resolveBossSkill(bossData, raid);
+    setBossSkillFx({ ...skill, phase: 'charge', wrongCount, questionIdx: qIdx });
+
+    scheduleEffect(() => {
+      setBossSkillFx(current => current?.questionIdx === qIdx ? { ...current, phase: 'cast' } : current);
+    }, 650);
+    scheduleEffect(() => {
+      const playerPoint = getRaidActorPoint(playerActorRef.current, 'player');
+      if (playerPoint) triggerRaidImpact('player', playerPoint, 0, 4);
+      setBossSkillFx(current => current?.questionIdx === qIdx ? { ...current, phase: 'impact' } : current);
+    }, 1350);
+    scheduleEffect(() => {
+      setBossSkillFx(current => current?.questionIdx === qIdx ? null : current);
+    }, 2450);
+  }, [raid.id, raid.participants, qIdx, bossData]);
 
   const alreadyAnswered = myP.lastAnsweredIdx === qIdx || myAnswer !== null;
   const displayAnswer   = myAnswer ?? (alreadyAnswered
@@ -666,13 +713,31 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
         ref={bossAreaRef}
         data-testid="boss-raid-stage"
         className={`flex items-end justify-center relative shrink-0 overflow-hidden
-          ${impactFx ? `battle-scene-impact-${impactFx.tier}` : ''}`}
+          ${impactFx ? `battle-scene-impact-${impactFx.tier}` : ''}
+          ${activeBossSkillFx?.phase === 'impact' ? 'boss-skill-stage-impact' : ''}`}
         style={{ height: 'clamp(380px, 58vh, 620px)' }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/10 via-transparent to-slate-950/80 pointer-events-none" />
         <div className="absolute bottom-8 left-1/2 h-16 w-[62%] -translate-x-1/2 rounded-[100%] bg-black/55 blur-md pointer-events-none" />
         <div className="absolute bottom-14 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-rose-500/15 blur-3xl animate-pulse pointer-events-none sm:h-96 sm:w-96" />
         <div className="absolute bottom-20 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full border border-rose-300/20 shadow-[0_0_80px_rgba(244,63,94,0.25)] pointer-events-none sm:h-64 sm:w-64" />
+
+        {activeBossSkillFx && (
+          <div className={`boss-skill-overlay boss-skill-${activeBossSkillFx.tone} boss-skill-${activeBossSkillFx.phase}`}>
+            <div className="boss-skill-vignette" />
+            <div className="boss-skill-warning-ring" />
+            <div className="boss-skill-bolts" aria-hidden="true">
+              <i /><i /><i /><i /><i />
+            </div>
+            <div className="boss-skill-banner" role="status">
+              <span>{activeBossSkillFx.icon}</span>
+              <div>
+                <small>오답자 {activeBossSkillFx.wrongCount}명 · BOSS SKILL</small>
+                <strong>{activeBossSkillFx.name}</strong>
+              </div>
+            </div>
+          </div>
+        )}
 
         {impactFx && (
           <div key={`raid-flash-${impactFx.id}`}
@@ -694,7 +759,12 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
           className="relative z-10 origin-bottom scale-[0.68] sm:scale-[0.8] lg:scale-[0.88] 2xl:scale-100">
           <div data-battle-actor="boss"
             className={`drop-shadow-[0_18px_18px_rgba(0,0,0,0.75)] ${bossHitTier ? `boss-raid-hit-${bossHitTier}` : ''}`}>
-            <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={3.6} />
+            <BossSprite
+              bossData={bossData}
+              anim={activeBossSkillFx && activeBossSkillFx.phase !== 'charge' ? 'attack' : bossAnim}
+              flash={bossFlash}
+              scale={3.6}
+            />
           </div>
         </div>
 

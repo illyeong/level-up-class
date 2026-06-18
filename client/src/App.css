@@ -232,6 +232,60 @@
 .boss-raid-hit-3 { filter: brightness(1.65) saturate(.7); }
 .boss-raid-hit-4 { filter: brightness(1.9) saturate(.55); }
 
+/* 보스 레이드: 한 문항에서 오답자가 5명 이상일 때 발동하는 광역 스킬 */
+@keyframes boss-skill-charge {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.25); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+}
+@keyframes boss-skill-banner-in {
+  0% { opacity: 0; transform: translate(-50%, -25px) scale(.82); }
+  55% { opacity: 1; transform: translate(-50%, 4px) scale(1.06); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+@keyframes boss-skill-bolt {
+  0% { opacity: 0; transform: translateY(-35%) scaleY(.2); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(75%) scaleY(1.15); }
+}
+@keyframes boss-skill-stage-shake {
+  0%, 100% { transform: translate3d(0, 0, 0); filter: brightness(1); }
+  12% { transform: translate3d(-14px, 5px, 0); filter: brightness(1.7); }
+  28% { transform: translate3d(12px, -5px, 0); }
+  46% { transform: translate3d(-9px, 3px, 0); }
+  68% { transform: translate3d(6px, -2px, 0); }
+}
+.boss-skill-overlay { position: absolute; inset: 0; z-index: 35; pointer-events: none; overflow: hidden; }
+.boss-skill-vignette { position: absolute; inset: 0; background: radial-gradient(circle at 50% 65%, transparent 10%, rgba(2,6,23,.8) 72%); }
+.boss-skill-warning-ring {
+  position: absolute; left: 50%; top: 62%; width: min(68vw, 520px); aspect-ratio: 1;
+  border: 8px solid rgba(244,63,94,.65); border-radius: 50%;
+  box-shadow: 0 0 35px rgba(244,63,94,.85), inset 0 0 35px rgba(244,63,94,.55);
+  animation: boss-skill-charge .65s ease-out both;
+}
+.boss-skill-banner {
+  position: absolute; left: 50%; top: 18%; display: flex; align-items: center; gap: 12px;
+  min-width: min(86vw, 390px); padding: 12px 22px; border: 1px solid rgba(251,113,133,.85);
+  background: linear-gradient(90deg, rgba(15,23,42,.25), rgba(127,29,29,.96), rgba(15,23,42,.25));
+  color: white; text-align: left; justify-content: center; text-shadow: 0 2px 8px #000;
+  animation: boss-skill-banner-in .38s cubic-bezier(.16,.9,.3,1.2) both;
+}
+.boss-skill-banner > span { font-size: 2rem; filter: drop-shadow(0 0 8px currentColor); }
+.boss-skill-banner small { display: block; color: #fecdd3; font-size: .65rem; font-weight: 900; letter-spacing: .12em; }
+.boss-skill-banner strong { display: block; font-size: clamp(1.35rem, 4vw, 2rem); font-weight: 1000; letter-spacing: .08em; }
+.boss-skill-bolts i { position: absolute; top: 12%; width: 5px; height: 65%; background: linear-gradient(transparent, #fff, #fb7185, transparent); transform-origin: top; animation: boss-skill-bolt .7s ease-in both; }
+.boss-skill-bolts i:nth-child(1) { left: 12%; animation-delay: .72s; }
+.boss-skill-bolts i:nth-child(2) { left: 30%; animation-delay: .86s; }
+.boss-skill-bolts i:nth-child(3) { left: 50%; animation-delay: .76s; }
+.boss-skill-bolts i:nth-child(4) { left: 70%; animation-delay: .9s; }
+.boss-skill-bolts i:nth-child(5) { left: 88%; animation-delay: .8s; }
+.boss-skill-cast .boss-skill-warning-ring { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+.boss-skill-impact .boss-skill-vignette { background: rgba(255,255,255,.38); }
+.boss-skill-violet .boss-skill-warning-ring { border-color: rgba(168,85,247,.75); box-shadow: 0 0 35px #7e22ce, inset 0 0 35px #7e22ce; }
+.boss-skill-violet .boss-skill-banner { border-color: #c084fc; background: linear-gradient(90deg, rgba(15,23,42,.25), rgba(88,28,135,.96), rgba(15,23,42,.25)); }
+.boss-skill-amber .boss-skill-warning-ring { border-color: rgba(245,158,11,.8); box-shadow: 0 0 35px #d97706, inset 0 0 35px #d97706; }
+.boss-skill-amber .boss-skill-banner { border-color: #fbbf24; background: linear-gradient(90deg, rgba(15,23,42,.25), rgba(120,53,15,.96), rgba(15,23,42,.25)); }
+.boss-skill-stage-impact { animation: boss-skill-stage-shake .72s ease-out; }
+
 @keyframes battle-impact-flash {
   0% { opacity: .7; }
   35% { opacity: .18; }
@@ -310,6 +364,7 @@
   .boss-raid-hit-1, .boss-raid-hit-2, .boss-raid-hit-3, .boss-raid-hit-4 {
     animation-duration: 1ms;
   }
+  .boss-skill-warning-ring, .boss-skill-banner, .boss-skill-bolts i, .boss-skill-stage-impact { animation-duration: 1ms; }
 }
 
 @keyframes glow-success {
