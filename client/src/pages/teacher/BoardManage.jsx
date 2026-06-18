@@ -84,6 +84,21 @@ const POST_COLORS = [
   'bg-orange-50 border-orange-200',
 ];
 
+const BOARD_CARD_STRIPS = [
+  'bg-rose-500',
+  'bg-sky-500',
+  'bg-emerald-500',
+  'bg-violet-500',
+  'bg-amber-500',
+  'bg-cyan-500',
+];
+
+const getBoardCardStrip = (board, fallbackIndex = 0) => {
+  const seed = String(board?.id || board?.title || fallbackIndex);
+  const hash = Array.from(seed).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return BOARD_CARD_STRIPS[hash % BOARD_CARD_STRIPS.length];
+};
+
 const GROUP_COLORS = [
   { bg: 'bg-rose-50',    border: 'border-rose-300',    header: 'bg-rose-400',    text: 'text-white', btn: 'bg-rose-500 hover:bg-rose-600 text-white',    dot: 'bg-rose-400' },
   { bg: 'bg-sky-50',     border: 'border-sky-300',     header: 'bg-sky-400',     text: 'text-white', btn: 'bg-sky-500 hover:bg-sky-600 text-white',       dot: 'bg-sky-400' },
@@ -591,7 +606,8 @@ export default function BoardManage({ selectedClass, user }) {
   const PostCard = ({ post, idx }) => (
     <div className={`rounded-2xl border-2 p-4 shadow-sm relative group transition-all
       ${post.pinned ? 'ring-2 ring-amber-400 ring-offset-1' : ''}
-      ${post.isTeacher ? 'bg-indigo-50 border-indigo-200' : POST_COLORS[idx % POST_COLORS.length]}`}>
+      ${post.isTeacher ? 'bg-indigo-50 border-indigo-200' : POST_COLORS[idx % POST_COLORS.length]}
+      dark:!bg-slate-900 dark:!border-slate-700 dark:ring-offset-slate-950`}>
       {post.pinned
         ? <button onClick={() => togglePin(post.id, post.pinned)}
             className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded-lg flex items-center gap-0.5 hover:bg-amber-500 z-10">
@@ -606,30 +622,30 @@ export default function BoardManage({ selectedClass, user }) {
         <button
           type="button"
           onClick={() => openEditPost(post)}
-          className="rounded-lg border border-slate-200 bg-white/90 px-2 py-0.5 text-[10px] font-extrabold text-slate-500 shadow-sm hover:border-indigo-200 hover:text-indigo-600"
+          className="rounded-lg border border-slate-200 bg-white/90 px-2 py-0.5 text-[10px] font-extrabold text-slate-500 shadow-sm hover:border-indigo-200 hover:text-indigo-600 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300"
         >
           수정
         </button>
         <button
           type="button"
           onClick={() => deletePost(post.id)}
-          className="rounded-lg border border-slate-200 bg-white/90 px-2 py-0.5 text-[10px] font-extrabold text-slate-500 shadow-sm hover:border-rose-200 hover:text-rose-500"
+          className="rounded-lg border border-slate-200 bg-white/90 px-2 py-0.5 text-[10px] font-extrabold text-slate-500 shadow-sm hover:border-rose-200 hover:text-rose-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300"
         >
           삭제
         </button>
       </div>
       <div className="flex items-center gap-2 mb-3 mt-1">
-        <div className="w-14 h-14 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+        <div className="w-14 h-14 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center dark:bg-slate-950 dark:border-slate-700">
           {post.isTeacher ? <span className="text-2xl">👑</span>
             : post.characterImage ? <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
             : <span className="text-2xl">🧑‍🎓</span>}
         </div>
-        <span className={`font-extrabold text-xs truncate ${post.isTeacher ? 'text-indigo-700' : 'text-slate-800'}`}>
+        <span className={`font-extrabold text-xs truncate ${post.isTeacher ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-slate-200'}`}>
           {post.studentName}
         </span>
       </div>
       {post.title && (
-        <h3 className="mb-2 text-base font-extrabold text-slate-900 leading-snug break-words">
+        <h3 className="mb-2 text-base font-extrabold text-slate-900 leading-snug break-words dark:text-white">
           {post.title}
         </h3>
       )}
@@ -637,12 +653,12 @@ export default function BoardManage({ selectedClass, user }) {
         const isLong = post.content.length > 50 || post.content.split('\n').length > 3;
         return (
           <>
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 line-clamp-5">{post.content}</p>
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 line-clamp-5 dark:text-slate-200">{post.content}</p>
             {isLong && (
               <button
                 type="button"
                 onClick={() => setExpandedPost(post)}
-                className="inline-flex items-center rounded-full bg-white/80 border border-indigo-100 px-2.5 py-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-white font-extrabold transition-colors mb-1"
+                className="inline-flex items-center rounded-full bg-white/80 border border-indigo-100 px-2.5 py-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-white font-extrabold transition-colors mb-1 dark:bg-slate-800 dark:border-indigo-500/40 dark:text-indigo-300 dark:hover:bg-slate-700"
               >
                 더보기 ▾
               </button>
@@ -659,12 +675,12 @@ export default function BoardManage({ selectedClass, user }) {
         <a
           href={post.attachment.dataUrl}
           download={post.attachment.name || 'attachment'}
-          className="mb-2 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+          className="mb-2 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
         >
           📎 {post.attachment.name || '첨부파일'}
         </a>
       )}
-      <div className="text-[10px] text-slate-400 mt-1">
+      <div className="text-[10px] text-slate-400 mt-1 dark:text-slate-500">
         {post.createdAt?.toDate?.()?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || ''}
       </div>
       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
@@ -673,15 +689,15 @@ export default function BoardManage({ selectedClass, user }) {
           const counts = {};
           Object.values(post.reactions || {}).forEach(e => { if (e) counts[e] = (counts[e] || 0) + 1; });
           return Object.entries(counts).map(([emoji, count]) => (
-            <span key={emoji} className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200">
-              {emoji} <span className="font-bold text-slate-600">{count}</span>
+            <span key={emoji} className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200 dark:bg-slate-800 dark:border-slate-600">
+              {emoji} <span className="font-bold text-slate-600 dark:text-slate-300">{count}</span>
             </span>
           ));
         })()}
         {/* 댓글 버튼 — 항상 표시 */}
         <button
           onClick={() => setExpandedPost(post)}
-          className="flex items-center gap-0.5 text-xs text-slate-500 bg-white/70 hover:bg-white rounded-full px-1.5 py-0.5 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 transition-colors font-bold"
+          className="flex items-center gap-0.5 text-xs text-slate-500 bg-white/70 hover:bg-white rounded-full px-1.5 py-0.5 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 transition-colors font-bold dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-indigo-300"
         >
           💬 {(post.comments || []).length > 0
             ? <span>{(post.comments || []).length}</span>
@@ -704,7 +720,7 @@ export default function BoardManage({ selectedClass, user }) {
 
     if (type === 'wall') {
       return (
-        <div style={{ ...wrap, padding: '1.25rem' }}>
+        <div style={{ ...wrap, padding: '1.25rem' }} className="dark:!bg-slate-950">
           {sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3 opacity-50">
               <div className="text-6xl">📝</div>
@@ -726,13 +742,13 @@ export default function BoardManage({ selectedClass, user }) {
     if (type === 'vertical-group') {
       const ungrouped = sorted.filter(p => !p.pageId);
       return (
-        <div style={{ ...wrap, padding: '1.25rem' }} className="space-y-4">
+        <div style={{ ...wrap, padding: '1.25rem' }} className="space-y-4 dark:!bg-slate-950">
           {pages.map((page, gi) => {
             const gc = GROUP_COLORS[gi % GROUP_COLORS.length];
             const pagePosts = sorted.filter(p => p.pageId === page.id);
             return (
               <div key={page.id}
-                className={`rounded-2xl border-2 ${gc.bg} ${gc.border} overflow-hidden shadow-sm relative`}
+                className={`rounded-2xl border-2 ${gc.bg} ${gc.border} overflow-hidden shadow-sm relative dark:!bg-slate-900 dark:!border-slate-700`}
                 style={{ borderLeftWidth: '6px' }}>
                 <div className={`${gc.header} px-5 py-3 flex items-center gap-3`}>
                   <div className="w-2 h-2 rounded-full bg-white/70 shrink-0" />
@@ -794,7 +810,7 @@ export default function BoardManage({ selectedClass, user }) {
             );
           })}
           {ungrouped.length > 0 && (
-            <div className="bg-white/40 rounded-2xl p-4 border border-dashed border-slate-300">
+            <div className="bg-white/40 rounded-2xl p-4 border border-dashed border-slate-300 dark:bg-slate-900 dark:border-slate-700">
               <h3 className="font-bold text-slate-400 text-xs mb-3">📌 그룹 없음</h3>
               <div className="flex gap-4 flex-wrap">
                 {ungrouped.map((p, i) => (
@@ -805,7 +821,7 @@ export default function BoardManage({ selectedClass, user }) {
           )}
           <button
             onClick={addPage}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-2xl bg-white border-2 border-dashed border-indigo-300 text-indigo-500 hover:bg-indigo-50 hover:border-indigo-400 transition-all shadow-sm"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-2xl bg-white border-2 border-dashed border-indigo-300 text-indigo-500 hover:bg-indigo-50 hover:border-indigo-400 transition-all shadow-sm dark:bg-slate-900 dark:border-indigo-500/50 dark:text-indigo-300 dark:hover:bg-slate-800"
           >
             <span className="text-lg font-black leading-none">+</span>
             그룹 추가
@@ -821,7 +837,7 @@ export default function BoardManage({ selectedClass, user }) {
         ...(ungrouped.length > 0 ? [{ id: 'ungrouped', title: '그룹 없음', posts: ungrouped, colorIdx: pages.length }] : []),
       ];
       return (
-        <div style={{ ...wrap, overflowX: 'auto', padding: '1.25rem' }}>
+        <div style={{ ...wrap, overflowX: 'auto', padding: '1.25rem' }} className="dark:!bg-slate-950">
           <div className="flex gap-4 items-start pb-4"
             style={{ minWidth: `${(cols.length + 1) * 268}px` }}>
             {cols.map(col => {
@@ -829,7 +845,7 @@ export default function BoardManage({ selectedClass, user }) {
               return (
                 <div key={col.id}
                   style={{ width: pageSizes[col.id] || 252, flexShrink: 0, position: 'relative' }}
-                  className={`rounded-2xl border-2 ${gc.border} ${gc.bg} overflow-hidden shadow-sm flex flex-col`}>
+                  className={`rounded-2xl border-2 ${gc.border} ${gc.bg} overflow-hidden shadow-sm flex flex-col dark:!bg-slate-900 dark:!border-slate-700`}>
                   <div className={`${gc.header} px-4 py-3 flex items-center gap-2 shrink-0`}>
                     {col.id !== 'ungrouped' && editingPageId === col.id ? (
                       <input
@@ -890,7 +906,7 @@ export default function BoardManage({ selectedClass, user }) {
             {/* 그룹 추가 팬텀 컬럼 */}
             <div
               style={{ width: 252, flexShrink: 0, minHeight: 140 }}
-              className="rounded-2xl border-2 border-dashed border-slate-300 bg-white/50 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/60 transition-all group self-stretch"
+              className="rounded-2xl border-2 border-dashed border-slate-300 bg-white/50 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/60 transition-all group self-stretch dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800 dark:hover:border-indigo-500"
               onClick={addPage}
             >
               <div className="w-12 h-12 rounded-2xl border-2 border-dashed border-slate-300 group-hover:border-indigo-400 flex items-center justify-center transition-colors">
@@ -1257,7 +1273,7 @@ export default function BoardManage({ selectedClass, user }) {
           const isSelected = selectedSheetId === sheet.id;
           const isEditing  = editingSheetId === sheet.id;
           return (
-            <div key={sheet.id} className={`flex items-center gap-1 rounded-xl px-1 py-1 shrink-0 ${isSelected ? 'bg-indigo-600' : 'bg-slate-100 hover:bg-slate-200'}`}>
+            <div key={sheet.id} className={`flex items-center gap-1 rounded-xl px-1 py-1 shrink-0 ${isSelected ? 'bg-indigo-600' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700'}`}>
               {isEditing ? (
                 <>
                   <input
@@ -1274,7 +1290,7 @@ export default function BoardManage({ selectedClass, user }) {
               ) : (
                 <>
                   <button onClick={() => setSelectedSheetId(sheet.id)}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${isSelected ? 'text-white' : 'text-slate-600'}`}>
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${isSelected ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`}>
                     {sheet.title}
                   </button>
                   <button onClick={() => beginSheetRename(sheet)}
@@ -1295,15 +1311,15 @@ export default function BoardManage({ selectedClass, user }) {
     );
 
     return (
-      <div className="flex flex-col bg-slate-100" style={{ height: 'calc(100vh - 0px)' }}>
+      <div className="flex flex-col bg-slate-100 dark:bg-slate-950" style={{ height: 'calc(100vh - 0px)' }}>
         {/* ── 통합 헤더 (지도형 제외) ── */}
         {!isMapType && (
-          <div className="bg-white border-b border-slate-200 shadow-sm shrink-0">
+          <div className="bg-white border-b border-slate-200 shadow-sm shrink-0 dark:bg-slate-900 dark:border-slate-700">
             {/* 상단 줄: 뒤로 + 제목 + 게시물 수 */}
             <div className="px-4 pr-48 py-2.5 flex items-center gap-3">
               <button
                 onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); setEditingSheetId(null); setEditingSheetTitle(''); closeEditPost(); }}
-                className="text-slate-500 hover:text-slate-800 font-bold text-sm px-2.5 py-1 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors shrink-0">
+                className="text-slate-500 hover:text-slate-800 font-bold text-sm px-2.5 py-1 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors shrink-0 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">
                 ← 목록
               </button>
               <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -1312,7 +1328,7 @@ export default function BoardManage({ selectedClass, user }) {
                     {typeInfo.label}
                   </span>
                 )}
-                <h1 className="text-sm font-extrabold text-slate-800 truncate">{selectedBoard.title}</h1>
+                <h1 className="text-sm font-extrabold text-slate-800 truncate dark:text-slate-100">{selectedBoard.title}</h1>
               </div>
               {hasNewPosts && (
                 <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-extrabold text-amber-700 border border-amber-200 shrink-0">
@@ -1323,11 +1339,11 @@ export default function BoardManage({ selectedClass, user }) {
                 type="button"
                 onClick={() => loadBoardPosts()}
                 disabled={loadingPosts}
-                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-extrabold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 shrink-0"
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-extrabold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 shrink-0 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300"
               >
                 새로고침
               </button>
-              <span className="text-xs text-slate-400 font-medium shrink-0">게시물 {sorted.length}개</span>
+              <span className="text-xs text-slate-400 font-medium shrink-0 dark:text-slate-500">게시물 {sorted.length}개</span>
             </div>
             {/* 시트 탭 줄 */}
             <div className="px-4 pb-2">
@@ -1476,12 +1492,12 @@ export default function BoardManage({ selectedClass, user }) {
 
   // ── board list ────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-100 p-8">
+    <div className="min-h-screen bg-slate-100 p-8 dark:bg-slate-950">
       <div className="max-w-5xl mx-auto">
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex justify-between items-center mb-6">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex justify-between items-center mb-6 dark:bg-slate-900 dark:border-slate-700">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-800">📋 공유 게시판</h1>
-            <p className="text-slate-500 text-sm mt-0.5">학생들이 학습 결과를 카드 형태로 자유롭게 공유하는 게시판</p>
+            <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">📋 공유 게시판</h1>
+            <p className="text-slate-500 text-sm mt-0.5 dark:text-slate-400">학생들이 학습 결과를 카드 형태로 자유롭게 공유하는 게시판</p>
           </div>
           <button onClick={() => setShowCreate(true)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
@@ -1503,8 +1519,9 @@ export default function BoardManage({ selectedClass, user }) {
               </div>
             )
             : <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {boards.map(board => {
+                {boards.map((board, boardIndex) => {
                   const typeInfo = BOARD_TYPES.find(t => t.id === board.boardType);
+                  const stripColor = getBoardCardStrip(board, boardIndex);
                   const fmtCreatedAt = board.createdAt?.toDate
                     ? board.createdAt.toDate().toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
                     : board.createdAt?.seconds
@@ -1512,18 +1529,18 @@ export default function BoardManage({ selectedClass, user }) {
                       : '날짜 없음';
                   return (
                     <div key={board.id}
-                      className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all cursor-pointer group
-                        ${board.active ? 'border-slate-200 hover:shadow-lg hover:-translate-y-0.5' : 'border-slate-100 opacity-60'}`}
+                      className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all cursor-pointer group dark:bg-slate-900
+                        ${board.active ? 'border-slate-200 hover:shadow-lg hover:-translate-y-0.5 dark:border-slate-700 dark:hover:border-slate-600' : 'border-slate-100 opacity-60 dark:border-slate-800'}`}
                       onClick={() => openBoard(board)}>
                       {/* 색깔 띠 헤더 */}
-                      <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center ${typeInfo?.strip || 'bg-slate-400'}`}>
+                      <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center ${stripColor}`}>
                         <span>{typeInfo?.label || '기본형'}</span>
                         <span>{board.active ? '🟢 공개' : '⏸ 비공개'}</span>
                       </div>
                       <div className="p-4">
-                        <h3 className="font-extrabold text-slate-800 text-base mb-1 group-hover:text-indigo-700 transition-colors">{board.title}</h3>
-                        {board.description && <p className="text-xs text-slate-500 mb-2 line-clamp-2">{board.description}</p>}
-                        <div className="text-[11px] text-slate-400 mb-3 flex items-center gap-1">
+                        <h3 className="font-extrabold text-slate-800 text-base mb-1 group-hover:text-indigo-700 transition-colors dark:text-slate-100 dark:group-hover:text-indigo-300">{board.title}</h3>
+                        {board.description && <p className="text-xs text-slate-500 mb-2 line-clamp-2 dark:text-slate-400">{board.description}</p>}
+                        <div className="text-[11px] text-slate-400 mb-3 flex items-center gap-1 dark:text-slate-500">
                           🗓 {fmtCreatedAt}
                         </div>
                         <div className="flex gap-2 mt-1" onClick={e => e.stopPropagation()}>
@@ -1532,7 +1549,7 @@ export default function BoardManage({ selectedClass, user }) {
                             열기
                           </button>
                           <button onClick={() => toggleActive(board)}
-                            className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl border border-slate-200">
+                            className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl border border-slate-200 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
                             {board.active ? '숨기기' : '공개'}
                           </button>
                           <button onClick={() => deleteBoard(board)}
