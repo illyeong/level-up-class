@@ -54,6 +54,21 @@ const POST_COLORS = [
   'bg-orange-50 border-orange-200',
 ];
 
+const BOARD_CARD_STRIPS = [
+  'bg-rose-500',
+  'bg-sky-500',
+  'bg-emerald-500',
+  'bg-violet-500',
+  'bg-amber-500',
+  'bg-cyan-500',
+];
+
+const getBoardCardStrip = (board, fallbackIndex = 0) => {
+  const seed = String(board?.id || board?.title || fallbackIndex);
+  const hash = Array.from(seed).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return BOARD_CARD_STRIPS[hash % BOARD_CARD_STRIPS.length];
+};
+
 const GROUP_COLORS = [
   { bg: 'bg-rose-50',    border: 'border-rose-300',    header: 'bg-rose-400',    text: 'text-white', dot: 'bg-rose-400' },
   { bg: 'bg-sky-50',     border: 'border-sky-300',     header: 'bg-sky-400',     text: 'text-white', dot: 'bg-sky-400' },
@@ -124,17 +139,17 @@ function CommentSection({ post, boardId, student }) {
   };
 
   return (
-    <div className="border-t border-black/5 mt-2 pt-2">
+    <div className="border-t border-black/5 mt-2 pt-2 dark:border-white/10">
       <button onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-indigo-600 transition-colors">
-        💬 댓글 {localComments.length > 0 && <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">{localComments.length}</span>}
+        className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-indigo-600 transition-colors dark:text-slate-400 dark:hover:text-indigo-300">
+        💬 댓글 {localComments.length > 0 && <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full dark:bg-slate-700 dark:text-slate-200">{localComments.length}</span>}
         <span className="text-slate-300">{open ? '▲' : '▼'}</span>
       </button>
       {open && (
         <div className="mt-2 space-y-2">
           {localComments.map(c => (
             <div key={c.id} className="flex items-start gap-2">
-              <div className="w-10 h-10 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center dark:bg-slate-950 dark:border-slate-700">
                 {c.characterImage ? <img src={c.characterImage} alt="" className="w-full h-full object-contain scale-[2]" /> : <span className="text-base">🧑</span>}
               </div>
               <div className="flex-1">
@@ -142,20 +157,20 @@ function CommentSection({ post, boardId, student }) {
                   <div className="flex gap-1">
                     <input value={editText} onChange={e => setEditText(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && saveEdit(c.id)}
-                      className="flex-1 text-xs bg-white border border-indigo-300 rounded-xl px-2.5 py-1.5 focus:outline-none" autoFocus />
+                      className="flex-1 text-xs bg-white border border-indigo-300 rounded-xl px-2.5 py-1.5 text-slate-800 focus:outline-none dark:bg-slate-950 dark:border-indigo-500/60 dark:text-slate-100" autoFocus />
                     <button onClick={() => saveEdit(c.id)} className="text-[10px] font-bold text-indigo-600 px-1">저장</button>
                     <button onClick={() => setEditingId(null)} className="text-[10px] text-slate-400 px-1">취소</button>
                   </div>
                 ) : (
-                  <div className="bg-white/60 rounded-xl px-2.5 py-1.5 group/comment relative">
-                    <span className="text-[10px] font-extrabold text-slate-700">{c.authorName} </span>
-                    <span className="text-xs text-slate-600">{c.text}</span>
+                  <div className="bg-white/60 rounded-xl px-2.5 py-1.5 group/comment relative dark:bg-slate-800">
+                    <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-200">{c.authorName} </span>
+                    <span className="text-xs text-slate-600 dark:text-slate-300">{c.text}</span>
                     {student?.id === c.authorId && (
                       <div className="absolute top-1 right-1 opacity-0 group-hover/comment:opacity-100 flex gap-0.5 transition-opacity">
                         <button onClick={() => { setEditingId(c.id); setEditText(c.text); }}
-                          className="text-[9px] text-slate-400 hover:text-indigo-500 px-1 py-0.5 rounded bg-white/80">수정</button>
+                          className="text-[9px] text-slate-400 hover:text-indigo-500 px-1 py-0.5 rounded bg-white/80 dark:bg-slate-700">수정</button>
                         <button onClick={() => deleteComment(c.id)}
-                          className="text-[9px] text-slate-400 hover:text-rose-500 px-1 py-0.5 rounded bg-white/80">삭제</button>
+                          className="text-[9px] text-slate-400 hover:text-rose-500 px-1 py-0.5 rounded bg-white/80 dark:bg-slate-700">삭제</button>
                       </div>
                     )}
                   </div>
@@ -165,13 +180,13 @@ function CommentSection({ post, boardId, student }) {
           ))}
           {student && (
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center dark:bg-slate-950 dark:border-slate-700">
                 {student.characterImage ? <img src={student.characterImage} alt="" className="w-full h-full object-contain scale-[2]" /> : <span className="text-base">🧑</span>}
               </div>
               <input value={text} onChange={e => setText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && submitComment()}
                 placeholder="댓글 입력..."
-                className="flex-1 text-xs bg-white/70 border border-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-indigo-400" />
+                className="flex-1 text-xs bg-white/70 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-800 focus:outline-none focus:border-indigo-400 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500" />
               <button onClick={submitComment} disabled={saving || !text.trim()}
                 className="text-xs font-bold text-indigo-600 hover:text-indigo-800 disabled:opacity-40 px-1">
                 {saving ? '...' : '↑'}
@@ -196,7 +211,8 @@ function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinne
   return (
     <div className={`rounded-2xl border-2 p-4 shadow-sm relative group transition-all hover:shadow-md hover:-translate-y-0.5
       ${post.isTeacher ? 'bg-indigo-50 border-indigo-200' : POST_COLORS[idx % POST_COLORS.length]}
-      ${isPinned ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}>
+      ${isPinned ? 'ring-2 ring-amber-400 ring-offset-1' : ''}
+      dark:!bg-slate-900 dark:!border-slate-700 dark:ring-offset-slate-950`}>
       {isPinned && (
         <div className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded-lg flex items-center gap-0.5 z-10">
           📌 고정
@@ -205,34 +221,34 @@ function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinne
       {isMyPost && (
         <div className="absolute top-2 right-2 flex gap-1 z-10">
           <button onClick={() => onEditRequest?.(post)}
-            className="text-[9px] text-slate-500 hover:text-indigo-600 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm border border-slate-200">수정</button>
+            className="text-[9px] text-slate-500 hover:text-indigo-600 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm border border-slate-200 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300">수정</button>
           <button onClick={() => onDelete?.(post.id)}
-            className="text-[9px] text-slate-500 hover:text-rose-500 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm border border-slate-200">삭제</button>
+            className="text-[9px] text-slate-500 hover:text-rose-500 px-1.5 py-0.5 rounded bg-white/90 font-bold shadow-sm border border-slate-200 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300">삭제</button>
         </div>
       )}
         <div className="flex items-center gap-2 mb-3 mt-1">
-          <div className="w-14 h-14 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+          <div className="w-14 h-14 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center dark:bg-slate-950 dark:border-slate-700">
             {post.isTeacher ? <span className="text-2xl">👑</span>
               : post.characterImage ? <img src={post.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
               : <span className="text-2xl">🧑‍🎓</span>}
           </div>
-          <span className={`font-extrabold text-xs truncate ${post.isTeacher ? 'text-indigo-700' : 'text-slate-800'}`}>
+          <span className={`font-extrabold text-xs truncate ${post.isTeacher ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-slate-200'}`}>
             {post.studentName}
           </span>
         </div>
         {post.title && (
-          <h3 className="mb-2 text-base font-extrabold text-slate-900 leading-snug break-words">
+          <h3 className="mb-2 text-base font-extrabold text-slate-900 leading-snug break-words dark:text-white">
             {post.title}
           </h3>
         )}
         {post.content ? (
           <div className="mb-2">
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 line-clamp-5">{post.content}</p>
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 line-clamp-5 dark:text-slate-200">{post.content}</p>
             {isLongContent && (
               <button
                 type="button"
                 onClick={() => onExpand?.(post)}
-                className="inline-flex items-center rounded-full bg-white/80 border border-indigo-100 px-2.5 py-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-white font-extrabold transition-colors"
+                className="inline-flex items-center rounded-full bg-white/80 border border-indigo-100 px-2.5 py-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-white font-extrabold transition-colors dark:bg-slate-800 dark:border-indigo-500/40 dark:text-indigo-300 dark:hover:bg-slate-700"
               >
                 더보기 ▾
               </button>
@@ -248,12 +264,12 @@ function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinne
           <a
             href={post.attachment.dataUrl}
             download={post.attachment.name || 'attachment'}
-            className="mb-2 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+            className="mb-2 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             📎 {post.attachment.name || '첨부파일'}
           </a>
         )}
-        <div className="text-[10px] text-slate-400 mb-2">{fmtDate(post.createdAt)}</div>
+        <div className="text-[10px] text-slate-400 mb-2 dark:text-slate-500">{fmtDate(post.createdAt)}</div>
         <div className="flex items-center gap-1 flex-wrap pt-2 border-t border-black/5">
           {REACTIONS.map(emoji => {
             const cnt = reactionCounts[emoji] || 0;
@@ -261,7 +277,7 @@ function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinne
             return (
               <button key={emoji} onClick={() => onReact(post.id, emoji, myReaction)}
                 className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-bold transition-all active:scale-95
-                  ${isMe ? 'bg-indigo-100 text-indigo-700 border border-indigo-300' : 'bg-white/70 text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>
+                  ${isMe ? 'bg-indigo-100 text-indigo-700 border border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-200 dark:border-indigo-500/60' : 'bg-white/70 text-slate-500 border border-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700'}`}>
                 <span>{emoji}</span>
                 {cnt > 0 && <span className={isMe ? 'text-indigo-600' : 'text-slate-400'}>{cnt}</span>}
               </button>
@@ -613,7 +629,7 @@ export default function LearningBoard({ studentCode }) {
 
     if (type === 'wall') {
       return (
-        <div style={{ ...wrap, padding: '1.25rem' }}>
+        <div style={{ ...wrap, padding: '1.25rem' }} className="dark:!bg-slate-950">
           {filteredPosts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3 opacity-50">
               <div className="text-5xl">✏️</div>
@@ -637,13 +653,13 @@ export default function LearningBoard({ studentCode }) {
     if (type === 'vertical-group') {
       const ungrouped = filteredPosts.filter(p => !p.pageId);
       return (
-        <div style={{ ...wrap, padding: '1.25rem' }} className="space-y-4">
+        <div style={{ ...wrap, padding: '1.25rem' }} className="space-y-4 dark:!bg-slate-950">
           {pages.map((page, gi) => {
             const gc = GROUP_COLORS[gi % GROUP_COLORS.length];
             const pagePosts = filteredPosts.filter(p => p.pageId === page.id);
             return (
               <div key={page.id}
-                className={`rounded-2xl border-2 ${gc.bg} ${gc.border} overflow-hidden shadow-sm`}
+                className={`rounded-2xl border-2 ${gc.bg} ${gc.border} overflow-hidden shadow-sm dark:!bg-slate-900 dark:!border-slate-700`}
                 style={{ borderLeftWidth: '6px' }}>
                 <div className={`${gc.header} px-5 py-3 flex items-center gap-3`}>
                   <div className="w-2 h-2 rounded-full bg-white/70 shrink-0" />
@@ -665,7 +681,7 @@ export default function LearningBoard({ studentCode }) {
             );
           })}
           {ungrouped.length > 0 && (
-            <div className="bg-white/40 rounded-2xl p-4 border border-dashed border-slate-300">
+            <div className="bg-white/40 rounded-2xl p-4 border border-dashed border-slate-300 dark:bg-slate-900 dark:border-slate-700">
               <h3 className="font-bold text-slate-400 text-xs mb-3">📌 그룹 없음</h3>
               <div className="flex gap-4 flex-wrap">
                 {ungrouped.map((post, idx) => (
@@ -693,7 +709,7 @@ export default function LearningBoard({ studentCode }) {
         ...(ungrouped.length > 0 ? [{ id: 'ungrouped', title: '그룹 없음', posts: ungrouped, colorIdx: pages.length }] : []),
       ];
       return (
-        <div style={{ ...wrap, overflowX: 'auto', padding: '1.25rem' }}>
+        <div style={{ ...wrap, overflowX: 'auto', padding: '1.25rem' }} className="dark:!bg-slate-950">
           <div className="flex gap-4 items-start pb-4"
             style={{ minWidth: `${cols.reduce((s, c) => s + (c.size || 252) + 16, 0)}px` }}>
             {cols.map(col => {
@@ -701,7 +717,7 @@ export default function LearningBoard({ studentCode }) {
               const colW = col.size || 252;
               return (
                 <div key={col.id} style={{ width: colW, flexShrink: 0 }}
-                  className={`rounded-2xl border-2 ${gc.border} ${gc.bg} overflow-hidden shadow-sm flex flex-col`}>
+                  className={`rounded-2xl border-2 ${gc.border} ${gc.bg} overflow-hidden shadow-sm flex flex-col dark:!bg-slate-900 dark:!border-slate-700`}>
                   <div className={`${gc.header} px-4 py-3 flex items-center gap-2 shrink-0`}>
                     <span className={`font-extrabold text-sm ${gc.text} flex-1 truncate`}>{col.title}</span>
                     <span className={`text-xs ${gc.text} opacity-80 bg-black/10 px-2 py-0.5 rounded-full shrink-0`}>{col.posts.length}</span>
@@ -791,21 +807,21 @@ export default function LearningBoard({ studentCode }) {
     const isMapType   = selectedBoard.boardType === 'map';
     const isGroupType = selectedBoard.boardType === 'vertical-group' || selectedBoard.boardType === 'horizontal-group';
     return (
-      <div className="min-h-full bg-slate-100">
+      <div className="min-h-full bg-slate-100 dark:bg-slate-950">
         {!isMapType && (
-          <div className="bg-white border-b border-slate-200 px-5 py-3 sticky top-0 z-20 shadow-sm">
+          <div className="bg-white border-b border-slate-200 px-5 py-3 sticky top-0 z-20 shadow-sm dark:bg-slate-900 dark:border-slate-700">
             <div className="flex items-center gap-3 mb-3">
               <button onClick={() => { setSelectedBoard(null); setPosts([]); setPages([]); setSheets([]); setSelectedSheetId(null); setSearchQuery(''); }}
-                className="text-slate-500 hover:text-slate-800 font-bold text-sm px-3 py-1.5 bg-slate-100 rounded-xl shrink-0">
+                className="text-slate-500 hover:text-slate-800 font-bold text-sm px-3 py-1.5 bg-slate-100 rounded-xl shrink-0 dark:bg-slate-950 dark:text-slate-300 dark:hover:text-white">
                 ← 목록
               </button>
               <div className="flex-1 min-w-0 flex items-center gap-2">
                 {typeInfo && (
                   <span className="text-base shrink-0">{typeInfo.emoji}</span>
                 )}
-                <h1 className="font-extrabold text-slate-800 text-base truncate">{selectedBoard.title}</h1>
+                <h1 className="font-extrabold text-slate-800 text-base truncate dark:text-slate-100">{selectedBoard.title}</h1>
                 {selectedBoard.description && (
-                  <span className="text-xs text-slate-400 truncate hidden sm:block">— {selectedBoard.description}</span>
+                  <span className="text-xs text-slate-400 truncate hidden sm:block dark:text-slate-500">— {selectedBoard.description}</span>
                 )}
               </div>
               {hasNewPosts && (
@@ -817,13 +833,13 @@ export default function LearningBoard({ studentCode }) {
                 type="button"
                 onClick={() => loadBoardPosts()}
                 disabled={loadingPosts}
-                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-extrabold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 shrink-0"
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-extrabold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 shrink-0 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300"
               >
                 새로고침
               </button>
-              <span className="text-xs text-slate-400 shrink-0 font-medium">{filteredPosts.length}개</span>
+              <span className="text-xs text-slate-400 shrink-0 font-medium dark:text-slate-500">{filteredPosts.length}개</span>
             </div>
-            <div className="mb-3 bg-slate-50 border border-slate-200 rounded-xl p-1.5 flex items-center gap-1.5 overflow-x-auto">
+            <div className="mb-3 bg-slate-50 border border-slate-200 rounded-xl p-1.5 flex items-center gap-1.5 overflow-x-auto dark:bg-slate-950 dark:border-slate-700">
               {sheets.map((sheet) => (
                 <button
                   key={sheet.id}
@@ -831,7 +847,7 @@ export default function LearningBoard({ studentCode }) {
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${
                     selectedSheetId === sheet.id
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700'
                   }`}
                 >
                   {sheet.title}
@@ -862,16 +878,16 @@ export default function LearningBoard({ studentCode }) {
         {/* 글쓰기 모달 */}
         {showWrite && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
-            <div className={`${getCardColor(cardColor).bg} ${getCardColor(cardColor).border} border-2 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto`}>
-              <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b border-black/10">
-                <div className="w-10 h-10 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden flex items-center justify-center shrink-0">
+            <div className={`${getCardColor(cardColor).bg} ${getCardColor(cardColor).border} border-2 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto dark:!bg-slate-900 dark:!border-slate-700`}>
+              <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b border-black/10 dark:border-white/10">
+                <div className="w-10 h-10 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden flex items-center justify-center shrink-0 dark:bg-slate-950 dark:border-slate-700">
                   {student?.characterImage
                     ? <img src={student.characterImage} alt="" className="w-full h-full object-contain scale-[1.8]" />
                     : <span className="text-lg">🧑‍🎓</span>}
                 </div>
                 <div className="flex-1">
-                  <div className="font-extrabold text-slate-800 text-sm">{student?.name || studentCode}</div>
-                  <div className="text-[10px] text-slate-400">
+                  <div className="font-extrabold text-slate-800 text-sm dark:text-slate-100">{student?.name || studentCode}</div>
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500">
                     {selectedBoard.title}에 게시
                     {writeLat ? ` · 📍 ${writeLat.toFixed(3)}, ${writeLng.toFixed(3)}` : ''}
                   </div>
@@ -883,12 +899,12 @@ export default function LearningBoard({ studentCode }) {
               {/* 그룹 선택 (그룹형 게시판) */}
               {isGroupType && pages.length > 0 && (
                 <div className="px-4 pt-3">
-                  <label className="text-xs font-bold text-slate-500 block mb-1.5">그룹 선택</label>
+                  <label className="text-xs font-bold text-slate-500 block mb-1.5 dark:text-slate-300">그룹 선택</label>
                   <div className="flex gap-2 flex-wrap">
                     {pages.map(p => (
                       <button key={p.id} onClick={() => setWritePageId(p.id)}
                         className={`px-3 py-1 rounded-xl text-xs font-bold border transition-colors
-                          ${writePageId === p.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}>
+                          ${writePageId === p.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'}`}>
                         {p.title}
                       </button>
                     ))}
@@ -901,11 +917,11 @@ export default function LearningBoard({ studentCode }) {
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder="제목을 입력하세요"
-                  className="w-full bg-white/60 border border-black/10 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder-slate-400 text-slate-800"
+                  className="w-full bg-white/60 border border-black/10 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder-slate-400 text-slate-800 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
                 <textarea ref={textRef} value={content} onChange={e => setContent(e.target.value)}
                   placeholder="내용을 입력하세요..."
-                  className="w-full bg-white/50 border border-black/10 rounded-xl px-4 py-3 text-sm resize-none h-40 focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder-slate-400 text-slate-800" />
+                  className="w-full bg-white/50 border border-black/10 rounded-xl px-4 py-3 text-sm resize-none h-40 focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder-slate-400 text-slate-800 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500" />
                 {imageBase64 && (
                   <div className="relative">
                     <img src={imageBase64} alt="" className="w-full rounded-xl object-cover max-h-64 border border-black/10" />
@@ -914,8 +930,8 @@ export default function LearningBoard({ studentCode }) {
                   </div>
                 )}
                 {attachment?.name && (
-                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white/70 px-3 py-2">
-                    <span className="truncate text-xs font-bold text-slate-600">📎 {attachment.name}</span>
+                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white/70 px-3 py-2 dark:bg-slate-800 dark:border-slate-700">
+                    <span className="truncate text-xs font-bold text-slate-600 dark:text-slate-300">📎 {attachment.name}</span>
                     <button
                       type="button"
                       onClick={() => setAttachment(null)}
@@ -926,7 +942,7 @@ export default function LearningBoard({ studentCode }) {
                   </div>
                 )}
                 <div>
-                  <div className="text-[10px] text-slate-500 font-bold mb-1.5">카드 색상</div>
+                  <div className="text-[10px] text-slate-500 font-bold mb-1.5 dark:text-slate-400">카드 색상</div>
                   <div className="flex gap-1.5 flex-wrap">
                     {CARD_COLORS.map(c => (
                       <button key={c.id} onClick={() => setCardColor(c.id)}
@@ -970,16 +986,16 @@ export default function LearningBoard({ studentCode }) {
             onClick={closeEditPost}
           >
             <div
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden dark:bg-slate-900 dark:border dark:border-slate-700"
               onClick={e => e.stopPropagation()}
             >
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3 dark:border-slate-700">
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg font-extrabold">
                   ✎
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-slate-900">게시글 수정</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">제목과 내용을 수정할 수 있습니다.</p>
+                  <h3 className="font-extrabold text-slate-900 dark:text-slate-100">게시글 수정</h3>
+                  <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">제목과 내용을 수정할 수 있습니다.</p>
                 </div>
                 <button
                   type="button"
@@ -994,14 +1010,14 @@ export default function LearningBoard({ studentCode }) {
                   value={editTitle}
                   onChange={e => setEditTitle(e.target.value)}
                   placeholder="제목을 입력하세요"
-                  className="w-full h-12 rounded-xl border-2 border-slate-200 px-4 text-sm font-bold focus:outline-none focus:border-indigo-400"
+                  className="w-full h-12 rounded-xl border-2 border-slate-200 px-4 text-sm font-bold text-slate-800 focus:outline-none focus:border-indigo-400 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
                   autoFocus
                 />
                 <textarea
                   value={editContent}
                   onChange={e => setEditContent(e.target.value)}
                   placeholder="내용을 입력하세요"
-                  className="w-full min-h-[180px] rounded-xl border-2 border-slate-200 px-4 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:border-indigo-400"
+                  className="w-full min-h-[180px] rounded-xl border-2 border-slate-200 px-4 py-3 text-sm leading-relaxed text-slate-800 resize-none focus:outline-none focus:border-indigo-400 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
                 />
                 {(editingPost.imageBase64 || editingPost.attachment?.name) && (
                   <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-500">
@@ -1009,7 +1025,7 @@ export default function LearningBoard({ studentCode }) {
                   </div>
                 )}
               </div>
-              <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2">
+              <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={closeEditPost}
@@ -1034,9 +1050,9 @@ export default function LearningBoard({ studentCode }) {
         {expandedPost && (
           <div className="fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4"
             onClick={() => setExpandedPost(null)}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col dark:bg-slate-900 dark:border dark:border-slate-700"
               onClick={e => e.stopPropagation()}>
-              <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-700">
                 <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-200 shrink-0">
                   {expandedPost.isTeacher ? <span className="text-xl">👑</span>
                     : expandedPost.characterImage
@@ -1044,7 +1060,7 @@ export default function LearningBoard({ studentCode }) {
                       : <span className="text-xl">🧑‍🎓</span>}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-extrabold text-slate-800 text-sm truncate">{expandedPost.studentName}</div>
+                  <div className="font-extrabold text-slate-800 text-sm truncate dark:text-slate-100">{expandedPost.studentName}</div>
                   <div className="text-[10px] text-slate-400">{fmtDate(expandedPost.createdAt)}</div>
                 </div>
                 <button onClick={() => setExpandedPost(null)}
@@ -1052,10 +1068,10 @@ export default function LearningBoard({ studentCode }) {
               </div>
               <div className="overflow-y-auto p-5 space-y-3">
                 {expandedPost.title && (
-                  <h3 className="text-lg font-extrabold text-slate-900 leading-snug break-words">{expandedPost.title}</h3>
+                  <h3 className="text-lg font-extrabold text-slate-900 leading-snug break-words dark:text-white">{expandedPost.title}</h3>
                 )}
                 {expandedPost.content && (
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{expandedPost.content}</p>
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words dark:text-slate-200">{expandedPost.content}</p>
                 )}
                 {expandedPost.imageBase64 && (
                   <img src={expandedPost.imageBase64} alt=""
@@ -1064,7 +1080,7 @@ export default function LearningBoard({ studentCode }) {
                 )}
                 {expandedPost.attachment?.dataUrl && (
                   <a href={expandedPost.attachment.dataUrl} download={expandedPost.attachment.name || 'attachment'}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700">
                     📎 {expandedPost.attachment.name || '첨부파일'}
                   </a>
                 )}
@@ -1097,10 +1113,10 @@ export default function LearningBoard({ studentCode }) {
 
   // ── 게시판 목록 ────────────────────────────────────────────────
   return (
-    <div className="min-h-full bg-slate-50 p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-extrabold text-slate-800">📋 공유 게시판</h1>
-        <p className="text-slate-500 text-sm mt-0.5">학생들이 학습 결과를 카드 형태로 자유롭게 공유하는 게시판</p>
+    <div className="min-h-full bg-slate-50 p-6 dark:bg-slate-950">
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-900 dark:border-slate-700">
+        <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">📋 공유 게시판</h1>
+        <p className="text-slate-500 text-sm mt-0.5 dark:text-slate-400">학생들이 학습 결과를 카드 형태로 자유롭게 공유하는 게시판</p>
       </div>
 
       {isLoading ? (
@@ -1113,8 +1129,9 @@ export default function LearningBoard({ studentCode }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {boards.map((board) => {
+          {boards.map((board, boardIndex) => {
             const typeInfo = BOARD_TYPE_INFO[board.boardType];
+            const stripColor = getBoardCardStrip(board, boardIndex);
             const fmtCreatedAt = board.createdAt?.toDate
               ? board.createdAt.toDate().toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
               : board.createdAt?.seconds
@@ -1122,16 +1139,16 @@ export default function LearningBoard({ studentCode }) {
                 : '날짜 없음';
             return (
               <div key={board.id}
-                className="bg-white rounded-2xl border-2 border-slate-200 shadow-sm overflow-hidden transition-all cursor-pointer group hover:shadow-lg hover:-translate-y-0.5"
+                className="bg-white rounded-2xl border-2 border-slate-200 shadow-sm overflow-hidden transition-all cursor-pointer group hover:shadow-lg hover:-translate-y-0.5 dark:bg-slate-900 dark:border-slate-700 dark:hover:border-slate-600"
                 onClick={() => openBoard(board)}>
-                <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center ${typeInfo?.strip || 'bg-slate-400'}`}>
+                <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center ${stripColor}`}>
                   <span>{typeInfo?.label || '기본형'}</span>
                   <span>🟢 공개</span>
                 </div>
                 <div className="p-4">
-                  <h3 className="font-extrabold text-slate-800 text-base mb-1 group-hover:text-indigo-700 transition-colors">{board.title}</h3>
-                  {board.description && <p className="text-xs text-slate-500 mb-2 line-clamp-2">{board.description}</p>}
-                  <div className="text-[11px] text-slate-400 mb-3 flex items-center gap-1">
+                  <h3 className="font-extrabold text-slate-800 text-base mb-1 group-hover:text-indigo-700 transition-colors dark:text-slate-100 dark:group-hover:text-indigo-300">{board.title}</h3>
+                  {board.description && <p className="text-xs text-slate-500 mb-2 line-clamp-2 dark:text-slate-400">{board.description}</p>}
+                  <div className="text-[11px] text-slate-400 mb-3 flex items-center gap-1 dark:text-slate-500">
                     🗓 {fmtCreatedAt}
                   </div>
                   <div className="flex gap-2 mt-1">
@@ -1140,7 +1157,7 @@ export default function LearningBoard({ studentCode }) {
                       onClick={(e) => { e.stopPropagation(); openBoard(board); }}
                       className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors"
                     >
-                      입장하기
+                      열기
                     </button>
                   </div>
                 </div>
