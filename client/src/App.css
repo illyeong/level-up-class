@@ -232,20 +232,23 @@
 .boss-raid-hit-3 { filter: brightness(1.65) saturate(.7); }
 .boss-raid-hit-4 { filter: brightness(1.9) saturate(.55); }
 
-.boss-raid-stage {
-  height: clamp(220px, 42dvh, 480px);
-  min-height: 180px;
+.boss-raid-layout {
+  display: grid;
+  grid-template-rows: auto minmax(180px, min(36dvh, 420px)) minmax(0, 1fr) auto;
 }
 
+.boss-raid-stage { height: 100%; min-height: 0; }
+.boss-raid-question-panel { isolation: isolate; }
+
 @media (max-height: 800px) {
-  .boss-raid-stage { height: clamp(190px, 36dvh, 300px); }
+  .boss-raid-layout { grid-template-rows: auto minmax(150px, 30dvh) minmax(0, 1fr) auto; }
   .boss-raid-roster > div { padding-top: .375rem; padding-bottom: .375rem; }
   .boss-raid-roster-player { width: 4.75rem; }
   .boss-raid-roster-avatar { width: 4rem; height: 4rem; }
 }
 
 @media (max-height: 620px) {
-  .boss-raid-stage { height: 180px; }
+  .boss-raid-layout { grid-template-rows: auto 150px minmax(0, 1fr) auto; }
   .boss-raid-roster-player { width: 3.75rem; }
   .boss-raid-roster-avatar { width: 3.25rem; height: 3.25rem; }
 }

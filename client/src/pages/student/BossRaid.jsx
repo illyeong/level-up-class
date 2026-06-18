@@ -553,7 +553,7 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
 // ── 배틀 ─────────────────────────────────────────────────────────
 function BattlePhase({
   raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossAnimKey, bossFlash,
-  isTeacher, onAnswer, onBossAttack, onBossAnimEnd,
+  isTeacher, onAnswer, onBossAttack, onBossAnimEnd, onExit,
 }) {
   const bossBg = resolveBossBg(raid);
   const questions = (raid.questions || []).filter(q => q.type !== 'short');
@@ -757,12 +757,23 @@ function BattlePhase({
           style={{ backgroundImage: `url(${bossBg})`, backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat' }} />
       )}
       <div className={`fixed inset-0 pointer-events-none z-0 ${bossBg ? 'bg-slate-950/65' : 'bg-gradient-to-b from-slate-950 to-indigo-950'}`} />
-      <div className="relative z-10 flex flex-col h-full">
+      <div className="boss-raid-layout relative z-10 h-full min-h-0">
       {/* 상단: HP 바 */}
       <div className="bg-slate-900/90 px-4 pt-3 pb-4 shadow-lg shrink-0">
         <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
           <span className="font-bold text-white">{raid.bossName}</span>
-          <span>👥 {Object.keys(raid.participants || {}).length}명 참전</span>
+          <div className="flex items-center gap-3">
+            <span>👥 {Object.keys(raid.participants || {}).length}명 참전</span>
+            {isTeacher && onExit && (
+              <button
+                type="button"
+                onClick={onExit}
+                className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 font-extrabold text-white transition-colors hover:border-rose-400 hover:bg-rose-500"
+              >
+                ← 관리 화면으로
+              </button>
+            )}
+          </div>
         </div>
         <BossHpBar current={raid.currentHP} max={raid.maxHP} />
       </div>
@@ -881,7 +892,7 @@ function BattlePhase({
       </div>
 
       {/* 문제 영역 — 남은 공간 채우고 스크롤 */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-2 pb-3">
+      <div className="boss-raid-question-panel relative z-30 min-h-0 overflow-y-auto border-t border-slate-700/80 bg-slate-950/90 px-4 pt-3 pb-3 shadow-[0_-12px_30px_rgba(2,6,23,0.72)]">
         <div className="space-y-2.5">
         {/* 문제 헤더 */}
         <div className="flex items-center justify-between">
@@ -1097,7 +1108,7 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
 }
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────
-export default function BossRaid({ studentCode, studentDocId, isTeacher = false, selectedClass = null }) {
+export default function BossRaid({ studentCode, studentDocId, isTeacher = false, selectedClass = null, onExit }) {
   const [raid, setRaid]           = useState(undefined); // undefined=로딩, null=없음
   const [studentData, setStudentData] = useState(null);
   const [raidScope, setRaidScope] = useState({ classId: null, teacherUid: null });
@@ -1500,6 +1511,7 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
         onAnswer={submitAnswer}
         onBossAttack={playBossAttack}
         onBossAnimEnd={() => setBossAnim('idle')}
+        onExit={onExit}
       />
     );
   }

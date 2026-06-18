@@ -352,7 +352,13 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'quizBank'           && <QuizBank selectedClass={selectedClass} />}
         {currentView === 'quizDungeonManage' && <QuizDungeonManage selectedClass={selectedClass} />}
         {currentView === 'bossRaidManage'    && <BossRaidManage selectedClass={selectedClass} onViewLobby={() => setCurrentView('bossRaid')} />}
-        {currentView === 'bossRaid'          && <BossRaid isTeacher={true} selectedClass={selectedClass} />}
+        {currentView === 'bossRaid'          && (
+          <BossRaid
+            isTeacher={true}
+            selectedClass={selectedClass}
+            onExit={() => setCurrentView('bossRaidManage')}
+          />
+        )}
         {currentView === 'quizDungeon'       && <QuizDungeon isTeacher={true} teacherUid={selectedClass?.teacherUid} />}
         {currentView === 'explorationDungeon' && <ExplorationDungeon isTeacher={true} teacherUid={selectedClass?.teacherUid} />}
 
