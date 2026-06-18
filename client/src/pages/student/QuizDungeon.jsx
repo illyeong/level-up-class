@@ -827,7 +827,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
   // 대형 몬스터 이미지 디코딩 대기 (최대 4초)
   if (!imgReady) {
     return (
-      <div className="flex flex-col h-full bg-slate-900 items-center justify-center gap-5 select-none">
+      <div className="fixed inset-0 z-[100] flex flex-col bg-slate-900 items-center justify-center gap-5 select-none">
         <div className="text-5xl animate-bounce">⚔️</div>
         <div className="text-white font-extrabold text-lg">전투 준비 중...</div>
         <div className="text-slate-400 text-sm">몬스터 소환 중</div>
@@ -842,7 +842,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 select-none overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-slate-900 select-none overflow-hidden">
 
       {/* ── 상단 상태바 ── */}
       <div className="bg-slate-950 px-4 py-2 flex items-center gap-3 shrink-0">
@@ -882,8 +882,9 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       </div>
 
       {/* ── 전투 씬 ── */}
-      <div className="relative shrink-0 overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800"
-           style={{ height: `${layoutCfg.sceneHeightVh}vh`, minHeight: '300px' }}>
+      <div data-testid="quiz-battle-scene"
+        className="relative shrink-0 overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800"
+        style={{ height: `clamp(300px, ${layoutCfg.sceneHeightVh}vh, 460px)` }}>
         <div className="absolute inset-0 bg-slate-950/30 pointer-events-none" />
 
         {/* 바닥 그라데이션 */}
@@ -916,79 +917,85 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
           </div>
         </div>
 
-        {/* ── 플레이어 (좌 절대위치) ── */}
-        {(() => {
-          const effH = Math.round(layoutCfg.playerCharHeightPx * layoutCfg.playerScale);
-          return (
-            <div ref={playerRef} className={`absolute flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}
-              style={{ left: `${layoutCfg.playerLeftPct}%`, bottom: layoutCfg.playerBottomPx }}>
-              {/* 캐릭터 - height만 고정, width는 이미지 비율에 맡겨 letterbox 방지 */}
-              <div style={{ height: effH }} className="flex items-end justify-center">
-                {playerData?.characterImage
-                  ? <img src={playerData.characterImage} alt=""
-                      style={{ height: effH, width: 'auto', imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
-                  : <span style={{ fontSize: effH * 0.6, lineHeight: 1 }}>🧙‍♂️</span>}
+        {/* 화면 폭과 무관하게 같은 좌표계를 사용하는 중앙 전장 */}
+        <div data-testid="quiz-battle-stage" className="absolute inset-y-0 left-1/2 w-full max-w-[800px] -translate-x-1/2">
+          {/* ── 플레이어 (좌 절대위치) ── */}
+          {(() => {
+            const effH = Math.round(layoutCfg.playerCharHeightPx * layoutCfg.playerScale);
+            return (
+              <div ref={playerRef} data-testid="quiz-battle-player"
+                className="absolute origin-bottom-left scale-[0.62] sm:scale-[0.82] lg:scale-100"
+                style={{ left: `${layoutCfg.playerLeftPct}%`, bottom: layoutCfg.playerBottomPx }}>
+                <div className={`flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}>
+                  {/* 캐릭터 - height만 고정, width는 이미지 비율에 맡겨 letterbox 방지 */}
+                  <div style={{ height: effH }} className="flex items-end justify-center">
+                    {playerData?.characterImage
+                      ? <img src={playerData.characterImage} alt=""
+                          style={{ height: effH, width: 'auto', imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
+                      : <span style={{ fontSize: effH * 0.6, lineHeight: 1 }}>🧙‍♂️</span>}
+                  </div>
+                </div>
               </div>
+            );
+          })()}
+
+          {/* 중앙 VS */}
+          <div className="absolute left-1/2 bottom-[45%] -translate-x-1/2 select-none">
+            <span className="text-slate-500/60 font-extrabold text-3xl tracking-widest">VS</span>
+          </div>
+
+          {/* ── 몬스터 (우 절대위치) ── */}
+          <div ref={monsterRef} data-testid="quiz-battle-monster"
+            className="absolute origin-bottom-right scale-[0.72] sm:scale-[0.88] lg:scale-100"
+            style={{ right: `${layoutCfg.monsterRightPct}%`, bottom: layoutCfg.monsterBottomPx }}>
+            <div style={{ height: layoutCfg.monsterCharHeightPx, width: layoutCfg.monsterCharHeightPx * 0.85 }}
+              className="flex items-end justify-center">
+              {monsterData ? (
+                <SpriteMonster
+                  data={monsterData}
+                  anim={monsterAnim}
+                  flash={monsterFlash}
+                  scale={Math.min(
+                    layoutCfg.monsterCharHeightPx / monsterData.frameHeight,
+                    (layoutCfg.monsterCharHeightPx * 0.85) / monsterData.frameWidth
+                  ) * 0.9}
+                />
+              ) : (
+                <span className="text-8xl leading-none"
+                  style={{ filter: monsterFlash ? 'brightness(4) saturate(0)' : undefined }}>
+                  {monsterMeta.emoji}
+                </span>
+              )}
             </div>
-          );
-        })()}
+          </div>
 
-        {/* 중앙 VS */}
-        <div className="absolute left-1/2 bottom-[45%] -translate-x-1/2 select-none">
-          <span className="text-slate-500/60 font-extrabold text-3xl tracking-widest">VS</span>
+          {/* ── 플로팅 데미지 ── */}
+          {floats.filter(f => f.isPlayer).map(f => (
+            <div key={f.id}
+              className="absolute font-extrabold text-2xl text-rose-400 pointer-events-none animate-float-up z-20"
+              style={{ left: `${layoutCfg.playerLeftPct + 10}%`, bottom: 120, textShadow: '0 0 10px rgba(248,113,113,0.9)' }}>
+              {f.text}
+            </div>
+          ))}
+          {floats.filter(f => !f.isPlayer).map(f => (
+            <div key={f.id}
+              className="absolute font-extrabold text-2xl text-yellow-300 pointer-events-none animate-float-up z-20"
+              style={{ right: `${layoutCfg.monsterRightPct + 10}%`, bottom: 140, textShadow: '0 0 10px rgba(251,191,36,0.9)' }}>
+              {f.text}
+            </div>
+          ))}
+
+          {/* HIT / 오답 */}
+          {answered === 'correct' && (
+            <div className="absolute top-16 right-[18%] text-yellow-300 font-extrabold text-2xl animate-bounce drop-shadow-lg">💥 HIT!</div>
+          )}
+          {answered === 'wrong' && (
+            <div className="absolute top-16 left-[14%] text-rose-400 font-extrabold text-lg animate-bounce">❌ 오답!</div>
+          )}
+          {answered === 'timeout' && (
+            <div className="absolute top-16 left-[14%] text-rose-400 font-extrabold text-lg animate-bounce">⏰ 시간 초과!</div>
+          )}
         </div>
-
-        {/* ── 몬스터 (우 절대위치) ── */}
-        <div ref={monsterRef} className="absolute flex flex-col items-center"
-          style={{ right: `${layoutCfg.monsterRightPct}%`, bottom: layoutCfg.monsterBottomPx }}>
-          {/* 몬스터 */}
-          <div style={{ height: layoutCfg.monsterCharHeightPx, width: layoutCfg.monsterCharHeightPx * 0.85 }}
-            className="flex items-end justify-center">
-            {monsterData ? (
-              <SpriteMonster
-                data={monsterData}
-                anim={monsterAnim}
-                flash={monsterFlash}
-                scale={Math.min(
-                  layoutCfg.monsterCharHeightPx / monsterData.frameHeight,
-                  (layoutCfg.monsterCharHeightPx * 0.85) / monsterData.frameWidth
-                ) * 0.9}
-              />
-            ) : (
-              <span className="text-8xl leading-none"
-                style={{ filter: monsterFlash ? 'brightness(4) saturate(0)' : undefined }}>
-                {monsterMeta.emoji}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* ── 플로팅 데미지 ── */}
-        {floats.filter(f => f.isPlayer).map(f => (
-          <div key={f.id}
-            className="absolute font-extrabold text-2xl text-rose-400 pointer-events-none animate-float-up z-20"
-            style={{ left: '20%', bottom: 120, textShadow: '0 0 10px rgba(248,113,113,0.9)' }}>
-            {f.text}
-          </div>
-        ))}
-        {floats.filter(f => !f.isPlayer).map(f => (
-          <div key={f.id}
-            className="absolute font-extrabold text-2xl text-yellow-300 pointer-events-none animate-float-up z-20"
-            style={{ right: '18%', bottom: 140, textShadow: '0 0 10px rgba(251,191,36,0.9)' }}>
-            {f.text}
-          </div>
-        ))}
-
-        {/* HIT / 오답 */}
-        {answered === 'correct' && (
-          <div className="absolute top-4 right-[25%] text-yellow-300 font-extrabold text-2xl animate-bounce drop-shadow-lg">💥 HIT!</div>
-        )}
-        {answered === 'wrong' && (
-          <div className="absolute top-4 left-[18%] text-rose-400 font-extrabold text-lg animate-bounce">❌ 오답!</div>
-        )}
-        {answered === 'timeout' && (
-          <div className="absolute top-4 left-[18%] text-rose-400 font-extrabold text-lg animate-bounce">⏰ 시간 초과!</div>
-        )}
       </div>
 
       {/* ── 퀴즈 영역 ── */}
@@ -1030,7 +1037,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {(q.options || []).map((opt, oi) => {
                 const correctAnswerIndex = getCorrectAnswerIndex(q);
                 let cls = 'bg-slate-800 border-2 border-slate-700 text-slate-200 hover:border-rose-400 hover:bg-slate-700';
