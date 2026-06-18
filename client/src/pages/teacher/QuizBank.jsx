@@ -741,7 +741,14 @@ export default function QuizBank({ selectedClass = null }) {
       });
       const text = await res.text();
       let data;
-      try { data = JSON.parse(text); } catch { throw new Error(`서버 오류 (${res.status}): 응답을 파싱할 수 없습니다.`); }
+      try {
+        data = JSON.parse(text);
+      } catch {
+        if (res.status === 504) {
+          throw new Error('AI 응답 시간이 초과되었습니다. 문항 수를 줄이거나 PDF 대신 텍스트를 사용해 다시 시도해주세요.');
+        }
+        throw new Error(`서버 오류 (${res.status}): 올바르지 않은 응답을 받았습니다.`);
+      }
       if (!res.ok) { setGenError(data.error || '생성 중 오류가 발생했습니다.'); return; }
       setAiQuestions(data.questions);
       setAiStep('preview');

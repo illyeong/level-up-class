@@ -241,7 +241,7 @@ function TimerRing({ timeLeft, duration }) {
 }
 
 // ── 참가자 로스터 (하단) ─────────────────────────────────────────
-function ParticipantRoster({ participants, currentQuestionIdx }) {
+function ParticipantRoster({ participants, currentQuestionIdx, setParticipantRef }) {
   const list = Object.entries(participants)
     .map(([id, p]) => ({ id, ...p }))
     .sort((a, b) => (b.totalDamage || 0) - (a.totalDamage || 0));
@@ -254,20 +254,25 @@ function ParticipantRoster({ participants, currentQuestionIdx }) {
   };
 
   return (
-    <div className="bg-slate-900 border-t border-slate-700">
+    <div className="boss-raid-roster bg-slate-900 border-t border-slate-700 shrink-0">
       <div className="flex gap-2.5 px-3 py-2.5 overflow-x-auto scrollbar-none">
         {list.map(p => {
           const st = getStatus(p);
           return (
-            <div key={p.id} className="flex flex-col items-center gap-1 shrink-0 w-28">
+            <div
+              key={p.id}
+              ref={(node) => setParticipantRef?.(p.id, node)}
+              data-raid-participant-id={p.id}
+              className="boss-raid-roster-player flex flex-col items-center gap-1 shrink-0 w-28"
+            >
               <div className="relative">
                 {p.characterImage
-                  ? <div className="w-24 h-24 rounded-xl bg-slate-800 border border-slate-600 overflow-hidden flex items-center justify-center">
+                  ? <div className="boss-raid-roster-avatar w-24 h-24 rounded-xl bg-slate-800 border border-slate-600 overflow-hidden flex items-center justify-center">
                       <img src={p.characterImage} alt=""
                         className="w-full h-full object-contain"
                         style={{ imageRendering: 'pixelated', transform: 'scale(3)', transformOrigin: 'center' }} />
                     </div>
-                  : <div className="w-24 h-24 rounded-xl bg-slate-700 flex items-center justify-center text-4xl">🧑</div>
+                  : <div className="boss-raid-roster-avatar w-24 h-24 rounded-xl bg-slate-700 flex items-center justify-center text-4xl">🧑</div>
                 }
                 <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-slate-900 flex items-center justify-center text-[10px] font-bold
                   ${st === 'correct' ? 'bg-emerald-500' : st === 'wrong' ? 'bg-rose-500' : 'bg-slate-600'}`}>
@@ -546,7 +551,10 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
 }
 
 // ── 배틀 ─────────────────────────────────────────────────────────
-function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossFlash, onAnswer }) {
+function BattlePhase({
+  raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossAnimKey, bossFlash,
+  isTeacher, onAnswer, onBossAttack, onBossAnimEnd,
+}) {
   const bossBg = resolveBossBg(raid);
   const questions = (raid.questions || []).filter(q => q.type !== 'short');
   const qIdx      = raid.currentQuestionIdx ?? 0;
@@ -557,6 +565,8 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
   const bossAreaRef = useRef(null);
   const bossActorRef = useRef(null);
   const playerActorRef = useRef(null);
+  const participantActorRefs = useRef(new Map());
+  const prevParticipantsRef = useRef({});
   const effectTimersRef = useRef(new Set());
   const impactIdRef = useRef(0);
   const skillTriggeredQuestionsRef = useRef(new Set());
@@ -588,6 +598,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
     setDamageFloats(current => [...current, { id: floatId, target, tier, x, y, damage }]);
     if (target === 'boss') setBossHitTier(tier);
     else setPlayerHitTier(tier);
+    if (target === 'boss') onBossAttack?.();
 
     scheduleEffect(() => {
       if (target === 'boss') setBossHitTier(0);
@@ -595,6 +606,11 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
     }, 560);
     scheduleEffect(() => setImpactFx(current => current?.id === id ? null : current), 650);
     scheduleEffect(() => setDamageFloats(current => current.filter(item => item.id !== floatId)), 1100);
+  };
+
+  const setParticipantRef = (id, node) => {
+    if (node) participantActorRefs.current.set(id, node);
+    else participantActorRefs.current.delete(id);
   };
 
   useEffect(() => () => {
@@ -675,6 +691,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
         onHit: () => triggerRaidImpact('boss', bossPoint, raid.damagePerHit || 100, 3),
       });
     } else {
+      onBossAttack?.();
       fireProjectile({
         from: bossPoint,
         to: playerPoint,
@@ -684,6 +701,48 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       });
     }
   }, [myAnswer]);
+
+  // 모든 화면에서 실제 하단 참가자 아바타와 보스 위치를 연결한다.
+  useEffect(() => {
+    if (!raid?.participants) return;
+    const prev = prevParticipantsRef.current;
+    const bossPoint = getRaidActorPoint(bossActorRef.current, 'boss');
+
+    Object.entries(raid.participants).forEach(([id, participant]) => {
+      const previous = prev[id];
+      if (!previous || (!isTeacher && id === myId) || !bossPoint) return;
+      const participantPoint = getRaidActorPoint(participantActorRefs.current.get(id), 'player');
+      if (!participantPoint) return;
+
+      if ((participant.correctCount || 0) > (previous.correctCount || 0)) {
+        fireProjectile({
+          from: participantPoint,
+          to: bossPoint,
+          type: 'magic',
+          power: 1.25,
+          onHit: () => triggerRaidImpact('boss', bossPoint, raid.damagePerHit || 100, 2),
+        });
+      }
+      if ((participant.wrongCount || 0) > (previous.wrongCount || 0)) {
+        onBossAttack?.();
+        fireProjectile({
+          from: bossPoint,
+          to: participantPoint,
+          type: 'fire',
+          power: 1.15,
+        });
+      }
+    });
+
+    const next = {};
+    Object.entries(raid.participants).forEach(([id, participant]) => {
+      next[id] = {
+        correctCount: participant.correctCount || 0,
+        wrongCount: participant.wrongCount || 0,
+      };
+    });
+    prevParticipantsRef.current = next;
+  }, [raid?.participants, isTeacher, myId]);
 
   if (!q) return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
@@ -712,10 +771,9 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       <div
         ref={bossAreaRef}
         data-testid="boss-raid-stage"
-        className={`flex items-end justify-center relative shrink-0 overflow-hidden
+        className={`boss-raid-stage flex items-end justify-center relative shrink-0 overflow-hidden
           ${impactFx ? `battle-scene-impact-${impactFx.tier}` : ''}
           ${activeBossSkillFx?.phase === 'impact' ? 'boss-skill-stage-impact' : ''}`}
-        style={{ height: 'clamp(380px, 58vh, 620px)' }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/10 via-transparent to-slate-950/80 pointer-events-none" />
         <div className="absolute bottom-8 left-1/2 h-16 w-[62%] -translate-x-1/2 rounded-[100%] bg-black/55 blur-md pointer-events-none" />
@@ -744,26 +802,32 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
             className={`absolute inset-0 z-30 pointer-events-none battle-impact-flash ${impactFx.target === 'player' ? 'battle-impact-flash-player' : ''}`} />
         )}
 
-        <div ref={playerActorRef} data-testid="boss-raid-player"
-          className="absolute bottom-10 left-[8%] z-20 origin-bottom scale-[0.78] sm:left-[12%] sm:scale-90 lg:left-[16%] lg:scale-100">
-          <div data-battle-actor="player"
-            className={`flex h-40 w-32 items-end justify-center ${playerHitTier ? `battle-player-hit-${playerHitTier}` : ''}`}>
-            {myP.characterImage
-              ? <img src={myP.characterImage} alt="내 캐릭터" className="max-h-40 w-auto object-contain drop-shadow-[0_10px_14px_rgba(0,0,0,0.65)]"
-                  style={{ imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
-              : <span className="text-7xl drop-shadow-xl">🧙‍♂️</span>}
+        {!isTeacher && (
+          <div ref={playerActorRef} data-testid="boss-raid-player"
+            className="absolute bottom-10 left-[8%] z-20 origin-bottom scale-[0.78] sm:left-[12%] sm:scale-90 lg:left-[16%] lg:scale-100">
+            <div data-battle-actor="player"
+              className={`flex h-40 w-32 items-end justify-center ${playerHitTier ? `battle-player-hit-${playerHitTier}` : ''}`}>
+              {myP.characterImage
+                ? <img src={myP.characterImage} alt="내 캐릭터" className="max-h-40 w-auto object-contain drop-shadow-[0_10px_14px_rgba(0,0,0,0.65)]"
+                    style={{ imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
+                : <span className="text-7xl drop-shadow-xl">🧑</span>}
+            </div>
           </div>
-        </div>
+        )}
 
         <div ref={bossActorRef} data-testid="boss-raid-boss"
           className="relative z-10 origin-bottom scale-[0.68] sm:scale-[0.8] lg:scale-[0.88] 2xl:scale-100">
           <div data-battle-actor="boss"
             className={`drop-shadow-[0_18px_18px_rgba(0,0,0,0.75)] ${bossHitTier ? `boss-raid-hit-${bossHitTier}` : ''}`}>
             <BossSprite
+              key={`${bossAnimKey}-${activeBossSkillFx?.phase || 'normal'}`}
               bossData={bossData}
               anim={activeBossSkillFx && activeBossSkillFx.phase !== 'charge' ? 'attack' : bossAnim}
               flash={bossFlash}
               scale={3.6}
+              onAnimEnd={() => {
+                if (!activeBossSkillFx) onBossAnimEnd?.();
+              }}
             />
           </div>
         </div>
@@ -817,8 +881,8 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       </div>
 
       {/* 문제 영역 — 남은 공간 채우고 스크롤 */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-1 pb-2">
-        <div className="min-h-full flex flex-col justify-end space-y-2.5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-2 pb-3">
+        <div className="space-y-2.5">
         {/* 문제 헤더 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -834,8 +898,8 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
         </div>
 
         {/* 문제 */}
-        <div className="bg-slate-800 rounded-2xl p-4 border border-slate-700">
-          <p className="font-bold text-white text-xl leading-relaxed">{renderMath(q.question)}</p>
+        <div className="bg-slate-800 rounded-2xl p-3 sm:p-4 border border-slate-700">
+          <p className="font-bold text-white text-base leading-relaxed sm:text-lg lg:text-xl">{renderMath(q.question)}</p>
           <TableRenderer table={q.table} dark />
           <ShapeRenderer shape={q.shape} />
         </div>
@@ -852,7 +916,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
             return (
               <button key={oi} onClick={() => onAnswer(oi)}
                 disabled={alreadyAnswered}
-                className={`py-3.5 px-3 rounded-2xl font-bold text-base text-left transition-all ${cls}`}>
+                className={`py-2.5 px-3 rounded-2xl font-bold text-sm text-left transition-all sm:py-3.5 sm:text-base ${cls}`}>
                 <span className="text-xs opacity-60 mr-1">{['①','②','③','④'][oi]}</span>
                 {renderMath(stripOptionPrefix(opt))}
               </button>
@@ -874,7 +938,11 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
       </div>
 
       {/* 하단: 참가자 로스터 */}
-      <ParticipantRoster participants={raid.participants || {}} currentQuestionIdx={qIdx} />
+      <ParticipantRoster
+        participants={raid.participants || {}}
+        currentQuestionIdx={qIdx}
+        setParticipantRef={setParticipantRef}
+      />
       </div>
     </div>
   );
@@ -1038,6 +1106,7 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
   // 내 답변 상태 (로컬)
   const [myAnswer, setMyAnswer]   = useState(null);  // { idx, correct } | null
   const [bossAnim, setBossAnim]   = useState('idle');
+  const [bossAnimKey, setBossAnimKey] = useState(0);
   const [bossFlash, setBossFlash] = useState(false);
   const [timeLeft, setTimeLeft]   = useState(null);
 
@@ -1045,7 +1114,6 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
   const advancedRef        = useRef(-1);
   const timerRef           = useRef(null);
   const raidRef            = useRef(null);
-  const prevParticipantsRef = useRef({});
   const autoPayingRaidRef  = useRef(null);
 
   // 학생 데이터 로드
@@ -1166,7 +1234,6 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
     if (previousHP !== null && raid.currentHP < previousHP) {
       impactTimer = setTimeout(() => {
         setBossFlash(true);
-        setBossAnim('idle');
       }, 180);
       clearTimer = setTimeout(() => setBossFlash(false), 560);
     }
@@ -1232,46 +1299,6 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
 
     payRewards();
   }, [isTeacher, raid?.id, raid?.status, raid?.rewardsPaid]);
-
-  // 다른 참가자 답변 실시간 파티클 공유 (item 6)
-  useEffect(() => {
-    if (!raid?.participants || raid.status !== 'active') return;
-    const prev = prevParticipantsRef.current;
-    const bossX = window.innerWidth / 2;
-    const bossY = Math.min(window.innerHeight * 0.46, 390);
-    const playerY = Math.min(window.innerHeight * 0.72, bossY + 260);
-
-    Object.entries(raid.participants).forEach(([id, p], index) => {
-      if (id === studentDocId) return; // 자신은 myAnswer로 처리
-      const prevP = prev[id];
-      if (!prevP) return; // 첫 스냅샷은 기준값만 설정
-      const laneOffset = ((index % 5) - 2) * Math.min(70, window.innerWidth * 0.07);
-      const playerX = window.innerWidth / 2 + laneOffset;
-      if ((p.correctCount || 0) > (prevP.correctCount || 0)) {
-        fireProjectile({
-          from: { x: playerX, y: playerY },
-          to: { x: bossX, y: bossY },
-          type: 'magic',
-          power: 1.25,
-        });
-      }
-      if ((p.wrongCount || 0) > (prevP.wrongCount || 0)) {
-        fireProjectile({
-          from: { x: bossX, y: bossY },
-          to: { x: playerX, y: playerY },
-          type: 'fire',
-          power: 1.15,
-        });
-      }
-    });
-
-    // 이번 스냅샷을 기준값으로 저장
-    const next = {};
-    Object.entries(raid.participants).forEach(([id, p]) => {
-      next[id] = { correctCount: p.correctCount || 0, wrongCount: p.wrongCount || 0 };
-    });
-    prevParticipantsRef.current = next;
-  }, [raid?.participants]);
 
   // 타이머
   useEffect(() => {
@@ -1454,6 +1481,11 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
   }
 
   if (raid.status === 'active') {
+    const playBossAttack = () => {
+      setBossAnim('attack');
+      setBossAnimKey(current => current + 1);
+    };
+
     return (
       <BattlePhase
         raid={raid}
@@ -1462,8 +1494,12 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
         myAnswer={myAnswer}
         timeLeft={timeLeft}
         bossAnim={bossAnim}
+        bossAnimKey={bossAnimKey}
         bossFlash={bossFlash}
+        isTeacher={isTeacher}
         onAnswer={submitAnswer}
+        onBossAttack={playBossAttack}
+        onBossAnimEnd={() => setBossAnim('idle')}
       />
     );
   }

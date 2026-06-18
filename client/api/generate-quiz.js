@@ -146,14 +146,15 @@ ${sourceSection}`;
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
+        signal: AbortSignal.timeout(50000),
         headers: {
           'Content-Type':      'application/json',
           'x-api-key':         ANTHROPIC_API_KEY,
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model:      'claude-sonnet-4-6',
-          max_tokens: Math.min(8000, 1800 + batchCount * 650),
+          model:      process.env.ANTHROPIC_QUIZ_MODEL || 'claude-haiku-4-5-20251001',
+          max_tokens: Math.min(5000, 1200 + batchCount * 500),
           messages:   [{ role: 'user', content: messageContent }],
         }),
       });
@@ -212,6 +213,11 @@ ${sourceSection}`;
 
   } catch (err) {
     console.error('generate-quiz 에러:', err);
+    if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+      return res.status(504).json({
+        error: 'AI 응답 시간이 초과되었습니다. 문항 수를 줄이거나 PDF 대신 텍스트를 사용해 다시 시도해주세요.',
+      });
+    }
     return res.status(500).json({ error: err.message || '서버 오류가 발생했습니다.' });
   }
 }
