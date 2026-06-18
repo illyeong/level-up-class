@@ -25,18 +25,6 @@ const WRONG_CAUSES = [
   ['rushed', '너무 빠르게 골랐어요'],
 ];
 
-const getQuestionHint = (question, level) => {
-  if (level === 1) return '문제에서 무엇을 묻는지와 주어진 숫자·조건을 먼저 찾아보세요.';
-  if (level === 2) {
-    return question?.skill
-      ? `이 문제는 '${question.skill}' 개념을 사용합니다. 관련 규칙이나 성질을 떠올려 보세요.`
-      : '관련된 개념이나 규칙을 한 문장으로 먼저 떠올려 보세요.';
-  }
-  return question?.shape
-    ? '그림의 표시와 문제 조건을 하나씩 대응해 보고, 보기 중 조건에 맞지 않는 것을 지워보세요.'
-    : '보기를 하나씩 계산하거나 조건에 대입해 맞지 않는 답부터 지워보세요.';
-};
-
 const questionFingerprint = (q) =>
   [q?.question, ...(Array.isArray(q?.options) ? q.options : []), q?.skill || '']
     .join('|')
@@ -417,7 +405,6 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   const [answers, setAnswers]   = useState([]);
   const [selected, setSelected] = useState(null);
   const [showResult, setShowResult] = useState(false);
-  const [hintLevel, setHintLevel] = useState(0);
   const [wrongCauseByQuestion, setWrongCauseByQuestion] = useState({});
   const answerLockRef = useRef(false);
   const [finalResult, setFR]    = useState(null);
@@ -729,7 +716,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     setUnit(unit); setLesson(lesson);
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null); setExpandedResult(null);
-    setHintLevel(0); setWrongCauseByQuestion({});
+    setWrongCauseByQuestion({});
     setMinTimeLeft(0);
     setCL(true); setContent(null); setMyProgress(null);
     setLoadingElapsed(0);
@@ -780,7 +767,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     expandLessonPoolInBackground(selectedUnit, selectedLesson, poolData, attemptState);
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null); setExpandedResult(null);
-    setHintLevel(0); setWrongCauseByQuestion({});
+    setWrongCauseByQuestion({});
     setMinTimeLeft(0);
     setStep('concept');
   };
@@ -815,7 +802,6 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         questionKey: question.__questionKey || `${lessonKey(selectedUnit, selectedLesson)}_${questionFingerprint(question)}`,
         poolIndex: question.__poolIndex ?? qIdx,
         skill: question.skill || '',
-        hintLevel,
       }];
     });
     setShowResult(true);
@@ -824,7 +810,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
   const nextQuestion = () => {
     if (qIdx < content.questions.length - 1) {
-      setQIdx(q => q + 1); setSelected(null); setShowResult(false); setHintLevel(0);
+      setQIdx(q => q + 1); setSelected(null); setShowResult(false);
     } else { finishQuiz(); }
   };
 
@@ -914,7 +900,6 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         explanation: question.explanation || '',
         skill: question.skill || '',
         shape: question.shape || null,
-        hintLevel: answer.hintLevel || 0,
         wrongCause: answer.wrongCause || wrongCauseByQuestion[answer.questionIndex] || '',
         status: 'unresolved',
         wrongCount: (wrongBank[questionKey]?.wrongCount || 0) + 1,
@@ -1135,7 +1120,6 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           explanation: question.explanation || '',
           skill: question.skill || '',
           shape: question.shape || null,
-          hintLevel: answer.hintLevel || 0,
           wrongCause: answer.wrongCause || wrongCauseByQuestion[answer.questionIndex] || '',
           selectedIdx: answer.selectedIndex,
           correctIdx: question.answerIndex,
@@ -1770,31 +1754,6 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           </div>
           <TableRenderer table={currentQ.table} />
           <ShapeRenderer shape={currentQ.shape} />
-
-          {!showResult && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-extrabold text-amber-800">막히면 단계별 힌트를 사용해 보세요</p>
-                  <p className="mt-0.5 text-xs font-semibold text-amber-600">정답을 바로 알려주지 않고 풀이 방향만 안내합니다.</p>
-                </div>
-                <button type="button" onClick={() => setHintLevel(level => Math.min(3, level + 1))}
-                  disabled={hintLevel >= 3}
-                  className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-extrabold text-white hover:bg-amber-600 disabled:opacity-50">
-                  {hintLevel >= 3 ? '힌트 모두 확인' : `힌트 보기 ${hintLevel + 1}/3`}
-                </button>
-              </div>
-              {hintLevel > 0 && (
-                <div className="mt-3 space-y-2 border-t border-amber-200 pt-3">
-                  {Array.from({ length: hintLevel }, (_, index) => (
-                    <p key={index} className="text-sm font-bold leading-relaxed text-amber-900">
-                      {index + 1}. {getQuestionHint(currentQ, index + 1)}
-                    </p>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* 보기 — 세로 배치, 크게 */}
           <div className="space-y-3">
