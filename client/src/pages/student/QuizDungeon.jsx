@@ -708,7 +708,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       addFloat(`-${dmg}${mult > 1 ? ` ×${mult}` : ''}`, false);
       if (newWaveHP <= 0) setMonsterAnim('death');
 
-      // 파티클 발사: 플레이어 → 몬스터
+      // 스프라이트 프레임의 투명 여백을 제외한 몸통 중심으로 발사한다.
       const monEl = monsterRef.current;
       const plEl  = playerRef.current;
       if (monEl) {
@@ -716,12 +716,12 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
         const pRect = plEl ? plEl.getBoundingClientRect() : null;
         fireProjectile({
           from: {
-            x: pRect ? pRect.left + pRect.width  * 0.5 : window.innerWidth  * 0.22,
-            y: pRect ? pRect.top  + pRect.height * 0.55 : window.innerHeight * 0.55,
+            x: pRect ? pRect.left + pRect.width  * 0.58 : window.innerWidth  * 0.3,
+            y: pRect ? pRect.top  + pRect.height * 0.58 : window.innerHeight * 0.5,
           },
           to: {
-            x: mRect.left + mRect.width  * 0.5,
-            y: mRect.top  + mRect.height * 0.35,
+            x: mRect.left + mRect.width  * 0.52,
+            y: mRect.top  + mRect.height * 0.72,
           },
           type: PROJECTILE_TYPE[dungeon.difficulty] || 'magic',
         });
@@ -737,15 +737,15 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       setMonsterAnim('attack');
       setTimeout(() => setMonsterAnim('idle'), 1350);
 
-      // 파티클 발사: 몬스터 → 플레이어
+      // 파티클 발사: 몬스터 몸통 → 플레이어 몸통
       const monEl = monsterRef.current;
       const plEl  = playerRef.current;
       if (monEl && plEl) {
         const mRect = monEl.getBoundingClientRect();
         const pRect = plEl.getBoundingClientRect();
         fireProjectile({
-          from: { x: mRect.left + mRect.width * 0.5, y: mRect.top + mRect.height * 0.35 },
-          to:   { x: pRect.left + pRect.width * 0.5, y: pRect.top  + pRect.height * 0.55 },
+          from: { x: mRect.left + mRect.width * 0.52, y: mRect.top + mRect.height * 0.72 },
+          to:   { x: pRect.left + pRect.width * 0.58, y: pRect.top  + pRect.height * 0.58 },
           type: 'fire',
         });
       }
@@ -924,7 +924,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
             const effH = Math.round(layoutCfg.playerCharHeightPx * layoutCfg.playerScale);
             return (
               <div ref={playerRef} data-testid="quiz-battle-player"
-                className="absolute origin-bottom-left scale-[0.62] sm:scale-[0.82] lg:scale-100"
+                className="absolute origin-bottom-left translate-y-[12%] scale-[0.62] sm:translate-y-[18%] sm:scale-[0.82] lg:translate-y-[27%] lg:scale-100"
                 style={{ left: `${layoutCfg.playerLeftPct}%`, bottom: layoutCfg.playerBottomPx }}>
                 <div className={`flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}>
                   {/* 캐릭터 - height만 고정, width는 이미지 비율에 맡겨 letterbox 방지 */}
@@ -940,14 +940,14 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
           })()}
 
           {/* 중앙 VS */}
-          <div className="absolute left-1/2 bottom-[45%] -translate-x-1/2 select-none">
+          <div className="absolute left-1/2 bottom-[32%] hidden -translate-x-1/2 select-none sm:block">
             <span className="text-slate-500/60 font-extrabold text-3xl tracking-widest">VS</span>
           </div>
 
           {/* ── 몬스터 (우 절대위치) ── */}
           <div ref={monsterRef} data-testid="quiz-battle-monster"
             className="absolute origin-bottom-right scale-[0.72] sm:scale-[0.88] lg:scale-100"
-            style={{ right: `${layoutCfg.monsterRightPct}%`, bottom: layoutCfg.monsterBottomPx }}>
+            style={{ right: `${layoutCfg.monsterRightPct}%`, bottom: Math.min(layoutCfg.monsterBottomPx, 45) }}>
             <div style={{ height: layoutCfg.monsterCharHeightPx, width: layoutCfg.monsterCharHeightPx * 0.85 }}
               className="flex items-end justify-center">
               {monsterData ? (
