@@ -170,6 +170,16 @@ function BossSprite({ bossData, anim, flash, scale = 2, onAnimEnd }) {
   );
 }
 
+const getRaidActorPoint = (element, actor) => {
+  if (!element) return null;
+  const rect = element.getBoundingClientRect();
+  const isBoss = actor === 'boss';
+  return {
+    x: rect.left + rect.width * (isBoss ? 0.5 : 0.62),
+    y: rect.top + rect.height * (isBoss ? 0.6 : 0.52),
+  };
+};
+
 // ── 타이머 링 ────────────────────────────────────────────────────
 function TimerRing({ timeLeft, duration }) {
   const safeDuration = Math.max(1, Number(duration) || 1);
@@ -526,6 +536,49 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
   const totalQ    = questions.length;
   const myP       = raid.participants?.[myId] || {};
   const bossAreaRef = useRef(null);
+  const bossActorRef = useRef(null);
+  const playerActorRef = useRef(null);
+  const effectTimersRef = useRef(new Set());
+  const impactIdRef = useRef(0);
+
+  const [impactFx, setImpactFx] = useState(null);
+  const [bossHitTier, setBossHitTier] = useState(0);
+  const [playerHitTier, setPlayerHitTier] = useState(0);
+  const [damageFloats, setDamageFloats] = useState([]);
+
+  const scheduleEffect = (callback, delay) => {
+    const timer = setTimeout(() => {
+      effectTimersRef.current.delete(timer);
+      callback();
+    }, delay);
+    effectTimersRef.current.add(timer);
+    return timer;
+  };
+
+  const triggerRaidImpact = (target, point, damage, tier) => {
+    const id = impactIdRef.current++;
+    const areaRect = bossAreaRef.current?.getBoundingClientRect();
+    const x = point && areaRect ? point.x - areaRect.left : areaRect?.width / 2;
+    const y = point && areaRect ? point.y - areaRect.top : areaRect?.height / 2;
+    const floatId = impactIdRef.current++;
+
+    setImpactFx({ id, target, tier, x, y });
+    setDamageFloats(current => [...current, { id: floatId, target, tier, x, y, damage }]);
+    if (target === 'boss') setBossHitTier(tier);
+    else setPlayerHitTier(tier);
+
+    scheduleEffect(() => {
+      if (target === 'boss') setBossHitTier(0);
+      else setPlayerHitTier(0);
+    }, 560);
+    scheduleEffect(() => setImpactFx(current => current?.id === id ? null : current), 650);
+    scheduleEffect(() => setDamageFloats(current => current.filter(item => item.id !== floatId)), 1100);
+  };
+
+  useEffect(() => () => {
+    effectTimersRef.current.forEach(clearTimeout);
+    effectTimersRef.current.clear();
+  }, []);
 
   const alreadyAnswered = myP.lastAnsweredIdx === qIdx || myAnswer !== null;
   const displayAnswer   = myAnswer ?? (alreadyAnswered
@@ -563,17 +616,25 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
   // 정답/오답 시 파티클 발사
   useEffect(() => {
     if (myAnswer === null) return;
-    const el = bossAreaRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const bossCX  = rect.left + rect.width / 2;
-    const bossY   = rect.top + rect.height * 0.4;
-    const playerX = window.innerWidth / 2;
-    const playerY = window.innerHeight - 100;
+    const bossPoint = getRaidActorPoint(bossActorRef.current, 'boss');
+    const playerPoint = getRaidActorPoint(playerActorRef.current, 'player');
+    if (!bossPoint || !playerPoint) return;
     if (myAnswer.correct) {
-      fireProjectile({ from: { x: playerX, y: playerY }, to: { x: bossCX, y: bossY }, type: 'magic' });
+      fireProjectile({
+        from: playerPoint,
+        to: bossPoint,
+        type: 'magic',
+        power: 1.55,
+        onHit: () => triggerRaidImpact('boss', bossPoint, raid.damagePerHit || 100, 3),
+      });
     } else {
-      fireProjectile({ from: { x: bossCX, y: bossY },   to: { x: playerX, y: playerY }, type: 'fire' });
+      fireProjectile({
+        from: bossPoint,
+        to: playerPoint,
+        type: 'fire',
+        power: 1.35,
+        onHit: () => triggerRaidImpact('player', playerPoint, raid.penaltyAmount || 0, 2),
+      });
     }
   }, [myAnswer]);
 
@@ -584,7 +645,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
   );
 
   return (
-    <div className="h-screen overflow-hidden relative flex flex-col" style={{ backgroundColor: '#020617' }}>
+    <div className="fixed inset-0 z-[100] overflow-hidden flex flex-col" style={{ backgroundColor: '#020617' }}>
       {bossBg && (
         <div className="fixed inset-0 pointer-events-none z-0"
           style={{ backgroundImage: `url(${bossBg})`, backgroundSize: 'cover', backgroundPosition: 'center top', backgroundRepeat: 'no-repeat' }} />
@@ -600,14 +661,46 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
         <BossHpBar current={raid.currentHP} max={raid.maxHP} />
       </div>
 
-      {/* 보스 스프라이트 영역 — 고정 높이 */}
+      {/* 보스 전용 중앙 무대 */}
       <div
         ref={bossAreaRef}
-        className="flex items-end justify-center relative shrink-0 pt-4"
-        style={{ height: '46vh', maxHeight: 480, minHeight: 290 }}
+        data-testid="boss-raid-stage"
+        className={`flex items-end justify-center relative shrink-0 overflow-hidden
+          ${impactFx ? `battle-scene-impact-${impactFx.tier}` : ''}`}
+        style={{ height: 'clamp(380px, 58vh, 620px)' }}
       >
-        <div className="relative z-10 translate-y-3">
-          <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={2.5} />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/10 via-transparent to-slate-950/80 pointer-events-none" />
+        <div className="absolute bottom-8 left-1/2 h-16 w-[62%] -translate-x-1/2 rounded-[100%] bg-black/55 blur-md pointer-events-none" />
+        <div className="absolute bottom-14 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-rose-500/15 blur-3xl animate-pulse pointer-events-none sm:h-96 sm:w-96" />
+        <div className="absolute bottom-20 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full border border-rose-300/20 shadow-[0_0_80px_rgba(244,63,94,0.25)] pointer-events-none sm:h-64 sm:w-64" />
+
+        {impactFx && (
+          <div key={`raid-flash-${impactFx.id}`}
+            className={`absolute inset-0 z-30 pointer-events-none battle-impact-flash ${impactFx.target === 'player' ? 'battle-impact-flash-player' : ''}`} />
+        )}
+
+        <div ref={playerActorRef} data-testid="boss-raid-player"
+          className="absolute bottom-10 left-[8%] z-20 origin-bottom scale-[0.78] sm:left-[12%] sm:scale-90 lg:left-[16%] lg:scale-100">
+          <div data-battle-actor="player"
+            className={`flex h-40 w-32 items-end justify-center ${playerHitTier ? `battle-player-hit-${playerHitTier}` : ''}`}>
+            {myP.characterImage
+              ? <img src={myP.characterImage} alt="내 캐릭터" className="max-h-40 w-auto object-contain drop-shadow-[0_10px_14px_rgba(0,0,0,0.65)]"
+                  style={{ imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
+              : <span className="text-7xl drop-shadow-xl">🧙‍♂️</span>}
+          </div>
+        </div>
+
+        <div ref={bossActorRef} data-testid="boss-raid-boss"
+          className="relative z-10 origin-bottom scale-[0.68] sm:scale-[0.8] lg:scale-[0.88] 2xl:scale-100">
+          <div data-battle-actor="boss"
+            className={`drop-shadow-[0_18px_18px_rgba(0,0,0,0.75)] ${bossHitTier ? `boss-raid-hit-${bossHitTier}` : ''}`}>
+            <BossSprite bossData={bossData} anim={bossAnim} flash={bossFlash} scale={3.6} />
+          </div>
+        </div>
+
+        <div className="absolute left-1/2 top-4 z-20 -translate-x-1/2 rounded-full border border-rose-400/30 bg-slate-950/65 px-5 py-1.5 text-center backdrop-blur-sm">
+          <span className="text-[10px] font-black tracking-[0.3em] text-rose-300">WORLD BOSS</span>
+          <p className="max-w-[220px] truncate text-sm font-black text-white">{raid.bossName}</p>
         </div>
 
         {/* 킬피드 — 우측 세로 목록 */}
@@ -623,10 +716,23 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
           </div>
         )}
 
-        {/* 데미지 이펙트 */}
-        {myAnswer?.correct && (
-          <div className="absolute top-4 right-8 text-yellow-300 font-extrabold text-2xl animate-bounce pointer-events-none z-20">
-            💥 -{raid.damagePerHit}!
+        {damageFloats.map(item => (
+          <div key={item.id} data-testid="boss-raid-damage"
+            className={`absolute z-40 pointer-events-none font-black battle-damage-float battle-damage-tier-${item.tier}
+              ${item.target === 'boss' ? 'text-yellow-300' : 'text-rose-300'}`}
+            style={{ left: item.x, top: item.y }}>
+            {item.target === 'boss' ? `-${item.damage}` : 'MISS!'}
+          </div>
+        ))}
+
+        {impactFx && (
+          <div key={`raid-impact-${impactFx.id}`} data-testid="boss-raid-impact"
+            className={`absolute z-40 pointer-events-none battle-impact battle-impact-tier-${impactFx.tier}`}
+            style={{ left: impactFx.x, top: impactFx.y }}>
+            <span className="battle-impact-ring" />
+            <strong className={impactFx.target === 'boss' ? 'text-amber-200' : 'text-rose-300'}>
+              {impactFx.target === 'boss' ? 'BOSS BREAK!' : 'COUNTER!'}
+            </strong>
           </div>
         )}
         {/* 내 데미지 / 정답 수 */}
@@ -665,7 +771,7 @@ function BattlePhase({ raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossF
         </div>
 
         {/* 보기 */}
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {(q.options || []).map((opt, oi) => {
             let cls = 'bg-slate-800 border-2 border-slate-700 text-slate-200 hover:border-rose-400 hover:bg-slate-700 active:scale-95';
             if (displayAnswer !== null) {
@@ -982,13 +1088,18 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
   // 보스 HP 변화 → 피격 이펙트
   useEffect(() => {
     if (!raid || raid.status !== 'active') return;
-    if (prevHpRef.current !== null && raid.currentHP < prevHpRef.current) {
-      setBossFlash(true);
-      setBossAnim('attack');
-      const t = setTimeout(() => { setBossFlash(false); setBossAnim('idle'); }, 400);
-      return () => clearTimeout(t);
-    }
+    const previousHP = prevHpRef.current;
     prevHpRef.current = raid.currentHP;
+    let impactTimer;
+    let clearTimer;
+
+    if (previousHP !== null && raid.currentHP < previousHP) {
+      impactTimer = setTimeout(() => {
+        setBossFlash(true);
+        setBossAnim('idle');
+      }, 180);
+      clearTimer = setTimeout(() => setBossFlash(false), 560);
+    }
 
     // HP 0 → 클리어 전환 시도
     if (raid.currentHP <= 0 && raid.status === 'active') {
@@ -996,6 +1107,10 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
         status: 'cleared', clearedAt: serverTimestamp(),
       }).catch(() => {});
     }
+    return () => {
+      clearTimeout(impactTimer);
+      clearTimeout(clearTimer);
+    };
   }, [raid?.currentHP]);
 
   // 클리어/실패 시 보스 애니
@@ -1052,19 +1167,31 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
   useEffect(() => {
     if (!raid?.participants || raid.status !== 'active') return;
     const prev = prevParticipantsRef.current;
-    const cx = window.innerWidth / 2;
-    const bossY  = window.innerHeight * 0.32;
-    const playerY = window.innerHeight - 100;
+    const bossX = window.innerWidth / 2;
+    const bossY = Math.min(window.innerHeight * 0.46, 390);
+    const playerY = Math.min(window.innerHeight * 0.72, bossY + 260);
 
-    Object.entries(raid.participants).forEach(([id, p]) => {
+    Object.entries(raid.participants).forEach(([id, p], index) => {
       if (id === studentDocId) return; // 자신은 myAnswer로 처리
       const prevP = prev[id];
       if (!prevP) return; // 첫 스냅샷은 기준값만 설정
+      const laneOffset = ((index % 5) - 2) * Math.min(70, window.innerWidth * 0.07);
+      const playerX = window.innerWidth / 2 + laneOffset;
       if ((p.correctCount || 0) > (prevP.correctCount || 0)) {
-        fireProjectile({ from: { x: cx, y: playerY }, to: { x: cx, y: bossY }, type: 'magic' });
+        fireProjectile({
+          from: { x: playerX, y: playerY },
+          to: { x: bossX, y: bossY },
+          type: 'magic',
+          power: 1.25,
+        });
       }
       if ((p.wrongCount || 0) > (prevP.wrongCount || 0)) {
-        fireProjectile({ from: { x: cx, y: bossY }, to: { x: cx, y: playerY }, type: 'fire' });
+        fireProjectile({
+          from: { x: bossX, y: bossY },
+          to: { x: playerX, y: playerY },
+          type: 'fire',
+          power: 1.15,
+        });
       }
     });
 

@@ -66,11 +66,12 @@ const TYPES = {
 };
 
 /**
- * @param {{ from:{x:number,y:number}, to:{x:number,y:number},
- *           type?:string, onHit?:()=>void, onComplete?:()=>void }} opts
+ * @param {{ from:{x:number,y:number}, to:{x:number,y:number}, type?:string,
+ *           power?:number, onHit?:()=>void, onComplete?:()=>void }} opts
  */
-export function fireProjectile({ from, to, type = 'magic', onHit, onComplete }) {
+export function fireProjectile({ from, to, type = 'magic', power = 1, onHit, onComplete }) {
   const cfg = TYPES[type] || TYPES.magic;
+  const intensity = Math.max(0.8, Math.min(2, power));
 
   // ── create full-screen canvas overlay ──────────────────────────────────
   const canvas = document.createElement('canvas');
@@ -84,23 +85,25 @@ export function fireProjectile({ from, to, type = 'magic', onHit, onComplete }) 
   const baseAngle = Math.atan2(to.y - from.y, to.x - from.x);
 
   // ── projectile particles ────────────────────────────────────────────────
-  const particles = Array.from({ length: cfg.count }, () => {
+  const particles = Array.from({ length: Math.round(cfg.count * intensity) }, () => {
     const spread = ((Math.random() - 0.5) * cfg.spread * Math.PI) / 180;
     const angle  = baseAngle + spread;
-    const speed  = cfg.speed * (0.75 + Math.random() * 0.5);
+    const speed  = cfg.speed * (0.75 + Math.random() * 0.5) * (0.9 + intensity * 0.1);
     return {
       x: from.x, y: from.y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      size:  cfg.size * (0.6 + Math.random() * 0.8),
+      size:  cfg.size * (0.6 + Math.random() * 0.8) * (0.85 + intensity * 0.15),
       color: cfg.colors[Math.floor(Math.random() * cfg.colors.length)],
       trail: [],
       reached: false,
+      lastDistance: Math.hypot(to.x - from.x, to.y - from.y),
     };
   });
 
   let hitFired   = false;
   let explParticles = [];
+  let shockwaveLife = 0;
   let rafId;
   let done = false;
   const startTime = performance.now();
@@ -115,14 +118,16 @@ export function fireProjectile({ from, to, type = 'magic', onHit, onComplete }) 
   };
 
   const spawnExplosion = () => {
-    for (let i = 0; i < cfg.burstCount; i++) {
-      const angle = (i / cfg.burstCount) * Math.PI * 2 + Math.random() * 0.4;
-      const speed = 3 + Math.random() * 8;
+    const burstCount = Math.round(cfg.burstCount * intensity);
+    shockwaveLife = 1;
+    for (let i = 0; i < burstCount; i++) {
+      const angle = (i / burstCount) * Math.PI * 2 + Math.random() * 0.4;
+      const speed = (3 + Math.random() * 8) * intensity;
       explParticles.push({
         x: to.x, y: to.y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        size:  3 + Math.random() * 9,
+        size:  (3 + Math.random() * 9) * (0.8 + intensity * 0.2),
         color: cfg.explodeColors[Math.floor(Math.random() * cfg.explodeColors.length)],
         life:  1,
         decay: 0.030 + Math.random() * 0.030,
@@ -145,13 +150,22 @@ export function fireProjectile({ from, to, type = 'magic', onHit, onComplete }) 
       p.trail.unshift({ x: p.x, y: p.y });
       if (p.trail.length > cfg.trailLen) p.trail.pop();
 
-      // move
+      // 퍼짐 궤적은 유지하되 목표를 지나치지 않도록 부드럽게 유도한다.
+      const guideAngle = Math.atan2(to.y - p.y, to.x - p.x);
+      const currentSpeed = Math.hypot(p.vx, p.vy);
+      p.vx = p.vx * 0.84 + Math.cos(guideAngle) * currentSpeed * 0.16;
+      p.vy = p.vy * 0.84 + Math.sin(guideAngle) * currentSpeed * 0.16;
       p.x += p.vx;
       p.y += p.vy;
 
       // hit check
       const dx = to.x - p.x, dy = to.y - p.y;
-      if (Math.sqrt(dx * dx + dy * dy) < 28) { p.reached = true; return; }
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < Math.max(28, currentSpeed * 1.4) || (distance > p.lastDistance && p.lastDistance < 60)) {
+        p.reached = true;
+        return;
+      }
+      p.lastDistance = distance;
 
       allReached = false;
 
@@ -186,6 +200,21 @@ export function fireProjectile({ from, to, type = 'magic', onHit, onComplete }) 
       ctx.restore();
     });
 
+    if (shockwaveLife > 0) {
+      const progress = 1 - shockwaveLife;
+      ctx.save();
+      ctx.globalAlpha = shockwaveLife * 0.85;
+      ctx.strokeStyle = cfg.glow;
+      ctx.shadowColor = cfg.glow;
+      ctx.shadowBlur = 16;
+      ctx.lineWidth = Math.max(1, 7 * shockwaveLife);
+      ctx.beginPath();
+      ctx.arc(to.x, to.y, 16 + progress * 68 * intensity, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      shockwaveLife = Math.max(0, shockwaveLife - 0.065);
+    }
+
     // trigger hit once all particles reached
     if (allReached && !hitFired) {
       hitFired = true;
@@ -215,7 +244,7 @@ export function fireProjectile({ from, to, type = 'magic', onHit, onComplete }) 
       ctx.restore();
     });
 
-    if (hitFired && !anyAlive) { cleanup(); return; }
+    if (hitFired && !anyAlive && shockwaveLife <= 0) { cleanup(); return; }
 
     rafId = requestAnimationFrame(animate);
   };

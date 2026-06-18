@@ -197,6 +197,23 @@ const COMBO_CFG = [
 
 const getComboLv = (n) => COMBO_CFG.find(c => n >= c.min) || null;
 
+const getImpactTier = (combo) => {
+  if (combo >= 5) return 4;
+  if (combo >= 3) return 3;
+  if (combo >= 2) return 2;
+  return 1;
+};
+
+const getActorPoint = (element, actor) => {
+  if (!element) return null;
+  const rect = element.getBoundingClientRect();
+  const isMonster = actor === 'monster';
+  return {
+    x: rect.left + rect.width * (isMonster ? 0.52 : 0.58),
+    y: rect.top + rect.height * (isMonster ? 0.72 : 0.58),
+  };
+};
+
 // ── SVG 원형 타이머 ────────────────────────────────────────────
 function CircleTimer({ timeLeft, maxTime }) {
   const R    = 20;
@@ -647,7 +664,10 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
   const [timeBonus,    setTimeBonus]    = useState(0);
   const [monsterFlash, setMonsterFlash] = useState(false);
   const [monsterAnim,  setMonsterAnim]  = useState('idle');
-  const [playerShake,  setPlayerShake]  = useState(false);
+  const [playerHitTier, setPlayerHitTier] = useState(0);
+  const [monsterHitTier, setMonsterHitTier] = useState(0);
+  const [hitStop,      setHitStop]      = useState(false);
+  const [impactFx,     setImpactFx]     = useState(null);
   const [floats,       setFloats]       = useState([]);
 
   const nextRef      = useRef(null);
@@ -656,13 +676,57 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
   const handlerRef   = useRef(null);
   const monsterRef   = useRef(null);
   const playerRef    = useRef(null);
+  const stageRef     = useRef(null);
+  const effectTimersRef = useRef(new Set());
 
   const [waitingConfirm, setWaitingConfirm] = useState(false);
 
-  const addFloat = (text, isPlayer) => {
+  const scheduleEffect = (callback, delay) => {
+    const timer = setTimeout(() => {
+      effectTimersRef.current.delete(timer);
+      callback();
+    }, delay);
+    effectTimersRef.current.add(timer);
+    return timer;
+  };
+
+  const addFloat = (text, isPlayer, tier, point) => {
     const id = floatIdRef.current++;
-    setFloats(p => [...p, { id, text, isPlayer }]);
-    setTimeout(() => setFloats(p => p.filter(f => f.id !== id)), 1100);
+    const stageRect = stageRef.current?.getBoundingClientRect();
+    const x = point && stageRect ? point.x - stageRect.left : stageRect?.width * (isPlayer ? 0.3 : 0.7);
+    const y = point && stageRect ? point.y - stageRect.top : stageRect?.height * 0.65;
+    setFloats(p => [...p, { id, text, isPlayer, tier, x, y }]);
+    scheduleEffect(() => setFloats(p => p.filter(f => f.id !== id)), 1050);
+  };
+
+  const triggerImpact = (target, point, damage, tier = 1) => {
+    const id = floatIdRef.current++;
+    const stopMs = [0, 75, 95, 115, 135][tier] || 75;
+    const stageRect = stageRef.current?.getBoundingClientRect();
+    const x = point && stageRect ? point.x - stageRect.left : stageRect?.width / 2;
+    const y = point && stageRect ? point.y - stageRect.top : stageRect?.height / 2;
+
+    setHitStop(true);
+    setImpactFx({ id, target, tier, x, y });
+    addFloat(`-${damage}`, target === 'player', tier, point);
+
+    if (target === 'monster') {
+      setMonsterFlash(true);
+      setMonsterHitTier(tier);
+    } else {
+      setPlayerHitTier(tier);
+    }
+
+    scheduleEffect(() => setHitStop(false), stopMs);
+    scheduleEffect(() => {
+      if (target === 'monster') {
+        setMonsterFlash(false);
+        setMonsterHitTier(0);
+      } else {
+        setPlayerHitTier(0);
+      }
+    }, 480 + tier * 45);
+    scheduleEffect(() => setImpactFx(current => current?.id === id ? null : current), 620);
   };
 
   const handleAnswer = useCallback((value, timeout = false) => {
@@ -703,27 +767,23 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       setCombo(newCombo);
       setMaxCombo(m => Math.max(m, newCombo));
       setTimeBonus(newTimeBonus);
-      setMonsterFlash(true);
-      setTimeout(() => setMonsterFlash(false), 350);
-      addFloat(`-${dmg}${mult > 1 ? ` ×${mult}` : ''}`, false);
-      if (newWaveHP <= 0) setMonsterAnim('death');
 
       // 스프라이트 프레임의 투명 여백을 제외한 몸통 중심으로 발사한다.
       const monEl = monsterRef.current;
       const plEl  = playerRef.current;
       if (monEl) {
-        const mRect = monEl.getBoundingClientRect();
-        const pRect = plEl ? plEl.getBoundingClientRect() : null;
+        const from = getActorPoint(plEl, 'player') || { x: window.innerWidth * 0.3, y: window.innerHeight * 0.5 };
+        const to = getActorPoint(monEl, 'monster');
+        const impactTier = getImpactTier(newCombo);
         fireProjectile({
-          from: {
-            x: pRect ? pRect.left + pRect.width  * 0.58 : window.innerWidth  * 0.3,
-            y: pRect ? pRect.top  + pRect.height * 0.58 : window.innerHeight * 0.5,
-          },
-          to: {
-            x: mRect.left + mRect.width  * 0.52,
-            y: mRect.top  + mRect.height * 0.72,
-          },
+          from,
+          to,
           type: PROJECTILE_TYPE[dungeon.difficulty] || 'magic',
+          power: 1 + (impactTier - 1) * 0.25,
+          onHit: () => {
+            triggerImpact('monster', to, `${dmg}${mult > 1 ? ` ×${mult}` : ''}`, impactTier);
+            if (newWaveHP <= 0) setMonsterAnim('death');
+          },
         });
       }
     } else {
@@ -731,22 +791,20 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
       newCombo    = 0;
       setPlayerHP(newPlayerHP);
       setCombo(0);
-      setPlayerShake(true);
-      setTimeout(() => setPlayerShake(false), 500);
-      addFloat(`-${DAMAGE_WRONG}`, true);
       setMonsterAnim('attack');
-      setTimeout(() => setMonsterAnim('idle'), 1350);
+      scheduleEffect(() => setMonsterAnim('idle'), 1350);
 
       // 파티클 발사: 몬스터 몸통 → 플레이어 몸통
       const monEl = monsterRef.current;
       const plEl  = playerRef.current;
       if (monEl && plEl) {
-        const mRect = monEl.getBoundingClientRect();
-        const pRect = plEl.getBoundingClientRect();
+        const from = getActorPoint(monEl, 'monster');
+        const to = getActorPoint(plEl, 'player');
         fireProjectile({
-          from: { x: mRect.left + mRect.width * 0.52, y: mRect.top + mRect.height * 0.72 },
-          to:   { x: pRect.left + pRect.width * 0.58, y: pRect.top  + pRect.height * 0.58 },
+          from,
+          to,
           type: 'fire',
+          onHit: () => triggerImpact('player', to, DAMAGE_WRONG, 2),
         });
       }
     }
@@ -816,6 +874,8 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
 
   useEffect(() => () => {
     if (nextRef.current) clearTimeout(nextRef.current);
+    effectTimersRef.current.forEach(clearTimeout);
+    effectTimersRef.current.clear();
     pendingRef.current = null;
   }, []);
 
@@ -883,9 +943,14 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
 
       {/* ── 전투 씬 ── */}
       <div data-testid="quiz-battle-scene"
-        className="relative shrink-0 overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800"
+        className={`relative shrink-0 overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800
+          ${impactFx ? `battle-scene-impact-${impactFx.tier}` : ''} ${hitStop ? 'battle-hit-stop' : ''}`}
         style={{ height: `clamp(300px, ${layoutCfg.sceneHeightVh}vh, 460px)` }}>
         <div className="absolute inset-0 bg-slate-950/30 pointer-events-none" />
+        {impactFx && (
+          <div key={`flash-${impactFx.id}`}
+            className={`absolute inset-0 z-30 pointer-events-none battle-impact-flash ${impactFx.target === 'player' ? 'battle-impact-flash-player' : ''}`} />
+        )}
 
         {/* 바닥 그라데이션 */}
         <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none" />
@@ -918,7 +983,7 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
         </div>
 
         {/* 화면 폭과 무관하게 같은 좌표계를 사용하는 중앙 전장 */}
-        <div data-testid="quiz-battle-stage" className="absolute inset-y-0 left-1/2 w-full max-w-[800px] -translate-x-1/2">
+        <div ref={stageRef} data-testid="quiz-battle-stage" className="absolute inset-y-0 left-1/2 w-full max-w-[800px] -translate-x-1/2">
           {/* ── 플레이어 (좌 절대위치) ── */}
           {(() => {
             const effH = Math.round(layoutCfg.playerCharHeightPx * layoutCfg.playerScale);
@@ -926,7 +991,8 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
               <div ref={playerRef} data-testid="quiz-battle-player"
                 className="absolute origin-bottom-left translate-y-[12%] scale-[0.62] sm:translate-y-[18%] sm:scale-[0.82] lg:translate-y-[27%] lg:scale-100"
                 style={{ left: `${layoutCfg.playerLeftPct}%`, bottom: layoutCfg.playerBottomPx }}>
-                <div className={`flex flex-col items-center ${playerShake ? 'animate-shake' : ''}`}>
+                <div data-battle-actor="player"
+                  className={`flex flex-col items-center ${playerHitTier ? `battle-player-hit-${playerHitTier}` : ''}`}>
                   {/* 캐릭터 - height만 고정, width는 이미지 비율에 맡겨 letterbox 방지 */}
                   <div style={{ height: effH }} className="flex items-end justify-center">
                     {playerData?.characterImage
@@ -949,7 +1015,8 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
             className="absolute origin-bottom-right scale-[0.72] sm:scale-[0.88] lg:scale-100"
             style={{ right: `${layoutCfg.monsterRightPct}%`, bottom: Math.min(layoutCfg.monsterBottomPx, 45) }}>
             <div style={{ height: layoutCfg.monsterCharHeightPx, width: layoutCfg.monsterCharHeightPx * 0.85 }}
-              className="flex items-end justify-center">
+              data-battle-actor="monster"
+              className={`flex items-end justify-center ${monsterHitTier ? `battle-monster-hit-${monsterHitTier}` : ''}`}>
               {monsterData ? (
                 <SpriteMonster
                   data={monsterData}
@@ -970,30 +1037,29 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
           </div>
 
           {/* ── 플로팅 데미지 ── */}
-          {floats.filter(f => f.isPlayer).map(f => (
-            <div key={f.id}
-              className="absolute font-extrabold text-2xl text-rose-400 pointer-events-none animate-float-up z-20"
-              style={{ left: `${layoutCfg.playerLeftPct + 10}%`, bottom: 120, textShadow: '0 0 10px rgba(248,113,113,0.9)' }}>
-              {f.text}
-            </div>
-          ))}
-          {floats.filter(f => !f.isPlayer).map(f => (
-            <div key={f.id}
-              className="absolute font-extrabold text-2xl text-yellow-300 pointer-events-none animate-float-up z-20"
-              style={{ right: `${layoutCfg.monsterRightPct + 10}%`, bottom: 140, textShadow: '0 0 10px rgba(251,191,36,0.9)' }}>
+          {floats.map(f => (
+            <div key={f.id} data-testid="battle-damage-number"
+              className={`absolute z-40 pointer-events-none font-black battle-damage-float battle-damage-tier-${f.tier}
+                ${f.isPlayer ? 'text-rose-400' : 'text-yellow-300'}`}
+              style={{ left: f.x, top: f.y }}>
               {f.text}
             </div>
           ))}
 
-          {/* HIT / 오답 */}
-          {answered === 'correct' && (
-            <div className="absolute top-16 right-[18%] text-yellow-300 font-extrabold text-2xl animate-bounce drop-shadow-lg">💥 HIT!</div>
-          )}
-          {answered === 'wrong' && (
-            <div className="absolute top-16 left-[14%] text-rose-400 font-extrabold text-lg animate-bounce">❌ 오답!</div>
-          )}
-          {answered === 'timeout' && (
-            <div className="absolute top-16 left-[14%] text-rose-400 font-extrabold text-lg animate-bounce">⏰ 시간 초과!</div>
+          {/* 명중 지점 충격파와 콤보 타격 문구 */}
+          {impactFx && (
+            <div key={`impact-${impactFx.id}`} data-testid="battle-impact"
+              className={`absolute z-30 pointer-events-none battle-impact battle-impact-tier-${impactFx.tier}`}
+              style={{ left: impactFx.x, top: impactFx.y }}>
+              <span className="battle-impact-ring" />
+              <strong className={impactFx.target === 'player' ? 'text-rose-300' : 'text-amber-200'}>
+                {impactFx.target === 'player'
+                  ? 'BREAK!'
+                  : impactFx.tier >= 4 ? 'CRITICAL!'
+                    : impactFx.tier >= 3 ? 'POWER HIT!'
+                      : 'HIT!'}
+              </strong>
+            </div>
           )}
         </div>
       </div>
