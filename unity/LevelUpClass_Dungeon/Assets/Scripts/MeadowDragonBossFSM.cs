@@ -24,6 +24,7 @@ public class MeadowDragonBossFSM : BossFSM
     public float introMouthOpenDelay = 0.35f;
     [Range(0f, 1f)] public float introMouthOpenNormalizedTime = 0.5f;
     public float introCameraReturnDuration = 1.1f;
+    [Range(0.4f, 1f)] public float webGLIntroDurationScale = 0.7f;
 
     private void Awake()
     {

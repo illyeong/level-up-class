@@ -19,12 +19,12 @@ public class CameraFollow : MonoBehaviour
     // ── 화면 흔들림 ───────────────────────────────────────────
     private Vector3 shakeOffset;
 
-    public void Shake(float duration = 0.3f, float magnitude = 0.3f)
+    public void Shake(float duration = 0.3f, float magnitude = 0.3f, bool useUnscaledTime = false)
     {
-        StartCoroutine(ShakeRoutine(duration, magnitude));
+        StartCoroutine(ShakeRoutine(duration, magnitude, useUnscaledTime));
     }
 
-    IEnumerator ShakeRoutine(float duration, float magnitude)
+    IEnumerator ShakeRoutine(float duration, float magnitude, bool useUnscaledTime)
     {
         float elapsed = 0f;
         while (elapsed < duration)
@@ -32,7 +32,7 @@ public class CameraFollow : MonoBehaviour
             float x = Random.Range(-1f, 1f) * magnitude;
             float y = Random.Range(-1f, 1f) * magnitude;
             shakeOffset = new Vector3(x, y, 0f);
-            elapsed += Time.deltaTime;
+            elapsed += useUnscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
             yield return null;
         }
         shakeOffset = Vector3.zero;

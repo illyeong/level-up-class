@@ -56,27 +56,33 @@ public class MeadowDragonIntroSequence : MonoBehaviour
 
         yield return null;
 
+        float durationScale = 1f;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        durationScale = Mathf.Clamp(boss.webGLIntroDurationScale, 0.4f, 1f);
+#endif
+
         cameraFollow.smoothSpeed = 2.2f;
         cameraFollow.target = boss.transform;
-        yield return new WaitForSeconds(boss.introCameraMoveDuration);
+        yield return new WaitForSecondsRealtime(boss.introCameraMoveDuration * durationScale);
 
         string introAnimation = string.IsNullOrEmpty(boss.rageAnimName)
             ? boss.skillAnimName
             : boss.rageAnimName;
         boss.PlayCinematicAnimation(introAnimation, false);
-        CameraFollow.Instance?.Shake(boss.introBossShowDuration, boss.introShakeMagnitude);
+        float bossShowDuration = boss.introBossShowDuration * durationScale;
+        CameraFollow.Instance?.Shake(bossShowDuration, boss.introShakeMagnitude, true);
 
-        float mouthDelay = Mathf.Clamp(boss.introMouthOpenDelay, 0f, boss.introBossShowDuration);
-        yield return new WaitForSeconds(mouthDelay);
+        float mouthDelay = Mathf.Clamp(boss.introMouthOpenDelay * durationScale, 0f, bossShowDuration);
+        yield return new WaitForSecondsRealtime(mouthDelay);
         boss.HoldCinematicAnimation(introAnimation, boss.introMouthOpenNormalizedTime);
 
-        yield return new WaitForSeconds(Mathf.Max(0f, boss.introBossShowDuration - mouthDelay));
+        yield return new WaitForSecondsRealtime(Mathf.Max(0f, bossShowDuration - mouthDelay));
 
         boss.ResetCinematicPose(boss.idleAnimName);
 
         cameraFollow.smoothSpeed = 3.2f;
         cameraFollow.target = player;
-        yield return new WaitForSeconds(boss.introCameraReturnDuration);
+        yield return new WaitForSecondsRealtime(boss.introCameraReturnDuration * durationScale);
 
         cameraFollow.target = originalCameraTarget != null ? originalCameraTarget : player;
         cameraFollow.smoothSpeed = originalSmoothSpeed;
