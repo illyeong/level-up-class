@@ -254,6 +254,20 @@
   transform-origin: center bottom;
 }
 
+.boss-raid-boss-aura {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  z-index: 0;
+  width: 19rem;
+  height: 19rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(244,63,94,.16) 0%, rgba(244,63,94,.07) 38%, transparent 72%);
+  filter: blur(22px);
+  pointer-events: none;
+  transform: translate(-50%, 28%);
+}
+
 .boss-raid-party {
   position: absolute;
   left: 1.5%;

@@ -795,8 +795,6 @@ function BattlePhase({
       >
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/10 via-transparent to-slate-950/80 pointer-events-none" />
         <div className="absolute bottom-8 left-1/2 h-16 w-[62%] -translate-x-1/2 rounded-[100%] bg-black/55 blur-md pointer-events-none" />
-        <div className="absolute bottom-14 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-rose-500/15 blur-3xl animate-pulse pointer-events-none sm:h-96 sm:w-96" />
-        <div className="absolute bottom-20 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full border border-rose-300/20 shadow-[0_0_80px_rgba(244,63,94,0.25)] pointer-events-none sm:h-64 sm:w-64" />
 
         {activeBossSkillFx && (
           <div className={`boss-skill-overlay boss-skill-${activeBossSkillFx.tone} boss-skill-${activeBossSkillFx.phase}`}>
@@ -863,8 +861,9 @@ function BattlePhase({
 
         <div ref={bossActorRef} data-testid="boss-raid-boss"
           className="boss-raid-boss-actor">
+          <div className="boss-raid-boss-aura" aria-hidden="true" />
           <div data-battle-actor="boss"
-            className={`drop-shadow-[0_18px_18px_rgba(0,0,0,0.75)] ${bossHitTier ? `boss-raid-hit-${bossHitTier}` : ''}`}>
+            className={`relative z-10 drop-shadow-[0_18px_18px_rgba(0,0,0,0.75)] ${bossHitTier ? `boss-raid-hit-${bossHitTier}` : ''}`}>
             <BossSprite
               key={`${bossAnimKey}-${activeBossSkillFx?.phase || 'normal'}`}
               bossData={bossData}
