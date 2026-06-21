@@ -562,6 +562,13 @@ function BattlePhase({
   const correctIdx = q ? getCorrectIndex(q) : -1;
   const totalQ    = questions.length;
   const myP       = raid.participants?.[myId] || {};
+  const stageParticipants = Object.entries(raid.participants || {})
+    .map(([id, participant]) => ({ id, ...participant }))
+    .sort((a, b) => {
+      if (a.id === myId) return -1;
+      if (b.id === myId) return 1;
+      return (b.totalDamage || 0) - (a.totalDamage || 0);
+    });
   const bossAreaRef = useRef(null);
   const bossActorRef = useRef(null);
   const playerActorRef = useRef(null);
@@ -813,21 +820,49 @@ function BattlePhase({
             className={`absolute inset-0 z-30 pointer-events-none battle-impact-flash ${impactFx.target === 'player' ? 'battle-impact-flash-player' : ''}`} />
         )}
 
-        {!isTeacher && (
-          <div ref={playerActorRef} data-testid="boss-raid-player"
-            className="absolute bottom-10 left-[8%] z-20 origin-bottom scale-[0.78] sm:left-[12%] sm:scale-90 lg:left-[16%] lg:scale-100">
-            <div data-battle-actor="player"
-              className={`flex h-40 w-32 items-end justify-center ${playerHitTier ? `battle-player-hit-${playerHitTier}` : ''}`}>
-              {myP.characterImage
-                ? <img src={myP.characterImage} alt="내 캐릭터" className="max-h-40 w-auto object-contain drop-shadow-[0_10px_14px_rgba(0,0,0,0.65)]"
-                    style={{ imageRendering: 'pixelated', transform: 'scaleX(-1)' }} />
-                : <span className="text-7xl drop-shadow-xl">🧑</span>}
-            </div>
-          </div>
-        )}
+        <div
+          className="boss-raid-party"
+          style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(stageParticipants.length, 7))}, minmax(0, 1fr))` }}
+          aria-label={`참가 학생 ${stageParticipants.length}명`}
+        >
+          {stageParticipants.map((participant, index) => {
+            const isMe = participant.id === myId;
+            const status = participant.lastAnsweredIdx !== qIdx
+              ? 'pending'
+              : participant.lastAnsweredCorrect ? 'correct' : 'wrong';
+            return (
+              <div
+                key={participant.id}
+                ref={(node) => {
+                  setParticipantRef(participant.id, node);
+                  if (isMe || (!myId && index === 0)) playerActorRef.current = node;
+                }}
+                data-testid={isMe ? 'boss-raid-player' : undefined}
+                data-raid-participant-id={participant.id}
+                data-battle-actor="player"
+                className={`boss-raid-party-member ${isMe ? 'boss-raid-party-member-me' : ''}
+                  ${isMe && playerHitTier ? `battle-player-hit-${playerHitTier}` : ''}`}
+              >
+                <div className="boss-raid-party-avatar">
+                  {participant.characterImage
+                    ? <img
+                        src={participant.characterImage}
+                        alt={`${participant.name || '학생'} 캐릭터`}
+                        className="boss-raid-party-image"
+                      />
+                    : <span className="boss-raid-party-fallback">🧑</span>}
+                  <span className={`boss-raid-party-status boss-raid-party-status-${status}`}>
+                    {status === 'correct' ? '✓' : status === 'wrong' ? '×' : '…'}
+                  </span>
+                </div>
+                <span className="boss-raid-party-name">{(participant.name || '학생').slice(0, 5)}</span>
+              </div>
+            );
+          })}
+        </div>
 
         <div ref={bossActorRef} data-testid="boss-raid-boss"
-          className="relative z-10 origin-bottom scale-[0.68] sm:scale-[0.8] lg:scale-[0.88] 2xl:scale-100">
+          className="boss-raid-boss-actor">
           <div data-battle-actor="boss"
             className={`drop-shadow-[0_18px_18px_rgba(0,0,0,0.75)] ${bossHitTier ? `boss-raid-hit-${bossHitTier}` : ''}`}>
             <BossSprite
@@ -835,7 +870,7 @@ function BattlePhase({
               bossData={bossData}
               anim={activeBossSkillFx && activeBossSkillFx.phase !== 'charge' ? 'attack' : bossAnim}
               flash={bossFlash}
-              scale={3.6}
+              scale={3.35}
               onAnimEnd={() => {
                 if (!activeBossSkillFx) onBossAnimEnd?.();
               }}
@@ -881,7 +916,7 @@ function BattlePhase({
           </div>
         )}
         {/* 내 데미지 / 정답 수 */}
-        <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-3 z-20">
+        <div className="absolute left-2 top-2 z-20 flex flex-col items-start gap-1 sm:left-3 sm:top-3">
           <span className="bg-slate-900/80 text-rose-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
             💥 내 데미지 {(myP.totalDamage || 0).toLocaleString()}
           </span>
@@ -952,7 +987,6 @@ function BattlePhase({
       <ParticipantRoster
         participants={raid.participants || {}}
         currentQuestionIdx={qIdx}
-        setParticipantRef={setParticipantRef}
       />
       </div>
     </div>

@@ -279,16 +279,16 @@ function QuestionDetailModal({ question, questionNumber, onClose }) {
   return (
     <div className="fixed inset-0 z-[400] bg-black/60 flex items-center justify-center p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden dark:bg-slate-900 dark:border dark:border-slate-700">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-700">
           <div>
             <p className="text-[11px] font-extrabold text-indigo-500">문항 상세</p>
-            <h3 className="text-lg font-extrabold text-slate-800">Q{questionNumber}</h3>
+            <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100">Q{questionNumber}</h3>
           </div>
           <button onClick={onClose} className="text-2xl font-bold text-slate-400 hover:text-slate-700">×</button>
         </div>
         <div className="max-h-[70vh] overflow-y-auto p-5">
-          <p className="whitespace-pre-wrap text-sm font-bold leading-relaxed text-slate-800">
+          <p className="whitespace-pre-wrap text-sm font-bold leading-relaxed text-slate-800 dark:text-slate-100">
             {question.question || question.text || '문제 내용이 없습니다.'}
           </p>
           {options.length > 0 && (
@@ -297,8 +297,8 @@ function QuestionDetailModal({ question, questionNumber, onClose }) {
                 <div key={index}
                   className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${
                     index === answerIndex
-                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                      : 'border-slate-200 bg-slate-50 text-slate-600'
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
+                      : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300'
                   }`}>
                   <span className="mr-2 text-xs font-extrabold">{index + 1}.</span>
                   {option}
@@ -308,9 +308,9 @@ function QuestionDetailModal({ question, questionNumber, onClose }) {
             </div>
           )}
           {question.explanation && (
-            <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-3">
+            <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-3 dark:border-indigo-800 dark:bg-indigo-950/40">
               <p className="text-[11px] font-extrabold text-indigo-500">해설</p>
-              <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-indigo-800">{question.explanation}</p>
+              <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-indigo-800 dark:text-indigo-200">{question.explanation}</p>
             </div>
           )}
         </div>
@@ -651,7 +651,8 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
   // HP 자동추천:
   // (학급 학생수 × 객관식 문제수 × 정답당 데미지)의 75%
   // 예) 14명 × 8문항 × 100 = 11,200 -> 추천 HP 8,400
-  const questionCount = (selectedQuizSet?.questions || []).filter(q => q.type !== 'short' && q.type !== 'sa').length;
+  const selectedQuestions = (selectedQuizSet?.questions || []).filter(q => q.type !== 'short' && q.type !== 'sa');
+  const questionCount = selectedQuestions.length;
   const totalPerfectDamage = classStudentCount * questionCount * (Number(form.damagePerHit) || 0);
   const autoHP = (questionCount > 0 && classStudentCount > 0)
     ? Math.max(100, Math.round((totalPerfectDamage * 0.75) / 100) * 100)
@@ -921,7 +922,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
             {/* 보스 선택 */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-700">
               <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">👾 보스 선택</h2>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center">
                 <div className="flex items-center justify-center shrink-0 bg-slate-900 rounded-2xl overflow-hidden"
                   style={{ width: 150, height: 150 }}>
                   {bossData
@@ -988,10 +989,37 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
                   description="등록된 수학 차시를 골라 객관식 퀴즈를 생성하면 레이드 퀴즈로 바로 선택됩니다."
                   defaultQuestionCount={8}
                   defaultDifficulty="normal"
+                  useExistingPool
                   onCreated={(quizSet) => setSelectedQuizSet(quizSet)}
                   showToast={showToast}
                 />
               </div>
+              {selectedQuestions.length > 0 && (
+                <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/70">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-extrabold text-slate-700 dark:text-slate-100">문제 미리보기</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">문항을 누르면 보기와 정답을 확인할 수 있습니다.</p>
+                    </div>
+                    <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[10px] font-extrabold text-rose-700 dark:bg-rose-950/60 dark:text-rose-200">
+                      {selectedQuestions.length}문항
+                    </span>
+                  </div>
+                  <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                    {selectedQuestions.map((question, index) => (
+                      <button
+                        key={`${selectedQuizSet.id || 'preview'}-${index}`}
+                        type="button"
+                        onClick={() => setHistoryQuestion({ question, number: index + 1 })}
+                        className="flex w-full items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-rose-300 hover:bg-rose-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-rose-600 dark:hover:bg-rose-950/30"
+                      >
+                        <span className="shrink-0 rounded-lg bg-rose-100 px-2 py-1 text-[10px] font-black text-rose-700 dark:bg-rose-950/60 dark:text-rose-200">Q{index + 1}</span>
+                        <span className="line-clamp-2 text-xs font-bold leading-5 text-slate-700 dark:text-slate-200">{question.question}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-3 mb-3">
                 <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
                 <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">또는 기존 내 퀴즈 선택</span>
@@ -1003,7 +1031,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
             {/* 전투 설정 */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-700">
               <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">⚙️ 전투 설정</h2>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {/* HP */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1 dark:text-slate-300">
@@ -1088,7 +1116,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
             {/* 보상 */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-700">
               <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">🎁 클리어 보상 (참가자 전원)</h2>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 {[['gold', '🪙 골드'], ['exp', '⭐ EXP'], ['diamond', '💎 다이아']].map(([k, l]) => (
                   <div key={k}>
                     <div className="text-[10px] text-slate-400 font-semibold mb-1 dark:text-slate-400">{l}</div>
@@ -1132,7 +1160,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
                   .map(([id, p]) => ({ id, ...p }))
                   .sort((a, b) => (b.totalDamage || 0) - (a.totalDamage || 0));
                 return (
-                  <div key={raid.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div key={raid.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden dark:bg-slate-900 dark:border-slate-700">
                     {/* 카드 헤더 */}
                     <div className="flex items-center gap-4 px-5 py-4">
                       {/* 결과 목록에서는 고용량 보스 이미지를 렌더링하지 않습니다. */}
@@ -1142,8 +1170,8 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
 
                       {/* 중앙: 퀴즈명 + 날짜 + 참가 */}
                       <div className="flex-1 min-w-0">
-                        <div className="font-extrabold text-slate-800 text-sm truncate">{raid.title}</div>
-                        <div className="mt-0.5 text-[11px] font-bold text-slate-500 truncate">{raid.bossName}</div>
+                        <div className="font-extrabold text-slate-800 text-sm truncate dark:text-slate-100">{raid.title}</div>
+                        <div className="mt-0.5 text-[11px] font-bold text-slate-500 truncate dark:text-slate-300">{raid.bossName}</div>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <span className="text-[11px] text-slate-400">{fmtDate(raid.clearedAt)}</span>
                           <span className="text-[11px] text-slate-400">·</span>
@@ -1264,11 +1292,11 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
     {confirmState && (
       <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
         onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
-        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
-          <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm dark:bg-slate-900 dark:border dark:border-slate-700">
+          <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line dark:text-slate-100">{confirmState.message}</p>
           <div className="flex gap-3">
             <button onClick={() => setConfirmState(null)}
-              className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">취소</button>
+              className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">취소</button>
             <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
               className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-sm">확인</button>
           </div>

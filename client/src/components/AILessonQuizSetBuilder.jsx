@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 const DIFFICULTY_OPTIONS = [
@@ -18,6 +18,7 @@ const normalizeQuizQuestions = (questions = []) => questions.map((q) => {
       shape: q.shape || null,
       answer: String(q.answer || '').trim(),
       explanation: String(q.explanation || '').trim(),
+      difficulty: q.difficulty || '',
     };
   }
 
@@ -30,11 +31,12 @@ const normalizeQuizQuestions = (questions = []) => questions.map((q) => {
     options: Array.isArray(q.options) ? q.options.map(v => String(v || '').trim()).slice(0, 4) : [],
     answer: Math.min(3, Math.max(0, Number.isFinite(answer) ? answer : 0)),
     explanation: String(q.explanation || '').trim(),
+    difficulty: q.difficulty || '',
   };
 });
 
 const buildLessonKey = (unit, lesson) =>
-  `v2_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
+  `v3_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;
 
 function uniqueValues(items, key) {
   return Array.from(new Set(items.map(item => item[key]).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), 'ko'));
@@ -47,6 +49,7 @@ export default function AILessonQuizSetBuilder({
   description = 'AI학습관에 등록된 단원/차시를 선택하면 새 퀴즈가 생성되고 자동 선택됩니다.',
   defaultQuestionCount = 6,
   defaultDifficulty = 'normal',
+  useExistingPool = false,
   onCreated,
   showToast,
 }) {
@@ -162,6 +165,46 @@ export default function AILessonQuizSetBuilder({
 
     setIsGenerating(true);
     try {
+      if (useExistingPool) {
+        const key = buildLessonKey(selectedUnit, selectedLesson);
+        const poolSnap = await getDoc(doc(db, 'aiLessonContent', key));
+        if (!poolSnap.exists()) {
+          throw new Error('이 차시의 문제풀이 아직 없습니다. AI 학습관에서 해당 차시를 먼저 열어 주세요.');
+        }
+
+        const poolQuestions = normalizeQuizQuestions(poolSnap.data()?.questions || [])
+          .filter(q => q.type === 'mc' && q.question && q.options?.length >= 4);
+        const preferred = poolQuestions.filter(q => !q.difficulty || q.difficulty === difficulty);
+        const source = preferred.length >= Math.min(Number(questionCount) || defaultQuestionCount, poolQuestions.length)
+          ? preferred
+          : poolQuestions;
+        const questions = source.slice(0, Number(questionCount) || defaultQuestionCount);
+        if (questions.length === 0) {
+          throw new Error('이 차시 문제풀에 사용할 수 있는 객관식 문제가 없습니다.');
+        }
+
+        const finalTitle = `${selectedUnit.grade}학년 ${selectedUnit.semester || ''}학기 ${selectedUnit.unitName} ${selectedLesson.no}차시`;
+        onCreated?.({
+          id: `lesson-pool:${key}`,
+          title: finalTitle,
+          grade: Number(selectedUnit.grade) || null,
+          semester: Number(selectedUnit.semester) || null,
+          subject: selectedUnit.subject || '수학',
+          publisher: selectedUnit.publisher || null,
+          unit: selectedUnit.unitName || null,
+          unitId: selectedUnit.id,
+          lessonNo: selectedLesson.no || null,
+          lessonTitle: selectedLesson.title || null,
+          lessonKey: key,
+          difficulty,
+          questions,
+          questionCount: questions.length,
+          sourceType: 'aiLessonContentPool',
+        });
+        showToast?.(`기존 문제풀에서 ${questions.length}문항을 불러왔습니다.`);
+        return;
+      }
+
       const res = await fetch('/api/generate-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -302,7 +345,9 @@ export default function AILessonQuizSetBuilder({
             </div>
             <button onClick={createQuizSet} disabled={isGenerating || !selectedLesson}
               className={`h-11 px-5 rounded-xl text-white text-sm font-extrabold transition-colors disabled:opacity-40 ${accentClasses.button}`}>
-              {isGenerating ? '생성 중...' : '차시 퀴즈 생성'}
+              {isGenerating
+                ? (useExistingPool ? '불러오는 중...' : '생성 중...')
+                : (useExistingPool ? '문제풀 불러오기' : '차시 퀴즈 생성')}
             </button>
           </div>
         </div>

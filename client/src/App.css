@@ -234,23 +234,125 @@
 
 .boss-raid-layout {
   display: grid;
-  grid-template-rows: auto minmax(180px, min(36dvh, 420px)) minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(230px, min(44dvh, 460px)) minmax(0, 1fr) auto;
 }
 
 .boss-raid-stage { height: 100%; min-height: 0; }
 .boss-raid-question-panel { isolation: isolate; }
 
+.boss-raid-boss-actor {
+  position: absolute;
+  left: 58%;
+  bottom: 1rem;
+  z-index: 10;
+  transform: translateX(-50%) scale(.58);
+  transform-origin: center bottom;
+}
+
+.boss-raid-party {
+  position: absolute;
+  left: 1.5%;
+  bottom: .6rem;
+  z-index: 20;
+  display: grid;
+  width: 97%;
+  align-items: end;
+  justify-items: center;
+  gap: 0 .15rem;
+  pointer-events: none;
+}
+
+.boss-raid-party-member {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(0 7px 7px rgba(0,0,0,.72));
+}
+
+.boss-raid-party-avatar {
+  position: relative;
+  display: flex;
+  width: clamp(2.6rem, 10vw, 4rem);
+  height: clamp(3.8rem, 15vw, 5.8rem);
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: .8rem;
+}
+
+.boss-raid-party-member-me .boss-raid-party-avatar {
+  outline: 2px solid rgba(250,204,21,.95);
+  background: rgba(120,53,15,.2);
+  box-shadow: 0 0 18px rgba(250,204,21,.35);
+}
+
+.boss-raid-party-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  transform: scaleX(-1) scale(2.35);
+  transform-origin: center 58%;
+}
+
+.boss-raid-party-fallback { font-size: clamp(2.2rem, 9vw, 4rem); }
+.boss-raid-party-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: #e2e8f0;
+  font-size: .56rem;
+  font-weight: 900;
+  line-height: 1rem;
+  text-overflow: ellipsis;
+  text-shadow: 0 2px 4px #020617;
+  white-space: nowrap;
+}
+.boss-raid-party-status {
+  position: absolute;
+  right: .05rem;
+  bottom: .1rem;
+  display: flex;
+  width: 1.05rem;
+  height: 1.05rem;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #0f172a;
+  border-radius: 999px;
+  color: white;
+  font-size: .58rem;
+  font-weight: 1000;
+}
+.boss-raid-party-status-pending { background: #475569; }
+.boss-raid-party-status-correct { background: #10b981; }
+.boss-raid-party-status-wrong { background: #f43f5e; }
+
+.boss-raid-roster > div { padding-top: .25rem; padding-bottom: .25rem; }
+.boss-raid-roster-player { width: 3.25rem !important; gap: .1rem !important; }
+.boss-raid-roster-avatar { width: 2.65rem !important; height: 2.65rem !important; border-radius: .65rem !important; }
+.boss-raid-roster-avatar + div { font-size: .55rem; }
+
+@media (min-width: 640px) {
+  .boss-raid-boss-actor { left: 65%; bottom: 1rem; transform: translateX(-50%) scale(.68); }
+  .boss-raid-party { left: 1.5%; width: 55%; gap: .1rem .35rem; }
+  .boss-raid-party-avatar { width: clamp(3.8rem, 7vw, 5.4rem); height: clamp(5.6rem, 10vw, 7.8rem); }
+  .boss-raid-party-name { font-size: .66rem; }
+}
+
+@media (min-width: 1024px) {
+  .boss-raid-boss-actor { left: 66%; bottom: .75rem; transform: translateX(-50%) scale(.7); }
+}
+
 @media (max-height: 800px) {
-  .boss-raid-layout { grid-template-rows: auto minmax(150px, 30dvh) minmax(0, 1fr) auto; }
-  .boss-raid-roster > div { padding-top: .375rem; padding-bottom: .375rem; }
-  .boss-raid-roster-player { width: 4.75rem; }
-  .boss-raid-roster-avatar { width: 4rem; height: 4rem; }
+  .boss-raid-layout { grid-template-rows: auto minmax(230px, 44dvh) minmax(0, 1fr) auto; }
+  .boss-raid-boss-actor { bottom: .75rem; transform: translateX(-50%) scale(.56); }
 }
 
 @media (max-height: 620px) {
-  .boss-raid-layout { grid-template-rows: auto 150px minmax(0, 1fr) auto; }
-  .boss-raid-roster-player { width: 3.75rem; }
-  .boss-raid-roster-avatar { width: 3.25rem; height: 3.25rem; }
+  .boss-raid-layout { grid-template-rows: auto 190px minmax(0, 1fr) auto; }
+  .boss-raid-boss-actor { bottom: .5rem; transform: translateX(-50%) scale(.36); }
+  .boss-raid-party-avatar { width: 2.35rem; height: 3.25rem; }
 }
 
 /* 보스 레이드: 한 문항에서 오답자가 5명 이상일 때 발동하는 광역 스킬 */
