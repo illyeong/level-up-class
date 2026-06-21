@@ -7,6 +7,11 @@ import { db } from '../../firebase';
 import { renderMath, TableRenderer, stripOptionPrefix } from '../../utils/renderMath';
 import ShapeRenderer from '../../components/ShapeRenderer';
 import { getMaxExpForLevel } from '../../utils/leveling';
+import {
+  getRenderableQuestionShape,
+  hasMissingRequiredVisual,
+  inferFractionBarShape,
+} from '../../utils/inferFractionBarShape';
 
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
@@ -37,6 +42,8 @@ const isUsablePoolQuestion = (question) => {
   const options = Array.isArray(question?.options) ? question.options : [];
   if (options.length !== 4) return false;
   if (!Number.isInteger(question?.answerIndex) || question.answerIndex < 0 || question.answerIndex > 3) return false;
+  const inferredShape = inferFractionBarShape(question?.question, question?.shape);
+  if (hasMissingRequiredVisual(question?.question, inferredShape)) return false;
   return new Set(options.map(option => String(option).normalize('NFKC').replace(/\s+/g, '').toLowerCase())).size === 4;
 };
 
@@ -1753,7 +1760,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
             <p className="text-slate-800 font-bold text-2xl leading-snug">{renderMath(currentQ.question)}</p>
           </div>
           <TableRenderer table={currentQ.table} />
-          <ShapeRenderer shape={currentQ.shape} />
+          <ShapeRenderer shape={getRenderableQuestionShape(currentQ, selectedUnit)} />
 
           {/* 보기 — 세로 배치, 크게 */}
           <div className="space-y-3">

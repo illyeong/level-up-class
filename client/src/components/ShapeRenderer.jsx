@@ -546,10 +546,22 @@ const renderers = {
 
   // ── 분수 막대 모델 ────────────────────────────────────────────
   fraction_bar({ d }) {
-    const total  = Math.max(1, d.total  || 4);
-    const filled = Math.max(0, Math.min(d.filled ?? 1, total));
+    const normalizeBar = (bar, fallbackTotal = 4) => {
+      const parsedTotal = Number(bar?.total);
+      const total = Number.isFinite(parsedTotal)
+        ? Math.max(2, Math.min(20, Math.round(parsedTotal)))
+        : fallbackTotal;
+      const parsedFilled = Number(bar?.filled);
+      const filled = Number.isFinite(parsedFilled)
+        ? Math.max(0, Math.min(total, Math.round(parsedFilled)))
+        : 1;
+      return { total, filled };
+    };
+    const primary = normalizeBar(d);
+    const total = primary.total;
+    const filled = primary.filled;
     // 비교 분수 지원: compare: {total, filled}
-    const cmp = d.compare;
+    const cmp = d.compare ? normalizeBar(d.compare, total) : null;
     const rows = cmp ? 2 : 1;
     const bW = 160, bH = 30, gap = 12;
     const x0 = (W - bW) / 2;

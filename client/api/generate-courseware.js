@@ -1,5 +1,7 @@
 export const config = { maxDuration: 60 };
 
+import { hasMissingRequiredVisual, inferFractionBarShape } from '../src/utils/inferFractionBarShape.js';
+
 const SHAPE_TYPES = new Set([
   'clock', 'ruler', 'angle', 'fraction_bar', 'picture_graph', 'bar_chart', 'line_chart',
   'pie_chart', 'band_chart', 'number_line', 'polygon', 'multi', 'rectangle', 'square',
@@ -504,6 +506,7 @@ const sanitizeShape = (shape, context = {}) => {
   if (context.grade === 6 && type === 'picture_graph') return null;
   if (context.factorMultiple && ['picture_graph', 'bar_chart', 'line_chart', 'pie_chart', 'band_chart'].includes(type)) return null;
   if (type === 'factor_list') {
+    if (!context.factorMultiple && !context.reductionCommonDenomLesson) return null;
     const groups = asList(d.groups, 3)
       .map(group => ({
         label: String(group?.label || '').trim().slice(0, 20),
@@ -583,6 +586,7 @@ const sanitizeShape = (shape, context = {}) => {
     return { type, dimensions: { ...d, min, max, marks, highlight }, unit };
   }
   if (type === 'fraction_bar') {
+    if (!context.fractionLesson && !context.ratioLesson) return null;
     const total = Math.round(clamp(d.total, 2, 20, 4));
     const filled = Math.round(clamp(d.filled, 0, total, 1));
     const cmpTotal = d.compare ? Math.round(clamp(d.compare.total, 2, 20, total)) : null;
@@ -937,8 +941,12 @@ function normalizeQuestion(q, index, context = {}) {
   if (context.factorMultiple && ['picture_graph', 'bar_chart', 'line_chart', 'pie_chart', 'band_chart'].includes(rawShapeType)) return null;
   if (context.solidShape && rawShapeType && rawShapeType !== 'multi' && !allowedSolidShapeTypes(context).has(rawShapeType)) return null;
 
-  const shape = sanitizeShape(q.shape, context);
+  const inferredShape = context.fractionLesson
+    ? inferFractionBarShape(fractionFixed.question, q.shape)
+    : q.shape;
+  const shape = sanitizeShape(inferredShape, context);
   if (q.shape && !shape) return null;
+  if (hasMissingRequiredVisual(fractionFixed.question, shape)) return null;
 
   const normalized = {
     question: String(q.question || '').trim(),

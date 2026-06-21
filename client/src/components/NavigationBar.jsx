@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import iconDashboard from '../assets/images/icon-dashboard.png';
@@ -8,8 +8,17 @@ import iconAdventure from '../assets/images/icon-adventure.png';
 const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] }) => {
   const { t } = useTranslation();
   
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isSidebarOpen, setSidebarOpen] = useState(() =>
+    typeof window === 'undefined' || window.innerWidth >= 768
+  );
   const [expandedMenu, setExpandedMenu] = useState('myCharacter'); 
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const syncSidebar = () => setSidebarOpen(!media.matches);
+    media.addEventListener('change', syncSidebar);
+    return () => media.removeEventListener('change', syncSidebar);
+  }, []);
 
   const hidden = new Set(hiddenMenuIds || []);
   const menuData = [
@@ -107,7 +116,7 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] 
 
   return (
     // 🌟 바탕색을 bg-indigo-950 으로 변경하여 교사용과 통일!
-    <nav className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-indigo-950 text-indigo-100 transition-all duration-300 flex flex-col h-full z-50 shadow-2xl`}>
+    <nav className={`${isSidebarOpen ? 'w-64' : 'w-20'} shrink-0 bg-indigo-950 text-indigo-100 transition-all duration-300 flex flex-col h-full z-50 shadow-2xl`}>
       
       <div className="flex items-center justify-between p-4 h-20 border-b border-indigo-900 shrink-0">
         {isSidebarOpen && (
@@ -126,6 +135,7 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] 
         )}
         <button 
           onClick={() => setSidebarOpen(!isSidebarOpen)} 
+          aria-label={isSidebarOpen ? '메뉴 접기' : '메뉴 펼치기'}
           className={`flex items-center justify-center w-8 h-8 rounded-full bg-indigo-900 hover:bg-indigo-500 hover:text-white transition-all duration-200 border border-indigo-700 hover:border-transparent focus:outline-none shrink-0 ${!isSidebarOpen && 'mx-auto'}`}
         >
           {isSidebarOpen ? (

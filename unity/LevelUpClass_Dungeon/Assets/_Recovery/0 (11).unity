@@ -1627,7 +1627,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StoneGolemBossFSM
   bossHpBar: {fileID: 0}
   bossName: "\uC2A4\uD1A4 \uACE8\uB818"
-  maxHealth: 1800
+  maxHealth: 1500
   attackPower: 65
   goldDrop: 350
   chaseSpeed: 2
@@ -1638,11 +1638,6 @@ MonoBehaviour:
   chargeAttackCooldown: 8.5
   jumpAttackCooldown: 10
   phase2Skill: 3
-  jumpPower: 8
-  jumpMoveSpeed: 5
-  jumpSlamVelocity: 15
-  jumpImpactRadius: 2.5
-  jumpDamageMultiplier: 2
   poisonPoolEffectPrefab: {fileID: 0}
   poisonPoolCooldown: 10
   poisonPoolRadius: 2.5
@@ -1676,10 +1671,6 @@ MonoBehaviour:
   stoneJumpTrackDuration: 0.8
   stoneJumpRadius: 3.5
   stoneJumpDamageMultiplier: 1.8
-  dragonPatternsStartInPhase1: 1
-  dragonSpecialCooldown: 6.5
-  dragonPhase2CooldownMultiplier: 0.7
-  dragonSkillTriggerRange: 8
   frontCheck: {fileID: 462306798}
   groundLayer:
     serializedVersion: 2
