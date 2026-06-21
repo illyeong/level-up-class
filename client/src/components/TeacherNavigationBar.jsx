@@ -34,9 +34,15 @@ export const HELP_CONTENT = {
   },
   adventure: {
     title: '어드벤처',
-    summary: '퀴즈, 던전, 보스레이드 등 게임형 학습 활동을 관리하고 실행하는 영역입니다.',
-    steps: ['퀴즈 은행에서 문제를 준비합니다.', '퀴즈던전이나 보스레이드를 생성합니다.', '학생 화면에서 참여 결과와 보상을 확인합니다.'],
-    tip: '퀴즈 은행 → 던전 생성 → 결과 확인 순서로 운영하면 오류를 줄일 수 있습니다.',
+    summary: '학생 화면과 동일한 던전·보스레이드를 테스트하고 이용권을 관리하는 영역입니다.',
+    steps: ['발행된 퀴즈던전을 테스트합니다.', '탐험던전과 보스레이드 화면을 점검합니다.', '어드벤처 관리에서 학생 이용권을 조정합니다.'],
+    tip: '콘텐츠 발행은 수업 콘텐츠 제작실에서 진행한 뒤 이 메뉴에서 학생 화면을 테스트하세요.',
+  },
+  contentStudio: {
+    title: '수업 콘텐츠 제작실',
+    summary: '수업용 퀴즈를 만들고 퀴즈던전과 보스레이드 콘텐츠로 발행하는 영역입니다.',
+    steps: ['퀴즈 은행에서 문제를 준비합니다.', '퀴즈던전 또는 보스레이드를 생성합니다.', '발행 설정과 보상을 확인합니다.'],
+    tip: '퀴즈 은행 → 콘텐츠 생성 → 어드벤처 테스트 순서로 운영하면 편리합니다.',
   },
   quizBank: {
     title: '퀴즈 은행',
@@ -196,11 +202,16 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       ]
     },
     {
-      id: 'adventure', icon: iconAdventure, title: '어드벤처', isReady: true,
+      id: 'contentStudio', icon: '🛠️', title: '수업 콘텐츠 제작실', isReady: true,
       subMenus: [
         { title: '📚 퀴즈 은행',    id: 'quizBank' },
         { title: '퀴즈던전 관리',  id: 'quizDungeonManage' },
         { title: '보스레이드 관리', id: 'bossRaidManage' },
+      ]
+    },
+    {
+      id: 'adventure', icon: iconAdventure, title: '어드벤처', isReady: true,
+      subMenus: [
         { title: '퀴즈던전',    id: 'quizDungeon' },
         { title: '탐험던전',    id: 'explorationDungeon' },
         { title: '보스 레이드', id: 'bossRaid' },
