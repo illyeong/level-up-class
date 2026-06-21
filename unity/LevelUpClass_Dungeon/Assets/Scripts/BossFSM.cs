@@ -18,7 +18,8 @@ public class BossFSM : MonoBehaviour
         Jump,
         PoisonPool,
         Smash,
-        StoneGolem
+        StoneGolem,
+        MeadowDragon
     }
 
     public UnityEngine.UI.Slider bossHpBar;
@@ -27,6 +28,8 @@ public class BossFSM : MonoBehaviour
     public int maxHealth = 300;
     public int attackPower = 15;
     public int goldDrop = 200;
+    [Min(0)] public int fixedChestDiamondReward = 0;
+    [Min(0)] public int fixedChestExpReward = 0;
 
     [Header("이동 설정")]
     public float chaseSpeed = 2.5f;
@@ -39,6 +42,19 @@ public class BossFSM : MonoBehaviour
     public float chargeAttackCooldown = 8f;
     public float jumpAttackCooldown = 10f;
     public Phase2SkillType phase2Skill = Phase2SkillType.Jump;
+
+    [Header("Normal Attack Effect")]
+    public GameObject normalAttackEffectPrefab;
+    public Vector3 normalAttackEffectOffset = new Vector3(1.5f, 0.8f, 0f);
+    [Min(0.1f)] public float normalAttackEffectLifetime = 2f;
+    public bool flipNormalAttackEffectWithFacing = true;
+
+    [Header("Jump Attack")]
+    public float jumpPower = 8f;
+    public float jumpMoveSpeed = 5f;
+    public float jumpSlamVelocity = 15f;
+    public float jumpImpactRadius = 2.5f;
+    public float jumpDamageMultiplier = 2f;
 
     [Header("Poison Pool Attack (Phase 2)")]
     public GameObject poisonPoolEffectPrefab;
@@ -79,6 +95,12 @@ public class BossFSM : MonoBehaviour
     public float stoneJumpRadius = 3.5f;
     public float stoneJumpDamageMultiplier = 1.8f;
 
+    [Header("Meadow Dragon Combined Patterns")]
+    public bool dragonPatternsStartInPhase1 = true;
+    public float dragonSpecialCooldown = 6.5f;
+    public float dragonPhase2CooldownMultiplier = 0.7f;
+    public float dragonSkillTriggerRange = 8f;
+
     [Header("지형 감지")]
     public Transform frontCheck;
     public LayerMask groundLayer;
@@ -94,8 +116,10 @@ public class BossFSM : MonoBehaviour
     public GameObject critHitEffectPrefab;   // 몬스터 위치에 재생되는 이펙트
     public GameObject critBoomEffectPrefab;  // 머리 위에 뜨는 Boom! 이펙트
 
-    [Header("착지 이펙트 (Rage 점프 착지 시)")]
-    public GameObject landingEffectPrefab; // 파티클 프리팹
+    [Header("점프 착지 이펙트 (일반/Rage 공용)")]
+    public GameObject landingEffectPrefab;
+    [Min(0.1f)] public float landingEffectScale = 1f;
+    [Min(0.1f)] public float landingEffectLifetime = 2f;
     public float shakeDuration  = 0.35f;
     public float shakeMagnitude = 0.4f;
 
@@ -145,12 +169,14 @@ public class BossFSM : MonoBehaviour
     private int stoneGolemHitCount     = 0;
     private bool firstStoneRockTriggered = false;
     private bool firstStoneRockPending = false;
+    private float lastDragonSpecialTime = 0f;
+    private int nextDragonPattern = 0;
 
     void Start()
     {
         currentHealth   = maxHealth;
         rb              = GetComponent<Rigidbody2D>();
-        bossCollider    = GetComponent<Collider2D>();
+        bossCollider    = FindCombatCollider();
         spriteRenderer  = GetComponent<SpriteRenderer>();
         skeletonAnim    ??= GetComponent<SkeletonAnimation>();
         skeletonGraphic ??= GetComponent<SkeletonGraphic>();
@@ -201,6 +227,17 @@ public class BossFSM : MonoBehaviour
 
         float dist = GetDistanceToPlayer();
         float currentChaseSpeed = isPhase2 ? chaseSpeed * phase2SpeedMultiplier : chaseSpeed;
+
+        // Meadow Dragon cycles jump, poison, and falling rocks. Charge remains
+        // part of the normal boss loop, so all four patterns appear in battle.
+        if (phase2Skill == Phase2SkillType.MeadowDragon &&
+            (dragonPatternsStartInPhase1 || isPhase2) &&
+            dist <= dragonSkillTriggerRange &&
+            Time.time >= lastDragonSpecialTime + GetDragonSpecialCooldown())
+        {
+            StartNextDragonPattern();
+            return;
+        }
 
         // Phase 2 전용: 점프 공격
         if (isPhase2 && phase2Skill == Phase2SkillType.Jump &&
@@ -328,10 +365,34 @@ public class BossFSM : MonoBehaviour
         PlayAnim(attackAnimName, false);
         yield return new WaitForSeconds(0.3f);
 
+        SpawnNormalAttackEffect();
         DealDamageToPlayer(attackPower);
 
         yield return new WaitForSeconds(0.5f);
         isAttacking = false;
+    }
+
+    void SpawnNormalAttackEffect()
+    {
+        if (normalAttackEffectPrefab == null) return;
+
+        int facingDirection = movingDir;
+        if (playerTarget != null)
+            facingDirection = playerTarget.position.x >= transform.position.x ? 1 : -1;
+
+        Vector3 offset = normalAttackEffectOffset;
+        offset.x *= facingDirection;
+        GameObject effect = Instantiate(normalAttackEffectPrefab, transform.position + offset, Quaternion.identity);
+
+        if (flipNormalAttackEffectWithFacing && facingDirection < 0)
+        {
+            Vector3 scale = effect.transform.localScale;
+            scale.x *= -1f;
+            effect.transform.localScale = scale;
+        }
+
+        BringEffectToFront(effect, 8);
+        Destroy(effect, normalAttackEffectLifetime);
     }
 
     // ── 돌진 공격 ─────────────────────────────────────────────────────
@@ -370,39 +431,34 @@ public class BossFSM : MonoBehaviour
         PlayAnim(string.IsNullOrEmpty(jumpAnimName) ? attackAnimName : jumpAnimName, false);
 
         // 위로 점프
-        rb.AddForce(Vector2.up * 8f, ForceMode2D.Impulse);
+        rb.AddForce(Vector2.up * jumpPower, ForceMode2D.Impulse);
         yield return new WaitForSeconds(0.5f);
 
         // 플레이어 방향으로 수평 이동
         if (playerTarget != null)
         {
             float dir = (playerTarget.position.x > transform.position.x) ? 1f : -1f;
-            rb.linearVelocity = new Vector2(dir * 5f, rb.linearVelocity.y);
+            rb.linearVelocity = new Vector2(dir * jumpMoveSpeed, rb.linearVelocity.y);
         }
         yield return new WaitForSeconds(0.3f);
 
         // 낙하
-        rb.linearVelocity = new Vector2(0f, -15f);
-        yield return new WaitForSeconds(0.2f);
+        rb.linearVelocity = new Vector2(0f, -jumpSlamVelocity);
+        yield return WaitForLanding();
 
         // ── 착지 연출 ─────────────────────────────────────────
-        // 파티클 이펙트 스폰
-        if (landingEffectPrefab != null)
-        {
-            var fx = Instantiate(landingEffectPrefab, transform.position, Quaternion.identity);
-            Destroy(fx, 2f);
-        }
+        SpawnLandingEffect();
 
         // 카메라 흔들림
         CameraFollow.Instance?.Shake(shakeDuration, shakeMagnitude);
 
         // 착지 충격 — Player 레이어만 감지
-        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, 2.5f, LayerMask.GetMask("Player"));
+        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, jumpImpactRadius, LayerMask.GetMask("Player"));
         foreach (var hit in hits)
         {
             var pc = hit.GetComponent<LayerLab.ArtMaker.PlayerCombat>();
             if (pc != null)
-                pc.TakePlayerDamage(Mathf.RoundToInt(attackPower * 2f), transform.position);
+                pc.TakePlayerDamage(Mathf.RoundToInt(attackPower * jumpDamageMultiplier), transform.position);
         }
 
         yield return new WaitForSeconds(0.5f);
@@ -415,7 +471,7 @@ public class BossFSM : MonoBehaviour
         lastPoisonAttackTime = Time.time;
         rb.linearVelocity = Vector2.zero;
 
-        PlayAnim(attackAnimName, false);
+        PlayAnim(string.IsNullOrEmpty(skillAnimName) ? attackAnimName : skillAnimName, false);
         yield return new WaitForSeconds(poisonCastDelay);
 
         Vector3 poolCenter = (playerTarget != null) ? playerTarget.position : transform.position;
@@ -522,14 +578,10 @@ public class BossFSM : MonoBehaviour
             }
 
             rb.linearVelocity = new Vector2(0f, -12f);
-            yield return new WaitForSeconds(0.25f);
+            yield return WaitForLanding();
 
             Vector3 center = transform.position;
-            if (landingEffectPrefab != null)
-            {
-                var fx = Instantiate(landingEffectPrefab, center, Quaternion.identity);
-                Destroy(fx, 2f);
-            }
+            SpawnLandingEffect();
 
             CameraFollow.Instance?.Shake(shakeDuration, shakeMagnitude);
             DamagePlayersInRadius(center, stoneJumpRadius, Mathf.RoundToInt(attackPower * stoneJumpDamageMultiplier));
@@ -563,6 +615,76 @@ public class BossFSM : MonoBehaviour
 
         yield return new WaitForSeconds(0.35f);
         isAttacking = false;
+    }
+
+    IEnumerator WaitForLanding()
+    {
+        yield return new WaitForFixedUpdate();
+
+        float elapsed = 0f;
+        while (elapsed < 1.2f)
+        {
+            if (IsOnGround()) yield break;
+
+            elapsed += Time.fixedDeltaTime;
+            yield return new WaitForFixedUpdate();
+        }
+    }
+
+    bool IsOnGround()
+    {
+        if (bossCollider == null)
+            bossCollider = FindCombatCollider();
+        if (bossCollider == null || groundLayer.value == 0) return false;
+
+        Bounds bounds = bossCollider.bounds;
+        RaycastHit2D hit = Physics2D.Raycast(
+            bounds.center,
+            Vector2.down,
+            bounds.extents.y + 0.18f,
+            groundLayer
+        );
+        return hit.collider != null;
+    }
+
+    void SpawnLandingEffect()
+    {
+        if (landingEffectPrefab == null) return;
+
+        Vector3 position = transform.position;
+        if (bossCollider != null)
+            position.y = bossCollider.bounds.min.y + 0.05f;
+
+        GameObject effect = Instantiate(landingEffectPrefab, position, Quaternion.identity);
+        effect.transform.localScale *= landingEffectScale;
+        BringEffectToFront(effect, 15);
+        Destroy(effect, landingEffectLifetime);
+    }
+
+    float GetDragonSpecialCooldown()
+    {
+        float multiplier = isPhase2 ? dragonPhase2CooldownMultiplier : 1f;
+        return Mathf.Max(1f, dragonSpecialCooldown * multiplier);
+    }
+
+    void StartNextDragonPattern()
+    {
+        lastDragonSpecialTime = Time.time;
+
+        switch (nextDragonPattern)
+        {
+            case 0:
+                StartCoroutine(JumpAttack());
+                break;
+            case 1:
+                StartCoroutine(PoisonPoolAttack());
+                break;
+            default:
+                StartCoroutine(StoneGolemSkill(true));
+                break;
+        }
+
+        nextDragonPattern = (nextDragonPattern + 1) % 3;
     }
 
     void SpawnFallingRock(Vector3 target)
@@ -675,6 +797,27 @@ public class BossFSM : MonoBehaviour
         }
 
         return Vector2.Distance(transform.position, playerTarget.position);
+    }
+
+    Collider2D FindCombatCollider()
+    {
+        Collider2D selected = null;
+        float smallestArea = float.PositiveInfinity;
+
+        foreach (Collider2D candidate in GetComponents<Collider2D>())
+        {
+            if (!candidate.enabled || candidate.isTrigger) continue;
+
+            Vector2 size = candidate.bounds.size;
+            float area = size.x * size.y;
+            if (area < smallestArea)
+            {
+                selected = candidate;
+                smallestArea = area;
+            }
+        }
+
+        return selected;
     }
 
     [HideInInspector] public bool suppressDeath = false;
@@ -818,7 +961,7 @@ public class BossFSM : MonoBehaviour
         GameManager.Instance?.AddGold(goldDrop);
 
         // 보스 처치 다이아 = dungeonIndex × 5 (던전1→5, 던전5→25, ...)
-        if (GameManager.Instance != null)
+        if (GameManager.Instance != null && fixedChestDiamondReward <= 0)
         {
             int bossDiamond = Mathf.Max(1, GameManager.Instance.dungeonIndex) * 5;
             GameManager.Instance.sessionEarnedDiamond += bossDiamond;
@@ -838,7 +981,7 @@ public class BossFSM : MonoBehaviour
     void ActivateClearPortal()
     {
         if (GameResultUI.Instance != null)
-            GameResultUI.Instance.ShowRewardPanel();
+            GameResultUI.Instance.ShowRewardPanel(fixedChestDiamondReward, fixedChestExpReward);
         else if (clearPortal != null)
             clearPortal.SetActive(true);
     }

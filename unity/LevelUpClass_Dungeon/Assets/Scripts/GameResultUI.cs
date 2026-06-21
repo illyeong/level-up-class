@@ -48,6 +48,17 @@ public class GameResultUI : MonoBehaviour
     [Header("상자 선택 이펙트")]
     public GameObject chestSelectFXPrefab; // 선택된 상자 위치에 스폰할 파티클
 
+    [Header("상자 선택 폭죽")]
+    public GameObject fireworkFXPrefab;
+    [Min(1)] public int fireworkCount = 8;
+    [Min(0f)] public float fireworkSpawnInterval = 0.12f;
+    [Min(0.1f)] public float fireworkLifetime = 5f;
+    [Range(0f, 0.4f)] public float fireworkScreenPadding = 0.12f;
+    [Min(0.1f)] public float fireworkScaleMultiplier = 2.3f;
+    [Range(0.05f, 1f)] public float fireworkLaunchSpeedMultiplier = 0.78f;
+    [Min(0f)] public float fireworkRepeatInterval = 0.8f;
+    public Vector2 fireworkLaunchViewportYRange = new Vector2(0.05f, 0.18f);
+
     [Header("상자 선택 시 외부 딤 (Canvas Image)")]
     public GameObject confirmDimPanel; // Canvas 안의 전체화면 어두운 Image (confirmArea보다 하위 계층)
 
@@ -71,8 +82,15 @@ public class GameResultUI : MonoBehaviour
     private ChestClickHandler[] _handlers   = new ChestClickHandler[3];
     private int                 _selected   = -1;
     private bool                _confirmReady = false;
+    private int                 _fixedChestDiamondReward = 0;
+    private int                 _fixedChestExpReward = 0;
     private GameObject          _dimOverlay;
     private List<GameObject>    _spawnedChests = new();
+    private GameObject          _fireworkOverlayObject;
+    private GameObject          _fireworkCameraObject;
+    private RenderTexture       _fireworkRenderTexture;
+    private List<GameObject>    _spawnedFireworks = new();
+    private bool                _fireworksActive;
 
     void Awake()
     {
@@ -87,10 +105,12 @@ public class GameResultUI : MonoBehaviour
     // 보스 클리어 → 보상창 표시
     // ────────────────────────────────────────────────────────
 
-    public void ShowRewardPanel()
+    public void ShowRewardPanel(int fixedDiamondReward = 0, int fixedExpReward = 0)
     {
         _selected     = -1;
         _confirmReady = false;
+        _fixedChestDiamondReward = Mathf.Max(0, fixedDiamondReward);
+        _fixedChestExpReward = Mathf.Max(0, fixedExpReward);
         joystickObject?.SetActive(false);
         HtmlControls(false); // HTML 공격존·조이스틱 비활성 → 상자 탭이 공격으로 처리되지 않도록
         SpawnChests();
@@ -135,6 +155,7 @@ public class GameResultUI : MonoBehaviour
 
             var handler = chest.AddComponent<ChestClickHandler>();
             handler.chestIndex = i;
+            handler.InitializePresentation(i * 0.12f);
             _handlers[i] = handler;
 
             _rewards[i] = rewards[i];
@@ -155,6 +176,7 @@ public class GameResultUI : MonoBehaviour
 
             if (i == index)
             {
+                _handlers[i].MarkSelected();
                 // Spine 우선, 없으면 Animator 사용
                 PlayChestAnim(_spawnedChests[i], openAnimName);
                 if (rewardTextPrefab != null)
@@ -162,6 +184,7 @@ public class GameResultUI : MonoBehaviour
             }
             else
             {
+                _handlers[i].MarkUnselected();
                 // 나머지 상자 흐리게
                 var renderers = _spawnedChests[i].GetComponentsInChildren<SpriteRenderer>();
                 foreach (var r in renderers)
@@ -178,6 +201,12 @@ public class GameResultUI : MonoBehaviour
             Destroy(fx, 3f);
         }
 
+        if (fireworkFXPrefab != null)
+        {
+            _fireworksActive = true;
+            StartCoroutine(SpawnFireworksAcrossScreen());
+        }
+
         if (confirmText != null)
         {
             int monDia   = GameManager.Instance?.sessionEarnedDiamond ?? 0;
@@ -185,10 +214,10 @@ public class GameResultUI : MonoBehaviour
             int chestExp = _rewards[index].exp;
             int totalDia = monDia + chestDia;
             confirmText.text =
-                $"몬스터 처치 보상   <color=#FFD700><b>+{monDia}</b></color>\n" +
-                $"보스 처치 보상     <color=#7FFFD4><b>+{chestExp}</b></color>\n" +
+                $"보스 처치 경험치   <color=#FFD700><b>+{chestExp}</b></color>\n" +
+                $"보스 처치 다이아   <color=#7FFFD4><b>+{chestDia}</b></color>\n" +
                 $"───────────────────\n" +
-                $"최종 보상   <color=#FFD700><b>+{totalDia}</b></color>              <color=#7FFFD4><b>+{chestExp}</b></color>\n\n" +
+                $"최종 보상   <color=#FFD700><b>+{chestExp}</b></color>              <color=#7FFFD4><b>+{totalDia}</b></color>\n\n" +
                 $"로비로 돌아가기";
         }
 
@@ -295,10 +324,138 @@ public class GameResultUI : MonoBehaviour
         _confirmReady = true;
     }
 
+    System.Collections.IEnumerator SpawnFireworksAcrossScreen()
+    {
+        Camera fireworkCamera = CreateFireworkOverlay();
+        if (fireworkCamera == null || fireworkFXPrefab == null) yield break;
+
+        float padding = Mathf.Clamp(fireworkScreenPadding, 0f, 0.4f);
+        float worldDepth = 10f;
+
+        while (_fireworksActive)
+        {
+            for (int i = 0; i < Mathf.Max(1, fireworkCount) && _fireworksActive; i++)
+            {
+                float viewportX = Random.Range(padding, 1f - padding);
+                float minY = Mathf.Clamp01(Mathf.Min(fireworkLaunchViewportYRange.x, fireworkLaunchViewportYRange.y));
+                float maxY = Mathf.Clamp01(Mathf.Max(fireworkLaunchViewportYRange.x, fireworkLaunchViewportYRange.y));
+                float viewportY = Random.Range(minY, maxY);
+                Vector3 position = fireworkCamera.ViewportToWorldPoint(new Vector3(viewportX, viewportY, worldDepth));
+                position.z = 0f;
+
+                GameObject firework = Instantiate(fireworkFXPrefab, position, Quaternion.identity);
+                firework.name = "RewardFirework";
+                SetLayerRecursively(firework, 31);
+                ConfigureFireworkParticles(firework);
+                _spawnedFireworks.Add(firework);
+                Destroy(firework, fireworkLifetime);
+
+                if (i < fireworkCount - 1 && fireworkSpawnInterval > 0f)
+                    yield return new WaitForSeconds(fireworkSpawnInterval);
+            }
+
+            if (_fireworksActive && fireworkRepeatInterval > 0f)
+                yield return new WaitForSeconds(fireworkRepeatInterval);
+        }
+
+        CleanupFireworkOverlay();
+    }
+
+    Camera CreateFireworkOverlay()
+    {
+        CleanupFireworkOverlay();
+
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas == null) return null;
+
+        float scale = Mathf.Min(1f, 1280f / Mathf.Max(1, Screen.width), 720f / Mathf.Max(1, Screen.height));
+        int width = Mathf.Max(256, Mathf.RoundToInt(Screen.width * scale));
+        int height = Mathf.Max(144, Mathf.RoundToInt(Screen.height * scale));
+
+        _fireworkRenderTexture = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32)
+        {
+            name = "FireworkOverlayRT"
+        };
+        _fireworkRenderTexture.Create();
+
+        _fireworkCameraObject = new GameObject("FireworkOverlayCamera");
+        Camera fxCamera = _fireworkCameraObject.AddComponent<Camera>();
+        fxCamera.transform.position = new Vector3(10000f, 10000f, -10f);
+        fxCamera.orthographic = true;
+        fxCamera.orthographicSize = 5f;
+        fxCamera.clearFlags = CameraClearFlags.SolidColor;
+        fxCamera.backgroundColor = new Color(0f, 0f, 0f, 0f);
+        fxCamera.cullingMask = 1 << 31;
+        fxCamera.allowHDR = true;
+        fxCamera.targetTexture = _fireworkRenderTexture;
+
+        _fireworkOverlayObject = new GameObject("FireworkOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+        _fireworkOverlayObject.layer = 5;
+        _fireworkOverlayObject.transform.SetParent(canvas.transform, false);
+        _fireworkOverlayObject.transform.SetAsLastSibling();
+
+        RectTransform rect = _fireworkOverlayObject.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        RawImage image = _fireworkOverlayObject.GetComponent<RawImage>();
+        image.texture = _fireworkRenderTexture;
+        image.raycastTarget = false;
+
+        return fxCamera;
+    }
+
+    static void SetLayerRecursively(GameObject target, int layer)
+    {
+        target.layer = layer;
+        foreach (Transform child in target.transform)
+            SetLayerRecursively(child.gameObject, layer);
+    }
+
+    void ConfigureFireworkParticles(GameObject firework)
+    {
+        ParticleSystem launcher = firework.GetComponent<ParticleSystem>();
+        if (launcher != null)
+        {
+            ParticleSystem.MainModule launcherMain = launcher.main;
+            launcherMain.startSpeedMultiplier *= fireworkLaunchSpeedMultiplier;
+        }
+
+        foreach (ParticleSystem particleSystem in firework.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            ParticleSystem.MainModule main = particleSystem.main;
+            main.startSizeMultiplier *= fireworkScaleMultiplier;
+        }
+    }
+
+    void CleanupFireworkOverlay()
+    {
+        foreach (GameObject firework in _spawnedFireworks)
+            if (firework != null) Destroy(firework);
+        _spawnedFireworks.Clear();
+
+        if (_fireworkCameraObject != null) Destroy(_fireworkCameraObject);
+        if (_fireworkOverlayObject != null) Destroy(_fireworkOverlayObject);
+        if (_fireworkRenderTexture != null)
+        {
+            _fireworkRenderTexture.Release();
+            Destroy(_fireworkRenderTexture);
+        }
+
+        _fireworkCameraObject = null;
+        _fireworkOverlayObject = null;
+        _fireworkRenderTexture = null;
+    }
+
     // Inspector 버튼에 연결
     public void OnConfirm()
     {
         if (_selected < 0 || !_confirmReady) return;
+
+        _fireworksActive = false;
+        CleanupFireworkOverlay();
 
         var r = _rewards[_selected];
 
@@ -404,8 +561,12 @@ public class GameResultUI : MonoBehaviour
         {
             result[i] = new RewardData
             {
-                diamond = Mathf.Max(1, Mathf.RoundToInt(baseDiamond * presets[i].d)),
-                exp     = Mathf.Max(1, Mathf.RoundToInt(baseExp     * presets[i].e)),
+                diamond = _fixedChestDiamondReward > 0
+                    ? _fixedChestDiamondReward
+                    : Mathf.Max(1, Mathf.RoundToInt(baseDiamond * presets[i].d)),
+                exp     = _fixedChestExpReward > 0
+                    ? _fixedChestExpReward
+                    : Mathf.Max(1, Mathf.RoundToInt(baseExp * presets[i].e)),
             };
         }
         return result;

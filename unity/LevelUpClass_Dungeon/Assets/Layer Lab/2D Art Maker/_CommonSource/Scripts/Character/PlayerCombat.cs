@@ -2,6 +2,7 @@ using UnityEngine;
 using Spine.Unity;
 using StudioNAP;
 using UnityEngine.EventSystems;
+using System.Collections.Generic;
 
 namespace LayerLab.ArtMaker
 {
@@ -111,11 +112,18 @@ namespace LayerLab.ArtMaker
             bool attackInput = MobileInput.isAttackPressed
                             || (Input.GetMouseButtonDown(0) && !MobileInput.isJoystickActive && !IsPointerOverAnyUI());
             // isAttackPressed는 MobileInputReceiver.LateUpdate에서 리셋되므로 여기선 처리만
-            if (attackInput && Time.time >= nextAttackTime)
-            {
-                Attack();
-                nextAttackTime = Time.time + attackCooldown;
-            }
+            if (attackInput)
+                TryAttack();
+        }
+
+        public bool TryAttack()
+        {
+            if (!enabled || isHit || Time.time < nextAttackTime)
+                return false;
+
+            Attack();
+            nextAttackTime = Time.time + attackCooldown;
+            return true;
         }
 
         private static bool IsPointerOverAnyUI()
@@ -272,23 +280,31 @@ namespace LayerLab.ArtMaker
             if (attackPoint != null)
             {
                 Collider2D[] hitMonsters = Physics2D.OverlapCircleAll(attackPoint.position, attackRange, monsterLayer);
+                var damagedTargets = new HashSet<Component>();
                 foreach (Collider2D monster in hitMonsters)
                 {
-                    bool isCrit = Random.Range(0, 200) < Mathf.Min(critChance, 160); // 최대 80% (160/200)
-                    int finalDamage = isCrit
-                        ? Mathf.RoundToInt(attackPower * critDamageMultiplier)
-                        : attackPower;
-
-                    BossFSM boss = monster.GetComponent<BossFSM>();
+                    BossFSM boss = monster.GetComponentInParent<BossFSM>();
                     if (boss != null && !boss.isDead)
                     {
+                        if (!damagedTargets.Add(boss)) continue;
+
+                        bool isCrit = Random.Range(0, 200) < Mathf.Min(critChance, 160); // 최대 80% (160/200)
+                        int finalDamage = isCrit
+                            ? Mathf.RoundToInt(attackPower * critDamageMultiplier)
+                            : attackPower;
                         boss.TakeDamage(finalDamage, isCrit, true);
                         continue;
                     }
 
-                    MonsterFSM target = monster.GetComponent<MonsterFSM>();
-                    if (target != null)
+                    MonsterFSM target = monster.GetComponentInParent<MonsterFSM>();
+                    if (target != null && damagedTargets.Add(target))
+                    {
+                        bool isCrit = Random.Range(0, 200) < Mathf.Min(critChance, 160);
+                        int finalDamage = isCrit
+                            ? Mathf.RoundToInt(attackPower * critDamageMultiplier)
+                            : attackPower;
                         target.TakeDamage(finalDamage, isCrit);
+                    }
                 }
             }
         }

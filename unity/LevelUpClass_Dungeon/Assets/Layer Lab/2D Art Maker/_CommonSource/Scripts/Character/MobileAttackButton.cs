@@ -8,13 +8,16 @@ using LayerLab.ArtMaker;
 /// </summary>
 public class MobileAttackButton : MonoBehaviour, IPointerDownHandler
 {
+    [SerializeField] private PlayerCombat playerCombat;
+
     public void OnPointerDown(PointerEventData eventData)
     {
-        MobileInput.isAttackPressed = true;
-    }
+        if (playerCombat == null)
+            playerCombat = PlayerCombat.FindMainPlayerCombat();
 
-    void LateUpdate()
-    {
-        MobileInput.isAttackPressed = false;
+        if (playerCombat != null)
+            playerCombat.TryAttack();
+        else
+            MobileInput.isAttackPressed = true;
     }
 }
