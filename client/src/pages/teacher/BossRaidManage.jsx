@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch,
-  onSnapshot, serverTimestamp, increment, getDoc, query, where,
+  onSnapshot, serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg as resolveBossBackground } from '../../data/monsterData';
@@ -464,6 +464,22 @@ function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, i
 
         <HpBar current={raid.currentHP} max={raid.maxHP} />
 
+        {isActive && (
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ['PHASE', raid.phase || 1, 'text-amber-300'],
+              ['공격대 사기', `${raid.morale ?? 100}%`, (raid.morale ?? 100) <= 50 ? 'text-rose-300' : 'text-emerald-300'],
+              ['COMBO', `${raid.combo || 0}x`, 'text-yellow-300'],
+              ['BREAK', `${raid.breakGauge || 0}%`, 'text-cyan-300'],
+            ].map(([label, value, tone]) => (
+              <div key={label} className="rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-center">
+                <div className="text-[9px] font-black tracking-wider text-slate-500">{label}</div>
+                <div className={`mt-0.5 text-sm font-black ${tone}`}>{value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {isActive && currentQ && (
           <div className="mt-3 bg-slate-800 rounded-xl p-3">
             <div className="flex justify-between text-xs text-slate-400 mb-1">
@@ -489,7 +505,7 @@ function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, i
             🎮 레이드 화면 보기
           </button>
         )}
-        {isActive && !raid.autoAdvance && qIdx < totalQ - 1 && (
+        {isActive && !raid.finishing && !raid.autoAdvance && qIdx < totalQ - 1 && (
           <button onClick={onNextQuestion}
             className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl transition-colors">
             ▶ 다음 문제 ({qIdx + 1}/{totalQ})
@@ -588,7 +604,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
     bossName:         '',
     maxHP:            3000,
     damagePerHit:     100,
-    penaltyType:      'none',
+    penaltyType:      'morale',
     penaltyAmount:    50,
     questionDuration: 20,
     autoAdvance:      true,
@@ -659,7 +675,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
   const questionCount = selectedQuestions.length;
   const totalPerfectDamage = classStudentCount * questionCount * (Number(form.damagePerHit) || 0);
   const autoHP = (questionCount > 0 && classStudentCount > 0)
-    ? Math.max(100, Math.round((totalPerfectDamage * 0.75) / 100) * 100)
+    ? Math.max(100, Math.round(totalPerfectDamage / 100) * 100)
     : null;
 
   // 추천 HP가 계산되면 기본값/직전 자동값일 때 자동 동기화
@@ -703,6 +719,14 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
           autoAdvance:      form.autoAdvance,
           rewards:          form.rewards,
           rewardsPaid:      false,
+          morale:           100,
+          combo:            0,
+          maxCombo:         0,
+          breakGauge:       0,
+          breakCount:       0,
+          moraleBreakCount: 0,
+          phase:            1,
+          finishing:        false,
           status:           'waiting',
           questions,
           participants:     {},
@@ -729,6 +753,14 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
         currentQuestionIdx: 0,
         questionStartedAt:  serverTimestamp(),
         startedAt:          serverTimestamp(),
+        morale:             100,
+        combo:              0,
+        maxCombo:           0,
+        breakGauge:         0,
+        breakCount:         0,
+        moraleBreakCount:   0,
+        phase:              1,
+        finishing:          false,
       });
       afterStartCb?.();
     });
@@ -1044,7 +1076,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
                   </label>
                   <div className="text-[10px] text-slate-400 mb-1 dark:text-slate-300">
                     인원 {classStudentCount}명 × {questionCount}문항 × 데미지 {Number(form.damagePerHit) || 0}
-                    = 총 {totalPerfectDamage.toLocaleString()} 기준의 75%
+                    = 총 {totalPerfectDamage.toLocaleString()} (콤보·브레이크 보너스 반영 권장치)
                   </div>
                   <div className="flex gap-2 items-center">
                     <input type="number" min="100" step="100" value={form.maxHP}
@@ -1087,34 +1119,27 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
               </div>
             </div>
 
-            {/* 오답 패널티 */}
+            {/* 공격대 사기 */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-600 dark:shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
-              <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">⚡ 오답 패널티</h2>
-              <div className="flex gap-3 mb-3">
+              <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">🔥 공격대 사기 시스템</h2>
+              <div className="grid gap-2 sm:grid-cols-3">
                 {[
-                  { v: 'none',       l: '없음',      d: '오답이어도 보스 HP 변화 없음' },
-                  { v: 'hp_restore', l: '보스 HP 회복', d: '오답 시 보스 HP가 소량 회복됨' },
-                ].map(opt => (
-                  <button key={opt.v} onClick={() => setF('penaltyType', opt.v)}
-                    className={`flex-1 py-3 px-4 rounded-xl border-2 text-left transition-colors
-                      ${form.penaltyType === opt.v
-                        ? 'border-rose-500 bg-rose-50 dark:border-rose-400 dark:bg-rose-950/70 dark:shadow-[0_0_0_1px_rgba(251,113,133,0.22)]'
-                        : 'border-slate-200 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-950/60 dark:hover:border-slate-500 dark:hover:bg-slate-800'}`}>
-                    <div className={`text-sm font-bold mb-0.5 ${form.penaltyType === opt.v ? 'text-rose-700 dark:text-rose-200' : 'text-slate-700 dark:text-slate-200'}`}>
-                      {opt.l}
-                    </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-300">{opt.d}</div>
-                  </button>
+                  ['오답 패널티', '페이즈별 사기 -2 / -3 / -4'],
+                  ['사기 저하', '50 이하에서 공격력 15% 감소'],
+                  ['사기 붕괴', '0이 되면 30으로 회복하고 보스 HP 회복'],
+                ].map(([title, description]) => (
+                  <div key={title} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 dark:border-slate-600 dark:bg-slate-950/60">
+                    <div className="text-xs font-extrabold text-slate-700 dark:text-slate-100">{title}</div>
+                    <div className="mt-1 text-[11px] leading-4 text-slate-500 dark:text-slate-300">{description}</div>
+                  </div>
                 ))}
               </div>
-              {form.penaltyType === 'hp_restore' && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1 dark:text-slate-300">오답 시 HP 회복량</label>
-                  <input type="number" min="0" step="10" value={form.penaltyAmount}
-                    onChange={e => setF('penaltyAmount', Number(e.target.value))}
-                    className="w-32 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center text-slate-800 focus:outline-none focus:border-rose-500 dark:bg-slate-950/80 dark:border-slate-600 dark:text-white dark:focus:border-rose-400" />
-                </div>
-              )}
+              <div className="mt-3">
+                <label className="block text-xs font-bold text-slate-500 mb-1 dark:text-slate-300">사기 붕괴 시 보스 HP 회복량</label>
+                <input type="number" min="0" step="10" value={form.penaltyAmount}
+                  onChange={e => setF('penaltyAmount', Number(e.target.value))}
+                  className="w-32 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center text-slate-800 focus:outline-none focus:border-rose-500 dark:bg-slate-950/80 dark:border-slate-600 dark:text-white dark:focus:border-rose-400" />
+              </div>
             </div>
 
             {/* 보상 */}
