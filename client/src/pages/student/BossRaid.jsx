@@ -928,7 +928,7 @@ function BattlePhase({
 
       {/* 문제 영역 — 남은 공간 채우고 스크롤 */}
       <div className="boss-raid-question-panel relative z-30 min-h-0 overflow-y-auto border-t border-slate-700/80 bg-slate-950/90 px-4 pt-3 pb-3 shadow-[0_-12px_30px_rgba(2,6,23,0.72)]">
-        <div className="space-y-2.5">
+        <div className="boss-raid-question-content space-y-2.5">
         {/* 문제 헤더 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

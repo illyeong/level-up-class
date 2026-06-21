@@ -123,15 +123,15 @@ export default function AILessonQuizSetBuilder({
       border: 'focus:border-rose-500',
       button: 'bg-rose-600 hover:bg-rose-700',
       selected: 'border-rose-500 bg-rose-50 text-rose-700',
-      darkSelected: 'dark:bg-rose-950/30 dark:text-rose-200',
-      chip: 'bg-rose-50 text-rose-700 border-rose-200',
+      darkSelected: 'dark:border-rose-400 dark:bg-rose-950/70 dark:text-rose-100',
+      chip: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/70 dark:text-rose-200 dark:border-rose-600',
     }
     : {
       border: 'focus:border-indigo-500',
       button: 'bg-indigo-600 hover:bg-indigo-700',
       selected: 'border-indigo-500 bg-indigo-50 text-indigo-700',
-      darkSelected: 'dark:bg-indigo-950/30 dark:text-indigo-200',
-      chip: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      darkSelected: 'dark:border-indigo-400 dark:bg-indigo-950/70 dark:text-indigo-100',
+      chip: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/70 dark:text-indigo-200 dark:border-indigo-600',
     };
 
   const updateFilter = (key, value) => {
