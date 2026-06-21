@@ -104,14 +104,12 @@ public class SkillFireBreath : MonoBehaviour, IDungeonSkill
 
         Transform owner = _owner != null ? _owner : transform;
         Vector3 pos = owner.position + new Vector3(fxOffset.x * dir, fxOffset.y, 0f);
-        GameObject fx = Instantiate(fireBreathPrefab, pos, fireBreathPrefab.transform.rotation);
+        Quaternion rotation = fireBreathPrefab.transform.rotation;
+        if (flipFxByFacingDirection && dir < 0f)
+            rotation = Quaternion.AngleAxis(180f, Vector3.up) * rotation;
 
-        if (flipFxByFacingDirection)
-        {
-            Vector3 scale = fireBreathPrefab.transform.localScale;
-            scale.x = Mathf.Abs(scale.x) * dir;
-            fx.transform.localScale = scale;
-        }
+        GameObject fx = Instantiate(fireBreathPrefab, pos, rotation);
+        fx.transform.localScale = fireBreathPrefab.transform.localScale;
 
         if (attachFxToPlayer)
             fx.transform.SetParent(owner, true);

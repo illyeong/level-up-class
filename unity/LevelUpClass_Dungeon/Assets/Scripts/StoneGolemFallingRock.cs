@@ -73,6 +73,12 @@ public class StoneGolemFallingRock : MonoBehaviour
         Destroy(gameObject);
     }
 
+    private void OnDestroy()
+    {
+        if (warningEffect != null)
+            Destroy(warningEffect);
+    }
+
     private void OnDrawGizmosSelected()
     {
         if (!initialized) return;

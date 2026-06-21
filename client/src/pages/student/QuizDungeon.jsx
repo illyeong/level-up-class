@@ -79,6 +79,10 @@ const calcLevelUp = (currentLevel, currentExp, currentMaxExp, gainedExp) => {
 };
 
 const toStars = (acc) => acc >= 90 ? 3 : acc >= 70 ? 2 : acc >= 50 ? 1 : 0;
+const QUIZ_CLEAR_ACCURACY = 70;
+const isQuizDungeonCleared = (score, totalQuestions) => (
+  totalQuestions > 0 && (score / totalQuestions) * 100 >= QUIZ_CLEAR_ACCURACY
+);
 
 const cleanExplanation = (text) => {
   if (!text) return '';
@@ -337,7 +341,7 @@ function DungeonLobby({
       <div className="p-4 space-y-3 pb-10">
         {dungeons.map(d => {
           const best    = bestScores[d.id];
-          const isFirst = !best?.cleared;
+          const isFirst = !best?.attempted;
           const theme   = DIFF_THEME[d.difficulty] || DIFF_THEME.normal;
           const totalQ  = d.questions?.length || d.questionCount || 5;
 
@@ -486,9 +490,9 @@ function DungeonLobby({
                   </div>
                 ) : (
                   <button
-                    onClick={() => onPreview(d)}
+                    onClick={() => best?.attempted ? onRetryPreview(d) : onPreview(d)}
                     className={`shrink-0 px-5 py-2 rounded-2xl font-extrabold text-sm transition-all bg-gradient-to-r ${theme.btn} text-white shadow-lg active:scale-95`}>
-                    ⚔️ 입장
+                    {best?.attempted ? '🔄 재도전' : '⚔️ 입장'}
                   </button>
                 )}
               </div>
@@ -816,7 +820,8 @@ function QuizBattle({ dungeon, playerData, onBattleEnd, layoutCfg = BATTLE_LAYOU
     const isLastWave       = currentWaveIdx >= waves.length - 1;
     const playerDead       = newPlayerHP <= 0;
     const allQDone         = nextQ >= totalQ;
-    const cleared          = !playerDead && waveCleared && isLastWave;
+    const cleared          = !playerDead && isLastWave &&
+      (waveCleared || allQDone) && isQuizDungeonCleared(newScore, totalQ);
     const failedByQuestion = !playerDead && allQDone && !cleared;
 
     const isOver      = playerDead || cleared || failedByQuestion;
@@ -1266,15 +1271,15 @@ function PetDropPopup({ pet, onClose }) {
 
 // ── 결과 화면 ──────────────────────────────────────────────────
 function ResultScreen({
-  dungeon, score, totalQ, wrongIdxs, cleared,
+  dungeon, score, totalQ, wrongIdxs,
   answerDetails = [],
   earnedRewards, leveledUp, isSaving, maxCombo,
   petDropped,
-  canRetry, onRetry, onReturnLobby, isRetryAttempt = false,
+  canRetry, onRetry, onReturnLobby,
 }) {
   const accuracy  = totalQ > 0 ? Math.round(score / totalQ * 100) : 0;
   const stars     = toStars(accuracy);
-  const successByStars = stars >= 2;
+  const successByStars = isQuizDungeonCleared(score, totalQ);
   const [visStars, setVisStars] = useState(0);
   const [showPetPopup, setShowPetPopup] = useState(false);
 
@@ -1594,10 +1599,14 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
         const best = {};
         resSnap.docs.forEach(d => {
           const r = d.data();
-          if (!best[r.dungeonId] || r.accuracy > best[r.dungeonId].accuracy) {
-            best[r.dungeonId] = { accuracy: r.accuracy, stars: toStars(r.accuracy) };
-          }
-          if (r.cleared) best[r.dungeonId] = { ...best[r.dungeonId], cleared: true };
+          const current = best[r.dungeonId];
+          const isHigher = !current || r.accuracy > current.accuracy;
+          best[r.dungeonId] = {
+            accuracy: isHigher ? r.accuracy : current.accuracy,
+            stars: isHigher ? toStars(r.accuracy) : current.stars,
+            cleared: !!current?.cleared || !!r.cleared,
+            attempted: true,
+          };
         });
         setBestScores(best);
       } catch (err) { console.error(err); }
@@ -1636,7 +1645,8 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
   }, [isTeacher, teacherUid]);
 
   const enterDungeon = (dungeon, retry = false) => {
-    if (retry) {
+    const isRepeatAttempt = retry || !!bestScores[dungeon.id]?.attempted;
+    if (isRepeatAttempt) {
       const confirmed = window.confirm('재도전은 보상이 지급되지 않습니다. 계속하시겠습니까?');
       if (!confirmed) return;
     }
@@ -1644,7 +1654,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
     // 미리 확정된 웨이브가 있으면 재사용, 없으면 새로 생성 (재도전 등)
     const waves  = dungeon.waves || generateWaves(totalQ, dungeon.monsterIds || dungeon.monsterId, dungeon.id);
     setSelectedDungeon({ ...dungeon, waves });
-    setIsRetryAttempt(retry);
+    setIsRetryAttempt(isRepeatAttempt);
     setBattleRes(null);
     setEarnedRewards(null);
     setLeveledUp(null);
@@ -1659,29 +1669,28 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
     await doSaveResult(result);
   };
 
-  const doSaveResult = async ({
-    score, cleared: battleCleared, wrongIdxs, answerDetails = [],
-  }) => {
+  const doSaveResult = async ({ score, wrongIdxs, answerDetails = [] }) => {
     if (!selectedDungeon) return;
     setIsSaving(true);
     const dungeon  = selectedDungeon;
     const totalQ   = (dungeon.questions || []).length || dungeon.questionCount || 0;
     const accuracy = totalQ > 0 ? Math.round(score / totalQ * 100) : 0;
-    const cleared  = !!battleCleared || toStars(accuracy) >= 2;
-    const isFirst  = !bestScores[dungeon.id]?.cleared;
+    const cleared  = isQuizDungeonCleared(score, totalQ);
+    const isFirstAttempt = !bestScores[dungeon.id]?.attempted;
+    const rewardEligible = !dungeon.isWrongReview && !isRetryAttempt && isFirstAttempt;
     const rewardRatio = totalQ > 0 ? Math.max(0, Math.min(1, score / totalQ)) : 0;
 
-    const mult = (isFirst && cleared) ? 1.5 : 1;
+    const mult = (isFirstAttempt && cleared) ? 1.5 : 1;
     const baseGold = Math.round((dungeon.rewards?.gold    || 0) * rewardRatio * mult);
     const baseExp = Math.round((dungeon.rewards?.exp      || 0) * rewardRatio * mult);
     const baseDiamond = Math.round((dungeon.rewards?.diamond || 0) * rewardRatio * mult);
-    const goldEarned = isRetryAttempt ? 0 : baseGold;
-    const expEarned = isRetryAttempt ? 0 : baseExp;
-    const diamondEarned = isRetryAttempt ? 0 : baseDiamond;
+    const goldEarned = rewardEligible ? baseGold : 0;
+    const expEarned = rewardEligible ? baseExp : 0;
+    const diamondEarned = rewardEligible ? baseDiamond : 0;
 
     setEarnedRewards({
       goldEarned, expEarned, diamondEarned,
-      firstClear: !isRetryAttempt && isFirst && cleared,
+      firstClear: rewardEligible && cleared,
     });
 
     if (isTeacher || !studentDocId || !studentData) { setIsSaving(false); return; }
@@ -1770,7 +1779,7 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
       await loadWrongAnswers();
 
       // ── 펫 드롭 시도 ─────────────────────────────────────────
-      if (!isRetryAttempt) {
+      if (rewardEligible) {
         const dropTable = getDropTable(accuracy);
         if (dropTable && Math.random() < dropTable.chance) {
           const rarity = rollPetRarity(dropTable.rates);
@@ -1834,8 +1843,11 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
       if (!dungeon.isWrongReview) {
         setBestScores(prev => {
           const cur = prev[dungeon.id];
-          const updated = cur && cur.accuracy >= accuracy ? cur : { accuracy, stars: toStars(accuracy) };
+          const updated = cur && cur.accuracy >= accuracy
+            ? { ...cur }
+            : { ...cur, accuracy, stars: toStars(accuracy) };
           if (cleared) updated.cleared = true;
+          updated.attempted = true;
           return { ...prev, [dungeon.id]: updated };
         });
       }
@@ -1947,7 +1959,6 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
       totalQ={(selectedDungeon.questions || []).length || selectedDungeon.questionCount || 0}
       wrongIdxs={battleRes.wrongIdxs}
       answerDetails={battleRes.answerDetails}
-      cleared={!!battleRes.cleared}
       earnedRewards={earnedRewards}
       leveledUp={leveledUp}
       isSaving={isSaving}
@@ -1955,7 +1966,6 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
       petDropped={petDropped}
       canRetry={true}
       onRetry={() => enterDungeon(selectedDungeon, true)}
-      isRetryAttempt={isRetryAttempt}
       onReturnLobby={() => {
         setScreen('lobby');
         setBattleRes(null);

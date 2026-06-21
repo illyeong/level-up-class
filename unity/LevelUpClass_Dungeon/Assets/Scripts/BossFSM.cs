@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Rendering;
@@ -157,6 +158,8 @@ public class BossFSM : MonoBehaviour
     private Collider2D bossCollider;
     private Collider2D playerCollider;
     private SpriteRenderer spriteRenderer;
+    private Vector3 initialLocalScale;
+    private readonly List<GameObject> activeFallingRocks = new();
 
     public int CurrentHealth => currentHealth;
     public bool isDead { get; private set; } = false;
@@ -182,6 +185,7 @@ public class BossFSM : MonoBehaviour
     void Start()
     {
         currentHealth   = maxHealth;
+        initialLocalScale = transform.localScale;
         rb              = GetComponent<Rigidbody2D>();
         bossCollider    = FindCombatCollider();
         spriteRenderer  = GetComponent<SpriteRenderer>();
@@ -441,7 +445,7 @@ public class BossFSM : MonoBehaviour
         if (playerTarget == null) return;
 
         movingDir = (playerTarget.position.x > transform.position.x) ? 1 : -1;
-        transform.localScale = new Vector3(-movingDir, 1, 1);
+        FaceDirection(movingDir);
         rb.linearVelocity = new Vector2(speed * movingDir, rb.linearVelocity.y);
         PlayAnim(walkAnimName);
 
@@ -501,7 +505,7 @@ public class BossFSM : MonoBehaviour
         yield return new WaitForSeconds(0.4f);
 
         int chargeDir = (playerTarget.position.x > transform.position.x) ? 1 : -1;
-        transform.localScale = new Vector3(-chargeDir, 1, 1);
+        FaceDirection(chargeDir);
         float elapsed = 0f;
         bool damageDealt = false;
         while (elapsed < chargeDuration)
@@ -624,7 +628,7 @@ public class BossFSM : MonoBehaviour
         if (playerTarget != null)
         {
             float dir = (playerTarget.position.x > transform.position.x) ? 1f : -1f;
-            transform.localScale = new Vector3(-dir, 1, 1);
+            FaceDirection(dir);
         }
 
         if (smashEffectPrefab != null)
@@ -671,7 +675,7 @@ public class BossFSM : MonoBehaviour
 
                     if (Mathf.Abs(horizontalDelta) > 0.15f)
                     {
-                        transform.localScale = new Vector3(-dir, 1f, 1f);
+                        FaceDirection(dir);
                         rb.linearVelocity = new Vector2(dir * trackingSpeed, rb.linearVelocity.y);
                     }
                     else
@@ -802,6 +806,7 @@ public class BossFSM : MonoBehaviour
                 target + Vector3.up * rockFallHeight,
                 Quaternion.identity
             );
+            activeFallingRocks.Add(rock.gameObject);
             rock.Initialize(
                 target,
                 rockFallDuration,
@@ -903,6 +908,16 @@ public class BossFSM : MonoBehaviour
         }
 
         return Vector2.Distance(transform.position, playerTarget.position);
+    }
+
+    void FaceDirection(float direction)
+    {
+        int facing = direction >= 0f ? 1 : -1;
+        movingDir = facing;
+
+        Vector3 scale = initialLocalScale;
+        scale.x = Mathf.Abs(initialLocalScale.x) * -facing;
+        transform.localScale = scale;
     }
 
     Collider2D FindCombatCollider()
@@ -1055,11 +1070,15 @@ public class BossFSM : MonoBehaviour
         StopAllCoroutines();
         rb.linearVelocity = Vector2.zero;
 
+        foreach (GameObject rock in activeFallingRocks)
+            if (rock != null) Destroy(rock);
+        activeFallingRocks.Clear();
+
         PlayAnim(deadAnimName, false);
         if (spriteRenderer) spriteRenderer.color = Color.white;
 
-        var col = GetComponent<Collider2D>();
-        if (col) col.enabled = false;
+        foreach (Collider2D col in GetComponentsInChildren<Collider2D>(true))
+            col.enabled = false;
         rb.isKinematic = true;
 
         if (bossHpBarUI != null) bossHpBarUI.SetActive(false);
