@@ -132,11 +132,15 @@ public class GameResultUI : MonoBehaviour
 
         if (chestPrefab == null) return;
 
-        // 현재 카메라 위치 기준으로 상자 배치 (chestSpawnOffset으로 조정)
+        // 플레이어 위치를 기준으로 상자를 배치한다. 플레이어를 찾지 못한 경우에만 카메라 중앙을 사용한다.
+        GameObject player = GameObject.FindWithTag("Player");
         Camera cam = Camera.main;
+        Vector3 anchor = player != null
+            ? player.transform.position
+            : cam != null ? cam.transform.position : Vector3.zero;
         Vector3 center = new Vector3(
-            cam.transform.position.x + chestSpawnOffset.x,
-            cam.transform.position.y + chestSpawnOffset.y,
+            anchor.x + chestSpawnOffset.x,
+            anchor.y + chestSpawnOffset.y,
             0f
         );
 

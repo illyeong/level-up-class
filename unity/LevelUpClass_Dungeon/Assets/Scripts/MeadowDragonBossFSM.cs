@@ -15,9 +15,25 @@ public class MeadowDragonBossFSM : BossFSM
     public Vector2 bodyHitboxOffset = new Vector2(-0.5f, 2f);
     public Vector2 bodyHitboxSize = new Vector2(8f, 6f);
 
+    [Header("Battle Intro (D05 Only)")]
+    public bool playBattleIntro = true;
+    public string introSceneName = "D05_S1";
+    public float introCameraMoveDuration = 1.25f;
+    public float introBossShowDuration = 4.3f;
+    public float introShakeMagnitude = 0.1f;
+    public float introMouthOpenDelay = 0.35f;
+    [Range(0f, 1f)] public float introMouthOpenNormalizedTime = 0.5f;
+    public float introCameraReturnDuration = 1.1f;
+
     private void Awake()
     {
         EnsureDamageHitbox();
+
+        if (playBattleIntro && GetComponent<MeadowDragonIntroSequence>() == null)
+        {
+            MeadowDragonIntroSequence intro = gameObject.AddComponent<MeadowDragonIntroSequence>();
+            intro.Initialize(this);
+        }
 
         if (applyPresetOnAwake)
             ApplyRuntimeDefaults();
@@ -57,6 +73,8 @@ public class MeadowDragonBossFSM : BossFSM
         attackRange = 2.8f;
         normalAttackCooldown = 2.4f;
         chargeAttackCooldown = 7.5f;
+        normalAttackEffectScale = 2f;
+        chargeDuration = 0.55f;
 
         phase2Skill = Phase2SkillType.MeadowDragon;
         dragonPatternsStartInPhase1 = true;
@@ -70,6 +88,8 @@ public class MeadowDragonBossFSM : BossFSM
         jumpSlamVelocity = 16f;
         jumpImpactRadius = 3f;
         jumpDamageMultiplier = 1.8f;
+        phase2JumpSpeedMultiplier = 1.4f;
+        phase2JumpTimingMultiplier = 0.65f;
         landingEffectScale = 3f;
         landingEffectLifetime = 4f;
 
@@ -109,6 +129,10 @@ public class MeadowDragonBossFSM : BossFSM
         fixedChestExpReward = 200;
         landingEffectScale = 3f;
         landingEffectLifetime = 4f;
+        normalAttackEffectScale = 2f;
+        chargeDuration = 0.55f;
+        phase2JumpSpeedMultiplier = 1.4f;
+        phase2JumpTimingMultiplier = 0.65f;
 
         // The dragon artwork extends far beyond its compact physics collider.
         // Keep a visual gap so it attacks before overlapping the player sprite.

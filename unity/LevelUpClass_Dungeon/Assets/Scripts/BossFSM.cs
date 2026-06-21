@@ -46,8 +46,13 @@ public class BossFSM : MonoBehaviour
     [Header("Normal Attack Effect")]
     public GameObject normalAttackEffectPrefab;
     public Vector3 normalAttackEffectOffset = new Vector3(1.5f, 0.8f, 0f);
+    [Min(0.1f)] public float normalAttackEffectScale = 1f;
     [Min(0.1f)] public float normalAttackEffectLifetime = 2f;
     public bool flipNormalAttackEffectWithFacing = true;
+
+    [Header("Charge Attack")]
+    [Min(0.1f)] public float chargeDuration = 0.3f;
+    [Min(0.1f)] public float chargeDamageMultiplier = 1.8f;
 
     [Header("Jump Attack")]
     public float jumpPower = 8f;
@@ -55,6 +60,8 @@ public class BossFSM : MonoBehaviour
     public float jumpSlamVelocity = 15f;
     public float jumpImpactRadius = 2.5f;
     public float jumpDamageMultiplier = 2f;
+    [Min(1f)] public float phase2JumpSpeedMultiplier = 1f;
+    [Range(0.2f, 1f)] public float phase2JumpTimingMultiplier = 1f;
 
     [Header("Poison Pool Attack (Phase 2)")]
     public GameObject poisonPoolEffectPrefab;
@@ -320,6 +327,93 @@ public class BossFSM : MonoBehaviour
         }
     }
 
+    public void PlayCinematicAnimation(string animName, bool loop = false)
+    {
+        PlayAnim(animName, loop);
+    }
+
+    public void SetCinematicLock(bool locked)
+    {
+        frozen = locked;
+        if (locked && rb != null)
+            rb.linearVelocity = Vector2.zero;
+    }
+
+    public void HoldCinematicAnimation(string animName, float normalizedTime)
+    {
+        float time = Mathf.Clamp01(normalizedTime);
+
+        if (animator != null)
+        {
+            int stateHash = Animator.StringToHash(animName);
+            int fullPathHash = Animator.StringToHash("Base Layer." + animName);
+            if (animator.HasState(0, stateHash))
+                animator.Play(stateHash, 0, time);
+            else if (animator.HasState(0, fullPathHash))
+                animator.Play(fullPathHash, 0, time);
+
+            animator.Update(0f);
+            animator.speed = 0f;
+            return;
+        }
+
+        Spine.TrackEntry entry = null;
+        if (skeletonGraphic != null && skeletonGraphic.AnimationState != null)
+            entry = skeletonGraphic.AnimationState.GetCurrent(0);
+        else if (skeletonAnim != null && skeletonAnim.AnimationState != null)
+            entry = skeletonAnim.AnimationState.GetCurrent(0);
+
+        if (entry != null && entry.Animation != null)
+        {
+            entry.TrackTime = entry.Animation.Duration * time;
+            entry.TimeScale = 0f;
+        }
+    }
+
+    public void ReleaseCinematicAnimationHold()
+    {
+        if (animator != null)
+            animator.speed = 1f;
+
+        Spine.TrackEntry entry = null;
+        if (skeletonGraphic != null && skeletonGraphic.AnimationState != null)
+            entry = skeletonGraphic.AnimationState.GetCurrent(0);
+        else if (skeletonAnim != null && skeletonAnim.AnimationState != null)
+            entry = skeletonAnim.AnimationState.GetCurrent(0);
+
+        if (entry != null)
+            entry.TimeScale = 1f;
+    }
+
+    public void ResetCinematicPose(string idleAnimationName)
+    {
+        ReleaseCinematicAnimationHold();
+        currentAnimName = "";
+
+        if (animator != null)
+        {
+            animator.Rebind();
+            animator.Update(0f);
+        }
+        else if (skeletonGraphic != null && skeletonGraphic.AnimationState != null)
+        {
+            skeletonGraphic.AnimationState.ClearTrack(0);
+            skeletonGraphic.Skeleton.SetToSetupPose();
+        }
+        else if (skeletonAnim != null && skeletonAnim.AnimationState != null)
+        {
+            skeletonAnim.AnimationState.ClearTrack(0);
+            skeletonAnim.Skeleton.SetToSetupPose();
+        }
+
+        PlayAnim(idleAnimationName, true);
+        if (animator != null)
+            animator.Update(0f);
+
+        var fantasyMonster = GetComponent<Assets.FantasyMonsters.Common.Scripts.Monster>();
+        fantasyMonster?.SetHead(0);
+    }
+
     bool IsAnimatorPlaying(string animName)
     {
         if (animator == null) return true;
@@ -383,6 +477,7 @@ public class BossFSM : MonoBehaviour
         Vector3 offset = normalAttackEffectOffset;
         offset.x *= facingDirection;
         GameObject effect = Instantiate(normalAttackEffectPrefab, transform.position + offset, Quaternion.identity);
+        effect.transform.localScale *= normalAttackEffectScale;
 
         if (flipNormalAttackEffectWithFacing && facingDirection < 0)
         {
@@ -407,13 +502,21 @@ public class BossFSM : MonoBehaviour
 
         int chargeDir = (playerTarget.position.x > transform.position.x) ? 1 : -1;
         transform.localScale = new Vector3(-chargeDir, 1, 1);
-        rb.linearVelocity = new Vector2(chargeSpeed * chargeDir, rb.linearVelocity.y);
+        float elapsed = 0f;
+        bool damageDealt = false;
+        while (elapsed < chargeDuration)
+        {
+            rb.linearVelocity = new Vector2(chargeSpeed * chargeDir, rb.linearVelocity.y);
 
-        yield return new WaitForSeconds(0.3f); // 돌진 지속
+            if (!damageDealt && GetDistanceToPlayer() <= attackRange + 0.75f)
+            {
+                DealDamageToPlayer(Mathf.RoundToInt(attackPower * chargeDamageMultiplier));
+                damageDealt = true;
+            }
 
-        float dist = Vector2.Distance(transform.position, playerTarget.position);
-        if (dist <= attackRange + 1f)
-            DealDamageToPlayer(Mathf.RoundToInt(attackPower * 1.8f));
+            elapsed += Time.fixedDeltaTime;
+            yield return new WaitForFixedUpdate();
+        }
 
         rb.linearVelocity = Vector2.zero;
         yield return new WaitForSeconds(0.4f);
@@ -430,20 +533,23 @@ public class BossFSM : MonoBehaviour
 
         PlayAnim(string.IsNullOrEmpty(jumpAnimName) ? attackAnimName : jumpAnimName, false);
 
+        float jumpSpeedMultiplier = isPhase2 ? phase2JumpSpeedMultiplier : 1f;
+        float jumpTimingMultiplier = isPhase2 ? phase2JumpTimingMultiplier : 1f;
+
         // 위로 점프
-        rb.AddForce(Vector2.up * jumpPower, ForceMode2D.Impulse);
-        yield return new WaitForSeconds(0.5f);
+        rb.AddForce(Vector2.up * jumpPower * jumpSpeedMultiplier, ForceMode2D.Impulse);
+        yield return new WaitForSeconds(0.5f * jumpTimingMultiplier);
 
         // 플레이어 방향으로 수평 이동
         if (playerTarget != null)
         {
             float dir = (playerTarget.position.x > transform.position.x) ? 1f : -1f;
-            rb.linearVelocity = new Vector2(dir * jumpMoveSpeed, rb.linearVelocity.y);
+            rb.linearVelocity = new Vector2(dir * jumpMoveSpeed * jumpSpeedMultiplier, rb.linearVelocity.y);
         }
-        yield return new WaitForSeconds(0.3f);
+        yield return new WaitForSeconds(0.3f * jumpTimingMultiplier);
 
         // 낙하
-        rb.linearVelocity = new Vector2(0f, -jumpSlamVelocity);
+        rb.linearVelocity = new Vector2(0f, -jumpSlamVelocity * jumpSpeedMultiplier);
         yield return WaitForLanding();
 
         // ── 착지 연출 ─────────────────────────────────────────

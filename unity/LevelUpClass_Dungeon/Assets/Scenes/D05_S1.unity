@@ -1595,26 +1595,31 @@ MonoBehaviour:
   chaseSpeed: 2.1
   chargeSpeed: 9
   phase2SpeedMultiplier: 1.3
-  attackRange: 2.8
+  attackRange: 3
   normalAttackCooldown: 2.4
   chargeAttackCooldown: 7.5
   jumpAttackCooldown: 0
   phase2Skill: 4
   normalAttackEffectPrefab: {fileID: 4831405127267482009, guid: 8c4f14c2212634fe390071af40acc288, type: 3}
   normalAttackEffectOffset: {x: 3, y: 0.8, z: 0}
+  normalAttackEffectScale: 1
   normalAttackEffectLifetime: 3.31
   flipNormalAttackEffectWithFacing: 1
+  chargeDuration: 0.3
+  chargeDamageMultiplier: 1.8
   jumpPower: 8.5
   jumpMoveSpeed: 5.5
   jumpSlamVelocity: 16
   jumpImpactRadius: 4
   jumpDamageMultiplier: 1.8
+  phase2JumpSpeedMultiplier: 1
+  phase2JumpTimingMultiplier: 1
   poisonPoolEffectPrefab: {fileID: 4425129568585013132, guid: bbeeb0ddc21369746aaaae5c5c1c09cf, type: 3}
   poisonPoolCooldown: 10
   poisonPoolRadius: 2.8
   poisonPoolDuration: 3.5
   poisonTickInterval: 0.5
-  poisonTickDamageMultiplier: 0.66
+  poisonTickDamageMultiplier: 0.8
   poisonCastDelay: 0.5
   smashWarningEffectPrefab: {fileID: 0}
   smashEffectPrefab: {fileID: 2433282508537954060, guid: 3ef3ae421f71c5c4e97fe12dc2fc6312, type: 3}
