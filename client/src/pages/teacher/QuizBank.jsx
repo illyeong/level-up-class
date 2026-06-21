@@ -523,7 +523,7 @@ function EditModal({ set, onSave, onClose }) {
 }
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────
-export default function QuizBank({ selectedClass = null }) {
+export default function QuizBank({ selectedClass = null, onCreateDungeon, onCreateBossRaid }) {
   const selectedClassGrade = String(selectedClass?.grade || '').match(/[1-6]/)?.[0] || '';
   const [tab, setTab] = useState('mine'); // 'mine' | 'ai' | 'manual' | 'bank'
 
@@ -1119,6 +1119,14 @@ export default function QuizBank({ selectedClass = null }) {
                     </div>
                     {/* 하단 액션 */}
                     <div className="px-3 pb-3 flex gap-1.5 flex-wrap border-t border-slate-100 pt-2.5">
+                      <button onClick={() => onCreateDungeon?.(set)}
+                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors">
+                        ⚔️ 퀴즈던전으로 만들기
+                      </button>
+                      <button onClick={() => onCreateBossRaid?.(set)}
+                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors">
+                        🐉 보스레이드로 만들기
+                      </button>
                       <button onClick={() => setPreviewSet(set)}
                         className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
                         👁 미리보기
@@ -1631,6 +1639,14 @@ export default function QuizBank({ selectedClass = null }) {
                     </div>
                     {/* 하단 액션 */}
                     <div className="px-4 pb-4 flex gap-2 border-t border-slate-100 pt-3 flex-wrap">
+                      <button onClick={() => onCreateDungeon?.(set)}
+                        className="px-3 py-2 rounded-xl text-xs font-extrabold border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors">
+                        ⚔️ 퀴즈던전으로 만들기
+                      </button>
+                      <button onClick={() => onCreateBossRaid?.(set)}
+                        className="px-3 py-2 rounded-xl text-xs font-extrabold border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors">
+                        🐉 보스레이드로 만들기
+                      </button>
                       <button onClick={() => setPreviewSet(set)}
                         className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
                         미리보기

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import TeacherNavigationBar, { HELP_CONTENT as TEACHER_HELP_CONTENT } from '../../components/TeacherNavigationBar';
@@ -90,6 +90,7 @@ const KOREAN_TEACHER_MENU_LABELS = {
 
 function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
   const [currentView, setCurrentView]   = useState('dashboard');
+  const [quizCreationDraft, setQuizCreationDraft] = useState(null);
   const [teacherThemeMode, setTeacherThemeMode] = useState(() => localStorage.getItem('teacherThemeMode') || 'light');
   const [hideTeacherNav, setHideTeacherNav] = useState(false);
   const [hideStudentNav, setHideStudentNav] = useState(false);
@@ -163,6 +164,12 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
     setDismissedIds(next);
     sessionStorage.setItem('dismissedNotices', JSON.stringify(next));
   };
+
+  const openQuizCreation = (targetView, quizSet) => {
+    setQuizCreationDraft({ targetView, quizSet });
+    setCurrentView(targetView);
+  };
+  const clearQuizCreationDraft = useCallback(() => setQuizCreationDraft(null), []);
 
   const visibleNotices = notices.filter(n => !dismissedIds.includes(n.id));
 
@@ -349,9 +356,28 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'bankManage'       && <BankManage selectedClass={selectedClass} />}
         {currentView === 'classShopManage' && <ClassShopManage selectedClass={selectedClass} />}
         {currentView === 'stockManage'        && <StockManage selectedClass={selectedClass} />}
-        {currentView === 'quizBank'           && <QuizBank selectedClass={selectedClass} />}
-        {currentView === 'quizDungeonManage' && <QuizDungeonManage selectedClass={selectedClass} />}
-        {currentView === 'bossRaidManage'    && <BossRaidManage selectedClass={selectedClass} onViewLobby={() => setCurrentView('bossRaid')} />}
+        {currentView === 'quizBank' && (
+          <QuizBank
+            selectedClass={selectedClass}
+            onCreateDungeon={(quizSet) => openQuizCreation('quizDungeonManage', quizSet)}
+            onCreateBossRaid={(quizSet) => openQuizCreation('bossRaidManage', quizSet)}
+          />
+        )}
+        {currentView === 'quizDungeonManage' && (
+          <QuizDungeonManage
+            selectedClass={selectedClass}
+            initialQuizSet={quizCreationDraft?.targetView === 'quizDungeonManage' ? quizCreationDraft.quizSet : null}
+            onInitialQuizSetConsumed={clearQuizCreationDraft}
+          />
+        )}
+        {currentView === 'bossRaidManage' && (
+          <BossRaidManage
+            selectedClass={selectedClass}
+            initialQuizSet={quizCreationDraft?.targetView === 'bossRaidManage' ? quizCreationDraft.quizSet : null}
+            onInitialQuizSetConsumed={clearQuizCreationDraft}
+            onViewLobby={() => setCurrentView('bossRaid')}
+          />
+        )}
         {currentView === 'bossRaid'          && (
           <BossRaid
             isTeacher={true}

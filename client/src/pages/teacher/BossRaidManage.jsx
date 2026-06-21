@@ -576,11 +576,11 @@ function ActiveRaidPanel({ raid, onStart, onNextQuestion, onEnd, onPayRewards, i
 }
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────
-export default function BossRaidManage({ selectedClass, onViewLobby }) {
+export default function BossRaidManage({ selectedClass, onViewLobby, initialQuizSet = null, onInitialQuizSetConsumed }) {
   const [raids, setRaids]           = useState([]);
-  const [selectedQuizSet, setSelectedQuizSet] = useState(null);
+  const [selectedQuizSet, setSelectedQuizSet] = useState(initialQuizSet);
   const [classStudentCount, setClassStudentCount] = useState(0);
-  const [tab, setTab]               = useState('active');
+  const [tab, setTab]               = useState(initialQuizSet ? 'create' : 'active');
   const [isCreating, setIsCreating] = useState(false);
   const [isPaying, setIsPaying]     = useState(false);
   const [showBossPicker, setShowBossPicker] = useState(false);
@@ -597,6 +597,11 @@ export default function BossRaidManage({ selectedClass, onViewLobby }) {
     setTimeout(() => setToast(null), 3000);
   };
   const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
+
+  useEffect(() => {
+    if (!initialQuizSet) return;
+    onInitialQuizSetConsumed?.();
+  }, [initialQuizSet, onInitialQuizSetConsumed]);
 
   // 생성 폼 상태
   const [form, setForm] = useState({

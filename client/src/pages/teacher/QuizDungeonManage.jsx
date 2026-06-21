@@ -285,12 +285,12 @@ function QuizSetPicker({ selectedSetId, onSelect }) {
 }
 
 // ── 메인 ──────────────────────────────────────────────────────────
-function QuizDungeonManage({ selectedClass }) {
+function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuizSetConsumed }) {
   const teacherUid = selectedClass?.teacherUid || auth.currentUser?.uid || 'admin_master_001';
   const [tab, setTab] = useState('create'); // 'create' | 'dungeons' | 'results'
 
   // 던전 설정 상태
-  const [selectedSet, setSelectedSet]       = useState(null); // quizSet 객체
+  const [selectedSet, setSelectedSet]       = useState(initialQuizSet); // quizSet 객체
   const [customTitle, setCustomTitle]       = useState('');
   const [difficulty, setDifficulty]         = useState('normal');
   const [monsterMode, setMonsterMode]       = useState('random');
@@ -316,6 +316,11 @@ function QuizDungeonManage({ selectedClass }) {
     setTimeout(() => setToast(null), 3000);
   };
   const showConfirm = (message, onConfirm) => setConfirmState({ message, onConfirm });
+
+  useEffect(() => {
+    if (!initialQuizSet) return;
+    onInitialQuizSetConsumed?.();
+  }, [initialQuizSet, onInitialQuizSetConsumed]);
 
   const createReviewQuizDraft = (answerDetails, title = '퀴즈던전 오답 복습') => {
     const unique = [];
