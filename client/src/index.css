@@ -18,6 +18,26 @@
     font-weight: 700;
     font-display: swap;
 }
+
+.teacher-font-game {
+    font-family: 'NexonMaplestory', 'Malgun Gothic', sans-serif;
+}
+
+.teacher-font-clean {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', Arial, sans-serif;
+    letter-spacing: -0.015em;
+}
+
+.teacher-font-document {
+    font-family: Georgia, 'Times New Roman', 'Batang', 'AppleMyungjo', serif;
+    letter-spacing: -0.01em;
+}
+
+.teacher-font-game :is(button, input, select, textarea),
+.teacher-font-clean :is(button, input, select, textarea),
+.teacher-font-document :is(button, input, select, textarea) {
+    font-family: inherit;
+}
 /* 기존에 있던 body { ... } 부분은 깔끔하게 지워주시면 됩니다! */
 
 /* 스크롤바 숨김 (ScrollPicker 등) */

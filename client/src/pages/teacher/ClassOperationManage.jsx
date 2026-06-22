@@ -34,6 +34,8 @@ export default function ClassOperationManage({ selectedClass }) {
   const [bossId, setBossId] = useState(DEFAULT_CLASS_OPERATION_BOSS_ID);
   const [isCreating, setIsCreating] = useState(false);
   const [operationAction, setOperationAction] = useState('');
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [goalDraft, setGoalDraft] = useState('');
   const [isStudentsLoading, setIsStudentsLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [showStudentView, setShowStudentView] = useState(false);
@@ -176,6 +178,33 @@ export default function ClassOperationManage({ selectedClass }) {
     }
   };
 
+  const startGoalEdit = operation => {
+    setGoalDraft(operation.goalDescription || operation.title || '');
+    setIsEditingGoal(true);
+    setMessage('');
+  };
+
+  const saveGoal = async operation => {
+    const nextGoal = goalDraft.trim();
+    if (!nextGoal || operationAction) return;
+    setOperationAction('updating-goal');
+    setMessage('');
+    try {
+      await updateDoc(doc(db, 'classOperations', operation.id), {
+        title: nextGoal,
+        goalDescription: nextGoal,
+        updatedAt: serverTimestamp(),
+      });
+      setIsEditingGoal(false);
+      setMessage('우리반 대작전 목표를 변경했습니다.');
+    } catch (error) {
+      console.error('우리반 대작전 목표 변경 실패:', error);
+      setMessage('목표를 변경하는 중 오류가 발생했습니다.');
+    } finally {
+      setOperationAction('');
+    }
+  };
+
   if (showStudentView) {
     return (
       <ClassOperation
@@ -219,7 +248,28 @@ export default function ClassOperationManage({ selectedClass }) {
             <div className="relative grid gap-5 p-6 md:grid-cols-[1fr_auto] md:items-center">
               <div>
                 <div className="text-xs font-extrabold tracking-widest text-emerald-300">진행 중</div>
-                <h2 className="mt-2 text-2xl font-black">{activeOperation.title}</h2>
+                {isEditingGoal ? (
+                  <div className="mt-3 max-w-xl rounded-2xl border border-white/15 bg-black/35 p-3">
+                    <label className="text-[11px] font-extrabold text-white/55" htmlFor="class-operation-goal-edit">공동 목표</label>
+                    <input
+                      id="class-operation-goal-edit"
+                      value={goalDraft}
+                      onChange={event => setGoalDraft(event.target.value)}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter') saveGoal(activeOperation);
+                        if (event.key === 'Escape') setIsEditingGoal(false);
+                      }}
+                      maxLength={80}
+                      autoFocus
+                      className="mt-2 w-full rounded-xl border border-white/20 bg-slate-950/75 px-3 py-2.5 text-sm font-bold text-white outline-none focus:border-amber-300"
+                      placeholder="새 공동 목표를 입력하세요"
+                    />
+                    <div className="mt-2 flex gap-2">
+                      <button onClick={() => saveGoal(activeOperation)} disabled={!goalDraft.trim() || Boolean(operationAction)} className="rounded-lg bg-amber-400 px-3 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50">{operationAction === 'updating-goal' ? '저장 중...' : '저장'}</button>
+                      <button onClick={() => setIsEditingGoal(false)} disabled={Boolean(operationAction)} className="rounded-lg border border-white/20 px-3 py-2 text-xs font-bold text-white/70 hover:bg-white/10 disabled:opacity-50">취소</button>
+                    </div>
+                  </div>
+                ) : <h2 className="mt-2 text-2xl font-black">{activeOperation.title}</h2>}
                 <p className="mt-1 text-sm text-white/60">{activeOperation.bossName} · {getRemainingDays(activeOperation.estimatedEndDate || activeOperation.endDate) > 0 ? `예상 완료까지 ${getRemainingDays(activeOperation.estimatedEndDate || activeOperation.endDate)}일` : '예상 완료일 경과 · HP가 0이 될 때까지 계속'}</p>
                 <div className="mt-5 h-6 overflow-hidden rounded-full border border-white/20 bg-black/50 p-1">
                   <div className="h-full rounded-full bg-gradient-to-r from-rose-600 to-amber-400" style={{ width: `${Math.max(0, Math.min(100, ((activeOperation.maxHP - activeOperation.currentHP) / activeOperation.maxHP) * 100))}%` }} />
@@ -227,6 +277,7 @@ export default function ClassOperationManage({ selectedClass }) {
                 <div className="mt-2 flex justify-between text-xs font-bold text-white/65"><span>누적 공격 {formatNumber(activeOperation.totalAttackCount)}회</span><span>{formatNumber(activeOperation.currentHP)} / {formatNumber(activeOperation.maxHP)} HP</span></div>
                 <div className="mt-5 flex flex-wrap gap-2">
                   <button onClick={() => setShowStudentView(true)} disabled={Boolean(operationAction)} className="rounded-xl bg-amber-400 px-4 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50">👁 학생 화면으로 진행상황 보기</button>
+                  <button onClick={() => startGoalEdit(activeOperation)} disabled={Boolean(operationAction) || isEditingGoal} className="rounded-xl border border-sky-300/50 bg-sky-500/20 px-4 py-2 text-xs font-extrabold text-sky-100 hover:bg-sky-500/35 disabled:cursor-not-allowed disabled:opacity-50">✎ 목표 바꾸기</button>
                   <button onClick={() => endOperation(activeOperation)} disabled={Boolean(operationAction)} className="rounded-xl border border-rose-300/50 bg-rose-500/20 px-4 py-2 text-xs font-extrabold text-rose-100 hover:bg-rose-500/35 disabled:cursor-not-allowed disabled:opacity-50">{operationAction === 'ending' ? '종료하는 중...' : '■ 즉시 종료'}</button>
                 </div>
                 {message && <p className="mt-3 text-xs font-bold text-emerald-300">{message}</p>}

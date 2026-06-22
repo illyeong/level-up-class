@@ -31,6 +31,12 @@ import AICoursewareManage from './AICoursewareManage';
 import AICourseware       from '../student/AICourseware';
 import { OPERATION_MODE_PRESETS, STUDENT_MENU_IDS, TEACHER_MENU_IDS } from '../../utils/operationModePresets';
 
+const TEACHER_FONT_OPTIONS = [
+  { id: 'game', label: '게임체', description: '친근하고 재미있는 분위기의 글씨체', className: 'teacher-font-game' },
+  { id: 'clean', label: '깔끔한 고딕', description: '기본 글씨체 · 표와 설정 화면을 오래 보기 편해요', className: 'teacher-font-clean' },
+  { id: 'document', label: '문서형 명조', description: '안내문과 설명이 차분하게 보이는 글씨체', className: 'teacher-font-document' },
+];
+
 const KOREAN_STUDENT_MENU_LABELS = {
   dashboard: '대시보드',
   classAll: '우리반 전체 보기',
@@ -95,6 +101,10 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   const [currentView, setCurrentView]   = useState('dashboard');
   const [quizCreationDraft, setQuizCreationDraft] = useState(null);
   const [teacherThemeMode, setTeacherThemeMode] = useState(() => localStorage.getItem('teacherThemeMode') || 'light');
+  const [teacherFont, setTeacherFont] = useState(() => {
+    const savedFont = localStorage.getItem('teacherFont');
+    return TEACHER_FONT_OPTIONS.some(option => option.id === savedFont) ? savedFont : 'clean';
+  });
   const [hideTeacherNav, setHideTeacherNav] = useState(false);
   const [hideStudentNav, setHideStudentNav] = useState(false);
   const [hiddenTeacherMenuIds, setHiddenTeacherMenuIds] = useState([]);
@@ -118,6 +128,10 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   useEffect(() => {
     localStorage.setItem('teacherThemeMode', teacherThemeMode);
   }, [teacherThemeMode]);
+
+  useEffect(() => {
+    localStorage.setItem('teacherFont', teacherFont);
+  }, [teacherFont]);
 
   // 학급별 UI 설정 경로 (전역 문서 대신 학급 문서에 저장)
   const uiPrefsRef = selectedClass?.id
@@ -177,6 +191,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   const visibleNotices = notices.filter(n => !dismissedIds.includes(n.id));
 
   const isDark = teacherThemeMode === 'dark';
+  const teacherFontClass = TEACHER_FONT_OPTIONS.find(option => option.id === teacherFont)?.className || 'teacher-font-clean';
   const shouldShowNav = !hideTeacherNav || forceShowNav;
   const studentMenuOptions = STUDENT_MENU_IDS;
   const teacherMenuOptions = TEACHER_MENU_IDS;
@@ -277,7 +292,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   };
 
   return (
-    <div className={`flex h-screen w-full ${isDark ? 'teacher-theme-dark bg-slate-950 text-slate-100' : 'bg-slate-50'}`}>
+    <div className={`flex h-screen w-full ${teacherFontClass} ${isDark ? 'teacher-theme-dark bg-slate-950 text-slate-100' : 'bg-slate-50'}`}>
       {/* 교사용 네비게이션 바 */}
       {shouldShowNav && (
         <TeacherNavigationBar
@@ -443,6 +458,33 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
                 <div className="flex gap-2">
                   <button onClick={() => setTeacherThemeMode('dark')} className={`px-4 py-2 rounded-lg text-sm font-bold border ${teacherThemeMode === 'dark' ? 'bg-indigo-600 text-white border-indigo-500' : 'border-slate-400/40'}`}>어두운 모드</button>
                   <button onClick={() => setTeacherThemeMode('light')} className={`px-4 py-2 rounded-lg text-sm font-bold border ${teacherThemeMode === 'light' ? 'bg-amber-500 text-white border-amber-400' : 'border-slate-400/40'}`}>밝은 모드</button>
+                </div>
+              </div>
+              <div className="mb-5">
+                <div className="text-sm font-bold">교사 화면 글씨체</div>
+                <p className={`mt-1 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>교사 네비게이션과 모든 관리 화면에 바로 적용됩니다.</p>
+                <div className="mt-3 grid gap-2 md:grid-cols-3">
+                  {TEACHER_FONT_OPTIONS.map(option => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setTeacherFont(option.id)}
+                      className={`${option.className} rounded-xl border p-3 text-left transition ${
+                        teacherFont === option.id
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-200'
+                          : isDark
+                            ? 'border-slate-700 bg-slate-900/50 text-slate-200 hover:border-indigo-500'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-base">{option.label}</strong>
+                        {teacherFont === option.id && <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-bold text-white">사용 중</span>}
+                      </div>
+                      <div className="mt-2 text-lg font-bold">우리반 학급운영</div>
+                      <div className="mt-1 text-[11px] leading-5 opacity-65">{option.description}</div>
+                    </button>
+                  ))}
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
