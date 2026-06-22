@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -7,7 +7,6 @@ import { normalizeLevelProgress } from './utils/leveling';
 
 import LoginPage        from './pages/LoginPage.jsx';
 import ClassSelectPage  from './pages/teacher/ClassSelectPage.jsx';
-import AdminPage        from './pages/admin/AdminPage.jsx';
 import NavigationBar    from './components/NavigationBar';
 import TeacherLogin     from './pages/teacher/TeacherLogin.jsx';
 import MyCharacter      from './components/MyCharacter';
@@ -33,6 +32,8 @@ import ClassVote      from './pages/student/ClassVote.jsx';
 import AICourseware  from './pages/student/AICourseware.jsx';
 import SpriteMonster from './components/SpriteMonster';
 import { MONSTERS_DB } from './data/monsterData';
+
+const AdminPage = lazy(() => import('./pages/admin/AdminPage.jsx'));
 
 // ── 전역 걷는 펫 (우측 하단 영역) ───────────────────────────
 function WalkingPet({ monsterData, isDead, energy = 100, onClick, bubbleRef, overlayRefs, posOutRef, actionAnim, actionKey = 0 }) {
@@ -804,11 +805,13 @@ function App() {
 
   if (appMode === 'admin') {
     return (
-      <AdminPage
-        adminUser={teacherUser}
-        onLogout={handleLogout}
-        onBackToClassSelect={() => setAppMode('classSelect')}
-      />
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-950 text-lg font-extrabold text-white">관리자 화면을 불러오는 중...</div>}>
+        <AdminPage
+          adminUser={teacherUser}
+          onLogout={handleLogout}
+          onBackToClassSelect={() => setAppMode('classSelect')}
+        />
+      </Suspense>
     );
   }
 

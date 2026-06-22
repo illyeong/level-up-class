@@ -115,11 +115,14 @@ function DashboardTab() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [savingClassId, setSavingClassId] = useState(null);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
+      setLoadError('');
       try {
-        const [classSnap, studentSnap, questSnap, dungeonSnap, raidSnap, shopSnap, feedbackSnap, noticeSnap] = await Promise.all([
+        const results = await Promise.allSettled([
           getDocs(collection(db, 'classes')),
           getDocs(collection(db, 'students')),
           getDocs(collection(db, 'quests')),
@@ -129,6 +132,13 @@ function DashboardTab() {
           getDocs(collection(db, 'feedbacks')),
           getDocs(collection(db, 'notices')),
         ]);
+        if (results[0].status === 'rejected' || results[1].status === 'rejected') {
+          throw new Error('학급 또는 학생 데이터를 읽지 못했습니다.');
+        }
+        const emptySnapshot = { docs: [] };
+        const [classSnap, studentSnap, questSnap, dungeonSnap, raidSnap, shopSnap, feedbackSnap, noticeSnap] = results.map(result => (
+          result.status === 'fulfilled' ? result.value : emptySnapshot
+        ));
 
         const classes = classSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         const students = studentSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -336,6 +346,7 @@ function DashboardTab() {
         setLastUpdatedAt(new Date());
       } catch (e) {
         console.error(e);
+        setLoadError(e?.message || '관리자 운영 데이터를 불러오지 못했습니다.');
       } finally {
         setLoading(false);
       }
@@ -419,7 +430,16 @@ function DashboardTab() {
     URL.revokeObjectURL(url);
   };
 
-  if (loading) return <div className="p-10 text-slate-400 font-bold text-center animate-pulse">학급 접속 현황을 확인하는 중...</div>;
+  if (loading) return <div className="p-10 text-slate-500 font-bold text-center animate-pulse">학급 접속 현황을 확인하는 중...</div>;
+  if (loadError) return (
+    <div className="p-6">
+      <div className="mx-auto max-w-lg rounded-3xl border border-rose-200 bg-white p-6 text-center shadow-sm">
+        <h2 className="text-lg font-extrabold text-slate-800">운영 데이터를 불러오지 못했습니다</h2>
+        <p className="mt-2 text-sm text-slate-500">{loadError}</p>
+        <button type="button" onClick={() => setRefreshKey(key => key + 1)} className="mt-5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-indigo-500">다시 시도</button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="admin-operations-dashboard space-y-6 p-4 md:p-6">
