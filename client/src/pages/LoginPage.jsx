@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { signInWithPopup } from 'firebase/auth';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
 
 const GUIDE_TABS = [
@@ -470,6 +470,13 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
       }
 
       const data = { id: snap.docs[0].id, ...snap.docs[0].data() };
+      if (data.classId) {
+        const classSnap = await getDoc(doc(db, 'classes', data.classId));
+        if (classSnap.exists() && classSnap.data().active === false) {
+          setError('현재 운영이 중지된 학급입니다. 선생님께 문의해 주세요.');
+          return;
+        }
+      }
       onStudentLogin(data);
     } catch {
       setError('로그인 중 오류가 발생했습니다.');

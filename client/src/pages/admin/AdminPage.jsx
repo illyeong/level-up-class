@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import DungeonMapEditor from './DungeonMapEditor';
 import EquipmentManage from './EquipmentManage';
 import {
@@ -64,11 +64,24 @@ const getKstDateKeyFrom = (value) => {
 };
 
 const fmtNum = (value) => Number(value || 0).toLocaleString();
+const DAY_MS = 86400000;
+const isWithinDays = (value, days) => {
+  const date = toJsDate(value);
+  return !!date && Date.now() - date.getTime() < days * DAY_MS;
+};
 const formatAdminActivity = (value) => {
   const date = toJsDate(value);
   if (!date) return '기록 없음';
   return new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  }).format(date);
+};
+
+const formatAdminDate = (value) => {
+  const date = toJsDate(value);
+  if (!date) return '기록 없음';
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: 'short', day: 'numeric',
   }).format(date);
 };
 
@@ -96,17 +109,37 @@ function DashboardTab() {
   const [sortKey, setSortKey] = useState('recent');
   const [sortDir, setSortDir] = useState('desc');
   const [viewMode, setViewMode] = useState('week');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [gradeFilter, setGradeFilter] = useState('all');
+  const [selectedClassId, setSelectedClassId] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+  const [savingClassId, setSavingClassId] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [classSnap, studentSnap] = await Promise.all([
+        const [classSnap, studentSnap, questSnap, dungeonSnap, raidSnap, shopSnap, feedbackSnap, noticeSnap] = await Promise.all([
           getDocs(collection(db, 'classes')),
           getDocs(collection(db, 'students')),
+          getDocs(collection(db, 'quests')),
+          getDocs(collection(db, 'quizDungeons')),
+          getDocs(collection(db, 'worldBossRaids')),
+          getDocs(collection(db, 'shopItems')),
+          getDocs(collection(db, 'feedbacks')),
+          getDocs(collection(db, 'notices')),
         ]);
 
         const classes = classSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         const students = studentSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const featureSources = [
+          { key: 'quests', label: '퀘스트', docs: questSnap.docs.map(d => ({ id: d.id, ...d.data() })) },
+          { key: 'dungeons', label: '퀴즈던전', docs: dungeonSnap.docs.map(d => ({ id: d.id, ...d.data() })) },
+          { key: 'raids', label: '보스레이드', docs: raidSnap.docs.map(d => ({ id: d.id, ...d.data() })) },
+          { key: 'shop', label: '학급상점', docs: shopSnap.docs.map(d => ({ id: d.id, ...d.data() })) },
+        ];
+        const feedbacks = feedbackSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const notices = noticeSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
         const classesByTeacher = {};
         classes.forEach(c => {
@@ -117,6 +150,7 @@ function DashboardTab() {
 
         const classStats = {};
         const globalTodayActiveTeachers = new Set();
+        const globalWeeklyActiveStudents = new Set();
         const todayKey = getKstDateKey();
         classes.forEach(c => {
           const teacherActiveAt = c.teacherLastActiveAt || c.teacherLastLoginAt || null;
@@ -131,8 +165,14 @@ function DashboardTab() {
             teacherActiveToday,
             grade: Number(c.grade || 0),
             classNumber: Number(c.classNumber || 0),
+            createdAt: toJsDate(c.createdAt),
+            isActive: c.active !== false,
             studentCount: 0,
             todayActiveStudents: new Set(),
+            weeklyActiveStudents: new Set(),
+            featureKeys: new Set(),
+            lastStudentActivityAt: null,
+            lastStudentName: '',
             recentActivityAt: toJsDate(teacherActiveAt),
           };
         });
@@ -143,6 +183,10 @@ function DashboardTab() {
           const date = toJsDate(ts);
           if (date && (!classStats[classId].recentActivityAt || date > classStats[classId].recentActivityAt)) {
             classStats[classId].recentActivityAt = date;
+          }
+          if (date && isWithinDays(date, 7) && studentId) {
+            classStats[classId].weeklyActiveStudents.add(studentId);
+            globalWeeklyActiveStudents.add(studentId);
           }
           if (forceToday || isTodayDate(ts)) {
             if (studentId) classStats[classId].todayActiveStudents.add(studentId);
@@ -159,6 +203,11 @@ function DashboardTab() {
           }
           if (!classId || !classStats[classId]) return;
           classStats[classId].studentCount += 1;
+          const studentActiveAt = toJsDate(activeAt);
+          if (studentActiveAt && (!classStats[classId].lastStudentActivityAt || studentActiveAt > classStats[classId].lastStudentActivityAt)) {
+            classStats[classId].lastStudentActivityAt = studentActiveAt;
+            classStats[classId].lastStudentName = s.name || s.studentCode || '학생';
+          }
           if (activeToday) {
             globalTodayActiveStudents.add(s.id);
           }
@@ -170,65 +219,238 @@ function DashboardTab() {
           );
         });
 
+        const resolveClassIds = (item) => {
+          if (item.classId && classStats[item.classId]) return [item.classId];
+          if (item.teacherUid) return classesByTeacher[item.teacherUid] || [];
+          return [];
+        };
+        const activityEvents = [];
+        Object.values(classStats).forEach(row => {
+          if (!row.lastStudentActivityAt) return;
+          activityEvents.push({
+            id: `student-${row.id}`,
+            classId: row.id,
+            type: '학생 접속',
+            title: row.lastStudentName,
+            at: row.lastStudentActivityAt,
+          });
+        });
+        featureSources.forEach(source => {
+          source.docs.forEach(item => {
+            const classIds = resolveClassIds(item);
+            classIds.forEach(classId => classStats[classId]?.featureKeys.add(source.key));
+            const eventAt = toJsDate(item.updatedAt || item.createdAt || item.clearedAt);
+            if (!eventAt) return;
+            classIds.forEach(classId => {
+              activityEvents.push({
+                id: `${source.key}-${item.id}-${classId}`,
+                classId,
+                type: source.label,
+                title: item.title || item.name || item.bossName || source.label,
+                at: eventAt,
+              });
+            });
+          });
+        });
+
+        classes.forEach(c => {
+          if (c.createdAt) activityEvents.push({
+            id: `class-${c.id}`,
+            classId: c.id,
+            type: '학급 생성',
+            title: `${c.schoolName || '학교 미입력'} ${c.grade || '-'}-${c.classNumber || '-'}반`,
+            at: toJsDate(c.createdAt),
+          });
+          if (c.teacherLastActiveAt) activityEvents.push({
+            id: `teacher-${c.id}`,
+            classId: c.id,
+            type: '교사 접속',
+            title: c.teacherEmail || '교사 이메일 미입력',
+            at: toJsDate(c.teacherLastActiveAt),
+          });
+        });
+
+        const duplicateKeys = classes.reduce((map, c) => {
+          const key = `${String(c.schoolName || '').trim()}|${c.grade || ''}|${c.classNumber || ''}`;
+          map[key] = (map[key] || 0) + 1;
+          return map;
+        }, {});
+        const orphanStudentCount = students.filter(s => !s.classId || !classStats[s.classId]).length;
         const rows = Object.values(classStats).map(row => {
           const inactiveDays = row.recentActivityAt
             ? Math.floor((Date.now() - row.recentActivityAt.getTime()) / 86400000)
             : null;
+          const duplicateKey = `${String(row.schoolName || '').trim()}|${row.grade || ''}|${row.classNumber || ''}`;
+          const issues = [];
+          if (row.studentCount === 0) issues.push('학생 0명');
+          if (!row.teacherUid || !row.teacherEmail) issues.push('교사 정보 없음');
+          if (duplicateKeys[duplicateKey] > 1) issues.push('중복 학급');
+          if (!row.isActive) issues.push('비활성화');
           return {
             ...row,
             todayActiveCount: row.todayActiveStudents.size,
+            weeklyActiveCount: row.weeklyActiveStudents.size,
             todayActive: row.todayActiveStudents.size > 0 || row.teacherActiveToday,
             activeWithin7Days: inactiveDays !== null && inactiveDays < 7,
+            featureKeys: [...row.featureKeys],
+            issues,
             recentActivityLabel: formatAdminActivity(row.recentActivityAt),
             teacherActivityLabel: formatAdminActivity(row.teacherActiveAt),
             inactiveDays,
           };
         });
 
+        const featureUsage = featureSources.map(source => ({
+          key: source.key,
+          label: source.label,
+          classCount: rows.filter(row => row.featureKeys.includes(source.key)).length,
+          itemCount: source.docs.length,
+        }));
+        const issueCount = rows.reduce((sum, row) => sum + row.issues.length, 0) + (orphanStudentCount > 0 ? 1 : 0);
+
         setData({
           summary: {
             classCount: classes.length,
             studentCount: students.length,
+            teacherCount: new Set(classes.map(c => c.teacherUid).filter(Boolean)).size,
+            recentClassCount: classes.filter(c => isWithinDays(c.createdAt, 7)).length,
+            recentStudentCount: students.filter(s => isWithinDays(s.createdAt, 7)).length,
+            recentTeacherCount: new Set(classes.filter(c => isWithinDays(c.createdAt, 7)).map(c => c.teacherUid).filter(Boolean)).size,
             todayActiveStudents: globalTodayActiveStudents.size,
+            weeklyActiveStudents: globalWeeklyActiveStudents.size,
             recentActiveClasses: rows.filter(r => r.activeWithin7Days).length,
             todayActiveTeachers: globalTodayActiveTeachers.size,
             attentionClasses: rows.filter(r => !r.activeWithin7Days).length,
+            issueCount,
+            newFeedbackCount: feedbacks.filter(item => item.status === 'new').length,
+            activeNoticeCount: notices.filter(item => item.active !== false).length,
+            orphanStudentCount,
           },
+          featureUsage,
+          activityEvents: activityEvents
+            .filter(event => event.at)
+            .sort((a, b) => b.at.getTime() - a.at.getTime())
+            .slice(0, 20),
           rows,
         });
+        setLastUpdatedAt(new Date());
       } catch (e) {
         console.error(e);
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [refreshKey]);
 
-  const sortedRows = [...(data?.rows || [])].sort((a, b) => {
+  const visibleRows = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const filtered = (data?.rows || []).filter(row => {
+      const matchesSearch = !normalizedSearch || [row.schoolName, row.teacherEmail, row.teacherUid, `${row.grade}-${row.classNumber}`]
+        .some(value => String(value || '').toLowerCase().includes(normalizedSearch));
+      const matchesGrade = gradeFilter === 'all' || String(row.grade) === gradeFilter;
+      const matchesView = viewMode === 'all'
+        || (viewMode === 'week' && row.activeWithin7Days)
+        || (viewMode === 'inactive' && !row.activeWithin7Days)
+        || (viewMode === 'issues' && row.issues.length > 0)
+        || (viewMode === 'disabled' && !row.isActive);
+      return matchesSearch && matchesGrade && matchesView;
+    });
     const direction = sortDir === 'asc' ? 1 : -1;
-    if (sortKey === 'recent') return direction * ((a.recentActivityAt?.getTime() || 0) - (b.recentActivityAt?.getTime() || 0));
-    if (sortKey === 'grade') {
-      return direction * ((a.grade - b.grade) || (a.classNumber - b.classNumber) || a.schoolName.localeCompare(b.schoolName));
-    }
-    if (sortKey === 'students') return direction * (a.studentCount - b.studentCount);
-    if (sortKey === 'todayStudents') return direction * (a.todayActiveCount - b.todayActiveCount);
-    if (sortKey === 'teacher') return direction * (Number(a.teacherActiveToday) - Number(b.teacherActiveToday));
-    return 0;
-  });
-  const visibleRows = viewMode === 'week' ? sortedRows.filter(row => row.activeWithin7Days) : sortedRows;
+    return filtered.sort((a, b) => {
+      if (sortKey === 'recent') return direction * ((a.recentActivityAt?.getTime() || 0) - (b.recentActivityAt?.getTime() || 0));
+      if (sortKey === 'grade') return direction * ((a.grade - b.grade) || (a.classNumber - b.classNumber) || a.schoolName.localeCompare(b.schoolName));
+      if (sortKey === 'students') return direction * (a.studentCount - b.studentCount);
+      if (sortKey === 'todayStudents') return direction * (a.todayActiveCount - b.todayActiveCount);
+      if (sortKey === 'teacher') return direction * ((a.teacherActiveAt?.getTime() || 0) - (b.teacherActiveAt?.getTime() || 0));
+      return 0;
+    });
+  }, [data?.rows, gradeFilter, searchTerm, sortDir, sortKey, viewMode]);
   const attentionRows = (data?.rows || [])
     .filter(row => !row.activeWithin7Days)
     .sort((a, b) => (a.recentActivityAt?.getTime() || 0) - (b.recentActivityAt?.getTime() || 0))
     .slice(0, 8);
 
+  const selectedClass = (data?.rows || []).find(row => row.id === selectedClassId) || null;
+
+  const toggleClassActive = async (row) => {
+    const nextActive = !row.isActive;
+    const action = nextActive ? '복구' : '비활성화';
+    if (!window.confirm(`${row.schoolName} ${row.grade}-${row.classNumber}반을 ${action}할까요?`)) return;
+    setSavingClassId(row.id);
+    try {
+      await updateDoc(doc(db, 'classes', row.id), {
+        active: nextActive,
+        statusUpdatedAt: serverTimestamp(),
+      });
+      setData(prev => ({
+        ...prev,
+        rows: prev.rows.map(item => item.id === row.id
+          ? {
+              ...item,
+              isActive: nextActive,
+              issues: nextActive ? item.issues.filter(issue => issue !== '비활성화') : [...item.issues, '비활성화'],
+            }
+          : item),
+      }));
+      setRefreshKey(key => key + 1);
+    } catch (error) {
+      console.error(error);
+      window.alert(`학급 ${action}에 실패했습니다.`);
+    } finally {
+      setSavingClassId(null);
+    }
+  };
+
+  const exportClassesCsv = () => {
+    const headers = ['학교', '학년', '반', '교사 이메일', '전체 학생', '오늘 접속', '7일 접속', '최근 활동', '상태', '이상 항목'];
+    const csvRows = (data?.rows || []).map(row => [
+      row.schoolName, row.grade, row.classNumber, row.teacherEmail, row.studentCount,
+      row.todayActiveCount, row.weeklyActiveCount, row.recentActivityLabel,
+      row.isActive ? '운영 중' : '비활성', row.issues.join(' / '),
+    ]);
+    const escapeCell = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
+    const csv = [headers, ...csvRows].map(row => row.map(escapeCell).join(',')).join('\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `levelup-class-admin-${getKstDateKey()}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) return <div className="p-10 text-slate-400 font-bold text-center animate-pulse">학급 접속 현황을 확인하는 중...</div>;
 
   return (
     <div className="admin-operations-dashboard space-y-6 p-4 md:p-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-        <h2 className="text-2xl font-extrabold tracking-tight text-slate-800">관리자 운영 대시보드</h2>
-        <p className="mt-1 text-sm leading-6 text-slate-500">최근 7일 동안 활동한 학급과 오늘 접속한 학생·교사 현황을 확인합니다. 기준 시간대는 한국 시간입니다.</p>
+      <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between md:p-6">
+        <div>
+          <h2 className="text-2xl font-extrabold tracking-tight text-slate-800">관리자 운영 대시보드</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-500">가입, 활동, 기능 사용과 점검이 필요한 학급을 한 화면에서 관리합니다.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-right text-[11px] leading-5 text-slate-400">
+            <div>한국 시간 기준</div>
+            <div>갱신 {lastUpdatedAt ? formatAdminActivity(lastUpdatedAt) : '-'}</div>
+          </div>
+          <button type="button" onClick={() => setRefreshKey(key => key + 1)}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-extrabold text-slate-700 hover:bg-slate-50">
+            새로고침
+          </button>
+        </div>
       </div>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h3 className="font-extrabold text-slate-800">가입 현황</h3><p className="mt-1 text-xs text-slate-500">전체 규모와 최근 7일 신규 생성 기준입니다.</p></div>
+          <span className="text-[11px] font-bold text-slate-400">학생 신규 집계는 생성 시각이 기록된 계정부터 반영</span>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <MiniMetric label={`교사 · 7일 신규 ${fmtNum(data?.summary.recentTeacherCount)}명`} value={`${fmtNum(data?.summary.teacherCount)}명`} tone="indigo" />
+          <MiniMetric label={`학급 · 7일 신규 ${fmtNum(data?.summary.recentClassCount)}개`} value={`${fmtNum(data?.summary.classCount)}개`} tone="sky" />
+          <MiniMetric label={`학생 · 7일 신규 ${fmtNum(data?.summary.recentStudentCount)}명`} value={`${fmtNum(data?.summary.studentCount)}명`} tone="emerald" />
+        </div>
+      </section>
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatCard icon="🏫" label={`최근 7일 활동 학급 / 전체 ${fmtNum(data?.summary.classCount)}개`} value={`${fmtNum(data?.summary.recentActiveClasses)}개`} color="indigo" />
@@ -239,15 +461,30 @@ function DashboardTab() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="mb-4 flex flex-col gap-3 p-5 pb-0">
             <div className="px-5 pt-5">
               <h3 className="font-extrabold text-slate-800">최근 활동 학급</h3>
-              <p className="mt-1 text-xs text-slate-500">학생 또는 교사가 접속한 시간을 기준으로 확인합니다.</p>
+              <p className="mt-1 text-xs text-slate-500">학급을 검색하고 운영 상태를 확인하거나 상세 관리할 수 있습니다.</p>
             </div>
-            <div className="flex flex-wrap gap-2 px-5 pt-5">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(220px,1fr)_120px_auto]">
+              <input value={searchTerm} onChange={event => setSearchTerm(event.target.value)}
+                placeholder="학교명, 교사 이메일, 학년-반 검색"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400" />
+              <select value={gradeFilter} onChange={event => setGradeFilter(event.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
+                <option value="all">전체 학년</option>
+                {[1, 2, 3, 4, 5, 6].map(grade => <option key={grade} value={grade}>{grade}학년</option>)}
+              </select>
+              <button type="button" onClick={exportClassesCsv}
+                className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-extrabold text-emerald-700 hover:bg-emerald-100">CSV 내보내기</button>
+            </div>
+            <div className="flex flex-wrap gap-2">
               <div className="flex rounded-xl bg-slate-100 p-1 text-xs font-bold">
                 <button onClick={() => setViewMode('week')} className={`rounded-lg px-3 py-1.5 ${viewMode === 'week' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>최근 7일 {data?.summary.recentActiveClasses}개</button>
                 <button onClick={() => setViewMode('all')} className={`rounded-lg px-3 py-1.5 ${viewMode === 'all' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>전체 {data?.summary.classCount}개</button>
+                <button onClick={() => setViewMode('inactive')} className={`rounded-lg px-3 py-1.5 ${viewMode === 'inactive' ? 'bg-white text-rose-700 shadow-sm' : 'text-slate-500'}`}>7일 미활동</button>
+                <button onClick={() => setViewMode('issues')} className={`rounded-lg px-3 py-1.5 ${viewMode === 'issues' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500'}`}>이상 항목</button>
+                <button onClick={() => setViewMode('disabled')} className={`rounded-lg px-3 py-1.5 ${viewMode === 'disabled' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>비활성</button>
               </div>
               <select value={sortKey} onChange={e => setSortKey(e.target.value)}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
@@ -269,27 +506,34 @@ function DashboardTab() {
                 <tr>
                   <th className="px-3 py-3 text-left font-semibold">학급명</th>
                   <th className="px-3 py-3 text-center font-semibold">오늘 학생 접속</th>
-                  <th className="px-3 py-3 text-center font-semibold">교사 접속</th>
+                  <th className="px-3 py-3 text-center font-semibold">7일 학생 접속</th>
+                  <th className="px-3 py-3 text-center font-semibold">교사 마지막 접속</th>
                   <th className="px-3 py-3 text-center font-semibold">최근 활동</th>
+                  <th className="px-3 py-3 text-center font-semibold">관리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {visibleRows.map(row => (
-                  <tr key={row.id} className="hover:bg-slate-50">
+                  <tr key={row.id} className={`${row.isActive ? 'hover:bg-slate-50' : 'bg-slate-50/80 opacity-75'}`}>
                     <td className="px-3 py-3">
-                      <div className="font-extrabold text-slate-800">{row.schoolName}</div>
-                      <div className="text-xs text-slate-500">{row.grade || '-'}학년 {row.classNumber || '-'}반 · {row.teacherEmail || '교사 이메일 없음'}</div>
+                      <button type="button" onClick={() => setSelectedClassId(row.id)} className="text-left">
+                        <div className="font-extrabold text-slate-800 hover:text-indigo-700">{row.schoolName}</div>
+                        <div className="text-xs text-slate-500">{row.grade || '-'}학년 {row.classNumber || '-'}반 · {row.teacherEmail || '교사 이메일 없음'}</div>
+                      </button>
+                      {row.issues.length > 0 && <div className="mt-1 flex flex-wrap gap-1">{row.issues.map(issue => <span key={issue} className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">{issue}</span>)}</div>}
                     </td>
                     <td className="px-3 py-3 text-center"><strong className="text-base text-emerald-600">{row.todayActiveCount}</strong><span className="text-xs text-slate-400"> / {row.studentCount}명</span></td>
+                    <td className="px-3 py-3 text-center"><strong className="text-base text-sky-600">{row.weeklyActiveCount}</strong><span className="text-xs text-slate-400"> / {row.studentCount}명</span></td>
                     <td className="px-3 py-3 text-center">
-                      <span title={`마지막 교사 접속: ${row.teacherActivityLabel}`} className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-extrabold ${row.teacherActiveToday ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
-                        {row.teacherActiveToday ? '오늘 접속' : '미접속'}
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-extrabold ${row.teacherActiveToday ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
+                        {row.teacherActiveToday ? '오늘 접속' : row.teacherActivityLabel}
                       </span>
                     </td>
                     <td className="px-3 py-3 text-center text-xs font-bold text-slate-500">{row.recentActivityLabel}</td>
+                    <td className="px-3 py-3 text-center"><button type="button" onClick={() => setSelectedClassId(row.id)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-extrabold text-slate-600 hover:border-indigo-300 hover:text-indigo-700">상세</button></td>
                   </tr>
                 ))}
-                {visibleRows.length === 0 && <tr><td colSpan="4" className="px-4 py-12 text-center text-sm font-bold text-slate-400">최근 7일 동안 활동한 학급이 없습니다.</td></tr>}
+                {visibleRows.length === 0 && <tr><td colSpan="6" className="px-4 py-12 text-center text-sm font-bold text-slate-400">조건에 맞는 학급이 없습니다.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -311,12 +555,54 @@ function DashboardTab() {
         </section>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="font-extrabold text-slate-800">기능별 사용 학급</h3>
+          <p className="mb-4 mt-1 text-xs text-slate-500">기능 데이터가 하나 이상 생성된 학급 기준입니다.</p>
+          <div className="space-y-3">
+            {(data?.featureUsage || []).map(item => {
+              const percent = data?.summary.classCount ? Math.round(item.classCount / data.summary.classCount * 100) : 0;
+              return <div key={item.key}>
+                <div className="mb-1 flex items-center justify-between text-xs"><span className="font-extrabold text-slate-700">{item.label}</span><span className="font-bold text-slate-500">{item.classCount}개 학급 · {item.itemCount}건</span></div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${percent}%` }} /></div>
+              </div>;
+            })}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between"><h3 className="font-extrabold text-slate-800">최근 활동 기록</h3><span className="text-[10px] font-bold text-slate-400">최근 20건</span></div>
+          <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+            {(data?.activityEvents || []).map(event => {
+              const row = data?.rows.find(item => item.id === event.classId);
+              return <button type="button" key={event.id} onClick={() => setSelectedClassId(event.classId)} className="flex w-full items-start gap-3 rounded-xl p-2 text-left hover:bg-slate-50">
+                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-indigo-500" />
+                <span className="min-w-0 flex-1"><span className="block truncate text-xs font-extrabold text-slate-700">{event.type} · {event.title}</span><span className="block truncate text-[10px] text-slate-400">{row ? `${row.schoolName} ${row.grade}-${row.classNumber}반` : '학급 정보 없음'} · {formatAdminActivity(event.at)}</span></span>
+              </button>;
+            })}
+            {!data?.activityEvents?.length && <div className="py-8 text-center text-xs font-bold text-slate-400">표시할 활동 기록이 없습니다.</div>}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between"><h3 className="font-extrabold text-slate-800">운영 데이터 점검</h3><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-extrabold text-amber-700">{fmtNum(data?.summary.issueCount)}건</span></div>
+          <div className="mt-4 space-y-2">
+            {(data?.rows || []).filter(row => row.issues.length > 0).slice(0, 6).map(row => <button type="button" key={row.id} onClick={() => setSelectedClassId(row.id)} className="flex w-full items-center justify-between rounded-xl border border-amber-100 bg-amber-50/60 p-3 text-left">
+              <span className="min-w-0"><span className="block truncate text-xs font-extrabold text-slate-700">{row.schoolName} {row.grade}-{row.classNumber}반</span><span className="mt-0.5 block text-[10px] text-amber-700">{row.issues.join(' · ')}</span></span><span className="text-slate-400">›</span>
+            </button>)}
+            {!!data?.summary.orphanStudentCount && <div className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-xs font-bold text-rose-700">학급 연결이 없는 학생 {data.summary.orphanStudentCount}명</div>}
+            {!data?.summary.issueCount && <div className="rounded-xl bg-emerald-50 p-4 text-center text-sm font-bold text-emerald-700">데이터 이상이 없습니다.</div>}
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2"><MiniMetric label="미처리 문의" value={`${fmtNum(data?.summary.newFeedbackCount)}건`} tone="rose" /><MiniMetric label="노출 공지" value={`${fmtNum(data?.summary.activeNoticeCount)}건`} tone="sky" /></div>
+        </section>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="mb-4 font-extrabold text-slate-800">운영 요약</h3>
           <div className="grid grid-cols-3 gap-3">
             <MiniMetric label="7일 활동 학급" value={`${fmtNum(data?.summary.recentActiveClasses)}개`} tone="indigo" />
-            <MiniMetric label="오늘 접속 학생" value={`${fmtNum(data?.summary.todayActiveStudents)}명`} tone="emerald" />
+            <MiniMetric label="7일 접속 학생" value={`${fmtNum(data?.summary.weeklyActiveStudents)}명`} tone="emerald" />
             <MiniMetric label="오늘 접속 교사" value={`${fmtNum(data?.summary.todayActiveTeachers)}명`} tone="amber" />
           </div>
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-6 text-slate-500">
@@ -335,6 +621,60 @@ function DashboardTab() {
           </div>
         </section>
       </div>
+
+      {selectedClass && (
+        <div className="fixed inset-0 z-[250] flex justify-end bg-slate-950/45" onMouseDown={() => setSelectedClassId(null)}>
+          <aside className="h-full w-full max-w-lg overflow-y-auto bg-white shadow-2xl" onMouseDown={event => event.stopPropagation()}>
+            <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5">
+              <div><div className="text-xs font-bold text-indigo-600">학급 상세</div><h3 className="mt-1 text-xl font-black text-slate-900">{selectedClass.schoolName} {selectedClass.grade}-{selectedClass.classNumber}반</h3><p className="mt-1 text-xs text-slate-500">{selectedClass.teacherEmail || '교사 이메일 없음'}</p></div>
+              <button type="button" onClick={() => setSelectedClassId(null)} className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-extrabold text-slate-600 hover:bg-slate-200">닫기</button>
+            </div>
+            <div className="space-y-5 p-6">
+              <div className="grid grid-cols-3 gap-2">
+                <MiniMetric label="전체 학생" value={`${selectedClass.studentCount}명`} tone="slate" />
+                <MiniMetric label="오늘 접속" value={`${selectedClass.todayActiveCount}명`} tone="emerald" />
+                <MiniMetric label="7일 접속" value={`${selectedClass.weeklyActiveCount}명`} tone="sky" />
+              </div>
+
+              <section className="rounded-2xl border border-slate-200 p-4">
+                <h4 className="text-sm font-extrabold text-slate-800">운영 정보</h4>
+                <dl className="mt-3 grid grid-cols-[120px_1fr] gap-y-3 text-xs">
+                  <dt className="font-bold text-slate-400">학급 생성일</dt><dd className="font-bold text-slate-700">{formatAdminDate(selectedClass.createdAt)}</dd>
+                  <dt className="font-bold text-slate-400">교사 마지막 접속</dt><dd className="font-bold text-slate-700">{selectedClass.teacherActivityLabel}</dd>
+                  <dt className="font-bold text-slate-400">학급 최근 활동</dt><dd className="font-bold text-slate-700">{selectedClass.recentActivityLabel}</dd>
+                  <dt className="font-bold text-slate-400">교사 UID</dt><dd className="break-all font-mono text-[10px] text-slate-500">{selectedClass.teacherUid || '기록 없음'}</dd>
+                </dl>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 p-4">
+                <h4 className="text-sm font-extrabold text-slate-800">사용 중인 기능</h4>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedClass.featureKeys.length ? selectedClass.featureKeys.map(key => {
+                    const feature = data?.featureUsage.find(item => item.key === key);
+                    return <span key={key} className="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-extrabold text-indigo-700">{feature?.label || key}</span>;
+                  }) : <span className="text-xs font-bold text-slate-400">아직 생성된 기능 데이터가 없습니다.</span>}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-200 p-4">
+                <h4 className="text-sm font-extrabold text-slate-800">데이터 점검</h4>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedClass.issues.length ? selectedClass.issues.map(issue => <span key={issue} className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-extrabold text-amber-700">{issue}</span>) : <span className="text-xs font-bold text-emerald-600">확인된 이상 항목이 없습니다.</span>}
+                </div>
+              </section>
+
+              <section className={`rounded-2xl border p-4 ${selectedClass.isActive ? 'border-rose-200 bg-rose-50/50' : 'border-emerald-200 bg-emerald-50/50'}`}>
+                <h4 className="text-sm font-extrabold text-slate-800">학급 관리</h4>
+                <p className="mt-1 text-xs leading-5 text-slate-500">비활성화하면 교사 학급 선택 목록에서 숨겨지고 학생 로그인이 차단됩니다. 데이터는 삭제하지 않습니다.</p>
+                <button type="button" disabled={savingClassId === selectedClass.id} onClick={() => toggleClassActive(selectedClass)}
+                  className={`mt-3 w-full rounded-xl px-4 py-3 text-sm font-extrabold text-white disabled:opacity-50 ${selectedClass.isActive ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+                  {savingClassId === selectedClass.id ? '처리 중...' : selectedClass.isActive ? '학급 비활성화' : '학급 운영 복구'}
+                </button>
+              </section>
+            </div>
+          </aside>
+        </div>
+      )}
     </div>
   );
 }

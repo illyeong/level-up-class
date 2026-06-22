@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, getDocs, writeBatch, doc, updateDoc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, updateDoc, setDoc, deleteDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { QRCodeSVG } from 'qrcode.react';
 import { db } from '../../firebase';
 
@@ -120,6 +120,7 @@ function AccountIssue({ user, selectedClass }) {
               tickets:    { dungeon: 3, bossRaid: 1, arena: 5 },
               classId:    selectedClass?.id || null,
               teacherUid: user.uid,
+              createdAt:   serverTimestamp(),
             });
           }
           await batch.commit();
@@ -193,6 +194,7 @@ function AccountIssue({ user, selectedClass }) {
         tickets:    { dungeon: 3, bossRaid: 1, arena: 5 },
         classId:    selectedClass?.id || null,
         teacherUid: user.uid,
+        createdAt:   serverTimestamp(),
       };
       await setDoc(doc(db, 'students', studentCode), data);
       setStudents(prev =>

@@ -363,6 +363,7 @@ function App() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     if (!teacherUser) return;
     if (!teacherUser.uid) return;
     if (appMode === 'teacherAuth') return;
@@ -378,11 +379,26 @@ function App() {
 
     const savedClass = sessionStorage.getItem('selectedClass');
     if (savedClass) {
-      setSelectedClass(JSON.parse(savedClass));
-      setAppMode('teacher');
+      const parsedClass = JSON.parse(savedClass);
+      getDoc(doc(db, 'classes', parsedClass.id))
+        .then(snap => {
+          if (cancelled) return;
+          if (!snap.exists() || snap.data().active === false) {
+            sessionStorage.removeItem('selectedClass');
+            setSelectedClass(null);
+            setAppMode('classSelect');
+            return;
+          }
+          setSelectedClass({ id: snap.id, ...snap.data() });
+          setAppMode('teacher');
+        })
+        .catch(() => {
+          if (!cancelled) setAppMode('classSelect');
+        });
     } else {
       setAppMode('classSelect');
     }
+    return () => { cancelled = true; };
   }, [teacherUser, isAdmin, isAdminLoading]);
 
   useEffect(() => {

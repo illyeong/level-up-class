@@ -177,6 +177,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
           parts:        {},
           characterImage: '',
           tickets:      { dungeon: 3, bossRaid: 1, arena: 5 },
+          createdAt:     serverTimestamp(),
         });
       }
       await batch.commit();
@@ -461,7 +462,7 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
       const snap = await getDocs(
         query(collection(db, 'classes'), where('teacherUid', '==', teacherUser.uid))
       );
-      setClasses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setClasses(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(item => item.active !== false));
     } catch (err) { console.error(err); }
     finally { setIsLoading(false); }
   };
