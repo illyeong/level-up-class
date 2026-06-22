@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, serverTimestamp, where,
+  addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where,
 } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg } from '../../data/monsterData';
@@ -33,6 +33,7 @@ export default function ClassOperationManage({ selectedClass }) {
   const [duration, setDuration] = useState(String(DEFAULT_CLASS_OPERATION_DAYS));
   const [bossId, setBossId] = useState(DEFAULT_CLASS_OPERATION_BOSS_ID);
   const [isCreating, setIsCreating] = useState(false);
+  const [operationAction, setOperationAction] = useState('');
   const [isStudentsLoading, setIsStudentsLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [showStudentView, setShowStudentView] = useState(false);
@@ -155,6 +156,26 @@ export default function ClassOperationManage({ selectedClass }) {
     await deleteDoc(doc(db, 'classOperations', operation.id));
   };
 
+  const endOperation = async operation => {
+    if (operationAction || !window.confirm(`"${operation.title}" 우리반 대작전을 지금 종료할까요?\n공격 기록은 그대로 보관됩니다.`)) return;
+    setOperationAction('ending');
+    setMessage('');
+    try {
+      await updateDoc(doc(db, 'classOperations', operation.id), {
+        status: 'ended',
+        endedAt: serverTimestamp(),
+        endedReason: 'teacher',
+        updatedAt: serverTimestamp(),
+      });
+      setMessage('우리반 대작전을 종료했습니다. 공격 기록은 지난 대작전에 보관됩니다.');
+    } catch (error) {
+      console.error('우리반 대작전 즉시 종료 실패:', error);
+      setMessage('대작전을 종료하는 중 오류가 발생했습니다.');
+    } finally {
+      setOperationAction('');
+    }
+  };
+
   if (showStudentView) {
     return (
       <ClassOperation
@@ -205,8 +226,10 @@ export default function ClassOperationManage({ selectedClass }) {
                 </div>
                 <div className="mt-2 flex justify-between text-xs font-bold text-white/65"><span>누적 공격 {formatNumber(activeOperation.totalAttackCount)}회</span><span>{formatNumber(activeOperation.currentHP)} / {formatNumber(activeOperation.maxHP)} HP</span></div>
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <button onClick={() => setShowStudentView(true)} className="rounded-xl bg-amber-400 px-4 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-300">👁 학생 화면으로 진행상황 보기</button>
+                  <button onClick={() => setShowStudentView(true)} disabled={Boolean(operationAction)} className="rounded-xl bg-amber-400 px-4 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50">👁 학생 화면으로 진행상황 보기</button>
+                  <button onClick={() => endOperation(activeOperation)} disabled={Boolean(operationAction)} className="rounded-xl border border-rose-300/50 bg-rose-500/20 px-4 py-2 text-xs font-extrabold text-rose-100 hover:bg-rose-500/35 disabled:cursor-not-allowed disabled:opacity-50">{operationAction === 'ending' ? '종료하는 중...' : '■ 즉시 종료'}</button>
                 </div>
+                {message && <p className="mt-3 text-xs font-bold text-emerald-300">{message}</p>}
               </div>
               <SpriteMonster data={MONSTERS_DB[activeOperation.bossId]} anim="idle" scale={(MONSTERS_DB[activeOperation.bossId]?.scale || 0.4) * 1.45} />
             </div>
