@@ -374,6 +374,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             selectedClass={selectedClass}
             initialQuizSet={quizCreationDraft?.targetView === 'quizDungeonManage' ? quizCreationDraft.quizSet : null}
             onInitialQuizSetConsumed={clearQuizCreationDraft}
+            onViewStudent={() => setCurrentView('quizDungeon')}
           />
         )}
         {currentView === 'bossRaidManage' && (

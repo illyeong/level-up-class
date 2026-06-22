@@ -1,11 +1,7 @@
-import React, { useState } from 'react';
-import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+/* eslint-disable react-refresh/only-export-components */
+import { useState } from 'react';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-
-// 🌟 학생용과 동일한 아이콘 경로를 불러옵니다.
-import iconDashboard from '../assets/images/icon-dashboard.png';
-import iconQuest from '../assets/images/icon-quest.png';
-import iconAdventure from '../assets/images/icon-adventure.png';
 
 export const HELP_CONTENT = {
   dashboard: {
@@ -186,7 +182,7 @@ export const HELP_CONTENT = {
 
 const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, selectedClass, hiddenMenuIds = [] }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-  const [expandedMenu, setExpandedMenu] = useState('dashboard');
+  const [expandedMenu, setExpandedMenu] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [fbText, setFbText]             = useState('');
   const [fbSaving, setFbSaving]         = useState(false);
@@ -194,56 +190,44 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
   const hidden = new Set(hiddenMenuIds || []);
   const teacherMenuData = [
     {
-      id: 'dashboard', icon: iconDashboard, title: '대시보드', isReady: true,
+      id: 'dashboard', icon: '🏠', title: '대시보드', isReady: true,
       subMenus: []
     },
     {
-      id: 'myCharacter', icon: '🦸‍♂️', title: '내 캐릭터', isReady: true,
-      subMenus: []
-    },
-    {
-      id: 'questManage', icon: iconQuest, title: '퀘스트 관리소', isReady: true,
+      id: 'classOperations', icon: '📋', title: '학급운영', isReady: true,
       subMenus: [
+        { title: '퀘스트 관리', id: 'questManage' },
         { title: '🖐️ 학생 셀프체크인', id: 'questKiosk' },
-      ]
+        { title: '🏰 우리반 대작전', id: 'classOperationManage' },
+      ],
     },
     {
-      id: 'classOperationManage', icon: '🏰', title: '우리반 대작전', isReady: true,
-      subMenus: []
-    },
-    {
-      id: 'contentStudio', icon: '🛠️', title: '수업 콘텐츠 제작실', isReady: true,
+      id: 'contentStudio', icon: '🧰', title: '수업 콘텐츠', isReady: true,
       subMenus: [
         { title: '📚 퀴즈 은행',    id: 'quizBank' },
         { title: '퀴즈던전 관리',  id: 'quizDungeonManage' },
         { title: '보스레이드 관리', id: 'bossRaidManage' },
-      ]
+        { title: '🤖 AI 학습현황', id: 'aiCourseware' },
+        { title: 'AI 학습 학생화면', id: 'aiCoursewareView' },
+      ],
     },
     {
-      id: 'adventure', icon: iconAdventure, title: '어드벤처', isReady: true,
-      subMenus: [
-        { title: '퀴즈던전',    id: 'quizDungeon' },
-        { title: '탐험던전',    id: 'explorationDungeon' },
-        { title: '보스 레이드', id: 'bossRaid' },
-        { title: '어드벤처 관리', id: 'adventureManage' }
-      ]
-    },
-    {
-      id: 'aiCourseware', icon: '🤖', title: 'AI 학습현황', isReady: true,
-      subMenus: [
-        { title: '📊 AI 학습현황', id: 'aiCourseware' },
-        { title: '🎓 AI 학습 보기', id: 'aiCoursewareView' },
-      ]
-    },
-    {
-      id: 'boardManage', icon: '📋', title: '게시판 및 배움노트', isReady: true,
+      id: 'classActivities', icon: '💬', title: '학급 활동', isReady: true,
       subMenus: [
         { title: '공유 게시판',       id: 'boardManage' },
         { title: '📚 배움노트 관리',  id: 'learningNoteManage' },
         { title: '📋 자유 게시판',    id: 'freeBoard' },
-        { title: '🏆 명예의 전당',    id: 'hallOfFame' },
         { title: '📊 학급 투표 관리', id: 'classVoteManage' },
-      ]
+        { title: '🏆 명예의 전당',    id: 'hallOfFame' },
+      ],
+    },
+    {
+      id: 'gameReward', icon: '⚔️', title: '게임·보상 관리', isReady: true,
+      subMenus: [
+        { title: '내 캐릭터', id: 'myCharacter' },
+        { title: '탐험던전 테스트', id: 'explorationDungeon' },
+        { title: '어드벤처 이용권 관리', id: 'adventureManage' },
+      ],
     },
     {
       id: 'economyManage', icon: '💎', title: '학급 경제 관리', isReady: true,
@@ -254,30 +238,26 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       ]
     },
     {
-      id: 'studentManage', icon: '👨‍🎓', title: '학급/학생 관리', isReady: true,
+      id: 'studentManage', icon: '👥', title: '학생·학급 관리', isReady: true,
       subMenus: [
         { title: '학생 계정 발급', id: 'accountIssue' },
-      ]
-    },
-    {
-      id: 'systemSettings', icon: '⚙️', title: '시스템 설정', isReady: true,
-      subMenus: [
-        { title: '테마/화면 설정', id: 'systemSettings' },
-        { title: '데이터 초기화 및 삭제', id: 'dataReset' },
-      ]
-    },
-    {
-      id: 'inquiry', icon: '💬', title: '건의 및 문의하기', isReady: true,
-      subMenus: []
+      ],
     }
   ].filter((menu) => !hidden.has(menu.id))
     .map((menu) => ({
       ...menu,
       subMenus: (menu.subMenus || []).filter((sub) => !hidden.has(sub.id)),
-    }));
+    }))
+    .filter((menu) => menu.subMenus.length > 0 || menu.id === 'dashboard');
 
-  // 서브메뉴와 상관없이 자체 페이지로 이동하는 메뉴
-  const DIRECT_NAV_MENUS = ['dashboard', 'myCharacter', 'questManage', 'inquiry'];
+  const utilityMenus = [
+    { id: 'systemSettings', icon: '⚙️', title: '시스템 설정' },
+    { id: 'dataReset', icon: '🗑️', title: '데이터 초기화' },
+    { id: 'inquiry', icon: '💬', title: '건의 및 문의' },
+  ].filter((menu) => !hidden.has(menu.id));
+
+  const activeParentId = teacherMenuData.find(menu => menu.subMenus.some(sub => sub.id === currentView))?.id;
+  const visibleExpandedMenu = expandedMenu ?? activeParentId;
 
   const submitFeedback = async () => {
     if (!fbText.trim()) return;
@@ -293,15 +273,14 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       setFbText('');
       setShowFeedback(false);
       alert('✅ 건의/문의가 전달되었습니다. 감사합니다!');
-    } catch (e) { alert('전송 실패'); }
+    } catch { alert('전송 실패'); }
     finally { setFbSaving(false); }
   };
 
   const handleMenuClick = (menuId) => {
     const clickedMenu = teacherMenuData.find(m => m.id === menuId);
 
-    if (changeView && clickedMenu &&
-      (clickedMenu.subMenus.length === 0 || DIRECT_NAV_MENUS.includes(menuId))) {
+    if (changeView && clickedMenu?.id === 'dashboard') {
       changeView(menuId);
     }
 
@@ -315,25 +294,31 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
 
   const handleSubMenuClick = (e, subMenuId) => {
     e.stopPropagation();
+    const parent = teacherMenuData.find(menu => menu.subMenus.some(sub => sub.id === subMenuId));
+    if (parent) setExpandedMenu(parent.id);
     if (changeView) {
       changeView(subMenuId); 
     }
   };
 
+  const handleUtilityClick = (menuId) => {
+    changeView?.(menuId);
+  };
+
   return (
     <>
-    <nav className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-indigo-950 text-indigo-100 transition-all duration-300 flex flex-col h-full z-50 shadow-2xl`}>
+    <nav className={`${isSidebarOpen ? 'w-64' : 'w-[72px]'} bg-indigo-950 text-indigo-100 transition-all duration-300 flex flex-col h-full z-50 shadow-2xl`}>
       
       {/* 최상단 로고 영역 */}
-      <div className="flex items-center justify-between p-4 h-20 border-b border-indigo-900 shrink-0">
+      <div className="flex items-center justify-between px-4 h-[84px] border-b border-indigo-900 shrink-0">
         {isSidebarOpen && (
           <div className="flex flex-col">
-            <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-orange-400 text-xl tracking-wider truncate">
+            <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-orange-400 text-lg tracking-wide truncate">
               Teacher Mode
             </span>
             {selectedClass?.grade && selectedClass?.classNumber ? (
-              <span className="text-xs text-amber-300 font-extrabold tracking-wide">
-                {selectedClass.grade}학년 {selectedClass.classNumber}반
+              <span className="max-w-40 truncate text-[11px] text-indigo-200 font-bold tracking-wide">
+                {selectedClass.schoolName ? `${selectedClass.schoolName} · ` : ''}{selectedClass.grade}학년 {selectedClass.classNumber}반
               </span>
             ) : (
               <span className="text-xs text-indigo-300 font-bold tracking-widest">LEVELUP CLASS</span>
@@ -353,26 +338,21 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       </div>
       
       {/* 메뉴 리스트 */}
-      <ul className="flex-1 px-3 mt-4 overflow-y-auto space-y-1 pb-4 scrollbar-hide">
+      <ul className="flex-1 px-3 py-4 overflow-y-auto space-y-1 scrollbar-hide">
         {teacherMenuData.map((menu) => (
           <li key={menu.id} className="flex flex-col">
             <div
               onClick={() => handleMenuClick(menu.id)}
-              className={`p-3 rounded-xl cursor-pointer flex items-center justify-between transition-colors
-                ${currentView === menu.id || menu.subMenus.some(sub => sub.id === currentView) ? 'bg-indigo-900/80 text-amber-300 font-bold shadow-inner' : 'hover:bg-indigo-900 hover:text-white'}
+              className={`min-h-11 px-2.5 py-2 rounded-xl cursor-pointer flex items-center justify-between transition-colors
+                ${currentView === menu.id || menu.subMenus.some(sub => sub.id === currentView) ? 'bg-indigo-900 text-amber-300 font-bold' : 'text-indigo-100 hover:bg-indigo-900/70 hover:text-white'}
                 ${!menu.isReady ? 'opacity-50' : ''}
               `}
             >
               <div className="flex items-center">
-                {/* 🌟 학생용 네비게이션과 동일한 아이콘 렌더링 방식 적용 */}
-                {menu.icon.length > 10 ? (
-                  <img src={menu.icon} alt={menu.title} className={`drop-shadow-md object-contain ${menu.id === 'adventure' ? 'w-11 h-11' : 'w-8 h-8'}`} />
-                ) : (
-                  <span className="text-3xl drop-shadow-md inline-block w-8 text-center">{menu.icon}</span>
-                )}
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/5 text-[20px]">{menu.icon}</span>
 
                 {isSidebarOpen && (
-                  <span className={`ml-4 text-sm font-medium ${(currentView === menu.id || menu.subMenus.some(sub => sub.id === currentView)) ? 'font-bold' : ''}`}>
+                  <span className={`ml-3 text-[13px] font-semibold ${(currentView === menu.id || menu.subMenus.some(sub => sub.id === currentView)) ? 'font-extrabold' : ''}`}>
                     {menu.title}
                     {!menu.isReady && <span className="ml-2 text-[10px] bg-indigo-800 text-indigo-300 px-2 py-0.5 rounded-full">준비중</span>}
                   </span>
@@ -380,23 +360,23 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
               </div>
               
               {isSidebarOpen && menu.subMenus.length > 0 && (
-                <svg className={`w-4 h-4 text-indigo-400 transition-transform duration-300 ${expandedMenu === menu.id ? 'rotate-180 text-amber-400' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`w-4 h-4 text-indigo-400 transition-transform duration-300 ${visibleExpandedMenu === menu.id ? 'rotate-180 text-amber-400' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
               )}
             </div>
 
             {/* 하위 메뉴 */}
-            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen && expandedMenu === menu.id ? 'max-h-96 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
+            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen && visibleExpandedMenu === menu.id ? 'max-h-[420px] opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
               <ul className="space-y-1">
                 {menu.subMenus.map((subMenu, idx) => (
                   <li 
                     key={idx} 
                     onClick={(e) => handleSubMenuClick(e, subMenu.id)}
-                    className={`pl-14 py-2 text-sm rounded-lg cursor-pointer transition-colors flex items-center before:content-[''] before:w-1 before:h-1 before:rounded-full before:mr-3
+                    className={`ml-5 pl-7 pr-2 py-2 text-[12px] rounded-lg cursor-pointer transition-colors flex items-center border-l before:content-[''] before:w-1 before:h-1 before:rounded-full before:mr-2.5
                       ${currentView === subMenu.id 
-                        ? 'text-amber-300 bg-indigo-900/50 before:bg-amber-400 font-bold' 
-                        : 'text-indigo-300 hover:text-amber-200 hover:bg-indigo-900/30 before:bg-indigo-600 hover:before:bg-amber-400'
+                        ? 'border-amber-400 text-amber-300 bg-indigo-900/50 before:bg-amber-400 font-bold'
+                        : 'border-indigo-800 text-indigo-300 hover:text-white hover:bg-indigo-900/30 before:bg-indigo-600 hover:before:bg-indigo-300'
                       }
                     `}
                   >
@@ -409,14 +389,20 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
         ))}
       </ul>
 
-      {/* 하단 학생 모드 복귀(로그아웃) 버튼 */}
-      <div className="p-4 border-t border-indigo-900 shrink-0">
+      <div className="border-t border-indigo-900 p-3 shrink-0 space-y-1">
+        {utilityMenus.map(menu => (
+          <button key={menu.id} onClick={() => handleUtilityClick(menu.id)}
+            className={`flex min-h-10 w-full items-center rounded-xl px-2.5 text-left transition-colors ${currentView === menu.id ? 'bg-indigo-900 text-amber-300' : 'text-indigo-300 hover:bg-indigo-900/70 hover:text-white'}`}>
+            <span className="grid h-7 w-8 shrink-0 place-items-center text-lg">{menu.icon}</span>
+            {isSidebarOpen && <span className="ml-3 text-xs font-bold">{menu.title}</span>}
+          </button>
+        ))}
         <button 
           onClick={onLogout}
-          className="flex items-center w-full p-3 text-indigo-300 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors group"
+          className="flex min-h-10 w-full items-center rounded-xl px-2.5 text-indigo-300 hover:text-rose-300 hover:bg-rose-500/10 transition-colors group"
         >
-          <span className="text-2xl group-hover:scale-110 transition-transform inline-block w-8 text-center">🚪</span>
-          {isSidebarOpen && <span className="ml-4 font-bold text-sm">학생 화면 복귀 (로그아웃)</span>}
+          <span className="grid h-7 w-8 shrink-0 place-items-center text-lg group-hover:scale-110 transition-transform">🚪</span>
+          {isSidebarOpen && <span className="ml-3 font-bold text-xs">학생 화면 복귀 (로그아웃)</span>}
         </button>
       </div>
     </nav>

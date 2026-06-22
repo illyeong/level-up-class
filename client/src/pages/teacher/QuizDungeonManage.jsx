@@ -285,7 +285,7 @@ function QuizSetPicker({ selectedSetId, onSelect }) {
 }
 
 // ── 메인 ──────────────────────────────────────────────────────────
-function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuizSetConsumed }) {
+function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuizSetConsumed, onViewStudent }) {
   const teacherUid = selectedClass?.teacherUid || auth.currentUser?.uid || 'admin_master_001';
   const [tab, setTab] = useState('create'); // 'create' | 'dungeons' | 'results'
 
@@ -507,6 +507,12 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
             <p className="text-slate-500 text-sm mt-0.5">내 퀴즈에서 선택해 던전을 발행하세요.</p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            {onViewStudent && (
+              <button onClick={onViewStudent}
+                className="px-4 py-2 rounded-xl font-bold text-sm bg-slate-900 text-white hover:bg-slate-700 transition-colors">
+                👁 학생 화면 미리보기
+              </button>
+            )}
             {[
               ['create',   '⚔️ 던전 만들기'],
               ['dungeons', `📚 발행된 던전 (${dungeons.length})`],

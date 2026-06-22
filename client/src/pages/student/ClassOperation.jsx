@@ -9,7 +9,7 @@ import { getClassOperationAttack, getLocalDateKey, getRemainingDays } from '../.
 
 const formatNumber = value => Math.max(0, Number(value) || 0).toLocaleString('ko-KR');
 
-export default function ClassOperation({ studentCode }) {
+export default function ClassOperation({ studentCode, isTeacher = false, selectedClass = null, onExit }) {
   const [student, setStudent] = useState(null);
   const [operation, setOperation] = useState(null);
   const [equipmentItems, setEquipmentItems] = useState([]);
@@ -28,6 +28,39 @@ export default function ClassOperation({ studentCode }) {
     let mounted = true;
 
     const load = async () => {
+      if (isTeacher) {
+        const classId = selectedClass?.id || selectedClass?.classId || null;
+        const teacherUid = selectedClass?.teacherUid || null;
+        if (!classId && !teacherUid) {
+          setIsLoading(false);
+          return;
+        }
+        const teacherOperationQuery = classId
+          ? query(collection(db, 'classOperations'), where('classId', '==', classId))
+          : query(collection(db, 'classOperations'), where('teacherUid', '==', teacherUid));
+        unsubscribeOperation = onSnapshot(
+          teacherOperationQuery,
+          snapshot => {
+            const operations = snapshot.docs
+              .map(item => ({ id: item.id, ...item.data() }))
+              .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+            const current = operations.find(item => item.status === 'active') || operations[0] || null;
+            setOperation(current);
+            unsubscribeAttackList();
+            if (current) {
+              unsubscribeAttackList = onSnapshot(
+                collection(db, 'classOperations', current.id, 'attacks'),
+                attackListSnap => setAttacks(attackListSnap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (b.attackedAt?.seconds || 0) - (a.attackedAt?.seconds || 0))),
+              );
+            } else {
+              setAttacks([]);
+            }
+            setIsLoading(false);
+          },
+          () => setIsLoading(false),
+        );
+        return;
+      }
       if (!studentCode) {
         setIsLoading(false);
         return;
@@ -95,7 +128,7 @@ export default function ClassOperation({ studentCode }) {
       unsubscribeAttack();
       unsubscribeAttackList();
     };
-  }, [studentCode]);
+  }, [studentCode, isTeacher, selectedClass?.id, selectedClass?.classId, selectedClass?.teacherUid]);
 
   const attackStats = useMemo(
     () => getClassOperationAttack(student || {}, equipmentItems),
@@ -106,7 +139,7 @@ export default function ClassOperation({ studentCode }) {
   const progress = Math.min(100, Math.max(0, ((maxHP - currentHP) / maxHP) * 100));
   const boss = MONSTERS_DB[operation?.bossId] || MONSTERS_DB.redDragon;
   const background = operation ? resolveBossBg(operation) : '';
-  const canAttack = operation?.status === 'active' && getRemainingDays(operation.endDate) > 0 && !hasAttackedToday && currentHP > 0;
+  const canAttack = !isTeacher && operation?.status === 'active' && getRemainingDays(operation.endDate) > 0 && !hasAttackedToday && currentHP > 0;
   const contributionRows = useMemo(() => {
     const rows = new Map();
     attacks.forEach(attackItem => {
@@ -178,10 +211,13 @@ export default function ClassOperation({ studentCode }) {
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${background}')` }} />
       <div className="absolute inset-0 bg-slate-950/65" />
       <div className="relative z-10 mx-auto flex min-h-screen max-w-5xl flex-col px-4 py-7 md:px-8">
+        {isTeacher && onExit && (
+          <button onClick={onExit} className="mb-3 self-start rounded-xl border border-white/20 bg-black/45 px-4 py-2 text-xs font-extrabold text-white hover:bg-white/15">← 관리 화면으로 돌아가기</button>
+        )}
         <header className="rounded-3xl border border-white/15 bg-black/35 p-5 text-center backdrop-blur-md">
           <p className="text-xs font-extrabold tracking-[0.28em] text-amber-300">우리반 대작전</p>
           <h1 className="mt-2 text-2xl font-black md:text-4xl">{operation.title}</h1>
-          <p className="mt-2 text-sm text-white/70">하루 한 번, 우리 반 모두의 힘으로 공동 목표를 완성하세요.</p>
+          <p className="mt-2 text-sm text-white/70">{isTeacher ? '학생들이 보는 화면과 동일한 실시간 진행상황입니다.' : '하루 한 번, 우리 반 모두의 힘으로 공동 목표를 완성하세요.'}</p>
         </header>
 
         <main className="mt-5 grid flex-1 gap-5 md:grid-cols-[1.2fr_0.8fr]">
@@ -207,25 +243,41 @@ export default function ClassOperation({ studentCode }) {
           </section>
 
           <aside className="rounded-3xl border border-white/15 bg-slate-950/75 p-5 backdrop-blur-md">
-            <h2 className="text-lg font-extrabold">오늘의 내 공격</h2>
-            <div className="mt-4 rounded-2xl border border-indigo-400/30 bg-indigo-500/10 p-4">
-              <div className="text-xs text-indigo-200">예상 피해량</div>
-              <div className="mt-1 text-4xl font-black text-amber-300">{formatNumber(attackStats.damage)}</div>
-              <div className="mt-3 space-y-1 text-xs text-white/60">
-                <div className="flex justify-between"><span>레벨</span><strong>Lv.{attackStats.level}</strong></div>
-                <div className="flex justify-between"><span>기본 공격력</span><strong>{attackStats.baseAttack}</strong></div>
-                <div className="flex justify-between"><span>성장·장비 보너스</span><strong>+{attackStats.upgradeBonus + attackStats.equipmentBonus}</strong></div>
-              </div>
-            </div>
-            <button onClick={attack} disabled={!canAttack || isAttacking}
-              className="mt-5 w-full rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 py-4 text-lg font-black text-slate-950 shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:grayscale disabled:opacity-60">
-              {operation.status === 'cleared' ? '🎉 공동 목표 달성!' : hasAttackedToday ? '✅ 오늘 공격 완료' : isAttacking ? '공격 중...' : '⚔️ 오늘의 공격하기'}
-            </button>
-            {message && <p className="mt-3 rounded-xl bg-white/10 p-3 text-center text-xs font-bold text-amber-100">{message}</p>}
-            <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs leading-6 text-white/55">
-              <strong className="block text-sm text-white">함께하는 규칙</strong>
-              매일 1번 공격할 수 있습니다.<br />내 레벨과 장비 공격력이 피해량에 반영됩니다.<br />개인 순위 없이 모든 피해가 우리 반 목표에 합쳐집니다.
-            </div>
+            {isTeacher ? (
+              <>
+                <h2 className="text-lg font-extrabold">교사 진행 현황</h2>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 p-4"><div className="text-xs text-amber-100/70">남은 보스 HP</div><div className="mt-1 text-3xl font-black text-amber-300">{formatNumber(currentHP)}</div></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-white/10 p-4"><div className="text-xs text-white/50">누적 공격</div><div className="mt-1 text-xl font-black">{formatNumber(operation.totalAttackCount || attacks.length)}회</div></div>
+                    <div className="rounded-2xl bg-white/10 p-4"><div className="text-xs text-white/50">참여 학생</div><div className="mt-1 text-xl font-black">{contributionRows.length}명</div></div>
+                  </div>
+                </div>
+                <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs leading-6 text-white/55">공격 기록과 HP는 학생이 공격하는 즉시 이 화면에도 반영됩니다.</div>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-extrabold">오늘의 내 공격</h2>
+                <div className="mt-4 rounded-2xl border border-indigo-400/30 bg-indigo-500/10 p-4">
+                  <div className="text-xs text-indigo-200">예상 피해량</div>
+                  <div className="mt-1 text-4xl font-black text-amber-300">{formatNumber(attackStats.damage)}</div>
+                  <div className="mt-3 space-y-1 text-xs text-white/60">
+                    <div className="flex justify-between"><span>레벨</span><strong>Lv.{attackStats.level}</strong></div>
+                    <div className="flex justify-between"><span>기본 공격력</span><strong>{attackStats.baseAttack}</strong></div>
+                    <div className="flex justify-between"><span>성장·장비 보너스</span><strong>+{attackStats.upgradeBonus + attackStats.equipmentBonus}</strong></div>
+                  </div>
+                </div>
+                <button onClick={attack} disabled={!canAttack || isAttacking}
+                  className="mt-5 w-full rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 py-4 text-lg font-black text-slate-950 shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:grayscale disabled:opacity-60">
+                  {operation.status === 'cleared' ? '🎉 공동 목표 달성!' : hasAttackedToday ? '✅ 오늘 공격 완료' : isAttacking ? '공격 중...' : '⚔️ 오늘의 공격하기'}
+                </button>
+                {message && <p className="mt-3 rounded-xl bg-white/10 p-3 text-center text-xs font-bold text-amber-100">{message}</p>}
+                <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs leading-6 text-white/55">
+                  <strong className="block text-sm text-white">함께하는 규칙</strong>
+                  매일 1번 공격할 수 있습니다.<br />내 레벨과 장비 공격력이 피해량에 반영됩니다.<br />개인 순위 없이 모든 피해가 우리 반 목표에 합쳐집니다.
+                </div>
+              </>
+            )}
           </aside>
         </main>
 

@@ -5,6 +5,7 @@ import {
 import { db, auth } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
+import ClassOperation from '../student/ClassOperation';
 import {
   calculateClassOperationMaxHP, DEFAULT_CLASS_OPERATION_BOSS_ID, DEFAULT_CLASS_OPERATION_DAYS,
   getRemainingDays,
@@ -18,7 +19,6 @@ const GOAL_EXAMPLES = [
   '자유 체육 시간',
   '영화 감상 시간',
   '보드게임 데이',
-  '숙제 면제권 1회',
   '교실 음악 시간',
   '우리반 테마 데이',
 ];
@@ -30,11 +30,12 @@ export default function ClassOperationManage({ selectedClass }) {
   const [equipmentItems, setEquipmentItems] = useState([]);
   const [attacks, setAttacks] = useState([]);
   const [goal, setGoal] = useState('');
-  const [duration, setDuration] = useState(DEFAULT_CLASS_OPERATION_DAYS);
+  const [duration, setDuration] = useState(String(DEFAULT_CLASS_OPERATION_DAYS));
   const [bossId, setBossId] = useState(DEFAULT_CLASS_OPERATION_BOSS_ID);
   const [isCreating, setIsCreating] = useState(false);
   const [isStudentsLoading, setIsStudentsLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [showStudentView, setShowStudentView] = useState(false);
   const classId = selectedClass?.id || selectedClass?.classId || null;
   const teacherUid = selectedClass?.teacherUid || auth.currentUser?.uid || null;
 
@@ -80,9 +81,11 @@ export default function ClassOperationManage({ selectedClass }) {
 
   const activeOperation = operations.find(operation => operation.status === 'active') || null;
   const selectedBoss = MONSTERS_DB[bossId] || MONSTERS_DB[DEFAULT_CLASS_OPERATION_BOSS_ID];
+  const parsedDuration = Number.parseInt(duration, 10);
+  const isDurationValid = Number.isInteger(parsedDuration) && parsedDuration >= 1 && parsedDuration <= 365;
   const hpPreview = useMemo(
-    () => calculateClassOperationMaxHP(students, equipmentItems, duration),
-    [students, equipmentItems, duration],
+    () => calculateClassOperationMaxHP(students, equipmentItems, isDurationValid ? parsedDuration : 1),
+    [students, equipmentItems, isDurationValid, parsedDuration],
   );
   const contributionRows = useMemo(() => {
     const rows = new Map();
@@ -107,12 +110,15 @@ export default function ClassOperationManage({ selectedClass }) {
   }, [activeOperation?.id]);
 
   const createOperation = async () => {
-    if (!classId || !teacherUid || !goal.trim() || activeOperation || isCreating) return;
+    if (!teacherUid || !goal.trim() || !isDurationValid || activeOperation || isCreating) {
+      setMessage(!teacherUid ? '교사 정보를 확인할 수 없습니다.' : !goal.trim() ? '공동 목표를 입력해주세요.' : !isDurationValid ? '진행 기간을 1~365일로 입력해주세요.' : '현재 진행 중인 대작전이 있습니다.');
+      return;
+    }
     setIsCreating(true);
     setMessage('');
     try {
       const endDate = new Date();
-      endDate.setDate(endDate.getDate() + Number(duration));
+      endDate.setDate(endDate.getDate() + parsedDuration);
       await addDoc(collection(db, 'classOperations'), {
         title: goal.trim(),
         goalDescription: goal.trim(),
@@ -123,11 +129,11 @@ export default function ClassOperationManage({ selectedClass }) {
         currentHP: hpPreview.maxHP,
         expectedDailyDamage: hpPreview.expectedDailyDamage,
         assumedParticipationRate: 1,
-        durationDays: Number(duration),
+        durationDays: parsedDuration,
         studentCountAtCreation: students.length,
         totalAttackCount: 0,
         status: 'active',
-        classId,
+        classId: classId || null,
         teacherUid,
         startDate: serverTimestamp(),
         endDate,
@@ -151,6 +157,16 @@ export default function ClassOperationManage({ selectedClass }) {
     if (!window.confirm(`"${operation.title}" 기록을 삭제할까요?`)) return;
     await deleteDoc(doc(db, 'classOperations', operation.id));
   };
+
+  if (showStudentView) {
+    return (
+      <ClassOperation
+        isTeacher
+        selectedClass={selectedClass}
+        onExit={() => setShowStudentView(false)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 p-5 md:p-8">
@@ -191,7 +207,10 @@ export default function ClassOperationManage({ selectedClass }) {
                   <div className="h-full rounded-full bg-gradient-to-r from-rose-600 to-amber-400" style={{ width: `${Math.max(0, Math.min(100, ((activeOperation.maxHP - activeOperation.currentHP) / activeOperation.maxHP) * 100))}%` }} />
                 </div>
                 <div className="mt-2 flex justify-between text-xs font-bold text-white/65"><span>누적 공격 {formatNumber(activeOperation.totalAttackCount)}회</span><span>{formatNumber(activeOperation.currentHP)} / {formatNumber(activeOperation.maxHP)} HP</span></div>
-                <button onClick={() => finishOperation(activeOperation)} className="mt-5 rounded-xl border border-white/20 bg-black/30 px-4 py-2 text-xs font-bold text-white/70 hover:bg-white/10">대작전 종료</button>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button onClick={() => setShowStudentView(true)} className="rounded-xl bg-amber-400 px-4 py-2 text-xs font-extrabold text-slate-950 hover:bg-amber-300">👁 학생 화면으로 진행상황 보기</button>
+                  <button onClick={() => finishOperation(activeOperation)} className="rounded-xl border border-white/20 bg-black/30 px-4 py-2 text-xs font-bold text-white/70 hover:bg-white/10">대작전 종료</button>
+                </div>
               </div>
               <SpriteMonster data={MONSTERS_DB[activeOperation.bossId]} anim="idle" scale={(MONSTERS_DB[activeOperation.bossId]?.scale || 0.4) * 1.45} />
             </div>
@@ -207,15 +226,26 @@ export default function ClassOperationManage({ selectedClass }) {
                 <span className="mt-2 block text-[11px] font-bold text-slate-400">목표 예시를 눌러 바로 입력할 수 있습니다.</span>
               </label>
               <label className="text-xs font-extrabold text-slate-500">진행 기간
-                <select value={duration} onChange={event => setDuration(Number(event.target.value))} className="mt-2 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500">
-                  {DURATION_OPTIONS.map(days => <option key={days} value={days}>{days}일</option>)}
-                </select>
+                <input type="number" min="1" max="365" value={duration} onChange={event => setDuration(event.target.value)}
+                  className={`mt-2 w-full rounded-xl border-2 px-3 py-3 text-sm font-bold text-slate-800 outline-none ${isDurationValid ? 'border-slate-200 focus:border-indigo-500' : 'border-rose-400 focus:border-rose-500'}`} placeholder="1~365일 직접 입력" />
+                <span className={`mt-2 block text-[11px] font-bold ${isDurationValid ? 'text-slate-400' : 'text-rose-500'}`}>{isDurationValid ? '아래 빠른 선택 또는 직접 입력' : '1~365일 사이로 입력해주세요.'}</span>
               </label>
               <label className="text-xs font-extrabold text-slate-500">보스
                 <select value={bossId} onChange={event => setBossId(event.target.value)} className="mt-2 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500">
                   {BOSSES.map(boss => <option key={boss.id} value={boss.id}>{boss.name}</option>)}
                 </select>
               </label>
+            </div>
+            <div className="mt-4">
+              <div className="mb-2 text-xs font-extrabold text-slate-500">기간 빠른 선택</div>
+              <div className="flex flex-wrap gap-2">
+                {DURATION_OPTIONS.map(days => (
+                  <button key={days} type="button" onClick={() => setDuration(String(days))}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${parsedDuration === days ? 'border-violet-600 bg-violet-600 text-white' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-violet-300 hover:bg-violet-50'}`}>
+                    {days}일
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="mt-4">
               <div className="mb-2 text-xs font-extrabold text-slate-500">공동 목표 예시</div>
@@ -229,8 +259,8 @@ export default function ClassOperationManage({ selectedClass }) {
               </div>
             </div>
             <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-slate-950 p-4 text-white">
-              <div className="flex items-center gap-4"><SpriteMonster data={selectedBoss} anim="idle" scale={(selectedBoss?.scale || 0.4) * 0.8} /><div><div className="text-xs text-white/50">자동 계산 결과</div><div className="font-extrabold">{isStudentsLoading ? '학생 정보를 불러오는 중...' : `학생 ${students.length}명 · ${formatNumber(hpPreview.maxHP)} HP`}</div></div></div>
-              <button onClick={createOperation} disabled={isCreating || isStudentsLoading || students.length === 0 || !goal.trim()} className="rounded-2xl bg-amber-400 px-6 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50">{isCreating ? '시작 중...' : '🚩 바로 시작하기'}</button>
+              <div className="flex items-center gap-4"><SpriteMonster data={selectedBoss} anim="idle" scale={(selectedBoss?.scale || 0.4) * 0.8} /><div><div className="text-xs text-white/50">자동 계산 결과</div><div className="font-extrabold">{isStudentsLoading ? '학생 정보를 불러오는 중...' : isDurationValid ? `학생 ${students.length}명 × ${parsedDuration}일 · ${formatNumber(hpPreview.maxHP)} HP` : '기간을 입력하면 HP가 계산됩니다.'}</div></div></div>
+              <button onClick={createOperation} disabled={isCreating || isStudentsLoading || !teacherUid || !isDurationValid || !goal.trim()} className="rounded-2xl bg-amber-400 px-6 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50">{isCreating ? '시작 중...' : '🚩 바로 시작하기'}</button>
             </div>
             {message && <p className="mt-3 text-center text-sm font-bold text-emerald-600">{message}</p>}
           </section>
