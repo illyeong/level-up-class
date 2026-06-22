@@ -187,7 +187,7 @@ function BossMonsterPicker({ selectedId, onSelect, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
+      <div className="boss-raid-manage-modal flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <h2 className="font-extrabold text-slate-800 text-lg">👾 보스 몬스터 선택</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl font-bold">×</button>
@@ -283,7 +283,7 @@ function QuestionDetailModal({ question, questionNumber, onClose }) {
   return (
     <div className="fixed inset-0 z-[400] bg-black/60 flex items-center justify-center p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden dark:bg-slate-900 dark:border dark:border-slate-700">
+      <div className="boss-raid-manage-modal w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:border dark:border-slate-700 dark:bg-slate-900">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-700">
           <div>
             <p className="text-[11px] font-extrabold text-indigo-500">문항 상세</p>
@@ -334,7 +334,7 @@ function RaidResultModal({ raid, onClose }) {
   return (
     <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+      <div className="boss-raid-manage-modal flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
           <div>
             <h2 className="font-extrabold text-slate-800 text-lg">📊 레이드 결과 — {raid.bossName}</h2>
@@ -904,20 +904,20 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
 
   return (
     <>
-    <div className="min-h-screen bg-slate-100 p-6 dark:bg-slate-950">
-      <div className="max-w-4xl mx-auto space-y-5">
+    <div className="boss-raid-manage-page min-h-screen bg-slate-100 p-4 dark:bg-slate-950 md:p-8">
+      <div className="mx-auto max-w-5xl space-y-5">
 
         {/* 헤더 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-3 dark:bg-slate-900 dark:border-slate-700">
+        <div className="boss-raid-manage-header flex flex-wrap items-center justify-between gap-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:p-6">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">🐉 보스 레이드 관리</h1>
-            <p className="text-slate-500 text-sm mt-0.5 dark:text-slate-400">학급 전체 협동 이벤트 — 퀴즈를 맞혀 보스를 쓰러뜨려요</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100 md:text-3xl">🐉 보스 레이드 관리</h1>
+            <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">퀴즈와 보스를 선택해 학급 전체가 참여하는 협동 레이드를 운영하세요.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="boss-raid-manage-tabs grid w-full grid-cols-3 gap-2 rounded-2xl bg-slate-100 p-1.5 dark:bg-slate-950 sm:flex sm:w-auto">
             {[['active', '진행/대기'], ['create', '레이드 생성'], ['history', '결과 확인']].map(([t, l]) => (
               <button key={t} onClick={() => setTab(t)}
-                className={`px-3 py-2 rounded-xl font-bold text-sm transition-colors
-                  ${tab === t ? 'bg-rose-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 dark:bg-slate-950 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800'}`}>
+                className={`boss-raid-manage-tab rounded-xl px-3 py-2.5 text-sm font-bold transition-all
+                  ${tab === t ? 'boss-raid-manage-tab-active bg-rose-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-800'}`}>
                 {l}
               </button>
             ))}
@@ -959,7 +959,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
             )}
 
             {/* 보스 선택 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-600 dark:shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
+            <div className="boss-raid-manage-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-600 dark:bg-slate-900 md:p-6">
               <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">👾 보스 선택</h2>
               <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center">
                 <div className="flex items-center justify-center shrink-0 bg-slate-900 rounded-2xl overflow-hidden"
@@ -1005,7 +1005,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
             </div>
 
             {/* 퀴즈 선택 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-600 dark:shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
+            <div className="boss-raid-manage-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-600 dark:bg-slate-900 md:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="font-bold text-slate-700 text-sm dark:text-slate-100">📝 퀴즈 선택</h2>
@@ -1068,7 +1068,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
             </div>
 
             {/* 전투 설정 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-600 dark:shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
+            <div className="boss-raid-manage-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-600 dark:bg-slate-900 md:p-6">
               <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">⚙️ 전투 설정</h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {/* HP */}
@@ -1123,7 +1123,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
             </div>
 
             {/* 보상 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-600 dark:shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
+            <div className="boss-raid-manage-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-600 dark:bg-slate-900 md:p-6">
               <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">🎁 클리어 보상 (참가자 전원)</h2>
               <div className="flex flex-wrap gap-3">
                 {[['gold', '🪙 골드'], ['exp', '⭐ EXP'], ['diamond', '💎 다이아']].map(([k, l]) => (
@@ -1169,7 +1169,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
                   .map(([id, p]) => ({ id, ...p }))
                   .sort((a, b) => (b.totalDamage || 0) - (a.totalDamage || 0));
                 return (
-                  <div key={raid.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden dark:bg-slate-900 dark:border-slate-700">
+                  <div key={raid.id} className="boss-raid-manage-history-card overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
                     {/* 카드 헤더 */}
                     <div className="flex items-center gap-4 px-5 py-4">
                       {/* 결과 목록에서는 고용량 보스 이미지를 렌더링하지 않습니다. */}
@@ -1301,7 +1301,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
     {confirmState && (
       <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
         onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
-        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm dark:bg-slate-900 dark:border dark:border-slate-700">
+        <div className="boss-raid-manage-modal w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:border dark:border-slate-700 dark:bg-slate-900">
           <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line dark:text-slate-100">{confirmState.message}</p>
           <div className="flex gap-3">
             <button onClick={() => setConfirmState(null)}

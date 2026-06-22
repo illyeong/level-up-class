@@ -497,19 +497,19 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
 
   return (
     <>
-    <div className="min-h-screen bg-slate-100 p-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="quiz-dungeon-manage-page min-h-screen bg-slate-100 p-4 md:p-8">
+      <div className="mx-auto max-w-6xl">
 
         {/* 헤더 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex justify-between items-center mb-6">
+        <div className="quiz-dungeon-manage-header mb-6 flex flex-wrap items-center justify-between gap-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-800">⚔️ 퀴즈 던전 관리</h1>
-            <p className="text-slate-500 text-sm mt-0.5">내 퀴즈에서 선택해 던전을 발행하세요.</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 md:text-3xl">⚔️ 퀴즈 던전 관리</h1>
+            <p className="mt-1 text-sm leading-6 text-slate-500">퀴즈를 선택하고 보상과 몬스터를 설정해 학생용 던전을 발행하세요.</p>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="quiz-dungeon-manage-tabs grid w-full grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5 sm:flex sm:w-auto">
             {onViewStudent && (
               <button onClick={onViewStudent}
-                className="px-4 py-2 rounded-xl font-bold text-sm bg-slate-900 text-white hover:bg-slate-700 transition-colors">
+                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-700">
                 👁 학생 화면 미리보기
               </button>
             )}
@@ -519,8 +519,8 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
               ['results',  '📊 결과 확인'],
             ].map(([t, l]) => (
               <button key={t} onClick={() => setTab(t)}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors
-                  ${tab === t ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                className={`quiz-dungeon-manage-tab rounded-xl px-4 py-2.5 text-sm font-bold transition-all
+                  ${tab === t ? 'quiz-dungeon-manage-tab-active bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'}`}>
                 {l}
               </button>
             ))}
@@ -532,7 +532,7 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
           <div className="space-y-5">
 
             {/* 1. 퀴즈 선택 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+            <div className="quiz-dungeon-manage-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="font-bold text-slate-700 text-sm">📋 퀴즈 선택</h2>
@@ -571,7 +571,7 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
             </div>
 
             {/* 2. 던전 설정 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+            <div className="quiz-dungeon-manage-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
               <h2 className="font-bold text-slate-700 text-sm mb-4">⚙️ 던전 설정</h2>
 
               {/* 던전 제목 */}
@@ -643,7 +643,7 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
             </div>
 
             {/* 3. 출현 몬스터 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+            <div className="quiz-dungeon-manage-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
               <h2 className="font-bold text-slate-700 text-sm mb-4">👾 출현 몬스터 구성</h2>
               <MonsterPicker
                 mode={monsterMode}
@@ -717,7 +717,7 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
                       .sort((a, b) => b.count - a.count)
                       .slice(0, 5);
                     return (
-                      <div key={dungeonId} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                      <div key={dungeonId} className="quiz-dungeon-manage-card overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <button
                           onClick={() => setExpandedDungeon(isExpanded ? null : dungeonId)}
                           className="w-full px-5 py-4 flex items-center gap-4 hover:bg-slate-50 transition-colors text-left">
@@ -862,7 +862,7 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {dungeons.map(d => (
                   <div key={d.id}
-                    className={`bg-white rounded-2xl shadow-sm border-2 overflow-hidden transition-all
+                    className={`quiz-dungeon-manage-card overflow-hidden rounded-2xl border-2 bg-white shadow-sm transition-all
                       ${d.active ? 'border-slate-200 hover:shadow-md' : 'border-slate-100 opacity-60'}`}>
                     <div className={`px-4 py-2 text-white text-[10px] font-bold flex justify-between
                       ${d.difficulty === 'easy' ? 'bg-emerald-500' : d.difficulty === 'hard' ? 'bg-rose-500' : 'bg-sky-500'}`}>
@@ -917,7 +917,7 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
         className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 p-4"
         onClick={event => event.target === event.currentTarget && setSelectedResult(null)}
       >
-        <div className="max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="quiz-dungeon-manage-modal max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl">
           <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
             <div>
               <h3 className="font-extrabold text-slate-800">{selectedResult.studentName || selectedResult.studentCode} 답안 상세</h3>
@@ -976,7 +976,7 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
     {confirmState && (
       <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
         onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
-        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+        <div className="quiz-dungeon-manage-modal w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
           <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
           <div className="flex gap-3">
             <button onClick={() => setConfirmState(null)}
