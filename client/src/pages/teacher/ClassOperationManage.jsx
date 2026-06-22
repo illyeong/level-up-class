@@ -7,11 +7,21 @@ import { MONSTERS_DB, resolveBossBg } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 import {
   calculateClassOperationMaxHP, DEFAULT_CLASS_OPERATION_BOSS_ID, DEFAULT_CLASS_OPERATION_DAYS,
-  DEFAULT_CLASS_OPERATION_GOAL, getRemainingDays,
+  getRemainingDays,
 } from '../../utils/classOperation';
 
 const BOSSES = Object.values(MONSTERS_DB).filter(monster => monster.tier === 'boss');
 const DURATION_OPTIONS = [14, 30, 60, 90];
+const GOAL_EXAMPLES = [
+  '학기말 과자 파티',
+  '피구 한 판',
+  '자유 체육 시간',
+  '영화 감상 시간',
+  '보드게임 데이',
+  '숙제 면제권 1회',
+  '교실 음악 시간',
+  '우리반 테마 데이',
+];
 const formatNumber = value => Math.max(0, Number(value) || 0).toLocaleString('ko-KR');
 
 export default function ClassOperationManage({ selectedClass }) {
@@ -19,29 +29,54 @@ export default function ClassOperationManage({ selectedClass }) {
   const [students, setStudents] = useState([]);
   const [equipmentItems, setEquipmentItems] = useState([]);
   const [attacks, setAttacks] = useState([]);
-  const [goal, setGoal] = useState(DEFAULT_CLASS_OPERATION_GOAL);
+  const [goal, setGoal] = useState('');
   const [duration, setDuration] = useState(DEFAULT_CLASS_OPERATION_DAYS);
   const [bossId, setBossId] = useState(DEFAULT_CLASS_OPERATION_BOSS_ID);
   const [isCreating, setIsCreating] = useState(false);
+  const [isStudentsLoading, setIsStudentsLoading] = useState(true);
   const [message, setMessage] = useState('');
-  const classId = selectedClass?.id || null;
+  const classId = selectedClass?.id || selectedClass?.classId || null;
   const teacherUid = selectedClass?.teacherUid || auth.currentUser?.uid || null;
 
   useEffect(() => {
-    if (!classId) return () => {};
+    if (!classId && !teacherUid) return () => {};
+    const operationQuery = classId
+      ? query(collection(db, 'classOperations'), where('classId', '==', classId))
+      : query(collection(db, 'classOperations'), where('teacherUid', '==', teacherUid));
     const unsubscribe = onSnapshot(
-      query(collection(db, 'classOperations'), where('classId', '==', classId)),
+      operationQuery,
       snapshot => setOperations(snapshot.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))),
     );
-    Promise.all([
-      getDocs(query(collection(db, 'students'), where('classId', '==', classId))),
-      getDocs(collection(db, 'equipmentItems')),
-    ]).then(([studentSnap, equipmentSnap]) => {
-      setStudents(studentSnap.docs.map(item => ({ id: item.id, ...item.data() })));
-      setEquipmentItems(equipmentSnap.docs.map(item => ({ id: item.id, ...item.data() })));
-    }).catch(error => console.error('우리반 대작전 설정 로딩 실패:', error));
+    const loadStudents = async () => {
+      setIsStudentsLoading(true);
+      try {
+        const equipmentPromise = getDocs(collection(db, 'equipmentItems'));
+        let studentSnap = classId
+          ? await getDocs(query(collection(db, 'students'), where('classId', '==', classId)))
+          : null;
+        if ((!studentSnap || studentSnap.empty) && teacherUid) {
+          studentSnap = await getDocs(query(collection(db, 'students'), where('teacherUid', '==', teacherUid)));
+        }
+        const equipmentSnap = await equipmentPromise;
+        let studentRows = studentSnap?.docs.map(item => ({ id: item.id, ...item.data() })) || [];
+        const configuredCount = Math.max(0, Number(selectedClass?.studentCount) || 0);
+        if (configuredCount > 0 && studentRows.length > configuredCount) {
+          studentRows = studentRows.slice(0, configuredCount);
+        }
+        if (studentRows.length === 0 && configuredCount > 0) {
+          studentRows = Array.from({ length: configuredCount }, (_, index) => ({ id: `preview_${index}`, level: 5 }));
+        }
+        setStudents(studentRows);
+        setEquipmentItems(equipmentSnap.docs.map(item => ({ id: item.id, ...item.data() })));
+      } catch (error) {
+        console.error('우리반 대작전 설정 로딩 실패:', error);
+      } finally {
+        setIsStudentsLoading(false);
+      }
+    };
+    loadStudents();
     return unsubscribe;
-  }, [classId]);
+  }, [classId, teacherUid, selectedClass?.studentCount]);
 
   const activeOperation = operations.find(operation => operation.status === 'active') || null;
   const selectedBoss = MONSTERS_DB[bossId] || MONSTERS_DB[DEFAULT_CLASS_OPERATION_BOSS_ID];
@@ -131,7 +166,7 @@ export default function ClassOperationManage({ selectedClass }) {
           <div className="mt-4 grid gap-3 md:grid-cols-4">
             {[
               ['1', '목표 정하기', '과자파티, 피구, 자유시간처럼 함께 원하는 목표를 정합니다.'],
-              ['2', '자동 난이도 계산', '학생 수와 실제 공격력을 기준으로 참여율 100%의 보스 HP를 계산합니다.'],
+              ['2', '자동 난이도 계산', '학생 수와 실제 공격력을 기준으로 알맞은 보스 HP를 계산합니다.'],
               ['3', '하루 한 번 공격', '학생은 매일 자신의 레벨과 장비 공격력만큼 피해를 보탭니다.'],
               ['4', '모두 함께 달성', '기간 안에 HP를 모두 줄이면 공동 목표가 성공합니다. 개인 순위는 없습니다.'],
             ].map(([step, title, description]) => (
@@ -142,7 +177,6 @@ export default function ClassOperationManage({ selectedClass }) {
               </div>
             ))}
           </div>
-          <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">💡 현재 HP 계산은 모든 학생이 매일 참여하는 참여율 100%를 기준으로 합니다.</div>
         </section>
 
         {activeOperation ? (
@@ -152,7 +186,7 @@ export default function ClassOperationManage({ selectedClass }) {
               <div>
                 <div className="text-xs font-extrabold tracking-widest text-emerald-300">진행 중</div>
                 <h2 className="mt-2 text-2xl font-black">{activeOperation.title}</h2>
-                <p className="mt-1 text-sm text-white/60">{activeOperation.bossName} · 남은 기간 {getRemainingDays(activeOperation.endDate)}일 · 예상 참여율 100%</p>
+                <p className="mt-1 text-sm text-white/60">{activeOperation.bossName} · 남은 기간 {getRemainingDays(activeOperation.endDate)}일</p>
                 <div className="mt-5 h-6 overflow-hidden rounded-full border border-white/20 bg-black/50 p-1">
                   <div className="h-full rounded-full bg-gradient-to-r from-rose-600 to-amber-400" style={{ width: `${Math.max(0, Math.min(100, ((activeOperation.maxHP - activeOperation.currentHP) / activeOperation.maxHP) * 100))}%` }} />
                 </div>
@@ -166,11 +200,11 @@ export default function ClassOperationManage({ selectedClass }) {
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div><h2 className="text-xl font-extrabold text-slate-900">새 대작전 시작</h2><p className="mt-1 text-xs text-slate-500">세 가지만 고르면 HP와 시작일은 자동으로 설정됩니다.</p></div>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-extrabold text-emerald-700">참여율 100% 자동 계산</span>
             </div>
             <div className="mt-5 grid gap-4 md:grid-cols-3">
               <label className="text-xs font-extrabold text-slate-500">공동 목표
                 <input value={goal} onChange={event => setGoal(event.target.value)} className="mt-2 w-full rounded-xl border-2 border-slate-200 px-3 py-3 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500" placeholder="예: 학기말 과자파티" />
+                <span className="mt-2 block text-[11px] font-bold text-slate-400">목표 예시를 눌러 바로 입력할 수 있습니다.</span>
               </label>
               <label className="text-xs font-extrabold text-slate-500">진행 기간
                 <select value={duration} onChange={event => setDuration(Number(event.target.value))} className="mt-2 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500">
@@ -183,9 +217,20 @@ export default function ClassOperationManage({ selectedClass }) {
                 </select>
               </label>
             </div>
+            <div className="mt-4">
+              <div className="mb-2 text-xs font-extrabold text-slate-500">공동 목표 예시</div>
+              <div className="flex flex-wrap gap-2">
+                {GOAL_EXAMPLES.map(example => (
+                  <button key={example} type="button" onClick={() => setGoal(example)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${goal === example ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-indigo-300 hover:bg-indigo-50'}`}>
+                    {example}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-slate-950 p-4 text-white">
-              <div className="flex items-center gap-4"><SpriteMonster data={selectedBoss} anim="idle" scale={(selectedBoss?.scale || 0.4) * 0.8} /><div><div className="text-xs text-white/50">자동 계산 결과</div><div className="font-extrabold">학생 {students.length}명 · {formatNumber(hpPreview.maxHP)} HP</div></div></div>
-              <button onClick={createOperation} disabled={isCreating || !goal.trim()} className="rounded-2xl bg-amber-400 px-6 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50">{isCreating ? '시작 중...' : '🚩 바로 시작하기'}</button>
+              <div className="flex items-center gap-4"><SpriteMonster data={selectedBoss} anim="idle" scale={(selectedBoss?.scale || 0.4) * 0.8} /><div><div className="text-xs text-white/50">자동 계산 결과</div><div className="font-extrabold">{isStudentsLoading ? '학생 정보를 불러오는 중...' : `학생 ${students.length}명 · ${formatNumber(hpPreview.maxHP)} HP`}</div></div></div>
+              <button onClick={createOperation} disabled={isCreating || isStudentsLoading || students.length === 0 || !goal.trim()} className="rounded-2xl bg-amber-400 px-6 py-3 text-sm font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50">{isCreating ? '시작 중...' : '🚩 바로 시작하기'}</button>
             </div>
             {message && <p className="mt-3 text-center text-sm font-bold text-emerald-600">{message}</p>}
           </section>

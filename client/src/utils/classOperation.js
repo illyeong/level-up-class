@@ -1,4 +1,4 @@
-export const DEFAULT_CLASS_OPERATION_GOAL = '선생님의 커다란 학급 보상';
+export const DEFAULT_CLASS_OPERATION_GOAL = '우리반이 함께 정하는 특별 보상';
 export const DEFAULT_CLASS_OPERATION_BOSS_ID = 'redDragon';
 export const DEFAULT_CLASS_OPERATION_DAYS = 30;
 

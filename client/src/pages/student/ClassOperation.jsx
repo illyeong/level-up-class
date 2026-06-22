@@ -47,12 +47,16 @@ export default function ClassOperation({ studentCode }) {
       setEquipmentItems(equipmentSnap.docs.map(item => ({ id: item.id, ...item.data() })));
 
       const classId = studentData.classId;
-      if (!classId) {
+      const teacherUid = studentData.teacherUid;
+      if (!classId && !teacherUid) {
         setIsLoading(false);
         return;
       }
+      const operationQuery = classId
+        ? query(collection(db, 'classOperations'), where('classId', '==', classId))
+        : query(collection(db, 'classOperations'), where('teacherUid', '==', teacherUid));
       unsubscribeOperation = onSnapshot(
-        query(collection(db, 'classOperations'), where('classId', '==', classId)),
+        operationQuery,
         snapshot => {
           const operations = snapshot.docs
             .map(item => ({ id: item.id, ...item.data() }))
