@@ -424,31 +424,34 @@
   max-width: 100%;
   overflow: hidden;
   color: #e2e8f0;
-  font-size: .56rem;
+  font-size: .66rem;
   font-weight: 900;
-  line-height: 1rem;
+  line-height: 1.15rem;
   text-overflow: ellipsis;
   text-shadow: 0 2px 4px #020617;
   white-space: nowrap;
 }
 .boss-raid-party-status {
-  position: absolute;
-  right: .05rem;
-  bottom: .1rem;
   display: flex;
-  width: 1.05rem;
-  height: 1.05rem;
+  min-width: 2.7rem;
+  height: 1.35rem;
+  margin-top: -.15rem;
+  padding: 0 .35rem;
   align-items: center;
   justify-content: center;
   border: 2px solid #0f172a;
   border-radius: 999px;
   color: white;
-  font-size: .58rem;
+  font-size: .66rem;
   font-weight: 1000;
+  line-height: 1;
+  letter-spacing: -.03em;
+  box-shadow: 0 3px 8px rgba(2,6,23,.7);
+  white-space: nowrap;
 }
-.boss-raid-party-status-pending { background: #475569; }
-.boss-raid-party-status-correct { background: #10b981; }
-.boss-raid-party-status-wrong { background: #f43f5e; }
+.boss-raid-party-status-pending { background: #475569; color: #e2e8f0; }
+.boss-raid-party-status-correct { background: #059669; border-color: #a7f3d0; }
+.boss-raid-party-status-wrong { background: #e11d48; border-color: #fecdd3; }
 
 .boss-raid-roster > div { padding-top: .25rem; padding-bottom: .25rem; }
 .boss-raid-roster-player { width: 3.25rem !important; gap: .1rem !important; }
@@ -459,7 +462,8 @@
   .boss-raid-boss-actor { left: 65%; bottom: 1rem; transform: translateX(-50%) scale(.68); }
   .boss-raid-party { left: 1.5%; width: 55%; gap: .1rem .35rem; }
   .boss-raid-party-avatar { width: clamp(3.8rem, 7vw, 5.4rem); height: clamp(5.6rem, 10vw, 7.8rem); }
-  .boss-raid-party-name { font-size: .66rem; }
+  .boss-raid-party-status { min-width: 3.25rem; height: 1.55rem; padding: 0 .5rem; font-size: .75rem; }
+  .boss-raid-party-name { font-size: .75rem; line-height: 1.3rem; }
 }
 
 @media (min-width: 1024px) {
@@ -499,7 +503,38 @@
   46% { transform: translate3d(-9px, 3px, 0); }
   68% { transform: translate3d(6px, -2px, 0); }
 }
-.boss-skill-overlay { position: absolute; inset: 0; z-index: 35; pointer-events: none; overflow: hidden; }
+@keyframes boss-skill-core-pulse {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.15) rotate(0deg); filter: brightness(1); }
+  55% { opacity: 1; transform: translate(-50%, -50%) scale(1.18) rotate(145deg); filter: brightness(1.65); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(.92) rotate(260deg); filter: brightness(1.15); }
+}
+@keyframes boss-skill-core-cast {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(.9) rotate(0deg); }
+  45% { opacity: 1; transform: translate(-50%, -50%) scale(1.55) rotate(170deg); filter: brightness(2.2); }
+  100% { opacity: .2; transform: translate(-50%, -50%) scale(.35) rotate(330deg); filter: brightness(3); }
+}
+@keyframes boss-skill-beam-fire {
+  0% { opacity: 0; transform: rotate(-9deg) scaleX(.02) scaleY(.25); filter: brightness(3); }
+  18% { opacity: 1; transform: rotate(-9deg) scaleX(1) scaleY(1.7); }
+  55% { opacity: 1; transform: rotate(-9deg) scaleX(1) scaleY(1); filter: brightness(1.8); }
+  100% { opacity: 0; transform: rotate(-9deg) scaleX(1.08) scaleY(.15); }
+}
+@keyframes boss-skill-shockwave {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(.1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(3.8); }
+}
+@keyframes boss-skill-impact-flash {
+  0% { opacity: .95; }
+  18% { opacity: .2; }
+  38% { opacity: .75; }
+  100% { opacity: 0; }
+}
+.boss-skill-overlay {
+  --skill-color: #fb7185;
+  --skill-bright: #fff1f2;
+  --skill-dark: #881337;
+  position: absolute; inset: 0; z-index: 35; pointer-events: none; overflow: hidden;
+}
 .boss-skill-vignette { position: absolute; inset: 0; background: radial-gradient(circle at 50% 65%, transparent 10%, rgba(2,6,23,.8) 72%); }
 .boss-skill-warning-ring {
   position: absolute; left: 50%; top: 62%; width: min(68vw, 520px); aspect-ratio: 1;
@@ -523,10 +558,67 @@
 .boss-skill-bolts i:nth-child(3) { left: 50%; animation-delay: .76s; }
 .boss-skill-bolts i:nth-child(4) { left: 70%; animation-delay: .9s; }
 .boss-skill-bolts i:nth-child(5) { left: 88%; animation-delay: .8s; }
+.boss-skill-energy-core {
+  position: absolute;
+  left: 62%;
+  top: 59%;
+  width: clamp(5rem, 16vw, 8.5rem);
+  aspect-ratio: 1;
+  border: 5px solid var(--skill-color);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--skill-bright) 0 8%, var(--skill-color) 20%, color-mix(in srgb, var(--skill-dark) 80%, transparent) 48%, transparent 70%);
+  box-shadow: 0 0 28px 10px color-mix(in srgb, var(--skill-color) 75%, transparent), inset 0 0 24px var(--skill-bright);
+  animation: boss-skill-core-pulse .7s cubic-bezier(.15,.75,.2,1) both;
+}
+.boss-skill-energy-core::before,
+.boss-skill-energy-core::after,
+.boss-skill-energy-core > i {
+  position: absolute;
+  inset: -18%;
+  content: '';
+  border: 3px dashed var(--skill-bright);
+  border-radius: 42%;
+  transform: rotate(28deg);
+  box-shadow: 0 0 12px var(--skill-color);
+}
+.boss-skill-energy-core::after { inset: 8%; border-style: solid; border-radius: 50%; transform: rotate(-35deg); }
+.boss-skill-energy-core > i:nth-child(2) { inset: -34%; border-width: 2px; transform: rotate(72deg); opacity: .7; }
+.boss-skill-energy-core > b {
+  position: absolute; inset: 0; display: grid; place-items: center; color: white;
+  font-size: clamp(1.7rem, 5vw, 3rem); font-style: normal; text-shadow: 0 0 14px #fff, 0 0 26px var(--skill-color);
+}
+.boss-skill-attack-beam {
+  position: absolute;
+  left: 16%;
+  top: 68%;
+  width: 50%;
+  height: clamp(1.1rem, 3.5vw, 2.4rem);
+  opacity: 0;
+  transform-origin: right center;
+  border-radius: 999px 0 0 999px;
+  background: linear-gradient(90deg, transparent, var(--skill-color) 12%, var(--skill-bright) 48%, white 65%, var(--skill-color));
+  box-shadow: 0 0 18px 6px var(--skill-color), 0 0 45px 15px color-mix(in srgb, var(--skill-color) 58%, transparent);
+}
+.boss-skill-attack-beam > i { position: absolute; inset: 35% -8% 35% 0; background: white; border-radius: inherit; filter: blur(2px); }
+.boss-skill-impact-zone { position: absolute; left: 25%; top: 76%; width: 5rem; height: 5rem; opacity: 0; }
+.boss-skill-impact-zone > i {
+  position: absolute; left: 50%; top: 50%; width: 100%; height: 45%;
+  border: 5px solid var(--skill-bright); border-radius: 50%; box-shadow: 0 0 20px var(--skill-color);
+}
+.boss-skill-impact-zone > i:nth-child(2) { animation-delay: .12s; }
+.boss-skill-impact-zone > i:nth-child(3) { animation-delay: .24s; }
 .boss-skill-cast .boss-skill-warning-ring { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+.boss-skill-cast .boss-skill-energy-core { animation: boss-skill-core-cast .72s ease-in both; }
+.boss-skill-cast .boss-skill-attack-beam { animation: boss-skill-beam-fire .72s cubic-bezier(.1,.8,.25,1) both; }
+.boss-skill-impact::after { position: absolute; inset: 0; content: ''; background: var(--skill-bright); animation: boss-skill-impact-flash .7s ease-out both; }
+.boss-skill-impact .boss-skill-energy-core { opacity: .15; }
+.boss-skill-impact .boss-skill-impact-zone { opacity: 1; }
+.boss-skill-impact .boss-skill-impact-zone > i { animation: boss-skill-shockwave .8s ease-out both; }
 .boss-skill-impact .boss-skill-vignette { background: rgba(255,255,255,.38); }
+.boss-skill-violet { --skill-color: #c084fc; --skill-bright: #faf5ff; --skill-dark: #581c87; }
 .boss-skill-violet .boss-skill-warning-ring { border-color: rgba(168,85,247,.75); box-shadow: 0 0 35px #7e22ce, inset 0 0 35px #7e22ce; }
 .boss-skill-violet .boss-skill-banner { border-color: #c084fc; background: linear-gradient(90deg, rgba(15,23,42,.25), rgba(88,28,135,.96), rgba(15,23,42,.25)); }
+.boss-skill-amber { --skill-color: #fbbf24; --skill-bright: #fffbeb; --skill-dark: #78350f; }
 .boss-skill-amber .boss-skill-warning-ring { border-color: rgba(245,158,11,.8); box-shadow: 0 0 35px #d97706, inset 0 0 35px #d97706; }
 .boss-skill-amber .boss-skill-banner { border-color: #fbbf24; background: linear-gradient(90deg, rgba(15,23,42,.25), rgba(120,53,15,.96), rgba(15,23,42,.25)); }
 .boss-skill-stage-impact { animation: boss-skill-stage-shake .72s ease-out; }
@@ -609,7 +701,8 @@
   .boss-raid-hit-1, .boss-raid-hit-2, .boss-raid-hit-3, .boss-raid-hit-4 {
     animation-duration: 1ms;
   }
-  .boss-skill-warning-ring, .boss-skill-banner, .boss-skill-bolts i, .boss-skill-stage-impact { animation-duration: 1ms; }
+  .boss-skill-warning-ring, .boss-skill-banner, .boss-skill-bolts i, .boss-skill-stage-impact,
+  .boss-skill-energy-core, .boss-skill-attack-beam, .boss-skill-impact-zone > i, .boss-skill-impact::after { animation-duration: 1ms; }
 }
 
 @keyframes glow-success {

@@ -712,15 +712,15 @@ function BattlePhase({
 
     scheduleEffect(() => {
       setBossSkillFx(current => current?.questionIdx === qIdx ? { ...current, phase: 'cast' } : current);
-    }, 650);
+    }, 850);
     scheduleEffect(() => {
       const playerPoint = getRaidActorPoint(playerActorRef.current, 'player');
       if (playerPoint) triggerRaidImpact('player', playerPoint, 0, 4);
       setBossSkillFx(current => current?.questionIdx === qIdx ? { ...current, phase: 'impact' } : current);
-    }, 1350);
+    }, 1750);
     scheduleEffect(() => {
       setBossSkillFx(current => current?.questionIdx === qIdx ? null : current);
-    }, 2450);
+    }, 3000);
   }, [raid.id, raid.participants, qIdx, bossData, phase]);
 
   const alreadyAnswered = myP.lastAnsweredIdx === qIdx || myAnswer !== null;
@@ -939,6 +939,11 @@ function BattlePhase({
             <div className="boss-skill-bolts" aria-hidden="true">
               <i /><i /><i /><i /><i />
             </div>
+            <div className="boss-skill-energy-core" aria-hidden="true">
+              <i /><i /><b>{activeBossSkillFx.icon}</b>
+            </div>
+            <div className="boss-skill-attack-beam" aria-hidden="true"><i /></div>
+            <div className="boss-skill-impact-zone" aria-hidden="true"><i /><i /><i /></div>
             <div className="boss-skill-banner" role="status">
               <span>{activeBossSkillFx.icon}</span>
               <div>
@@ -985,10 +990,10 @@ function BattlePhase({
                         className="boss-raid-party-image"
                       />
                     : <span className="boss-raid-party-fallback">🧑</span>}
-                  <span className={`boss-raid-party-status boss-raid-party-status-${status}`}>
-                    {status === 'correct' ? '✓' : status === 'wrong' ? '×' : '…'}
-                  </span>
                 </div>
+                <span className={`boss-raid-party-status boss-raid-party-status-${status}`}>
+                  {status === 'correct' ? '✓ 정답' : status === 'wrong' ? '✕ 오답' : '대기'}
+                </span>
                 <span className="boss-raid-party-name">{(participant.name || '학생').slice(0, 5)}</span>
               </div>
             );

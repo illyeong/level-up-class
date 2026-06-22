@@ -609,8 +609,6 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
     bossName:         '',
     maxHP:            3000,
     damagePerHit:     100,
-    penaltyType:      'morale',
-    penaltyAmount:    50,
     questionDuration: 20,
     autoAdvance:      true,
     rewards:          { gold: 200, exp: 100, diamond: 100 },
@@ -716,8 +714,8 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
           maxHP:            form.maxHP,
           currentHP:        form.maxHP,
           damagePerHit:     form.damagePerHit,
-          penaltyType:      form.penaltyType,
-          penaltyAmount:    form.penaltyAmount,
+          penaltyType:      'morale',
+          penaltyAmount:    50,
           currentQuestionIdx: -1,
           questionDuration: form.questionDuration,
           questionStartedAt: null,
@@ -1121,29 +1119,6 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
                     {form.autoAdvance ? '✅ 자동 (타이머 후 진행)' : '🖐️ 수동 (교사가 진행)'}
                   </button>
                 </div>
-              </div>
-            </div>
-
-            {/* 공격대 사기 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-600 dark:shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
-              <h2 className="font-bold text-slate-700 text-sm mb-4 dark:text-slate-100">🔥 공격대 사기 시스템</h2>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {[
-                  ['오답 패널티', '페이즈별 사기 -2 / -3 / -4'],
-                  ['사기 저하', '50 이하에서 공격력 15% 감소'],
-                  ['사기 붕괴', '0이 되면 30으로 회복하고 보스 HP 회복'],
-                ].map(([title, description]) => (
-                  <div key={title} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 dark:border-slate-600 dark:bg-slate-950/60">
-                    <div className="text-xs font-extrabold text-slate-700 dark:text-slate-100">{title}</div>
-                    <div className="mt-1 text-[11px] leading-4 text-slate-500 dark:text-slate-300">{description}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3">
-                <label className="block text-xs font-bold text-slate-500 mb-1 dark:text-slate-300">사기 붕괴 시 보스 HP 회복량</label>
-                <input type="number" min="0" step="10" value={form.penaltyAmount}
-                  onChange={e => setF('penaltyAmount', Number(e.target.value))}
-                  className="w-32 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center text-slate-800 focus:outline-none focus:border-rose-500 dark:bg-slate-950/80 dark:border-slate-600 dark:text-white dark:focus:border-rose-400" />
               </div>
             </div>
 
