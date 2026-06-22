@@ -123,8 +123,36 @@
 }
 
 /* Quiz bank needs stronger surface separation than the shared teacher dark theme. */
+.quiz-bank-page {
+    background-image: radial-gradient(circle at 8% 0%, rgb(224 231 255 / 0.72), transparent 28rem);
+}
+
+.quiz-bank-header {
+    box-shadow: 0 14px 36px rgb(15 23 42 / 0.07);
+}
+
+.quiz-bank-card {
+    box-shadow: 0 8px 22px rgb(15 23 42 / 0.055);
+}
+
+.quiz-bank-card:hover {
+    transform: translateY(-2px);
+    border-color: #a5b4fc;
+    box-shadow: 0 18px 38px rgb(15 23 42 / 0.11);
+}
+
+.quiz-bank-card-actions {
+    background-color: #f8fafc;
+}
+
+.quiz-bank-page :is(button, input, select, textarea):focus-visible {
+    outline: 3px solid rgb(129 140 248 / 0.35);
+    outline-offset: 2px;
+}
+
 .teacher-theme-dark .quiz-bank-page {
     background-color: #080f1f !important;
+    background-image: radial-gradient(circle at 8% 0%, rgb(49 46 129 / 0.3), transparent 30rem);
     color: #e8eef8;
 }
 
@@ -150,6 +178,21 @@
     background-color: #1b2d49 !important;
     border-color: #818cf8 !important;
     box-shadow: 0 14px 30px rgb(0 0 0 / 0.28);
+}
+
+.teacher-theme-dark .quiz-bank-tabs {
+    background-color: #091426 !important;
+    border: 1px solid #31445f;
+}
+
+.teacher-theme-dark .quiz-bank-tab:not(.quiz-bank-tab-active):hover {
+    background-color: #1d304d !important;
+    color: #f8fafc !important;
+}
+
+.teacher-theme-dark .quiz-bank-card-actions {
+    background-color: #101d31 !important;
+    border-color: #405777 !important;
 }
 
 .teacher-theme-dark .quiz-bank-page .text-slate-800,
@@ -178,14 +221,51 @@
 }
 
 .teacher-theme-dark .quiz-bank-page input,
-.teacher-theme-dark .quiz-bank-page select {
+.teacher-theme-dark .quiz-bank-page select,
+.teacher-theme-dark .quiz-bank-page textarea {
     background-color: #0b1629;
     border-color: #4b6385;
     color: #f1f5f9;
 }
 
-.teacher-theme-dark .quiz-bank-page input::placeholder {
+.teacher-theme-dark .quiz-bank-page input::placeholder,
+.teacher-theme-dark .quiz-bank-page textarea::placeholder {
     color: #91a5bf;
+}
+
+.teacher-theme-dark .quiz-bank-page .quiz-bank-tag {
+    background-color: #283b58 !important;
+    color: #dbe7f5 !important;
+}
+
+.teacher-theme-dark .quiz-bank-page .quiz-bank-tag-subject {
+    background-color: #312e81 !important;
+    color: #c7d2fe !important;
+}
+
+.teacher-theme-dark .quiz-bank-page .quiz-bank-tag-shared {
+    background-color: #064e3b !important;
+    color: #a7f3d0 !important;
+}
+
+.teacher-theme-dark .quiz-bank-page .quiz-bank-action-dungeon {
+    background-color: #2e225e !important;
+    border-color: #7c5ce0 !important;
+    color: #ede9fe !important;
+}
+
+.teacher-theme-dark .quiz-bank-page .quiz-bank-action-dungeon:hover {
+    background-color: #443080 !important;
+}
+
+.teacher-theme-dark .quiz-bank-page .quiz-bank-action-raid {
+    background-color: #4c1d31 !important;
+    border-color: #be526d !important;
+    color: #ffe4e6 !important;
+}
+
+.teacher-theme-dark .quiz-bank-page .quiz-bank-action-raid:hover {
+    background-color: #6d243d !important;
 }
 
 .teacher-theme-dark .quiz-bank-page button.border-slate-200 {

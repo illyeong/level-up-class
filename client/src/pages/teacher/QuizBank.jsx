@@ -1022,16 +1022,16 @@ export default function QuizBank({ selectedClass = null, onCreateDungeon, onCrea
 
   return (
     <>
-    <div className="quiz-bank-page min-h-screen bg-slate-100 p-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="quiz-bank-page min-h-screen bg-slate-100 p-4 md:p-8">
+      <div className="mx-auto max-w-6xl">
 
         {/* 헤더 */}
-        <div className="quiz-bank-header bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-3 mb-6">
+        <div className="quiz-bank-header mb-6 flex flex-wrap items-center justify-between gap-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-800">📚 퀴즈 은행</h1>
-            <p className="text-slate-500 text-sm mt-0.5">퀴즈를 만들고 관리하세요. 던전과 레이드에 바로 활용할 수 있습니다.</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 md:text-3xl">📚 퀴즈 은행</h1>
+            <p className="mt-1 text-sm leading-6 text-slate-500">문제를 만들고 관리한 뒤 퀴즈던전과 보스레이드에 바로 활용하세요.</p>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="quiz-bank-tabs grid w-full grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5 sm:flex sm:w-auto">
             {[
               ['mine',   '📋 내 퀴즈', `(${mySets.length})`],
               ['ai',     '🤖 AI 출제',  ''],
@@ -1039,9 +1039,9 @@ export default function QuizBank({ selectedClass = null, onCreateDungeon, onCrea
               ['bank',   '🌐 퀴즈은행', ''],
             ].map(([t, label, count]) => (
               <button key={t} onClick={() => setTab(t)}
-                className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors
-                  ${tab === t ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
-                {label}{count && tab === 'mine' ? ` ${count}` : ''}
+                className={`quiz-bank-tab flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold transition-all
+                  ${tab === t ? 'quiz-bank-tab-active bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'}`}>
+                <span>{label}</span>{count && <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${tab === t ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-500'}`}>{mySets.length}</span>}
               </button>
             ))}
           </div>
@@ -1051,7 +1051,7 @@ export default function QuizBank({ selectedClass = null, onCreateDungeon, onCrea
         {tab === 'mine' && (
           <div className="space-y-4">
             {/* 필터 */}
-            <div className="quiz-bank-toolbar bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+            <div className="quiz-bank-toolbar rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex flex-wrap gap-3 items-end">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 mb-1">학년</label>
@@ -1069,6 +1069,7 @@ export default function QuizBank({ selectedClass = null, onCreateDungeon, onCrea
                 </div>
                 <button onClick={() => setMyFilter({ grade: '', subject: '' })}
                   className="text-xs text-slate-400 hover:text-slate-600 font-bold px-2 py-1.5">초기화</button>
+                <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500">검색 결과 {filteredMySets.length}개</span>
                 <div className="ml-auto">
                   <button onClick={() => setTab('ai')}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors">
@@ -1096,37 +1097,40 @@ export default function QuizBank({ selectedClass = null, onCreateDungeon, onCrea
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filteredMySets.map(set => (
-                  <div key={set.id} className="quiz-bank-card rounded-2xl border-2 border-slate-200 bg-white overflow-hidden hover:shadow-md transition-all group">
+                  <div key={set.id} className="quiz-bank-card group flex min-h-[270px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition-all">
                     {/* 색깔 띠 */}
-                    <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center
+                    <div className={`flex items-center justify-between px-4 py-2 text-[11px] font-extrabold text-white
                       ${set.difficulty === 'easy' ? 'bg-emerald-500' : set.difficulty === 'hard' ? 'bg-rose-500' : 'bg-sky-500'}`}>
                       <span>{DIFF_LABEL[set.difficulty] || '보통'}</span>
                       <span>{set.questionCount || 0}문항 · {fmtDate(set.createdAt)}</span>
                     </div>
                     {/* 본문 */}
-                    <div className="p-4">
-                      <h3 className="font-extrabold text-slate-800 text-sm leading-snug mb-2 line-clamp-2">{set.title}</h3>
+                    <div className="flex-1 p-5">
+                      <h3 className="mb-3 line-clamp-2 text-base font-extrabold leading-6 text-slate-800">{set.title}</h3>
                       {/* 태그 */}
                       <div className="flex flex-wrap gap-1 mb-3">
-                        {set.grade && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.grade}학년</span>}
-                        {set.semester && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.semester}학기</span>}
-                        {set.subject && <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-full">{set.subject}</span>}
-                        {set.isShared && <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full">🌐 공유중</span>}
-                        {set.sourceId && <span className="text-[10px] bg-amber-50 text-amber-600 font-bold px-2 py-0.5 rounded-full">📥 가져옴</span>}
+                        {set.grade && <span className="quiz-bank-tag rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">{set.grade}학년</span>}
+                        {set.semester && <span className="quiz-bank-tag rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">{set.semester}학기</span>}
+                        {set.subject && <span className="quiz-bank-tag quiz-bank-tag-subject rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-600">{set.subject}</span>}
+                        {set.isShared && <span className="quiz-bank-tag quiz-bank-tag-shared rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600">🌐 공유중</span>}
+                        {set.sourceId && <span className="quiz-bank-tag rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600">📥 가져옴</span>}
                       </div>
                     </div>
                     {/* 하단 액션 */}
-                    <div className="px-3 pb-3 flex gap-1.5 flex-wrap border-t border-slate-100 pt-2.5">
+                    <div className="quiz-bank-card-actions border-t border-slate-100 p-3">
+                      <div className="grid grid-cols-2 gap-2">
                       <button onClick={() => onCreateDungeon?.(set)}
-                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors">
-                        ⚔️ 퀴즈던전으로 만들기
+                        className="quiz-bank-action-dungeon rounded-xl border border-violet-200 bg-violet-50 px-2 py-2.5 text-xs font-extrabold text-violet-700 transition-colors hover:bg-violet-100">
+                        ⚔️ 퀴즈던전 만들기
                       </button>
                       <button onClick={() => onCreateBossRaid?.(set)}
-                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors">
-                        🐉 보스레이드로 만들기
+                        className="quiz-bank-action-raid rounded-xl border border-rose-200 bg-rose-50 px-2 py-2.5 text-xs font-extrabold text-rose-700 transition-colors hover:bg-rose-100">
+                        🐉 보스레이드 만들기
                       </button>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <button onClick={() => setPreviewSet(set)}
                         className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
                         👁 미리보기
@@ -1144,6 +1148,7 @@ export default function QuizBank({ selectedClass = null, onCreateDungeon, onCrea
                         className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-rose-200 text-rose-500 hover:bg-rose-50 transition-colors ml-auto">
                         삭제
                       </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1535,17 +1540,17 @@ export default function QuizBank({ selectedClass = null, onCreateDungeon, onCrea
         {tab === 'bank' && (
           <div className="space-y-4">
             {/* 필터 */}
-            <div className="quiz-bank-toolbar bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+            <div className="quiz-bank-toolbar space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="font-extrabold text-slate-800">공유 문제 찾기</h2>
                   <p className="text-xs text-slate-400 mt-1">학년과 과목을 선택해 필요한 퀴즈만 확인하세요.</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex w-full items-center gap-2 sm:w-auto">
                   <input value={bankSearch} onChange={e => setBankSearch(e.target.value)}
                     placeholder="퀴즈 제목 검색"
-                    className="w-44 rounded-xl border-2 border-slate-200 px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-500" />
-                  <span className="shrink-0 text-xs font-bold text-slate-400">{filteredBankSets.length}개</span>
+                    className="min-w-0 flex-1 rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm font-semibold outline-none focus:border-indigo-500 sm:w-56" />
+                  <span className="shrink-0 rounded-lg bg-slate-100 px-3 py-2.5 text-xs font-bold text-slate-500">{filteredBankSets.length}개</span>
                 </div>
               </div>
 
@@ -1617,36 +1622,39 @@ export default function QuizBank({ selectedClass = null, onCreateDungeon, onCrea
                 <p className="text-sm mt-1">내 퀴즈에서 "공유하기" 버튼을 눌러 퀴즈를 공유해보세요!</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {filteredBankSets.map(set => (
-                  <div key={set.id} className="quiz-bank-card bg-white rounded-2xl border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all overflow-hidden group">
+                  <div key={set.id} className="quiz-bank-card group flex min-h-[280px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition-all">
                     {/* 색깔 띠 */}
-                    <div className={`px-4 py-2 text-white text-[10px] font-extrabold flex justify-between items-center
+                    <div className={`flex items-center justify-between px-4 py-2 text-[11px] font-extrabold text-white
                       ${set.difficulty === 'easy' ? 'bg-emerald-500' : set.difficulty === 'hard' ? 'bg-rose-500' : 'bg-sky-500'}`}>
                       <span>{DIFF_LABEL[set.difficulty] || '보통'}</span>
                       <span>{set.questionCount || 0}문항{(set.importCount || 0) > 0 ? ` · 📥 ${set.importCount}회` : ''}</span>
                     </div>
                     {/* 본문 */}
-                    <div className="p-4">
-                      <h3 className="font-extrabold text-slate-800 text-sm leading-snug mb-2 line-clamp-2">{set.title}</h3>
+                    <div className="flex-1 p-5">
+                      <h3 className="mb-3 line-clamp-2 text-base font-extrabold leading-6 text-slate-800">{set.title}</h3>
                       {/* 태그 */}
                       <div className="flex flex-wrap gap-1 mb-2">
-                        {set.grade && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.grade}학년</span>}
-                        {set.semester && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">{set.semester}학기</span>}
-                        {set.subject && <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-full">{set.subject}</span>}
+                        {set.grade && <span className="quiz-bank-tag rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">{set.grade}학년</span>}
+                        {set.semester && <span className="quiz-bank-tag rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">{set.semester}학기</span>}
+                        {set.subject && <span className="quiz-bank-tag quiz-bank-tag-subject rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-600">{set.subject}</span>}
                       </div>
                       <div className="text-[11px] font-semibold text-slate-400">{fmtDate(set.sharedAt || set.createdAt)} 공유</div>
                     </div>
                     {/* 하단 액션 */}
-                    <div className="px-4 pb-4 flex gap-2 border-t border-slate-100 pt-3 flex-wrap">
+                    <div className="quiz-bank-card-actions border-t border-slate-100 p-4">
+                      <div className="grid grid-cols-2 gap-2">
                       <button onClick={() => onCreateDungeon?.(set)}
-                        className="px-3 py-2 rounded-xl text-xs font-extrabold border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors">
-                        ⚔️ 퀴즈던전으로 만들기
+                        className="quiz-bank-action-dungeon rounded-xl border border-violet-200 bg-violet-50 px-2 py-2.5 text-xs font-extrabold text-violet-700 transition-colors hover:bg-violet-100">
+                        ⚔️ 퀴즈던전 만들기
                       </button>
                       <button onClick={() => onCreateBossRaid?.(set)}
-                        className="px-3 py-2 rounded-xl text-xs font-extrabold border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors">
-                        🐉 보스레이드로 만들기
+                        className="quiz-bank-action-raid rounded-xl border border-rose-200 bg-rose-50 px-2 py-2.5 text-xs font-extrabold text-rose-700 transition-colors hover:bg-rose-100">
+                        🐉 보스레이드 만들기
                       </button>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                       <button onClick={() => setPreviewSet(set)}
                         className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
                         미리보기
@@ -1668,6 +1676,7 @@ export default function QuizBank({ selectedClass = null, onCreateDungeon, onCrea
                           </button>
                         </>
                       )}
+                      </div>
                     </div>
                   </div>
                 ))}
