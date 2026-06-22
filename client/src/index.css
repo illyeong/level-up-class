@@ -476,3 +476,143 @@
 .teacher-theme-dark .ai-learning-manage .ai-student-row-support:hover {
     background-color: rgb(96 25 50 / 0.82) !important;
 }
+
+/* 우리반 대작전 전투 연출 */
+@keyframes class-operation-shake {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    20% { transform: translate3d(-7px, 2px, 0); }
+    40% { transform: translate3d(6px, -2px, 0); }
+    60% { transform: translate3d(-4px, 1px, 0); }
+    80% { transform: translate3d(3px, 0, 0); }
+}
+
+@keyframes class-operation-critical-shake {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    15% { transform: translate3d(-12px, 5px, 0) scale(1.008); }
+    30% { transform: translate3d(10px, -5px, 0) scale(1.008); }
+    45% { transform: translate3d(-8px, 3px, 0); }
+    60% { transform: translate3d(7px, -2px, 0); }
+    80% { transform: translate3d(-3px, 1px, 0); }
+}
+
+@keyframes class-operation-charge {
+    0%, 100% { transform: translateY(0) scale(1); box-shadow: 0 0 0 rgb(250 204 21 / 0); }
+    50% { transform: translateY(-5px) scale(1.035); box-shadow: 0 0 30px rgb(250 204 21 / 0.55); }
+}
+
+@keyframes class-operation-cast {
+    0% { transform: translateX(0) scale(1); }
+    45% { transform: translateX(18px) scale(1.04); }
+    100% { transform: translateX(0) scale(1); }
+}
+
+@keyframes class-operation-boss-hit {
+    0%, 100% { transform: translateX(0) scale(1); }
+    25% { transform: translateX(15px) scale(0.97); }
+    50% { transform: translateX(-8px) scale(1.02); }
+    75% { transform: translateX(4px) scale(0.99); }
+}
+
+@keyframes class-operation-critical-flash {
+    0% { opacity: 0; background: rgb(250 204 21 / 0); }
+    18% { opacity: 1; background: rgb(250 204 21 / 0.42); }
+    100% { opacity: 0; background: rgb(251 146 60 / 0); }
+}
+
+@keyframes class-operation-final-blast {
+    0% { opacity: 0; transform: scale(0.75); background: rgb(255 255 255 / 0); }
+    20% { opacity: 1; transform: scale(1.06); background: rgb(255 255 255 / 0.78); }
+    45% { background: rgb(250 204 21 / 0.34); }
+    100% { opacity: 0; transform: scale(1); background: rgb(15 23 42 / 0); }
+}
+
+@keyframes class-operation-aura {
+    0%, 100% { opacity: 0.35; transform: scale(0.92); }
+    50% { opacity: 0.8; transform: scale(1.08); }
+}
+
+.class-operation-impact {
+    animation: class-operation-shake 0.42s ease-out;
+}
+
+.class-operation-critical-impact,
+.class-operation-final {
+    animation: class-operation-critical-shake 0.68s ease-out;
+}
+
+.class-operation-character-charging,
+.class-operation-character-critical-charge {
+    animation: class-operation-charge 0.34s ease-in-out infinite;
+}
+
+.class-operation-character-critical-charge {
+    border-color: rgb(250 204 21 / 0.8) !important;
+    background: rgb(120 53 15 / 0.4) !important;
+}
+
+.class-operation-character-projectile {
+    animation: class-operation-cast 0.35s ease-out;
+}
+
+.class-operation-boss-hit {
+    animation: class-operation-boss-hit 0.48s ease-out;
+}
+
+.class-operation-boss::before {
+    position: absolute;
+    width: min(80%, 330px);
+    aspect-ratio: 1;
+    border-radius: 9999px;
+    content: '';
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0;
+    filter: blur(22px);
+}
+
+.class-operation-boss-phase-1::before {
+    opacity: 0.35;
+    background: radial-gradient(circle, rgb(251 146 60 / 0.58), transparent 68%);
+    animation: class-operation-aura 2.2s ease-in-out infinite;
+}
+
+.class-operation-boss-phase-2::before {
+    opacity: 0.55;
+    background: radial-gradient(circle, rgb(244 63 94 / 0.72), transparent 68%);
+    animation: class-operation-aura 1.5s ease-in-out infinite;
+}
+
+.class-operation-boss-phase-3::before {
+    opacity: 0.8;
+    background: radial-gradient(circle, rgb(220 38 38 / 0.9), rgb(126 34 206 / 0.35) 45%, transparent 70%);
+    animation: class-operation-aura 0.85s ease-in-out infinite;
+}
+
+.class-operation-rage {
+    pointer-events: none;
+    transition: background 0.8s ease, opacity 0.8s ease;
+}
+
+.class-operation-rage-0 { opacity: 0; }
+.class-operation-rage-1 { opacity: 0.14; background: radial-gradient(circle at 50% 60%, transparent 35%, #ea580c 120%); }
+.class-operation-rage-2 { opacity: 0.24; background: radial-gradient(circle at 50% 60%, transparent 25%, #be123c 100%); }
+.class-operation-rage-3 { opacity: 0.36; background: radial-gradient(circle at 50% 60%, transparent 15%, #7f1d1d 80%, #581c87 120%); }
+
+.class-operation-critical-flash {
+    animation: class-operation-critical-flash 0.72s ease-out forwards;
+}
+
+.class-operation-final-blast {
+    animation: class-operation-final-blast 2.2s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .class-operation-page,
+    .class-operation-character-card,
+    .class-operation-boss,
+    .class-operation-boss::before,
+    .class-operation-critical-flash,
+    .class-operation-final-blast {
+        animation: none !important;
+    }
+}

@@ -9,6 +9,35 @@ import { getClassOperationAttack, getLocalDateKey, getRemainingDays } from '../.
 import { fireProjectile } from '../../utils/projectile';
 
 const formatNumber = value => Math.max(0, Number(value) || 0).toLocaleString('ko-KR');
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const playBattleTone = (kind = 'charge') => {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const settings = {
+      charge: [220, 440, 0.18],
+      hit: [140, 70, 0.16],
+      critical: [520, 980, 0.32],
+      clear: [392, 784, 0.55],
+    }[kind] || [220, 440, 0.18];
+    oscillator.type = kind === 'hit' ? 'square' : 'sine';
+    oscillator.frequency.setValueAtTime(settings[0], context.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(settings[1], context.currentTime + settings[2]);
+    gain.gain.setValueAtTime(0.12, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + settings[2]);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + settings[2]);
+    setTimeout(() => context.close(), (settings[2] + 0.1) * 1000);
+  } catch {
+    // Audio is optional; animation still runs when the browser blocks it.
+  }
+};
 
 export default function ClassOperation({ studentCode, isTeacher = false, selectedClass = null, onExit }) {
   const [student, setStudent] = useState(null);
@@ -22,6 +51,8 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
   const [flash, setFlash] = useState(false);
   const [message, setMessage] = useState('');
   const [hitEffect, setHitEffect] = useState(null);
+  const [attackPhase, setAttackPhase] = useState('idle');
+  const [soundEnabled, setSoundEnabled] = useState(() => typeof window === 'undefined' || localStorage.getItem('classOperationSound') !== 'off');
   const characterCardRef = useRef(null);
   const bossTargetRef = useRef(null);
 
@@ -159,15 +190,27 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
     });
     return [...rows.values()].sort((a, b) => b.damage - a.damage);
   }, [attacks]);
+  const todayAttacks = useMemo(
+    () => attacks.filter(attackItem => attackItem.dateKey === getLocalDateKey()),
+    [attacks],
+  );
+  const comboBonusPercent = Math.min(20, Math.floor(todayAttacks.length / 5) * 5);
+  const todayParticipantCount = new Set(todayAttacks.map(attackItem => attackItem.studentId || attackItem.studentCode)).size;
+  const fullParticipation = Number(operation?.studentCountAtCreation) > 0 && todayParticipantCount >= Number(operation.studentCountAtCreation);
+  const hpPercent = Math.max(0, Math.min(100, (currentHP / maxHP) * 100));
+  const bossPhase = hpPercent <= 25 ? 3 : hpPercent <= 50 ? 2 : hpPercent <= 75 ? 1 : 0;
 
   const attack = async () => {
     if (!canAttack || !student?.id || isAttacking) return;
     setIsAttacking(true);
     setMessage('');
     const critical = Math.random() * 100 < attackStats.criticalChance;
-    const rolledDamage = critical
+    const criticalDamage = critical
       ? Math.floor(attackStats.damage * attackStats.criticalMultiplier)
       : attackStats.damage;
+    const rolledDamage = Math.floor(criticalDamage * (1 + comboBonusPercent / 100));
+    setAttackPhase(critical ? 'critical-charge' : 'charging');
+    if (soundEnabled) playBattleTone(critical ? 'critical' : 'charge');
 
     const commitAttack = async () => {
       const operationRef = doc(db, 'classOperations', operation.id);
@@ -195,6 +238,8 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
           critical,
           criticalChance: attackStats.criticalChance,
           criticalMultiplier: attackStats.criticalMultiplier,
+          comboBonusPercent,
+          characterImage: student.characterImage || '',
           statSnapshot: attackStats,
           dateKey: getLocalDateKey(),
           attackedAt: serverTimestamp(),
@@ -206,16 +251,19 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
           clearedAt: nextHP === 0 ? serverTimestamp() : null,
           updatedAt: serverTimestamp(),
         });
-        return { appliedDamage, critical };
+        return { appliedDamage, critical, cleared: nextHP === 0 };
       });
     };
 
     try {
+      await wait(critical ? 520 : 340);
       const characterRect = characterCardRef.current?.getBoundingClientRect();
       const bossRect = bossTargetRef.current?.getBoundingClientRect();
+      setAttackPhase('projectile');
       const result = await new Promise((resolve, reject) => {
         const applyHit = () => commitAttack().then(resolve).catch(reject);
-        if (!characterRect || !bossRect) {
+        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        if (!characterRect || !bossRect || reduceMotion) {
           applyHit();
           return;
         }
@@ -227,12 +275,16 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
           onHit: applyHit,
         });
       });
+      setAttackPhase(result.cleared ? 'final' : result.critical ? 'critical-impact' : 'impact');
+      if (soundEnabled) playBattleTone(result.cleared ? 'clear' : result.critical ? 'critical' : 'hit');
       setFlash(true);
       setHitEffect({ damage: result.appliedDamage, critical: result.critical, key: Date.now() });
-      setTimeout(() => setFlash(false), 250);
-      setTimeout(() => setHitEffect(null), 1200);
-      setMessage(`${result.critical ? '💥 크리티컬! ' : ''}오늘의 공격 성공! ${formatNumber(result.appliedDamage)} 피해를 함께 보탰습니다.`);
+      setTimeout(() => setFlash(false), result.critical ? 500 : 280);
+      setTimeout(() => setHitEffect(null), result.cleared ? 2200 : 1300);
+      setTimeout(() => setAttackPhase('idle'), result.cleared ? 2400 : 850);
+      setMessage(`${result.cleared ? '🏆 최후의 일격! ' : result.critical ? '💥 크리티컬! ' : ''}오늘의 공격 성공! ${formatNumber(result.appliedDamage)} 피해를 함께 보탰습니다.${comboBonusPercent > 0 ? ` 협동 콤보 +${comboBonusPercent}%` : ''}`);
     } catch (error) {
+      setAttackPhase('idle');
       setMessage(error.message || '공격 중 오류가 발생했습니다.');
     } finally {
       setIsAttacking(false);
@@ -243,18 +295,38 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
   if (!operation) return <div className="min-h-screen grid place-items-center bg-slate-950 text-center text-slate-300"><div><div className="text-6xl mb-4">🏰</div><h1 className="text-2xl font-extrabold text-white">아직 시작된 우리반 대작전이 없습니다</h1><p className="mt-2 text-sm">선생님이 공동 목표를 열면 이곳에서 함께 공격할 수 있어요.</p></div></div>;
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
+    <div className={`class-operation-page relative min-h-screen overflow-hidden bg-slate-950 text-white ${['impact', 'critical-impact', 'final'].includes(attackPhase) ? `class-operation-${attackPhase}` : ''}`}>
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${background}')` }} />
       <div className="absolute inset-0 bg-slate-950/65" />
+      <div className={`class-operation-rage absolute inset-0 class-operation-rage-${bossPhase}`} />
+      {attackPhase === 'critical-impact' && <div className="class-operation-critical-flash pointer-events-none fixed inset-0 z-40" />}
+      {attackPhase === 'final' && <div className="class-operation-final-blast pointer-events-none fixed inset-0 z-40 grid place-items-center"><div className="text-center"><div className="text-6xl">🏆</div><div className="mt-3 text-3xl font-black text-amber-200">최후의 일격!</div></div></div>}
       <div className="relative z-10 mx-auto flex min-h-screen max-w-5xl flex-col px-4 py-7 md:px-8">
         {isTeacher && onExit && (
           <button onClick={onExit} className="mb-3 self-start rounded-xl border border-white/20 bg-black/45 px-4 py-2 text-xs font-extrabold text-white hover:bg-white/15">← 관리 화면으로 돌아가기</button>
         )}
         <header className="rounded-3xl border border-white/15 bg-black/35 p-5 text-center backdrop-blur-md">
+          <button onClick={() => setSoundEnabled(current => {
+            const next = !current;
+            localStorage.setItem('classOperationSound', next ? 'on' : 'off');
+            return next;
+          })} className="absolute right-4 top-4 rounded-xl border border-white/15 bg-black/35 px-3 py-2 text-xs font-bold text-white/65 hover:bg-white/10" title="효과음 켜기/끄기">{soundEnabled ? '🔊' : '🔇'}</button>
           <p className="text-xs font-extrabold tracking-[0.28em] text-amber-300">우리반 대작전</p>
           <h1 className="mt-2 text-2xl font-black md:text-4xl">{operation.title}</h1>
           <p className="mt-2 text-sm text-white/70">{isTeacher ? '학생들이 보는 화면과 동일한 실시간 진행상황입니다.' : '하루 한 번, 우리 반 모두의 힘으로 공동 목표를 완성하세요.'}</p>
         </header>
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 backdrop-blur-md">
+          <div><div className="text-[10px] font-bold text-white/45">오늘의 협동 콤보</div><div className="text-lg font-black text-amber-300">{todayAttacks.length} HIT {comboBonusPercent > 0 && <span className="ml-1 text-xs text-emerald-300">공격 +{comboBonusPercent}%</span>} {fullParticipation && <span className="ml-1 text-xs text-sky-300">✨ 전원 참여!</span>}</div></div>
+          <div className="flex -space-x-2">
+            {todayAttacks.slice(0, 10).map(attackItem => (
+              <div key={attackItem.id} title={attackItem.studentName || attackItem.studentCode} className="grid h-9 w-9 place-items-center overflow-hidden rounded-full border-2 border-slate-800 bg-indigo-900 text-xs font-black shadow-lg">
+                {attackItem.characterImage ? <img src={attackItem.characterImage} alt="" className="h-full w-full object-contain" /> : (attackItem.studentName || attackItem.studentCode || '?').slice(0, 1)}
+              </div>
+            ))}
+            {todayAttacks.length === 0 && <span className="text-xs font-bold text-white/40">첫 공격을 기다리는 중</span>}
+          </div>
+        </div>
 
         <main className="mt-5 grid flex-1 gap-5 md:grid-cols-[1.2fr_0.8fr]">
           <section className="flex min-h-[430px] flex-col rounded-3xl border border-white/15 bg-black/35 p-5 backdrop-blur-sm">
@@ -263,13 +335,14 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
               <span className="text-amber-300">{estimatedScheduleLabel}</span>
             </div>
             <div className="mt-3 h-7 overflow-hidden rounded-full border-2 border-white/20 bg-black/50 p-1">
-              <div className="h-full rounded-full bg-gradient-to-r from-rose-700 to-red-400 transition-all" style={{ width: `${100 - progress}%` }} />
+              <div className="h-full rounded-full bg-gradient-to-r from-rose-700 to-red-400 transition-[width] duration-1000 ease-out" style={{ width: `${100 - progress}%` }} />
             </div>
             <div className="mt-1 flex justify-between text-xs font-extrabold text-white/65">
               <span>달성도 {progress.toFixed(1)}%</span>
               <span>{formatNumber(currentHP)} / {formatNumber(maxHP)} HP</span>
             </div>
-            <div ref={bossTargetRef} className="relative flex flex-1 items-center justify-center py-5 drop-shadow-[0_15px_25px_rgba(0,0,0,0.65)]">
+            <div ref={bossTargetRef} className={`class-operation-boss class-operation-boss-phase-${bossPhase} ${['impact', 'critical-impact', 'final'].includes(attackPhase) ? 'class-operation-boss-hit' : ''} relative isolate flex flex-1 items-center justify-center py-5 drop-shadow-[0_15px_25px_rgba(0,0,0,0.65)]`}>
+              {bossPhase > 0 && <div className="absolute right-1 top-3 rounded-full border border-rose-400/30 bg-rose-950/65 px-3 py-1 text-[10px] font-black tracking-widest text-rose-200">{bossPhase === 3 ? '최종 분노' : `분노 ${bossPhase}단계`}</div>}
               <SpriteMonster data={boss} anim={operation.status === 'cleared' ? 'death' : bossAnim} flash={flash} scale={(boss?.scale || 0.4) * 2.1} onAnimEnd={() => setBossAnim('idle')} />
               {hitEffect && (
                 <div key={hitEffect.key} className={`pointer-events-none absolute left-1/2 top-1/3 -translate-x-1/2 animate-bounce font-black drop-shadow-[0_3px_8px_rgba(0,0,0,0.9)] ${hitEffect.critical ? 'text-3xl text-yellow-300' : 'text-2xl text-rose-300'}`}>
@@ -299,7 +372,7 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
             ) : (
               <>
                 <h2 className="text-lg font-extrabold">오늘의 내 공격</h2>
-                <div ref={characterCardRef} className="mt-4 flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 p-3">
+                <div ref={characterCardRef} className={`class-operation-character-card class-operation-character-${attackPhase} mt-4 flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 p-3`}>
                   <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl bg-slate-900/80">
                     {student?.characterImage
                       ? <img src={student.characterImage} alt={`${student.name || student.studentCode || '학생'} 캐릭터`} className="h-full w-full object-contain" />
@@ -315,11 +388,12 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
                     <div className="flex justify-between"><span>기본 공격력</span><strong>{attackStats.baseAttack}</strong></div>
                     <div className="flex justify-between"><span>성장·장비 보너스</span><strong>+{attackStats.upgradeBonus + attackStats.equipmentBonus}</strong></div>
                     <div className="flex justify-between"><span>크리티컬 확률</span><strong className="text-yellow-300">{attackStats.criticalChance}%</strong></div>
+                    <div className="flex justify-between"><span>오늘의 협동 보너스</span><strong className="text-emerald-300">+{comboBonusPercent}%</strong></div>
                   </div>
                 </div>
                 <button onClick={attack} disabled={!canAttack || isAttacking}
                   className="mt-5 w-full rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 py-4 text-lg font-black text-slate-950 shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:grayscale disabled:opacity-60">
-                  {operation.status === 'cleared' ? '🎉 공동 목표 달성!' : hasAttackedToday ? '✅ 오늘 공격 완료' : isAttacking ? '공격 중...' : '⚔️ 오늘의 공격하기'}
+                  {operation.status === 'cleared' ? '🎉 공동 목표 달성!' : hasAttackedToday ? '✅ 오늘 공격 완료' : isAttacking ? attackPhase.includes('charge') ? '✨ 힘을 모으는 중...' : '⚡ 공격 중...' : '⚔️ 오늘의 공격하기'}
                 </button>
                 {message && <p className="mt-3 rounded-xl bg-white/10 p-3 text-center text-xs font-bold text-amber-100">{message}</p>}
                 <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs leading-6 text-white/55">
