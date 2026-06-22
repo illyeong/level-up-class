@@ -13,6 +13,7 @@ import StockManage from './StockManage';
 import QuizDungeonManage from './QuizDungeonManage';
 import QuizBank          from './QuizBank';
 import BossRaidManage from './BossRaidManage';
+import ClassOperationManage from './ClassOperationManage';
 import QuestKiosk from './QuestKiosk';
 import AdventureManage from './AdventureManage';
 import BoardManage from './BoardManage';
@@ -46,6 +47,7 @@ const KOREAN_STUDENT_MENU_LABELS = {
   explorationDungeon: '탐험던전',
   arena: '투기장',
   bossRaid: '보스 레이드',
+  classOperation: '우리반 대작전',
   trade: '무역 센터',
   classBank: '학급 은행',
   classShop: '학급 상점',
@@ -67,6 +69,7 @@ const KOREAN_TEACHER_MENU_LABELS = {
   quizBank: '퀴즈 은행',
   quizDungeonManage: '퀴즈던전 관리',
   bossRaidManage: '보스레이드 관리',
+  classOperationManage: '우리반 대작전 관리',
   quizDungeon: '퀴즈던전',
   explorationDungeon: '탐험던전',
   bossRaid: '보스 레이드',
@@ -193,6 +196,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
     explorationDungeon: '탐험던전',
     arena: '투기장',
     bossRaid: '보스 레이드',
+    classOperation: '우리반 대작전',
     trade: '무역 센터',
     classBank: '학급 은행',
     classShop: '학급 상점',
@@ -213,6 +217,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
     quizBank: '퀴즈 은행',
     quizDungeonManage: '퀴즈던전 관리',
     bossRaidManage: '보스레이드 관리',
+    classOperationManage: '우리반 대작전 관리',
     quizDungeon: '퀴즈던전',
     explorationDungeon: '탐험던전',
     bossRaid: '보스 레이드',
@@ -356,6 +361,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'bankManage'       && <BankManage selectedClass={selectedClass} />}
         {currentView === 'classShopManage' && <ClassShopManage selectedClass={selectedClass} />}
         {currentView === 'stockManage'        && <StockManage selectedClass={selectedClass} />}
+        {currentView === 'classOperationManage' && <ClassOperationManage selectedClass={selectedClass} />}
         {currentView === 'quizBank' && (
           <QuizBank
             selectedClass={selectedClass}

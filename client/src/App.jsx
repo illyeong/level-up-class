@@ -19,6 +19,7 @@ import EditProfile      from './pages/student/EditProfile.jsx';
 import ClassBank        from './pages/student/ClassBank.jsx';
 import ClassShop        from './pages/student/ClassShop.jsx';
 import AdventurePage    from './pages/student/AdventurePage.jsx';
+import ClassOperation   from './pages/student/ClassOperation.jsx';
 import StockMarket      from './pages/student/StockMarket.jsx';
 import LearningBoard    from './pages/student/LearningBoard.jsx';
 import LearningNote     from './pages/student/LearningNote.jsx';
@@ -195,7 +196,7 @@ const getPetLine = (hunger, happiness, cleanliness, energy) => {
   return pick(PET_DIALOGUES.normal);
 };
 
-const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','miniGame'];
+const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','classOperation','miniGame'];
 const THEMEABLE_VIEWS = new Set(['dashboard', 'classAll', 'quest', 'learningNote', 'myCharacter']);
 const ADVENTURE_BG = 'linear-gradient(160deg, #020617 0%, #0f172a 50%, #1e1b4b 100%)';
 const STUDENT_SESSION_KEY = 'studentInfo';
@@ -1220,7 +1221,9 @@ function App() {
           />
         )}
         {ADVENTURE_VIEWS.includes(currentView) && (
-          <AdventurePage currentView={currentView} studentCode={activeStudentCode} onChangeView={setCurrentView} />
+          currentView === 'classOperation'
+            ? <ClassOperation studentCode={activeStudentCode} />
+            : <AdventurePage currentView={currentView} studentCode={activeStudentCode} onChangeView={setCurrentView} />
         )}
         {currentView === 'board'        && <LearningBoard  studentCode={activeStudentCode} />}
         {currentView === 'learningNote' && <LearningNote   studentCode={activeStudentCode} themeMode={themeMode} />}

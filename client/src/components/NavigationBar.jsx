@@ -53,6 +53,10 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] 
       subMenus: []
     },
     {
+      id: 'classOperation', icon: '🏰', title: '우리반 대작전', isReady: true, directNav: true,
+      subMenus: []
+    },
+    {
       id: 'aiCourseware', icon: '🤖', title: 'AI 학습관', isReady: true, directNav: true,
       subMenus: []
     },

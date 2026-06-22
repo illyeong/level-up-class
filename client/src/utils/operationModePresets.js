@@ -1,11 +1,11 @@
 export const STUDENT_MENU_IDS = [
   'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement',
-  'board','learningNote','adventure','quizDungeon','explorationDungeon','arena','bossRaid','trade',
+  'board','learningNote','adventure','classOperation','quizDungeon','explorationDungeon','arena','bossRaid','trade',
   'classBank','classShop','stockMarket','town','freeBoard','classVote','settings','editProfile','themeSettings',
 ];
 
 export const TEACHER_MENU_IDS = [
-  'dashboard','myCharacter','questManage','questKiosk','adventure','quizBank','quizDungeonManage','bossRaidManage',
+  'dashboard','myCharacter','questManage','questKiosk','adventure','classOperationManage','quizBank','quizDungeonManage','bossRaidManage',
   'quizDungeon','explorationDungeon','bossRaid','adventureManage','boardManage','learningNoteManage','economyManage',
   'classShopManage','bankManage','stockManage','townManage','freeBoard','hallOfFame','classVoteManage','studentManage',
   'accountIssue','systemSettings','dataReset','inquiry',
@@ -18,11 +18,11 @@ export const OPERATION_MODE_PRESETS = {
     title: '가볍게 시작',
     description: '퀘스트, 보상 지급/차감, 학급 상점, 배움노트 중심으로 운영합니다.',
     studentHidden: hideExcept(STUDENT_MENU_IDS, [
-      'dashboard','classAll','myCharacter','quest','achievement','learningNote','trade','classShop','settings','editProfile','themeSettings',
+      'dashboard','classAll','myCharacter','quest','achievement','learningNote','classOperation','trade','classShop','settings','editProfile','themeSettings',
     ]),
     teacherHidden: hideExcept(TEACHER_MENU_IDS, [
       'dashboard','myCharacter','questManage','questKiosk','boardManage','learningNoteManage','economyManage','classShopManage',
-      'studentManage','accountIssue','systemSettings','dataReset','inquiry',
+      'classOperationManage','studentManage','accountIssue','systemSettings','dataReset','inquiry',
     ]),
   },
   game: {
@@ -30,10 +30,10 @@ export const OPERATION_MODE_PRESETS = {
     description: '퀘스트와 상점에 어드벤처, 퀴즈던전, 보스레이드, 투기장을 더합니다.',
     studentHidden: hideExcept(STUDENT_MENU_IDS, [
       'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement','learningNote',
-      'adventure','quizDungeon','explorationDungeon','arena','bossRaid','trade','classShop','settings','editProfile','themeSettings',
+      'adventure','classOperation','quizDungeon','explorationDungeon','arena','bossRaid','trade','classShop','settings','editProfile','themeSettings',
     ]),
     teacherHidden: hideExcept(TEACHER_MENU_IDS, [
-      'dashboard','myCharacter','questManage','questKiosk','adventure','quizBank','quizDungeonManage','bossRaidManage',
+      'dashboard','myCharacter','questManage','questKiosk','adventure','classOperationManage','quizBank','quizDungeonManage','bossRaidManage',
       'quizDungeon','explorationDungeon','bossRaid','adventureManage','boardManage','learningNoteManage','economyManage',
       'classShopManage','studentManage','accountIssue','systemSettings','dataReset','inquiry',
     ]),

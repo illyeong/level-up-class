@@ -120,6 +120,18 @@ function TicketBar({ tickets, isRefreshing, studentInfo }) {
 // ─────────────────────── 메인 허브 화면 ──────────────────────
 const ADVENTURE_CARDS = [
   {
+    id: 'classOperation',
+    icon: '🏰', sub: 'Class Mission',
+    title: '우리반 대작전',
+    desc: '매일 한 번 힘을 모아 우리 반 공동 목표 달성',
+    ticketKey: null,
+    bg: 'from-amber-950 to-rose-950',
+    border: 'border-amber-700/60',
+    dot: 'bg-amber-400',
+    shadow: 'shadow-amber-950',
+    btn: 'bg-amber-500 hover:bg-amber-400',
+  },
+  {
     id: 'quizDungeon',
     icon: '⚔️', sub: 'Quiz Dungeon',
     title: '퀴즈 던전',

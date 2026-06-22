@@ -62,6 +62,12 @@ export const HELP_CONTENT = {
     steps: ['보스와 배경을 선택합니다.', '퀴즈와 제한 시간, 보상을 설정합니다.', '결과 확인에서 학생별 정답과 데미지를 확인합니다.'],
     tip: '보스 HP는 학생 수와 문항 수를 기준으로 추천값을 활용하세요.',
   },
+  classOperationManage: {
+    title: '우리반 대작전 관리',
+    summary: '학생들이 매일 능력치대로 공격해 학급의 공동 목표를 달성하는 장기 협동 활동입니다.',
+    steps: ['과자파티나 피구처럼 학급이 함께 원하는 목표를 적습니다.', '기간과 보스만 고르면 학생 수와 공격력 기준으로 HP가 자동 계산됩니다.', '학생별 누적 데미지와 최근 공격 기록을 확인합니다.', '보스 HP가 0이 되면 공동 목표가 달성됩니다.'],
+    tip: '개인 순위보다 매일 참여와 학급 전체 달성도를 중심으로 안내해 주세요.',
+  },
   quizDungeon: {
     title: '퀴즈던전',
     summary: '교사가 학생 화면과 동일한 퀴즈던전을 테스트하는 메뉴입니다.',
@@ -200,6 +206,10 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       subMenus: [
         { title: '🖐️ 학생 셀프체크인', id: 'questKiosk' },
       ]
+    },
+    {
+      id: 'classOperationManage', icon: '🏰', title: '우리반 대작전', isReady: true,
+      subMenus: []
     },
     {
       id: 'contentStudio', icon: '🛠️', title: '수업 콘텐츠 제작실', isReady: true,
