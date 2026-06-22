@@ -372,13 +372,21 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
             ) : (
               <>
                 <h2 className="text-lg font-extrabold">오늘의 내 공격</h2>
-                <div ref={characterCardRef} className={`class-operation-character-card class-operation-character-${attackPhase} mt-4 flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 p-3`}>
-                  <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl bg-slate-900/80">
+                <div className={`class-operation-character-card class-operation-character-${attackPhase} relative mt-4 flex flex-col items-center overflow-hidden rounded-2xl border border-white/15 bg-white/10 p-4 text-center`}>
+                  <div className="pointer-events-none absolute inset-x-8 bottom-14 h-14 rounded-full bg-indigo-400/15 blur-xl" />
+                  <div ref={characterCardRef} className="relative grid h-36 w-36 shrink-0 place-items-center overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80 shadow-2xl md:h-44 md:w-44">
                     {student?.characterImage
-                      ? <img src={student.characterImage} alt={`${student.name || student.studentCode || '학생'} 캐릭터`} className="h-full w-full object-contain" />
-                      : <span className="text-4xl">🧙</span>}
+                      ? <img src={student.characterImage} alt={`${student.name || student.studentCode || '학생'} 캐릭터`} className="h-full w-full scale-110 object-contain drop-shadow-[0_12px_16px_rgba(0,0,0,0.55)]" />
+                      : <span className="text-7xl">🧙</span>}
                   </div>
-                  <div className="min-w-0"><div className="truncate text-sm font-extrabold text-white">{student?.name || student?.studentCode || '나의 캐릭터'}</div><div className="mt-1 text-xs text-white/50">Lv.{attackStats.level} · 공격 준비 완료</div></div>
+                  <div className="relative mt-3 min-w-0">
+                    <div className="truncate text-base font-extrabold text-white md:text-lg">{student?.name || student?.studentCode || '나의 캐릭터'}</div>
+                    <div className="mt-1 text-xs text-white/50">Lv.{attackStats.level} · 공격 준비 완료</div>
+                    <div className="mt-2 flex justify-center gap-2 text-[10px] font-extrabold">
+                      <span className="rounded-full bg-rose-500/20 px-2.5 py-1 text-rose-200">⚔️ ATK {attackStats.totalAttack}</span>
+                      <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-amber-200">💥 CRIT {attackStats.criticalChance}%</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="mt-4 rounded-2xl border border-indigo-400/30 bg-indigo-500/10 p-4">
                   <div className="text-xs text-indigo-200">예상 피해량</div>
