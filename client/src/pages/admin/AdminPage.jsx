@@ -95,7 +95,7 @@ function DashboardTab() {
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState('recent');
   const [sortDir, setSortDir] = useState('desc');
-  const [viewMode, setViewMode] = useState('today');
+  const [viewMode, setViewMode] = useState('week');
 
   useEffect(() => {
     (async () => {
@@ -161,18 +161,27 @@ function DashboardTab() {
           classStats[classId].studentCount += 1;
           if (activeToday) {
             globalTodayActiveStudents.add(s.id);
-            touchActivity(classId, s.id, activeAt || new Date(), s.lastActiveDateKey === todayKey);
           }
+          touchActivity(
+            classId,
+            s.id,
+            activeAt || (activeToday ? new Date() : null),
+            s.lastActiveDateKey === todayKey,
+          );
         });
 
         const rows = Object.values(classStats).map(row => {
+          const inactiveDays = row.recentActivityAt
+            ? Math.floor((Date.now() - row.recentActivityAt.getTime()) / 86400000)
+            : null;
           return {
             ...row,
             todayActiveCount: row.todayActiveStudents.size,
             todayActive: row.todayActiveStudents.size > 0 || row.teacherActiveToday,
+            activeWithin7Days: inactiveDays !== null && inactiveDays < 7,
             recentActivityLabel: formatAdminActivity(row.recentActivityAt),
             teacherActivityLabel: formatAdminActivity(row.teacherActiveAt),
-            inactiveDays: row.recentActivityAt ? Math.floor((Date.now() - row.recentActivityAt.getTime()) / 86400000) : null,
+            inactiveDays,
           };
         });
 
@@ -181,9 +190,9 @@ function DashboardTab() {
             classCount: classes.length,
             studentCount: students.length,
             todayActiveStudents: globalTodayActiveStudents.size,
-            todayActiveClasses: rows.filter(r => r.todayActive).length,
+            recentActiveClasses: rows.filter(r => r.activeWithin7Days).length,
             todayActiveTeachers: globalTodayActiveTeachers.size,
-            attentionClasses: rows.filter(r => !r.todayActive && (r.inactiveDays == null || r.inactiveDays >= 7)).length,
+            attentionClasses: rows.filter(r => !r.activeWithin7Days).length,
           },
           rows,
         });
@@ -206,9 +215,9 @@ function DashboardTab() {
     if (sortKey === 'teacher') return direction * (Number(a.teacherActiveToday) - Number(b.teacherActiveToday));
     return 0;
   });
-  const visibleRows = viewMode === 'today' ? sortedRows.filter(row => row.todayActive) : sortedRows;
+  const visibleRows = viewMode === 'week' ? sortedRows.filter(row => row.activeWithin7Days) : sortedRows;
   const attentionRows = (data?.rows || [])
-    .filter(row => !row.todayActive && (row.inactiveDays == null || row.inactiveDays >= 7))
+    .filter(row => !row.activeWithin7Days)
     .sort((a, b) => (a.recentActivityAt?.getTime() || 0) - (b.recentActivityAt?.getTime() || 0))
     .slice(0, 8);
 
@@ -218,11 +227,11 @@ function DashboardTab() {
     <div className="admin-operations-dashboard space-y-6 p-4 md:p-6">
       <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
         <h2 className="text-2xl font-extrabold tracking-tight text-slate-800">관리자 운영 대시보드</h2>
-        <p className="mt-1 text-sm leading-6 text-slate-500">오늘 실제로 접속한 학급과 학생·교사 현황을 확인합니다. 기준 시간대는 한국 시간입니다.</p>
+        <p className="mt-1 text-sm leading-6 text-slate-500">최근 7일 동안 활동한 학급과 오늘 접속한 학생·교사 현황을 확인합니다. 기준 시간대는 한국 시간입니다.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard icon="🏫" label={`오늘 활동 학급 / 전체 ${fmtNum(data?.summary.classCount)}개`} value={`${fmtNum(data?.summary.todayActiveClasses)}개`} color="indigo" />
+        <StatCard icon="🏫" label={`최근 7일 활동 학급 / 전체 ${fmtNum(data?.summary.classCount)}개`} value={`${fmtNum(data?.summary.recentActiveClasses)}개`} color="indigo" />
         <StatCard icon="🎓" label={`전체 학생 ${fmtNum(data?.summary.studentCount)}명`} value={`${fmtNum(data?.summary.todayActiveStudents)}명`} color="emerald" />
         <StatCard icon="🧑‍🏫" label="오늘 접속 교사" value={`${fmtNum(data?.summary.todayActiveTeachers)}명`} color="amber" />
         <StatCard icon="🔎" label="7일 이상 미활동·기록 없음" value={`${fmtNum(data?.summary.attentionClasses)}개`} color="rose" />
@@ -237,7 +246,7 @@ function DashboardTab() {
             </div>
             <div className="flex flex-wrap gap-2 px-5 pt-5">
               <div className="flex rounded-xl bg-slate-100 p-1 text-xs font-bold">
-                <button onClick={() => setViewMode('today')} className={`rounded-lg px-3 py-1.5 ${viewMode === 'today' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>오늘 활동 {data?.summary.todayActiveClasses}개</button>
+                <button onClick={() => setViewMode('week')} className={`rounded-lg px-3 py-1.5 ${viewMode === 'week' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>최근 7일 {data?.summary.recentActiveClasses}개</button>
                 <button onClick={() => setViewMode('all')} className={`rounded-lg px-3 py-1.5 ${viewMode === 'all' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>전체 {data?.summary.classCount}개</button>
               </div>
               <select value={sortKey} onChange={e => setSortKey(e.target.value)}
@@ -280,7 +289,7 @@ function DashboardTab() {
                     <td className="px-3 py-3 text-center text-xs font-bold text-slate-500">{row.recentActivityLabel}</td>
                   </tr>
                 ))}
-                {visibleRows.length === 0 && <tr><td colSpan="4" className="px-4 py-12 text-center text-sm font-bold text-slate-400">오늘 활동한 학급이 없습니다.</td></tr>}
+                {visibleRows.length === 0 && <tr><td colSpan="4" className="px-4 py-12 text-center text-sm font-bold text-slate-400">최근 7일 동안 활동한 학급이 없습니다.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -304,11 +313,11 @@ function DashboardTab() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 font-extrabold text-slate-800">오늘 운영 요약</h3>
+          <h3 className="mb-4 font-extrabold text-slate-800">운영 요약</h3>
           <div className="grid grid-cols-3 gap-3">
-            <MiniMetric label="활동 학급" value={`${fmtNum(data?.summary.todayActiveClasses)}개`} tone="indigo" />
-            <MiniMetric label="접속 학생" value={`${fmtNum(data?.summary.todayActiveStudents)}명`} tone="emerald" />
-            <MiniMetric label="접속 교사" value={`${fmtNum(data?.summary.todayActiveTeachers)}명`} tone="amber" />
+            <MiniMetric label="7일 활동 학급" value={`${fmtNum(data?.summary.recentActiveClasses)}개`} tone="indigo" />
+            <MiniMetric label="오늘 접속 학생" value={`${fmtNum(data?.summary.todayActiveStudents)}명`} tone="emerald" />
+            <MiniMetric label="오늘 접속 교사" value={`${fmtNum(data?.summary.todayActiveTeachers)}명`} tone="amber" />
           </div>
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-6 text-slate-500">
             학생 수는 오늘 로그인하거나 활동한 고유 학생 기준입니다. 한 학생이 여러 기능을 사용해도 한 명으로 계산합니다.
