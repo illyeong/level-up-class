@@ -13,34 +13,48 @@ export const getClassOperationAttack = (student = {}, equipmentItems = []) => {
   const level = Math.max(1, Number(student.level) || 1);
   const baseAttack = 10 + Math.floor(level * 2);
   const upgradeBonus = Math.max(0, (Number(student.attackPower) || 10) - 10);
+  const baseCriticalChance = 5 + Math.floor(level * 0.5);
+  const criticalUpgradeBonus = Math.max(0, (Number(student.critChance) || 20) - 20);
   const equipped = student.equipped || {};
   const inventory = Array.isArray(student.equipInventory) ? student.equipInventory : [];
 
-  const equipmentBonus = Object.values(equipped).reduce((sum, inventoryId) => {
+  const equipmentBonuses = Object.values(equipped).reduce((bonuses, inventoryId) => {
     const inventoryItem = inventory.find(item => String(item.id) === String(inventoryId));
     const equipment = inventoryItem
       ? equipmentItems.find(item => String(item.id) === String(inventoryItem.itemId))
       : null;
     const attack = Number(equipment?.stats?.attack) || 0;
-    const starBonus = attack > 0 ? (Number(inventoryItem?.stars) || 0) * 5 : 0;
-    return sum + attack + starBonus;
-  }, 0);
+    const critical = Number(equipment?.stats?.crit) || 0;
+    const starBonus = (Number(inventoryItem?.stars) || 0) * 5;
+    bonuses.attack += attack + (attack > 0 ? starBonus : 0);
+    bonuses.critical += critical + (critical > 0 ? starBonus : 0);
+    return bonuses;
+  }, { attack: 0, critical: 0 });
 
-  const totalAttack = baseAttack + upgradeBonus + equipmentBonus;
+  const totalAttack = baseAttack + upgradeBonus + equipmentBonuses.attack;
+  const criticalChance = Math.min(75, Math.max(0, baseCriticalChance + criticalUpgradeBonus + equipmentBonuses.critical));
+  const damage = Math.max(100, 100 + totalAttack * 5);
+  const criticalMultiplier = 1.5;
   return {
     level,
     baseAttack,
     upgradeBonus,
-    equipmentBonus,
+    equipmentBonus: equipmentBonuses.attack,
     totalAttack,
-    damage: Math.max(100, 100 + totalAttack * 5),
+    baseCriticalChance,
+    criticalUpgradeBonus,
+    equipmentCriticalBonus: equipmentBonuses.critical,
+    criticalChance,
+    criticalMultiplier,
+    damage,
+    expectedDamage: Math.round(damage * (1 + (criticalChance / 100) * (criticalMultiplier - 1))),
   };
 };
 
 export const calculateClassOperationMaxHP = (students = [], equipmentItems = [], days = DEFAULT_CLASS_OPERATION_DAYS) => {
   const duration = Math.max(1, Number(days) || DEFAULT_CLASS_OPERATION_DAYS);
   const dailyDamage = students.reduce(
-    (sum, student) => sum + getClassOperationAttack(student, equipmentItems).damage,
+    (sum, student) => sum + getClassOperationAttack(student, equipmentItems).expectedDamage,
     0,
   );
   const fallbackDailyDamage = Math.max(1, students.length) * 160;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   collection, doc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, where,
 } from 'firebase/firestore';
@@ -6,6 +6,7 @@ import { db } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 import { getClassOperationAttack, getLocalDateKey, getRemainingDays } from '../../utils/classOperation';
+import { fireProjectile } from '../../utils/projectile';
 
 const formatNumber = value => Math.max(0, Number(value) || 0).toLocaleString('ko-KR');
 
@@ -20,6 +21,9 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
   const [bossAnim, setBossAnim] = useState('idle');
   const [flash, setFlash] = useState(false);
   const [message, setMessage] = useState('');
+  const [hitEffect, setHitEffect] = useState(null);
+  const characterCardRef = useRef(null);
+  const bossTargetRef = useRef(null);
 
   useEffect(() => {
     let unsubscribeOperation = () => {};
@@ -139,7 +143,11 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
   const progress = Math.min(100, Math.max(0, ((maxHP - currentHP) / maxHP) * 100));
   const boss = MONSTERS_DB[operation?.bossId] || MONSTERS_DB.redDragon;
   const background = operation ? resolveBossBg(operation) : '';
-  const canAttack = !isTeacher && operation?.status === 'active' && getRemainingDays(operation.endDate) > 0 && !hasAttackedToday && currentHP > 0;
+  const estimatedDaysLeft = getRemainingDays(operation?.estimatedEndDate || operation?.endDate);
+  const estimatedScheduleLabel = estimatedDaysLeft > 0
+    ? `예상 완료까지 ${estimatedDaysLeft}일`
+    : '예상 완료일 경과 · HP가 0이 될 때까지 계속';
+  const canAttack = !isTeacher && operation?.status === 'active' && !hasAttackedToday && currentHP > 0;
   const contributionRows = useMemo(() => {
     const rows = new Map();
     attacks.forEach(attackItem => {
@@ -156,11 +164,16 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
     if (!canAttack || !student?.id || isAttacking) return;
     setIsAttacking(true);
     setMessage('');
-    try {
+    const critical = Math.random() * 100 < attackStats.criticalChance;
+    const rolledDamage = critical
+      ? Math.floor(attackStats.damage * attackStats.criticalMultiplier)
+      : attackStats.damage;
+
+    const commitAttack = async () => {
       const operationRef = doc(db, 'classOperations', operation.id);
       const attackId = `${student.id}_${getLocalDateKey()}`;
       const attackRef = doc(db, 'classOperations', operation.id, 'attacks', attackId);
-      await runTransaction(db, async transaction => {
+      return runTransaction(db, async transaction => {
         const [operationSnap, attackSnap] = await Promise.all([
           transaction.get(operationRef),
           transaction.get(attackRef),
@@ -168,18 +181,20 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
         if (!operationSnap.exists() || operationSnap.data().status !== 'active') {
           throw new Error('진행 중인 대작전이 아닙니다.');
         }
-        const endDate = operationSnap.data().endDate?.toDate?.();
-        if (endDate && endDate.getTime() < Date.now()) throw new Error('대작전 기간이 종료되었습니다.');
         if (attackSnap.exists()) throw new Error('오늘은 이미 공격했습니다.');
         const operationData = operationSnap.data();
         const beforeHP = Math.max(0, Number(operationData.currentHP) || 0);
-        const appliedDamage = Math.min(beforeHP, attackStats.damage);
+        const appliedDamage = Math.min(beforeHP, rolledDamage);
         const nextHP = Math.max(0, beforeHP - appliedDamage);
         transaction.set(attackRef, {
           studentId: student.id,
           studentCode: student.studentCode || studentCode,
           studentName: student.name || student.studentCode || '학생',
+          baseDamage: attackStats.damage,
           damage: appliedDamage,
+          critical,
+          criticalChance: attackStats.criticalChance,
+          criticalMultiplier: attackStats.criticalMultiplier,
           statSnapshot: attackStats,
           dateKey: getLocalDateKey(),
           attackedAt: serverTimestamp(),
@@ -191,11 +206,32 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
           clearedAt: nextHP === 0 ? serverTimestamp() : null,
           updatedAt: serverTimestamp(),
         });
+        return { appliedDamage, critical };
       });
-      setBossAnim('attack');
+    };
+
+    try {
+      const characterRect = characterCardRef.current?.getBoundingClientRect();
+      const bossRect = bossTargetRef.current?.getBoundingClientRect();
+      const result = await new Promise((resolve, reject) => {
+        const applyHit = () => commitAttack().then(resolve).catch(reject);
+        if (!characterRect || !bossRect) {
+          applyHit();
+          return;
+        }
+        fireProjectile({
+          from: { x: characterRect.left + characterRect.width / 2, y: characterRect.top + characterRect.height / 2 },
+          to: { x: bossRect.left + bossRect.width / 2, y: bossRect.top + bossRect.height / 2 },
+          type: critical ? 'fire' : 'magic',
+          power: critical ? 2 : 1.35,
+          onHit: applyHit,
+        });
+      });
       setFlash(true);
+      setHitEffect({ damage: result.appliedDamage, critical: result.critical, key: Date.now() });
       setTimeout(() => setFlash(false), 250);
-      setMessage(`오늘의 공격 성공! ${formatNumber(attackStats.damage)} 피해를 함께 보탰습니다.`);
+      setTimeout(() => setHitEffect(null), 1200);
+      setMessage(`${result.critical ? '💥 크리티컬! ' : ''}오늘의 공격 성공! ${formatNumber(result.appliedDamage)} 피해를 함께 보탰습니다.`);
     } catch (error) {
       setMessage(error.message || '공격 중 오류가 발생했습니다.');
     } finally {
@@ -224,7 +260,7 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
           <section className="flex min-h-[430px] flex-col rounded-3xl border border-white/15 bg-black/35 p-5 backdrop-blur-sm">
             <div className="flex items-center justify-between text-sm font-bold">
               <span>{operation.bossName || boss?.name}</span>
-              <span className="text-amber-300">남은 기간 {getRemainingDays(operation.endDate)}일</span>
+              <span className="text-amber-300">{estimatedScheduleLabel}</span>
             </div>
             <div className="mt-3 h-7 overflow-hidden rounded-full border-2 border-white/20 bg-black/50 p-1">
               <div className="h-full rounded-full bg-gradient-to-r from-rose-700 to-red-400 transition-all" style={{ width: `${100 - progress}%` }} />
@@ -233,8 +269,13 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
               <span>달성도 {progress.toFixed(1)}%</span>
               <span>{formatNumber(currentHP)} / {formatNumber(maxHP)} HP</span>
             </div>
-            <div className="flex flex-1 items-center justify-center py-5 drop-shadow-[0_15px_25px_rgba(0,0,0,0.65)]">
+            <div ref={bossTargetRef} className="relative flex flex-1 items-center justify-center py-5 drop-shadow-[0_15px_25px_rgba(0,0,0,0.65)]">
               <SpriteMonster data={boss} anim={operation.status === 'cleared' ? 'death' : bossAnim} flash={flash} scale={(boss?.scale || 0.4) * 2.1} onAnimEnd={() => setBossAnim('idle')} />
+              {hitEffect && (
+                <div key={hitEffect.key} className={`pointer-events-none absolute left-1/2 top-1/3 -translate-x-1/2 animate-bounce font-black drop-shadow-[0_3px_8px_rgba(0,0,0,0.9)] ${hitEffect.critical ? 'text-3xl text-yellow-300' : 'text-2xl text-rose-300'}`}>
+                  {hitEffect.critical ? '💥 CRITICAL! ' : ''}-{formatNumber(hitEffect.damage)}
+                </div>
+              )}
             </div>
             <div className="rounded-2xl bg-black/45 px-4 py-3 text-center">
               <div className="text-xs text-white/55">공동 목표</div>
@@ -258,6 +299,14 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
             ) : (
               <>
                 <h2 className="text-lg font-extrabold">오늘의 내 공격</h2>
+                <div ref={characterCardRef} className="mt-4 flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 p-3">
+                  <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl bg-slate-900/80">
+                    {student?.characterImage
+                      ? <img src={student.characterImage} alt={`${student.name || student.studentCode || '학생'} 캐릭터`} className="h-full w-full object-contain" />
+                      : <span className="text-4xl">🧙</span>}
+                  </div>
+                  <div className="min-w-0"><div className="truncate text-sm font-extrabold text-white">{student?.name || student?.studentCode || '나의 캐릭터'}</div><div className="mt-1 text-xs text-white/50">Lv.{attackStats.level} · 공격 준비 완료</div></div>
+                </div>
                 <div className="mt-4 rounded-2xl border border-indigo-400/30 bg-indigo-500/10 p-4">
                   <div className="text-xs text-indigo-200">예상 피해량</div>
                   <div className="mt-1 text-4xl font-black text-amber-300">{formatNumber(attackStats.damage)}</div>
@@ -265,6 +314,7 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
                     <div className="flex justify-between"><span>레벨</span><strong>Lv.{attackStats.level}</strong></div>
                     <div className="flex justify-between"><span>기본 공격력</span><strong>{attackStats.baseAttack}</strong></div>
                     <div className="flex justify-between"><span>성장·장비 보너스</span><strong>+{attackStats.upgradeBonus + attackStats.equipmentBonus}</strong></div>
+                    <div className="flex justify-between"><span>크리티컬 확률</span><strong className="text-yellow-300">{attackStats.criticalChance}%</strong></div>
                   </div>
                 </div>
                 <button onClick={attack} disabled={!canAttack || isAttacking}
@@ -299,7 +349,7 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
               {attacks.length === 0 ? <p className="text-xs text-white/45">첫 번째 공격을 기다리고 있습니다.</p> : attacks.slice(0, 12).map(attackItem => (
                 <div key={attackItem.id} className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2 text-sm">
                   <span className="font-bold">{attackItem.studentName || attackItem.studentCode}</span>
-                  <strong className="text-rose-300">-{formatNumber(attackItem.damage)} HP</strong>
+                  <strong className={attackItem.critical ? 'text-yellow-300' : 'text-rose-300'}>{attackItem.critical ? '💥 ' : ''}-{formatNumber(attackItem.damage)} HP</strong>
                 </div>
               ))}
             </div>
