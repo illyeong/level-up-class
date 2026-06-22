@@ -385,6 +385,16 @@ function App() {
     }
   }, [teacherUser, isAdmin, isAdminLoading]);
 
+  useEffect(() => {
+    if (appMode !== 'teacher' || !teacherUser?.uid || !selectedClass?.id) return;
+    updateDoc(doc(db, 'classes', selectedClass.id), {
+      teacherLastActiveAt: serverTimestamp(),
+      teacherLastActiveDateKey: getKstDateKey(),
+      teacherLastActiveUid: teacherUser.uid,
+      teacherLastActiveEmail: teacherUser.email || selectedClass.teacherEmail || '',
+    }).catch(error => console.warn('[TeacherActive] update failed:', error));
+  }, [appMode, selectedClass?.id, selectedClass?.teacherEmail, teacherUser?.uid, teacherUser?.email]);
+
   // ── 학생 학급 정보 조회 ────────────────────────────────────────
   useEffect(() => {
     const classId    = studentInfo?.classId;

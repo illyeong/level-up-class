@@ -263,15 +263,16 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
       const result = await new Promise((resolve, reject) => {
         const applyHit = () => commitAttack().then(resolve).catch(reject);
         const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-        if (!characterRect || !bossRect || reduceMotion) {
+        if (!characterRect || !bossRect) {
           applyHit();
           return;
         }
         fireProjectile({
           from: { x: characterRect.left + characterRect.width / 2, y: characterRect.top + characterRect.height / 2 },
           to: { x: bossRect.left + bossRect.width / 2, y: bossRect.top + bossRect.height / 2 },
-          type: critical ? 'fire' : 'magic',
-          power: critical ? 2 : 1.35,
+          type: 'classStrike',
+          power: critical ? 2 : 1.6,
+          reducedMotion: reduceMotion,
           onHit: applyHit,
         });
       });
