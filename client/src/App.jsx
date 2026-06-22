@@ -380,7 +380,26 @@ function App() {
 
     const savedClass = sessionStorage.getItem('selectedClass');
     if (savedClass) {
-      const parsedClass = JSON.parse(savedClass);
+      let parsedClass;
+      try {
+        parsedClass = JSON.parse(savedClass);
+      } catch {
+        sessionStorage.removeItem('selectedClass');
+        setSelectedClass(null);
+        setAppMode('classSelect');
+        return;
+      }
+      if (!parsedClass?.id) {
+        if (parsedClass?.teacherUid) {
+          setSelectedClass(parsedClass);
+          setAppMode('teacher');
+        } else {
+          sessionStorage.removeItem('selectedClass');
+          setSelectedClass(null);
+          setAppMode('classSelect');
+        }
+        return;
+      }
       getDoc(doc(db, 'classes', parsedClass.id))
         .then(snap => {
           if (cancelled) return;
