@@ -10,6 +10,10 @@ import { fireProjectile } from '../../utils/projectile';
 
 const formatNumber = value => Math.max(0, Number(value) || 0).toLocaleString('ko-KR');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const CLASS_OPERATION_PROJECTILE_TYPES = ['magic', 'fire', 'ice', 'arrow', 'energy'];
+
+const getRandomClassOperationProjectileType = () =>
+  CLASS_OPERATION_PROJECTILE_TYPES[Math.floor(Math.random() * CLASS_OPERATION_PROJECTILE_TYPES.length)];
 
 const playBattleTone = (kind = 'charge') => {
   try {
@@ -270,7 +274,7 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
         fireProjectile({
           from: { x: characterRect.left + characterRect.width / 2, y: characterRect.top + characterRect.height / 2 },
           to: { x: bossRect.left + bossRect.width / 2, y: bossRect.top + bossRect.height / 2 },
-          type: 'classStrike',
+          type: getRandomClassOperationProjectileType(),
           power: critical ? 2 : 1.6,
           reducedMotion: reduceMotion,
           onHit: applyHit,

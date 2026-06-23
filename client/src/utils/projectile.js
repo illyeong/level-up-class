@@ -63,18 +63,6 @@ const TYPES = {
     trailLen: 10,
     burstCount: 16,
   },
-  classStrike: {
-    colors:        ['#fef3c7', '#fbbf24', '#fb923c', '#c4b5fd', '#818cf8'],
-    glow:          '#fbbf24',
-    explodeColors: ['#fff7ed', '#fbbf24', '#fb923c', '#a78bfa'],
-    count:   14,
-    size:    10,
-    speed:   12,
-    spread:  9,
-    trailLen: 16,
-    burstCount: 30,
-    beam: true,
-  },
 };
 
 /**
@@ -220,25 +208,6 @@ export function fireProjectile({ from, to, type = 'magic', power = 1, reducedMot
         ctx.fill();
         ctx.restore();
       });
-
-      if (cfg.beam && particleIndex === 0 && p.trail.length > 1) {
-        ctx.save();
-        ctx.globalAlpha = 0.82;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.strokeStyle = cfg.glow;
-        ctx.shadowColor = cfg.glow;
-        ctx.shadowBlur = 26;
-        ctx.lineWidth = 9 * intensity;
-        ctx.beginPath();
-        [...p.trail].reverse().forEach((point, index) => {
-          if (index === 0) ctx.moveTo(point.x, point.y);
-          else ctx.lineTo(point.x, point.y);
-        });
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-        ctx.restore();
-      }
 
       // draw head with glow
       ctx.save();
