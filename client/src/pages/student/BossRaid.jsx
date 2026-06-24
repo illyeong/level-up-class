@@ -213,6 +213,11 @@ export const createPresentationTestRaid = async ({ classId, teacherUid, rosterCo
 
 const normalizeStudentCode = (code) => String(code || '').trim().toUpperCase();
 
+const isPresentationAutoAnswerParticipant = (participantId, participant) => {
+  const code = normalizeStudentCode(participant?.studentCode || participantId);
+  return /^SINSEOK-5-(0[1-9]|1[0-4])$/.test(code);
+};
+
 const chunkArray = (items, size) => {
   const chunks = [];
   for (let index = 0; index < items.length; index += size) {
@@ -1730,7 +1735,11 @@ export default function BossRaid({
     if (!q) return;
 
     const participants = Object.entries(raid.participants || {})
-      .filter(([id, participant]) => id !== studentDocId && participant?.lastAnsweredIdx !== qIdx)
+      .filter(([id, participant]) =>
+        id !== studentDocId &&
+        isPresentationAutoAnswerParticipant(id, participant) &&
+        participant?.lastAnsweredIdx !== qIdx
+      )
       .sort(([, a], [, b]) => (a.joinedAt?.seconds || 0) - (b.joinedAt?.seconds || 0));
 
     participants.forEach(([participantId], index) => {
@@ -1750,6 +1759,7 @@ export default function BossRaid({
             latest.finishing ||
             latest.currentQuestionIdx !== qIdx ||
             !latestParticipant ||
+            !isPresentationAutoAnswerParticipant(participantId, latestParticipant) ||
             latestParticipant.lastAnsweredIdx === qIdx
           ) {
             return;
