@@ -365,7 +365,6 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             onStudentTestLogin={onStudentTestLogin}
             selectedClass={selectedClass}
             onGoAccountIssue={() => setCurrentView('accountIssue')}
-            teacherEmail={user?.email}
             onOpenBossRaidDemo={() => setCurrentView('bossRaidDemo')}
             isDark={isDark}
             operationMode={operationMode}

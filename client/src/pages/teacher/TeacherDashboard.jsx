@@ -60,9 +60,6 @@ const isStudentActiveToday = student => {
   const map = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return `${map.year}-${map.month}-${map.day}` === getKstDateKey();
 };
-const PRESENTATION_DEMO_EMAILS = new Set(['imdlffud2@gmail.com']);
-const canUsePresentationDemo = (...emails) =>
-  emails.some(email => PRESENTATION_DEMO_EMAILS.has(String(email || '').trim().toLowerCase()));
 const AI_ACTION_TONES = {
   emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
   amber: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
@@ -138,7 +135,6 @@ function TeacherDashboard({
   selectedClass,
   onGoAccountIssue,
   onStudentTestLogin,
-  teacherEmail,
   onOpenBossRaidDemo,
   isDark = false,
   operationMode = 'custom',
@@ -163,12 +159,6 @@ function TeacherDashboard({
   const [goldAmount, setGoldAmount] = useState('');
   const [reason, setReason] = useState('');
   const [searchQuery, setSearchQuery] = useState(''); 
-  const canOpenBossRaidDemo = canUsePresentationDemo(
-    teacherEmail,
-    selectedClass?.teacherEmail,
-    selectedClass?.ownerEmail,
-    selectedClass?.createdByEmail,
-  ) || selectedClass?.teacherUid === 'admin_master_001';
 
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [logs, setLogs] = useState([]);
@@ -880,15 +870,13 @@ function TeacherDashboard({
               학생 테스트 (SINSEOK-5-15)
             </button>
           )}
-          {canOpenBossRaidDemo && (
-            <button
-              type="button"
-              onClick={onOpenBossRaidDemo}
-              className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base"
-            >
-              보스레이드 발표 테스트
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onOpenBossRaidDemo}
+            className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base"
+          >
+            보스레이드 발표 테스트
+          </button>
           <a
             href="https://github.com/illyeong/level-up-class/releases/download/v1.0.0/LevelUpTeacherWidgetSetup.exe"
             target="_blank"
