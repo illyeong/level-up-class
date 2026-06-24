@@ -128,6 +128,16 @@ const RAID_BREAK_MAX = 100;
 const RAID_BREAK_GAIN = 20;
 const RAID_FINISHER_DURATION_MS = 3000;
 
+const normalizeStudentCode = (code) => String(code || '').trim().toUpperCase();
+
+const chunkArray = (items, size) => {
+  const chunks = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+};
+
 const getRaidPhase = (currentHP, maxHP) => {
   const ratio = maxHP > 0 ? currentHP / maxHP : 1;
   if (ratio <= 0.3) return 3;
@@ -417,17 +427,19 @@ function IntroScreen({ raid, bossData, onEnter }) {
 }
 
 // 교사용 레이드 시작 함수
-const teacherStartRaid = async (raidId) => {
-  await updateDoc(doc(db, 'worldBossRaids', raidId), {
+const teacherStartRaid = async (raidId, { presentationTest = false } = {}) => {
+  const updates = {
     status:             'active',
     currentQuestionIdx: 0,
     questionStartedAt:  serverTimestamp(),
     startedAt:          serverTimestamp(),
-  });
+  };
+  if (presentationTest) updates.presentationTest = true;
+  await updateDoc(doc(db, 'worldBossRaids', raidId), updates);
 };
 
 // ── 대기실 (Lobby) ────────────────────────────────────────────────
-function LobbyPhase({ raid, bossData, myId, isTeacher }) {
+function LobbyPhase({ raid, bossData, myId, isTeacher, canStartRaid = isTeacher, presentationMode = false }) {
   const participants  = raid.participants || {};
   const pList = Object.entries(participants)
     .map(([id, p]) => ({ id, ...p }))
@@ -511,9 +523,9 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
           {(raid.rewards?.diamond || 0) > 0 && <span className="text-blue-300">💎 {raid.rewards.diamond}</span>}
         </div>
 
-        {isTeacher ? (
+        {canStartRaid ? (
           <button
-            onClick={() => teacherStartRaid(raid.id)}
+            onClick={() => teacherStartRaid(raid.id, { presentationTest: presentationMode })}
             className="px-10 py-4 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold text-lg rounded-2xl shadow-lg shadow-rose-900/40 transition-all">
             ⚔️ 레이드 시작 ({pList.length}명 대기 중)
           </button>
@@ -566,7 +578,7 @@ function LobbyPhase({ raid, bossData, myId, isTeacher }) {
 // ── 배틀 ─────────────────────────────────────────────────────────
 function BattlePhase({
   raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossAnimKey, bossFlash,
-  isTeacher, onAnswer, onBossAttack, onBossAnimEnd, onExit,
+  isTeacher, onAnswer, onBossAttack, onBossAnimEnd, onExit, showExitButton = isTeacher,
 }) {
   const bossBg = resolveBossBg(raid);
   const questions = (raid.questions || []).filter(q => q.type !== 'short');
@@ -859,7 +871,7 @@ function BattlePhase({
           </div>
           <div className="flex items-center gap-3">
             <span>👥 {Object.keys(raid.participants || {}).length}명 참전</span>
-            {isTeacher && onExit && (
+            {showExitButton && onExit && (
               <button
                 type="button"
                 onClick={onExit}
@@ -1295,11 +1307,22 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
 }
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────
-export default function BossRaid({ studentCode, studentDocId, isTeacher = false, selectedClass = null, onExit }) {
+export default function BossRaid({
+  studentCode,
+  studentDocId: studentDocIdProp,
+  isTeacher = false,
+  selectedClass = null,
+  onExit,
+  presentationMode = false,
+  presentationRosterCodes = [],
+}) {
+  const normalizedStudentCode = normalizeStudentCode(studentCode);
+  const [resolvedStudentDocId, setResolvedStudentDocId] = useState(null);
+  const studentDocId = studentDocIdProp || resolvedStudentDocId;
   const [raid, setRaid]           = useState(undefined); // undefined=로딩, null=없음
   const [studentData, setStudentData] = useState(null);
   const [raidScope, setRaidScope] = useState({ classId: null, teacherUid: null });
-  const [showIntro, setShowIntro] = useState(!isTeacher);
+  const [showIntro, setShowIntro] = useState(!isTeacher && !presentationMode);
 
   // 내 답변 상태 (로컬)
   const [myAnswer, setMyAnswer]   = useState(null);  // { idx, correct } | null
@@ -1313,6 +1336,32 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
   const timerRef           = useRef(null);
   const raidRef            = useRef(null);
   const autoPayingRaidRef  = useRef(null);
+  const presentationRosterKey = presentationRosterCodes.map(normalizeStudentCode).filter(Boolean).join('|');
+
+  useEffect(() => {
+    if (studentDocIdProp || !normalizedStudentCode) {
+      if (studentDocIdProp) setResolvedStudentDocId(null);
+      return;
+    }
+
+    let cancelled = false;
+    const loadStudentDocId = async () => {
+      const codeAliases = Array.from(new Set([normalizedStudentCode, normalizedStudentCode.toLowerCase()]));
+      try {
+        const snap = await getDocs(query(collection(db, 'students'), where('studentCode', 'in', codeAliases)));
+        if (cancelled) return;
+        setResolvedStudentDocId(snap.empty ? null : snap.docs[0].id);
+      } catch (error) {
+        console.error('Boss raid student lookup failed:', error);
+        if (!cancelled) setResolvedStudentDocId(null);
+      }
+    };
+
+    loadStudentDocId();
+    return () => {
+      cancelled = true;
+    };
+  }, [studentDocIdProp, normalizedStudentCode]);
 
   // 학생 데이터 로드
   useEffect(() => {
@@ -1329,12 +1378,13 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
   }, [studentDocId]);
 
   useEffect(() => {
-    if (!isTeacher) return;
+    if (!isTeacher && !presentationMode) return;
+    if (presentationMode && studentDocId) return;
     setRaidScope({
       classId: selectedClass?.id || null,
       teacherUid: selectedClass?.teacherUid || null,
     });
-  }, [isTeacher, selectedClass?.id, selectedClass?.teacherUid]);
+  }, [isTeacher, presentationMode, studentDocId, selectedClass?.id, selectedClass?.teacherUid]);
 
   // raidRef 최신 raid 추적 (언마운트 시 사용)
   useEffect(() => { raidRef.current = raid; }, [raid]);
@@ -1408,6 +1458,74 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
     }).catch(() => {});
   }, [raid?.id, raid?.status, studentDocId, studentData, isTeacher]);
 
+  useEffect(() => {
+    if (!presentationMode || !raid?.id) return;
+    if (raid.status !== 'waiting' && raid.status !== 'active') return;
+
+    const rosterCodes = presentationRosterCodes.map(normalizeStudentCode).filter(Boolean);
+    if (rosterCodes.length === 0) return;
+
+    let cancelled = false;
+    const syncPresentationRoster = async () => {
+      try {
+        const aliases = Array.from(new Set([
+          ...rosterCodes,
+          ...rosterCodes.map(code => code.toLowerCase()),
+        ]));
+        const snaps = await Promise.all(
+          chunkArray(aliases, 10).map(chunk =>
+            getDocs(query(collection(db, 'students'), where('studentCode', 'in', chunk)))
+          )
+        );
+        if (cancelled) return;
+
+        const byCode = new Map();
+        snaps.forEach(snap => {
+          snap.docs.forEach(studentDoc => {
+            const data = studentDoc.data();
+            byCode.set(normalizeStudentCode(data.studentCode), {
+              id: studentDoc.id,
+              ...data,
+            });
+          });
+        });
+
+        const updates = {};
+        rosterCodes.forEach((code) => {
+          const student = byCode.get(code);
+          const participantId = student?.id || code;
+          if (raid.participants?.[participantId]) return;
+
+          const seatNumber = Number(code.slice(-2)) || 0;
+          updates[`participants.${participantId}`] = {
+            name: student?.name || `${seatNumber}번 학생`,
+            studentCode: code,
+            characterImage: student?.characterImage || '',
+            joinedAt: serverTimestamp(),
+            totalDamage: 0,
+            correctCount: 0,
+            wrongCount: 0,
+            answeredCount: 0,
+            lastAnsweredIdx: -1,
+            lastAnsweredCorrect: false,
+            presentationTest: true,
+          };
+        });
+
+        if (Object.keys(updates).length > 0) {
+          await updateDoc(doc(db, 'worldBossRaids', raid.id), updates);
+        }
+      } catch (error) {
+        console.error('Boss raid presentation roster sync failed:', error);
+      }
+    };
+
+    syncPresentationRoster();
+    return () => {
+      cancelled = true;
+    };
+  }, [presentationMode, presentationRosterKey, raid?.id, raid?.status]);
+
   // 인트로 화면에서 레이드가 active로 전환되면 자동 입장
   useEffect(() => {
     if (showIntro && raid?.status === 'active' && raid.participants?.[studentDocId]) {
@@ -1472,7 +1590,7 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
 
   // 클리어 시 교사 화면에서 보상 자동 지급
   useEffect(() => {
-    if (!isTeacher || !raid || raid.status !== 'cleared' || raid.rewardsPaid) return;
+    if (!isTeacher || !raid || raid.status !== 'cleared' || raid.rewardsPaid || raid.presentationTest) return;
     if (autoPayingRaidRef.current === raid.id) return;
     autoPayingRaidRef.current = raid.id;
 
@@ -1800,7 +1918,16 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
   }
 
   if (raid.status === 'waiting') {
-    return <LobbyPhase raid={raid} bossData={bossData} myId={studentDocId} isTeacher={isTeacher} />;
+    return (
+      <LobbyPhase
+        raid={raid}
+        bossData={bossData}
+        myId={studentDocId}
+        isTeacher={isTeacher}
+        canStartRaid={isTeacher || presentationMode}
+        presentationMode={presentationMode}
+      />
+    );
   }
 
   if (raid.status === 'active') {
@@ -1824,6 +1951,7 @@ export default function BossRaid({ studentCode, studentDocId, isTeacher = false,
         onBossAttack={playBossAttack}
         onBossAnimEnd={() => setBossAnim('idle')}
         onExit={onExit}
+        showExitButton={isTeacher || presentationMode}
       />
     );
   }

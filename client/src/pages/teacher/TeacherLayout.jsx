@@ -22,7 +22,6 @@ import TeacherCharacter from './TeacherCharacter';
 import FeedbackBoard from './FeedbackBoard';
 import DataReset from './DataReset';
 import BossRaid from '../student/BossRaid';
-import BossRaidDemoPage from './BossRaidDemoPage';
 import QuizDungeon from '../student/QuizDungeon';
 import ExplorationDungeon from '../student/ExplorationDungeon';
 import ClassVoteManage from './ClassVoteManage';
@@ -37,6 +36,11 @@ const TEACHER_FONT_OPTIONS = [
   { id: 'clean', label: '깔끔한 고딕', description: '기본 글씨체 · 표와 설정 화면을 오래 보기 편해요', className: 'teacher-font-clean' },
   { id: 'document', label: '문서형 명조', description: '안내문과 설명이 차분하게 보이는 글씨체', className: 'teacher-font-document' },
 ];
+
+const BOSS_RAID_PRESENTATION_CODES = Array.from(
+  { length: 15 },
+  (_, index) => `SINSEOK-5-${String(index + 1).padStart(2, '0')}`,
+);
 
 const KOREAN_STUDENT_MENU_LABELS = {
   dashboard: '대시보드',
@@ -410,7 +414,13 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
           />
         )}
         {currentView === 'bossRaidDemo'      && (
-          <BossRaidDemoPage onExit={() => setCurrentView('dashboard')} />
+          <BossRaid
+            studentCode="SINSEOK-5-15"
+            selectedClass={selectedClass}
+            presentationMode={true}
+            presentationRosterCodes={BOSS_RAID_PRESENTATION_CODES}
+            onExit={() => setCurrentView('dashboard')}
+          />
         )}
         {currentView === 'quizDungeon'       && <QuizDungeon isTeacher={true} teacherUid={selectedClass?.teacherUid} />}
         {currentView === 'explorationDungeon' && <ExplorationDungeon isTeacher={true} teacherUid={selectedClass?.teacherUid} />}

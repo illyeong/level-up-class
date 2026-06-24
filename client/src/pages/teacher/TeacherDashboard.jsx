@@ -1141,19 +1141,19 @@ function TeacherDashboard({
                 )}
 
                 {aiSummary.showWeeklyReport && (
-                  <div className="mb-4 rounded-xl border border-violet-500/25 bg-violet-500/10 p-4">
+                  <div className="mb-4 rounded-xl border border-violet-200 bg-violet-50 p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-lg">📊</span>
-                          <div className="text-sm font-extrabold text-violet-200">지난 7일 운영 리포트</div>
+                          <div className="text-sm font-extrabold text-violet-800">지난 7일 운영 리포트</div>
                         </div>
-                        <p className="mt-1 text-[12px] text-violet-200/65">월요일마다 지난주 핵심 활동을 간단히 정리합니다.</p>
+                        <p className="mt-1 text-[12px] font-semibold text-violet-700">월요일마다 지난주 핵심 활동을 간단히 정리합니다.</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setIsAccessStatusOpen(true)}
-                        className="self-start rounded-lg border border-violet-400/30 bg-violet-400/10 px-3 py-1.5 text-[12px] font-extrabold text-violet-200 hover:bg-violet-400/20"
+                        className="self-start rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-[12px] font-extrabold text-violet-700 shadow-sm hover:bg-violet-100"
                       >
                         접속 현황 보기 →
                       </button>
@@ -1165,9 +1165,9 @@ function TeacherDashboard({
                         { label: '퀴즈 평균 정답률', value: aiSummary.weeklyAvgAccuracy !== null ? `${aiSummary.weeklyAvgAccuracy}%` : '-' },
                         { label: '현재 승인 대기', value: `${aiSummary.pendingNotes + aiSummary.pendingQuestRewards}건` },
                       ].map(item => (
-                        <div key={item.label} className="rounded-lg border border-white/10 bg-black/10 px-3 py-2.5">
-                          <div className="text-base font-extrabold text-white">{item.value}</div>
-                          <div className="mt-0.5 text-[12px] text-violet-200/60">{item.label}</div>
+                        <div key={item.label} className="rounded-lg border border-violet-100 bg-white px-3 py-2.5 shadow-sm">
+                          <div className="text-base font-extrabold text-slate-900">{item.value}</div>
+                          <div className="mt-0.5 text-[12px] font-semibold text-violet-700">{item.label}</div>
                         </div>
                       ))}
                     </div>
@@ -1178,29 +1178,29 @@ function TeacherDashboard({
                 <div className="flex flex-wrap gap-2 mb-4">
                   {aiSummary.questRate !== null && (
                     <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold
-                      ${aiSummary.questRate >= 70 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : aiSummary.questRate >= 40 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
+                      ${aiSummary.questRate >= 70 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : aiSummary.questRate >= 40 ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
                       ⚔️ 퀘스트 완료율 {aiSummary.questRate}%
                     </span>
                   )}
                   {aiSummary.pendingNotes > 0 && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-200 bg-amber-50 text-sm font-bold text-amber-700">
                       📚 승인 대기 {aiSummary.pendingNotes}건
                     </span>
                   )}
                   {aiSummary.pendingQuestRewards > 0 && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-sm font-bold text-emerald-700">
                       🎁 퀘스트 보상 대기 {aiSummary.pendingQuestRewards}건
                     </span>
                   )}
                   {aiSummary.inactiveStudentCount > 0 && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-sky-200 bg-sky-50 text-sm font-bold text-sky-700">
                       👥 오늘 미접속 {aiSummary.inactiveStudentCount}명
                     </span>
                   )}
                   {aiSummary.quizCount > 0 && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-indigo-200 bg-indigo-50 text-sm font-bold text-indigo-700">
                       🧩 퀴즈 참여 {aiSummary.quizCount}명
                       {aiSummary.avgAccuracy !== null && ` · 정답률 ${aiSummary.avgAccuracy}%`}
                     </span>
