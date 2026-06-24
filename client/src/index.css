@@ -955,9 +955,9 @@
 }
 
 .boss-raid-stage {
-    flex: 0 0 clamp(330px, 45vh, 560px);
-    min-height: 330px;
-    overflow: visible !important;
+    flex: 0 0 clamp(360px, 48vh, 590px);
+    min-height: 360px;
+    overflow: hidden !important;
     isolation: isolate;
 }
 
@@ -977,13 +977,19 @@
 
 .boss-raid-party {
     position: absolute;
-    right: 1.25rem;
-    bottom: 0.75rem;
-    left: 1.25rem;
+    top: 4.75rem;
+    bottom: 1rem;
+    left: clamp(0.8rem, 2vw, 1.5rem);
     z-index: 18;
     display: grid;
+    width: min(45vw, 690px);
+    max-width: calc(100vw - 2rem);
+    grid-template-columns: repeat(5, minmax(54px, 1fr)) !important;
+    grid-auto-rows: minmax(68px, 1fr);
+    align-content: end;
     align-items: end;
-    gap: 0.5rem;
+    gap: clamp(0.25rem, 0.7vw, 0.55rem);
+    overflow: hidden;
     pointer-events: none;
 }
 
@@ -1000,14 +1006,14 @@
 }
 
 .boss-raid-party-member-me {
-    transform: translateY(-4px) scale(1.06);
+    transform: translateY(-2px) scale(1.05);
 }
 
 .boss-raid-party-avatar {
     position: relative;
     display: flex;
-    width: clamp(46px, 6.3vw, 82px);
-    height: clamp(54px, 7.2vw, 92px);
+    width: clamp(44px, 5vw, 70px);
+    height: clamp(50px, 5.8vw, 78px);
     align-items: center;
     justify-content: center;
     overflow: visible;
@@ -1034,22 +1040,22 @@
     height: 100%;
     object-fit: contain;
     image-rendering: pixelated;
-    transform: translateY(10%) scale(2.18);
-    transform-origin: center 62%;
+    transform: translateY(8%) scale(1.52);
+    transform-origin: center 68%;
     filter: drop-shadow(0 8px 7px rgb(0 0 0 / 0.45));
 }
 
 .boss-raid-party-fallback {
     position: relative;
     z-index: 1;
-    font-size: clamp(1.8rem, 4vw, 3rem);
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
 }
 
 .boss-raid-party-status {
     max-width: 100%;
     border-radius: 9999px;
-    padding: 0.1rem 0.45rem;
-    font-size: 0.64rem;
+    padding: 0.08rem 0.38rem;
+    font-size: clamp(0.56rem, 0.72vw, 0.64rem);
     font-weight: 900;
     line-height: 1.1;
     white-space: nowrap;
@@ -1077,7 +1083,7 @@
     max-width: 100%;
     overflow: hidden;
     color: #e2e8f0;
-    font-size: 0.7rem;
+    font-size: clamp(0.62rem, 0.8vw, 0.72rem);
     font-weight: 900;
     text-overflow: ellipsis;
     text-shadow: 0 2px 4px rgb(0 0 0 / 0.8);
@@ -1086,14 +1092,14 @@
 
 .boss-raid-boss-actor {
     position: absolute;
-    left: 50%;
-    bottom: 3rem;
+    left: 68%;
+    bottom: 2.25rem;
     z-index: 10;
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    width: min(48vw, 520px);
-    height: min(39vh, 450px);
+    width: min(42vw, 560px);
+    height: min(42vh, 470px);
     transform: translateX(-50%);
     pointer-events: none;
 }

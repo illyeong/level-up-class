@@ -152,6 +152,10 @@ const PRESENTATION_FALLBACK_QUESTIONS = [
   },
 ];
 
+const PRESENTATION_BOSS_IDS = Object.entries(MONSTERS_DB)
+  .filter(([, monster]) => monster?.tier === 'boss')
+  .map(([id]) => id);
+
 const choiceQuestionsOnly = (questions = []) =>
   questions.filter(q => q && q.type !== 'short' && q.type !== 'sa' && Array.isArray(q.options) && q.options.length >= 2);
 
@@ -216,6 +220,17 @@ const normalizeStudentCode = (code) => String(code || '').trim().toUpperCase();
 const isPresentationAutoAnswerParticipant = (participantId, participant) => {
   const code = normalizeStudentCode(participant?.studentCode || participantId);
   return /^SINSEOK-5-(0[1-9]|1[0-4])$/.test(code);
+};
+
+const findParticipantIdByStudentCode = (participants, studentCode) => {
+  const code = normalizeStudentCode(studentCode);
+  if (!code || !participants) return null;
+  const direct = participants[code];
+  if (direct) return code;
+  const found = Object.entries(participants).find(([id, participant]) =>
+    normalizeStudentCode(participant?.studentCode || id) === code
+  );
+  return found?.[0] || null;
 };
 
 const chunkArray = (items, size) => {
@@ -666,7 +681,7 @@ function LobbyPhase({ raid, bossData, myId, isTeacher, canStartRaid = isTeacher,
 // ── 배틀 ─────────────────────────────────────────────────────────
 function BattlePhase({
   raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossAnimKey, bossFlash,
-  isTeacher, onAnswer, onBossAttack, onBossAnimEnd, onExit, onAdvance, showExitButton = isTeacher,
+  isTeacher, onAnswer, onBossAttack, onBossAnimEnd, onExit, onAdvance, onChangeBoss, changingBoss = false, showExitButton = isTeacher,
 }) {
   const bossBg = resolveBossBg(raid);
   const questions = (raid.questions || []).filter(q => q.type !== 'short');
@@ -958,8 +973,18 @@ function BattlePhase({
               phase === 3 ? 'bg-rose-500/25 text-rose-200' : phase === 2 ? 'bg-amber-500/25 text-amber-200' : 'bg-sky-500/20 text-sky-200'
             }`}>PHASE {phase}</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
             <span>👥 {Object.keys(raid.participants || {}).length}명 참전</span>
+            {onChangeBoss && (
+              <button
+                type="button"
+                onClick={onChangeBoss}
+                disabled={changingBoss || raid.finishing}
+                className="rounded-lg border border-violet-400/50 bg-violet-600 px-3 py-1.5 font-extrabold text-white shadow-lg shadow-violet-950/30 transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {changingBoss ? '변경 중...' : '보스 변경'}
+              </button>
+            )}
             {showExitButton && onExit && (
               <button
                 type="button"
@@ -1062,7 +1087,6 @@ function BattlePhase({
 
         <div
           className="boss-raid-party"
-          style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(stageParticipants.length, 7))}, minmax(0, 1fr))` }}
           aria-label={`참가 학생 ${stageParticipants.length}명`}
         >
           {stageParticipants.map((participant, index) => {
@@ -1107,7 +1131,7 @@ function BattlePhase({
           <div data-battle-actor="boss"
             className={`relative z-10 drop-shadow-[0_18px_18px_rgba(0,0,0,0.75)] ${bossHitTier ? `boss-raid-hit-${bossHitTier}` : ''}`}>
             <BossSprite
-              key={`${bossAnimKey}-${activeBossSkillFx?.phase || 'normal'}`}
+              key={`${bossData?.id || raid.bossId || 'boss'}-${bossAnimKey}-${activeBossSkillFx?.phase || 'normal'}`}
               bossData={bossData}
               anim={activeBossSkillFx && activeBossSkillFx.phase !== 'charge' ? 'attack' : bossAnim}
               flash={bossFlash}
@@ -1421,6 +1445,7 @@ export default function BossRaid({
   const studentDocId = studentDocIdProp || resolvedStudentDocId;
   const [raid, setRaid]           = useState(undefined); // undefined=로딩, null=없음
   const [studentData, setStudentData] = useState(null);
+  const activeStudentId = studentDocId || findParticipantIdByStudentCode(raid?.participants, normalizedStudentCode);
   const [raidScope, setRaidScope] = useState({ classId: null, teacherUid: null });
   const [showIntro, setShowIntro] = useState(!isTeacher && !presentationMode);
   const [presentationError, setPresentationError] = useState(null);
@@ -1431,6 +1456,7 @@ export default function BossRaid({
   const [bossAnimKey, setBossAnimKey] = useState(0);
   const [bossFlash, setBossFlash] = useState(false);
   const [timeLeft, setTimeLeft]   = useState(null);
+  const [changingBoss, setChangingBoss] = useState(false);
 
   const prevHpRef          = useRef(null);
   const advancedRef        = useRef(-1);
@@ -1623,6 +1649,7 @@ export default function BossRaid({
     updateDoc(doc(db, 'worldBossRaids', raid.id), {
       [`participants.${studentDocId}`]: {
         name:               studentData.name || studentData.studentCode || '학생',
+        studentCode:        studentData.studentCode || normalizedStudentCode || '',
         characterImage:     studentData.characterImage || '',
         joinedAt:           serverTimestamp(),
         totalDamage:        0,
@@ -1633,7 +1660,7 @@ export default function BossRaid({
         lastAnsweredCorrect: false,
       },
     }).catch(() => {});
-  }, [raid?.id, raid?.status, studentDocId, studentData, isTeacher]);
+  }, [raid?.id, raid?.status, studentDocId, studentData, isTeacher, normalizedStudentCode]);
 
   useEffect(() => {
     if (!presentationMode || !raid?.id) return;
@@ -1671,9 +1698,19 @@ export default function BossRaid({
         rosterCodes.forEach((code) => {
           const student = byCode.get(code);
           const participantId = student?.id || code;
-          if (raid.participants?.[participantId]) return;
-
           const seatNumber = Number(code.slice(-2)) || 0;
+          const existing = raid.participants?.[participantId];
+          if (existing) {
+            updates[`participants.${participantId}`] = {
+              ...existing,
+              name: existing.name || student?.name || `${seatNumber}번 학생`,
+              studentCode: existing.studentCode || code,
+              characterImage: existing.characterImage || student?.characterImage || '',
+              presentationTest: true,
+            };
+            return;
+          }
+
           updates[`participants.${participantId}`] = {
             name: student?.name || `${seatNumber}번 학생`,
             studentCode: code,
@@ -1705,10 +1742,10 @@ export default function BossRaid({
 
   // 인트로 화면에서 레이드가 active로 전환되면 자동 입장
   useEffect(() => {
-    if (showIntro && raid?.status === 'active' && raid.participants?.[studentDocId]) {
+    if (showIntro && raid?.status === 'active' && raid.participants?.[activeStudentId]) {
       setShowIntro(false);
     }
-  }, [raid?.status]);
+  }, [raid?.status, showIntro, activeStudentId]);
 
   // 문제 바뀌면 내 답변 초기화
   useEffect(() => {
@@ -1726,21 +1763,23 @@ export default function BossRaid({
     const qIdx = raid.currentQuestionIdx;
     if (!Number.isInteger(qIdx) || qIdx < 0) return;
 
-    const autoKey = `${raid.id}:${qIdx}`;
-    if (autoAnsweredQuestionsRef.current.has(autoKey)) return;
-    autoAnsweredQuestionsRef.current.add(autoKey);
-
     const questions = (raid.questions || []).filter(q => q.type !== 'short');
     const q = questions[qIdx];
     if (!q) return;
 
     const participants = Object.entries(raid.participants || {})
       .filter(([id, participant]) =>
-        id !== studentDocId &&
+        id !== activeStudentId &&
         isPresentationAutoAnswerParticipant(id, participant) &&
         participant?.lastAnsweredIdx !== qIdx
       )
       .sort(([, a], [, b]) => (a.joinedAt?.seconds || 0) - (b.joinedAt?.seconds || 0));
+
+    if (participants.length === 0) return;
+
+    const autoKey = `${raid.id}:${qIdx}`;
+    if (autoAnsweredQuestionsRef.current.has(autoKey)) return;
+    autoAnsweredQuestionsRef.current.add(autoKey);
 
     participants.forEach(([participantId], index) => {
       const timer = setTimeout(() => {
@@ -1818,7 +1857,7 @@ export default function BossRaid({
 
       autoParticipantTimersRef.current.add(timer);
     });
-  }, [presentationMode, raid?.id, raid?.status, raid?.currentQuestionIdx, raid?.finishing, studentDocId]);
+  }, [presentationMode, raid?.id, raid?.status, raid?.currentQuestionIdx, raid?.finishing, raid?.participants, activeStudentId]);
 
   // 보스 HP 변화 → 피격 이펙트
   useEffect(() => {
@@ -1955,11 +1994,37 @@ export default function BossRaid({
     }
   };
 
+  const changePresentationBoss = async () => {
+    if (!presentationMode || !raid?.id || changingBoss || PRESENTATION_BOSS_IDS.length === 0) return;
+
+    const currentBossId = resolveCanonicalBossId(raid) || raid.bossId;
+    const currentIndex = PRESENTATION_BOSS_IDS.indexOf(currentBossId);
+    const nextBossId = PRESENTATION_BOSS_IDS[(currentIndex + 1 + PRESENTATION_BOSS_IDS.length) % PRESENTATION_BOSS_IDS.length];
+    const nextBoss = MONSTERS_DB[nextBossId];
+    if (!nextBoss) return;
+
+    setChangingBoss(true);
+    try {
+      await updateDoc(doc(db, 'worldBossRaids', raid.id), {
+        bossId: nextBossId,
+        bossName: nextBoss.name || nextBossId,
+        bossBg: resolveBossBackground(nextBossId) || null,
+        bossChangedAt: serverTimestamp(),
+      });
+      setBossAnim('idle');
+      setBossAnimKey(current => current + 1);
+    } catch (error) {
+      console.error('Boss raid presentation boss change failed:', error);
+    } finally {
+      setChangingBoss(false);
+    }
+  };
+
   const submitAnswer = async (answerIdx) => {
-    if (!raid || !studentDocId || raid.status !== 'active') return;
+    if (!raid || !activeStudentId || raid.status !== 'active') return;
     if (myAnswer !== null) return;
 
-    const myP = raid.participants?.[studentDocId];
+    const myP = raid.participants?.[activeStudentId];
     if (myP?.lastAnsweredIdx === raid.currentQuestionIdx) return;
 
     const questions = (raid.questions || []).filter(q => q.type !== 'short');
@@ -1991,7 +2056,7 @@ export default function BossRaid({
       if (!latestSnap.exists()) return { accepted: false };
 
       const latest = latestSnap.data();
-      const latestParticipant = latest.participants?.[studentDocId];
+      const latestParticipant = latest.participants?.[activeStudentId];
       if (
         latest.status !== 'active' || latest.finishing ||
         !latestParticipant || latestParticipant.lastAnsweredIdx === latest.currentQuestionIdx ||
@@ -2066,7 +2131,7 @@ export default function BossRaid({
       };
 
       const updates = {
-        [`participants.${studentDocId}`]: nextParticipant,
+        [`participants.${activeStudentId}`]: nextParticipant,
         currentHP: nextHP,
         morale: nextMorale,
         combo: nextCombo,
@@ -2075,7 +2140,7 @@ export default function BossRaid({
         phase: nextPhase,
         lastCombatEvent: {
           type: correct ? (breakTriggered ? 'break' : critical ? 'critical' : 'hit') : moraleBroken ? 'moraleBreak' : 'miss',
-          participantId: studentDocId,
+          participantId: activeStudentId,
           participantName: latestParticipant.name || '학생',
           questionIdx: latest.currentQuestionIdx,
           damage,
@@ -2116,7 +2181,7 @@ export default function BossRaid({
     });
 
     if (!correct) {
-      const code = studentData?.studentCode || studentCode || studentDocId;
+      const code = studentData?.studentCode || studentCode || activeStudentId;
       const wrongRef = doc(db, 'aiWrongAnswers', wrongAnswerDocId(code, questionKey));
       const previousSnap = await getDoc(wrongRef).catch(() => null);
       const previous = previousSnap?.exists?.() ? previousSnap.data() : {};
@@ -2217,7 +2282,7 @@ export default function BossRaid({
   if (!raid) return <IntroScreen raid={null} bossData={null} onEnter={() => {}} />;
 
   // 레이드가 active인데 내가 참가자가 아닌 경우 (늦은 접속, 학생 전용)
-  if (!isTeacher && raid.status === 'active' && !raid.participants?.[studentDocId]) {
+  if (!isTeacher && raid.status === 'active' && !raid.participants?.[activeStudentId]) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center">
         <div className="flex items-end justify-center mb-4" style={{ height: 100 }}>
@@ -2239,7 +2304,7 @@ export default function BossRaid({
       <LobbyPhase
         raid={raid}
         bossData={bossData}
-        myId={studentDocId}
+        myId={activeStudentId}
         isTeacher={isTeacher}
         canStartRaid={isTeacher || presentationMode}
         presentationMode={presentationMode}
@@ -2257,7 +2322,7 @@ export default function BossRaid({
       <BattlePhase
         raid={raid}
         bossData={bossData}
-        myId={studentDocId}
+        myId={activeStudentId}
         myAnswer={myAnswer}
         timeLeft={timeLeft}
         bossAnim={bossAnim}
@@ -2269,11 +2334,13 @@ export default function BossRaid({
         onBossAnimEnd={() => setBossAnim('idle')}
         onExit={onExit}
         onAdvance={(isTeacher || presentationMode) ? tryAdvance : null}
+        onChangeBoss={presentationMode ? changePresentationBoss : null}
+        changingBoss={changingBoss}
         showExitButton={isTeacher || presentationMode}
       />
     );
   }
 
   // cleared / failed
-  return <ResultPhase raid={raid} myId={studentDocId} bossData={bossData} onGoToIntro={() => setShowIntro(true)} />;
+  return <ResultPhase raid={raid} myId={activeStudentId} bossData={bossData} onGoToIntro={() => setShowIntro(true)} />;
 }
