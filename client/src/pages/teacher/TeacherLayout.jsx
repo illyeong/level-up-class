@@ -21,7 +21,7 @@ import LearningNoteManage from './LearningNoteManage';
 import TeacherCharacter from './TeacherCharacter';
 import FeedbackBoard from './FeedbackBoard';
 import DataReset from './DataReset';
-import BossRaid from '../student/BossRaid';
+import BossRaid, { createPresentationTestRaid } from '../student/BossRaid';
 import QuizDungeon from '../student/QuizDungeon';
 import ExplorationDungeon from '../student/ExplorationDungeon';
 import ClassVoteManage from './ClassVoteManage';
@@ -118,6 +118,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   const [forceShowNav, setForceShowNav] = useState(false);
   const [dashboardKey, setDashboardKey] = useState(0);
   const [activeHelpId, setActiveHelpId] = useState(null);
+  const [bossRaidDemo, setBossRaidDemo] = useState({ status: 'idle', raidId: null, error: null });
   const [notices, setNotices]           = useState([]);
   const [dismissedIds, setDismissedIds] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('dismissedNotices') || '[]'); } catch { return []; }
@@ -192,6 +193,30 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
     setCurrentView(targetView);
   };
   const clearQuizCreationDraft = useCallback(() => setQuizCreationDraft(null), []);
+  const closeBossRaidDemo = useCallback(() => {
+    setBossRaidDemo({ status: 'idle', raidId: null, error: null });
+    setCurrentView('dashboard');
+  }, []);
+
+  const openBossRaidDemo = useCallback(async () => {
+    setCurrentView('bossRaidDemo');
+    setBossRaidDemo({ status: 'creating', raidId: null, error: null });
+    try {
+      const ref = await createPresentationTestRaid({
+        classId: selectedClass?.id || null,
+        teacherUid: selectedClass?.teacherUid || user?.uid || null,
+        rosterCodes: BOSS_RAID_PRESENTATION_CODES,
+      });
+      setBossRaidDemo({ status: 'ready', raidId: ref.id, error: null });
+    } catch (error) {
+      console.error('Boss raid demo creation failed:', error);
+      setBossRaidDemo({
+        status: 'error',
+        raidId: null,
+        error: error?.message || '보스레이드 발표 테스트를 만들지 못했습니다.',
+      });
+    }
+  }, [selectedClass?.id, selectedClass?.teacherUid, user?.uid]);
 
   const visibleNotices = notices.filter(n => !dismissedIds.includes(n.id));
 
@@ -369,7 +394,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             onStudentTestLogin={onStudentTestLogin}
             selectedClass={selectedClass}
             onGoAccountIssue={() => setCurrentView('accountIssue')}
-            onOpenBossRaidDemo={() => setCurrentView('bossRaidDemo')}
+            onOpenBossRaidDemo={openBossRaidDemo}
             isDark={isDark}
             operationMode={operationMode}
             onApplyOperationMode={applyOperationMode}
@@ -413,13 +438,52 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             onExit={() => setCurrentView('bossRaidManage')}
           />
         )}
-        {currentView === 'bossRaidDemo'      && (
+        {currentView === 'bossRaidDemo' && bossRaidDemo.status === 'creating' && (
+          <div className="flex min-h-[calc(100vh-48px)] items-center justify-center bg-slate-950 p-6 text-center">
+            <div className="max-w-md rounded-3xl border border-slate-700 bg-slate-900 px-8 py-7 shadow-2xl">
+              <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-rose-500" />
+              <h2 className="text-xl font-extrabold text-white">보스레이드 발표 테스트 준비 중</h2>
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-300">
+                새 테스트 레이드를 만들고 SINSEOK-5-01~15 학생을 참여자로 불러오는 중입니다.
+              </p>
+            </div>
+          </div>
+        )}
+        {currentView === 'bossRaidDemo' && bossRaidDemo.status === 'error' && (
+          <div className="flex min-h-[calc(100vh-48px)] items-center justify-center bg-slate-950 p-6 text-center">
+            <div className="max-w-lg rounded-3xl border border-rose-500/40 bg-slate-900 px-8 py-7 shadow-2xl">
+              <div className="mb-4 text-5xl">⚠️</div>
+              <h2 className="text-xl font-extrabold text-white">보스레이드 발표 테스트 생성 실패</h2>
+              <p className="mt-2 break-words text-sm font-semibold leading-relaxed text-rose-100">
+                {bossRaidDemo.error}
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={openBossRaidDemo}
+                  className="rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-rose-700"
+                >
+                  다시 만들기
+                </button>
+                <button
+                  type="button"
+                  onClick={closeBossRaidDemo}
+                  className="rounded-xl border border-slate-700 bg-slate-800 px-5 py-2.5 text-sm font-extrabold text-slate-100 hover:bg-slate-700"
+                >
+                  대시보드로 돌아가기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {currentView === 'bossRaidDemo' && bossRaidDemo.status === 'ready' && bossRaidDemo.raidId && (
           <BossRaid
             studentCode="SINSEOK-5-15"
             selectedClass={selectedClass}
             presentationMode={true}
             presentationRosterCodes={BOSS_RAID_PRESENTATION_CODES}
-            onExit={() => setCurrentView('dashboard')}
+            externalPresentationRaidId={bossRaidDemo.raidId}
+            onExit={closeBossRaidDemo}
           />
         )}
         {currentView === 'quizDungeon'       && <QuizDungeon isTeacher={true} teacherUid={selectedClass?.teacherUid} />}

@@ -155,7 +155,7 @@ const PRESENTATION_FALLBACK_QUESTIONS = [
 const choiceQuestionsOnly = (questions = []) =>
   questions.filter(q => q && q.type !== 'short' && q.type !== 'sa' && Array.isArray(q.options) && q.options.length >= 2);
 
-const createPresentationTestRaid = async ({ classId, teacherUid, rosterCodes }) => {
+export const createPresentationTestRaid = async ({ classId, teacherUid, rosterCodes }) => {
   let sourceQuizSet = null;
 
   if (teacherUid) {
@@ -1398,6 +1398,7 @@ export default function BossRaid({
   onExit,
   presentationMode = false,
   presentationRosterCodes = [],
+  externalPresentationRaidId = null,
 }) {
   const normalizedStudentCode = normalizeStudentCode(studentCode);
   const [resolvedStudentDocId, setResolvedStudentDocId] = useState(null);
@@ -1422,8 +1423,15 @@ export default function BossRaid({
   const autoPayingRaidRef  = useRef(null);
   const presentationCreatingRef = useRef(false);
   const presentationRosterKey = presentationRosterCodes.map(normalizeStudentCode).filter(Boolean).join('|');
-  const [presentationRaidId, setPresentationRaidId] = useState(null);
+  const [presentationRaidId, setPresentationRaidId] = useState(externalPresentationRaidId || null);
   const [presentationRetryKey, setPresentationRetryKey] = useState(0);
+
+  useEffect(() => {
+    if (!presentationMode || !externalPresentationRaidId) return;
+    setPresentationRaidId(externalPresentationRaidId);
+    setPresentationError(null);
+    setRaid(undefined);
+  }, [presentationMode, externalPresentationRaidId]);
 
   useEffect(() => {
     if (studentDocIdProp || !normalizedStudentCode) {
@@ -1478,6 +1486,7 @@ export default function BossRaid({
 
   useEffect(() => {
     if (!presentationMode) return;
+    if (externalPresentationRaidId) return;
 
     const classId = selectedClass?.id || raidScope.classId || null;
     const teacherUid = selectedClass?.teacherUid || raidScope.teacherUid || null;
