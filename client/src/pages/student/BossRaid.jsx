@@ -14,7 +14,7 @@ const cleanExplanation = (text) => {
 };
 import {
   collection, doc, updateDoc, onSnapshot,
-  serverTimestamp, getDoc, getDocs, deleteField, writeBatch, query, where, setDoc, runTransaction, addDoc,
+  serverTimestamp, getDoc, getDocs, deleteField, writeBatch, query, where, setDoc, runTransaction, addDoc, increment,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg as resolveBossBackground } from '../../data/monsterData';
@@ -1741,6 +1741,38 @@ export default function BossRaid({
     };
   }, [presentationMode, presentationRosterKey, raid?.id, raid?.status]);
 
+  useEffect(() => {
+    if (!presentationMode || !raid?.id || !normalizedStudentCode) return;
+    if (raid.status !== 'waiting' && raid.status !== 'active') return;
+    if (activeRaidParticipantId) return;
+
+    const participantId = studentDocId || normalizedStudentCode;
+    const seatNumber = Number(normalizedStudentCode.slice(-2)) || 15;
+    updateDoc(doc(db, 'worldBossRaids', raid.id), {
+      [`participants.${participantId}`]: {
+        name: studentData?.name || `${seatNumber}번 학생`,
+        studentCode: normalizedStudentCode,
+        characterImage: studentData?.characterImage || '',
+        joinedAt: serverTimestamp(),
+        totalDamage: 0,
+        correctCount: 0,
+        wrongCount: 0,
+        answeredCount: 0,
+        lastAnsweredIdx: -1,
+        lastAnsweredCorrect: false,
+        presentationTest: true,
+      },
+    }).catch(error => console.error('Boss raid presentation player sync failed:', error));
+  }, [
+    presentationMode,
+    raid?.id,
+    raid?.status,
+    normalizedStudentCode,
+    activeRaidParticipantId,
+    studentDocId,
+    studentData,
+  ]);
+
   // 인트로 화면에서 레이드가 active로 전환되면 자동 입장
   useEffect(() => {
     if (showIntro && raid?.status === 'active' && raid.participants?.[activeStudentId]) {
@@ -1794,6 +1826,51 @@ export default function BossRaid({
           ? correctIdx
           : wrongOptions[Math.floor(Math.random() * wrongOptions.length)] ?? correctIdx;
         const raidDocRef = doc(db, 'worldBossRaids', raid.id);
+        const currentHP = Math.max(0, Number(raid.currentHP) || 0);
+        const maxHP = Math.max(1, Number(raid.maxHP) || 1);
+        const currentPhase = Math.max(Number(raid.phase) || 1, getRaidPhase(currentHP, maxHP));
+        const baseDamage = Math.max(1, Number(raid.damagePerHit) || 100);
+        const damage = isCorrect
+          ? Math.min(currentHP, Math.round(baseDamage * (0.88 + Math.random() * 0.24)))
+          : 0;
+        const nextPhase = Math.max(currentPhase, getRaidPhase(Math.max(0, currentHP - damage), maxHP));
+        const participantName = raid.participants?.[participantId]?.name || '학생';
+
+        updateDoc(raidDocRef, {
+          [`participants.${participantId}.answeredCount`]: increment(1),
+          [`participants.${participantId}.correctCount`]: increment(isCorrect ? 1 : 0),
+          [`participants.${participantId}.wrongCount`]: increment(isCorrect ? 0 : 1),
+          [`participants.${participantId}.totalDamage`]: increment(damage),
+          [`participants.${participantId}.lastAnsweredIdx`]: qIdx,
+          [`participants.${participantId}.lastAnsweredCorrect`]: isCorrect,
+          [`participants.${participantId}.lastDamage`]: damage,
+          [`participants.${participantId}.lastHitCritical`]: false,
+          [`participants.${participantId}.lastBreakTriggered`]: false,
+          [`participants.${participantId}.lastSelectedIdx`]: selectedIdx,
+          [`participants.${participantId}.qResults.${qIdx}`]: isCorrect ? 1 : 0,
+          [`participants.${participantId}.answerDetails.q${qIdx}`]: {
+            questionIdx: qIdx,
+            questionKey: bossQuestionKey(raid, q, qIdx),
+            selectedIdx,
+            correctIdx,
+            selectedAnswer: answerText(q, selectedIdx),
+            correctAnswer: answerText(q, correctIdx),
+            isCorrect,
+            autoAnswered: true,
+            answeredAt: new Date().toISOString(),
+          },
+          ...(isCorrect ? { currentHP: increment(-damage), phase: nextPhase } : {}),
+          lastCombatEvent: {
+            type: isCorrect ? 'partyHit' : 'partyMiss',
+            participantId,
+            participantName,
+            questionIdx: qIdx,
+            damage,
+            phase: nextPhase,
+            at: serverTimestamp(),
+          },
+        }).catch(error => console.error('Presentation participant auto answer failed:', error));
+        return;
 
         runTransaction(db, async (transaction) => {
           const latestSnap = await transaction.get(raidDocRef);

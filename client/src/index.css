@@ -981,10 +981,10 @@
     left: clamp(0.7rem, 1.4vw, 1.1rem);
     z-index: 18;
     display: grid;
-    width: min(42vw, 580px);
+    width: min(46vw, 640px);
     max-width: calc(100vw - 2rem);
     grid-template-columns: repeat(8, minmax(40px, 1fr)) !important;
-    grid-auto-rows: 78px;
+    grid-auto-rows: 112px;
     align-content: end;
     align-items: end;
     gap: clamp(0.1rem, 0.32vw, 0.28rem);
@@ -996,10 +996,11 @@
     position: relative;
     display: flex;
     min-width: 0;
+    height: 108px;
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.12rem;
+    gap: 0.16rem;
     overflow: visible;
     transform-origin: bottom center;
 }
@@ -1011,8 +1012,8 @@
 .boss-raid-party-avatar {
     position: relative;
     display: flex;
-    width: clamp(38px, 3.9vw, 56px);
-    height: clamp(46px, 4.7vw, 66px);
+    width: clamp(38px, 3.8vw, 56px);
+    height: clamp(46px, 4.5vw, 64px);
     align-items: center;
     justify-content: center;
     overflow: visible;
