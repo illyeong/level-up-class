@@ -1332,13 +1332,25 @@ function TeacherDashboard({
               if (qs.length === 0) return null;
               const done = qs.filter(q => q.checked).length;
               return (
-                <div className={`px-2.5 py-1.5 flex items-center justify-between gap-1
-                  ${done === qs.length ? 'bg-emerald-50 border-b border-emerald-100' : 'bg-slate-50 border-b border-slate-100'}`}>
+                <div className={`px-2.5 py-1.5 flex items-center justify-between gap-1 border-b
+                  ${isDark
+                    ? done === qs.length
+                      ? 'border-emerald-400/30 bg-emerald-950/70'
+                      : 'border-slate-600 bg-slate-800/95'
+                    : done === qs.length
+                      ? 'bg-emerald-50 border-emerald-100'
+                      : 'bg-slate-50 border-slate-100'}`}>
                   <div className="flex gap-1 flex-wrap">
                     {qs.filter(q => q.checked).map((q, i) => (
                       <span key={i} title={q.title}
                         className={`text-[12px] font-bold px-1.5 py-0.5 rounded-full truncate max-w-[80px]
-                          ${q.rewarded ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          ${isDark
+                            ? q.rewarded
+                              ? 'bg-amber-400/20 text-amber-100 ring-1 ring-amber-300/35'
+                              : 'bg-emerald-400/20 text-emerald-100 ring-1 ring-emerald-300/35'
+                            : q.rewarded
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-emerald-100 text-emerald-700'}`}>
                         {q.title.length > 6 ? `${q.title.slice(0, 6)}...` : q.title}
                       </span>
                     ))}

@@ -633,6 +633,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
 
     const unsub = onSnapshot(raidQuery, snap =>
       setRaids(snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .filter(r => !r.presentationTest)
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)))
     );
     return () => unsub();

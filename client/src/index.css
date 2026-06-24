@@ -122,88 +122,88 @@
     color: #64748b;
 }
 
-/* Teacher dashboard first-run panels intentionally stay light inside dark mode. */
+/* Teacher dashboard dark mode keeps contrast without switching panels to white. */
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    border-color: #cbd5e1 !important;
-    box-shadow: 0 18px 38px rgb(0 0 0 / 0.26) !important;
+    background: #101b2f !important;
+    color: #f1f5f9 !important;
+    border-color: #425a79 !important;
+    box-shadow: 0 18px 38px rgb(0 0 0 / 0.34) !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface :is(.bg-white, .bg-slate-50, .bg-slate-100, .bg-indigo-50, .bg-violet-50, .bg-sky-50, .bg-emerald-50, .bg-amber-50, .bg-rose-50) {
-    background-color: #ffffff !important;
+    background-color: #14233a !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface .bg-slate-50 {
-    background-color: #f8fafc !important;
+    background-color: #0d1728 !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface .bg-slate-100 {
-    background-color: #f1f5f9 !important;
+    background-color: #1b2940 !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface .bg-indigo-50 {
-    background-color: #eef2ff !important;
+    background-color: rgb(49 46 129 / 0.52) !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface .bg-sky-50 {
-    background-color: #f0f9ff !important;
+    background-color: rgb(8 47 73 / 0.62) !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface .bg-violet-50 {
-    background-color: #f5f3ff !important;
+    background-color: rgb(76 29 149 / 0.5) !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface .bg-emerald-50 {
-    background-color: #ecfdf5 !important;
+    background-color: rgb(6 78 59 / 0.48) !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface .bg-amber-50 {
-    background-color: #fffbeb !important;
+    background-color: rgb(120 53 15 / 0.42) !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface .bg-rose-50 {
-    background-color: #fff1f2 !important;
+    background-color: rgb(136 19 55 / 0.44) !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface :is(.text-slate-900, .text-slate-800, .text-slate-700) {
-    color: #0f172a !important;
+    color: #f8fafc !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface :is(.text-slate-600, .text-slate-500) {
-    color: #475569 !important;
+    color: #cbd5e1 !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface .text-slate-400 {
-    color: #64748b !important;
+    color: #a8bad2 !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface :is(.text-indigo-700, .text-indigo-800) {
-    color: #4338ca !important;
+    color: #c7d2fe !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface :is(.text-sky-400, .text-sky-700, .text-sky-800) {
-    color: #0284c7 !important;
+    color: #7dd3fc !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface :is(.text-violet-400, .text-violet-700, .text-violet-800) {
-    color: #7c3aed !important;
+    color: #ddd6fe !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface :is(.text-emerald-700, .text-emerald-800) {
-    color: #047857 !important;
+    color: #86efac !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface :is(.text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900) {
-    color: #b45309 !important;
+    color: #fde68a !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface :is(.text-rose-700, .text-rose-800) {
-    color: #be123c !important;
+    color: #fda4af !important;
 }
 
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface :is(.border-slate-100, .border-slate-200, .border-slate-300, .border-indigo-100, .border-indigo-200, .border-violet-200, .border-sky-200, .border-emerald-200, .border-amber-200, .border-rose-200) {
-    border-color: #cbd5e1 !important;
+    border-color: #425a79 !important;
 }
 
 /* Quiz bank needs stronger surface separation than the shared teacher dark theme. */

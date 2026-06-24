@@ -14,7 +14,7 @@ const cleanExplanation = (text) => {
 };
 import {
   collection, doc, updateDoc, onSnapshot,
-  serverTimestamp, getDoc, getDocs, deleteField, writeBatch, query, where, setDoc, runTransaction,
+  serverTimestamp, getDoc, getDocs, deleteField, writeBatch, query, where, setDoc, runTransaction, addDoc,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg as resolveBossBackground } from '../../data/monsterData';
@@ -127,6 +127,89 @@ const wrongAnswerDocId = (studentCode, questionKey) =>
 const RAID_BREAK_MAX = 100;
 const RAID_BREAK_GAIN = 20;
 const RAID_FINISHER_DURATION_MS = 3000;
+
+const PRESENTATION_FALLBACK_QUESTIONS = [
+  {
+    type: 'mc',
+    question: '다음 중 보스레이드에서 보스에게 피해를 주는 방법은 무엇인가요?',
+    options: ['정답을 고른다', '아무 버튼이나 누른다', '기다리기만 한다', '창을 닫는다'],
+    answer: 0,
+    explanation: '보스레이드는 퀴즈 정답을 맞힐 때 피해가 들어갑니다.',
+  },
+  {
+    type: 'mc',
+    question: '여러 학생이 동시에 참여하는 보스레이드의 핵심 목표는 무엇인가요?',
+    options: ['혼자만 보상 받기', '보스 HP를 함께 줄이기', '학생 목록 숨기기', '문제를 건너뛰기'],
+    answer: 1,
+    explanation: '참여 학생들이 함께 문제를 풀어 보스 HP를 줄이는 구조입니다.',
+  },
+  {
+    type: 'mc',
+    question: '발표 테스트 계정은 어떤 학생 코드로 문제 풀이를 시연하나요?',
+    options: ['SINSEOK-5-01', 'SINSEOK-5-07', 'SINSEOK-5-15', 'TEACHER'],
+    answer: 2,
+    explanation: '발표 테스트는 SINSEOK-5-15 계정으로 실제 문제 풀이를 보여줍니다.',
+  },
+];
+
+const choiceQuestionsOnly = (questions = []) =>
+  questions.filter(q => q && q.type !== 'short' && q.type !== 'sa' && Array.isArray(q.options) && q.options.length >= 2);
+
+const createPresentationTestRaid = async ({ classId, teacherUid, rosterCodes }) => {
+  let sourceQuizSet = null;
+
+  if (teacherUid) {
+    const quizSnap = await getDocs(query(collection(db, 'quizSets'), where('ownerId', '==', teacherUid))).catch(() => null);
+    const quizSets = quizSnap?.docs
+      ?.map(d => ({ id: d.id, ...d.data() }))
+      ?.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)) || [];
+    sourceQuizSet = quizSets.find(set => choiceQuestionsOnly(set.questions).length > 0) || null;
+  }
+
+  const questions = choiceQuestionsOnly(sourceQuizSet?.questions).slice(0, 8);
+  const testQuestions = questions.length > 0 ? questions : PRESENTATION_FALLBACK_QUESTIONS;
+  const bossId = 'demon03';
+  const rosterCount = Math.max(1, rosterCodes.length || 15);
+  const damagePerHit = 120;
+  const maxHP = Math.max(1800, rosterCount * testQuestions.length * damagePerHit);
+
+  return addDoc(collection(db, 'worldBossRaids'), {
+    title: sourceQuizSet?.title ? `${sourceQuizSet.title} 발표 테스트` : '보스레이드 발표 테스트',
+    classId: classId || null,
+    teacherUid: teacherUid || null,
+    bossId,
+    bossName: MONSTERS_DB[bossId]?.name || '고위 악마',
+    bossBg: resolveBossBackground(bossId),
+    quizSetId: sourceQuizSet?.id || null,
+    maxHP,
+    currentHP: maxHP,
+    damagePerHit,
+    penaltyType: 'morale',
+    penaltyAmount: 50,
+    currentQuestionIdx: -1,
+    questionDuration: 30,
+    questionStartedAt: null,
+    autoAdvance: true,
+    rewards: { gold: 0, exp: 0, diamond: 0 },
+    rewardsPaid: true,
+    morale: 100,
+    combo: 0,
+    maxCombo: 0,
+    breakGauge: 0,
+    breakCount: 0,
+    moraleBreakCount: 0,
+    phase: 1,
+    finishing: false,
+    status: 'waiting',
+    questions: testQuestions,
+    participants: {},
+    presentationTest: true,
+    presentationSessionId: `presentation_${Date.now()}`,
+    createdAt: serverTimestamp(),
+    startedAt: null,
+    clearedAt: null,
+  });
+};
 
 const normalizeStudentCode = (code) => String(code || '').trim().toUpperCase();
 
@@ -1336,7 +1419,9 @@ export default function BossRaid({
   const timerRef           = useRef(null);
   const raidRef            = useRef(null);
   const autoPayingRaidRef  = useRef(null);
+  const presentationCreatingRef = useRef(false);
   const presentationRosterKey = presentationRosterCodes.map(normalizeStudentCode).filter(Boolean).join('|');
+  const [presentationRaidId, setPresentationRaidId] = useState(null);
 
   useEffect(() => {
     if (studentDocIdProp || !normalizedStudentCode) {
@@ -1389,6 +1474,46 @@ export default function BossRaid({
   // raidRef 최신 raid 추적 (언마운트 시 사용)
   useEffect(() => { raidRef.current = raid; }, [raid]);
 
+  useEffect(() => {
+    if (!presentationMode) return;
+
+    const classId = selectedClass?.id || raidScope.classId || null;
+    const teacherUid = selectedClass?.teacherUid || raidScope.teacherUid || null;
+    if ((!classId && !teacherUid) || presentationRaidId || presentationCreatingRef.current) return;
+
+    let cancelled = false;
+    presentationCreatingRef.current = true;
+    setRaid(undefined);
+
+    createPresentationTestRaid({
+      classId,
+      teacherUid,
+      rosterCodes: presentationRosterCodes.map(normalizeStudentCode).filter(Boolean),
+    })
+      .then((ref) => {
+        if (!cancelled) setPresentationRaidId(ref.id);
+      })
+      .catch((error) => {
+        console.error('Boss raid presentation test creation failed:', error);
+        if (!cancelled) setRaid(null);
+      })
+      .finally(() => {
+        if (!cancelled) presentationCreatingRef.current = false;
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    presentationMode,
+    presentationRaidId,
+    presentationRosterKey,
+    selectedClass?.id,
+    selectedClass?.teacherUid,
+    raidScope.classId,
+    raidScope.teacherUid,
+  ]);
+
   // 페이지 이탈 시 대기실에서 자동 제거
   useEffect(() => {
     return () => {
@@ -1402,6 +1527,19 @@ export default function BossRaid({
 
   // 레이드 실시간 리스닝 (컬렉션 전체 — 소규모)
   useEffect(() => {
+    if (presentationMode) {
+      if (!presentationRaidId) {
+        setRaid(undefined);
+        return () => {};
+      }
+
+      const raidDocRef = doc(db, 'worldBossRaids', presentationRaidId);
+      const unsub = onSnapshot(raidDocRef, snap => {
+        setRaid(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+      });
+      return () => unsub();
+    }
+
     const classId = raidScope.classId || null;
     const teacherUid = raidScope.teacherUid || null;
     const raidQuery = classId
@@ -1417,6 +1555,7 @@ export default function BossRaid({
 
     const unsub = onSnapshot(raidQuery, snap => {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .filter(r => !r.presentationTest)
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
       // 1순위: waiting/active
@@ -1436,7 +1575,7 @@ export default function BossRaid({
       setRaid(ended || null);
     });
     return () => unsub();
-  }, [studentDocId, isTeacher, raidScope.classId, raidScope.teacherUid]);
+  }, [studentDocId, isTeacher, raidScope.classId, raidScope.teacherUid, presentationMode, presentationRaidId]);
 
   // 대기실 자동 입장 (교사 모드에서는 참가자로 등록 안 함)
   useEffect(() => {
