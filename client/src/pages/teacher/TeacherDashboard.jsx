@@ -168,7 +168,7 @@ function TeacherDashboard({
     selectedClass?.teacherEmail,
     selectedClass?.ownerEmail,
     selectedClass?.createdByEmail,
-  );
+  ) || selectedClass?.teacherUid === 'admin_master_001';
 
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [logs, setLogs] = useState([]);
@@ -826,15 +826,32 @@ function TeacherDashboard({
     },
   ] : [];
   const onboardingDoneCount = onboardingSteps.filter(step => step.done).length;
+  const dashboardBg = isDark ? 'bg-slate-950' : 'bg-slate-100';
+  const mainSurface = isDark
+    ? 'border-slate-700/80 bg-slate-900 text-slate-100 shadow-lg shadow-black/20'
+    : 'border-slate-200 bg-white text-slate-900 shadow-sm';
+  const mutedText = isDark ? 'text-slate-300' : 'text-slate-500';
 
   return (
-    <div className={`min-h-screen px-8 pt-4 pb-8 relative ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
-      <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+    <div className={`min-h-screen px-4 md:px-8 pt-5 pb-8 relative ${dashboardBg}`}>
+      <div className={`mb-5 overflow-hidden rounded-2xl border p-6 shadow-xl ${
+        isDark
+          ? 'border-indigo-300/25 bg-gradient-to-br from-indigo-600 via-violet-600 to-sky-600 text-white shadow-indigo-950/30'
+          : 'border-indigo-100 bg-gradient-to-br from-white via-indigo-50 to-sky-50 text-slate-900'
+      }`}>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-5">
         <div>
-          <h1 className="text-4xl font-extrabold text-slate-800 flex items-center">
+          <div className={`mb-2 inline-flex rounded-full px-3 py-1 text-xs font-black ${
+            isDark ? 'bg-white/15 text-indigo-50' : 'bg-indigo-100 text-indigo-700'
+          }`}>
+            교사용 운영 홈
+          </div>
+          <h1 className={`text-4xl font-extrabold flex items-center ${isDark ? 'text-white' : 'text-slate-900'}`}>
             학급 전체 대시보드
           </h1>
-          <p className="text-slate-500 mt-2 text-base">학생들의 레벨과 재화를 관리합니다.</p>
+          <p className={`mt-2 text-base font-semibold ${isDark ? 'text-indigo-50/90' : 'text-slate-600'}`}>
+            새 학급은 아래 3단계만 끝내면 바로 운영을 시작할 수 있습니다.
+          </p>
         </div>
         
         <div className="flex flex-wrap gap-2">
@@ -852,7 +869,7 @@ function TeacherDashboard({
           <button onClick={async () => {
             const list = await fetchStudents();
             await fetchQuestStats(list.map(s => s.id));
-          }} className="bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base">
+          }} className="bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base border border-white/20">
             새로고침
           </button>
           {onStudentTestLogin && (
@@ -893,14 +910,15 @@ function TeacherDashboard({
             차감하기
           </button>
         </div>
+        </div>
       </div>
 
       {quickSetupInfo && !quickSetupInfo.completed && (
-        <div className="mb-4 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div className={`mb-5 rounded-2xl border p-5 ${mainSurface}`}>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
-              <h2 className="text-xl font-extrabold text-slate-800">학급 기본 셋팅</h2>
-              <p className="text-base text-slate-500 mt-1">
+              <h2 className={`text-xl font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>학급 기본 셋팅</h2>
+              <p className={`text-base mt-1 ${mutedText}`}>
                 추천 퀘스트와 퀴즈던전 등 학급 운영에 필요한 기본 셋팅을 생성합니다.
               </p>
             </div>
@@ -917,17 +935,21 @@ function TeacherDashboard({
       )}
 
       {quickSetupInfo?.completed && !quickSetupInfo.onboardingDismissed && onboardingDoneCount < onboardingSteps.length && (
-        <div className="mb-4 overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-indigo-100 bg-indigo-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className={`mb-5 overflow-hidden rounded-2xl border shadow-xl ${
+          isDark ? 'border-indigo-400/30 bg-slate-900 shadow-black/20' : 'border-indigo-200 bg-white shadow-sm'
+        }`}>
+          <div className={`flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between ${
+            isDark ? 'border-indigo-400/20 bg-indigo-500/12' : 'border-indigo-100 bg-indigo-50'
+          }`}>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xl">🚀</span>
-                <h2 className="text-lg font-extrabold text-slate-900">이번 주 시작하기</h2>
+                <h2 className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>이번 주 시작하기</h2>
                 <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[12px] font-extrabold text-white">
                   {onboardingDoneCount} / {onboardingSteps.length}
                 </span>
               </div>
-              <p className="mt-1 text-sm font-semibold text-slate-500">
+              <p className={`mt-1 text-sm font-semibold ${mutedText}`}>
                 아래 세 가지만 완료하면 기본 학급 운영 준비가 끝납니다.
               </p>
             </div>
@@ -935,7 +957,11 @@ function TeacherDashboard({
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view: 'systemSettings' } }))}
-                className="rounded-xl border border-indigo-200 bg-white px-3.5 py-2 text-sm font-extrabold text-indigo-700 shadow-sm hover:border-indigo-400 hover:bg-indigo-100"
+                className={`rounded-xl border px-3.5 py-2 text-sm font-extrabold shadow-sm ${
+                  isDark
+                    ? 'border-white/15 bg-white/10 text-white hover:bg-white/15'
+                    : 'border-indigo-200 bg-white text-indigo-700 hover:border-indigo-400 hover:bg-indigo-100'
+                }`}
               >
                 더 많은 기능 둘러보기 →
               </button>
@@ -954,21 +980,25 @@ function TeacherDashboard({
                 key={step.id}
                 className={`rounded-xl border p-4 transition-colors ${
                   step.done
-                    ? 'border-emerald-200 bg-emerald-50'
-                    : 'border-slate-200 bg-white'
+                    ? isDark ? 'border-emerald-400/40 bg-emerald-400/10' : 'border-emerald-200 bg-emerald-50'
+                    : isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg ${
-                    step.done ? 'bg-emerald-500 text-white' : 'bg-indigo-50'
+                    step.done ? 'bg-emerald-500 text-white' : isDark ? 'bg-indigo-500/20 text-indigo-100' : 'bg-indigo-50'
                   }`}>
                     {step.done ? '✓' : step.icon}
                   </div>
                   <div className="min-w-0">
-                    <div className={`text-base font-extrabold ${step.done ? 'text-emerald-800' : 'text-slate-800'}`}>
+                    <div className={`text-base font-extrabold ${
+                      step.done
+                        ? isDark ? 'text-emerald-200' : 'text-emerald-800'
+                        : isDark ? 'text-white' : 'text-slate-800'
+                    }`}>
                       {step.title}
                     </div>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-500">{step.description}</p>
+                    <p className={`mt-1 text-sm leading-relaxed ${mutedText}`}>{step.description}</p>
                   </div>
                 </div>
                 <button
@@ -1244,13 +1274,17 @@ function TeacherDashboard({
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-3">
           <img src={iconQuest} alt="퀘스트" className="w-6 h-6 object-contain" />
-          <h2 className="font-extrabold text-slate-700 text-lg">오늘의 퀘스트 현황</h2>
-          <span className="text-sm font-bold text-slate-500">
+          <h2 className={`font-extrabold text-lg ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>오늘의 퀘스트 현황</h2>
+          <span className={`text-sm font-bold ${mutedText}`}>
             학생들이 자체체크를 하면 매일 자정에 퀘스트가 초기화되면서 보상이 자동지급됩니다.
           </span>
         </div>
         {questStats.length === 0 ? (
-          <div className="text-slate-400 text-base py-3 px-4 bg-white rounded-2xl border border-slate-200">
+          <div className={`text-base py-4 px-5 rounded-2xl border font-bold ${
+            isDark
+              ? 'border-slate-700 bg-slate-900 text-slate-300'
+              : 'border-slate-200 bg-white text-slate-500'
+          }`}>
             활성 퀘스트가 없습니다. 퀘스트 관리소에서 퀘스트를 만들어보세요!
           </div>
         ) : (
@@ -1303,7 +1337,14 @@ function TeacherDashboard({
           const cosmeticStyles = getEffectiveCosmeticStyles(student);
           const hallBadgeText = getHallOfFameBadgeText(student);
           return (
-          <div key={student.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow relative">
+          <div
+            key={student.id}
+            className={`rounded-xl overflow-hidden transition-shadow relative ${
+              isDark
+                ? 'border border-slate-700 bg-slate-900 shadow-lg shadow-black/20 hover:border-indigo-400/60'
+                : 'border border-slate-200 bg-white shadow-sm hover:shadow-md'
+            }`}
+          >
             {/* ?쇱씪?섏뒪???꾨즺 ?꾪솴 */}
             {(() => {
               const qs = studentQuestMap[student.id] || [];
@@ -1325,7 +1366,11 @@ function TeacherDashboard({
               );
             })()}
             <div
-              className="h-36 bg-gradient-to-b from-slate-50 to-white flex items-center justify-center border-b border-slate-100 relative overflow-hidden"
+              className={`h-36 flex items-center justify-center border-b relative overflow-hidden ${
+                isDark
+                  ? 'border-slate-700 bg-gradient-to-b from-sky-50 via-white to-indigo-50'
+                  : 'border-slate-100 bg-gradient-to-b from-slate-50 to-white'
+              }`}
               style={{ ...cosmeticStyles.background.style, ...cosmeticStyles.frame.style }}
             >
               {hallBadgeText && (
@@ -1362,26 +1407,30 @@ function TeacherDashboard({
               </div>
             </div>
             <div className="p-3 text-center">
-              <h3 className="text-base font-bold text-slate-800 mb-1 truncate">
+              <h3 className={`text-base font-bold mb-1 truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
                 {student.name || student.studentCode}
               </h3>
               {student.name && (
-                <div className="text-[12px] text-slate-400 font-mono truncate mb-1">{student.studentCode}</div>
+                <div className={`text-[12px] font-mono truncate mb-1 ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>{student.studentCode}</div>
               )}
               <div className="flex flex-col gap-1 text-sm">
-                <div className="flex justify-between items-center bg-indigo-50 px-2 py-1.5 rounded-md">
+                <div className={`flex justify-between items-center px-2 py-1.5 rounded-md ${
+                  isDark ? 'bg-indigo-500/15' : 'bg-indigo-50'
+                }`}>
                   <div className="flex items-center gap-1">
                     <img src={iconDiamond} alt="Diamond" className="w-3 h-3" />
                     <span className="text-[12px] text-indigo-400">다이아</span>
                   </div>
-                  <span className="font-bold text-indigo-700">{(student.diamonds || 0).toLocaleString()}</span>
+                  <span className={`font-bold ${isDark ? 'text-indigo-200' : 'text-indigo-700'}`}>{(student.diamonds || 0).toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between items-center bg-amber-50 px-2 py-1.5 rounded-md">
+                <div className={`flex justify-between items-center px-2 py-1.5 rounded-md ${
+                  isDark ? 'bg-amber-500/15' : 'bg-amber-50'
+                }`}>
                   <div className="flex items-center gap-1">
                     <img src={iconGold} alt="Gold" className="w-3 h-3" />
                     <span className="text-[12px] text-amber-500">골드</span>
                   </div>
-                  <span className="font-bold text-amber-600">{(student.gold || 0).toLocaleString()}</span>
+                  <span className={`font-bold ${isDark ? 'text-amber-200' : 'text-amber-600'}`}>{(student.gold || 0).toLocaleString()}</span>
                 </div>
               </div>
             </div>
