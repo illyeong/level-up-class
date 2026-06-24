@@ -817,10 +817,8 @@ function TeacherDashboard({
   ] : [];
   const onboardingDoneCount = onboardingSteps.filter(step => step.done).length;
   const dashboardBg = isDark ? 'bg-slate-950' : 'bg-slate-100';
-  const mainSurface = isDark
-    ? 'border-slate-700/80 bg-slate-900 text-slate-100 shadow-lg shadow-black/20'
-    : 'border-slate-200 bg-white text-slate-900 shadow-sm';
-  const mutedText = isDark ? 'text-slate-300' : 'text-slate-500';
+  const mainSurface = 'border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10';
+  const mutedText = 'text-slate-600';
 
   return (
     <div className={`min-h-screen px-4 md:px-8 pt-5 pb-8 relative ${dashboardBg}`}>
@@ -905,7 +903,7 @@ function TeacherDashboard({
         <div className={`mb-5 rounded-2xl border p-5 ${mainSurface}`}>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
-              <h2 className={`text-xl font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>학급 기본 셋팅</h2>
+              <h2 className="text-xl font-extrabold text-slate-900">학급 기본 셋팅</h2>
               <p className={`text-base mt-1 ${mutedText}`}>
                 추천 퀘스트와 퀴즈던전 등 학급 운영에 필요한 기본 셋팅을 생성합니다.
               </p>
@@ -923,16 +921,12 @@ function TeacherDashboard({
       )}
 
       {quickSetupInfo?.completed && !quickSetupInfo.onboardingDismissed && onboardingDoneCount < onboardingSteps.length && (
-        <div className={`mb-5 overflow-hidden rounded-2xl border shadow-xl ${
-          isDark ? 'border-indigo-400/30 bg-slate-900 shadow-black/20' : 'border-indigo-200 bg-white shadow-sm'
-        }`}>
-          <div className={`flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between ${
-            isDark ? 'border-indigo-400/20 bg-indigo-500/12' : 'border-indigo-100 bg-indigo-50'
-          }`}>
+        <div className="mb-5 overflow-hidden rounded-2xl border border-indigo-200 bg-white text-slate-900 shadow-xl shadow-black/10">
+          <div className="flex flex-col gap-3 border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-sky-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xl">🚀</span>
-                <h2 className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>이번 주 시작하기</h2>
+                <h2 className="text-lg font-extrabold text-slate-900">이번 주 시작하기</h2>
                 <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[12px] font-extrabold text-white">
                   {onboardingDoneCount} / {onboardingSteps.length}
                 </span>
@@ -945,11 +939,7 @@ function TeacherDashboard({
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view: 'systemSettings' } }))}
-                className={`rounded-xl border px-3.5 py-2 text-sm font-extrabold shadow-sm ${
-                  isDark
-                    ? 'border-white/15 bg-white/10 text-white hover:bg-white/15'
-                    : 'border-indigo-200 bg-white text-indigo-700 hover:border-indigo-400 hover:bg-indigo-100'
-                }`}
+                className="rounded-xl border border-indigo-200 bg-white px-3.5 py-2 text-sm font-extrabold text-indigo-700 shadow-sm hover:border-indigo-400 hover:bg-indigo-100"
               >
                 더 많은 기능 둘러보기 →
               </button>
@@ -968,21 +958,21 @@ function TeacherDashboard({
                 key={step.id}
                 className={`rounded-xl border p-4 transition-colors ${
                   step.done
-                    ? isDark ? 'border-emerald-400/40 bg-emerald-400/10' : 'border-emerald-200 bg-emerald-50'
-                    : isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'
+                    ? 'border-emerald-200 bg-emerald-50'
+                    : 'border-slate-200 bg-white'
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg ${
-                    step.done ? 'bg-emerald-500 text-white' : isDark ? 'bg-indigo-500/20 text-indigo-100' : 'bg-indigo-50'
+                    step.done ? 'bg-emerald-500 text-white' : 'bg-indigo-50'
                   }`}>
                     {step.done ? '✓' : step.icon}
                   </div>
                   <div className="min-w-0">
                     <div className={`text-base font-extrabold ${
                       step.done
-                        ? isDark ? 'text-emerald-200' : 'text-emerald-800'
-                        : isDark ? 'text-white' : 'text-slate-800'
+                        ? 'text-emerald-800'
+                        : 'text-slate-800'
                     }`}>
                       {step.title}
                     </div>
@@ -1058,24 +1048,24 @@ function TeacherDashboard({
 
       {/* ── AI 오늘의 운영 요약 ── */}
       <div className="mb-4">
-        <div className="rounded-2xl border border-indigo-800/60 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-900 shadow-lg overflow-hidden">
+        <div className="rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10 overflow-hidden">
           {/* 헤더 */}
-          <div className="px-5 py-4 flex items-center justify-between border-b border-white/10">
+          <div className="px-5 py-4 flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-sky-50">
             <div className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-500/20 text-xl">✨</span>
+              <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-100 text-xl">✨</span>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-white font-extrabold text-base">AI 오늘의 운영 요약</span>
-                  <span className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200">BETA</span>
+                  <span className="text-slate-900 font-extrabold text-base">AI 오늘의 운영 요약</span>
+                  <span className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-indigo-600 text-white">BETA</span>
                 </div>
-                <p className="text-indigo-300/70 text-xs mt-0.5">오늘 학급 운영에서 확인하면 좋은 내용을 정리해드립니다.</p>
+                <p className="text-slate-600 text-xs mt-0.5">오늘 학급 운영에서 확인하면 좋은 내용을 정리해드립니다.</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => fetchAiSummary(students, questStats)}
                 disabled={aiLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-bold transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold transition-colors disabled:opacity-50"
               >
                 {aiLoading ? (
                   <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1091,7 +1081,7 @@ function TeacherDashboard({
                     return next;
                   });
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-bold transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition-colors"
               >
                 {aiSummaryExpanded ? '접기 ▲' : '펼치기 ▼'}
               </button>
@@ -1102,24 +1092,24 @@ function TeacherDashboard({
           {aiSummaryExpanded && (
           <div className="px-5 py-4">
             {aiLoading && !aiSummary ? (
-              <div className="flex items-center gap-2 text-indigo-300 text-base py-2">
+              <div className="flex items-center gap-2 text-indigo-700 text-base py-2">
                 <span className="inline-block w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
                 분석 중...
               </div>
             ) : aiSummary ? (
               <>
                 {/* 요약 텍스트 */}
-                <p className="text-slate-100 text-base leading-relaxed mb-4">{aiSummary.text}</p>
+                <p className="text-slate-800 text-base font-semibold leading-relaxed mb-4">{aiSummary.text}</p>
 
                 {/* 지금 처리하면 좋은 항목 */}
                 {aiActionItems.length > 0 ? (
                   <div className="mb-4">
-                    <div className="text-xs font-extrabold text-indigo-200 mb-2">지금 처리하면 좋은 항목</div>
+                    <div className="text-xs font-extrabold text-indigo-700 mb-2">지금 처리하면 좋은 항목</div>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
                       {aiActionItems.map(item => (
                         <div
                           key={item.id}
-                          className={`rounded-xl border p-3 flex flex-col gap-2 ${AI_ACTION_TONES[item.tone] || AI_ACTION_TONES.sky}`}
+                          className="rounded-xl border border-slate-200 bg-slate-50 p-3 flex flex-col gap-2 text-slate-800"
                         >
                           <div className="flex items-start gap-2">
                             <span className="text-xl leading-none">{item.icon}</span>
@@ -1132,7 +1122,7 @@ function TeacherDashboard({
                             type="button"
                             onClick={() => runAiAction(item)}
                             disabled={(item.action === 'approveQuests' && approvingQuests) || (item.action === 'approveNotes' && approvingNotes)}
-                            className="mt-auto w-full rounded-lg border border-white/15 bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs font-extrabold transition-colors disabled:opacity-50"
+                            className="mt-auto w-full rounded-lg border border-indigo-200 bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-xs font-extrabold text-white transition-colors disabled:opacity-50"
                           >
                             {item.label} →
                           </button>
@@ -1141,11 +1131,11 @@ function TeacherDashboard({
                     </div>
                   </div>
                 ) : (
-                  <div className="mb-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 flex items-center gap-2 text-emerald-200">
+                  <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center gap-2 text-emerald-800">
                     <span className="text-lg">✓</span>
                     <div>
                       <div className="text-sm font-extrabold">지금 바로 처리할 항목이 없습니다.</div>
-                      <p className="text-[12px] text-emerald-200/70 mt-0.5">오늘 학급 운영 상태가 안정적입니다.</p>
+                      <p className="text-[12px] text-emerald-700 mt-0.5">오늘 학급 운영 상태가 안정적입니다.</p>
                     </div>
                   </div>
                 )}
@@ -1218,11 +1208,11 @@ function TeacherDashboard({
                 </div>
               </>
             ) : (
-              <p className="text-slate-400 text-base py-2">데이터를 불러오려면 새로고침을 눌러주세요.</p>
+              <p className="text-slate-500 text-base py-2">데이터를 불러오려면 새로고침을 눌러주세요.</p>
             )}
 
             {/* 액션 버튼 */}
-            <div className="flex flex-wrap gap-2 pt-3 border-t border-white/10">
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200">
               {[
                 { label: '⚔️ 퀘스트 확인', view: 'questManage' },
                 { label: '📚 배움노트 승인', view: 'learningNoteManage' },
@@ -1238,7 +1228,7 @@ function TeacherDashboard({
                     }
                     window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view } }));
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-white/8 hover:bg-white/15 border border-white/15 text-slate-200 text-sm font-bold transition-colors"
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-sm font-bold transition-colors"
                 >
                   {label}
                 </button>
@@ -1246,7 +1236,7 @@ function TeacherDashboard({
             </div>
 
             {aiSummary?.refreshedAt && (
-              <p className="text-slate-600 text-[12px] mt-2 text-right">
+              <p className="text-slate-400 text-[12px] mt-2 text-right">
                 {aiSummary.refreshedAt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준
               </p>
             )}
@@ -1259,20 +1249,16 @@ function TeacherDashboard({
       <AICoursewareCard teacherUid={selectedClass?.teacherUid} onNavigate={(view) => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view } }))} />
 
       {/* 퀘스트 현황 */}
-      <div className="mb-4">
+      <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-xl shadow-black/10">
         <div className="flex items-center gap-2 mb-3">
           <img src={iconQuest} alt="퀘스트" className="w-6 h-6 object-contain" />
-          <h2 className={`font-extrabold text-lg ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>오늘의 퀘스트 현황</h2>
+          <h2 className="font-extrabold text-slate-900 text-lg">오늘의 퀘스트 현황</h2>
           <span className={`text-sm font-bold ${mutedText}`}>
             학생들이 자체체크를 하면 매일 자정에 퀘스트가 초기화되면서 보상이 자동지급됩니다.
           </span>
         </div>
         {questStats.length === 0 ? (
-          <div className={`text-base py-4 px-5 rounded-2xl border font-bold ${
-            isDark
-              ? 'border-slate-700 bg-slate-900 text-slate-300'
-              : 'border-slate-200 bg-white text-slate-500'
-          }`}>
+          <div className="text-base py-4 px-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 font-bold text-slate-500">
             활성 퀘스트가 없습니다. 퀘스트 관리소에서 퀘스트를 만들어보세요!
           </div>
         ) : (
@@ -1285,15 +1271,15 @@ function TeacherDashboard({
                 <div key={quest.id}
                   className={`shrink-0 w-52 rounded-2xl shadow-sm border-2 overflow-hidden
                     ${isDaily
-                      ? isDark ? 'border-sky-700 bg-slate-800' : 'border-sky-200 bg-gradient-to-b from-sky-50 to-white'
-                      : isDark ? 'border-violet-700 bg-slate-800' : 'border-violet-200 bg-gradient-to-b from-violet-50 to-white'}`}>
+                      ? 'border-sky-200 bg-gradient-to-b from-sky-50 to-white'
+                      : 'border-violet-200 bg-gradient-to-b from-violet-50 to-white'}`}>
                   {/* ?곷떒 ?????*/}
                   <div className={`px-3 py-1.5 text-[12px] font-extrabold tracking-wide
                     ${isDaily ? 'bg-sky-500 text-white' : 'bg-violet-500 text-white'}`}>
                     {isDaily ? '일일 퀘스트' : '주간 퀘스트'}
                   </div>
                   <div className="p-3">
-                    <div className={`font-extrabold text-base mb-2 leading-tight truncate ${isDark ? "text-slate-100" : "text-slate-800"}`}>
+                    <div className="font-extrabold text-base mb-2 leading-tight truncate text-slate-800">
                       {quest.title}
                     </div>
                     {/* 吏꾪뻾瑜?*/}
@@ -1301,9 +1287,9 @@ function TeacherDashboard({
                       <span className={isDaily ? 'text-sky-400' : 'text-violet-400'}>
                         {quest.checkedCount}명 / {students.length}명
                       </span>
-                      <span className={`font-extrabold ${isDark ? "text-slate-300" : "text-slate-500"}`}>{pct}%</span>
+                      <span className="font-extrabold text-slate-500">{pct}%</span>
                     </div>
-                    <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? "bg-slate-700" : "bg-slate-100"}`}>
+                    <div className="w-full h-2 rounded-full overflow-hidden bg-slate-100">
                       <div
                         className={`h-full rounded-full transition-all
                           ${isDaily
@@ -1320,6 +1306,13 @@ function TeacherDashboard({
         )}
       </div>
 
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-extrabold text-white">학생 현황</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-400">캐릭터, 레벨, 학급 재화를 한눈에 확인합니다.</p>
+        </div>
+        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-200">{students.length}명</span>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {students.map((student) => {
           const cosmeticStyles = getEffectiveCosmeticStyles(student);
