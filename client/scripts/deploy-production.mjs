@@ -4,7 +4,7 @@ const scope = 'illyeong-s-projects';
 const aliasDomain = 'level-up-class.vercel.app';
 
 const run = (command, args) => execFileSync(command, args, {
-  cwd: new URL('..', import.meta.url),
+  cwd: new URL('../..', import.meta.url),
   encoding: 'utf8',
   stdio: ['inherit', 'pipe', 'inherit'],
   shell: process.platform === 'win32',
@@ -13,10 +13,7 @@ const run = (command, args) => execFileSync(command, args, {
 const deployOutput = run('npx', ['vercel', '--prod', '--yes', '--scope', scope]);
 process.stdout.write(deployOutput);
 
-const deploymentUrl = deployOutput
-  .split(/\r?\n/)
-  .map(line => line.trim())
-  .find(line => /^https:\/\/level-up-class-[\w-]+\.vercel\.app$/.test(line));
+const deploymentUrl = deployOutput.match(/https:\/\/level-up-class-[\w-]+\.vercel\.app/)?.[0];
 
 if (!deploymentUrl) {
   throw new Error('Could not find the Vercel deployment URL in deploy output.');
