@@ -175,7 +175,7 @@ export const createPresentationTestRaid = async ({ classId, teacherUid, rosterCo
   const bossId = 'demon03';
   const rosterCount = Math.max(1, rosterCodes.length || 15);
   const damagePerHit = 120;
-  const maxHP = Math.max(1800, rosterCount * testQuestions.length * damagePerHit);
+  const maxHP = 10000;
 
   return addDoc(collection(db, 'worldBossRaids'), {
     title: sourceQuizSet?.title ? `${sourceQuizSet.title} 발표 테스트` : '보스레이드 발표 테스트',
@@ -1271,18 +1271,17 @@ function BattlePhase({
 // ── 결과 화면 ─────────────────────────────────────────────────────
 function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
   const isCleared = raid.status === 'cleared';
-  const myP       = raid.participants?.[myId] || {};
-  const sorted    = Object.entries(raid.participants || {})
+  const myP = raid.participants?.[myId] || {};
+  const sorted = Object.entries(raid.participants || {})
     .map(([id, p]) => ({ id, ...p }))
     .sort((a, b) => (b.totalDamage || 0) - (a.totalDamage || 0));
-  const myRank    = sorted.findIndex(p => p.id === myId) + 1;
+  const myRank = sorted.findIndex(p => p.id === myId) + 1;
   const answerDetails = Object.values(myP.answerDetails || {})
     .sort((a, b) => (a.questionIdx || 0) - (b.questionIdx || 0));
   const wrongDetails = answerDetails.filter(item => !item.isCorrect);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center p-6 text-center">
-      {/* 보스 최종 상태 */}
       <div className="flex items-center justify-center mb-3 mt-8 overflow-visible" style={{ height: 180 }}>
         <BossSprite bossData={bossData} anim={isCleared ? 'death' : 'idle'} scale={1.25} />
       </div>
@@ -1295,18 +1294,17 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
 
       <div className="mb-4 grid w-full max-w-sm grid-cols-3 gap-2">
         {[
-          ['최고 콤보', `${raid.maxCombo || 0}x`, 'text-amber-300'],
-          ['보스 브레이크', `${raid.breakCount || 0}회`, 'text-cyan-300'],
-          ['사기 붕괴', `${raid.moraleBreakCount || 0}회`, 'text-rose-300'],
+          ['최고 콤보', String(raid.maxCombo || 0) + 'x', 'text-amber-300'],
+          ['보스 브레이크', String(raid.breakCount || 0) + '회', 'text-cyan-300'],
+          ['사기 붕괴', String(raid.moraleBreakCount || 0) + '회', 'text-rose-300'],
         ].map(([label, value, tone]) => (
           <div key={label} className="rounded-xl border border-slate-700 bg-slate-900/70 px-2 py-3">
-            <div className={`text-base font-black ${tone}`}>{value}</div>
+            <div className={'text-base font-black ' + tone}>{value}</div>
             <div className="mt-0.5 text-[9px] font-bold text-slate-400">{label}</div>
           </div>
         ))}
       </div>
 
-      {/* 내 기여도 */}
       <div className="bg-slate-800 rounded-2xl border border-slate-700 p-5 w-full max-w-xs mb-4 shadow-lg">
         <div className="text-xs text-slate-400 font-bold mb-3">내 기여도</div>
         <div className="grid grid-cols-3 gap-3 text-center">
@@ -1320,65 +1318,62 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
           </div>
           <div>
             <div className="text-xl font-extrabold text-amber-400">
-              {myRank > 0 ? `${myRank}위` : '-'}
+              {myRank > 0 ? myRank + '위' : '-'}
             </div>
             <div className="text-[10px] text-slate-400">기여 순위</div>
           </div>
         </div>
       </div>
 
-      {/* 보상 (선생님이 지급) */}
       {isCleared && (raid.rewards?.gold || raid.rewards?.exp || raid.rewards?.diamond) && (
         <div className="bg-amber-900/40 border border-amber-700/50 rounded-2xl p-4 w-full max-w-xs mb-4">
           <div className="font-bold text-amber-300 text-sm mb-2">
             🎁 클리어 보상 {raid.rewardsPaid ? '(지급 완료!)' : '(선생님이 지급 예정)'}
           </div>
           <div className="flex justify-center gap-4 font-extrabold text-sm">
-            {(raid.rewards?.gold    || 0) > 0 && <span className="text-amber-400">🪙 {raid.rewards.gold}G</span>}
-            {(raid.rewards?.exp     || 0) > 0 && <span className="text-indigo-300">⭐ {raid.rewards.exp} EXP</span>}
+            {(raid.rewards?.gold || 0) > 0 && <span className="text-amber-400">🪙 {raid.rewards.gold}G</span>}
+            {(raid.rewards?.exp || 0) > 0 && <span className="text-indigo-300">⭐ {raid.rewards.exp} EXP</span>}
             {(raid.rewards?.diamond || 0) > 0 && <span className="text-blue-300">💎 {raid.rewards.diamond}</span>}
           </div>
         </div>
       )}
 
-      <div className="bg-slate-800 rounded-2xl border border-slate-700 p-5 w-full max-w-2xl mb-4 shadow-lg text-left">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <div className="bg-slate-800 rounded-3xl border border-slate-700 p-6 w-full max-w-4xl mb-5 shadow-lg text-left">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
-            <div className="text-xs text-slate-400 font-bold">문제별 확인</div>
-            <h3 className="text-lg font-extrabold text-white">내가 틀린 문제와 정답</h3>
+            <div className="text-sm text-slate-400 font-bold">문제별 확인</div>
+            <h3 className="text-2xl font-extrabold text-white">내가 틀린 문제와 정답</h3>
           </div>
-          <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${
-            wrongDetails.length ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'
-          }`}>
+          <span className={'rounded-full px-4 py-1.5 text-sm font-extrabold ' + (wrongDetails.length ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300')}>
             오답 {wrongDetails.length}개
           </span>
         </div>
 
         {answerDetails.length === 0 ? (
-          <div className="rounded-xl bg-slate-900/70 border border-slate-700 p-4 text-sm text-slate-400 text-center">
+          <div className="rounded-2xl bg-slate-900/70 border border-slate-700 p-6 text-base text-slate-400 text-center">
             문제별 기록은 새로 진행한 보스레이드부터 표시됩니다.
           </div>
         ) : wrongDetails.length === 0 ? (
-          <div className="rounded-xl bg-emerald-950/40 border border-emerald-700/60 p-4 text-sm font-bold text-emerald-200 text-center">
+          <div className="rounded-2xl bg-emerald-950/40 border border-emerald-700/60 p-6 text-base font-bold text-emerald-200 text-center">
             모든 문제를 맞혔습니다.
           </div>
         ) : (
-          <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+          <div className="space-y-4 max-h-[28rem] overflow-y-auto pr-2">
             {wrongDetails.map((detail, index) => (
-              <div key={detail.questionKey || index} className="rounded-xl border border-rose-800/70 bg-rose-950/30 p-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-xs font-extrabold text-rose-300">Q{(detail.questionIdx ?? index) + 1}</span>
-                  <span className="rounded-full bg-slate-900/70 px-2 py-0.5 text-[10px] font-bold text-slate-400">
-                    오답노트 저장됨
+              <div key={detail.questionKey || index} className="rounded-2xl border border-rose-800/70 bg-rose-950/30 p-5">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <span className="text-sm font-extrabold text-rose-300">Q{(detail.questionIdx ?? index) + 1}</span>
+                  <span className="rounded-full bg-slate-900/70 px-3 py-1 text-xs font-bold text-slate-400">
+                    오답 노트 저장됨
                   </span>
                 </div>
-                <p className="text-sm font-extrabold leading-6 text-white">{renderMath(detail.question || '')}</p>
-                {detail.shape && <div className="mt-2 rounded-lg bg-white/95 p-2"><ShapeRenderer shape={detail.shape} /></div>}
-                <div className="mt-3 grid gap-1 text-xs font-bold">
+                <p className="text-base font-extrabold leading-7 text-white md:text-lg">{renderMath(detail.question || '')}</p>
+                {detail.shape && <div className="mt-3 rounded-xl bg-white/95 p-3"><ShapeRenderer shape={detail.shape} /></div>}
+                <div className="mt-4 grid gap-2 text-sm font-bold md:text-base">
                   <div className="text-rose-200">내 답: {renderMath(detail.selectedAnswer || '선택하지 않음')}</div>
                   <div className="text-emerald-200">정답: {renderMath(detail.correctAnswer || '')}</div>
                   {cleanExplanation(detail.explanation) && (
-                    <div className="mt-1 rounded-lg bg-slate-950/50 p-2 text-slate-300 font-medium leading-5">
+                    <div className="mt-2 rounded-xl bg-slate-950/50 p-3 text-slate-300 font-medium leading-6">
                       {renderMath(cleanExplanation(detail.explanation))}
                     </div>
                   )}
@@ -1389,7 +1384,6 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
         )}
       </div>
 
-      {/* 초기화면으로 */}
       {onGoToIntro && (
         <button
           onClick={onGoToIntro}
@@ -1398,7 +1392,6 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
         </button>
       )}
 
-      {/* 전체 기여도 */}
       {sorted.length > 0 && (
         <div className="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-xs overflow-hidden shadow-lg">
           <div className="px-4 py-2 bg-slate-700 text-xs font-bold text-slate-300">
@@ -1406,8 +1399,7 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
           </div>
           <div className="divide-y divide-slate-700 max-h-52 overflow-y-auto">
             {sorted.map((p, idx) => (
-              <div key={p.id}
-                className={`flex items-center gap-3 px-4 py-2.5 ${p.id === myId ? 'bg-indigo-900/30' : ''}`}>
+              <div key={p.id} className={'flex items-center gap-3 px-4 py-2.5 ' + (p.id === myId ? 'bg-indigo-900/30' : '')}>
                 <span className="text-xs font-extrabold text-slate-500 w-5">{idx + 1}</span>
                 {p.characterImage
                   ? <img src={p.characterImage} alt="" className="w-7 h-7 rounded-lg object-contain bg-slate-700" />
@@ -1429,7 +1421,6 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
   );
 }
 
-// ── 메인 컴포넌트 ────────────────────────────────────────────────
 export default function BossRaid({
   studentCode,
   studentDocId: studentDocIdProp,
@@ -1810,10 +1801,23 @@ export default function BossRaid({
 
     if (participants.length === 0) return;
 
+    const questionDurationMs = Math.max(2000, Number(raid.questionDuration || 10) * 1000);
+    const startDelayMs = Math.min(900, Math.round(questionDurationMs * 0.18));
+    const endBufferMs = Math.min(1300, Math.round(questionDurationMs * 0.22));
+    const spreadWindowMs = Math.max(600, questionDurationMs - startDelayMs - endBufferMs);
+    const slotStepMs = participants.length > 1
+      ? spreadWindowMs / (participants.length - 1)
+      : 0;
+    const jitterRangeMs = Math.min(220, Math.max(60, slotStepMs * 0.32));
+
     participants.forEach(([participantId], index) => {
       const autoKey = `${raid.id}:${qIdx}:${participantId}`;
       if (autoAnsweredQuestionsRef.current.has(autoKey)) return;
       autoAnsweredQuestionsRef.current.add(autoKey);
+
+      const slotDelayMs = startDelayMs + (slotStepMs * index);
+      const jitterMs = Math.round((Math.random() - 0.5) * jitterRangeMs);
+      const answerDelayMs = Math.max(450, Math.round(slotDelayMs + jitterMs));
 
       const timer = setTimeout(() => {
         autoParticipantTimersRef.current.delete(timer);
@@ -1953,7 +1957,7 @@ export default function BossRaid({
 
           transaction.update(raidDocRef, updates);
         }).catch(error => console.error('Presentation participant auto answer failed:', error));
-      }, 450 + index * 230 + Math.round(Math.random() * 180));
+      }, answerDelayMs);
 
       autoParticipantTimersRef.current.add(timer);
     });

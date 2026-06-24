@@ -921,17 +921,25 @@ function TeacherDashboard({
       )}
 
       {quickSetupInfo?.completed && !quickSetupInfo.onboardingDismissed && onboardingDoneCount < onboardingSteps.length && (
-        <div className="dashboard-light-surface mb-5 overflow-hidden rounded-2xl border border-indigo-200 bg-white text-slate-900 shadow-xl shadow-black/10">
-          <div className="flex flex-col gap-3 border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-sky-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className={`mb-5 overflow-hidden rounded-2xl border shadow-xl ${
+          isDark
+            ? 'border-slate-700 bg-slate-900 text-slate-100 shadow-black/30'
+            : 'dashboard-light-surface border-indigo-200 bg-white text-slate-900 shadow-black/10'
+        }`}>
+          <div className={`flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between ${
+            isDark
+              ? 'border-slate-700 bg-slate-800/80'
+              : 'border-indigo-100 bg-gradient-to-r from-indigo-50 to-sky-50'
+          }`}>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xl">🚀</span>
-                <h2 className="text-lg font-extrabold text-slate-900">이번 주 시작하기</h2>
+                <h2 className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>이번 주 시작하기</h2>
                 <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[12px] font-extrabold text-white">
                   {onboardingDoneCount} / {onboardingSteps.length}
                 </span>
               </div>
-              <p className={`mt-1 text-sm font-semibold ${mutedText}`}>
+              <p className={`mt-1 text-sm font-semibold ${isDark ? 'text-slate-300' : mutedText}`}>
                 아래 세 가지만 완료하면 기본 학급 운영 준비가 끝납니다.
               </p>
             </div>
@@ -939,14 +947,22 @@ function TeacherDashboard({
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view: 'systemSettings' } }))}
-                className="rounded-xl border border-indigo-200 bg-white px-3.5 py-2 text-sm font-extrabold text-indigo-700 shadow-sm hover:border-indigo-400 hover:bg-indigo-100"
+                className={`rounded-xl border px-3.5 py-2 text-sm font-extrabold shadow-sm transition-colors ${
+                  isDark
+                    ? 'border-indigo-400/40 bg-indigo-500/15 text-indigo-100 hover:border-indigo-300 hover:bg-indigo-500/25'
+                    : 'border-indigo-200 bg-white text-indigo-700 hover:border-indigo-400 hover:bg-indigo-100'
+                }`}
               >
                 더 많은 기능 둘러보기 →
               </button>
               <button
                 type="button"
                 onClick={() => updateOnboardingStep('onboardingChecklistDismissed')}
-                className="rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-400 hover:bg-white hover:text-slate-600"
+                className={`rounded-lg px-2.5 py-1.5 text-sm font-bold transition-colors ${
+                  isDark
+                    ? 'text-slate-400 hover:bg-slate-700 hover:text-slate-100'
+                    : 'text-slate-400 hover:bg-white hover:text-slate-600'
+                }`}
               >
                 숨기기
               </button>
@@ -958,25 +974,31 @@ function TeacherDashboard({
                 key={step.id}
                 className={`rounded-xl border p-4 transition-colors ${
                   step.done
-                    ? 'border-emerald-200 bg-emerald-50'
-                    : 'border-slate-200 bg-white'
+                    ? isDark
+                      ? 'border-emerald-400/35 bg-emerald-500/10'
+                      : 'border-emerald-200 bg-emerald-50'
+                    : isDark
+                      ? 'border-slate-700 bg-slate-950/60'
+                      : 'border-slate-200 bg-white'
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg ${
-                    step.done ? 'bg-emerald-500 text-white' : 'bg-indigo-50'
+                    step.done
+                      ? 'bg-emerald-500 text-white'
+                      : isDark ? 'bg-indigo-500/20 text-indigo-100' : 'bg-indigo-50'
                   }`}>
                     {step.done ? '✓' : step.icon}
                   </div>
                   <div className="min-w-0">
                     <div className={`text-base font-extrabold ${
                       step.done
-                        ? 'text-emerald-800'
-                        : 'text-slate-800'
+                        ? isDark ? 'text-emerald-200' : 'text-emerald-800'
+                        : isDark ? 'text-slate-100' : 'text-slate-800'
                     }`}>
                       {step.title}
                     </div>
-                    <p className={`mt-1 text-sm leading-relaxed ${mutedText}`}>{step.description}</p>
+                    <p className={`mt-1 text-sm leading-relaxed ${isDark ? 'text-slate-300' : mutedText}`}>{step.description}</p>
                   </div>
                 </div>
                 <button
@@ -984,8 +1006,12 @@ function TeacherDashboard({
                   onClick={step.onClick}
                   className={`mt-3 w-full rounded-lg border px-3 py-2 text-sm font-extrabold transition-colors ${
                     step.done
-                      ? 'border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-100'
-                      : 'border-indigo-200 bg-indigo-600 text-white hover:bg-indigo-700'
+                      ? isDark
+                        ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25'
+                        : 'border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-100'
+                      : isDark
+                        ? 'border-indigo-400/40 bg-indigo-600 text-white hover:bg-indigo-500'
+                        : 'border-indigo-200 bg-indigo-600 text-white hover:bg-indigo-700'
                   }`}
                 >
                   {step.done ? '다시 보기' : step.label} →
