@@ -1050,15 +1050,21 @@ function TeacherDashboard({
       <div className="mb-4">
         <div className="dashboard-light-surface rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10 overflow-hidden">
           {/* 헤더 */}
-          <div className="px-5 py-4 flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-sky-50">
+          <div className={`px-5 py-4 flex items-center justify-between border-b ${
+            isDark
+              ? 'border-slate-700 bg-slate-800 text-slate-100'
+              : 'border-slate-200 bg-gradient-to-r from-indigo-50 to-sky-50'
+          }`}>
             <div className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-100 text-xl">✨</span>
+              <span className={`flex items-center justify-center w-8 h-8 rounded-xl text-xl ${
+                isDark ? 'bg-indigo-500/20 ring-1 ring-indigo-300/25' : 'bg-indigo-100'
+              }`}>✨</span>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-900 font-extrabold text-base">AI 오늘의 운영 요약</span>
+                  <span className={`font-extrabold text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>AI 오늘의 운영 요약</span>
                   <span className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-indigo-600 text-white">BETA</span>
                 </div>
-                <p className="text-slate-600 text-xs mt-0.5">오늘 학급 운영에서 확인하면 좋은 내용을 정리해드립니다.</p>
+                <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>오늘 학급 운영에서 확인하면 좋은 내용을 정리해드립니다.</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1081,7 +1087,11 @@ function TeacherDashboard({
                     return next;
                   });
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition-colors"
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm font-bold transition-colors ${
+                  isDark
+                    ? 'bg-slate-700 hover:bg-slate-600 text-slate-100'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
               >
                 {aiSummaryExpanded ? '접기 ▲' : '펼치기 ▼'}
               </button>
@@ -1269,17 +1279,22 @@ function TeacherDashboard({
               const isDaily = quest.type === 'daily';
               return (
                 <div key={quest.id}
-                  className={`shrink-0 w-52 rounded-2xl shadow-sm border-2 overflow-hidden
-                    ${isDaily
-                      ? 'border-sky-200 bg-gradient-to-b from-sky-50 to-white'
-                      : 'border-violet-200 bg-gradient-to-b from-violet-50 to-white'}`}>
+                  className={`shrink-0 w-52 rounded-2xl shadow-sm border-2 overflow-hidden ${
+                    isDark
+                      ? isDaily
+                        ? 'border-sky-500/45 bg-slate-900'
+                        : 'border-violet-500/45 bg-slate-900'
+                      : isDaily
+                        ? 'border-sky-200 bg-gradient-to-b from-sky-50 to-white'
+                        : 'border-violet-200 bg-gradient-to-b from-violet-50 to-white'
+                  }`}>
                   {/* ?곷떒 ?????*/}
                   <div className={`px-3 py-1.5 text-[12px] font-extrabold tracking-wide
                     ${isDaily ? 'bg-sky-500 text-white' : 'bg-violet-500 text-white'}`}>
                     {isDaily ? '일일 퀘스트' : '주간 퀘스트'}
                   </div>
                   <div className="p-3">
-                    <div className="font-extrabold text-base mb-2 leading-tight truncate text-slate-800">
+                    <div className={`font-extrabold text-base mb-2 leading-tight truncate ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
                       {quest.title}
                     </div>
                     {/* 吏꾪뻾瑜?*/}
@@ -1287,9 +1302,9 @@ function TeacherDashboard({
                       <span className={isDaily ? 'text-sky-400' : 'text-violet-400'}>
                         {quest.checkedCount}명 / {students.length}명
                       </span>
-                      <span className="font-extrabold text-slate-500">{pct}%</span>
+                      <span className={`font-extrabold ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>{pct}%</span>
                     </div>
-                    <div className="w-full h-2 rounded-full overflow-hidden bg-slate-100">
+                    <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
                       <div
                         className={`h-full rounded-full transition-all
                           ${isDaily

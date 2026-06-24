@@ -1406,6 +1406,7 @@ export default function BossRaid({
   const [studentData, setStudentData] = useState(null);
   const [raidScope, setRaidScope] = useState({ classId: null, teacherUid: null });
   const [showIntro, setShowIntro] = useState(!isTeacher && !presentationMode);
+  const [presentationError, setPresentationError] = useState(null);
 
   // 내 답변 상태 (로컬)
   const [myAnswer, setMyAnswer]   = useState(null);  // { idx, correct } | null
@@ -1422,6 +1423,7 @@ export default function BossRaid({
   const presentationCreatingRef = useRef(false);
   const presentationRosterKey = presentationRosterCodes.map(normalizeStudentCode).filter(Boolean).join('|');
   const [presentationRaidId, setPresentationRaidId] = useState(null);
+  const [presentationRetryKey, setPresentationRetryKey] = useState(0);
 
   useEffect(() => {
     if (studentDocIdProp || !normalizedStudentCode) {
@@ -1483,6 +1485,7 @@ export default function BossRaid({
 
     let cancelled = false;
     presentationCreatingRef.current = true;
+    setPresentationError(null);
     setRaid(undefined);
 
     createPresentationTestRaid({
@@ -1495,10 +1498,13 @@ export default function BossRaid({
       })
       .catch((error) => {
         console.error('Boss raid presentation test creation failed:', error);
-        if (!cancelled) setRaid(null);
+        if (!cancelled) {
+          setPresentationError(error?.message || '발표 테스트 레이드를 만들지 못했습니다.');
+          setRaid(null);
+        }
       })
       .finally(() => {
-        if (!cancelled) presentationCreatingRef.current = false;
+        presentationCreatingRef.current = false;
       });
 
     return () => {
@@ -1507,6 +1513,7 @@ export default function BossRaid({
   }, [
     presentationMode,
     presentationRaidId,
+    presentationRetryKey,
     presentationRosterKey,
     selectedClass?.id,
     selectedClass?.teacherUid,
@@ -1536,6 +1543,10 @@ export default function BossRaid({
       const raidDocRef = doc(db, 'worldBossRaids', presentationRaidId);
       const unsub = onSnapshot(raidDocRef, snap => {
         setRaid(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+      }, error => {
+        console.error('Boss raid presentation snapshot failed:', error);
+        setPresentationError(error?.message || '발표 테스트 레이드를 불러오지 못했습니다.');
+        setRaid(null);
       });
       return () => unsub();
     }
@@ -2018,6 +2029,42 @@ export default function BossRaid({
   const isOpen   = raid && (raid.status === 'waiting' || raid.status === 'active');
 
   // 초기 소개 화면
+  if (presentationError) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center">
+        <div className="mb-4 text-5xl">⚠️</div>
+        <h2 className="text-xl font-extrabold text-white mb-2">보스레이드 테스트 준비 실패</h2>
+        <p className="max-w-xl text-sm font-semibold leading-relaxed text-slate-300">
+          {presentationError}
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              presentationCreatingRef.current = false;
+              setPresentationRaidId(null);
+              setPresentationError(null);
+              setRaid(undefined);
+              setPresentationRetryKey(key => key + 1);
+            }}
+            className="rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-rose-700"
+          >
+            다시 만들기
+          </button>
+          {onExit && (
+            <button
+              type="button"
+              onClick={onExit}
+              className="rounded-xl border border-slate-700 bg-slate-900 px-5 py-2.5 text-sm font-extrabold text-slate-200 hover:bg-slate-800"
+            >
+              대시보드로 돌아가기
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (showIntro) {
     return (
       <IntroScreen
