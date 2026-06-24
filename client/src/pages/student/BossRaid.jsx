@@ -1283,8 +1283,8 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center p-6 text-center">
       {/* 보스 최종 상태 */}
-      <div className="flex items-end justify-center mb-4 mt-4" style={{ height: 120 }}>
-        <BossSprite bossData={bossData} anim={isCleared ? 'death' : 'idle'} scale={1.8} />
+      <div className="flex items-center justify-center mb-3 mt-8 overflow-visible" style={{ height: 180 }}>
+        <BossSprite bossData={bossData} anim={isCleared ? 'death' : 'idle'} scale={1.25} />
       </div>
 
       <div className="text-5xl mb-3">{isCleared ? '🏆' : '💀'}</div>
