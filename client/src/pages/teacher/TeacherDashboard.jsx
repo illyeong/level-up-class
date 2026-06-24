@@ -60,6 +60,9 @@ const isStudentActiveToday = student => {
   const map = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return `${map.year}-${map.month}-${map.day}` === getKstDateKey();
 };
+const PRESENTATION_DEMO_EMAILS = new Set(['imdlffud2@gmail.com']);
+const canUsePresentationDemo = (...emails) =>
+  emails.some(email => PRESENTATION_DEMO_EMAILS.has(String(email || '').trim().toLowerCase()));
 const AI_ACTION_TONES = {
   emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
   amber: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
@@ -160,7 +163,12 @@ function TeacherDashboard({
   const [goldAmount, setGoldAmount] = useState('');
   const [reason, setReason] = useState('');
   const [searchQuery, setSearchQuery] = useState(''); 
-  const canOpenBossRaidDemo = String(teacherEmail || '').toLowerCase() === 'imdlffud2@gmail.com';
+  const canOpenBossRaidDemo = canUsePresentationDemo(
+    teacherEmail,
+    selectedClass?.teacherEmail,
+    selectedClass?.ownerEmail,
+    selectedClass?.createdByEmail,
+  );
 
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [logs, setLogs] = useState([]);
