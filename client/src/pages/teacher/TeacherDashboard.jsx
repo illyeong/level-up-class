@@ -817,11 +817,11 @@ function TeacherDashboard({
   ] : [];
   const onboardingDoneCount = onboardingSteps.filter(step => step.done).length;
   const dashboardBg = isDark ? 'bg-slate-950' : 'bg-slate-100';
-  const mainSurface = 'border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10';
+  const mainSurface = 'dashboard-light-surface border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10';
   const mutedText = 'text-slate-600';
 
   return (
-    <div className={`min-h-screen px-4 md:px-8 pt-5 pb-8 relative ${dashboardBg}`}>
+    <div className={`teacher-dashboard-page min-h-screen px-4 md:px-8 pt-5 pb-8 relative ${dashboardBg}`}>
       <div className={`mb-5 overflow-hidden rounded-2xl border p-6 shadow-xl ${
         isDark
           ? 'border-indigo-300/25 bg-gradient-to-br from-indigo-600 via-violet-600 to-sky-600 text-white shadow-indigo-950/30'
@@ -921,7 +921,7 @@ function TeacherDashboard({
       )}
 
       {quickSetupInfo?.completed && !quickSetupInfo.onboardingDismissed && onboardingDoneCount < onboardingSteps.length && (
-        <div className="mb-5 overflow-hidden rounded-2xl border border-indigo-200 bg-white text-slate-900 shadow-xl shadow-black/10">
+        <div className="dashboard-light-surface mb-5 overflow-hidden rounded-2xl border border-indigo-200 bg-white text-slate-900 shadow-xl shadow-black/10">
           <div className="flex flex-col gap-3 border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-sky-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex items-center gap-2">
@@ -1048,7 +1048,7 @@ function TeacherDashboard({
 
       {/* ── AI 오늘의 운영 요약 ── */}
       <div className="mb-4">
-        <div className="rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10 overflow-hidden">
+        <div className="dashboard-light-surface rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10 overflow-hidden">
           {/* 헤더 */}
           <div className="px-5 py-4 flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-sky-50">
             <div className="flex items-center gap-2.5">
@@ -1249,7 +1249,7 @@ function TeacherDashboard({
       <AICoursewareCard teacherUid={selectedClass?.teacherUid} onNavigate={(view) => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view } }))} />
 
       {/* 퀘스트 현황 */}
-      <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-xl shadow-black/10">
+      <div className="dashboard-light-surface mb-5 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-xl shadow-black/10">
         <div className="flex items-center gap-2 mb-3">
           <img src={iconQuest} alt="퀘스트" className="w-6 h-6 object-contain" />
           <h2 className="font-extrabold text-slate-900 text-lg">오늘의 퀘스트 현황</h2>
