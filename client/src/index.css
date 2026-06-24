@@ -977,19 +977,18 @@
 
 .boss-raid-party {
     position: absolute;
-    top: 4.75rem;
-    bottom: 1rem;
-    left: clamp(0.8rem, 2vw, 1.5rem);
+    bottom: 1.1rem;
+    left: clamp(0.7rem, 1.4vw, 1.1rem);
     z-index: 18;
     display: grid;
-    width: min(45vw, 690px);
+    width: min(42vw, 580px);
     max-width: calc(100vw - 2rem);
-    grid-template-columns: repeat(5, minmax(54px, 1fr)) !important;
-    grid-auto-rows: minmax(68px, 1fr);
+    grid-template-columns: repeat(8, minmax(40px, 1fr)) !important;
+    grid-auto-rows: 78px;
     align-content: end;
     align-items: end;
-    gap: clamp(0.25rem, 0.7vw, 0.55rem);
-    overflow: hidden;
+    gap: clamp(0.1rem, 0.32vw, 0.28rem);
+    overflow: visible;
     pointer-events: none;
 }
 
@@ -1000,20 +999,20 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.2rem;
+    gap: 0.12rem;
     overflow: visible;
     transform-origin: bottom center;
 }
 
 .boss-raid-party-member-me {
-    transform: translateY(-2px) scale(1.05);
+    transform: translateY(-1px) scale(1.05);
 }
 
 .boss-raid-party-avatar {
     position: relative;
     display: flex;
-    width: clamp(44px, 5vw, 70px);
-    height: clamp(50px, 5.8vw, 78px);
+    width: clamp(38px, 3.9vw, 56px);
+    height: clamp(46px, 4.7vw, 66px);
     align-items: center;
     justify-content: center;
     overflow: visible;
@@ -1040,8 +1039,8 @@
     height: 100%;
     object-fit: contain;
     image-rendering: pixelated;
-    transform: translateY(8%) scale(1.52);
-    transform-origin: center 68%;
+    transform: translateY(3%) scale(1.08);
+    transform-origin: center 74%;
     filter: drop-shadow(0 8px 7px rgb(0 0 0 / 0.45));
 }
 
@@ -1054,8 +1053,8 @@
 .boss-raid-party-status {
     max-width: 100%;
     border-radius: 9999px;
-    padding: 0.08rem 0.38rem;
-    font-size: clamp(0.56rem, 0.72vw, 0.64rem);
+    padding: 0.06rem 0.3rem;
+    font-size: clamp(0.52rem, 0.62vw, 0.58rem);
     font-weight: 900;
     line-height: 1.1;
     white-space: nowrap;
@@ -1083,7 +1082,7 @@
     max-width: 100%;
     overflow: hidden;
     color: #e2e8f0;
-    font-size: clamp(0.62rem, 0.8vw, 0.72rem);
+    font-size: clamp(0.56rem, 0.68vw, 0.64rem);
     font-weight: 900;
     text-overflow: ellipsis;
     text-shadow: 0 2px 4px rgb(0 0 0 / 0.8);

@@ -1445,7 +1445,8 @@ export default function BossRaid({
   const studentDocId = studentDocIdProp || resolvedStudentDocId;
   const [raid, setRaid]           = useState(undefined); // undefined=로딩, null=없음
   const [studentData, setStudentData] = useState(null);
-  const activeStudentId = studentDocId || findParticipantIdByStudentCode(raid?.participants, normalizedStudentCode);
+  const activeRaidParticipantId = findParticipantIdByStudentCode(raid?.participants, normalizedStudentCode);
+  const activeStudentId = activeRaidParticipantId || studentDocId;
   const [raidScope, setRaidScope] = useState({ classId: null, teacherUid: null });
   const [showIntro, setShowIntro] = useState(!isTeacher && !presentationMode);
   const [presentationError, setPresentationError] = useState(null);
@@ -1777,14 +1778,21 @@ export default function BossRaid({
 
     if (participants.length === 0) return;
 
-    const autoKey = `${raid.id}:${qIdx}`;
-    if (autoAnsweredQuestionsRef.current.has(autoKey)) return;
-    autoAnsweredQuestionsRef.current.add(autoKey);
-
     participants.forEach(([participantId], index) => {
+      const autoKey = `${raid.id}:${qIdx}:${participantId}`;
+      if (autoAnsweredQuestionsRef.current.has(autoKey)) return;
+      autoAnsweredQuestionsRef.current.add(autoKey);
+
       const timer = setTimeout(() => {
         autoParticipantTimersRef.current.delete(timer);
         const isCorrect = Math.random() < 0.9;
+        const correctIdx = getCorrectIndex(q);
+        const wrongOptions = (q.options || [])
+          .map((_, optionIndex) => optionIndex)
+          .filter(optionIndex => optionIndex !== correctIdx);
+        const selectedIdx = isCorrect
+          ? correctIdx
+          : wrongOptions[Math.floor(Math.random() * wrongOptions.length)] ?? correctIdx;
         const raidDocRef = doc(db, 'worldBossRaids', raid.id);
 
         runTransaction(db, async (transaction) => {
@@ -1822,9 +1830,24 @@ export default function BossRaid({
             lastDamage: damage,
             lastHitCritical: false,
             lastBreakTriggered: false,
+            lastSelectedIdx: selectedIdx,
             qResults: {
               ...(latestParticipant.qResults || {}),
               [qIdx]: isCorrect ? 1 : 0,
+            },
+            answerDetails: {
+              ...(latestParticipant.answerDetails || {}),
+              [`q${qIdx}`]: {
+                questionIdx: qIdx,
+                questionKey: bossQuestionKey(latest, q, qIdx),
+                selectedIdx,
+                correctIdx,
+                selectedAnswer: answerText(q, selectedIdx),
+                correctAnswer: answerText(q, correctIdx),
+                isCorrect,
+                autoAnswered: true,
+                answeredAt: new Date().toISOString(),
+              },
             },
           };
 
@@ -1853,7 +1876,7 @@ export default function BossRaid({
 
           transaction.update(raidDocRef, updates);
         }).catch(error => console.error('Presentation participant auto answer failed:', error));
-      }, 650 + index * 420 + Math.round(Math.random() * 280));
+      }, 450 + index * 230 + Math.round(Math.random() * 180));
 
       autoParticipantTimersRef.current.add(timer);
     });
