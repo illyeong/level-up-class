@@ -131,14 +131,22 @@ function AICoursewareCard({ teacherUid, onNavigate }) {
   );
 }
 
-function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, operationMode = 'custom', onApplyOperationMode }) {
+function TeacherDashboard({
+  selectedClass,
+  onGoAccountIssue,
+  onStudentTestLogin,
+  teacherEmail,
+  onOpenBossRaidDemo,
+  isDark = false,
+  operationMode = 'custom',
+  onApplyOperationMode,
+}) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [questStats, setQuestStats] = useState([]);
   const [toast, setToast] = useState(null);
   const [showLevelUpPreview, setShowLevelUpPreview] = useState(false);
   const [previewLevel, setPreviewLevel] = useState(9);
-  const onStudentTestLogin = null;
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -152,6 +160,7 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
   const [goldAmount, setGoldAmount] = useState('');
   const [reason, setReason] = useState('');
   const [searchQuery, setSearchQuery] = useState(''); 
+  const canOpenBossRaidDemo = String(teacherEmail || '').toLowerCase() === 'imdlffud2@gmail.com';
 
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [logs, setLogs] = useState([]);
@@ -844,6 +853,15 @@ function TeacherDashboard({ selectedClass, onGoAccountIssue, isDark = false, ope
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base"
             >
               학생 테스트 (SINSEOK-5-15)
+            </button>
+          )}
+          {canOpenBossRaidDemo && (
+            <button
+              type="button"
+              onClick={onOpenBossRaidDemo}
+              className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base"
+            >
+              보스레이드 발표 테스트
             </button>
           )}
           <a

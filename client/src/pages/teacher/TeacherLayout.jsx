@@ -22,6 +22,7 @@ import TeacherCharacter from './TeacherCharacter';
 import FeedbackBoard from './FeedbackBoard';
 import DataReset from './DataReset';
 import BossRaid from '../student/BossRaid';
+import BossRaidDemoPage from './BossRaidDemoPage';
 import QuizDungeon from '../student/QuizDungeon';
 import ExplorationDungeon from '../student/ExplorationDungeon';
 import ClassVoteManage from './ClassVoteManage';
@@ -364,6 +365,8 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             onStudentTestLogin={onStudentTestLogin}
             selectedClass={selectedClass}
             onGoAccountIssue={() => setCurrentView('accountIssue')}
+            teacherEmail={user?.email}
+            onOpenBossRaidDemo={() => setCurrentView('bossRaidDemo')}
             isDark={isDark}
             operationMode={operationMode}
             onApplyOperationMode={applyOperationMode}
@@ -406,6 +409,9 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             selectedClass={selectedClass}
             onExit={() => setCurrentView('bossRaidManage')}
           />
+        )}
+        {currentView === 'bossRaidDemo'      && (
+          <BossRaidDemoPage onExit={() => setCurrentView('dashboard')} />
         )}
         {currentView === 'quizDungeon'       && <QuizDungeon isTeacher={true} teacherUid={selectedClass?.teacherUid} />}
         {currentView === 'explorationDungeon' && <ExplorationDungeon isTeacher={true} teacherUid={selectedClass?.teacherUid} />}

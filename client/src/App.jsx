@@ -197,6 +197,19 @@ const getPetLine = (hunger, happiness, cleanliness, energy) => {
   return pick(PET_DIALOGUES.normal);
 };
 
+const PET_CLEANLINESS_DECAY_PER_DAY = 10;
+const PET_ENERGY_RECOVERY_PER_DAY = 20;
+const petTimestampToDate = value => value?.toDate?.() ?? (value?.seconds ? new Date(value.seconds * 1000) : null);
+const getPetElapsedDays = (date, now = Date.now()) => Math.floor(Math.max(0, now - date.getTime()) / 86400000);
+const getTimedPetCleanliness = (pet = {}) => {
+  const ref = petTimestampToDate(pet.lastCleanlinessDecay) || petTimestampToDate(pet.lastCareAt) || petTimestampToDate(pet.obtainedAt) || new Date();
+  return Math.max(0, (pet.cleanliness ?? 100) - getPetElapsedDays(ref) * PET_CLEANLINESS_DECAY_PER_DAY);
+};
+const getTimedPetEnergy = (pet = {}) => {
+  const ref = petTimestampToDate(pet.lastEnergyRecovery) || petTimestampToDate(pet.lastCareAt) || petTimestampToDate(pet.obtainedAt) || new Date();
+  return Math.min(100, (pet.energy ?? 100) + getPetElapsedDays(ref) * PET_ENERGY_RECOVERY_PER_DAY);
+};
+
 const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','classOperation','miniGame'];
 const THEMEABLE_VIEWS = new Set(['dashboard', 'classAll', 'quest', 'learningNote', 'myCharacter']);
 const ADVENTURE_BG = 'linear-gradient(160deg, #020617 0%, #0f172a 50%, #1e1b4b 100%)';
@@ -643,6 +656,8 @@ function App() {
       const happinessRef = pd.lastHappinessDecay?.toDate?.() || pd.lastCareAt?.toDate?.() || pd.obtainedAt?.toDate?.() || new Date();
       const happinessLoss = Math.floor(Math.max(0, Date.now() - happinessRef.getTime()) * HAPPINESS_DECAY_PER_DAY / 86400000);
       setActivePetHappiness(Math.max(0, Math.round((pd.happiness ?? 100) - happinessLoss)));
+      setActivePetEnergy(getTimedPetEnergy(pd));
+      setActivePetCleanliness(getTimedPetCleanliness(pd));
     };
     const iv = setInterval(tick, 60000); // 1분마다
     tick(); // 즉시 1회
@@ -663,7 +678,7 @@ function App() {
     };
     const timerRef = { current: schedule() };
     return () => clearTimeout(timerRef.current);
-  }, [activePetMonster, petVisible, activePetHunger, activePetHappiness]);
+  }, [activePetMonster, petVisible, activePetHunger, activePetHappiness, activePetCleanliness, activePetEnergy]);
 
   // 대표 펫 실시간 구독 — PetHouse에서 대표 설정 시 즉시 반영
   useEffect(() => {
@@ -726,8 +741,8 @@ function App() {
         setActivePetData(enriched);
         setActivePetHunger(calcHunger(petData));
         setActivePetHappiness(calcHappiness(petData));
-        setActivePetEnergy(petData.energy ?? 100);
-        setActivePetCleanliness(petData.cleanliness ?? 100);
+        setActivePetEnergy(getTimedPetEnergy(petData));
+        setActivePetCleanliness(getTimedPetCleanliness(petData));
 
         // ② 똥 체크 (별도 try-catch → 오류가 펫 표시에 영향 없음)
         try {
@@ -973,10 +988,11 @@ function App() {
                   const newClean = Math.min(100, activePetCleanliness + 5);
                   setHasPoop(false);
                   setActivePetCleanliness(newClean);
-                  setActivePetData(p => ({ ...p, cleanliness: newClean, poop: { cleanedAt: new Date(), cleaned: true } }));
+                  setActivePetData(p => ({ ...p, cleanliness: newClean, poop: { cleanedAt: new Date(), cleaned: true }, lastCleanlinessDecay: new Date() }));
                   await updateDoc(doc(db, 'studentPets', activePetData.id), {
                     poop: { cleanedAt: serverTimestamp(), cleaned: true },
                     cleanliness: newClean,
+                    lastCleanlinessDecay: serverTimestamp(),
                   });
                   setPetSpeech('깨끗해졌어요!');
                   clearTimeout(window._petSpeechTimer);

@@ -19,17 +19,27 @@ const getKstDateKey = () => {
 };
 const HUNGER_STEP_HOURS = 7.2;
 const HAPPINESS_DECAY_PER_DAY = 80;
+const CLEANLINESS_DECAY_PER_DAY = 10;
+const ENERGY_RECOVERY_PER_DAY = 20;
 const toDate = value => value?.toDate?.() ?? (value?.seconds ? new Date(value.seconds * 1000) : null);
+const getElapsedDays = (date, now = Date.now()) => Math.floor(Math.max(0, now - date.getTime()) / 86400000);
+
 const calculateTimedPetState = pet => {
   const now = Date.now();
   const hungerRef = toDate(pet.lastHungerDecay) || toDate(pet.lastCareAt) || toDate(pet.obtainedAt) || new Date();
   const happinessRef = toDate(pet.lastHappinessDecay) || toDate(pet.lastCareAt) || toDate(pet.obtainedAt) || new Date();
+  const cleanlinessRef = toDate(pet.lastCleanlinessDecay) || toDate(pet.lastCareAt) || toDate(pet.obtainedAt) || new Date();
+  const energyRef = toDate(pet.lastEnergyRecovery) || toDate(pet.lastCareAt) || toDate(pet.obtainedAt) || new Date();
   const hungerSteps = Math.floor(Math.max(0, now - hungerRef.getTime()) / (HUNGER_STEP_HOURS * 3600000));
   const happinessLoss = Math.floor(Math.max(0, now - happinessRef.getTime()) * HAPPINESS_DECAY_PER_DAY / 86400000);
+  const cleanlinessLoss = getElapsedDays(cleanlinessRef, now) * CLEANLINESS_DECAY_PER_DAY;
+  const energyGain = getElapsedDays(energyRef, now) * ENERGY_RECOVERY_PER_DAY;
   return {
     ...pet,
     hunger: Math.max(0, (pet.hunger ?? 100) - hungerSteps * 10),
     happiness: Math.max(0, Math.round((pet.happiness ?? 100) - happinessLoss)),
+    cleanliness: Math.max(0, (pet.cleanliness ?? 100) - cleanlinessLoss),
+    energy: Math.min(100, (pet.energy ?? 100) + energyGain),
   };
 };
 
@@ -599,20 +609,18 @@ export default function PetHouse({ studentCode }) {
         const happinessElapsedMs = Math.max(0, now - happinessRef.getTime());
         const happinessLoss = Math.floor(happinessElapsedMs * HAPPINESS_DECAY_PER_DAY / 86400000);
 
-        // ② 행복도·청결도·기력 감소 (lastCareAt 기준 일 단위, 기존 유지)
-        const careRef  = pet.lastCareAt?.toDate?.() || new Date(0);
-        const daysElapsed = Math.max(0, Math.floor((now - careRef.getTime()) / 86400000));
-        const today = getKstDateKey();
-        const caredToday = pet.lastCareAt?.toDate?.()
-          ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(pet.lastCareAt.toDate()) >= today
-          : false;
+        // ② 행복도·청결도·기력 변화는 각각의 전용 기준 시각으로 계산
+        const cleanlinessRef = pet.lastCleanlinessDecay?.toDate?.() || pet.lastCareAt?.toDate?.() || pet.obtainedAt?.toDate?.() || new Date();
+        const energyRef = pet.lastEnergyRecovery?.toDate?.() || pet.lastCareAt?.toDate?.() || pet.obtainedAt?.toDate?.() || new Date();
+        const cleanlinessDaysElapsed = getElapsedDays(cleanlinessRef, now);
+        const energyDaysElapsed = getElapsedDays(energyRef, now);
 
-        if (hungerSteps === 0 && happinessLoss === 0 && (caredToday || daysElapsed === 0)) return pet;
+        if (hungerSteps === 0 && happinessLoss === 0 && cleanlinessDaysElapsed === 0 && energyDaysElapsed === 0) return pet;
 
         const newHunger      = Math.max(0,   (pet.hunger      ?? 100) - hungerSteps * 10);
         const newHappiness   = Math.max(0,   Math.round((pet.happiness ?? 100) - happinessLoss));
-        const newCleanliness = caredToday ? (pet.cleanliness ?? 100) : Math.max(0,   (pet.cleanliness ?? 100) - daysElapsed * 10);
-        const newEnergy      = caredToday ? (pet.energy      ?? 100) : Math.min(100, (pet.energy      ?? 100) + daysElapsed * 20);
+        const newCleanliness = Math.max(0,   (pet.cleanliness ?? 100) - cleanlinessDaysElapsed * CLEANLINESS_DECAY_PER_DAY);
+        const newEnergy      = Math.min(100, (pet.energy      ?? 100) + energyDaysElapsed * ENERGY_RECOVERY_PER_DAY);
 
         const updates = {
           hunger: newHunger,
@@ -622,7 +630,8 @@ export default function PetHouse({ studentCode }) {
         };
         if (hungerSteps > 0) updates.lastHungerDecay = new Date(decayRef.getTime() + hungerSteps * HUNGER_STEP_HOURS * 3600000); // 배고픔만 별도 기록
         if (happinessLoss > 0) updates.lastHappinessDecay = new Date(happinessRef.getTime() + happinessLoss * 86400000 / HAPPINESS_DECAY_PER_DAY);
-        if (!caredToday && daysElapsed > 0) updates.lastCareAt = serverTimestamp();
+        if (cleanlinessDaysElapsed > 0) updates.lastCleanlinessDecay = new Date(cleanlinessRef.getTime() + cleanlinessDaysElapsed * 86400000);
+        if (energyDaysElapsed > 0) updates.lastEnergyRecovery = new Date(energyRef.getTime() + energyDaysElapsed * 86400000);
 
         await updateDoc(doc(db, 'studentPets', pet.id), updates);
         return { ...pet, ...updates };
@@ -817,7 +826,7 @@ export default function PetHouse({ studentCode }) {
     const newHap   = Math.min(100, (pet.happiness   ?? 100) + 5);
     const newAff   = (pet.affection ?? 0) + 3;
     const newCare  = { ...care, washCount: (care.washCount || 0) + 1 };
-    const updates  = { cleanliness: newClean, happiness: newHap, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp() };
+    const updates  = { cleanliness: newClean, happiness: newHap, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp(), lastCleanlinessDecay: serverTimestamp() };
     await updateDoc(doc(db, 'studentPets', pet.id), updates);
     const patched = { ...pet, ...updates, dailyCare: newCare };
     setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
@@ -838,7 +847,7 @@ export default function PetHouse({ studentCode }) {
     const newEng   = Math.max(0,   (pet.energy    ?? 100) - 15);
     const newAff   = (pet.affection ?? 0) + 5;
     const newCare  = { ...care, playCount: (care.playCount || 0) + 1 };
-    const updates  = { happiness: newHap, energy: newEng, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp() };
+    const updates  = { happiness: newHap, energy: newEng, affection: newAff, dailyCare: newCare, lastCareAt: serverTimestamp(), lastHappinessDecay: serverTimestamp(), lastEnergyRecovery: serverTimestamp() };
     await updateDoc(doc(db, 'studentPets', pet.id), updates);
     const patched = { ...pet, ...updates, dailyCare: newCare };
     setPets(prev => prev.map(p => p.id === pet.id ? patched : p));
@@ -880,9 +889,9 @@ export default function PetHouse({ studentCode }) {
     const petData = {
       studentCode, teacherUid: student?.teacherUid || '',
       monsterId: md.id, nickname: md.name, rarity, tier: md.tier,
-      level: 1, exp: 0, hunger: 100, happiness: 100,
+      level: 1, exp: 0, hunger: 100, happiness: 100, cleanliness: 100, energy: 100,
       stats: generateStats(rarity),
-      isActive: false, obtainedFrom: 'hatch', obtainedAt: serverTimestamp(), lastHungerDecay: serverTimestamp(), lastHappinessDecay: serverTimestamp(),
+      isActive: false, obtainedFrom: 'hatch', obtainedAt: serverTimestamp(), lastHungerDecay: serverTimestamp(), lastHappinessDecay: serverTimestamp(), lastCleanlinessDecay: serverTimestamp(), lastEnergyRecovery: serverTimestamp(),
     };
     const ref = await addDoc(collection(db, 'studentPets'), petData);
     const newPet = { id: ref.id, ...petData, monsterData: md };

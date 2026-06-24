@@ -1790,13 +1790,15 @@ function QuizDungeon({ studentCode, studentDocId, tickets, onUseTicket, isTeache
               teacherUid:  studentData.teacherUid || '',
               monsterId:   md.id, nickname: md.name,
               rarity, tier: md.tier,
-              level: 1, exp: 0, hunger: 100, happiness: 100,
+              level: 1, exp: 0, hunger: 100, happiness: 100, cleanliness: 100, energy: 100,
               stats: generatePetStats(rarity),
               isActive: false,
               obtainedFrom: 'dungeonDrop',
               obtainedAt: serverTimestamp(),
               lastHungerDecay: serverTimestamp(),
               lastHappinessDecay: serverTimestamp(),
+              lastCleanlinessDecay: serverTimestamp(),
+              lastEnergyRecovery: serverTimestamp(),
             };
             const petRef = await addDoc(collection(db, 'studentPets'), petData);
             setPetDropped({ id: petRef.id, ...petData, monsterData: md });
