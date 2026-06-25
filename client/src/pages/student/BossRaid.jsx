@@ -1905,6 +1905,9 @@ export default function BossRaid({
         const currentHP = Math.max(0, Number(raid.currentHP) || 0);
         const maxHP = Math.max(1, Number(raid.maxHP) || 1);
         const currentPhase = Math.max(Number(raid.phase) || 1, getRaidPhase(currentHP, maxHP));
+        const currentMorale = Math.max(0, Math.min(100, Number(raid.morale ?? 100)));
+        const moralePenalty = getMoralePenalty(currentPhase);
+        const moraleBroken = !isCorrect && currentMorale - moralePenalty <= 0;
         const baseDamage = Math.max(1, Number(raid.damagePerHit) || 100);
         const damage = isCorrect
           ? Math.min(currentHP, Math.round(baseDamage * (0.88 + Math.random() * 0.24)))
@@ -1922,7 +1925,7 @@ export default function BossRaid({
           [`participants.${participantId}.lastDamage`]: damage,
           [`participants.${participantId}.lastHitCritical`]: false,
           [`participants.${participantId}.lastBreakTriggered`]: false,
-          [`participants.${participantId}.lastMoraleBroken`]: false,
+          [`participants.${participantId}.lastMoraleBroken`]: moraleBroken,
           [`participants.${participantId}.lastSelectedIdx`]: selectedIdx,
           [`participants.${participantId}.qResults.${qIdx}`]: isCorrect ? 1 : 0,
           [`participants.${participantId}.answerDetails.q${qIdx}`]: {
@@ -1933,12 +1936,15 @@ export default function BossRaid({
             selectedAnswer: answerText(q, selectedIdx),
             correctAnswer: answerText(q, correctIdx),
             isCorrect,
+            moraleBroken,
             autoAnswered: true,
             answeredAt: new Date().toISOString(),
           },
           ...(isCorrect ? { currentHP: increment(-damage), phase: nextPhase } : {}),
+          ...(!isCorrect ? { morale: increment(-moralePenalty) } : {}),
+          ...(moraleBroken ? { moraleBreakCount: increment(1), moraleBrokenAt: serverTimestamp() } : {}),
           lastCombatEvent: {
-            type: isCorrect ? 'partyHit' : 'partyMiss',
+            type: isCorrect ? 'partyHit' : moraleBroken ? 'moraleBreak' : 'partyMiss',
             participantId,
             participantName,
             questionIdx: qIdx,
