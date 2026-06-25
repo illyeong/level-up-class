@@ -546,10 +546,12 @@
 }
 @keyframes boss-skill-stage-shake {
   0%, 100% { transform: translate3d(0, 0, 0); filter: brightness(1); }
-  12% { transform: translate3d(-14px, 5px, 0); filter: brightness(1.7); }
-  28% { transform: translate3d(12px, -5px, 0); }
-  46% { transform: translate3d(-9px, 3px, 0); }
-  68% { transform: translate3d(6px, -2px, 0); }
+  8% { transform: translate3d(-18px, 7px, 0) rotate(-.28deg); filter: brightness(1.65); }
+  18% { transform: translate3d(16px, -6px, 0) rotate(.22deg); }
+  30% { transform: translate3d(-13px, 4px, 0) rotate(-.18deg); }
+  44% { transform: translate3d(11px, -3px, 0) rotate(.14deg); }
+  60% { transform: translate3d(-7px, 2px, 0); }
+  78% { transform: translate3d(4px, -1px, 0); }
 }
 @keyframes boss-skill-core-pulse {
   0% { opacity: 0; transform: translate(-50%, -50%) scale(.15) rotate(0deg); filter: brightness(1); }
@@ -562,10 +564,12 @@
   100% { opacity: .2; transform: translate(-50%, -50%) scale(.35) rotate(330deg); filter: brightness(3); }
 }
 @keyframes boss-skill-beam-fire {
-  0% { opacity: 0; transform: rotate(-9deg) scaleX(.02) scaleY(.25); filter: brightness(3); }
-  18% { opacity: 1; transform: rotate(-9deg) scaleX(1) scaleY(1.7); }
-  55% { opacity: 1; transform: rotate(-9deg) scaleX(1) scaleY(1); filter: brightness(1.8); }
-  100% { opacity: 0; transform: rotate(-9deg) scaleX(1.08) scaleY(.15); }
+  0% { opacity: 0; transform: rotate(-13deg) scaleX(.03) scaleY(.32); filter: brightness(3.2) blur(1px); }
+  10% { opacity: 1; transform: rotate(-13deg) scaleX(.55) scaleY(1.4); }
+  22% { opacity: 1; transform: rotate(-13deg) scaleX(1) scaleY(1.85); filter: brightness(2.8) blur(0); }
+  48% { opacity: .96; transform: rotate(-13deg) scaleX(1.04) scaleY(1.1); filter: brightness(2); }
+  72% { opacity: .75; transform: rotate(-13deg) scaleX(1.08) scaleY(.72); }
+  100% { opacity: 0; transform: rotate(-13deg) scaleX(1.12) scaleY(.12); filter: brightness(1.4) blur(5px); }
 }
 @keyframes boss-skill-shockwave {
   0% { opacity: 1; transform: translate(-50%, -50%) scale(.1); }
@@ -637,18 +641,46 @@
 }
 .boss-skill-attack-beam {
   position: absolute;
-  left: 16%;
-  top: 68%;
-  width: 50%;
-  height: clamp(1.1rem, 3.5vw, 2.4rem);
+  left: 10%;
+  top: 64%;
+  width: 56%;
+  height: clamp(1.45rem, 4.4vw, 3.25rem);
   opacity: 0;
   transform-origin: right center;
-  border-radius: 999px 0 0 999px;
-  background: linear-gradient(90deg, transparent, var(--skill-color) 12%, var(--skill-bright) 48%, white 65%, var(--skill-color));
-  box-shadow: 0 0 18px 6px var(--skill-color), 0 0 45px 15px color-mix(in srgb, var(--skill-color) 58%, transparent);
+  border-radius: 999px;
+  clip-path: polygon(0 50%, 9% 18%, 76% 4%, 100% 50%, 76% 96%, 9% 82%);
+  background:
+    linear-gradient(90deg, transparent 0 4%, color-mix(in srgb, var(--skill-color) 55%, transparent) 10%, var(--skill-color) 28%, var(--skill-bright) 48%, white 58%, var(--skill-bright) 70%, var(--skill-color) 100%),
+    repeating-linear-gradient(90deg, transparent 0 22px, rgba(255,255,255,.38) 23px 26px, transparent 27px 46px);
+  box-shadow:
+    0 0 16px 5px var(--skill-color),
+    0 0 42px 14px color-mix(in srgb, var(--skill-color) 60%, transparent),
+    0 0 90px 28px color-mix(in srgb, var(--skill-color) 28%, transparent);
 }
-.boss-skill-attack-beam > i { position: absolute; inset: 35% -8% 35% 0; background: white; border-radius: inherit; filter: blur(2px); }
-.boss-skill-impact-zone { position: absolute; left: 25%; top: 76%; width: 5rem; height: 5rem; opacity: 0; }
+.boss-skill-attack-beam::before,
+.boss-skill-attack-beam::after {
+  position: absolute;
+  inset: -35% -4%;
+  content: '';
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent 0 8%, color-mix(in srgb, var(--skill-color) 55%, transparent), transparent 92%);
+  filter: blur(10px);
+  opacity: .75;
+}
+.boss-skill-attack-beam::after {
+  inset: 39% -9% 39% 0;
+  background: white;
+  filter: blur(1px);
+  opacity: 1;
+}
+.boss-skill-attack-beam > i {
+  position: absolute;
+  inset: 28% -8% 28% 0;
+  background: linear-gradient(90deg, transparent, white 45%, var(--skill-bright));
+  border-radius: inherit;
+  filter: blur(1.5px);
+}
+.boss-skill-impact-zone { position: absolute; left: 18%; top: 74%; width: 6.3rem; height: 6.3rem; opacity: 0; }
 .boss-skill-impact-zone > i {
   position: absolute; left: 50%; top: 50%; width: 100%; height: 45%;
   border: 5px solid var(--skill-bright); border-radius: 50%; box-shadow: 0 0 20px var(--skill-color);
@@ -657,7 +689,7 @@
 .boss-skill-impact-zone > i:nth-child(3) { animation-delay: .24s; }
 .boss-skill-cast .boss-skill-warning-ring { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
 .boss-skill-cast .boss-skill-energy-core { animation: boss-skill-core-cast .72s ease-in both; }
-.boss-skill-cast .boss-skill-attack-beam { animation: boss-skill-beam-fire .72s cubic-bezier(.1,.8,.25,1) both; }
+.boss-skill-cast .boss-skill-attack-beam { animation: boss-skill-beam-fire .86s cubic-bezier(.08,.82,.18,1) both; }
 .boss-skill-impact::after { position: absolute; inset: 0; content: ''; background: var(--skill-bright); animation: boss-skill-impact-flash .7s ease-out both; }
 .boss-skill-impact .boss-skill-energy-core { opacity: .15; }
 .boss-skill-impact .boss-skill-impact-zone { opacity: 1; }
@@ -669,7 +701,7 @@
 .boss-skill-amber { --skill-color: #fbbf24; --skill-bright: #fffbeb; --skill-dark: #78350f; }
 .boss-skill-amber .boss-skill-warning-ring { border-color: rgba(245,158,11,.8); box-shadow: 0 0 35px #d97706, inset 0 0 35px #d97706; }
 .boss-skill-amber .boss-skill-banner { border-color: #fbbf24; background: linear-gradient(90deg, rgba(15,23,42,.25), rgba(120,53,15,.96), rgba(15,23,42,.25)); }
-.boss-skill-stage-impact { animation: boss-skill-stage-shake .72s ease-out; }
+.boss-skill-stage-impact { animation: boss-skill-stage-shake .86s cubic-bezier(.1,.65,.25,1); }
 
 @keyframes battle-impact-flash {
   0% { opacity: .7; }

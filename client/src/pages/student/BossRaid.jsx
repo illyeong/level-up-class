@@ -1106,7 +1106,7 @@ function BattlePhase({
         className={`boss-raid-stage flex items-end justify-center relative shrink-0 overflow-hidden
           boss-raid-stage-phase-${phase}
           ${impactFx ? `battle-scene-impact-${impactFx.tier}` : ''}
-          ${activeBossSkillFx?.phase === 'impact' ? 'boss-skill-stage-impact' : ''}`}
+          ${['cast', 'impact'].includes(activeBossSkillFx?.phase) ? 'boss-skill-stage-impact' : ''}`}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/10 via-transparent to-slate-950/80 pointer-events-none" />
         <div className="absolute bottom-8 left-1/2 h-16 w-[62%] -translate-x-1/2 rounded-[100%] bg-black/55 blur-md pointer-events-none" />
