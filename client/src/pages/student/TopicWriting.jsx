@@ -456,7 +456,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
               {topics.length === 0 ? (
                 <p className="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-400">아직 열린 주제가 없습니다.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="max-h-[360px] space-y-1.5 overflow-y-auto pr-1 sm:max-h-[420px] lg:max-h-[520px]">
                   {topics.map(topic => {
                     const done = submissionByTopic.has(topic.id);
                     const active = topic.id === activeTopicId;
@@ -465,7 +465,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                         key={topic.id}
                         type="button"
                         onClick={() => setSelectedTopicId(topic.id)}
-                        className={`w-full rounded-xl border p-3 text-left transition-colors ${
+                        className={`w-full rounded-xl border px-3 py-2 text-left transition-colors ${
                           done
                             ? 'border-emerald-200 bg-emerald-50'
                             : active ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 bg-slate-50 hover:border-indigo-200 hover:bg-white'
@@ -474,7 +474,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-black text-slate-800">{topic.title}</p>
-                            <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-slate-500">{topic.description || '설명 없음'}</p>
+                            <p className="mt-0.5 line-clamp-1 text-xs font-semibold leading-relaxed text-slate-500">{topic.description || '설명 없음'}</p>
                           </div>
                           <div className="flex shrink-0 flex-col items-end gap-1">
                             <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
@@ -485,7 +485,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                             {done && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700">작성 완료</span>}
                           </div>
                         </div>
-                        <div className="mt-2 flex flex-wrap gap-1 text-[10px] font-bold text-slate-500">
+                        <div className="mt-1.5 flex flex-wrap gap-1 text-[10px] font-bold text-slate-500">
                           <span className="rounded bg-white px-2 py-0.5">최소 {getTopicMinLength(topic)}자</span>
                           {topic.dueDate && <span className="rounded bg-white px-2 py-0.5">마감 {topic.dueDate}</span>}
                         </div>
