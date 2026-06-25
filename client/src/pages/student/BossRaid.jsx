@@ -152,9 +152,7 @@ const PRESENTATION_FALLBACK_QUESTIONS = [
   },
 ];
 
-const PRESENTATION_BOSS_IDS = Object.entries(MONSTERS_DB)
-  .filter(([, monster]) => monster?.tier === 'boss')
-  .map(([id]) => id);
+const PRESENTATION_BOSS_IDS = ['demon03', 'goldenDragon', 'rockGolem'];
 
 const choiceQuestionsOnly = (questions = []) =>
   questions.filter(q => q && q.type !== 'short' && q.type !== 'sa' && Array.isArray(q.options) && q.options.length >= 2);
@@ -2105,7 +2103,9 @@ export default function BossRaid({
 
     const currentBossId = resolveCanonicalBossId(raid) || raid.bossId;
     const currentIndex = PRESENTATION_BOSS_IDS.indexOf(currentBossId);
-    const nextBossId = PRESENTATION_BOSS_IDS[(currentIndex + 1 + PRESENTATION_BOSS_IDS.length) % PRESENTATION_BOSS_IDS.length];
+    const nextBossId = currentIndex >= 0
+      ? PRESENTATION_BOSS_IDS[(currentIndex + 1) % PRESENTATION_BOSS_IDS.length]
+      : PRESENTATION_BOSS_IDS[0];
     const nextBoss = MONSTERS_DB[nextBossId];
     if (!nextBoss) return;
 
