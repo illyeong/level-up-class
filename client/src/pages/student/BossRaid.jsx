@@ -200,7 +200,10 @@ export const createPresentationTestRaid = async ({ classId, teacherUid, rosterCo
     breakGauge: 0,
     breakCount: 0,
     moraleBreakCount: 0,
+    baseQuestionDuration: 12,
     phase: 1,
+    paused: false,
+    pausedTimeLeft: null,
     finishing: false,
     status: 'waiting',
     questions: testQuestions,
@@ -535,7 +538,14 @@ const teacherStartRaid = async (raidId, { presentationTest = false } = {}) => {
     questionStartedAt:  serverTimestamp(),
     startedAt:          serverTimestamp(),
   };
-  if (presentationTest) updates.presentationTest = true;
+  if (presentationTest) {
+    updates.presentationTest = true;
+    updates.baseQuestionDuration = 12;
+    updates.questionDuration = 12;
+    updates.paused = false;
+    updates.pausedTimeLeft = deleteField();
+    updates.pausedAt = deleteField();
+  }
   await updateDoc(doc(db, 'worldBossRaids', raidId), updates);
 };
 
@@ -679,7 +689,7 @@ function LobbyPhase({ raid, bossData, myId, isTeacher, canStartRaid = isTeacher,
 // ── 배틀 ─────────────────────────────────────────────────────────
 function BattlePhase({
   raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossAnimKey, bossFlash,
-  isTeacher, onAnswer, onBossAttack, onBossAnimEnd, onExit, onAdvance, onChangeBoss, changingBoss = false, showExitButton = isTeacher,
+  isTeacher, onAnswer, onBossAttack, onBossAnimEnd, onExit, onAdvance, onPauseToggle, onChangeBoss, changingBoss = false, showExitButton = isTeacher,
 }) {
   const bossBg = resolveBossBg(raid);
   const questions = (raid.questions || []).filter(q => q.type !== 'short');
@@ -709,6 +719,7 @@ function BattlePhase({
   const skillTriggeredQuestionsRef = useRef(new Set());
   const previousPhaseRef = useRef(null);
   const previousBreakCountRef = useRef(null);
+  const previousMoraleBreakCountRef = useRef(null);
   const finisherTriggeredRef = useRef(false);
 
   const [impactFx, setImpactFx] = useState(null);
@@ -718,6 +729,7 @@ function BattlePhase({
   const [bossSkillFx, setBossSkillFx] = useState(null);
   const [phaseFx, setPhaseFx] = useState(null);
   const [breakFx, setBreakFx] = useState(false);
+  const [moraleBreakFx, setMoraleBreakFx] = useState(false);
   const activeBossSkillFx = bossSkillFx?.questionIdx === qIdx ? bossSkillFx : null;
 
   const scheduleEffect = (callback, delay) => {
@@ -729,7 +741,7 @@ function BattlePhase({
     return timer;
   };
 
-  const triggerRaidImpact = (target, point, damage, tier) => {
+  const triggerRaidImpact = (target, point, damage, tier, label = null) => {
     const id = impactIdRef.current++;
     const areaRect = bossAreaRef.current?.getBoundingClientRect();
     const x = point && areaRect ? point.x - areaRect.left : areaRect?.width / 2;
@@ -737,7 +749,7 @@ function BattlePhase({
     const floatId = impactIdRef.current++;
 
     setImpactFx({ id, target, tier, x, y });
-    setDamageFloats(current => [...current, { id: floatId, target, tier, x, y, damage }]);
+    setDamageFloats(current => [...current, { id: floatId, target, tier, x, y, damage, label }]);
     if (target === 'boss') setBossHitTier(tier);
     else setPlayerHitTier(tier);
     if (target === 'boss') onBossAttack?.();
@@ -783,6 +795,19 @@ function BattlePhase({
     setBreakFx(true);
     scheduleEffect(() => setBreakFx(false), 1500);
   }, [raid.breakCount]);
+
+  useEffect(() => {
+    const moraleBreakCount = Number(raid.moraleBreakCount) || 0;
+    if (previousMoraleBreakCountRef.current === null) {
+      previousMoraleBreakCountRef.current = moraleBreakCount;
+      return;
+    }
+    if (moraleBreakCount <= previousMoraleBreakCountRef.current) return;
+    previousMoraleBreakCountRef.current = moraleBreakCount;
+    setMoraleBreakFx(true);
+    onBossAttack?.();
+    scheduleEffect(() => setMoraleBreakFx(false), 1900);
+  }, [raid.moraleBreakCount]);
 
   useEffect(() => {
     if (!raid.finishing) {
@@ -890,12 +915,13 @@ function BattlePhase({
       });
     } else {
       onBossAttack?.();
+      const penaltyLabel = myAnswer.moraleBroken ? '사기 붕괴!' : `사기 -${getMoralePenalty(phase)}`;
       fireProjectile({
         from: bossPoint,
         to: playerPoint,
         type: 'fire',
         power: 1.35,
-        onHit: () => triggerRaidImpact('player', playerPoint, raid.penaltyAmount || 0, 2),
+        onHit: () => triggerRaidImpact('player', playerPoint, raid.penaltyAmount || 0, myAnswer.moraleBroken ? 4 : 2, penaltyLabel),
       });
     }
   }, [myAnswer]);
@@ -928,12 +954,13 @@ function BattlePhase({
       }
       if ((participant.wrongCount || 0) > (previous.wrongCount || 0)) {
         onBossAttack?.();
+        const penaltyLabel = participant.lastMoraleBroken ? '사기 붕괴!' : `사기 -${getMoralePenalty(phase)}`;
         fireProjectile({
           from: bossPoint,
           to: participantPoint,
           type: 'fire',
           power: 1.15,
-          onHit: () => triggerRaidImpact('player', participantPoint, 0, 2),
+          onHit: () => triggerRaidImpact('player', participantPoint, 0, participant.lastMoraleBroken ? 4 : 2, penaltyLabel),
         });
       }
     });
@@ -1033,6 +1060,13 @@ function BattlePhase({
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/10 via-transparent to-slate-950/80 pointer-events-none" />
         <div className="absolute bottom-8 left-1/2 h-16 w-[62%] -translate-x-1/2 rounded-[100%] bg-black/55 blur-md pointer-events-none" />
 
+        {raid.paused && (
+          <div className="absolute left-1/2 top-1/2 z-[65] -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-amber-300/70 bg-slate-950/85 px-8 py-5 text-center text-white shadow-2xl shadow-black/50 backdrop-blur-md">
+            <p className="text-xs font-black tracking-[0.35em] text-amber-300">PAUSED</p>
+            <strong className="mt-1 block text-2xl font-black">일시정지 중</strong>
+          </div>
+        )}
+
         {phaseFx && (
           <div className={`boss-raid-phase-banner boss-raid-phase-banner-${phaseFx}`} role="status">
             <small>{phaseFx === 3 ? 'FINAL PHASE' : `PHASE ${phaseFx}`}</small>
@@ -1044,6 +1078,13 @@ function BattlePhase({
           <div className="boss-raid-break-banner" role="status">
             <small>BREAK</small>
             <strong>보스의 방어가 무너졌습니다!</strong>
+          </div>
+        )}
+
+        {moraleBreakFx && (
+          <div className="boss-raid-morale-break-banner" role="status">
+            <small>MORALE BREAK</small>
+            <strong>사기 붕괴! 보스가 회복합니다</strong>
           </div>
         )}
 
@@ -1164,7 +1205,7 @@ function BattlePhase({
             className={`absolute z-40 pointer-events-none font-black battle-damage-float battle-damage-tier-${item.tier}
               ${item.target === 'boss' ? 'text-yellow-300' : 'text-rose-300'}`}
             style={{ left: item.x, top: item.y }}>
-            {item.target === 'boss' ? `-${item.damage}` : 'MISS!'}
+            {item.label || (item.target === 'boss' ? `-${item.damage}` : '사기 하락!')}
           </div>
         ))}
 
@@ -1174,7 +1215,7 @@ function BattlePhase({
             style={{ left: impactFx.x, top: impactFx.y }}>
             <span className="battle-impact-ring" />
             <strong className={impactFx.target === 'boss' ? 'text-amber-200' : 'text-rose-300'}>
-              {impactFx.target === 'boss' ? 'BOSS BREAK!' : 'COUNTER!'}
+              {impactFx.target === 'boss' ? 'BOSS BREAK!' : impactFx.tier >= 4 ? '사기 붕괴!' : '보스 반격!'}
             </strong>
           </div>
         )}
@@ -1204,11 +1245,25 @@ function BattlePhase({
           {raid.autoAdvance && timeLeft !== null && (
             <TimerRing timeLeft={timeLeft} duration={raid.questionDuration} />
           )}
+          {onPauseToggle && (
+            <button
+              type="button"
+              onClick={onPauseToggle}
+              disabled={raid.finishing}
+              className={`rounded-xl px-4 py-2 text-sm font-extrabold text-white shadow-lg transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                raid.paused
+                  ? 'bg-emerald-600 shadow-emerald-950/30 hover:bg-emerald-700'
+                  : 'bg-amber-500 shadow-amber-950/30 hover:bg-amber-600'
+              }`}
+            >
+              {raid.paused ? '재개 ▶' : '일시정지 ⏸'}
+            </button>
+          )}
           {onAdvance && (
             <button
               type="button"
               onClick={onAdvance}
-              disabled={raid.finishing}
+              disabled={raid.finishing || raid.paused}
               className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-extrabold text-white shadow-lg shadow-rose-950/30 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {qIdx >= totalQ - 1 || raid.currentHP <= 0 ? '결과 처리 →' : '다음 문제 →'}
@@ -1234,7 +1289,7 @@ function BattlePhase({
             }
             return (
               <button key={oi} onClick={() => onAnswer(oi)}
-                disabled={alreadyAnswered || raid.finishing}
+                disabled={alreadyAnswered || raid.finishing || raid.paused}
                 className={`py-2.5 px-3 rounded-2xl font-bold text-sm text-left transition-all sm:py-3.5 sm:text-base ${cls}`}>
                 <span className="text-xs opacity-60 mr-1">{['①','②','③','④'][oi]}</span>
                 {renderMath(stripOptionPrefix(opt))}
@@ -1455,6 +1510,7 @@ export default function BossRaid({
   const autoPayingRaidRef  = useRef(null);
   const presentationCreatingRef = useRef(false);
   const autoParticipantTimersRef = useRef(new Set());
+  const scheduledAutoAnswerKeysRef = useRef(new Set());
   const autoAnsweredQuestionsRef = useRef(new Set());
   const answerSubmittingRef = useRef(false);
   const presentationRosterKey = presentationRosterCodes.map(normalizeStudentCode).filter(Boolean).join('|');
@@ -1775,15 +1831,27 @@ export default function BossRaid({
     answerSubmittingRef.current = false;
     setMyAnswer(null);
     setBossAnim('idle');
+    autoParticipantTimersRef.current.forEach(clearTimeout);
+    autoParticipantTimersRef.current.clear();
+    scheduledAutoAnswerKeysRef.current.clear();
   }, [raid?.currentQuestionIdx]);
 
   useEffect(() => () => {
     autoParticipantTimersRef.current.forEach(clearTimeout);
     autoParticipantTimersRef.current.clear();
+    scheduledAutoAnswerKeysRef.current.clear();
   }, []);
 
   useEffect(() => {
-    if (!presentationMode || !raid || raid.status !== 'active' || raid.finishing) return;
+    if (raid?.paused) {
+      autoParticipantTimersRef.current.forEach(clearTimeout);
+      autoParticipantTimersRef.current.clear();
+      scheduledAutoAnswerKeysRef.current.clear();
+    }
+  }, [raid?.paused]);
+
+  useEffect(() => {
+    if (!presentationMode || !raid || raid.status !== 'active' || raid.finishing || raid.paused) return;
     const qIdx = raid.currentQuestionIdx;
     if (!Number.isInteger(qIdx) || qIdx < 0) return;
 
@@ -1813,7 +1881,8 @@ export default function BossRaid({
     participants.forEach(([participantId], index) => {
       const autoKey = `${raid.id}:${qIdx}:${participantId}`;
       if (autoAnsweredQuestionsRef.current.has(autoKey)) return;
-      autoAnsweredQuestionsRef.current.add(autoKey);
+      if (scheduledAutoAnswerKeysRef.current.has(autoKey)) return;
+      scheduledAutoAnswerKeysRef.current.add(autoKey);
 
       const slotDelayMs = startDelayMs + (slotStepMs * index);
       const jitterMs = Math.round((Math.random() - 0.5) * jitterRangeMs);
@@ -1821,6 +1890,9 @@ export default function BossRaid({
 
       const timer = setTimeout(() => {
         autoParticipantTimersRef.current.delete(timer);
+        scheduledAutoAnswerKeysRef.current.delete(autoKey);
+        if (autoAnsweredQuestionsRef.current.has(autoKey)) return;
+        autoAnsweredQuestionsRef.current.add(autoKey);
         const isCorrect = Math.random() < 0.9;
         const correctIdx = getCorrectIndex(q);
         const wrongOptions = (q.options || [])
@@ -1850,6 +1922,7 @@ export default function BossRaid({
           [`participants.${participantId}.lastDamage`]: damage,
           [`participants.${participantId}.lastHitCritical`]: false,
           [`participants.${participantId}.lastBreakTriggered`]: false,
+          [`participants.${participantId}.lastMoraleBroken`]: false,
           [`participants.${participantId}.lastSelectedIdx`]: selectedIdx,
           [`participants.${participantId}.qResults.${qIdx}`]: isCorrect ? 1 : 0,
           [`participants.${participantId}.answerDetails.q${qIdx}`]: {
@@ -1961,7 +2034,7 @@ export default function BossRaid({
 
       autoParticipantTimersRef.current.add(timer);
     });
-  }, [presentationMode, raid?.id, raid?.status, raid?.currentQuestionIdx, raid?.finishing, raid?.participants, activeStudentId]);
+  }, [presentationMode, raid?.id, raid?.status, raid?.currentQuestionIdx, raid?.finishing, raid?.paused, raid?.participants, activeStudentId]);
 
   // 보스 HP 변화 → 피격 이펙트
   useEffect(() => {
@@ -2060,6 +2133,10 @@ export default function BossRaid({
   // 타이머
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (raid?.paused) {
+      setTimeLeft(Math.max(0, Number(raid.pausedTimeLeft) || 0));
+      return;
+    }
     if (!raid || raid.status !== 'active' || raid.finishing || !raid.questionStartedAt) {
       setTimeLeft(null);
       return;
@@ -2075,27 +2152,69 @@ export default function BossRaid({
     tick();
     timerRef.current = setInterval(tick, 500);
     return () => clearInterval(timerRef.current);
-  }, [raid?.currentQuestionIdx, raid?.questionStartedAt, raid?.finishing]);
+  }, [raid?.currentQuestionIdx, raid?.questionStartedAt, raid?.questionDuration, raid?.finishing, raid?.paused, raid?.pausedTimeLeft]);
 
   const tryAdvance = async () => {
-    if (!raid || raid.status !== 'active' || raid.finishing) return;
+    if (!raid || raid.status !== 'active' || raid.finishing || raid.paused) return;
     if (advancedRef.current === raid.currentQuestionIdx) return;
     advancedRef.current = raid.currentQuestionIdx;
 
     const questions = (raid.questions || []).filter(q => q.type !== 'short');
     const nextIdx   = raid.currentQuestionIdx + 1;
+    const baseQuestionDuration = Math.max(1, Number(raid.baseQuestionDuration || raid.questionDuration || 20));
 
     if (nextIdx >= questions.length || raid.currentHP <= 0) {
       updateDoc(doc(db, 'worldBossRaids', raid.id), {
         status: raid.currentHP <= 0 ? 'cleared' : 'failed',
         clearedAt: serverTimestamp(),
+        paused: false,
+        pausedTimeLeft: deleteField(),
+        pausedAt: deleteField(),
       }).catch(() => {});
     } else {
       updateDoc(doc(db, 'worldBossRaids', raid.id), {
         currentQuestionIdx: nextIdx,
         questionStartedAt:  serverTimestamp(),
+        questionDuration: baseQuestionDuration,
+        baseQuestionDuration,
+        paused: false,
+        pausedTimeLeft: deleteField(),
+        pausedAt: deleteField(),
       }).catch(() => {});
     }
+  };
+
+  const togglePresentationPause = async () => {
+    if (!presentationMode || !raid?.id || raid.status !== 'active' || raid.finishing) return;
+    const raidDocRef = doc(db, 'worldBossRaids', raid.id);
+    const baseQuestionDuration = Math.max(1, Number(raid.baseQuestionDuration || raid.questionDuration || 12));
+
+    if (raid.paused) {
+      const remaining = Math.max(1, Math.min(baseQuestionDuration, Number(raid.pausedTimeLeft || timeLeft || baseQuestionDuration)));
+      await updateDoc(raidDocRef, {
+        paused: false,
+        pausedTimeLeft: deleteField(),
+        pausedAt: deleteField(),
+        questionStartedAt: serverTimestamp(),
+        questionDuration: remaining,
+        baseQuestionDuration,
+      }).catch(error => console.error('Boss raid presentation resume failed:', error));
+      return;
+    }
+
+    let remaining = Number(timeLeft);
+    if (!Number.isFinite(remaining) || remaining <= 0) {
+      const started = raid.questionStartedAt?.toDate?.()?.getTime?.() ?? Date.now();
+      const elapsed = (Date.now() - started) / 1000;
+      remaining = Math.max(0, Math.ceil((Number(raid.questionDuration) || baseQuestionDuration) - elapsed));
+    }
+
+    await updateDoc(raidDocRef, {
+      paused: true,
+      pausedAt: serverTimestamp(),
+      pausedTimeLeft: Math.max(0, remaining),
+      baseQuestionDuration,
+    }).catch(error => console.error('Boss raid presentation pause failed:', error));
   };
 
   const changePresentationBoss = async () => {
@@ -2127,7 +2246,7 @@ export default function BossRaid({
   };
 
   const submitAnswer = async (answerIdx) => {
-    if (!raid || !activeStudentId || raid.status !== 'active') return;
+    if (!raid || !activeStudentId || raid.status !== 'active' || raid.paused) return;
     if (myAnswer !== null) return;
     if (answerSubmittingRef.current) return;
 
@@ -2174,8 +2293,9 @@ export default function BossRaid({
       const nextMorale = correct
         ? Math.min(100, currentMorale + 1)
         : Math.max(0, currentMorale - getMoralePenalty(currentPhase));
+      const moraleBroken = !correct && nextMorale <= 0;
 
-      setMyAnswer({ idx: answerIdx, correct, damage, critical: false, breakTriggered: false });
+      setMyAnswer({ idx: answerIdx, correct, damage, critical: false, breakTriggered: false, moraleBroken });
 
       const updates = {
         [`participants.${activeStudentId}.answeredCount`]: increment(1),
@@ -2187,6 +2307,7 @@ export default function BossRaid({
         [`participants.${activeStudentId}.lastDamage`]: damage,
         [`participants.${activeStudentId}.lastHitCritical`]: false,
         [`participants.${activeStudentId}.lastBreakTriggered`]: false,
+        [`participants.${activeStudentId}.lastMoraleBroken`]: moraleBroken,
         [`participants.${activeStudentId}.lastSelectedIdx`]: answerIdx,
         [`participants.${activeStudentId}.qResults.${raid.currentQuestionIdx}`]: correct ? 1 : 0,
         [`participants.${activeStudentId}.answerDetails.q${raid.currentQuestionIdx}`]: {
@@ -2194,11 +2315,12 @@ export default function BossRaid({
           damage,
           critical: false,
           breakTriggered: false,
+          moraleBroken,
         },
-        morale: nextMorale,
+        morale: moraleBroken ? 30 : nextMorale,
         phase: nextPhase,
         lastCombatEvent: {
-          type: correct ? 'hit' : 'miss',
+          type: correct ? 'hit' : moraleBroken ? 'moraleBreak' : 'miss',
           participantId: activeStudentId,
           participantName: myP?.name || '테스트계정',
           questionIdx: raid.currentQuestionIdx,
@@ -2213,6 +2335,10 @@ export default function BossRaid({
         updates.finishing = true;
         updates.finishingStartedAt = serverTimestamp();
         updates.finisherBy = myP?.name || '테스트계정';
+      }
+      if (moraleBroken) {
+        updates.moraleBreakCount = increment(1);
+        updates.moraleBrokenAt = serverTimestamp();
       }
 
       await updateDoc(raidDocRef, updates).catch((error) => {
@@ -2292,13 +2418,14 @@ export default function BossRaid({
         lastDamage: damage,
         lastHitCritical: critical,
         lastBreakTriggered: breakTriggered,
+        lastMoraleBroken: moraleBroken,
         qResults: {
           ...(latestParticipant.qResults || {}),
           [latest.currentQuestionIdx]: correct ? 1 : 0,
         },
         answerDetails: {
           ...(latestParticipant.answerDetails || {}),
-          [`q${latest.currentQuestionIdx}`]: { ...detail, damage, critical, breakTriggered },
+          [`q${latest.currentQuestionIdx}`]: { ...detail, damage, critical, breakTriggered, moraleBroken },
         },
       };
 
@@ -2353,6 +2480,7 @@ export default function BossRaid({
       damage: combatResult.damage,
       critical: combatResult.critical,
       breakTriggered: combatResult.breakTriggered,
+      moraleBroken: combatResult.moraleBroken,
     });
 
     if (!correct) {
@@ -2509,6 +2637,7 @@ export default function BossRaid({
         onBossAnimEnd={() => setBossAnim('idle')}
         onExit={onExit}
         onAdvance={(isTeacher || presentationMode) ? tryAdvance : null}
+        onPauseToggle={presentationMode ? togglePresentationPause : null}
         onChangeBoss={presentationMode ? changePresentationBoss : null}
         changingBoss={changingBoss}
         showExitButton={isTeacher || presentationMode}

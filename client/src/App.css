@@ -333,6 +333,37 @@
 }
 .boss-raid-break-banner small { color: #67e8f9; }
 
+.boss-raid-morale-break-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 56;
+  display: flex;
+  width: min(90%, 34rem);
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid rgba(251,113,133,.8);
+  border-radius: 1.25rem;
+  background: linear-gradient(90deg, transparent, rgba(76,5,25,.96) 18%, rgba(127,29,29,.96) 82%, transparent);
+  padding: 1rem 2rem;
+  color: white;
+  text-align: center;
+  text-shadow: 0 3px 12px #020617;
+  pointer-events: none;
+  animation: raid-banner-enter 1.9s ease-out forwards;
+}
+.boss-raid-morale-break-banner small {
+  color: #fda4af;
+  font-size: .7rem;
+  font-weight: 1000;
+  letter-spacing: .28em;
+}
+.boss-raid-morale-break-banner strong {
+  margin-top: .2rem;
+  font-size: clamp(1.15rem, 3vw, 2rem);
+  font-weight: 1000;
+}
+
 @keyframes raid-finisher-flash {
   0%, 100% { opacity: .25; transform: scale(.85) rotate(0deg); }
   50% { opacity: .75; transform: scale(1.15) rotate(8deg); }
