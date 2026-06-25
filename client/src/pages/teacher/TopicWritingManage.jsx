@@ -12,9 +12,48 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import iconDiamond from '../../assets/images/icon-diamond.png';
+import iconGold from '../../assets/images/icon-gold.png';
 import { applyExpDelta } from '../../utils/leveling';
 
 const DEFAULT_REWARDS = { gold: 100, exp: 50, diamond: 50 };
+const REWARD_META = {
+  gold: { icon: iconGold, label: 'Gold', valueClass: 'text-amber-700', suffix: 'G' },
+  exp: { icon: '/images/Icon_Resources_Star01_Gold.png', label: 'EXP', valueClass: 'text-indigo-700', suffix: 'EXP' },
+  diamond: { icon: iconDiamond, label: 'Diamond', valueClass: 'text-sky-700', suffix: '' },
+};
+
+function RewardPill({ type, value, compact = false }) {
+  const meta = REWARD_META[type];
+  if (!meta) return null;
+
+  return (
+    <div className={`flex items-center justify-center gap-1.5 rounded-lg bg-white ${compact ? 'px-2 py-2' : 'px-3 py-2'}`}>
+      <img src={meta.icon} alt={meta.label} className="h-4 w-4 shrink-0 object-contain" />
+      <span className={`text-sm font-black ${meta.valueClass}`}>{value}{meta.suffix}</span>
+    </div>
+  );
+}
+
+function RewardInline({ rewards = DEFAULT_REWARDS }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="inline-flex items-center gap-1">
+        <img src={REWARD_META.gold.icon} alt={REWARD_META.gold.label} className="h-3.5 w-3.5 object-contain" />
+        <span>{rewards.gold ?? DEFAULT_REWARDS.gold}G</span>
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <img src={REWARD_META.exp.icon} alt={REWARD_META.exp.label} className="h-3.5 w-3.5 object-contain" />
+        <span>{rewards.exp ?? DEFAULT_REWARDS.exp}EXP</span>
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <img src={REWARD_META.diamond.icon} alt={REWARD_META.diamond.label} className="h-3.5 w-3.5 object-contain" />
+        <span>{rewards.diamond ?? DEFAULT_REWARDS.diamond}</span>
+      </span>
+    </span>
+  );
+}
+
 const DEFAULT_TOPIC = {
   title: '',
   description: '',
@@ -331,9 +370,9 @@ export default function TopicWritingManage({ selectedClass }) {
                 <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
                   <p className="mb-2 text-xs font-black text-amber-700">기본 보상</p>
                   <div className="grid grid-cols-3 gap-2 text-center text-sm font-black">
-                    <div className="rounded-lg bg-white px-3 py-2 text-amber-700">100G</div>
-                    <div className="rounded-lg bg-white px-3 py-2 text-indigo-700">50EXP</div>
-                    <div className="rounded-lg bg-white px-3 py-2 text-sky-700">50Dia</div>
+                    <RewardPill type="gold" value={DEFAULT_REWARDS.gold} />
+                    <RewardPill type="exp" value={DEFAULT_REWARDS.exp} />
+                    <RewardPill type="diamond" value={DEFAULT_REWARDS.diamond} />
                   </div>
                 </div>
                 <button
@@ -367,7 +406,7 @@ export default function TopicWritingManage({ selectedClass }) {
                       <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-slate-500">
                         <span className="rounded bg-slate-50 px-2 py-1">최소 {topic.minLength || 100}자</span>
                         {topic.dueDate && <span className="rounded bg-slate-50 px-2 py-1">마감 {topic.dueDate}</span>}
-                        <span className="rounded bg-amber-50 px-2 py-1 text-amber-700">100G / 50EXP / 50Dia</span>
+                        <span className="rounded bg-amber-50 px-2 py-1 text-amber-700"><RewardInline rewards={topic.rewards} /></span>
                       </div>
                       <button
                         type="button"
@@ -521,9 +560,9 @@ export default function TopicWritingManage({ selectedClass }) {
                   <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
                     <p className="mb-2 text-xs font-black text-amber-700">지급 보상</p>
                     <div className="grid grid-cols-3 gap-2 text-center text-sm font-black">
-                      <div className="rounded-lg bg-white px-2 py-2 text-amber-700">100G</div>
-                      <div className="rounded-lg bg-white px-2 py-2 text-indigo-700">50EXP</div>
-                      <div className="rounded-lg bg-white px-2 py-2 text-sky-700">50Dia</div>
+                      <RewardPill type="gold" value={selectedSubmission.rewards?.gold ?? DEFAULT_REWARDS.gold} compact />
+                      <RewardPill type="exp" value={selectedSubmission.rewards?.exp ?? DEFAULT_REWARDS.exp} compact />
+                      <RewardPill type="diamond" value={selectedSubmission.rewards?.diamond ?? DEFAULT_REWARDS.diamond} compact />
                     </div>
                   </div>
 

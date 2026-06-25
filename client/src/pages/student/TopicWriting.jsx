@@ -10,8 +10,60 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import iconDiamond from '../../assets/images/icon-diamond.png';
+import iconGold from '../../assets/images/icon-gold.png';
+import { WRITING_TOPIC_PRESETS_BY_GRADE } from '../../data/writingTopicPresets';
 
 const DEFAULT_REWARDS = { gold: 100, exp: 50, diamond: 50 };
+const GRADE_OPTIONS = [1, 2, 3, 4, 5, 6];
+const REWARD_META = {
+  gold: { icon: iconGold, label: '골드', valueClass: 'text-amber-700', suffix: 'G' },
+  exp: { icon: '/images/Icon_Resources_Star01_Gold.png', label: '경험치', valueClass: 'text-indigo-700', suffix: 'EXP' },
+  diamond: { icon: iconDiamond, label: '다이아', valueClass: 'text-sky-700', suffix: '' },
+};
+
+const getStudentGrade = (student) => {
+  const directGrade = Number(student?.grade ?? student?.classGrade);
+  if (GRADE_OPTIONS.includes(directGrade)) return directGrade;
+
+  const codeGrade = String(student?.studentCode || '').match(/-(\d)(?:-|$)/)?.[1];
+  const parsedCodeGrade = Number(codeGrade);
+  return GRADE_OPTIONS.includes(parsedCodeGrade) ? parsedCodeGrade : 5;
+};
+
+function RewardCard({ type, value }) {
+  const meta = REWARD_META[type];
+  if (!meta) return null;
+
+  return (
+    <div className="rounded-xl bg-white/10 px-4 py-2 text-white backdrop-blur">
+      <div className="flex items-center justify-center gap-1.5 text-lg font-black">
+        <img src={meta.icon} alt={meta.label} className="h-5 w-5 shrink-0 object-contain" />
+        <span>{value}{meta.suffix}</span>
+      </div>
+      <div className="text-[10px] font-bold text-indigo-100">{meta.label}</div>
+    </div>
+  );
+}
+
+function RewardInline({ rewards = DEFAULT_REWARDS }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="inline-flex items-center gap-1">
+        <img src={REWARD_META.gold.icon} alt={REWARD_META.gold.label} className="h-4 w-4 object-contain" />
+        <span>{rewards.gold ?? DEFAULT_REWARDS.gold}G</span>
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <img src={REWARD_META.exp.icon} alt={REWARD_META.exp.label} className="h-4 w-4 object-contain" />
+        <span>{rewards.exp ?? DEFAULT_REWARDS.exp}EXP</span>
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <img src={REWARD_META.diamond.icon} alt={REWARD_META.diamond.label} className="h-4 w-4 object-contain" />
+        <span>{rewards.diamond ?? DEFAULT_REWARDS.diamond}</span>
+      </span>
+    </span>
+  );
+}
 
 const STATUS_META = {
   submitted: { label: 'AI 채점 대기', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
@@ -35,10 +87,11 @@ const sortByRecent = (items) => [...items].sort((a, b) => {
 
 export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
   const [student, setStudent] = useState(null);
-  const [topics, setTopics] = useState([]);
+  const [teacherTopics, setTeacherTopics] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTopicId, setSelectedTopicId] = useState('');
+  const [selectedGrade, setSelectedGrade] = useState('5');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -57,7 +110,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
         if (studentSnap.empty) {
           if (!cancelled) {
             setStudent(null);
-            setTopics([]);
+            setTeacherTopics([]);
             setSubmissions([]);
             setError('학생 정보를 찾을 수 없습니다.');
           }
@@ -95,9 +148,9 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
 
         if (!cancelled) {
           setStudent(studentData);
-          setTopics(topicList);
+          setTeacherTopics(topicList);
           setSubmissions(submissionList);
-          setSelectedTopicId(prev => topicList.some(topic => topic.id === prev) ? prev : topicList[0]?.id || '');
+          setSelectedGrade(String(getStudentGrade(studentData)));
         }
       } catch (err) {
         console.error('[TopicWriting] load failed:', err);
@@ -111,9 +164,31 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
     return () => { cancelled = true; };
   }, [studentCode]);
 
+  const presetTopics = useMemo(() => {
+    const grade = Number(selectedGrade) || 5;
+    return (WRITING_TOPIC_PRESETS_BY_GRADE[grade] || []).map(topic => ({
+      ...topic,
+      id: `preset-${topic.id}`,
+      source: 'preset',
+      active: true,
+      teacherUid: student?.teacherUid || null,
+      classId: student?.classId || null,
+      rewards: DEFAULT_REWARDS,
+    }));
+  }, [selectedGrade, student?.teacherUid, student?.classId]);
+
+  const topics = useMemo(() => {
+    const topicMap = new Map();
+    teacherTopics.forEach(topic => topicMap.set(topic.id, { ...topic, source: topic.source || 'teacher' }));
+    presetTopics.forEach(topic => topicMap.set(topic.id, topic));
+    return [...topicMap.values()];
+  }, [teacherTopics, presetTopics]);
+
+  const activeTopicId = topics.some(topic => topic.id === selectedTopicId) ? selectedTopicId : topics[0]?.id || '';
+
   const selectedTopic = useMemo(
-    () => topics.find(topic => topic.id === selectedTopicId) || null,
-    [topics, selectedTopicId],
+    () => topics.find(topic => topic.id === activeTopicId) || null,
+    [topics, activeTopicId],
   );
 
   const submissionByTopic = useMemo(() => {
@@ -124,7 +199,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
     return map;
   }, [submissions]);
 
-  const selectedSubmission = selectedTopicId ? submissionByTopic.get(selectedTopicId) : null;
+  const selectedSubmission = activeTopicId ? submissionByTopic.get(activeTopicId) : null;
   const minLength = selectedTopic?.minLength || 100;
   const charCount = content.trim().length;
   const canSubmit = !!student && !!selectedTopic && !selectedSubmission && title.trim().length >= 1 && charCount >= minLength && !submitting;
@@ -149,6 +224,8 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
         topicId: selectedTopic.id,
         topicTitle: selectedTopic.title,
         topicDescription: selectedTopic.description || '',
+        topicGrade: selectedTopic.grade || Number(selectedGrade) || null,
+        topicSource: selectedTopic.source || 'teacher',
         studentId: student.id,
         studentCode: student.studentCode || studentCode,
         studentName: student.name || student.studentCode || studentCode,
@@ -188,7 +265,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
             },
             student: {
               name: student.name || student.studentCode || '',
-              grade: student.grade || '',
+              grade: student.grade || selectedTopic.grade || selectedGrade || '',
             },
           }),
         });
@@ -242,18 +319,9 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
               <p className="mt-1 text-sm font-semibold text-indigo-100">주제에 맞게 글을 쓰고 AI 피드백과 교사 확인을 받아요.</p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl bg-white/10 px-4 py-2 text-white backdrop-blur">
-                <div className="text-lg font-black">100G</div>
-                <div className="text-[10px] font-bold text-indigo-100">골드</div>
-              </div>
-              <div className="rounded-xl bg-white/10 px-4 py-2 text-white backdrop-blur">
-                <div className="text-lg font-black">50EXP</div>
-                <div className="text-[10px] font-bold text-indigo-100">경험치</div>
-              </div>
-              <div className="rounded-xl bg-white/10 px-4 py-2 text-white backdrop-blur">
-                <div className="text-lg font-black">50Dia</div>
-                <div className="text-[10px] font-bold text-indigo-100">다이아</div>
-              </div>
+              <RewardCard type="gold" value={DEFAULT_REWARDS.gold} />
+              <RewardCard type="exp" value={DEFAULT_REWARDS.exp} />
+              <RewardCard type="diamond" value={DEFAULT_REWARDS.diamond} />
             </div>
           </div>
         </div>
@@ -268,8 +336,24 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
           <aside className="space-y-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 text-slate-800 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-black">진행 중인 주제</h2>
+                <h2 className="font-black">주제 선택</h2>
                 <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-extrabold text-indigo-700">{topics.length}개</span>
+              </div>
+              <div className="mb-3 grid grid-cols-3 gap-1.5">
+                {GRADE_OPTIONS.map(grade => (
+                  <button
+                    key={grade}
+                    type="button"
+                    onClick={() => setSelectedGrade(String(grade))}
+                    className={`rounded-lg border px-2 py-1.5 text-xs font-black transition ${
+                      selectedGrade === String(grade)
+                        ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                        : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
+                    }`}
+                  >
+                    {grade}학년
+                  </button>
+                ))}
               </div>
               {topics.length === 0 ? (
                 <p className="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-400">아직 열린 주제가 없습니다.</p>
@@ -277,7 +361,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                 <div className="space-y-2">
                   {topics.map(topic => {
                     const done = submissionByTopic.has(topic.id);
-                    const active = topic.id === selectedTopicId;
+                    const active = topic.id === activeTopicId;
                     return (
                       <button
                         key={topic.id}
@@ -292,7 +376,14 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                             <p className="truncate text-sm font-black text-slate-800">{topic.title}</p>
                             <p className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-slate-500">{topic.description || '설명 없음'}</p>
                           </div>
-                          {done && <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700">제출</span>}
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+                              topic.source === 'preset' ? 'bg-fuchsia-100 text-fuchsia-700' : 'bg-indigo-100 text-indigo-700'
+                            }`}>
+                              {topic.source === 'preset' ? `${topic.grade}학년 추천` : '선생님'}
+                            </span>
+                            {done && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700">제출</span>}
+                          </div>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-1 text-[10px] font-bold text-slate-500">
                           <span className="rounded bg-white px-2 py-0.5">최소 {topic.minLength || 100}자</span>
@@ -477,7 +568,11 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                   <h4 className="font-black text-emerald-800">교사 확인</h4>
                   {detail.teacherScore != null && <p className="mt-2 text-sm font-bold text-emerald-700">교사 점수: {detail.teacherScore}점</p>}
                   {detail.teacherComment && <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-slate-700">{detail.teacherComment}</p>}
-                  {detail.rewardsPaid && <p className="mt-2 text-sm font-black text-sky-700">보상 지급 완료: 100G / 50EXP / 50Dia</p>}
+                  {detail.rewardsPaid && (
+                    <p className="mt-2 text-sm font-black text-sky-700">
+                      보상 지급 완료: <RewardInline rewards={detail.rewards} />
+                    </p>
+                  )}
                 </div>
               )}
             </div>
