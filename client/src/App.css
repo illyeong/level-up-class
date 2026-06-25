@@ -458,6 +458,23 @@
 .boss-raid-roster-avatar { width: 2.65rem !important; height: 2.65rem !important; border-radius: .65rem !important; }
 .boss-raid-roster-avatar + div { font-size: .55rem; }
 
+.boss-raid-party {
+  bottom: 1.55rem !important;
+  grid-auto-rows: 124px !important;
+  row-gap: .3rem !important;
+}
+
+.boss-raid-party-member {
+  height: 122px !important;
+  padding-bottom: .12rem;
+}
+
+.boss-raid-party-name {
+  display: block;
+  min-height: 1.1rem;
+  line-height: 1.1rem;
+}
+
 @media (min-width: 640px) {
   .boss-raid-boss-actor { left: 65%; bottom: 1rem; transform: translateX(-50%) scale(.68); }
   .boss-raid-party { left: 1.5%; width: 55%; gap: .1rem .35rem; }

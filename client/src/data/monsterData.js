@@ -46,6 +46,13 @@ const SA5_20 = {
   death:  { row: 4, frames: 20, fps: 8,  loop: false },
 };
 
+const SA5_22 = {
+  idle:   { row: 1, frames: 22, fps: 8,  loop: true  },
+  run:    { row: 2, frames: 22, fps: 10, loop: true  },
+  attack: { row: 3, frames: 22, fps: 12, loop: false },
+  death:  { row: 4, frames: 22, fps: 8,  loop: false },
+};
+
 export const MONSTERS_DB = {
 
   /* ═══════════════ TINY 극소 ═══════════════ */
@@ -874,14 +881,14 @@ export const MONSTERS_DB = {
   croc03: {
     id:'croc03', name:'거대 악어',
     src:'/images/Monsters/Bosses/Croc03 698x686 (AttackAlt Idle Run Attack Death).png',
-    frameWidth:698, frameHeight:686, sheetCols:20, sheetRows:5,
-    scale:0.21, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+    frameWidth:698, frameHeight:686, sheetCols:22, sheetRows:5,
+    scale:0.21, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_22},
   },
   demon02: {
     id:'demon02', name:'강화 악마',
     src:'/images/Monsters/Bosses/Demon02 653x578 (AttackAlt Idle Run Attack Death).png',
-    frameWidth:653, frameHeight:578, sheetCols:20, sheetRows:5,
-    scale:0.25, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_20},
+    frameWidth:653, frameHeight:578, sheetCols:22, sheetRows:5,
+    scale:0.25, flip:false, tier:'boss', sizeOrder:5, animations:{...SA5_22},
   },
   megabear01: {
     id:'megabear01', name:'거대곰 1호',

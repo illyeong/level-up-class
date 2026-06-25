@@ -1458,6 +1458,7 @@ export default function BossRaid({
   const presentationCreatingRef = useRef(false);
   const autoParticipantTimersRef = useRef(new Set());
   const autoAnsweredQuestionsRef = useRef(new Set());
+  const answerSubmittingRef = useRef(false);
   const presentationRosterKey = presentationRosterCodes.map(normalizeStudentCode).filter(Boolean).join('|');
   const [presentationRaidId, setPresentationRaidId] = useState(externalPresentationRaidId || null);
   const [presentationRetryKey, setPresentationRetryKey] = useState(0);
@@ -1773,6 +1774,7 @@ export default function BossRaid({
 
   // 문제 바뀌면 내 답변 초기화
   useEffect(() => {
+    answerSubmittingRef.current = false;
     setMyAnswer(null);
     setBossAnim('idle');
   }, [raid?.currentQuestionIdx]);
@@ -2127,6 +2129,7 @@ export default function BossRaid({
   const submitAnswer = async (answerIdx) => {
     if (!raid || !activeStudentId || raid.status !== 'active') return;
     if (myAnswer !== null) return;
+    if (answerSubmittingRef.current) return;
 
     const myP = raid.participants?.[activeStudentId];
     if (myP?.lastAnsweredIdx === raid.currentQuestionIdx) return;
@@ -2155,6 +2158,71 @@ export default function BossRaid({
       answeredAt: new Date().toISOString(),
     };
     const raidDocRef = doc(db, 'worldBossRaids', raid.id);
+    answerSubmittingRef.current = true;
+
+    if (presentationMode) {
+      const currentHP = Math.max(0, Number(raid.currentHP) || 0);
+      const maxHP = Math.max(1, Number(raid.maxHP) || 1);
+      const currentPhase = Math.max(Number(raid.phase) || 1, getRaidPhase(currentHP, maxHP));
+      const baseDamage = Math.max(1, Number(raid.damagePerHit) || 100);
+      const damage = correct
+        ? Math.min(currentHP, Math.round(baseDamage * getPhaseDamageMultiplier(currentPhase)))
+        : 0;
+      const nextHP = Math.max(0, currentHP - damage);
+      const nextPhase = Math.max(currentPhase, getRaidPhase(nextHP, maxHP));
+      const currentMorale = Math.max(0, Math.min(100, Number(raid.morale ?? 100)));
+      const nextMorale = correct
+        ? Math.min(100, currentMorale + 1)
+        : Math.max(0, currentMorale - getMoralePenalty(currentPhase));
+
+      setMyAnswer({ idx: answerIdx, correct, damage, critical: false, breakTriggered: false });
+
+      const updates = {
+        [`participants.${activeStudentId}.answeredCount`]: increment(1),
+        [`participants.${activeStudentId}.correctCount`]: increment(correct ? 1 : 0),
+        [`participants.${activeStudentId}.wrongCount`]: increment(correct ? 0 : 1),
+        [`participants.${activeStudentId}.totalDamage`]: increment(damage),
+        [`participants.${activeStudentId}.lastAnsweredIdx`]: raid.currentQuestionIdx,
+        [`participants.${activeStudentId}.lastAnsweredCorrect`]: correct,
+        [`participants.${activeStudentId}.lastDamage`]: damage,
+        [`participants.${activeStudentId}.lastHitCritical`]: false,
+        [`participants.${activeStudentId}.lastBreakTriggered`]: false,
+        [`participants.${activeStudentId}.lastSelectedIdx`]: answerIdx,
+        [`participants.${activeStudentId}.qResults.${raid.currentQuestionIdx}`]: correct ? 1 : 0,
+        [`participants.${activeStudentId}.answerDetails.q${raid.currentQuestionIdx}`]: {
+          ...detail,
+          damage,
+          critical: false,
+          breakTriggered: false,
+        },
+        morale: nextMorale,
+        phase: nextPhase,
+        lastCombatEvent: {
+          type: correct ? 'hit' : 'miss',
+          participantId: activeStudentId,
+          participantName: myP?.name || '테스트계정',
+          questionIdx: raid.currentQuestionIdx,
+          damage,
+          phase: nextPhase,
+          at: serverTimestamp(),
+        },
+      };
+
+      if (correct) updates.currentHP = increment(-damage);
+      if (correct && nextHP <= 0) {
+        updates.finishing = true;
+        updates.finishingStartedAt = serverTimestamp();
+        updates.finisherBy = myP?.name || '테스트계정';
+      }
+
+      await updateDoc(raidDocRef, updates).catch((error) => {
+        console.error('Boss raid presentation answer failed:', error);
+        answerSubmittingRef.current = false;
+        setMyAnswer(null);
+      });
+      return;
+    }
+
     const combatResult = await runTransaction(db, async (transaction) => {
       const latestSnap = await transaction.get(raidDocRef);
       if (!latestSnap.exists()) return { accepted: false };
@@ -2275,7 +2343,10 @@ export default function BossRaid({
       return { accepted: false };
     });
 
-    if (!combatResult?.accepted) return;
+    if (!combatResult?.accepted) {
+      answerSubmittingRef.current = false;
+      return;
+    }
     setMyAnswer({
       idx: answerIdx,
       correct,
