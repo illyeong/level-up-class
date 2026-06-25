@@ -95,6 +95,9 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
   const [selectedTopicId, setSelectedTopicId] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('5');
   const [viewMode, setViewMode] = useState('write');
+  const [editingSubmission, setEditingSubmission] = useState(null);
+  const [writingSearch, setWritingSearch] = useState('');
+  const [writingStatusFilter, setWritingStatusFilter] = useState('all');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -184,8 +187,22 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
     const topicMap = new Map();
     teacherTopics.forEach(topic => topicMap.set(topic.id, { ...topic, source: topic.source || 'teacher' }));
     presetTopics.forEach(topic => topicMap.set(topic.id, topic));
+    if (editingSubmission?.topicId && !topicMap.has(editingSubmission.topicId)) {
+      topicMap.set(editingSubmission.topicId, {
+        id: editingSubmission.topicId,
+        title: editingSubmission.topicTitle,
+        description: editingSubmission.topicDescription || '',
+        grade: editingSubmission.topicGrade || Number(selectedGrade) || null,
+        source: editingSubmission.topicSource || 'submitted',
+        teacherUid: editingSubmission.teacherUid || student?.teacherUid || null,
+        classId: editingSubmission.classId || student?.classId || null,
+        rewards: editingSubmission.rewards || DEFAULT_REWARDS,
+        minLength: editingSubmission.minLength || 70,
+        active: true,
+      });
+    }
     return [...topicMap.values()];
-  }, [teacherTopics, presetTopics]);
+  }, [teacherTopics, presetTopics, editingSubmission, selectedGrade, student?.teacherUid, student?.classId]);
 
   const activeTopicId = topics.some(topic => topic.id === selectedTopicId) ? selectedTopicId : topics[0]?.id || '';
 
@@ -203,16 +220,50 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
   }, [submissions]);
 
   const selectedSubmission = activeTopicId ? submissionByTopic.get(activeTopicId) : null;
+  const isEditingSelectedSubmission = !!editingSubmission && selectedSubmission?.id === editingSubmission.id;
   const minLength = getTopicMinLength(selectedTopic);
   const charCount = content.trim().length;
-  const canSubmit = !!student && !!selectedTopic && !selectedSubmission && title.trim().length >= 1 && charCount >= minLength && !submitting;
+  const canSubmit = !!student && !!selectedTopic && (!selectedSubmission || isEditingSelectedSubmission) && title.trim().length >= 1 && charCount >= minLength && !submitting;
   const pageDark = themeMode === 'dark';
+
+  const filteredSubmissions = useMemo(() => {
+    const keyword = writingSearch.trim().toLowerCase();
+    return submissions.filter(item => {
+      const matchesKeyword = !keyword || [item.title, item.topicTitle, item.content]
+        .some(value => String(value || '').toLowerCase().includes(keyword));
+      if (!matchesKeyword) return false;
+      if (writingStatusFilter === 'grading') return item.aiStatus === 'grading';
+      if (writingStatusFilter === 'feedback') return !!item.aiGrade;
+      if (writingStatusFilter === 'teacher') return !!item.teacherComment || item.teacherScore != null;
+      if (writingStatusFilter === 'rewarded') return !!item.rewardsPaid;
+      return true;
+    });
+  }, [submissions, writingSearch, writingStatusFilter]);
 
   const reloadSubmissions = async (studentId) => {
     const snap = await getDocs(query(collection(db, 'writingSubmissions'), where('studentId', '==', studentId)));
     const list = sortByRecent(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     setSubmissions(list);
     return list;
+  };
+
+  const startEditingSubmission = (item) => {
+    if (item.rewardsPaid) return;
+    setEditingSubmission(item);
+    setSelectedTopicId(item.topicId);
+    if (GRADE_OPTIONS.includes(Number(item.topicGrade))) setSelectedGrade(String(item.topicGrade));
+    setTitle(item.title || '');
+    setContent(item.content || '');
+    setDetail(null);
+    setError('');
+    setViewMode('write');
+  };
+
+  const cancelEditing = () => {
+    setEditingSubmission(null);
+    setTitle('');
+    setContent('');
+    setError('');
   };
 
   const submitWriting = async () => {
@@ -222,6 +273,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
 
     const rewards = selectedTopic.rewards || DEFAULT_REWARDS;
     let submissionRef = null;
+    const targetSubmissionId = editingSubmission?.id || null;
     try {
       const payload = {
         topicId: selectedTopic.id,
@@ -248,8 +300,25 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
         updatedAt: serverTimestamp(),
       };
 
-      submissionRef = await addDoc(collection(db, 'writingSubmissions'), payload);
-      setSubmissions(prev => [{ id: submissionRef.id, ...payload, submittedAt: { seconds: Date.now() / 1000 } }, ...prev]);
+      if (targetSubmissionId) {
+        submissionRef = doc(db, 'writingSubmissions', targetSubmissionId);
+        await updateDoc(submissionRef, {
+          ...payload,
+          aiError: null,
+          teacherScore: null,
+          teacherComment: '',
+          rewardsPaid: false,
+          rewrittenAt: serverTimestamp(),
+        });
+        setSubmissions(prev => sortByRecent(prev.map(item => (
+          item.id === targetSubmissionId
+            ? { ...item, ...payload, id: targetSubmissionId, aiError: null, submittedAt: { seconds: Date.now() / 1000 } }
+            : item
+        ))));
+      } else {
+        submissionRef = await addDoc(collection(db, 'writingSubmissions'), payload);
+        setSubmissions(prev => [{ id: submissionRef.id, ...payload, submittedAt: { seconds: Date.now() / 1000 } }, ...prev]);
+      }
 
       try {
         const response = await fetch('/api/grade-writing', {
@@ -293,6 +362,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
 
       const latest = await reloadSubmissions(student.id);
       setDetail(latest.find(item => item.id === submissionRef.id) || null);
+      setEditingSubmission(null);
       setTitle('');
       setContent('');
     } catch (err) {
@@ -370,16 +440,50 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
               </div>
               <p className="text-sm font-bold text-slate-400">AI 피드백과 교사 코멘트를 함께 확인할 수 있어요.</p>
             </div>
+            <div className="mb-4 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+              <input
+                value={writingSearch}
+                onChange={e => setWritingSearch(e.target.value)}
+                placeholder="제목, 주제, 내용으로 검색"
+                className="w-full rounded-xl border-2 border-slate-200 px-4 py-2.5 text-sm font-bold outline-none focus:border-indigo-400"
+              />
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  ['all', '전체'],
+                  ['grading', '채점중'],
+                  ['feedback', 'AI완료'],
+                  ['teacher', '교사확인'],
+                  ['rewarded', '보상완료'],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setWritingStatusFilter(value)}
+                    className={`rounded-lg border px-3 py-2 text-xs font-black transition ${
+                      writingStatusFilter === value
+                        ? 'border-indigo-500 bg-indigo-600 text-white'
+                        : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {submissions.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 py-20 text-center text-sm font-bold text-slate-400">
                 아직 제출한 글이 없습니다.
               </div>
+            ) : filteredSubmissions.length === 0 ? (
+              <div className="rounded-2xl bg-slate-50 py-16 text-center text-sm font-bold text-slate-400">
+                조건에 맞는 글이 없습니다.
+              </div>
             ) : (
-              <div className="grid gap-3">
-                {submissions.map(item => {
+              <div className="grid max-h-[68vh] gap-2 overflow-y-auto pr-1">
+                {filteredSubmissions.map(item => {
                   const meta = STATUS_META[item.status] || STATUS_META.submitted;
                   return (
-                    <article key={item.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                    <article key={item.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
                       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-indigo-500">{item.topicTitle}</p>
@@ -388,7 +492,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                         </div>
                         <span className={`w-fit shrink-0 rounded-full border px-3 py-1 text-[11px] font-extrabold ${meta.cls}`}>{meta.label}</span>
                       </div>
-                      <p className="mt-3 line-clamp-4 whitespace-pre-wrap rounded-xl bg-white p-3 text-sm font-semibold leading-relaxed text-slate-600">
+                      <p className="mt-2 line-clamp-2 whitespace-pre-wrap rounded-xl bg-white p-3 text-sm font-semibold leading-relaxed text-slate-600">
                         {item.content}
                       </p>
                       {item.aiStatus === 'grading' && (
@@ -416,13 +520,24 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                           {item.rewardsPaid && <p className="mt-1 text-sm font-black text-sky-700">보상 지급 완료: <RewardInline rewards={item.rewards} /></p>}
                         </div>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => setDetail(item)}
-                        className="mt-3 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-indigo-700"
-                      >
-                        자세히 보기
-                      </button>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDetail(item)}
+                          className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-indigo-700"
+                        >
+                          자세히 보기
+                        </button>
+                        {!item.rewardsPaid && (
+                          <button
+                            type="button"
+                            onClick={() => startEditingSubmission(item)}
+                            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-extrabold text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
+                          >
+                            고쳐쓰기
+                          </button>
+                        )}
+                      </div>
                     </article>
                   );
                 })}
@@ -532,21 +647,49 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 text-slate-800 shadow-sm md:p-5">
             {selectedTopic ? (
-              selectedSubmission ? (
-                <div className="flex min-h-[520px] flex-col items-center justify-center rounded-2xl bg-slate-50 p-6 text-center">
+              selectedSubmission && !isEditingSelectedSubmission ? (
+                <div className="flex min-h-[520px] flex-col items-center justify-center rounded-2xl bg-emerald-50 p-6 text-center">
                   <div className="text-5xl">✅</div>
-                  <h2 className="mt-3 text-xl font-black text-slate-800">이미 제출한 주제입니다</h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">제출 기록에서 AI 피드백과 교사 코멘트를 확인하세요.</p>
-                  <button
-                    type="button"
-                    onClick={() => setDetail(selectedSubmission)}
-                    className="mt-5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-indigo-700"
-                  >
-                    제출 글 보기
-                  </button>
+                  <h2 className="mt-3 text-xl font-black text-emerald-800">제출 완료</h2>
+                  <p className="mt-1 text-sm font-semibold text-emerald-700">이 주제는 작성이 완료되었습니다. AI 피드백과 교사 코멘트를 확인할 수 있어요.</p>
+                  <div className="mt-5 flex flex-wrap justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDetail(selectedSubmission)}
+                      className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-emerald-700"
+                    >
+                      제출 글 보기
+                    </button>
+                    {!selectedSubmission.rewardsPaid && (
+                      <button
+                        type="button"
+                        onClick={() => startEditingSubmission(selectedSubmission)}
+                        className="rounded-xl border border-emerald-200 bg-white px-5 py-2.5 text-sm font-extrabold text-emerald-700 hover:border-emerald-400"
+                      >
+                        고쳐쓰기
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {editingSubmission && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-xs font-black text-emerald-600">고쳐쓰기 중</p>
+                          <p className="mt-1 text-sm font-bold text-emerald-800">내용을 수정한 뒤 다시 제출하면 AI가 새로 채점합니다.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={cancelEditing}
+                          className="rounded-xl bg-white px-4 py-2 text-sm font-extrabold text-emerald-700 hover:bg-emerald-100"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div>
@@ -599,7 +742,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                     disabled={!canSubmit}
                     className="w-full rounded-2xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 py-4 text-base font-black text-white shadow-lg shadow-indigo-100 transition disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {submitting ? '제출하고 AI 채점 중...' : '제출하기'}
+                    {submitting ? '제출하고 AI 채점 중...' : editingSubmission ? '고쳐쓰기 제출하기' : '제출하기'}
                   </button>
                 </div>
               )
