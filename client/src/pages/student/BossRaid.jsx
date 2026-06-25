@@ -932,7 +932,12 @@ function BattlePhase({
     const playerPoint = getRaidActorPoint(playerActorRef.current, 'player');
     if (!bossPoint || !playerPoint) return;
     if (myAnswer.correct) {
-      const shieldLabel = myAnswer.breakTriggered ? '방어막 파괴!' : `방어막 -${RAID_BREAK_GAIN}`;
+      const damage = myAnswer.damage || raid.damagePerHit || 100;
+      const damageLabel = myAnswer.breakTriggered
+        ? `방어막 파괴! -${damage.toLocaleString()}`
+        : myAnswer.critical
+          ? `CRITICAL -${damage.toLocaleString()}`
+          : `-${damage.toLocaleString()}`;
       fireProjectile({
         from: playerPoint,
         to: bossPoint,
@@ -941,9 +946,9 @@ function BattlePhase({
         onHit: () => triggerRaidImpact(
           'boss',
           bossPoint,
-          myAnswer.damage || raid.damagePerHit || 100,
+          damage,
           myAnswer.breakTriggered ? 4 : myAnswer.critical ? 3 : 2,
-          shieldLabel,
+          damageLabel,
         ),
       });
     } else {
@@ -972,7 +977,12 @@ function BattlePhase({
       if (!participantPoint) return;
 
       if ((participant.correctCount || 0) > (previous.correctCount || 0)) {
-        const shieldLabel = participant.lastBreakTriggered ? '방어막 파괴!' : `방어막 -${RAID_BREAK_GAIN}`;
+        const damage = participant.lastDamage || raid.damagePerHit || 100;
+        const damageLabel = participant.lastBreakTriggered
+          ? `방어막 파괴! -${damage.toLocaleString()}`
+          : participant.lastHitCritical
+            ? `CRITICAL -${damage.toLocaleString()}`
+            : `-${damage.toLocaleString()}`;
         fireProjectile({
           from: participantPoint,
           to: bossPoint,
@@ -981,9 +991,9 @@ function BattlePhase({
           onHit: () => triggerRaidImpact(
             'boss',
             bossPoint,
-            participant.lastDamage || raid.damagePerHit || 100,
+            damage,
             participant.lastBreakTriggered ? 4 : participant.lastHitCritical ? 3 : 2,
-            shieldLabel,
+            damageLabel,
           ),
         });
       }
