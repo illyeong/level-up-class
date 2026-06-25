@@ -915,7 +915,7 @@ function BattlePhase({
       });
     } else {
       onBossAttack?.();
-      const penaltyLabel = myAnswer.moraleBroken ? '사기 붕괴!' : `사기 -${getMoralePenalty(phase)}`;
+      const penaltyLabel = myAnswer.moraleBroken ? '집중력 붕괴!' : `집중력 -${getMoralePenalty(phase)}`;
       fireProjectile({
         from: bossPoint,
         to: playerPoint,
@@ -954,7 +954,7 @@ function BattlePhase({
       }
       if ((participant.wrongCount || 0) > (previous.wrongCount || 0)) {
         onBossAttack?.();
-        const penaltyLabel = participant.lastMoraleBroken ? '사기 붕괴!' : `사기 -${getMoralePenalty(phase)}`;
+        const penaltyLabel = participant.lastMoraleBroken ? '집중력 붕괴!' : `집중력 -${getMoralePenalty(phase)}`;
         fireProjectile({
           from: bossPoint,
           to: participantPoint,
@@ -1025,7 +1025,7 @@ function BattlePhase({
         <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-4">
           <div>
             <div className="mb-1 flex items-center justify-between text-[9px] font-extrabold text-slate-300 sm:text-[10px]">
-              <span>🔥 공격대 사기</span><span>{morale}</span>
+              <span>🔥 우리 팀 집중력</span><span>{morale}</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-700">
               <div className={`h-full rounded-full transition-all duration-500 ${morale <= 30 ? 'bg-rose-500' : morale <= 50 ? 'bg-amber-400' : 'bg-emerald-400'}`}
@@ -1038,7 +1038,7 @@ function BattlePhase({
           </div>
           <div>
             <div className="mb-1 flex items-center justify-between text-[9px] font-extrabold text-slate-300 sm:text-[10px]">
-              <span>⚡ 브레이크</span><span>{breakGauge}%</span>
+              <span>🛡️ 보스 방어막</span><span>{breakGauge}%</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-700">
               <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-500 transition-all duration-500"
@@ -1046,6 +1046,9 @@ function BattlePhase({
             </div>
           </div>
         </div>
+        <p className="mt-1.5 text-[10px] font-semibold text-slate-400">
+          정답은 보스를 공격하고 방어막을 깎습니다. 오답은 우리 팀 집중력을 떨어뜨립니다.
+        </p>
       </div>
 
       {/* 보스 전용 중앙 무대 */}
@@ -1076,15 +1079,15 @@ function BattlePhase({
 
         {breakFx && (
           <div className="boss-raid-break-banner" role="status">
-            <small>BREAK</small>
-            <strong>보스의 방어가 무너졌습니다!</strong>
+            <small>SHIELD BREAK</small>
+            <strong>방어막 파괴! 큰 피해가 들어갑니다</strong>
           </div>
         )}
 
         {moraleBreakFx && (
           <div className="boss-raid-morale-break-banner" role="status">
-            <small>MORALE BREAK</small>
-            <strong>사기 붕괴! 보스가 회복합니다</strong>
+            <small>FOCUS BREAK</small>
+            <strong>집중력 붕괴! 보스가 회복합니다</strong>
           </div>
         )}
 
@@ -1205,7 +1208,7 @@ function BattlePhase({
             className={`absolute z-40 pointer-events-none font-black battle-damage-float battle-damage-tier-${item.tier}
               ${item.target === 'boss' ? 'text-yellow-300' : 'text-rose-300'}`}
             style={{ left: item.x, top: item.y }}>
-            {item.label || (item.target === 'boss' ? `-${item.damage}` : '사기 하락!')}
+            {item.label || (item.target === 'boss' ? `-${item.damage}` : '집중력 하락!')}
           </div>
         ))}
 
@@ -1215,7 +1218,7 @@ function BattlePhase({
             style={{ left: impactFx.x, top: impactFx.y }}>
             <span className="battle-impact-ring" />
             <strong className={impactFx.target === 'boss' ? 'text-amber-200' : 'text-rose-300'}>
-              {impactFx.target === 'boss' ? 'BOSS BREAK!' : impactFx.tier >= 4 ? '사기 붕괴!' : '보스 반격!'}
+              {impactFx.target === 'boss' ? '방어막 파괴!' : impactFx.tier >= 4 ? '집중력 붕괴!' : '보스 반격!'}
             </strong>
           </div>
         )}
@@ -1348,8 +1351,8 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
       <div className="mb-4 grid w-full max-w-sm grid-cols-3 gap-2">
         {[
           ['최고 콤보', String(raid.maxCombo || 0) + 'x', 'text-amber-300'],
-          ['보스 브레이크', String(raid.breakCount || 0) + '회', 'text-cyan-300'],
-          ['사기 붕괴', String(raid.moraleBreakCount || 0) + '회', 'text-rose-300'],
+          ['방어막 파괴', String(raid.breakCount || 0) + '회', 'text-cyan-300'],
+          ['집중력 붕괴', String(raid.moraleBreakCount || 0) + '회', 'text-rose-300'],
         ].map(([label, value, tone]) => (
           <div key={label} className="rounded-xl border border-slate-700 bg-slate-900/70 px-2 py-3">
             <div className={'text-base font-black ' + tone}>{value}</div>
