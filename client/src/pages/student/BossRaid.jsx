@@ -701,7 +701,9 @@ function BattlePhase({
   const phase     = Math.max(Number(raid.phase) || 1, getRaidPhase(raid.currentHP, raid.maxHP));
   const morale    = Math.max(0, Math.min(100, Number(raid.morale ?? 100)));
   const combo     = Math.max(0, Number(raid.combo) || 0);
-  const breakGauge = Math.max(0, Math.min(RAID_BREAK_MAX, Number(raid.breakGauge) || 0));
+  const rawBreakGauge = Math.max(0, Number(raid.breakGauge) || 0);
+  const breakGauge = rawBreakGauge % RAID_BREAK_MAX;
+  const shieldGauge = breakGauge === 0 ? RAID_BREAK_MAX : RAID_BREAK_MAX - breakGauge;
   const stageParticipants = Object.entries(raid.participants || {})
     .map(([id, participant]) => ({ id, ...participant }))
     .sort((a, b) => {
@@ -748,7 +750,7 @@ function BattlePhase({
     const y = point && areaRect ? point.y - areaRect.top : areaRect?.height / 2;
     const floatId = impactIdRef.current++;
 
-    setImpactFx({ id, target, tier, x, y });
+    setImpactFx({ id, target, tier, x, y, label });
     setDamageFloats(current => [...current, { id: floatId, target, tier, x, y, damage, label }]);
     if (target === 'boss') setBossHitTier(tier);
     else setPlayerHitTier(tier);
@@ -901,6 +903,7 @@ function BattlePhase({
     const playerPoint = getRaidActorPoint(playerActorRef.current, 'player');
     if (!bossPoint || !playerPoint) return;
     if (myAnswer.correct) {
+      const shieldLabel = myAnswer.breakTriggered ? '방어막 파괴!' : `방어막 -${RAID_BREAK_GAIN}`;
       fireProjectile({
         from: playerPoint,
         to: bossPoint,
@@ -911,6 +914,7 @@ function BattlePhase({
           bossPoint,
           myAnswer.damage || raid.damagePerHit || 100,
           myAnswer.breakTriggered ? 4 : myAnswer.critical ? 3 : 2,
+          shieldLabel,
         ),
       });
     } else {
@@ -939,6 +943,7 @@ function BattlePhase({
       if (!participantPoint) return;
 
       if ((participant.correctCount || 0) > (previous.correctCount || 0)) {
+        const shieldLabel = participant.lastBreakTriggered ? '방어막 파괴!' : `방어막 -${RAID_BREAK_GAIN}`;
         fireProjectile({
           from: participantPoint,
           to: bossPoint,
@@ -949,6 +954,7 @@ function BattlePhase({
             bossPoint,
             participant.lastDamage || raid.damagePerHit || 100,
             participant.lastBreakTriggered ? 4 : participant.lastHitCritical ? 3 : 2,
+            shieldLabel,
           ),
         });
       }
@@ -1038,11 +1044,11 @@ function BattlePhase({
           </div>
           <div>
             <div className="mb-1 flex items-center justify-between text-[9px] font-extrabold text-slate-300 sm:text-[10px]">
-              <span>🛡️ 보스 방어막</span><span>{breakGauge}%</span>
+              <span>🛡️ 보스 방어막</span><span>{shieldGauge}%</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-700">
               <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-500 transition-all duration-500"
-                style={{ width: `${breakGauge}%` }} />
+                style={{ width: `${shieldGauge}%` }} />
             </div>
           </div>
         </div>
@@ -1218,7 +1224,7 @@ function BattlePhase({
             style={{ left: impactFx.x, top: impactFx.y }}>
             <span className="battle-impact-ring" />
             <strong className={impactFx.target === 'boss' ? 'text-amber-200' : 'text-rose-300'}>
-              {impactFx.target === 'boss' ? '방어막 파괴!' : impactFx.tier >= 4 ? '집중력 붕괴!' : '보스 반격!'}
+              {impactFx.label || (impactFx.target === 'boss' ? '공격 성공!' : impactFx.tier >= 4 ? '집중력 붕괴!' : '보스 반격!')}
             </strong>
           </div>
         )}
@@ -1943,7 +1949,7 @@ export default function BossRaid({
             autoAnswered: true,
             answeredAt: new Date().toISOString(),
           },
-          ...(isCorrect ? { currentHP: increment(-damage), phase: nextPhase } : {}),
+          ...(isCorrect ? { currentHP: increment(-damage), phase: nextPhase, breakGauge: increment(RAID_BREAK_GAIN) } : {}),
           ...(!isCorrect ? { morale: increment(-moralePenalty) } : {}),
           ...(moraleBroken ? { moraleBreakCount: increment(1), moraleBrokenAt: serverTimestamp() } : {}),
           lastCombatEvent: {
@@ -2299,12 +2305,15 @@ export default function BossRaid({
       const nextHP = Math.max(0, currentHP - damage);
       const nextPhase = Math.max(currentPhase, getRaidPhase(nextHP, maxHP));
       const currentMorale = Math.max(0, Math.min(100, Number(raid.morale ?? 100)));
+      const currentBreakGauge = Math.max(0, Number(raid.breakGauge) || 0);
+      const nextBreakGaugeRaw = correct ? currentBreakGauge + RAID_BREAK_GAIN : currentBreakGauge;
+      const breakTriggered = correct && nextBreakGaugeRaw > 0 && nextBreakGaugeRaw % RAID_BREAK_MAX === 0;
       const nextMorale = correct
         ? Math.min(100, currentMorale + 1)
         : Math.max(0, currentMorale - getMoralePenalty(currentPhase));
       const moraleBroken = !correct && nextMorale <= 0;
 
-      setMyAnswer({ idx: answerIdx, correct, damage, critical: false, breakTriggered: false, moraleBroken });
+      setMyAnswer({ idx: answerIdx, correct, damage, critical: false, breakTriggered, moraleBroken });
 
       const updates = {
         [`participants.${activeStudentId}.answeredCount`]: increment(1),
@@ -2315,7 +2324,7 @@ export default function BossRaid({
         [`participants.${activeStudentId}.lastAnsweredCorrect`]: correct,
         [`participants.${activeStudentId}.lastDamage`]: damage,
         [`participants.${activeStudentId}.lastHitCritical`]: false,
-        [`participants.${activeStudentId}.lastBreakTriggered`]: false,
+        [`participants.${activeStudentId}.lastBreakTriggered`]: breakTriggered,
         [`participants.${activeStudentId}.lastMoraleBroken`]: moraleBroken,
         [`participants.${activeStudentId}.lastSelectedIdx`]: answerIdx,
         [`participants.${activeStudentId}.qResults.${raid.currentQuestionIdx}`]: correct ? 1 : 0,
@@ -2323,7 +2332,7 @@ export default function BossRaid({
           ...detail,
           damage,
           critical: false,
-          breakTriggered: false,
+          breakTriggered,
           moraleBroken,
         },
         morale: moraleBroken ? 30 : nextMorale,
@@ -2340,10 +2349,15 @@ export default function BossRaid({
       };
 
       if (correct) updates.currentHP = increment(-damage);
+      if (correct) updates.breakGauge = increment(RAID_BREAK_GAIN);
       if (correct && nextHP <= 0) {
         updates.finishing = true;
         updates.finishingStartedAt = serverTimestamp();
         updates.finisherBy = myP?.name || '테스트계정';
+      }
+      if (breakTriggered) {
+        updates.breakCount = increment(1);
+        updates.breakTriggeredAt = serverTimestamp();
       }
       if (moraleBroken) {
         updates.moraleBreakCount = increment(1);
