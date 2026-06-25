@@ -194,6 +194,10 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       subMenus: []
     },
     {
+      id: 'topicWritingManage', icon: '✍️', title: '주제글쓰기 관리', isReady: true, directNav: true,
+      subMenus: []
+    },
+    {
       id: 'classOperations', icon: '📋', title: '학급운영', isReady: true,
       subMenus: [
         { title: '퀘스트 관리', id: 'questManage' },
@@ -248,7 +252,7 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       ...menu,
       subMenus: (menu.subMenus || []).filter((sub) => !hidden.has(sub.id)),
     }))
-    .filter((menu) => menu.subMenus.length > 0 || menu.id === 'dashboard');
+    .filter((menu) => menu.subMenus.length > 0 || menu.id === 'dashboard' || menu.directNav);
 
   const utilityMenus = [
     { id: 'systemSettings', icon: '⚙️', title: '시스템 설정' },
@@ -280,7 +284,7 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
   const handleMenuClick = (menuId) => {
     const clickedMenu = teacherMenuData.find(m => m.id === menuId);
 
-    if (changeView && clickedMenu?.id === 'dashboard') {
+    if (changeView && (clickedMenu?.id === 'dashboard' || clickedMenu?.directNav)) {
       changeView(menuId);
     }
 

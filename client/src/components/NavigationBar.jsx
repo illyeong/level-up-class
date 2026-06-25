@@ -53,6 +53,10 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] 
       subMenus: []
     },
     {
+      id: 'topicWriting', icon: '✍️', title: '주제글쓰기', isReady: true, directNav: true,
+      subMenus: []
+    },
+    {
       id: 'classOperation', icon: '🏰', title: '우리반 대작전', isReady: true, directNav: true,
       subMenus: []
     },
@@ -101,8 +105,14 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] 
   const handleMenuClick = (menuId) => {
     const menu = menuData.find(m => m.id === menuId);
     // 서브메뉴가 없거나 directNav 플래그가 있는 메뉴만 직접 이동
-    if (changeView && (menu?.subMenus.length === 0 || menu?.directNav)) {
+    const shouldNavigate = menu?.subMenus.length === 0 || menu?.directNav;
+    if (changeView && shouldNavigate) {
       changeView(menuId);
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        setSidebarOpen(false);
+        setExpandedMenu(menuId);
+        return;
+      }
     }
     if (!isSidebarOpen) {
       setSidebarOpen(true);
@@ -116,6 +126,9 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] 
     e.stopPropagation();
     if (subMenu.isReady === false) return; // 잠긴 메뉴
     if (changeView) changeView(subMenu.id);
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
   };
 
   return (

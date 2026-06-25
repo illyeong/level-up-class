@@ -22,6 +22,7 @@ import ClassOperation   from './pages/student/ClassOperation.jsx';
 import StockMarket      from './pages/student/StockMarket.jsx';
 import LearningBoard    from './pages/student/LearningBoard.jsx';
 import LearningNote     from './pages/student/LearningNote.jsx';
+import TopicWriting     from './pages/student/TopicWriting.jsx';
 import PetHouse        from './pages/student/PetHouse.jsx';
 import Equipment      from './pages/student/Equipment.jsx';
 import GachaBox       from './pages/student/GachaBox.jsx';
@@ -1291,6 +1292,7 @@ function App() {
         )}
         {currentView === 'board'        && <LearningBoard  studentCode={activeStudentCode} />}
         {currentView === 'learningNote' && <LearningNote   studentCode={activeStudentCode} themeMode={themeMode} />}
+        {currentView === 'topicWriting' && <TopicWriting   studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'themeSettings' && (
           <div className="p-6 md:p-8">
             <div className={`max-w-xl rounded-3xl border p-6 ${
@@ -1336,9 +1338,6 @@ function App() {
         {currentView === 'equipment' && <Equipment studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'gachaBox'     && <GachaBox     studentCode={activeStudentCode} />}
         {currentView === 'aiCourseware' && <AICourseware studentCode={activeStudentCode} themeMode={themeMode} />}
-        {currentView === 'academy' && (
-          <div className="p-8 text-2xl font-bold text-slate-800">아카데미 화면 (준비 중 📚)</div>
-        )}
       </main>
 
       {/* 로그아웃 버튼 */}

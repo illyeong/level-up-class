@@ -18,6 +18,7 @@ import QuestKiosk from './QuestKiosk';
 import AdventureManage from './AdventureManage';
 import BoardManage from './BoardManage';
 import LearningNoteManage from './LearningNoteManage';
+import TopicWritingManage from './TopicWritingManage';
 import TeacherCharacter from './TeacherCharacter';
 import FeedbackBoard from './FeedbackBoard';
 import DataReset from './DataReset';
@@ -53,6 +54,7 @@ const KOREAN_STUDENT_MENU_LABELS = {
   achievement: '업적',
   board: '공유 게시판',
   learningNote: '배움노트',
+  topicWriting: '주제글쓰기',
   adventure: '어드벤처',
   quizDungeon: '퀴즈던전',
   explorationDungeon: '탐험던전',
@@ -87,6 +89,7 @@ const KOREAN_TEACHER_MENU_LABELS = {
   adventureManage: '어드벤처 관리',
   boardManage: '공유 게시판',
   learningNoteManage: '배움노트 관리',
+  topicWritingManage: '주제글쓰기 관리',
   economyManage: '학급 경제 관리',
   classShopManage: '학급 상점 관리',
   bankManage: '은행 관리',
@@ -494,6 +497,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'adventureManage' && <AdventureManage selectedClass={selectedClass} />}
         {currentView === 'boardManage'        && <BoardManage selectedClass={selectedClass} user={user} />}
         {currentView === 'learningNoteManage' && <LearningNoteManage selectedClass={selectedClass} />}
+        {currentView === 'topicWritingManage' && <TopicWritingManage selectedClass={selectedClass} />}
         {currentView === 'aiCourseware'       && <AICoursewareManage selectedClass={selectedClass} onNavigate={setCurrentView} />}
         {currentView === 'aiCoursewareView'   && <AICourseware teacherUid={selectedClass?.teacherUid} classGrade={selectedClass?.grade} isTeacher themeMode={teacherThemeMode} />}
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
