@@ -4,6 +4,7 @@ import { db } from '../../firebase';
 import LevelUpEffect from '../../components/LevelUpEffect';
 import { applyClassQuickSetup, QUICK_SETUP_VERSION } from '../../utils/classQuickSetup';
 import { applyExpDelta, getMaxExpForLevel } from '../../utils/leveling';
+import { approveTopicWritingSubmissions } from '../../utils/topicWritingRewards';
 import { getEffectiveCosmeticStyles, getHallOfFameBadgeText } from '../../data/avatarCosmetics';
 import { OPERATION_MODE_PRESETS } from '../../utils/operationModePresets';
 
@@ -169,6 +170,7 @@ function TeacherDashboard({
   const [aiLoading, setAiLoading] = useState(false);
   const [approvingQuests, setApprovingQuests] = useState(false);
   const [approvingNotes,  setApprovingNotes]  = useState(false);
+  const [approvingTopicWritings, setApprovingTopicWritings] = useState(false);
   const [isAccessStatusOpen, setIsAccessStatusOpen] = useState(false);
   const [extensionBannerHidden, setExtensionBannerHidden] = useState(
     () => localStorage.getItem('extensionBannerNeverShow') === '1'
@@ -302,6 +304,30 @@ function TeacherDashboard({
     } finally { setApprovingNotes(false); }
   };
 
+  // ── 주제글쓰기 일괄 승인 ──────────────────────────────────────
+  const approveAllTopicWritings = async () => {
+    const teacherUid = selectedClass?.teacherUid;
+    if (!teacherUid || approvingTopicWritings) return;
+    const pending = aiSummary?.pendingTopicWritings || 0;
+    if (pending === 0) { showToast('승인 대기 중인 주제글쓰기가 없습니다.'); return; }
+    if (!window.confirm(`주제글쓰기 승인 대기 ${pending}건을 모두 승인합니다.\n보상이 각 학생에게 자동 지급됩니다.`)) return;
+
+    setApprovingTopicWritings(true);
+    try {
+      const result = await approveTopicWritingSubmissions({
+        teacherUid,
+        classId: selectedClass?.id || null,
+        studentIds: students.map(student => student.id),
+        rewardedBy: 'teacher_ai_topic_bulk',
+      });
+      showToast(`✅ 주제글쓰기 ${result.approvedCount}건 승인 완료!`);
+      await fetchAiSummary(students, questStats);
+    } catch (e) {
+      console.error(e);
+      showToast('주제글쓰기 일괄 승인 중 오류가 발생했습니다.', 'error');
+    } finally { setApprovingTopicWritings(false); }
+  };
+
   // ── AI 요약 데이터 수집 ──────────────────────────────────────
   const fetchAiSummary = useCallback(async (currentStudents, currentQuestStats) => {
     const teacherUid = selectedClass?.teacherUid;
@@ -314,7 +340,7 @@ function TeacherDashboard({
       weekStart.setDate(weekStart.getDate() - 7);
       const weekTs = Timestamp.fromDate(weekStart);
 
-      const [notesSnap, quizSnap] = await Promise.all([
+      const [notesSnap, quizSnap, writingSnap] = await Promise.all([
         // 배움노트 pending 건수
         getDocs(query(
           collection(db, 'learningNotes'),
@@ -325,6 +351,10 @@ function TeacherDashboard({
         getDocs(query(
           collection(db, 'quizResults'),
           where('completedAt', '>=', weekTs)
+        )),
+        getDocs(query(
+          collection(db, 'writingSubmissions'),
+          where('teacherUid', '==', teacherUid)
         )),
       ]);
 
@@ -358,6 +388,10 @@ function TeacherDashboard({
         : null;
 
       const pendingNotes = notesSnap.docs.filter(note => studentIds.has(note.data().studentId)).length;
+      const pendingTopicWritings = writingSnap.docs.filter(item => {
+        const data = item.data();
+        return studentIds.has(data.studentId) && !data.rewardsPaid && data.status !== 'rewarded';
+      }).length;
       const pendingQuestRewards = (currentQuestStats || [])
         .reduce((sum, quest) => sum + (quest.pendingRewardCount || 0), 0);
       const todayDateKey = getKstDateKey();
@@ -370,6 +404,7 @@ function TeacherDashboard({
       const summary = generateAiText({
         questRate,
         pendingNotes,
+        pendingTopicWritings,
         pendingQuestRewards,
         inactiveStudentCount,
         totalStu,
@@ -381,6 +416,7 @@ function TeacherDashboard({
       setAiSummary({
         questRate,
         pendingNotes,
+        pendingTopicWritings,
         pendingQuestRewards,
         inactiveStudentCount,
         activeQuestCount,
@@ -400,7 +436,7 @@ function TeacherDashboard({
     }
   }, [selectedClass]);
 
-  const generateAiText = ({ questRate, pendingNotes, pendingQuestRewards, inactiveStudentCount, totalStu, quizCount, avgAccuracy, dailyQuests }) => {
+  function generateAiText({ questRate, pendingNotes, pendingTopicWritings, pendingQuestRewards, inactiveStudentCount, totalStu, quizCount, avgAccuracy, dailyQuests }) {
     const parts = [];
 
     if (dailyQuests.length === 0) {
@@ -421,6 +457,10 @@ function TeacherDashboard({
       parts.push(`배움노트 승인 대기 ${pendingNotes}건이 있습니다. 확인 후 보상을 지급해주세요.`);
     }
 
+    if (pendingTopicWritings > 0) {
+      parts.push(`주제글쓰기 승인 대기 ${pendingTopicWritings}건이 있습니다. AI 피드백 확인 후 일괄 승인할 수 있습니다.`);
+    }
+
     if (pendingQuestRewards > 0) {
       parts.push(`보상 지급을 기다리는 퀘스트 완료 기록이 ${pendingQuestRewards}건 있습니다.`);
     }
@@ -437,12 +477,12 @@ function TeacherDashboard({
       }
     }
 
-    if (parts.length === 1 && questRate >= 80 && pendingNotes === 0) {
+    if (parts.length === 1 && questRate >= 80 && pendingNotes === 0 && pendingTopicWritings === 0) {
       return parts[0] + ' 보상 대기 항목도 없어 오늘 운영이 안정적입니다.';
     }
 
     return parts.join(' ');
-  };
+  }
 
   const fetchStudents = async () => {
     setIsLoading(true);
@@ -731,6 +771,15 @@ function TeacherDashboard({
       label: '모두 승인',
       action: 'approveNotes',
     },
+    aiSummary.pendingTopicWritings > 0 && {
+      id: 'pendingTopicWritings',
+      tone: 'violet',
+      icon: '✍️',
+      title: `주제글쓰기 ${aiSummary.pendingTopicWritings}건 승인 대기`,
+      description: 'AI 피드백 확인이 끝난 글쓰기 보상을 한 번에 지급할 수 있습니다.',
+      label: '모두 승인',
+      action: 'approveTopicWritings',
+    },
     aiSummary.activeQuestCount === 0 && {
       id: 'noQuests',
       tone: 'rose',
@@ -767,6 +816,10 @@ function TeacherDashboard({
     }
     if (item.action === 'approveNotes') {
       approveAllNotes();
+      return;
+    }
+    if (item.action === 'approveTopicWritings') {
+      approveAllTopicWritings();
       return;
     }
     if (item.action === 'showAccessStatus') {
@@ -1157,7 +1210,11 @@ function TeacherDashboard({
                           <button
                             type="button"
                             onClick={() => runAiAction(item)}
-                            disabled={(item.action === 'approveQuests' && approvingQuests) || (item.action === 'approveNotes' && approvingNotes)}
+                            disabled={
+                              (item.action === 'approveQuests' && approvingQuests)
+                              || (item.action === 'approveNotes' && approvingNotes)
+                              || (item.action === 'approveTopicWritings' && approvingTopicWritings)
+                            }
                             className="mt-auto w-full rounded-lg border border-indigo-200 bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-xs font-extrabold text-white transition-colors disabled:opacity-50"
                           >
                             {item.label} →
@@ -1199,7 +1256,7 @@ function TeacherDashboard({
                         { label: '접속 학생', value: `${aiSummary.weeklyActiveStudentCount} / ${students.length}명` },
                         { label: '퀴즈 참여 학생', value: `${aiSummary.weeklyQuizStudentCount}명` },
                         { label: '퀴즈 평균 정답률', value: aiSummary.weeklyAvgAccuracy !== null ? `${aiSummary.weeklyAvgAccuracy}%` : '-' },
-                        { label: '현재 승인 대기', value: `${aiSummary.pendingNotes + aiSummary.pendingQuestRewards}건` },
+                        { label: '현재 승인 대기', value: `${aiSummary.pendingNotes + aiSummary.pendingTopicWritings + aiSummary.pendingQuestRewards}건` },
                       ].map(item => (
                         <div key={item.label} className="rounded-lg border border-violet-100 bg-white px-3 py-2.5 shadow-sm">
                           <div className="text-base font-extrabold text-slate-900">{item.value}</div>
@@ -1223,6 +1280,11 @@ function TeacherDashboard({
                   {aiSummary.pendingNotes > 0 && (
                     <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-200 bg-amber-50 text-sm font-bold text-amber-700">
                       📚 승인 대기 {aiSummary.pendingNotes}건
+                    </span>
+                  )}
+                  {aiSummary.pendingTopicWritings > 0 && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-violet-200 bg-violet-50 text-sm font-bold text-violet-700">
+                      ✍️ 주제글쓰기 승인 대기 {aiSummary.pendingTopicWritings}건
                     </span>
                   )}
                   {aiSummary.pendingQuestRewards > 0 && (
@@ -1252,6 +1314,7 @@ function TeacherDashboard({
               {[
                 { label: '⚔️ 퀘스트 확인', view: 'questManage' },
                 { label: '📚 배움노트 승인', view: 'learningNoteManage' },
+                { label: '✍️ 주제글쓰기 승인', view: 'topicWritingManage' },
                 { label: '🛒 상점 관리', view: 'classShopManage' },
                 { label: '👥 접속 현황', action: 'showAccessStatus' },
               ].map(({ label, view, action }) => (

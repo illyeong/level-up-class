@@ -194,10 +194,6 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       subMenus: []
     },
     {
-      id: 'topicWritingManage', icon: '✍️', title: '주제글쓰기 관리', isReady: true, directNav: true,
-      subMenus: []
-    },
-    {
       id: 'classOperations', icon: '📋', title: '학급운영', isReady: true,
       subMenus: [
         { title: '퀘스트 관리', id: 'questManage' },
@@ -220,6 +216,7 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       subMenus: [
         { title: '공유 게시판',       id: 'boardManage' },
         { title: '📚 배움노트 관리',  id: 'learningNoteManage' },
+        { title: '✍️ 주제글쓰기 관리', id: 'topicWritingManage' },
         { title: '📋 자유 게시판',    id: 'freeBoard' },
         { title: '📊 학급 투표 관리', id: 'classVoteManage' },
         { title: '🏆 명예의 전당',    id: 'hallOfFame' },

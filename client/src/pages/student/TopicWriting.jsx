@@ -555,7 +555,9 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                     className={`rounded-lg border px-3 py-2 text-xs font-black transition ${
                       writingStatusFilter === value
                         ? 'border-indigo-500 bg-indigo-600 text-white'
-                        : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
+                        : pageDark
+                          ? 'border-slate-700 bg-slate-900 text-slate-200 hover:border-indigo-400 hover:text-indigo-200'
+                          : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
                     }`}
                   >
                     {label}
@@ -586,7 +588,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                         <span className={`w-fit shrink-0 rounded-full border px-3 py-1 text-[11px] font-extrabold ${meta.cls}`}>{meta.label}</span>
                       </div>
                       <div className="mt-2 rounded-xl bg-white p-3">
-                        <p className="line-clamp-3 whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-600">
+                        <p className="whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-600">
                           {item.content}
                         </p>
                       </div>
@@ -602,8 +604,22 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                             <p className="text-sm font-black text-indigo-900">AI 피드백</p>
                             <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700">{item.aiGrade.score}점 · {item.aiGrade.level}</span>
                           </div>
+                          <div className="grid gap-2 md:grid-cols-2">
+                            <div className="rounded-xl bg-emerald-50 p-3">
+                              <p className="mb-1 text-xs font-black text-emerald-600">잘한 점</p>
+                              <ul className="space-y-1 text-sm font-semibold text-slate-700">
+                                {(item.aiGrade.strengths || []).map((text, idx) => <li key={idx}>· {text}</li>)}
+                              </ul>
+                            </div>
+                            <div className="rounded-xl bg-amber-50 p-3">
+                              <p className="mb-1 text-xs font-black text-amber-600">고치면 좋은 점</p>
+                              <ul className="space-y-1 text-sm font-semibold text-slate-700">
+                                {(item.aiGrade.improvements || []).map((text, idx) => <li key={idx}>· {text}</li>)}
+                              </ul>
+                            </div>
+                          </div>
                           {item.aiGrade.studentComment && (
-                            <p className="text-sm font-semibold leading-relaxed text-slate-700">{item.aiGrade.studentComment}</p>
+                            <p className="mt-2 rounded-xl bg-indigo-50 p-3 text-sm font-semibold leading-relaxed text-slate-700">{item.aiGrade.studentComment}</p>
                           )}
                         </div>
                       )}
@@ -616,13 +632,6 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                         </div>
                       )}
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setDetail(item)}
-                          className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-indigo-700"
-                        >
-                          자세히 보기
-                        </button>
                         {!item.rewardsPaid && (
                           <button
                             type="button"

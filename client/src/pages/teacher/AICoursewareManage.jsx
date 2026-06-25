@@ -54,6 +54,9 @@ const fmtDate = (str) => {
   return new Date(str).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 };
 
+const getSeatNum = (code) => parseInt(String(code || '').slice(-2), 10) || 0;
+const getStudentDisplayName = (student) => student?.name || student?.studentName || student?.studentCode || '학생';
+
 const LEARNING_STATUS = {
   excellent: { label: '우수', tone: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400' },
   stable:    { label: '안정', tone: 'bg-sky-50 text-sky-700 border-sky-200', dot: 'bg-sky-400' },
@@ -127,6 +130,133 @@ const LearningStatusPill = ({ status }) => {
       <span className={`h-1.5 w-1.5 rounded-full ${item.dot}`} />
       {item.label}
     </span>
+  );
+};
+
+const StudentDotPlot = ({ title, subtitle, students, valueKey, valueLabel, maxValue, suffix = '', color = '#4f46e5', average }) => {
+  const chartStudents = students
+    .filter(student => student[valueKey] != null)
+    .sort((a, b) => (Number(b[valueKey]) || 0) - (Number(a[valueKey]) || 0) || getSeatNum(a.studentCode) - getSeatNum(b.studentCode));
+  const width = Math.max(720, chartStudents.length * 38 + 88);
+  const height = 260;
+  const pad = { top: 24, right: 24, bottom: 58, left: 44 };
+  const plotWidth = width - pad.left - pad.right;
+  const plotHeight = height - pad.top - pad.bottom;
+  const safeMax = Math.max(1, maxValue ?? 0, ...chartStudents.map(student => Number(student[valueKey]) || 0));
+  const ticks = [0, Math.round(safeMax / 2), safeMax];
+  const xFor = (index) => pad.left + (chartStudents.length <= 1 ? plotWidth / 2 : (index / (chartStudents.length - 1)) * plotWidth);
+  const yFor = (value) => pad.top + plotHeight - (Math.max(0, Number(value) || 0) / safeMax) * plotHeight;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-black text-slate-800">{title}</h3>
+          <p className="mt-0.5 text-[11px] font-semibold text-slate-400">{subtitle}</p>
+        </div>
+        {average != null && (
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600">
+            평균 {average}{suffix}
+          </span>
+        )}
+      </div>
+      {chartStudents.length === 0 ? (
+        <div className="rounded-xl bg-slate-50 py-14 text-center text-xs font-bold text-slate-400">표시할 학습 기록이 없습니다.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="max-w-none">
+            {ticks.map(tick => (
+              <g key={tick}>
+                <line x1={pad.left} x2={width - pad.right} y1={yFor(tick)} y2={yFor(tick)} stroke="#e2e8f0" strokeWidth="1" />
+                <text x={pad.left - 10} y={yFor(tick) + 4} textAnchor="end" className="fill-slate-400 text-[10px] font-bold">{tick}{suffix}</text>
+              </g>
+            ))}
+            <text x={pad.left} y={14} className="fill-slate-400 text-[10px] font-bold">{valueLabel}</text>
+            {chartStudents.map((student, index) => {
+              const value = Number(student[valueKey]) || 0;
+              const x = xFor(index);
+              const y = yFor(value);
+              return (
+                <g key={student.id || student.studentCode}>
+                  <line x1={x} x2={x} y1={pad.top + plotHeight} y2={y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="2 3" />
+                  <circle cx={x} cy={y} r="6" fill={color} stroke="#fff" strokeWidth="2">
+                    <title>{`${getStudentDisplayName(student)} · ${valueLabel} ${value}${suffix}`}</title>
+                  </circle>
+                  <text x={x} y={height - 34} textAnchor="middle" className="fill-slate-500 text-[10px] font-black">
+                    {getSeatNum(student.studentCode) || index + 1}
+                  </text>
+                  <text x={x} y={height - 18} textAnchor="middle" className="fill-slate-400 text-[9px] font-semibold">
+                    {String(getStudentDisplayName(student)).slice(0, 3)}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const StudentScatterPlot = ({ students, maxProgress, avgScore }) => {
+  const chartStudents = students.filter(student => student.completions > 0 && student.avgScore != null);
+  const width = 760;
+  const height = 300;
+  const pad = { top: 28, right: 28, bottom: 46, left: 54 };
+  const plotWidth = width - pad.left - pad.right;
+  const plotHeight = height - pad.top - pad.bottom;
+  const safeMaxProgress = Math.max(1, maxProgress ?? 0, ...chartStudents.map(student => student.completions || 0));
+  const xFor = (value) => pad.left + (Math.max(0, Number(value) || 0) / safeMaxProgress) * plotWidth;
+  const yFor = (value) => pad.top + plotHeight - (Math.max(0, Math.min(100, Number(value) || 0)) / 100) * plotHeight;
+  const avgX = xFor(chartStudents.length ? Math.round(chartStudents.reduce((sum, student) => sum + (student.completions || 0), 0) / chartStudents.length) : 0);
+  const avgY = avgScore == null ? null : yFor(avgScore);
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3">
+        <h3 className="text-sm font-black text-slate-800">진행도 × 평균 정답률</h3>
+        <p className="mt-0.5 text-[11px] font-semibold text-slate-400">오른쪽 위일수록 많이 학습하고 정답률도 높은 학생입니다.</p>
+      </div>
+      {chartStudents.length === 0 ? (
+        <div className="rounded-xl bg-slate-50 py-14 text-center text-xs font-bold text-slate-400">산점도로 볼 학습 기록이 없습니다.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="max-w-none">
+            {[0, 50, 75, 90, 100].map(tick => (
+              <g key={tick}>
+                <line x1={pad.left} x2={width - pad.right} y1={yFor(tick)} y2={yFor(tick)} stroke={tick === 75 ? '#cbd5e1' : '#e2e8f0'} strokeWidth="1" strokeDasharray={tick === 75 ? '4 4' : ''} />
+                <text x={pad.left - 10} y={yFor(tick) + 4} textAnchor="end" className="fill-slate-400 text-[10px] font-bold">{tick}%</text>
+              </g>
+            ))}
+            {[0, Math.round(safeMaxProgress / 2), safeMaxProgress].map(tick => (
+              <g key={tick}>
+                <line x1={xFor(tick)} x2={xFor(tick)} y1={pad.top} y2={pad.top + plotHeight} stroke="#f1f5f9" strokeWidth="1" />
+                <text x={xFor(tick)} y={height - 16} textAnchor="middle" className="fill-slate-400 text-[10px] font-bold">{tick}</text>
+              </g>
+            ))}
+            {avgY != null && <line x1={pad.left} x2={width - pad.right} y1={avgY} y2={avgY} stroke="#38bdf8" strokeWidth="1.5" strokeDasharray="5 5" />}
+            <line x1={avgX} x2={avgX} y1={pad.top} y2={pad.top + plotHeight} stroke="#a78bfa" strokeWidth="1.5" strokeDasharray="5 5" />
+            <text x={pad.left} y={14} className="fill-slate-400 text-[10px] font-bold">평균 정답률</text>
+            <text x={width - pad.right} y={height - 4} textAnchor="end" className="fill-slate-400 text-[10px] font-bold">완료 학습 수</text>
+            {chartStudents.map(student => {
+              const x = xFor(student.completions);
+              const y = yFor(student.avgScore);
+              const fill = student.avgScore >= 75 ? '#10b981' : student.avgScore >= 60 ? '#f59e0b' : '#ef4444';
+              return (
+                <g key={student.id || student.studentCode}>
+                  <circle cx={x} cy={y} r="7" fill={fill} fillOpacity="0.88" stroke="#fff" strokeWidth="2">
+                    <title>{getStudentDisplayName(student)} · 완료 {student.completions}개 · 평균 {student.avgScore}%</title>
+                  </circle>
+                  <text x={x} y={y - 10} textAnchor="middle" className="fill-slate-500 text-[9px] font-black">
+                    {getSeatNum(student.studentCode) || ''}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -269,7 +399,6 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
     const unresolvedWrongCount = allWrongAnswers.filter(w => w.studentCode === stu.studentCode && !w.resolved && w.status !== 'resolved').length;
     if (!allStudentProgress.length) supportReasons.push('AI 학습 미시작');
     else if (inactiveDays != null && inactiveDays >= 7) supportReasons.push(`${inactiveDays}일간 미학습`);
-    if (unresolvedWrongCount >= 30) supportReasons.push(`미해결 오답 ${unresolvedWrongCount}개`);
     if (averageScore != null && averageScore < 60) supportReasons.push(`기간 평균 정답률 ${averageScore}%`);
     const status = !allStudentProgress.length
       ? 'inactive'
@@ -910,6 +1039,17 @@ function LearningOverviewTab({
     };
   }, [students]);
 
+  const chartSummary = useMemo(() => {
+    const progressValues = students.map(student => student.completions || 0);
+    const activeProgressValues = progressValues.filter(value => value > 0);
+    return {
+      maxProgress: Math.max(1, ...progressValues),
+      avgProgress: activeProgressValues.length
+        ? Math.round(activeProgressValues.reduce((sum, value) => sum + value, 0) / activeProgressValues.length)
+        : 0,
+    };
+  }, [students]);
+
   const weakLessons = useMemo(() => {
     const lessons = Object.values(allMastery).map(lessonStudents => {
       const records = Object.values(lessonStudents).filter(item => item?.masteryAvg != null);
@@ -984,6 +1124,37 @@ function LearningOverviewTab({
           </div>
         ))}
       </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <StudentDotPlot
+          title="전체 학습 진행도 점도표"
+          subtitle="완료한 학습 수가 많은 학생부터 정렬됩니다."
+          students={students}
+          valueKey="completions"
+          valueLabel="완료 학습"
+          maxValue={chartSummary.maxProgress}
+          suffix="개"
+          color="#4f46e5"
+          average={chartSummary.avgProgress}
+        />
+        <StudentDotPlot
+          title="전체 평균 정답률 점도표"
+          subtitle="평균 정답률이 높은 학생부터 정렬됩니다."
+          students={students}
+          valueKey="avgScore"
+          valueLabel="평균 정답률"
+          maxValue={100}
+          suffix="%"
+          color="#0ea5e9"
+          average={summary.avgScore}
+        />
+      </div>
+
+      <StudentScatterPlot
+        students={students}
+        maxProgress={chartSummary.maxProgress}
+        avgScore={summary.avgScore}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
         <div className="ai-overview-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
