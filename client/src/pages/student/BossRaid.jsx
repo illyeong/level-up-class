@@ -127,6 +127,8 @@ const wrongAnswerDocId = (studentCode, questionKey) =>
 const RAID_BREAK_MAX = 100;
 const RAID_BREAK_GAIN = 20;
 const RAID_FINISHER_DURATION_MS = 3000;
+const QUESTION_DURATION_MIN = 6;
+const FOCUS_BREAK_TIME_PENALTY = 2;
 
 const PRESENTATION_FALLBACK_QUESTIONS = [
   {
@@ -190,6 +192,7 @@ export const createPresentationTestRaid = async ({ classId, teacherUid, rosterCo
     penaltyAmount: 50,
     currentQuestionIdx: -1,
     questionDuration: 12,
+    questionDurationPenalty: 0,
     questionStartedAt: null,
     autoAdvance: true,
     rewards: { gold: 0, exp: 0, diamond: 0 },
@@ -250,6 +253,13 @@ const getRaidPhase = (currentHP, maxHP) => {
 };
 
 const getMoralePenalty = (phase) => (phase >= 3 ? 4 : phase === 2 ? 3 : 2);
+const getBossSkillMoralePenalty = (phase, wrongCount = 0) =>
+  (phase >= 3 ? 18 : phase === 2 ? 15 : 12) + Math.min(6, Math.max(0, wrongCount - 3));
+const getBossSkillHealAmount = (raid, phase) => {
+  const maxHP = Math.max(1, Number(raid?.maxHP) || 1);
+  const baseDamage = Math.max(1, Number(raid?.damagePerHit) || Math.round(maxHP * 0.02));
+  return Math.max(baseDamage, Math.round(maxHP * (phase >= 3 ? 0.07 : phase === 2 ? 0.055 : 0.04)));
+};
 const getPhaseDamageMultiplier = (phase) => (phase >= 3 ? 1.25 : phase === 2 ? 1.1 : 1);
 const getBossSkillWrongThreshold = (phase) => (phase >= 3 ? 3 : phase === 2 ? 4 : 5);
 
@@ -542,6 +552,7 @@ const teacherStartRaid = async (raidId, { presentationTest = false } = {}) => {
     updates.presentationTest = true;
     updates.baseQuestionDuration = 12;
     updates.questionDuration = 12;
+    updates.questionDurationPenalty = 0;
     updates.paused = false;
     updates.pausedTimeLeft = deleteField();
     updates.pausedAt = deleteField();
@@ -689,7 +700,7 @@ function LobbyPhase({ raid, bossData, myId, isTeacher, canStartRaid = isTeacher,
 // ── 배틀 ─────────────────────────────────────────────────────────
 function BattlePhase({
   raid, bossData, myId, myAnswer, timeLeft, bossAnim, bossAnimKey, bossFlash,
-  isTeacher, onAnswer, onBossAttack, onBossAnimEnd, onExit, onAdvance, onPauseToggle, onChangeBoss, changingBoss = false, showExitButton = isTeacher,
+  isTeacher, onAnswer, onBossAttack, onBossAnimEnd, onExit, onAdvance, onPauseToggle, onBossSkillResolve, onChangeBoss, changingBoss = false, showExitButton = isTeacher,
 }) {
   const bossBg = resolveBossBg(raid);
   const questions = (raid.questions || []).filter(q => q.type !== 'short');
@@ -714,6 +725,7 @@ function BattlePhase({
   const bossAreaRef = useRef(null);
   const bossActorRef = useRef(null);
   const playerActorRef = useRef(null);
+  const previousBossHpRef = useRef(null);
   const participantActorRefs = useRef(new Map());
   const prevParticipantsRef = useRef({});
   const effectTimersRef = useRef(new Set());
@@ -732,6 +744,7 @@ function BattlePhase({
   const [phaseFx, setPhaseFx] = useState(null);
   const [breakFx, setBreakFx] = useState(false);
   const [moraleBreakFx, setMoraleBreakFx] = useState(false);
+  const [bossHealNotice, setBossHealNotice] = useState(null);
   const activeBossSkillFx = bossSkillFx?.questionIdx === qIdx ? bossSkillFx : null;
 
   const scheduleEffect = (callback, delay) => {
@@ -839,6 +852,19 @@ function BattlePhase({
   }, [raid.finishing]);
 
   useEffect(() => {
+    const currentHP = Math.max(0, Number(raid.currentHP) || 0);
+    const previousHP = previousBossHpRef.current;
+    previousBossHpRef.current = currentHP;
+    if (previousHP === null || currentHP <= previousHP) return;
+
+    const healAmount = currentHP - previousHP;
+    setBossHealNotice({ id: impactIdRef.current++, healAmount });
+    scheduleEffect(() => {
+      setBossHealNotice(current => current?.healAmount === healAmount ? null : current);
+    }, 1800);
+  }, [raid.currentHP]);
+
+  useEffect(() => {
     const wrongCount = Object.values(raid.participants || {}).filter((participant) =>
       participant?.qResults?.[qIdx] === 0
     ).length;
@@ -855,13 +881,16 @@ function BattlePhase({
     }, 850);
     scheduleEffect(() => {
       const playerPoint = getRaidActorPoint(playerActorRef.current, 'player');
-      if (playerPoint) triggerRaidImpact('player', playerPoint, 0, 4);
+      const focusPenalty = getBossSkillMoralePenalty(phase, wrongCount);
+      const penaltyLabel = morale - focusPenalty <= 0 ? '집중력 붕괴!' : `집중력 -${focusPenalty}`;
+      if (playerPoint) triggerRaidImpact('player', playerPoint, 0, 4, penaltyLabel);
       setBossSkillFx(current => current?.questionIdx === qIdx ? { ...current, phase: 'impact' } : current);
+      onBossSkillResolve?.({ questionIdx: qIdx, wrongCount, phase });
     }, 1750);
     scheduleEffect(() => {
       setBossSkillFx(current => current?.questionIdx === qIdx ? null : current);
     }, 3000);
-  }, [raid.id, raid.participants, qIdx, bossData, phase]);
+  }, [raid.id, raid.participants, qIdx, bossData, phase, onBossSkillResolve]);
 
   const alreadyAnswered = myP.lastAnsweredIdx === qIdx || myAnswer !== null;
   const displayAnswer   = myAnswer ?? (alreadyAnswered
@@ -1053,7 +1082,10 @@ function BattlePhase({
           </div>
         </div>
         <p className="mt-1.5 text-[10px] font-semibold text-slate-400">
-          정답은 보스를 공격하고 방어막을 깎습니다. 오답은 우리 팀 집중력을 떨어뜨립니다.
+          정답은 보스를 공격하고 방어막을 깎습니다. 오답은 집중력을 떨어뜨리고, 집중력이 0이 되면 다음 문제 제한시간이 2초 줄어듭니다.
+          {Number(raid.questionDurationPenalty || 0) > 0 && (
+            <span className="ml-2 text-rose-300">현재 제한시간 -{raid.questionDurationPenalty}초</span>
+          )}
         </p>
       </div>
 
@@ -1197,6 +1229,16 @@ function BattlePhase({
         </div>
 
         {/* 킬피드 — 우측 세로 목록 */}
+
+        {bossHealNotice && (
+          <div
+            key={`boss-heal-${bossHealNotice.id}`}
+            className="absolute left-1/2 top-[22%] z-40 -translate-x-1/2 rounded-2xl border border-emerald-300/70 bg-emerald-950/90 px-5 py-2 text-center text-emerald-100 shadow-xl shadow-emerald-950/40 backdrop-blur-sm"
+          >
+            <div className="text-[10px] font-black tracking-[0.25em] text-emerald-300">BOSS HEAL</div>
+            <strong className="block text-lg font-black">보스 HP +{bossHealNotice.healAmount.toLocaleString()} 회복</strong>
+          </div>
+        )}
         {hitFeed.length > 0 && (
           <div className="absolute right-3 top-14 flex flex-col gap-1 items-end pointer-events-none z-20 max-w-[160px]">
             {hitFeed.map((h, i) => (
@@ -1950,8 +1992,13 @@ export default function BossRaid({
             answeredAt: new Date().toISOString(),
           },
           ...(isCorrect ? { currentHP: increment(-damage), phase: nextPhase, breakGauge: increment(RAID_BREAK_GAIN) } : {}),
-          ...(!isCorrect ? { morale: increment(-moralePenalty) } : {}),
-          ...(moraleBroken ? { moraleBreakCount: increment(1), moraleBrokenAt: serverTimestamp() } : {}),
+          ...(!isCorrect ? { morale: moraleBroken ? 30 : increment(-moralePenalty) } : {}),
+          ...(moraleBroken ? {
+            currentHP: Math.min(maxHP, currentHP + getBossSkillHealAmount(raid, currentPhase)),
+            moraleBreakCount: increment(1),
+            moraleBrokenAt: serverTimestamp(),
+            questionDurationPenalty: increment(FOCUS_BREAK_TIME_PENALTY),
+          } : {}),
           lastCombatEvent: {
             type: isCorrect ? 'partyHit' : moraleBroken ? 'moraleBreak' : 'partyMiss',
             participantId,
@@ -2177,6 +2224,8 @@ export default function BossRaid({
     const questions = (raid.questions || []).filter(q => q.type !== 'short');
     const nextIdx   = raid.currentQuestionIdx + 1;
     const baseQuestionDuration = Math.max(1, Number(raid.baseQuestionDuration || raid.questionDuration || 20));
+    const durationPenalty = Math.max(0, Number(raid.questionDurationPenalty) || 0);
+    const nextQuestionDuration = Math.max(QUESTION_DURATION_MIN, baseQuestionDuration - durationPenalty);
 
     if (nextIdx >= questions.length || raid.currentHP <= 0) {
       updateDoc(doc(db, 'worldBossRaids', raid.id), {
@@ -2190,7 +2239,7 @@ export default function BossRaid({
       updateDoc(doc(db, 'worldBossRaids', raid.id), {
         currentQuestionIdx: nextIdx,
         questionStartedAt:  serverTimestamp(),
-        questionDuration: baseQuestionDuration,
+        questionDuration: nextQuestionDuration,
         baseQuestionDuration,
         paused: false,
         pausedTimeLeft: deleteField(),
@@ -2230,6 +2279,62 @@ export default function BossRaid({
       pausedTimeLeft: Math.max(0, remaining),
       baseQuestionDuration,
     }).catch(error => console.error('Boss raid presentation pause failed:', error));
+  };
+
+  const applyBossSkillPenalty = async ({ questionIdx, wrongCount, phase: skillPhase }) => {
+    if (!raid?.id || raid.status !== 'active' || raid.finishing || raid.paused) return;
+    const raidDocRef = doc(db, 'worldBossRaids', raid.id);
+
+    await runTransaction(db, async (transaction) => {
+      const latestSnap = await transaction.get(raidDocRef);
+      if (!latestSnap.exists()) return;
+
+      const latest = latestSnap.data();
+      if (
+        latest.status !== 'active' ||
+        latest.finishing ||
+        latest.paused ||
+        latest.currentQuestionIdx !== questionIdx ||
+        latest.bossSkillApplied?.[`q${questionIdx}`]
+      ) {
+        return;
+      }
+
+      const maxHP = Math.max(1, Number(latest.maxHP) || 1);
+      const currentHP = Math.max(0, Number(latest.currentHP) || 0);
+      const phase = Math.max(Number(skillPhase) || 1, Number(latest.phase) || 1, getRaidPhase(currentHP, maxHP));
+      const morale = Math.max(0, Math.min(100, Number(latest.morale ?? 100)));
+      const focusPenalty = getBossSkillMoralePenalty(phase, wrongCount);
+      const moraleBroken = morale - focusPenalty <= 0;
+      const nextMorale = moraleBroken ? 30 : Math.max(0, morale - focusPenalty);
+      const healAmount = getBossSkillHealAmount(latest, phase);
+      const nextHP = Math.min(maxHP, currentHP + healAmount);
+      const actualHeal = Math.max(0, nextHP - currentHP);
+
+      const updates = {
+        [`bossSkillApplied.q${questionIdx}`]: true,
+        morale: nextMorale,
+        currentHP: nextHP,
+        lastBossSkillAt: serverTimestamp(),
+        lastCombatEvent: {
+          type: moraleBroken ? 'bossSkillFocusBreak' : 'bossSkill',
+          questionIdx,
+          wrongCount,
+          focusPenalty,
+          healAmount: actualHeal,
+          phase,
+          at: serverTimestamp(),
+        },
+      };
+
+      if (moraleBroken) {
+        updates.moraleBreakCount = (Number(latest.moraleBreakCount) || 0) + 1;
+        updates.moraleBrokenAt = serverTimestamp();
+        updates.questionDurationPenalty = (Number(latest.questionDurationPenalty) || 0) + FOCUS_BREAK_TIME_PENALTY;
+      }
+
+      transaction.update(raidDocRef, updates);
+    }).catch(error => console.error('Boss raid boss skill penalty failed:', error));
   };
 
   const changePresentationBoss = async () => {
@@ -2303,7 +2408,6 @@ export default function BossRaid({
         ? Math.min(currentHP, Math.round(baseDamage * getPhaseDamageMultiplier(currentPhase)))
         : 0;
       const nextHP = Math.max(0, currentHP - damage);
-      const nextPhase = Math.max(currentPhase, getRaidPhase(nextHP, maxHP));
       const currentMorale = Math.max(0, Math.min(100, Number(raid.morale ?? 100)));
       const currentBreakGauge = Math.max(0, Number(raid.breakGauge) || 0);
       const nextBreakGaugeRaw = correct ? currentBreakGauge + RAID_BREAK_GAIN : currentBreakGauge;
@@ -2312,6 +2416,9 @@ export default function BossRaid({
         ? Math.min(100, currentMorale + 1)
         : Math.max(0, currentMorale - getMoralePenalty(currentPhase));
       const moraleBroken = !correct && nextMorale <= 0;
+      const focusBreakHeal = moraleBroken ? getBossSkillHealAmount(raid, currentPhase) : 0;
+      const resolvedNextHP = moraleBroken ? Math.min(maxHP, nextHP + focusBreakHeal) : nextHP;
+      const nextPhase = Math.max(currentPhase, getRaidPhase(resolvedNextHP, maxHP));
 
       setMyAnswer({ idx: answerIdx, correct, damage, critical: false, breakTriggered, moraleBroken });
 
@@ -2360,8 +2467,10 @@ export default function BossRaid({
         updates.breakTriggeredAt = serverTimestamp();
       }
       if (moraleBroken) {
+        updates.currentHP = resolvedNextHP;
         updates.moraleBreakCount = increment(1);
         updates.moraleBrokenAt = serverTimestamp();
+        updates.questionDurationPenalty = increment(FOCUS_BREAK_TIME_PENALTY);
       }
 
       await updateDoc(raidDocRef, updates).catch((error) => {
@@ -2478,6 +2587,7 @@ export default function BossRaid({
       if (moraleBroken) {
         updates.moraleBreakCount = (Number(latest.moraleBreakCount) || 0) + 1;
         updates.moraleBrokenAt = serverTimestamp();
+        updates.questionDurationPenalty = (Number(latest.questionDurationPenalty) || 0) + FOCUS_BREAK_TIME_PENALTY;
       }
       if (nextPhase > currentPhase) updates.phaseChangedAt = serverTimestamp();
       if (finishing) {
@@ -2661,6 +2771,7 @@ export default function BossRaid({
         onExit={onExit}
         onAdvance={(isTeacher || presentationMode) ? tryAdvance : null}
         onPauseToggle={presentationMode ? togglePresentationPause : null}
+        onBossSkillResolve={applyBossSkillPenalty}
         onChangeBoss={presentationMode ? changePresentationBoss : null}
         changingBoss={changingBoss}
         showExitButton={isTeacher || presentationMode}
