@@ -86,6 +86,9 @@ const sortByRecent = (items) => [...items].sort((a, b) => {
 });
 
 const getTopicMinLength = (topic) => Math.max(70, Number(topic?.minLength) || 70);
+const TOPIC_WRITING_FONT = {
+  fontFamily: '"Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif',
+};
 
 export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
   const [student, setStudent] = useState(null);
@@ -101,6 +104,10 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [spellChecking, setSpellChecking] = useState(false);
+  const [spellResult, setSpellResult] = useState(null);
+  const [spellPracticeOpen, setSpellPracticeOpen] = useState(false);
+  const [spellPracticeText, setSpellPracticeText] = useState('');
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
 
@@ -247,6 +254,30 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
     return list;
   };
 
+  const clearWritingDraft = () => {
+    setEditingSubmission(null);
+    setTitle('');
+    setContent('');
+    setSpellResult(null);
+    setSpellPracticeOpen(false);
+    setSpellPracticeText('');
+    setError('');
+  };
+
+  const handleGradeSelect = (grade) => {
+    const nextGrade = String(grade);
+    if (nextGrade !== selectedGrade) {
+      clearWritingDraft();
+      setSelectedTopicId('');
+    }
+    setSelectedGrade(nextGrade);
+  };
+
+  const handleTopicSelect = (topicId) => {
+    if (topicId !== activeTopicId) clearWritingDraft();
+    setSelectedTopicId(topicId);
+  };
+
   const startEditingSubmission = (item) => {
     if (item.rewardsPaid) return;
     setEditingSubmission(item);
@@ -254,16 +285,74 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
     if (GRADE_OPTIONS.includes(Number(item.topicGrade))) setSelectedGrade(String(item.topicGrade));
     setTitle(item.title || '');
     setContent(item.content || '');
+    setSpellResult(null);
+    setSpellPracticeOpen(false);
+    setSpellPracticeText('');
     setDetail(null);
     setError('');
     setViewMode('write');
   };
 
   const cancelEditing = () => {
-    setEditingSubmission(null);
-    setTitle('');
-    setContent('');
+    clearWritingDraft();
+  };
+
+  const updateContent = (value) => {
+    setContent(value);
+    setSpellResult(null);
+    setSpellPracticeOpen(false);
+    setSpellPracticeText('');
+  };
+
+  const checkSpelling = async () => {
+    if (!content.trim()) {
+      setError('맞춤법을 검사할 본문을 먼저 써 주세요.');
+      return;
+    }
+    setSpellChecking(true);
     setError('');
+    setSpellResult(null);
+
+    try {
+      const response = await fetch('/api/spell-check-writing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          content: content.trim(),
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || '맞춤법 검사에 실패했습니다.');
+      setSpellResult(result);
+      setSpellPracticeOpen(false);
+      setSpellPracticeText(content.trim());
+    } catch (err) {
+      console.error('[TopicWriting] spell check failed:', err);
+      setError(err.message || '맞춤법 검사 중 오류가 발생했습니다.');
+    } finally {
+      setSpellChecking(false);
+    }
+  };
+
+  const applySpellingFix = () => {
+    if (!spellResult?.correctedContent) return;
+    setContent(spellResult.correctedContent);
+    setSpellResult(null);
+    setSpellPracticeOpen(false);
+    setSpellPracticeText('');
+  };
+
+  const openSpellPractice = () => {
+    setSpellPracticeText(content);
+    setSpellPracticeOpen(true);
+  };
+
+  const applySpellPractice = () => {
+    setContent(spellPracticeText);
+    setSpellResult(null);
+    setSpellPracticeOpen(false);
+    setSpellPracticeText('');
   };
 
   const submitWriting = async () => {
@@ -365,6 +454,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
       setEditingSubmission(null);
       setTitle('');
       setContent('');
+      setSpellResult(null);
     } catch (err) {
       console.error('[TopicWriting] submit failed:', err);
       setError(err.message || '제출 중 오류가 발생했습니다.');
@@ -382,7 +472,10 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
   }
 
   return (
-    <div className={`min-h-full p-4 md:p-6 ${pageDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
+    <div
+      className={`min-h-full p-4 md:p-6 ${pageDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'}`}
+      style={TOPIC_WRITING_FONT}
+    >
       <div className="mx-auto max-w-6xl space-y-4">
         <div className="rounded-2xl bg-gradient-to-br from-fuchsia-600 via-indigo-700 to-slate-900 p-5 shadow-lg">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -492,9 +585,11 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                         </div>
                         <span className={`w-fit shrink-0 rounded-full border px-3 py-1 text-[11px] font-extrabold ${meta.cls}`}>{meta.label}</span>
                       </div>
-                      <p className="mt-2 line-clamp-2 whitespace-pre-wrap rounded-xl bg-white p-3 text-sm font-semibold leading-relaxed text-slate-600">
-                        {item.content}
-                      </p>
+                      <div className="mt-2 rounded-xl bg-white p-3">
+                        <p className="line-clamp-3 whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-600">
+                          {item.content}
+                        </p>
+                      </div>
                       {item.aiStatus === 'grading' && (
                         <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-700">AI가 채점하는 중입니다.</div>
                       )}
@@ -557,7 +652,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                   <button
                     key={grade}
                     type="button"
-                    onClick={() => setSelectedGrade(String(grade))}
+                    onClick={() => handleGradeSelect(grade)}
                     className={`rounded-lg border px-2 py-1.5 text-xs font-black transition ${
                       selectedGrade === String(grade)
                         ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
@@ -579,7 +674,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                       <button
                         key={topic.id}
                         type="button"
-                        onClick={() => setSelectedTopicId(topic.id)}
+                        onClick={() => handleTopicSelect(topic.id)}
                         className={`w-full rounded-xl border px-3 py-2 text-left transition-colors ${
                           done
                             ? 'border-emerald-200 bg-emerald-50'
@@ -723,11 +818,97 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                     </div>
                     <textarea
                       value={content}
-                      onChange={e => setContent(e.target.value)}
+                      onChange={e => updateContent(e.target.value)}
                       placeholder="주제에 맞게 내 생각과 이유, 예시를 자세히 써 보세요."
                       rows={16}
                       className="w-full resize-none rounded-xl border-2 border-slate-200 px-4 py-3 text-sm leading-relaxed outline-none focus:border-indigo-400"
                     />
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={checkSpelling}
+                        disabled={spellChecking || !content.trim()}
+                        className="rounded-xl border border-indigo-200 bg-white px-4 py-2 text-sm font-extrabold text-indigo-700 hover:border-indigo-400 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {spellChecking ? '맞춤법 검사 중...' : '맞춤법 검사'}
+                      </button>
+                      {spellResult?.correctedContent && spellResult.correctedContent !== content.trim() && (
+                        <button
+                          type="button"
+                          onClick={applySpellingFix}
+                          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-emerald-700"
+                        >
+                          수정안 적용
+                        </button>
+                      )}
+                    </div>
+                    {spellResult && (
+                      <div className="mt-3 rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <p className="text-sm font-black text-indigo-900">맞춤법 검사 결과</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-600">{spellResult.summary}</p>
+                          </div>
+                          <span className="w-fit rounded-full bg-white px-3 py-1 text-xs font-black text-indigo-700">
+                            {spellResult.corrections?.length || 0}개 수정 제안
+                          </span>
+                        </div>
+                        {spellResult.correctedContent && (
+                          <div className="mt-3 rounded-xl bg-white p-3">
+                            <p className="mb-1 text-xs font-black text-slate-400">수정 미리보기</p>
+                            <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-700">
+                              {spellResult.correctedContent}
+                            </p>
+                          </div>
+                        )}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={openSpellPractice}
+                            className="rounded-xl border border-indigo-200 bg-white px-4 py-2 text-sm font-extrabold text-indigo-700 hover:border-indigo-400"
+                          >
+                            직접 고쳐보기
+                          </button>
+                          {spellPracticeOpen && (
+                            <button
+                              type="button"
+                              onClick={applySpellPractice}
+                              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-emerald-700"
+                            >
+                              내가 고친 글 적용
+                            </button>
+                          )}
+                        </div>
+                        {spellPracticeOpen && (
+                          <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <p className="text-sm font-black text-emerald-800">직접 다시 써보기</p>
+                              <span className="text-xs font-black text-emerald-600">{spellPracticeText.trim().length}자</span>
+                            </div>
+                            <textarea
+                              value={spellPracticeText}
+                              onChange={e => setSpellPracticeText(e.target.value)}
+                              rows={8}
+                              className="w-full resize-none rounded-xl border-2 border-emerald-100 bg-white px-4 py-3 text-sm font-semibold leading-7 text-slate-700 outline-none focus:border-emerald-300"
+                            />
+                          </div>
+                        )}
+                        {spellResult.corrections?.length > 0 && (
+                          <div className="mt-3 grid gap-2 md:grid-cols-2">
+                            {spellResult.corrections.map((item, idx) => (
+                              <div key={`${item.before}-${idx}`} className="rounded-xl bg-white p-3 text-sm">
+                                <p className="font-black text-slate-800">
+                                  <span className="text-rose-500">{item.before || '-'}</span>
+                                  <span className="mx-1 text-slate-300">→</span>
+                                  <span className="text-emerald-600">{item.after || '-'}</span>
+                                </p>
+                                {item.reason && <p className="mt-1 text-xs font-semibold text-slate-500">{item.reason}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
                       <div
                         className={`h-full rounded-full ${charCount >= minLength ? 'bg-emerald-500' : 'bg-indigo-400'}`}
