@@ -1,26 +1,26 @@
 const GUIDE_BY_GRADE = {
   1: {
-    minLength: 80,
+    minLength: 70,
     guide: '겪은 일을 떠올리고 누가, 언제, 어디서, 무엇을 했는지 차례대로 써 보세요.',
   },
   2: {
-    minLength: 120,
+    minLength: 70,
     guide: '내 생각을 먼저 쓰고, 그렇게 생각한 까닭을 한두 가지 넣어 문단으로 써 보세요.',
   },
   3: {
-    minLength: 160,
+    minLength: 70,
     guide: '처음, 가운데, 끝이 드러나게 쓰고 경험과 느낀 점을 함께 써 보세요.',
   },
   4: {
-    minLength: 200,
+    minLength: 70,
     guide: '주제에 대한 생각을 정한 뒤 까닭과 예시를 넣어 자세히 써 보세요.',
   },
   5: {
-    minLength: 240,
+    minLength: 70,
     guide: '주장이나 중심 생각을 분명히 하고 근거, 경험, 예시를 연결해 써 보세요.',
   },
   6: {
-    minLength: 280,
+    minLength: 70,
     guide: '관점을 정하고 근거를 체계적으로 제시하며 예상되는 반대 의견도 생각해 써 보세요.',
   },
 };
@@ -235,4 +235,3 @@ export const WRITING_TOPIC_PRESETS_BY_GRADE = Object.fromEntries(
     ];
   }),
 );
-

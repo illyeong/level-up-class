@@ -85,6 +85,8 @@ const sortByRecent = (items) => [...items].sort((a, b) => {
   return bt - at;
 });
 
+const getTopicMinLength = (topic) => Math.max(70, Number(topic?.minLength) || 70);
+
 export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
   const [student, setStudent] = useState(null);
   const [teacherTopics, setTeacherTopics] = useState([]);
@@ -92,6 +94,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
   const [loading, setLoading] = useState(true);
   const [selectedTopicId, setSelectedTopicId] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('5');
+  const [viewMode, setViewMode] = useState('write');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -200,7 +203,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
   }, [submissions]);
 
   const selectedSubmission = activeTopicId ? submissionByTopic.get(activeTopicId) : null;
-  const minLength = selectedTopic?.minLength || 100;
+  const minLength = getTopicMinLength(selectedTopic);
   const charCount = content.trim().length;
   const canSubmit = !!student && !!selectedTopic && !selectedSubmission && title.trim().length >= 1 && charCount >= minLength && !submitting;
   const pageDark = themeMode === 'dark';
@@ -332,6 +335,101 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
           </div>
         )}
 
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setViewMode('write')}
+            className={`rounded-xl px-4 py-2 text-sm font-black transition ${
+              viewMode === 'write'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : pageDark ? 'bg-slate-900 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-500 hover:text-indigo-600'
+            }`}
+          >
+            주제 쓰기
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('mine')}
+            className={`rounded-xl px-4 py-2 text-sm font-black transition ${
+              viewMode === 'mine'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : pageDark ? 'bg-slate-900 text-slate-300 hover:bg-slate-800' : 'bg-white text-slate-500 hover:text-indigo-600'
+            }`}
+          >
+            내가 쓴 글
+            <span className="ml-2 rounded-full bg-white/15 px-2 py-0.5 text-[11px]">{submissions.length}</span>
+          </button>
+        </div>
+
+        {viewMode === 'mine' ? (
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 text-slate-800 shadow-sm md:p-5">
+            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-500">My Writing</p>
+                <h2 className="mt-1 text-xl font-black">내가 쓴 글</h2>
+              </div>
+              <p className="text-sm font-bold text-slate-400">AI 피드백과 교사 코멘트를 함께 확인할 수 있어요.</p>
+            </div>
+            {submissions.length === 0 ? (
+              <div className="rounded-2xl bg-slate-50 py-20 text-center text-sm font-bold text-slate-400">
+                아직 제출한 글이 없습니다.
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {submissions.map(item => {
+                  const meta = STATUS_META[item.status] || STATUS_META.submitted;
+                  return (
+                    <article key={item.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-indigo-500">{item.topicTitle}</p>
+                          <h3 className="mt-1 text-lg font-black text-slate-900">{item.title}</h3>
+                          <p className="mt-1 text-xs font-semibold text-slate-400">{toDateText(item.submittedAt)} · {item.charCount || 0}자</p>
+                        </div>
+                        <span className={`w-fit shrink-0 rounded-full border px-3 py-1 text-[11px] font-extrabold ${meta.cls}`}>{meta.label}</span>
+                      </div>
+                      <p className="mt-3 line-clamp-4 whitespace-pre-wrap rounded-xl bg-white p-3 text-sm font-semibold leading-relaxed text-slate-600">
+                        {item.content}
+                      </p>
+                      {item.aiStatus === 'grading' && (
+                        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-700">AI가 채점하는 중입니다.</div>
+                      )}
+                      {item.aiStatus === 'failed' && (
+                        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">AI 채점 실패: {item.aiError || '오류'}</div>
+                      )}
+                      {item.aiGrade && (
+                        <div className="mt-3 rounded-xl border border-indigo-100 bg-white p-3">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <p className="text-sm font-black text-indigo-900">AI 피드백</p>
+                            <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700">{item.aiGrade.score}점 · {item.aiGrade.level}</span>
+                          </div>
+                          {item.aiGrade.studentComment && (
+                            <p className="text-sm font-semibold leading-relaxed text-slate-700">{item.aiGrade.studentComment}</p>
+                          )}
+                        </div>
+                      )}
+                      {(item.teacherComment || item.teacherScore != null || item.rewardsPaid) && (
+                        <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                          <p className="text-sm font-black text-emerald-800">교사 확인</p>
+                          {item.teacherScore != null && <p className="mt-1 text-sm font-bold text-emerald-700">교사 점수: {item.teacherScore}점</p>}
+                          {item.teacherComment && <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-slate-700">{item.teacherComment}</p>}
+                          {item.rewardsPaid && <p className="mt-1 text-sm font-black text-sky-700">보상 지급 완료: <RewardInline rewards={item.rewards} /></p>}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setDetail(item)}
+                        className="mt-3 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-indigo-700"
+                      >
+                        자세히 보기
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        ) : (
         <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
           <aside className="space-y-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 text-slate-800 shadow-sm">
@@ -368,7 +466,9 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                         type="button"
                         onClick={() => setSelectedTopicId(topic.id)}
                         className={`w-full rounded-xl border p-3 text-left transition-colors ${
-                          active ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 bg-slate-50 hover:border-indigo-200 hover:bg-white'
+                          done
+                            ? 'border-emerald-200 bg-emerald-50'
+                            : active ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 bg-slate-50 hover:border-indigo-200 hover:bg-white'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -382,11 +482,11 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                             }`}>
                               {topic.source === 'preset' ? `${topic.grade}학년 추천` : '선생님'}
                             </span>
-                            {done && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700">제출</span>}
+                            {done && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700">작성 완료</span>}
                           </div>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-1 text-[10px] font-bold text-slate-500">
-                          <span className="rounded bg-white px-2 py-0.5">최소 {topic.minLength || 100}자</span>
+                          <span className="rounded bg-white px-2 py-0.5">최소 {getTopicMinLength(topic)}자</span>
                           {topic.dueDate && <span className="rounded bg-white px-2 py-0.5">마감 {topic.dueDate}</span>}
                         </div>
                       </button>
@@ -510,6 +610,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
             )}
           </section>
         </div>
+        )}
       </div>
 
       {detail && (
