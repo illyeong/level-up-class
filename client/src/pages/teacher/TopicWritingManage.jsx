@@ -452,7 +452,8 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
               key={id}
               type="button"
               onClick={() => setTab(id)}
-              className={`rounded-xl px-5 py-2.5 text-sm font-extrabold ${
+              data-active={tab === id}
+              className={`topic-writing-tab-button rounded-xl px-5 py-2.5 text-sm font-extrabold ${
                 tab === id ? 'bg-indigo-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -583,7 +584,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
           <div className="topic-writing-submission-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <h2 className="text-lg font-black text-slate-800">제출물 확인</h2>
-              <div className="flex flex-wrap gap-2">
+              <div className="topic-writing-filter-toolbar flex flex-wrap gap-2">
                 {[
                   ['needsReview', '확인 대기'],
                   ['all', '전체'],
@@ -594,7 +595,8 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                     key={id}
                     type="button"
                     onClick={() => setStatusFilter(id)}
-                    className={`rounded-xl px-3 py-2 text-xs font-black ${
+                    data-active={statusFilter === id}
+                    className={`topic-writing-filter-button rounded-xl px-3 py-2 text-xs font-black ${
                       statusFilter === id ? 'bg-indigo-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -625,6 +627,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                       key={item.id}
                       type="button"
                       onClick={() => openSubmission(item)}
+                      data-status={item.status || 'submitted'}
                       className="topic-writing-submission-card rounded-xl border border-slate-200 p-4 text-left hover:border-indigo-300 hover:bg-indigo-50/40"
                     >
                       <div className="mb-2 flex items-start justify-between gap-2">
@@ -637,9 +640,9 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                       <h3 className="topic-writing-title truncate text-sm font-black text-slate-700">{item.title}</h3>
                       <p className="topic-writing-content mt-1 line-clamp-3 text-xs font-semibold leading-relaxed text-slate-500">{item.content}</p>
                       <div className="topic-writing-card-meta mt-3 flex flex-wrap gap-2 text-[10px] font-bold text-slate-400">
-                        <span>{item.charCount || 0}자</span>
-                        {item.aiGrade?.score != null && <span>AI {item.aiGrade.score}점</span>}
-                        {item.aiStatus === 'failed' && <span className="text-rose-500">AI 실패</span>}
+                        <span className="topic-writing-meta-chip">{item.charCount || 0}자</span>
+                        {item.aiGrade?.score != null && <span className="topic-writing-meta-chip topic-writing-score-chip">AI {item.aiGrade.score}점</span>}
+                        {item.aiStatus === 'failed' && <span className="topic-writing-meta-chip topic-writing-failed-chip">AI 실패</span>}
                       </div>
                     </button>
                   );
@@ -676,7 +679,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                   <div className="topic-writing-today-panel topic-writing-today-panel-submitted rounded-2xl border border-sky-100 bg-sky-50 p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <h3 className="text-sm font-black text-sky-900">오늘 제출한 학생</h3>
-                      <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-sky-700">{todaySubmittedRows.length}명</span>
+                      <span className="topic-writing-count-badge rounded-full bg-white px-2.5 py-1 text-xs font-black text-sky-700">{todaySubmittedRows.length}명</span>
                     </div>
                     {todaySubmittedRows.length === 0 ? (
                       <p className="rounded-xl bg-white/70 px-3 py-4 text-center text-xs font-bold text-sky-500">아직 오늘 제출한 학생이 없습니다.</p>
@@ -687,7 +690,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                             key={student.id}
                             type="button"
                             onClick={() => openSubmission(todayItems[0])}
-                            className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-sky-800 shadow-sm hover:bg-sky-100"
+                            className="topic-writing-student-chip topic-writing-student-chip-submitted rounded-full bg-white px-3 py-1.5 text-xs font-black text-sky-800 shadow-sm hover:bg-sky-100"
                           >
                             {student.name || student.studentCode || '이름 없음'}
                             {todayItems.length > 1 && <span className="ml-1 text-sky-500">+{todayItems.length - 1}</span>}
@@ -700,14 +703,14 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                   <div className="topic-writing-today-panel topic-writing-today-panel-missing rounded-2xl border border-rose-100 bg-rose-50 p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <h3 className="text-sm font-black text-rose-900">오늘 미제출 학생</h3>
-                      <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-rose-700">{todayMissingRows.length}명</span>
+                      <span className="topic-writing-count-badge rounded-full bg-white px-2.5 py-1 text-xs font-black text-rose-700">{todayMissingRows.length}명</span>
                     </div>
                     {todayMissingRows.length === 0 ? (
                       <p className="rounded-xl bg-white/70 px-3 py-4 text-center text-xs font-bold text-rose-500">오늘은 모두 제출했습니다.</p>
                     ) : (
                       <div className="flex flex-wrap gap-2">
                         {todayMissingRows.map(({ student }) => (
-                          <span key={student.id} className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-rose-800 shadow-sm">
+                          <span key={student.id} className="topic-writing-student-chip topic-writing-student-chip-missing rounded-full bg-white px-3 py-1.5 text-xs font-black text-rose-800 shadow-sm">
                             {student.name || student.studentCode || '이름 없음'}
                           </span>
                         ))}
@@ -730,13 +733,13 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                           </h3>
                           <p className="mt-0.5 truncate text-xs font-bold text-slate-400">{student.studentCode}</p>
                         </div>
-                        <div className="flex shrink-0 gap-1.5 text-[10px] font-black">
-                          <span className={`rounded-full px-2 py-1 ${submittedToday ? 'bg-sky-100 text-sky-700' : 'bg-rose-100 text-rose-700'}`}>
+                        <div className="topic-writing-student-statuses flex shrink-0 gap-1.5 text-[10px] font-black">
+                          <span className={`topic-writing-row-pill rounded-full px-2 py-1 ${submittedToday ? 'bg-sky-100 text-sky-700' : 'bg-rose-100 text-rose-700'}`}>
                             {submittedToday ? '오늘 제출' : '오늘 미제출'}
                           </span>
-                          <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">제출 {items.length}</span>
-                          <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">대기 {pendingCount}</span>
-                          <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-700">완료 {rewardedCount}</span>
+                          <span className="topic-writing-row-pill rounded-full bg-slate-100 px-2 py-1 text-slate-600">제출 {items.length}</span>
+                          <span className="topic-writing-row-pill rounded-full bg-amber-100 px-2 py-1 text-amber-700">대기 {pendingCount}</span>
+                          <span className="topic-writing-row-pill rounded-full bg-emerald-100 px-2 py-1 text-emerald-700">완료 {rewardedCount}</span>
                         </div>
                       </div>
 
