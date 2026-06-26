@@ -641,10 +641,10 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
         )}
 
         <div className="mt-8 border-t border-white/10 pt-6">
-          <div className="rounded-3xl border border-indigo-300/25 bg-indigo-950/45 p-4 shadow-lg shadow-indigo-950/30">
+          <div className="rounded-3xl border border-white/25 bg-slate-950/80 p-4 shadow-2xl shadow-slate-950/60 ring-1 ring-white/10 backdrop-blur-md">
             <div className="mb-3">
-              <p className="text-white font-extrabold text-sm">AI교수학습 협력설계 챌린지</p>
-              <p className="mt-1 text-indigo-200 text-xs leading-relaxed">
+              <p className="text-base font-black text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.75)]">AI교수학습 협력설계 챌린지</p>
+              <p className="mt-1 text-xs font-bold leading-relaxed text-white/90 drop-shadow-[0_2px_6px_rgba(0,0,0,0.75)]">
                 테스트 전용 페이지입니다. 각 버튼은 비밀번호 입력 후 이동합니다.
               </p>
             </div>
@@ -652,7 +652,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
               <button
                 type="button"
                 onClick={() => runChallengeAction(handleStudentTestLogin)}
-                className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-xs font-extrabold text-white transition-colors hover:bg-white/20"
+                className="rounded-2xl border border-white/35 bg-white/20 px-3 py-3 text-xs font-black text-white shadow-lg shadow-black/25 transition-colors hover:bg-white/30"
               >
                 학생 테스트페이지
               </button>
@@ -662,7 +662,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
                   if (onTeacherTestLogin) onTeacherTestLogin();
                   else onTeacherLogin({ email: 'test@test.com', displayName: '테스트 교사' });
                 })}
-                className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-xs font-extrabold text-white transition-colors hover:bg-white/20"
+                className="rounded-2xl border border-white/35 bg-white/20 px-3 py-3 text-xs font-black text-white shadow-lg shadow-black/25 transition-colors hover:bg-white/30"
               >
                 교사 테스트페이지
               </button>
@@ -673,9 +673,9 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
                   else if (onStudentTestLogin) onStudentTestLogin('SINSEOK-5-15', 'bossRaid');
                   else handleStudentTestLogin();
                 })}
-                className="rounded-2xl border border-rose-300/30 bg-rose-500/20 px-3 py-3 text-xs font-extrabold text-rose-50 transition-colors hover:bg-rose-500/30"
+                className="rounded-2xl border border-rose-200/60 bg-rose-500/45 px-3 py-3 text-xs font-black text-white shadow-lg shadow-black/25 transition-colors hover:bg-rose-500/60"
               >
-                퀴즈레이드
+                퀴즈레이드테스트
               </button>
             </div>
           </div>
