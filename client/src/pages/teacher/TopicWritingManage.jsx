@@ -89,6 +89,27 @@ const sortRecent = (items) => [...items].sort((a, b) => {
 });
 
 const getSeatNum = (code) => parseInt(String(code || '').slice(-2), 10) || 0;
+const getKoreaDateKey = (date = new Date()) => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(date);
+const toJsDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  if (typeof value?.toDate === 'function') return value.toDate();
+  if (value?.seconds) return new Date(value.seconds * 1000);
+  return null;
+};
+const getSubmissionDateKey = (item) => {
+  const date = toJsDate(item.submittedAt) || toJsDate(item.rewrittenAt) || toJsDate(item.createdAt);
+  return date ? getKoreaDateKey(date) : '';
+};
 
 export default function TopicWritingManage({ selectedClass }) {
   const teacherUid = selectedClass?.teacherUid || null;
@@ -140,6 +161,16 @@ export default function TopicWritingManage({ selectedClass }) {
     return () => clearTimeout(timer);
   }, [teacherUid, loadData]);
 
+  const todayDateKey = useMemo(() => getKoreaDateKey(), []);
+  const todaySubmissions = useMemo(
+    () => submissions.filter(item => getSubmissionDateKey(item) === todayDateKey),
+    [submissions, todayDateKey],
+  );
+  const todaySubmittedStudentIds = useMemo(
+    () => new Set(todaySubmissions.map(item => item.studentId).filter(Boolean)),
+    [todaySubmissions],
+  );
+
   const stats = useMemo(() => {
     const submittedStudentIds = new Set(submissions.map(item => item.studentId));
     return {
@@ -147,8 +178,9 @@ export default function TopicWritingManage({ selectedClass }) {
       submissionCount: submissions.length,
       pendingCount: submissions.filter(isTopicWritingRewardPending).length,
       submittedStudents: students.filter(student => submittedStudentIds.has(student.id)).length,
+      todaySubmittedStudents: students.filter(student => todaySubmittedStudentIds.has(student.id)).length,
     };
-  }, [topics, submissions, students]);
+  }, [topics, submissions, students, todaySubmittedStudentIds]);
 
   const pendingSubmissions = useMemo(
     () => submissions.filter(isTopicWritingRewardPending),
@@ -183,6 +215,22 @@ export default function TopicWritingManage({ selectedClass }) {
       .map(row => ({ ...row, items: sortRecent(row.items) }))
       .sort((a, b) => getSeatNum(a.student?.studentCode) - getSeatNum(b.student?.studentCode));
   }, [students, submissions]);
+
+  const todayStudentRows = useMemo(
+    () => studentRows.map(row => ({
+      ...row,
+      todayItems: row.items.filter(item => getSubmissionDateKey(item) === todayDateKey),
+    })),
+    [studentRows, todayDateKey],
+  );
+  const todaySubmittedRows = useMemo(
+    () => todayStudentRows.filter(row => row.todayItems.length > 0),
+    [todayStudentRows],
+  );
+  const todayMissingRows = useMemo(
+    () => todayStudentRows.filter(row => row.todayItems.length === 0),
+    [todayStudentRows],
+  );
 
   const openSubmission = (item) => {
     setSelectedSubmission(item);
@@ -345,7 +393,7 @@ export default function TopicWritingManage({ selectedClass }) {
               <h1 className="mt-1 text-2xl font-black text-slate-800">주제글쓰기 관리</h1>
               <p className="mt-1 text-sm font-semibold text-slate-500">주제를 만들고 AI 채점 결과, 교사 코멘트, 보상 지급을 관리합니다.</p>
             </div>
-            <div className="grid grid-cols-4 gap-2 text-center">
+            <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
               <div className="rounded-xl bg-indigo-50 px-4 py-2">
                 <div className="text-lg font-black text-indigo-700">{stats.topicCount}</div>
                 <div className="text-[10px] font-bold text-indigo-400">열린 주제</div>
@@ -361,6 +409,10 @@ export default function TopicWritingManage({ selectedClass }) {
               <div className="rounded-xl bg-emerald-50 px-4 py-2">
                 <div className="text-lg font-black text-emerald-700">{stats.submittedStudents}/{students.length}</div>
                 <div className="text-[10px] font-bold text-emerald-500">참여 학생</div>
+              </div>
+              <div className="rounded-xl bg-sky-50 px-4 py-2">
+                <div className="text-lg font-black text-sky-700">{stats.todaySubmittedStudents}/{students.length}</div>
+                <div className="text-[10px] font-bold text-sky-500">오늘 제출</div>
               </div>
             </div>
           </div>
@@ -563,7 +615,7 @@ export default function TopicWritingManage({ selectedClass }) {
             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-lg font-black text-slate-800">학생별 보기</h2>
-                <p className="mt-1 text-sm font-semibold text-slate-500">학생별 제출 수, 승인 대기, 보상 완료 현황을 확인합니다.</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">학생별 제출 수, 승인 대기, 보상 완료 현황과 오늘 제출 여부를 확인합니다.</p>
               </div>
               <button
                 type="button"
@@ -580,12 +632,58 @@ export default function TopicWritingManage({ selectedClass }) {
             ) : studentRows.length === 0 ? (
               <div className="rounded-xl bg-slate-50 py-16 text-center text-sm font-bold text-slate-400">학생 또는 제출 기록이 없습니다.</div>
             ) : (
-              <div className="grid gap-3 lg:grid-cols-2">
-                {studentRows.map(({ student, items }) => {
-                  const pendingCount = items.filter(isTopicWritingRewardPending).length;
-                  const rewardedCount = items.filter(item => item.rewardsPaid || item.status === 'rewarded').length;
-                  return (
-                    <div key={student.id} className="rounded-xl border border-slate-200 p-4">
+              <div className="space-y-4">
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-black text-sky-900">오늘 제출한 학생</h3>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-sky-700">{todaySubmittedRows.length}명</span>
+                    </div>
+                    {todaySubmittedRows.length === 0 ? (
+                      <p className="rounded-xl bg-white/70 px-3 py-4 text-center text-xs font-bold text-sky-500">아직 오늘 제출한 학생이 없습니다.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {todaySubmittedRows.map(({ student, todayItems }) => (
+                          <button
+                            key={student.id}
+                            type="button"
+                            onClick={() => openSubmission(todayItems[0])}
+                            className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-sky-800 shadow-sm hover:bg-sky-100"
+                          >
+                            {student.name || student.studentCode || '이름 없음'}
+                            {todayItems.length > 1 && <span className="ml-1 text-sky-500">+{todayItems.length - 1}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-black text-rose-900">오늘 미제출 학생</h3>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-rose-700">{todayMissingRows.length}명</span>
+                    </div>
+                    {todayMissingRows.length === 0 ? (
+                      <p className="rounded-xl bg-white/70 px-3 py-4 text-center text-xs font-bold text-rose-500">오늘은 모두 제출했습니다.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {todayMissingRows.map(({ student }) => (
+                          <span key={student.id} className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-rose-800 shadow-sm">
+                            {student.name || student.studentCode || '이름 없음'}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {todayStudentRows.map(({ student, items, todayItems }) => {
+                    const pendingCount = items.filter(isTopicWritingRewardPending).length;
+                    const rewardedCount = items.filter(item => item.rewardsPaid || item.status === 'rewarded').length;
+                    const submittedToday = todayItems.length > 0;
+                    return (
+                      <div key={student.id} className="rounded-xl border border-slate-200 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <h3 className="truncate text-base font-black text-slate-800">
@@ -594,6 +692,9 @@ export default function TopicWritingManage({ selectedClass }) {
                           <p className="mt-0.5 truncate text-xs font-bold text-slate-400">{student.studentCode}</p>
                         </div>
                         <div className="flex shrink-0 gap-1.5 text-[10px] font-black">
+                          <span className={`rounded-full px-2 py-1 ${submittedToday ? 'bg-sky-100 text-sky-700' : 'bg-rose-100 text-rose-700'}`}>
+                            {submittedToday ? '오늘 제출' : '오늘 미제출'}
+                          </span>
                           <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">제출 {items.length}</span>
                           <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">대기 {pendingCount}</span>
                           <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-700">완료 {rewardedCount}</span>
@@ -626,9 +727,10 @@ export default function TopicWritingManage({ selectedClass }) {
                           )}
                         </div>
                       )}
-                    </div>
-                  );
-                })}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

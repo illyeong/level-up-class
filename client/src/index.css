@@ -786,6 +786,20 @@
     border: 1px solid #2f4462;
 }
 
+.teacher-theme-dark .ai-learning-manage .ai-scatter-plot {
+    background-color: #111e33 !important;
+    border-color: #425a79 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-scatter-plot .ai-scatter-axis-label,
+.teacher-theme-dark .ai-learning-manage .ai-scatter-plot .ai-scatter-point-label {
+    fill: #f8fafc !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-scatter-plot .ai-scatter-average-label {
+    fill: #7dd3fc !important;
+}
+
 .teacher-theme-dark .ai-learning-manage .ai-student-table-head {
     background-color: #0a1628 !important;
     color: #b9cae0 !important;

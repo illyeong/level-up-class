@@ -199,10 +199,11 @@ const StudentDotPlot = ({ title, subtitle, students, valueKey, valueLabel, maxVa
 };
 
 const StudentScatterPlot = ({ students, maxProgress, avgScore }) => {
+  const [hoveredStudent, setHoveredStudent] = useState(null);
   const chartStudents = students.filter(student => student.completions > 0 && student.avgScore != null);
   const width = 760;
-  const height = 300;
-  const pad = { top: 28, right: 28, bottom: 46, left: 54 };
+  const height = 340;
+  const pad = { top: 38, right: 34, bottom: 56, left: 62 };
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
   const safeMaxProgress = Math.max(1, maxProgress ?? 0, ...chartStudents.map(student => student.completions || 0));
@@ -210,49 +211,123 @@ const StudentScatterPlot = ({ students, maxProgress, avgScore }) => {
   const yFor = (value) => pad.top + plotHeight - (Math.max(0, Math.min(100, Number(value) || 0)) / 100) * plotHeight;
   const avgX = xFor(chartStudents.length ? Math.round(chartStudents.reduce((sum, student) => sum + (student.completions || 0), 0) / chartStudents.length) : 0);
   const avgY = avgScore == null ? null : yFor(avgScore);
+  const getPointTone = (student) => {
+    if (student.avgScore >= 75 && student.completions >= Math.max(1, Math.round(safeMaxProgress * 0.45))) {
+      return { fill: '#10b981', stroke: '#047857', label: '우수' };
+    }
+    if (student.avgScore < 60) return { fill: '#ef4444', stroke: '#be123c', label: '정답률 확인' };
+    if (student.completions < Math.max(1, Math.round(safeMaxProgress * 0.25))) {
+      return { fill: '#f59e0b', stroke: '#b45309', label: '참여 확인' };
+    }
+    return { fill: '#6366f1', stroke: '#4338ca', label: '학습 중' };
+  };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3">
-        <h3 className="text-sm font-black text-slate-800">진행도 × 평균 정답률</h3>
-        <p className="mt-0.5 text-[11px] font-semibold text-slate-400">오른쪽 위일수록 많이 학습하고 정답률도 높은 학생입니다.</p>
+    <div className="ai-scatter-plot rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">진행도 × 평균 정답률</h3>
+          <p className="mt-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-300">오른쪽 위일수록 많이 학습하고 정답률도 높은 학생입니다.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[10px] font-black">
+          {[
+            ['#10b981', '우수'],
+            ['#6366f1', '학습 중'],
+            ['#f59e0b', '참여 확인'],
+            ['#ef4444', '정답률 확인'],
+          ].map(([color, label]) => (
+            <span key={label} className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-200">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+              {label}
+            </span>
+          ))}
+        </div>
       </div>
       {chartStudents.length === 0 ? (
-        <div className="rounded-xl bg-slate-50 py-14 text-center text-xs font-bold text-slate-400">산점도로 볼 학습 기록이 없습니다.</div>
+        <div className="rounded-xl bg-slate-50 py-14 text-center text-xs font-bold text-slate-400 dark:bg-slate-800 dark:text-slate-300">산점도로 볼 학습 기록이 없습니다.</div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto rounded-xl bg-slate-50 p-2 dark:bg-slate-950">
           <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="max-w-none">
             {[0, 50, 75, 90, 100].map(tick => (
               <g key={tick}>
-                <line x1={pad.left} x2={width - pad.right} y1={yFor(tick)} y2={yFor(tick)} stroke={tick === 75 ? '#cbd5e1' : '#e2e8f0'} strokeWidth="1" strokeDasharray={tick === 75 ? '4 4' : ''} />
-                <text x={pad.left - 10} y={yFor(tick) + 4} textAnchor="end" className="fill-slate-400 text-[10px] font-bold">{tick}%</text>
+                <line x1={pad.left} x2={width - pad.right} y1={yFor(tick)} y2={yFor(tick)} stroke={tick === 75 ? '#94a3b8' : '#cbd5e1'} strokeWidth={tick === 75 ? '1.5' : '1'} strokeDasharray={tick === 75 ? '4 4' : ''} opacity="0.85" />
+                <text x={pad.left - 12} y={yFor(tick) + 4} textAnchor="end" className="ai-scatter-axis-label fill-slate-700 text-[11px] font-black">{tick}%</text>
               </g>
             ))}
             {[0, Math.round(safeMaxProgress / 2), safeMaxProgress].map(tick => (
               <g key={tick}>
-                <line x1={xFor(tick)} x2={xFor(tick)} y1={pad.top} y2={pad.top + plotHeight} stroke="#f1f5f9" strokeWidth="1" />
-                <text x={xFor(tick)} y={height - 16} textAnchor="middle" className="fill-slate-400 text-[10px] font-bold">{tick}</text>
+                <line x1={xFor(tick)} x2={xFor(tick)} y1={pad.top} y2={pad.top + plotHeight} stroke="#cbd5e1" strokeWidth="1" opacity="0.55" />
+                <text x={xFor(tick)} y={height - 18} textAnchor="middle" className="ai-scatter-axis-label fill-slate-700 text-[11px] font-black">{tick}</text>
               </g>
             ))}
-            {avgY != null && <line x1={pad.left} x2={width - pad.right} y1={avgY} y2={avgY} stroke="#38bdf8" strokeWidth="1.5" strokeDasharray="5 5" />}
-            <line x1={avgX} x2={avgX} y1={pad.top} y2={pad.top + plotHeight} stroke="#a78bfa" strokeWidth="1.5" strokeDasharray="5 5" />
-            <text x={pad.left} y={14} className="fill-slate-400 text-[10px] font-bold">평균 정답률</text>
-            <text x={width - pad.right} y={height - 4} textAnchor="end" className="fill-slate-400 text-[10px] font-bold">완료 학습 수</text>
+            {avgY != null && (
+              <>
+                <line x1={pad.left} x2={width - pad.right} y1={avgY} y2={avgY} stroke="#0284c7" strokeWidth="2" strokeDasharray="6 5" />
+                <text x={width - pad.right - 4} y={avgY - 6} textAnchor="end" className="ai-scatter-average-label fill-sky-700 text-[10px] font-black">학급 평균 {avgScore}%</text>
+              </>
+            )}
+            <line x1={avgX} x2={avgX} y1={pad.top} y2={pad.top + plotHeight} stroke="#7c3aed" strokeWidth="2" strokeDasharray="6 5" />
+            <text x={pad.left} y={18} className="ai-scatter-axis-label fill-slate-700 text-[11px] font-black">평균 정답률</text>
+            <text x={width - pad.right} y={height - 6} textAnchor="end" className="ai-scatter-axis-label fill-slate-700 text-[11px] font-black">완료 학습 수</text>
             {chartStudents.map(student => {
               const x = xFor(student.completions);
               const y = yFor(student.avgScore);
-              const fill = student.avgScore >= 75 ? '#10b981' : student.avgScore >= 60 ? '#f59e0b' : '#ef4444';
+              const tone = getPointTone(student);
+              const isHovered = hoveredStudent?.id === student.id;
+              const seat = getSeatNum(student.studentCode);
+              const name = getStudentDisplayName(student);
               return (
                 <g key={student.id || student.studentCode}>
-                  <circle cx={x} cy={y} r="7" fill={fill} fillOpacity="0.88" stroke="#fff" strokeWidth="2">
-                    <title>{getStudentDisplayName(student)} · 완료 {student.completions}개 · 평균 {student.avgScore}%</title>
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={isHovered ? '13' : '11'}
+                    fill={tone.fill}
+                    fillOpacity="0.96"
+                    stroke={isHovered ? '#0f172a' : tone.stroke}
+                    strokeWidth={isHovered ? '3' : '2'}
+                    className="cursor-pointer transition-all"
+                    onMouseEnter={() => setHoveredStudent({ ...student, x, y, toneLabel: tone.label })}
+                    onMouseLeave={() => setHoveredStudent(null)}
+                    onFocus={() => setHoveredStudent({ ...student, x, y, toneLabel: tone.label })}
+                    onBlur={() => setHoveredStudent(null)}
+                    tabIndex={0}
+                    role="img"
+                    aria-label={`${name} 완료 ${student.completions}개 평균 ${student.avgScore}%`}
+                  >
+                    <title>{`${name} · 완료 ${student.completions}개 · 평균 ${student.avgScore}%`}</title>
                   </circle>
-                  <text x={x} y={y - 10} textAnchor="middle" className="fill-slate-500 text-[9px] font-black">
-                    {getSeatNum(student.studentCode) || ''}
+                  <text x={x} y={y + 4} textAnchor="middle" className="pointer-events-none fill-white text-[10px] font-black">
+                    {seat || ''}
+                  </text>
+                  <text x={x} y={y - 16} textAnchor="middle" className="ai-scatter-point-label pointer-events-none fill-slate-800 text-[10px] font-black">
+                    {String(name).slice(0, 3)}
                   </text>
                 </g>
               );
             })}
+            {hoveredStudent && (() => {
+              const boxWidth = 178;
+              const boxHeight = 78;
+              const boxX = Math.min(Math.max(hoveredStudent.x + 16, pad.left), width - pad.right - boxWidth);
+              const boxY = Math.min(Math.max(hoveredStudent.y - boxHeight - 18, pad.top), height - pad.bottom - boxHeight);
+              const seat = getSeatNum(hoveredStudent.studentCode);
+              const name = getStudentDisplayName(hoveredStudent);
+              return (
+                <g className="pointer-events-none">
+                  <rect x={boxX} y={boxY} width={boxWidth} height={boxHeight} rx="14" fill="#0f172a" stroke="#f8fafc" strokeWidth="2" opacity="0.97" />
+                  <text x={boxX + 12} y={boxY + 21} className="fill-white text-[13px] font-black">
+                    {seat ? `${seat}번 ` : ''}{name}
+                  </text>
+                  <text x={boxX + 12} y={boxY + 41} className="fill-slate-200 text-[11px] font-bold">
+                    완료 {hoveredStudent.completions}개 · 평균 {hoveredStudent.avgScore}%
+                  </text>
+                  <text x={boxX + 12} y={boxY + 59} className="fill-slate-200 text-[11px] font-bold">
+                    숙달 {hoveredStudent.masteryAvg == null ? '-' : `${hoveredStudent.masteryAvg}%`} · {hoveredStudent.toneLabel}
+                  </text>
+                </g>
+              );
+            })()}
           </svg>
         </div>
       )}
