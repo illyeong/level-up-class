@@ -106,7 +106,7 @@ const KOREAN_TEACHER_MENU_LABELS = {
   inquiry: '건의 및 문의하기',
 };
 
-function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass }) {
+function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass, autoOpenBossRaidDemoKey = 0 }) {
   const [currentView, setCurrentView]   = useState('dashboard');
   const [quizCreationDraft, setQuizCreationDraft] = useState(null);
   const [teacherThemeMode, setTeacherThemeMode] = useState(() => localStorage.getItem('teacherThemeMode') || 'light');
@@ -123,6 +123,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   const [dashboardKey, setDashboardKey] = useState(0);
   const [activeHelpId, setActiveHelpId] = useState(null);
   const [bossRaidDemo, setBossRaidDemo] = useState({ status: 'idle', raidId: null, error: null });
+  const autoOpenedBossRaidDemoRef = React.useRef(0);
   const [approvalBadges, setApprovalBadges] = useState({});
   const [notices, setNotices]           = useState([]);
   const [dismissedIds, setDismissedIds] = useState(() => {
@@ -267,6 +268,12 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
       });
     }
   }, [selectedClass?.id, selectedClass?.teacherUid, user?.uid]);
+
+  useEffect(() => {
+    if (!autoOpenBossRaidDemoKey || autoOpenedBossRaidDemoRef.current === autoOpenBossRaidDemoKey) return;
+    autoOpenedBossRaidDemoRef.current = autoOpenBossRaidDemoKey;
+    openBossRaidDemo();
+  }, [autoOpenBossRaidDemoKey, openBossRaidDemo]);
 
   const visibleNotices = notices.filter(n => !dismissedIds.includes(n.id));
 

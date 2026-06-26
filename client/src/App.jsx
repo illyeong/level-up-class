@@ -295,6 +295,7 @@ function App() {
   const [currentView,    setCurrentView]    = useState('dashboard');
   const [testStudentCode, setTestStudentCode] = useState(null);
   const [studentClassInfo, setStudentClassInfo] = useState(null);
+  const [autoOpenBossRaidDemoKey, setAutoOpenBossRaidDemoKey] = useState(0);
   const { isAdmin, loading: isAdminLoading } = useIsAdmin(teacherUser?.email);
   const [teacherAccessCode, setTeacherAccessCode] = useState('0526');
   const [teacherCodeInput, setTeacherCodeInput] = useState('');
@@ -523,6 +524,14 @@ function App() {
     setAppMode('teacher');
   };
 
+  const handleQuizRaidDemoPage = () => {
+    const cls = { id: null, teacherUid: 'admin_master_001', schoolName: '퀴즈레이드 테스트 페이지' };
+    setSelectedClass(cls);
+    sessionStorage.setItem('selectedClass', JSON.stringify(cls));
+    setAutoOpenBossRaidDemoKey(Date.now());
+    setAppMode('teacher');
+  };
+
   // ── 학생 로그인 콜백 ─────────────────────────────────────────
   const handleStudentLogin = (data) => {
     setStudentInfo(data);
@@ -546,6 +555,7 @@ function App() {
     setTestStudentCode(null);
     setTeacherCodeInput('');
     setTeacherCodeError('');
+    setAutoOpenBossRaidDemoKey(0);
     setAppMode('login');
   };
 
@@ -798,6 +808,7 @@ function App() {
         onStudentLogin={handleStudentLogin}
         onStudentTestLogin={handleStudentTestLogin}
         onTeacherTestLogin={handleTeacherTestPage}
+        onQuizRaidDemoLogin={handleQuizRaidDemoPage}
       />
     );
   }
@@ -877,8 +888,10 @@ function App() {
           onChangeClass={() => {
             sessionStorage.removeItem('selectedClass');
             setSelectedClass(null);
+            setAutoOpenBossRaidDemoKey(0);
             setAppMode('classSelect');
           }}
+          autoOpenBossRaidDemoKey={autoOpenBossRaidDemoKey}
         />
       </div>
     );

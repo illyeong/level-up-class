@@ -414,7 +414,7 @@ function IntroModal({ open, onClose }) {
   );
 }
 
-export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTestLogin, onTeacherTestLogin }) {
+export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTestLogin, onTeacherTestLogin, onQuizRaidDemoLogin }) {
   const [mode, setMode] = useState(null); // null | 'student'
   const [studentCode, setStudentCode] = useState('');
   const [isCodeLocked, setIsCodeLocked] = useState(false);
@@ -669,7 +669,8 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
               <button
                 type="button"
                 onClick={() => runChallengeAction(() => {
-                  if (onStudentTestLogin) onStudentTestLogin('SINSEOK-5-15', 'bossRaid');
+                  if (onQuizRaidDemoLogin) onQuizRaidDemoLogin();
+                  else if (onStudentTestLogin) onStudentTestLogin('SINSEOK-5-15', 'bossRaid');
                   else handleStudentTestLogin();
                 })}
                 className="rounded-2xl border border-rose-300/30 bg-rose-500/20 px-3 py-3 text-xs font-extrabold text-rose-50 transition-colors hover:bg-rose-500/30"
