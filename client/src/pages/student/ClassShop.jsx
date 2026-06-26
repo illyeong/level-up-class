@@ -8,7 +8,7 @@ import { db } from '../../firebase';
 // ── 이용권 설정 ───────────────────────────────────────────────
 const TICKET_META = {
   dungeon:  { label: '던전 이용권',    icon: '🗡️', max: 3, color: 'sky'    },
-  bossRaid: { label: '보스레이드 이용권', icon: '👹', max: 3, color: 'rose'   },
+  bossRaid: { label: '퀴즈레이드 이용권', icon: '👹', max: 3, color: 'rose'   },
   arena:    { label: '투기장 이용권',  icon: '🏟️', max: 5, color: 'violet' },
 };
 

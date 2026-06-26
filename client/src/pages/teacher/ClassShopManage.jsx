@@ -468,7 +468,7 @@ function ClassShopManage({ selectedClass }) {
           <div className="grid grid-cols-3 gap-4 mb-4">
             {[
               { key: 'dungeon',  icon: '🗡️', label: '던전',    max: 3 },
-              { key: 'bossRaid', icon: '👹', label: '보스레이드', max: 3 },
+              { key: 'bossRaid', icon: '👹', label: '퀴즈레이드', max: 3 },
               { key: 'arena',    icon: '🏟️', label: '투기장',   max: 5 },
             ].map(({ key, icon, label, max }) => (
               <div key={key} className="bg-slate-800 rounded-xl p-3">

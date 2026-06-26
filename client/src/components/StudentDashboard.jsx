@@ -340,8 +340,8 @@ function RewardLogWidget({ studentId }) {
           if (gold + exp + diamond <= 0) return;
           merged.push({
             id: `boss-${d.id}`,
-            source: '보스레이드',
-            title: r.bossName ? `${r.bossName} 클리어` : '보스레이드 클리어',
+            source: '퀴즈레이드',
+            title: r.bossName ? `${r.bossName} 클리어` : '퀴즈레이드 클리어',
             gold, exp, diamond,
             at: r.rewardsPaidAt || r.clearedAt || r.createdAt || null,
           });
@@ -469,8 +469,8 @@ function RewardLogModalWidget({ studentId }) {
           if (gold + exp + diamond <= 0) return;
           merged.push({
             id: `boss-${d.id}`,
-            source: '보스레이드',
-            title: r.bossName ? `${r.bossName} 클리어` : '보스레이드 클리어',
+            source: '퀴즈레이드',
+            title: r.bossName ? `${r.bossName} 클리어` : '퀴즈레이드 클리어',
             gold, exp, diamond,
             at: r.rewardsPaidAt || r.clearedAt || r.createdAt || null,
           });

@@ -133,17 +133,17 @@ const FOCUS_BREAK_TIME_PENALTY = 2;
 const PRESENTATION_FALLBACK_QUESTIONS = [
   {
     type: 'mc',
-    question: '다음 중 보스레이드에서 보스에게 피해를 주는 방법은 무엇인가요?',
+    question: '다음 중 퀴즈레이드에서 레이드 목표를 달성하는 방법은 무엇인가요?',
     options: ['정답을 고른다', '아무 버튼이나 누른다', '기다리기만 한다', '창을 닫는다'],
     answer: 0,
-    explanation: '보스레이드는 퀴즈 정답을 맞힐 때 피해가 들어갑니다.',
+    explanation: '퀴즈레이드는 정답을 맞힐 때 레이드 진행도가 올라갑니다.',
   },
   {
     type: 'mc',
-    question: '여러 학생이 동시에 참여하는 보스레이드의 핵심 목표는 무엇인가요?',
-    options: ['혼자만 보상 받기', '보스 HP를 함께 줄이기', '학생 목록 숨기기', '문제를 건너뛰기'],
+    question: '여러 학생이 동시에 참여하는 퀴즈레이드의 핵심 목표는 무엇인가요?',
+    options: ['혼자만 보상 받기', '레이드 HP를 함께 줄이기', '학생 목록 숨기기', '문제를 건너뛰기'],
     answer: 1,
-    explanation: '참여 학생들이 함께 문제를 풀어 보스 HP를 줄이는 구조입니다.',
+    explanation: '참여 학생들이 함께 문제를 풀어 레이드 HP를 줄이는 구조입니다.',
   },
   {
     type: 'mc',
@@ -178,7 +178,7 @@ export const createPresentationTestRaid = async ({ classId, teacherUid, rosterCo
   const maxHP = 10000;
 
   return addDoc(collection(db, 'worldBossRaids'), {
-    title: sourceQuizSet?.title ? `${sourceQuizSet.title} 발표 테스트` : '보스레이드 발표 테스트',
+    title: sourceQuizSet?.title ? `${sourceQuizSet.title} 발표 테스트` : '퀴즈레이드 발표 테스트',
     classId: classId || null,
     teacherUid: teacherUid || null,
     bossId,
@@ -300,7 +300,7 @@ function BossHpBar({ current, max }) {
   return (
     <div>
       <div className="flex justify-between text-sm font-bold text-white mb-1.5">
-        <span>보스 HP</span>
+        <span>레이드 HP</span>
         <span>{Math.max(0, current).toLocaleString()} / {max.toLocaleString()}</span>
       </div>
       <div className="w-full h-5 bg-slate-700 rounded-full overflow-hidden shadow-inner">
@@ -432,7 +432,7 @@ function NoBossScreen() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center justify-center p-8 text-center">
       <div className="text-7xl mb-5 opacity-40 animate-pulse">🐉</div>
-      <p className="font-extrabold text-xl text-slate-400 mb-2">활성화된 보스 레이드가 없습니다</p>
+      <p className="font-extrabold text-xl text-slate-400 mb-2">활성화된 퀴즈레이드가 없습니다</p>
       <p className="text-slate-500 text-sm">선생님이 레이드를 열면 여기에 표시됩니다</p>
     </div>
   );
@@ -471,10 +471,10 @@ function IntroScreen({ raid, bossData, onEnter }) {
       {/* 헤더 */}
       <div className="flex flex-col items-center px-6 pt-8 pb-4 text-center">
         <div className="text-xs font-extrabold text-rose-400 tracking-widest mb-2 uppercase">World Boss Raid</div>
-        <h1 className="text-3xl font-extrabold text-white mb-3">보스 레이드</h1>
+        <h1 className="text-3xl font-extrabold text-white mb-3">퀴즈레이드</h1>
         <p className="text-slate-400 text-sm max-w-sm leading-relaxed mb-6">
-          학급 전원이 힘을 합쳐 강력한 보스를 쓰러뜨려라!<br/>
-          퀴즈를 맞출수록 보스에게 더 큰 데미지를 입힙니다.
+          학급 전원이 힘을 합쳐 퀴즈 목표를 달성하세요!<br/>
+          정답을 맞출수록 레이드 진행도가 크게 올라갑니다.
         </p>
 
         {/* 레이드 오픈 현황 */}
@@ -1083,7 +1083,7 @@ function BattlePhase({
           </div>
           <div>
             <div className="mb-1 flex items-center justify-between text-[9px] font-extrabold text-slate-300 sm:text-[10px]">
-              <span>🛡️ 보스 방어막</span><span>{shieldGauge}%</span>
+              <span>🛡️ 레이드 방어막</span><span>{shieldGauge}%</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-700">
               <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-500 transition-all duration-500"
@@ -1092,7 +1092,7 @@ function BattlePhase({
           </div>
         </div>
         <p className="mt-1.5 text-[10px] font-semibold text-slate-400">
-          정답은 보스를 공격하고 방어막을 깎습니다. 오답은 집중력을 떨어뜨리고, 집중력이 0이 되면 다음 문제 제한시간이 2초 줄어듭니다.
+          정답은 레이드 목표를 달성하고 방어막을 깎습니다. 오답은 집중력을 떨어뜨리고, 집중력이 0이 되면 다음 문제 제한시간이 2초 줄어듭니다.
           {Number(raid.questionDurationPenalty || 0) > 0 && (
             <span className="ml-2 text-rose-300">현재 제한시간 -{raid.questionDurationPenalty}초</span>
           )}
@@ -1383,7 +1383,7 @@ function BattlePhase({
 }
 
 // ── 결과 화면 ─────────────────────────────────────────────────────
-function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
+function ResultPhase({ raid, myId, bossData, onGoToIntro, onStartWrongReview }) {
   const isCleared = raid.status === 'cleared';
   const myP = raid.participants?.[myId] || {};
   const sorted = Object.entries(raid.participants || {})
@@ -1402,7 +1402,7 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
 
       <div className="text-5xl mb-3">{isCleared ? '🏆' : '💀'}</div>
       <h2 className="text-3xl font-extrabold text-white mb-1">
-        {isCleared ? '보스 처치 성공!' : '레이드 실패...'}
+        {isCleared ? '퀴즈레이드 성공!' : '레이드 실패...'}
       </h2>
       <p className="text-slate-400 text-sm mb-6">{raid.bossName}</p>
 
@@ -1465,7 +1465,7 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
 
         {answerDetails.length === 0 ? (
           <div className="rounded-2xl bg-slate-900/70 border border-slate-700 p-6 text-base text-slate-400 text-center">
-            문제별 기록은 새로 진행한 보스레이드부터 표시됩니다.
+            문제별 기록은 새로 진행한 퀴즈레이드부터 표시됩니다.
           </div>
         ) : wrongDetails.length === 0 ? (
           <div className="rounded-2xl bg-emerald-950/40 border border-emerald-700/60 p-6 text-base font-bold text-emerald-200 text-center">
@@ -1499,11 +1499,21 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
       </div>
 
       {onGoToIntro && (
-        <button
-          onClick={onGoToIntro}
-          className="mt-2 mb-2 px-8 py-3 bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold rounded-2xl transition-all">
-          🏠 초기화면으로
-        </button>
+        <div className="mt-2 mb-2 flex flex-wrap justify-center gap-2">
+          {wrongDetails.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onStartWrongReview?.(wrongDetails)}
+              className="px-8 py-3 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold rounded-2xl shadow-lg shadow-rose-950/40 transition-all">
+              📒 퀴즈레이드 오답 다시 풀기 ({wrongDetails.length})
+            </button>
+          )}
+          <button
+            onClick={onGoToIntro}
+            className="px-8 py-3 bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-bold rounded-2xl transition-all">
+            🏠 초기화면으로
+          </button>
+        </div>
       )}
 
       {sorted.length > 0 && (
@@ -1531,6 +1541,172 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function BossWrongReviewPhase({ wrongDetails, onBackToResult }) {
+  const reviewItems = (wrongDetails || [])
+    .filter(item => Array.isArray(item.options) && item.options.length > 0)
+    .sort((a, b) => (a.questionIdx || 0) - (b.questionIdx || 0));
+  const reviewKey = reviewItems.map((item, index) => item.questionKey || `${item.questionIdx ?? index}`).join('|');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedByKey, setSelectedByKey] = useState({});
+  const [submittedByKey, setSubmittedByKey] = useState({});
+
+  useEffect(() => {
+    setCurrentIndex(0);
+    setSelectedByKey({});
+    setSubmittedByKey({});
+  }, [reviewKey]);
+
+  if (reviewItems.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+        <div className="rounded-3xl border border-slate-700 bg-slate-900 p-8 shadow-xl">
+          <div className="text-4xl mb-3">📒</div>
+          <h2 className="text-2xl font-black text-white">다시 풀 오답이 없습니다.</h2>
+          <button
+            type="button"
+            onClick={onBackToResult}
+            className="mt-6 rounded-2xl bg-slate-700 px-6 py-3 font-extrabold text-white hover:bg-slate-600"
+          >
+            결과 화면으로 돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const current = reviewItems[Math.min(currentIndex, reviewItems.length - 1)];
+  const questionKey = current.questionKey || `review-${currentIndex}`;
+  const selectedIdx = selectedByKey[questionKey];
+  const submitted = Boolean(submittedByKey[questionKey]);
+  const correctIdx = Number.isInteger(current.correctIdx) ? current.correctIdx : 0;
+  const isCorrect = submitted && selectedIdx === correctIdx;
+  const isLast = currentIndex >= reviewItems.length - 1;
+  const completedCount = Object.keys(submittedByKey).length;
+
+  const chooseOption = (idx) => {
+    if (submitted) return;
+    setSelectedByKey(prev => ({ ...prev, [questionKey]: idx }));
+  };
+
+  const submitReviewAnswer = () => {
+    if (selectedIdx == null) return;
+    setSubmittedByKey(prev => ({ ...prev, [questionKey]: true }));
+  };
+
+  const moveNext = () => {
+    if (isLast) {
+      onBackToResult?.();
+      return;
+    }
+    setCurrentIndex(index => Math.min(reviewItems.length - 1, index + 1));
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-950 to-rose-950 p-4 text-slate-100 md:p-8">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+        <div className="rounded-3xl border border-rose-800/60 bg-slate-900/90 p-5 shadow-2xl shadow-black/30">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-rose-300">퀴즈레이드 결과 복습</p>
+              <h2 className="mt-1 text-2xl font-black text-white md:text-3xl">틀린 문제만 다시 풀기</h2>
+              <p className="mt-2 text-sm font-semibold text-slate-400">
+                이번 레이드에서 틀린 문제 {reviewItems.length}개만 다시 확인합니다.
+              </p>
+            </div>
+            <div className="rounded-2xl bg-slate-950 px-4 py-3 text-right">
+              <div className="text-xs font-bold text-slate-500">진행</div>
+              <div className="text-xl font-black text-white">{completedCount}/{reviewItems.length}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-700 bg-slate-900 p-5 shadow-xl md:p-7">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <span className="rounded-full bg-rose-500/15 px-4 py-1.5 text-sm font-black text-rose-200">
+              Q{(current.questionIdx ?? currentIndex) + 1} · 오답 {currentIndex + 1}/{reviewItems.length}
+            </span>
+            <button
+              type="button"
+              onClick={onBackToResult}
+              className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800"
+            >
+              결과 화면으로
+            </button>
+          </div>
+
+          <p className="text-lg font-extrabold leading-8 text-white md:text-xl">{renderMath(current.question || '')}</p>
+          {current.table && <div className="mt-4"><TableRenderer table={current.table} /></div>}
+          {current.shape && <div className="mt-4 rounded-2xl bg-white p-4"><ShapeRenderer shape={current.shape} /></div>}
+
+          <div className="mt-6 grid gap-3">
+            {current.options.map((option, idx) => {
+              const isSelected = selectedIdx === idx;
+              const isAnswer = submitted && idx === correctIdx;
+              const isWrongSelected = submitted && isSelected && idx !== correctIdx;
+              const tone = isAnswer
+                ? 'border-emerald-400 bg-emerald-500/20 text-emerald-100'
+                : isWrongSelected
+                  ? 'border-rose-400 bg-rose-500/20 text-rose-100'
+                  : isSelected
+                    ? 'border-indigo-400 bg-indigo-500/20 text-white'
+                    : 'border-slate-700 bg-slate-950 text-slate-200 hover:border-slate-500 hover:bg-slate-800';
+
+              return (
+                <button
+                  key={`${questionKey}-${idx}`}
+                  type="button"
+                  onClick={() => chooseOption(idx)}
+                  className={`rounded-2xl border px-4 py-3 text-left text-base font-extrabold transition-all ${tone}`}
+                >
+                  <span className="mr-2 text-slate-400">{idx + 1}.</span>
+                  {renderMath(stripOptionPrefix(String(option || '')))}
+                </button>
+              );
+            })}
+          </div>
+
+          {submitted && (
+            <div className={`mt-5 rounded-2xl border p-4 ${isCorrect ? 'border-emerald-600 bg-emerald-950/50' : 'border-rose-700 bg-rose-950/40'}`}>
+              <div className={`text-lg font-black ${isCorrect ? 'text-emerald-200' : 'text-rose-200'}`}>
+                {isCorrect ? '정답입니다.' : '아직 헷갈린 문제입니다.'}
+              </div>
+              <div className="mt-2 text-sm font-bold text-emerald-100">
+                정답: {renderMath(current.correctAnswer || answerText(current, correctIdx))}
+              </div>
+              {cleanExplanation(current.explanation) && (
+                <div className="mt-3 rounded-xl bg-slate-950/60 p-3 text-sm font-semibold leading-6 text-slate-300">
+                  {renderMath(cleanExplanation(current.explanation))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="mt-6 flex flex-wrap justify-end gap-2">
+            {!submitted ? (
+              <button
+                type="button"
+                onClick={submitReviewAnswer}
+                disabled={selectedIdx == null}
+                className="rounded-2xl bg-rose-600 px-7 py-3 font-black text-white shadow-lg shadow-rose-950/40 transition-all hover:bg-rose-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+              >
+                정답 확인
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={moveNext}
+                className="rounded-2xl bg-indigo-600 px-7 py-3 font-black text-white shadow-lg shadow-indigo-950/40 transition-all hover:bg-indigo-500"
+              >
+                {isLast ? '결과 화면으로 돌아가기' : '다음 오답 풀기'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1563,6 +1739,7 @@ export default function BossRaid({
   const [bossFlash, setBossFlash] = useState(false);
   const [timeLeft, setTimeLeft]   = useState(null);
   const [changingBoss, setChangingBoss] = useState(false);
+  const [wrongReviewDetails, setWrongReviewDetails] = useState([]);
 
   const prevHpRef          = useRef(null);
   const advancedRef        = useRef(-1);
@@ -1635,6 +1812,10 @@ export default function BossRaid({
 
   // raidRef 최신 raid 추적 (언마운트 시 사용)
   useEffect(() => { raidRef.current = raid; }, [raid]);
+
+  useEffect(() => {
+    setWrongReviewDetails([]);
+  }, [raid?.id, activeStudentId]);
 
   useEffect(() => {
     if (!presentationMode) return;
@@ -2147,7 +2328,7 @@ export default function BossRaid({
           status: 'cleared',
           clearedAt: serverTimestamp(),
         });
-      }).catch(error => console.error('보스레이드 마지막 일격 완료 오류:', error));
+      }).catch(error => console.error('퀴즈레이드 마지막 처리 오류:', error));
     }, remaining);
     return () => clearTimeout(timer);
   }, [raid?.id, raid?.status, raid?.finishing, raid?.finishingStartedAt]);
@@ -2609,7 +2790,7 @@ export default function BossRaid({
       transaction.update(raidDocRef, updates);
       return { accepted: true, damage, critical, breakTriggered, moraleBroken };
     }).catch((error) => {
-      console.error('보스레이드 전투 처리 오류:', error);
+      console.error('퀴즈레이드 처리 오류:', error);
       return { accepted: false };
     });
 
@@ -2637,8 +2818,8 @@ export default function BossRaid({
         teacherUid: studentData?.teacherUid || raid.teacherUid || '',
         classId: studentData?.classId || raid.classId || '',
         source: 'bossRaid',
-        unitName: '보스레이드',
-        lessonTitle: raid.title || raid.bossName || '보스레이드',
+        unitName: '퀴즈레이드',
+        lessonTitle: raid.title || raid.bossName || '퀴즈레이드',
         lessonKey: `bossRaid_${raid.id}`,
         raidId: raid.id,
         raidTitle: raid.title || '',
@@ -2649,7 +2830,7 @@ export default function BossRaid({
         fullQuestion: q.question || '',
         options: q.options || [],
         explanation: cleanExplanation(q.explanation || ''),
-        skill: '보스레이드',
+        skill: '퀴즈레이드',
         shape: q.shape || null,
         table: q.table || null,
         selectedIdx: answerIdx,
@@ -2662,7 +2843,7 @@ export default function BossRaid({
         reviewCorrectCount: 0,
         completedAt: serverTimestamp(),
         date: new Date().toISOString().slice(0, 10),
-      }, { merge: true }).catch(err => console.error('보스레이드 오답 저장 오류:', err));
+      }, { merge: true }).catch(err => console.error('퀴즈레이드 오답 저장 오류:', err));
     }
   };
 
@@ -2675,7 +2856,7 @@ export default function BossRaid({
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center">
         <div className="mb-4 text-5xl">⚠️</div>
-        <h2 className="text-xl font-extrabold text-white mb-2">보스레이드 테스트 준비 실패</h2>
+        <h2 className="text-xl font-extrabold text-white mb-2">퀴즈레이드 테스트 준비 실패</h2>
         <p className="max-w-xl text-sm font-semibold leading-relaxed text-slate-300">
           {presentationError}
         </p>
@@ -2790,5 +2971,22 @@ export default function BossRaid({
   }
 
   // cleared / failed
-  return <ResultPhase raid={raid} myId={activeStudentId} bossData={bossData} onGoToIntro={() => setShowIntro(true)} />;
+  if (wrongReviewDetails.length > 0) {
+    return (
+      <BossWrongReviewPhase
+        wrongDetails={wrongReviewDetails}
+        onBackToResult={() => setWrongReviewDetails([])}
+      />
+    );
+  }
+
+  return (
+    <ResultPhase
+      raid={raid}
+      myId={activeStudentId}
+      bossData={bossData}
+      onGoToIntro={() => setShowIntro(true)}
+      onStartWrongReview={setWrongReviewDetails}
+    />
+  );
 }

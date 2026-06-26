@@ -145,7 +145,7 @@ function DashboardTab() {
         const featureSources = [
           { key: 'quests', label: '퀘스트', docs: questSnap.docs.map(d => ({ id: d.id, ...d.data() })) },
           { key: 'dungeons', label: '퀴즈던전', docs: dungeonSnap.docs.map(d => ({ id: d.id, ...d.data() })) },
-          { key: 'raids', label: '보스레이드', docs: raidSnap.docs.map(d => ({ id: d.id, ...d.data() })) },
+          { key: 'raids', label: '퀴즈레이드', docs: raidSnap.docs.map(d => ({ id: d.id, ...d.data() })) },
           { key: 'shop', label: '학급상점', docs: shopSnap.docs.map(d => ({ id: d.id, ...d.data() })) },
         ];
         const feedbacks = feedbackSnap.docs.map(d => ({ id: d.id, ...d.data() }));

@@ -27,7 +27,7 @@ export const OPERATION_MODE_PRESETS = {
   },
   game: {
     title: '게임형 학급 운영',
-    description: '퀘스트와 상점에 어드벤처, 퀴즈던전, 보스레이드, 투기장을 더합니다.',
+    description: '퀘스트와 상점에 어드벤처, 퀴즈던전, 퀴즈레이드, 투기장을 더합니다.',
     studentHidden: hideExcept(STUDENT_MENU_IDS, [
       'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement','learningNote','topicWriting',
       'adventure','classOperation','quizDungeon','explorationDungeon','arena','bossRaid','trade','classShop','settings','editProfile','themeSettings',

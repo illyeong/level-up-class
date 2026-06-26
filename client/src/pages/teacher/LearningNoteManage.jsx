@@ -31,7 +31,7 @@ const DEFAULT_SETTINGS = { minCoreLength: 10, minThoughtLength: 20, rewardGold: 
 
 const getMaxExp = getMaxExpForLevel;
 
-export default function LearningNoteManage({ selectedClass }) {
+export default function LearningNoteManage({ selectedClass, onApprovalBadgeRefresh }) {
   const teacherUid = selectedClass?.teacherUid;
 
   const [tab, setTab]             = useState('queue'); // 'queue' | 'students' | 'settings'
@@ -186,6 +186,7 @@ export default function LearningNoteManage({ selectedClass }) {
         }));
       }
       showToast(`✅ 승인 · 골드 +${reward.rewardGold}, 다이아 +${reward.rewardDia}, 경험치 +${reward.rewardExp}`);
+      await onApprovalBadgeRefresh?.();
       setModal(null); setComment('');
     } catch (e) { showToast('오류가 발생했습니다.', 'error'); console.error(e); }
     finally { setProcessing(false); }
@@ -205,6 +206,7 @@ export default function LearningNoteManage({ selectedClass }) {
         return { ...n, subjects: updatedSubjects, status: calcOverallStatus(updatedSubjects) };
       }));
       showToast('반려 처리되었습니다.');
+      await onApprovalBadgeRefresh?.();
       setModal(null); setComment('');
     } catch { showToast('오류가 발생했습니다.', 'error'); }
     finally { setProcessing(false); }
@@ -236,6 +238,7 @@ export default function LearningNoteManage({ selectedClass }) {
         } catch (e) { console.error('bulk approve error:', note.id, e); }
       }
       showToast(`✅ ${ok}건 일괄 승인 완료`);
+      await onApprovalBadgeRefresh?.();
     } finally { setBulkApproving(false); }
   };
 

@@ -30,19 +30,19 @@ export const HELP_CONTENT = {
   },
   adventure: {
     title: '어드벤처',
-    summary: '학생 화면과 동일한 던전·보스레이드를 테스트하고 이용권을 관리하는 영역입니다.',
-    steps: ['발행된 퀴즈던전을 테스트합니다.', '탐험던전과 보스레이드 화면을 점검합니다.', '어드벤처 관리에서 학생 이용권을 조정합니다.'],
+    summary: '학생 화면과 동일한 던전·퀴즈레이드를 테스트하고 이용권을 관리하는 영역입니다.',
+    steps: ['발행된 퀴즈던전을 테스트합니다.', '탐험던전과 퀴즈레이드 화면을 점검합니다.', '어드벤처 관리에서 학생 이용권을 조정합니다.'],
     tip: '콘텐츠 발행은 수업 콘텐츠 제작실에서 진행한 뒤 이 메뉴에서 학생 화면을 테스트하세요.',
   },
   contentStudio: {
     title: '수업 콘텐츠 제작실',
-    summary: '수업용 퀴즈를 만들고 퀴즈던전과 보스레이드 콘텐츠로 발행하는 영역입니다.',
-    steps: ['퀴즈 은행에서 문제를 준비합니다.', '퀴즈던전 또는 보스레이드를 생성합니다.', '발행 설정과 보상을 확인합니다.'],
+    summary: '수업용 퀴즈를 만들고 퀴즈던전과 퀴즈레이드 콘텐츠로 발행하는 영역입니다.',
+    steps: ['퀴즈 은행에서 문제를 준비합니다.', '퀴즈던전 또는 퀴즈레이드를 생성합니다.', '발행 설정과 보상을 확인합니다.'],
     tip: '퀴즈 은행 → 콘텐츠 생성 → 어드벤처 테스트 순서로 운영하면 편리합니다.',
   },
   quizBank: {
     title: '퀴즈 은행',
-    summary: '퀴즈던전과 보스레이드에 사용할 문제를 만들고 관리합니다.',
+    summary: '퀴즈던전과 퀴즈레이드에 사용할 문제를 만들고 관리합니다.',
     steps: ['학년, 학기, 과목, 출판사, 단원을 선택합니다.', '직접 출제하거나 AI 출제로 문제를 만듭니다.', '미리보기로 정답과 보기를 확인한 뒤 공유하거나 던전에 연결합니다.'],
     tip: '문항 수가 너무 적으면 반복감이 생기므로 같은 차시에도 여러 유형을 섞어 주세요.',
   },
@@ -53,7 +53,7 @@ export const HELP_CONTENT = {
     tip: '보상은 정답 수에 따라 차등 지급되므로 최대 보상을 먼저 정하면 운영이 쉽습니다.',
   },
   bossRaidManage: {
-    title: '보스레이드 관리',
+    title: '퀴즈레이드 관리',
     summary: '학급 전체가 함께 참여하는 협동 퀴즈 레이드를 생성하고 결과를 확인합니다.',
     steps: ['보스와 배경을 선택합니다.', '퀴즈와 제한 시간, 보상을 설정합니다.', '결과 확인에서 학생별 정답과 데미지를 확인합니다.'],
     tip: '보스 HP는 학생 수와 문항 수를 기준으로 추천값을 활용하세요.',
@@ -77,8 +77,8 @@ export const HELP_CONTENT = {
     tip: '웹 배포 후에는 브라우저 캐시 영향이 있을 수 있어 새로고침 후 테스트해 주세요.',
   },
   bossRaid: {
-    title: '보스 레이드',
-    summary: '현재 진행 중인 보스레이드 대기실과 전투 화면을 확인합니다.',
+    title: '퀴즈레이드',
+    summary: '현재 진행 중인 퀴즈레이드 대기실과 진행 화면을 확인합니다.',
     steps: ['레이드 대기실에서 참여 학생 수를 확인합니다.', '전투 화면에서 배경, 보스, 문제 UI를 확인합니다.', '종료 후 결과 화면에서 보상 지급 상태를 봅니다.'],
     tip: '교실에서 사용할 때는 대기실을 먼저 띄우고 학생 참여가 모이면 시작하세요.',
   },
@@ -180,7 +180,17 @@ export const HELP_CONTENT = {
   },
 };
 
-const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, selectedClass, hiddenMenuIds = [] }) => {
+const ApprovalBadge = ({ count }) => {
+  if (!count || count <= 0) return null;
+  const label = count > 99 ? '99+' : String(count);
+  return (
+    <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-black leading-none text-white shadow-sm ring-2 ring-indigo-950">
+      {label}
+    </span>
+  );
+};
+
+const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, selectedClass, hiddenMenuIds = [], approvalBadges = {} }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [expandedMenu, setExpandedMenu] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -206,7 +216,7 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
       subMenus: [
         { title: '📚 퀴즈 은행',    id: 'quizBank' },
         { title: '퀴즈던전 관리',  id: 'quizDungeonManage' },
-        { title: '보스레이드 관리', id: 'bossRaidManage' },
+        { title: '퀴즈레이드 관리', id: 'bossRaidManage' },
         { title: '🤖 AI 학습현황', id: 'aiCourseware' },
         { title: 'AI 학습 학생화면', id: 'aiCoursewareView' },
       ],
@@ -259,6 +269,8 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
 
   const activeParentId = teacherMenuData.find(menu => menu.subMenus.some(sub => sub.id === currentView))?.id;
   const visibleExpandedMenu = expandedMenu ?? activeParentId;
+  const getBadgeCount = (id) => Number(approvalBadges?.[id] || 0);
+  const getMenuBadgeCount = (menu) => (menu.subMenus || []).reduce((sum, sub) => sum + getBadgeCount(sub.id), 0);
 
   const submitFeedback = async () => {
     if (!fbText.trim()) return;
@@ -350,11 +362,19 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
               `}
             >
               <div className="flex items-center">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/5 text-[20px]">{menu.icon}</span>
+                <span className="relative grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/5 text-[20px]">
+                  {menu.icon}
+                  {getMenuBadgeCount(menu) > 0 && (
+                    <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-rose-500 px-1 text-center text-[9px] font-black leading-4 text-white ring-2 ring-indigo-950">
+                      {getMenuBadgeCount(menu) > 99 ? '99+' : getMenuBadgeCount(menu)}
+                    </span>
+                  )}
+                </span>
 
                 {isSidebarOpen && (
-                  <span className={`ml-3 text-[13px] font-semibold ${(currentView === menu.id || menu.subMenus.some(sub => sub.id === currentView)) ? 'font-extrabold' : ''}`}>
-                    {menu.title}
+                  <span className={`ml-3 flex min-w-0 items-center text-[13px] font-semibold ${(currentView === menu.id || menu.subMenus.some(sub => sub.id === currentView)) ? 'font-extrabold' : ''}`}>
+                    <span className="truncate">{menu.title}</span>
+                    <ApprovalBadge count={getMenuBadgeCount(menu)} />
                     {!menu.isReady && <span className="ml-2 text-[10px] bg-indigo-800 text-indigo-300 px-2 py-0.5 rounded-full">준비중</span>}
                   </span>
                 )}
@@ -381,7 +401,8 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
                       }
                     `}
                   >
-                    {subMenu.title}
+                    <span className="min-w-0 flex-1 truncate">{subMenu.title}</span>
+                    <ApprovalBadge count={getBadgeCount(subMenu.id)} />
                   </li>
                 ))}
               </ul>

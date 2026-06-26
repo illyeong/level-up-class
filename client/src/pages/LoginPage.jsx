@@ -61,7 +61,7 @@ const STUDENT_MENUS = [
       { name: '퀴즈던전', desc: '문제를 풀며 몬스터를 처치하는 솔로 퀴즈 배틀' },
       { name: '탐험던전', desc: 'Unity 2D 플랫포머 액션 던전 탐험' },
       { name: '투기장', desc: '실시간 1:1 퀴즈 PvP 배틀' },
-      { name: '보스 레이드', desc: '학급 전체 협동으로 보스 HP를 0으로 만들기' },
+      { name: '퀴즈레이드', desc: '학급 전체 협동으로 퀴즈 목표를 달성하기' },
     ],
   },
   {
@@ -116,7 +116,7 @@ const TEACHER_MENUS = [
     features: [
       { name: '퀴즈 은행', desc: '문제 제작·보관, 카테고리 분류' },
       { name: '퀴즈던전 관리', desc: 'AI 퀴즈 자동 생성 (PDF·PPT 업로드 지원), 던전 발행' },
-      { name: '보스레이드 관리', desc: '레이드 생성·종료, 실시간 HP 모니터링, 보상 일괄 지급' },
+      { name: '퀴즈레이드 관리', desc: '레이드 생성·종료, 실시간 진행 모니터링, 보상 일괄 지급' },
       { name: '어드벤처 이용권 관리', desc: '학생별·전체 이용권 부여 및 초기화' },
     ],
   },
@@ -134,7 +134,7 @@ const TEACHER_MENUS = [
     features: [
       { name: '학급 상점 관리', desc: '아이템 등록·수정·삭제, 구매 및 사용 내역' },
       { name: '은행 관리', desc: '예치 이율 설정, 이자 일괄 지급' },
-      { name: '주식/ETF 관리', desc: '가격 새로고침, 배당 지급, 선생님의 영혼 특별 채권 운영' },
+      { name: '주식/ETF 관리', desc: '가격 새로고침, 배당 지급, 교사 설정 종목 운영' },
     ],
   },
   {
@@ -179,8 +179,8 @@ const SCREENSHOTS = {
     { title: '퀴즈던전',        file: '퀴즈던전.png',              desc: '문제를 풀며 몬스터를 처치하는 싱글 전투를 진행합니다.' },
     { title: '배움노트 쓰기',   file: '배움노트쓰기.png',          desc: '학습 내용을 기록하고 승인 보상을 받습니다.' },
     { title: '학생 셀프체크인', file: '학생 셀프체크인.png',       desc: '학생이 스스로 일일/주간 퀘스트를 체크합니다.' },
-    { title: '보스레이드 대기실',  file: '보스레이드 대기실.png',   desc: '참여 인원과 보상 정보를 확인한 뒤 레이드를 시작합니다.' },
-    { title: '보스레이드 전투화면', file: '보스레이드 전투화면.png', desc: '보스 HP, 정답 로그, 타이머를 보며 전투를 진행합니다.' },
+    { title: '퀴즈레이드 대기실',  file: '보스레이드 대기실.png',   desc: '참여 인원과 보상 정보를 확인한 뒤 레이드를 시작합니다.' },
+    { title: '퀴즈레이드 진행화면', file: '보스레이드 전투화면.png', desc: '진행도, 정답 로그, 타이머를 보며 협동 퀴즈를 진행합니다.' },
     { title: '명예의 전당',     file: '당명예의 전당.png',          desc: '투기장/던전 랭킹을 유형별로 확인합니다.' },
   ],
   teacher: [
@@ -190,7 +190,7 @@ const SCREENSHOTS = {
     { title: '퀴즈 은행',       file: '퀴즈은행.png',              desc: '문제 제작과 보관, 던전 발행용 문제를 구성합니다.' },
     { title: '퀴즈던전 관리',   file: '퀴즈던전 관리.png',         desc: '던전 생성과 발행, 결과 확인을 관리합니다.' },
     { title: '어드벤처 관리',   file: '어드벤처관리.png',          desc: '이용권/레벨/학생 어드벤처 상태를 조정합니다.' },
-    { title: '보스레이드 관리', file: '보스레이드관리.png',         desc: '레이드 생성, 진행, 결과/정산을 확인합니다.' },
+    { title: '퀴즈레이드 관리', file: '보스레이드관리.png',         desc: '레이드 생성, 진행, 결과/정산을 확인합니다.' },
     { title: '배움노트 관리',   file: '배움노트관리.png',          desc: '학생 노트 승인/반려와 보상 기준을 설정합니다.' },
     { title: '주식/ETF 관리',   file: '주식ETF관리.png',           desc: 'ETF 가격, 배당, 교사 설정 종목을 관리합니다.' },
     { title: '공유게시판',      file: '공유게시판.png',            desc: '시트/그룹/게시글 구조로 공유 학습 보드를 운영합니다.' },
@@ -414,7 +414,7 @@ function IntroModal({ open, onClose }) {
   );
 }
 
-export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
+export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTestLogin, onTeacherTestLogin }) {
   const [mode, setMode] = useState(null); // null | 'student'
   const [studentCode, setStudentCode] = useState('');
   const [isCodeLocked, setIsCodeLocked] = useState(false);
@@ -486,6 +486,10 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
   };
 
   const handleStudentTestLogin = async () => {
+    if (onStudentTestLogin) {
+      onStudentTestLogin('SINSEOK-5-15', 'dashboard');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -503,6 +507,16 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const runChallengeAction = (action) => {
+    const pw = window.prompt('비밀번호를 입력해 주세요');
+    if (pw === null) return;
+    if (pw !== '0626') {
+      alert('비밀번호가 올바르지 않습니다.');
+      return;
+    }
+    action();
   };
 
   return (
@@ -627,29 +641,42 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin }) {
         )}
 
         <div className="mt-8 border-t border-white/10 pt-6">
-          <div className="mb-3 bg-white/10 border border-white/20 rounded-2xl p-3.5">
-            <p className="text-white font-extrabold text-sm mb-1">학생 테스트 페이지 안내</p>
-            <p className="text-indigo-200 text-xs leading-relaxed">
-              학생 테스트 페이지로 모든 기능을 확인하실 수 있습니다.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                const pw = window.prompt('비밀번호를 입력해 주세요');
-                if (pw === '1234') onTeacherLogin({ email: 'test@test.com', displayName: '테스트 교사' });
-                else if (pw !== null) alert('비밀번호가 올바르지 않습니다.');
-              }}
-              className="hidden flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors"
-            >
-              교사 테스트
-            </button>
-            <button
-              onClick={handleStudentTestLogin}
-              className="flex-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 text-xs font-bold py-2 rounded-xl border border-white/10 transition-colors"
-            >
-              학생 테스트
-            </button>
+          <div className="rounded-3xl border border-indigo-300/25 bg-indigo-950/45 p-4 shadow-lg shadow-indigo-950/30">
+            <div className="mb-3">
+              <p className="text-white font-extrabold text-sm">AI교수학습 협력설계 챌린지</p>
+              <p className="mt-1 text-indigo-200 text-xs leading-relaxed">
+                테스트 전용 페이지입니다. 각 버튼은 비밀번호 입력 후 이동합니다.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => runChallengeAction(handleStudentTestLogin)}
+                className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-xs font-extrabold text-white transition-colors hover:bg-white/20"
+              >
+                학생 테스트페이지
+              </button>
+              <button
+                type="button"
+                onClick={() => runChallengeAction(() => {
+                  if (onTeacherTestLogin) onTeacherTestLogin();
+                  else onTeacherLogin({ email: 'test@test.com', displayName: '테스트 교사' });
+                })}
+                className="rounded-2xl border border-white/15 bg-white/10 px-3 py-3 text-xs font-extrabold text-white transition-colors hover:bg-white/20"
+              >
+                교사 테스트페이지
+              </button>
+              <button
+                type="button"
+                onClick={() => runChallengeAction(() => {
+                  if (onStudentTestLogin) onStudentTestLogin('SINSEOK-5-15', 'bossRaid');
+                  else handleStudentTestLogin();
+                })}
+                className="rounded-2xl border border-rose-300/30 bg-rose-500/20 px-3 py-3 text-xs font-extrabold text-rose-50 transition-colors hover:bg-rose-500/30"
+              >
+                퀴즈레이드
+              </button>
+            </div>
           </div>
         </div>
       </div>

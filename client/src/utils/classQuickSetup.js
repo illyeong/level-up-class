@@ -518,7 +518,7 @@ export async function applyClassQuickSetup(selectedClass) {
   const bossQuizSetRef = doc(db, 'quizSets', bossQuizSetId);
   const bossQuizSetSnap = await getDoc(bossQuizSetRef);
   const bossQuestions = buildMcQuestions(grade);
-  const bossQuizSetTitle = `${grade}학년 수학 보스레이드 6문제`;
+  const bossQuizSetTitle = `${grade}학년 수학 퀴즈레이드 6문제`;
   await setDoc(bossQuizSetRef, {
     title: bossQuizSetTitle,
     grade,
@@ -558,7 +558,7 @@ export async function applyClassQuickSetup(selectedClass) {
       : 3000;
 
     await setDoc(bossRaidRef, {
-      title: `${grade}학년 수학 보스 레이드`,
+      title: `${grade}학년 수학 퀴즈레이드`,
       bossId: DEFAULT_BOSS_ID,
       bossName: DEFAULT_BOSS_NAME,
       bossBg: DEFAULT_BOSS_BG,

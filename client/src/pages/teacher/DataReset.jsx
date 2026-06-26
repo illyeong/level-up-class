@@ -412,13 +412,13 @@ export default function DataReset({ selectedClass, onClassDeleted }) {
             <ActionCard
               icon="🎫"
               title="이용권 초기화"
-              description="모든 학생의 이용권을 기본값(던전 3, 보스레이드 1, 투기장 5)으로 초기화합니다."
+              description="모든 학생의 이용권을 기본값(던전 3, 퀴즈레이드 1, 투기장 5)으로 초기화합니다."
               buttonLabel="초기화"
               loading={loadingKey === 'tickets'}
               onAction={() => openModal(
                 'tickets',
                 '이용권을 초기화할까요?',
-                '던전 3장, 보스레이드 1장, 투기장 5장으로 복원됩니다.',
+                '던전 3장, 퀴즈레이드 1장, 투기장 5장으로 복원됩니다.',
                 false,
                 resetTickets
               )}

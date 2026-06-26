@@ -25,7 +25,7 @@ const VIEW_CONFIG = {
   adventure:          { title: '어드벤처',   icon: '⚔️',  ticketKey: null },
   quizDungeon:        { title: '퀴즈던전',   icon: '🗡️',  ticketKey: 'dungeon'  },
   explorationDungeon: { title: '탐험던전',   icon: '🗺️',  ticketKey: 'dungeon'  },
-  bossRaid:           { title: '보스레이드', icon: '👹',  ticketKey: 'bossRaid' },
+  bossRaid:           { title: '퀴즈레이드', icon: '👹',  ticketKey: 'bossRaid' },
   arena:              { title: '투기장',     icon: '🏟️',  ticketKey: 'arena'    },
   miniGame:           { title: '미니 게임', icon: '🎮',  ticketKey: null       },
 };
@@ -157,9 +157,9 @@ const ADVENTURE_CARDS = [
   },
   {
     id: 'bossRaid',
-    icon: '👹', sub: 'World Boss Raid',
-    title: '보스 레이드',
-    desc: '학급 전원 협력 · 강력한 보스 격파',
+    icon: '👹', sub: 'Quiz Raid',
+    title: '퀴즈레이드',
+    desc: '학급 전원 협력 · 함께 푸는 퀴즈 챌린지',
     ticketKey: null,
     bg: 'from-rose-950 to-red-950',
     border: 'border-rose-800/60',

@@ -31,6 +31,7 @@ import HallOfFame         from '../student/HallOfFame';
 import AICoursewareManage from './AICoursewareManage';
 import AICourseware       from '../student/AICourseware';
 import { OPERATION_MODE_PRESETS, STUDENT_MENU_IDS, TEACHER_MENU_IDS } from '../../utils/operationModePresets';
+import { isTopicWritingRewardPending } from '../../utils/topicWritingRewards';
 
 const TEACHER_FONT_OPTIONS = [
   { id: 'game', label: '게임체', description: '친근하고 재미있는 분위기의 글씨체', className: 'teacher-font-game' },
@@ -59,7 +60,7 @@ const KOREAN_STUDENT_MENU_LABELS = {
   quizDungeon: '퀴즈던전',
   explorationDungeon: '탐험던전',
   arena: '투기장',
-  bossRaid: '보스 레이드',
+  bossRaid: '퀴즈레이드',
   classOperation: '우리반 대작전',
   trade: '무역 센터',
   classBank: '학급 은행',
@@ -81,11 +82,11 @@ const KOREAN_TEACHER_MENU_LABELS = {
   adventure: '어드벤처',
   quizBank: '퀴즈 은행',
   quizDungeonManage: '퀴즈던전 관리',
-  bossRaidManage: '보스레이드 관리',
+  bossRaidManage: '퀴즈레이드 관리',
   classOperationManage: '우리반 대작전 관리',
   quizDungeon: '퀴즈던전',
   explorationDungeon: '탐험던전',
-  bossRaid: '보스 레이드',
+  bossRaid: '퀴즈레이드',
   adventureManage: '어드벤처 관리',
   boardManage: '공유 게시판',
   learningNoteManage: '배움노트 관리',
@@ -122,6 +123,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   const [dashboardKey, setDashboardKey] = useState(0);
   const [activeHelpId, setActiveHelpId] = useState(null);
   const [bossRaidDemo, setBossRaidDemo] = useState({ status: 'idle', raidId: null, error: null });
+  const [approvalBadges, setApprovalBadges] = useState({});
   const [notices, setNotices]           = useState([]);
   const [dismissedIds, setDismissedIds] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('dismissedNotices') || '[]'); } catch { return []; }
@@ -133,6 +135,51 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))))
       .catch(() => {});
   }, []);
+
+  const refreshApprovalBadgeCounts = useCallback(async () => {
+    const teacherUid = selectedClass?.teacherUid;
+    if (!teacherUid) {
+      setApprovalBadges({});
+      return;
+    }
+
+    try {
+      const studentQuery = selectedClass?.id
+        ? query(collection(db, 'students'), where('classId', '==', selectedClass.id))
+        : query(collection(db, 'students'), where('teacherUid', '==', teacherUid));
+
+      const [studentSnap, noteSnap, writingSnap] = await Promise.all([
+        getDocs(studentQuery),
+        getDocs(query(
+          collection(db, 'learningNotes'),
+          where('teacherUid', '==', teacherUid),
+          where('status', '==', 'pending'),
+        )),
+        getDocs(query(
+          collection(db, 'writingSubmissions'),
+          where('teacherUid', '==', teacherUid),
+        )),
+      ]);
+
+      const studentIds = new Set(studentSnap.docs.map(studentDoc => studentDoc.id));
+      const pendingNotes = noteSnap.docs.filter(noteDoc => studentIds.has(noteDoc.data().studentId)).length;
+      const pendingTopicWritings = writingSnap.docs.filter(writingDoc => {
+        const data = writingDoc.data();
+        return studentIds.has(data.studentId) && isTopicWritingRewardPending(data);
+      }).length;
+
+      setApprovalBadges({
+        learningNoteManage: pendingNotes,
+        topicWritingManage: pendingTopicWritings,
+      });
+    } catch (error) {
+      console.error('[TeacherLayout] approval badge count failed:', error);
+    }
+  }, [selectedClass?.id, selectedClass?.teacherUid]);
+
+  useEffect(() => {
+    refreshApprovalBadgeCounts();
+  }, [refreshApprovalBadgeCounts]);
 
   useEffect(() => {
     localStorage.setItem('teacherThemeMode', teacherThemeMode);
@@ -216,7 +263,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
       setBossRaidDemo({
         status: 'error',
         raidId: null,
-        error: error?.message || '보스레이드 발표 테스트를 만들지 못했습니다.',
+        error: error?.message || '퀴즈레이드 발표 테스트를 만들지 못했습니다.',
       });
     }
   }, [selectedClass?.id, selectedClass?.teacherUid, user?.uid]);
@@ -243,7 +290,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
     quizDungeon: '퀴즈던전',
     explorationDungeon: '탐험던전',
     arena: '투기장',
-    bossRaid: '보스 레이드',
+    bossRaid: '퀴즈레이드',
     classOperation: '우리반 대작전',
     trade: '무역 센터',
     classBank: '학급 은행',
@@ -264,11 +311,11 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
     adventure: '어드벤처',
     quizBank: '퀴즈 은행',
     quizDungeonManage: '퀴즈던전 관리',
-    bossRaidManage: '보스레이드 관리',
+    bossRaidManage: '퀴즈레이드 관리',
     classOperationManage: '우리반 대작전 관리',
     quizDungeon: '퀴즈던전',
     explorationDungeon: '탐험던전',
-    bossRaid: '보스 레이드',
+    bossRaid: '퀴즈레이드',
     adventureManage: '어드벤처 관리',
     boardManage: '공유 게시판',
     learningNoteManage: '배움노트 관리',
@@ -334,6 +381,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
           onLogout={onLogout}
           selectedClass={selectedClass}
           hiddenMenuIds={hiddenTeacherMenuIds}
+          approvalBadges={approvalBadges}
         />
       )}
       {!shouldShowNav && (
@@ -401,6 +449,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             isDark={isDark}
             operationMode={operationMode}
             onApplyOperationMode={applyOperationMode}
+            onApprovalBadgeRefresh={refreshApprovalBadgeCounts}
           />
         )}
 
@@ -445,7 +494,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
           <div className="flex min-h-[calc(100vh-48px)] items-center justify-center bg-slate-950 p-6 text-center">
             <div className="max-w-md rounded-3xl border border-slate-700 bg-slate-900 px-8 py-7 shadow-2xl">
               <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-rose-500" />
-              <h2 className="text-xl font-extrabold text-white">보스레이드 발표 테스트 준비 중</h2>
+              <h2 className="text-xl font-extrabold text-white">퀴즈레이드 발표 테스트 준비 중</h2>
               <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-300">
                 새 테스트 레이드를 만들고 SINSEOK-5-01~15 학생을 참여자로 불러오는 중입니다.
               </p>
@@ -456,7 +505,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
           <div className="flex min-h-[calc(100vh-48px)] items-center justify-center bg-slate-950 p-6 text-center">
             <div className="max-w-lg rounded-3xl border border-rose-500/40 bg-slate-900 px-8 py-7 shadow-2xl">
               <div className="mb-4 text-5xl">⚠️</div>
-              <h2 className="text-xl font-extrabold text-white">보스레이드 발표 테스트 생성 실패</h2>
+              <h2 className="text-xl font-extrabold text-white">퀴즈레이드 발표 테스트 생성 실패</h2>
               <p className="mt-2 break-words text-sm font-semibold leading-relaxed text-rose-100">
                 {bossRaidDemo.error}
               </p>
@@ -496,8 +545,8 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {currentView === 'myCharacter'     && <TeacherCharacter selectedClass={selectedClass} />}
         {currentView === 'adventureManage' && <AdventureManage selectedClass={selectedClass} />}
         {currentView === 'boardManage'        && <BoardManage selectedClass={selectedClass} user={user} />}
-        {currentView === 'learningNoteManage' && <LearningNoteManage selectedClass={selectedClass} />}
-        {currentView === 'topicWritingManage' && <TopicWritingManage selectedClass={selectedClass} />}
+        {currentView === 'learningNoteManage' && <LearningNoteManage selectedClass={selectedClass} onApprovalBadgeRefresh={refreshApprovalBadgeCounts} />}
+        {currentView === 'topicWritingManage' && <TopicWritingManage selectedClass={selectedClass} onApprovalBadgeRefresh={refreshApprovalBadgeCounts} />}
         {currentView === 'aiCourseware'       && <AICoursewareManage selectedClass={selectedClass} onNavigate={setCurrentView} />}
         {currentView === 'aiCoursewareView'   && <AICourseware teacherUid={selectedClass?.teacherUid} classGrade={selectedClass?.grade} isTeacher themeMode={teacherThemeMode} />}
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   collection, getDocs, getDoc, doc, writeBatch,
-  updateDoc, serverTimestamp, setDoc, query, where,
+  updateDoc, serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import {
@@ -166,9 +166,6 @@ function EtfEditModal({ etf, onSave, onClose }) {
 function StockManage({ selectedClass }) {
   const [etfs, setEtfs]             = useState([]);
   const [students, setStudents]     = useState([]);
-  const [soulPrice, setSoulPrice]       = useState('');
-  const [isSoulSaving, setIsSoulSaving] = useState(false);
-  const [isSoulToggling, setIsSoulToggling] = useState(false);
   const [portfolioMap, setPortfolioMap] = useState({});
   const [dividendLogs, setDividendLogs] = useState([]);
   const [tab, setTab]               = useState('etfs');
@@ -194,7 +191,6 @@ function StockManage({ selectedClass }) {
   const scopeKey = classId || teacherUid || null;
   const studentScopeField = classId ? 'classId' : 'teacherUid';
   const studentScopeValue = classId || teacherUid || null;
-  const soulEtfId = scopeKey ? `teacher_soul_${scopeKey}` : null;
 
   const fetchAll = async () => {
     if (!scopeKey || !studentScopeValue) {
@@ -208,7 +204,7 @@ function StockManage({ selectedClass }) {
     setIsLoading(true);
     try {
       const [etfsSnap, studentsSnap, logSnap, classSnap, marketSnap] = await Promise.all([
-        loadClassEtfs(db, { scopeKey, soulEtfId }),
+        loadClassEtfs(db, { scopeKey, soulEtfId: null }),
         getDocs(query(collection(db, 'students'), where(studentScopeField, '==', studentScopeValue))),
         getDocs(query(collection(db, 'dividendLogs'), where('scopeKey', '==', scopeKey))),
         classId ? getDoc(doc(db, 'classes', classId)) : Promise.resolve(null),
@@ -217,8 +213,7 @@ function StockManage({ selectedClass }) {
 
       let etfList = etfsSnap;
       if (etfList.filter(e => !isTeacherSoulId(e.id)).length === 0) {
-        const soul = etfList.find(e => e.id === soulEtfId);
-        etfList = await seedClassEtfsFromApi(db, { scopeKey, classId, teacherUid, soulEtf: soul });
+        etfList = await seedClassEtfsFromApi(db, { scopeKey, classId, teacherUid });
       }
 
       const sList = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -243,7 +238,7 @@ function StockManage({ selectedClass }) {
         etfList = mergeUpdatedEtfs(etfList, autoOpen.updatedRows);
         market = autoOpen.marketInfo;
       }
-      setEtfs(etfList.sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0)));
+      setEtfs(etfList.filter(e => !isTeacherSoulId(e.id)).sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0)));
       setMarketMode(market.mode || 'balanced');
       setMarketHeadline(market.headline || '');
       setMarketLastOpenDate(market.lastOpenDate || '');
@@ -255,7 +250,7 @@ function StockManage({ selectedClass }) {
     }
   };
 
-  useEffect(() => { fetchAll(); }, [scopeKey, studentScopeField, studentScopeValue, soulEtfId]);
+  useEffect(() => { fetchAll(); }, [scopeKey, studentScopeField, studentScopeValue]);
 
   // ── 포트폴리오 로드 (탭 전환 시) ──────────────────────────
   useEffect(() => {
@@ -281,11 +276,10 @@ function StockManage({ selectedClass }) {
     if (!scopeKey) return;
     setIsRefreshing(true);
     try {
-      const soul = etfs.find(e => e.id === soulEtfId);
-      const rows = await seedClassEtfsFromApi(db, { scopeKey, classId, teacherUid, soulEtf: soul });
+      const rows = await seedClassEtfsFromApi(db, { scopeKey, classId, teacherUid });
       const data = { prices: rows };
       if (rows.length > 0) {
-        setEtfs(rows.sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0)));
+        setEtfs(rows.filter(e => !isTeacherSoulId(e.id)).sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0)));
         showToast(`${data.prices.length}개 ETF 가격 업데이트 완료! (미국 전일 종가 기준)`);
       }
     } catch (err) {
@@ -384,167 +378,6 @@ function StockManage({ selectedClass }) {
     }
   };
 
-  // ── 선생님의 영혼 초기 생성 ─────────────────────────────────
-  const initSoulEtf = async () => {
-    if (!soulEtfId) return;
-    const soulRef = doc(db, 'etfs', soulEtfId);
-    const snap    = await getDoc(soulRef);
-    if (snap.exists()) { showToast('이미 생성되어 있습니다!', 'error'); return; }
-
-    await setDoc(soulRef, {
-      id: soulEtfId, symbol: 'SOUL', name: '선생님의 영혼',
-      theme: '특별',
-      description: '우리 선생님의 소중한 영혼이 담긴 특별 ETF입니다. 매일 1%씩 자동 상승합니다.',
-      currentPrice: 100, prevPrice: 100, changePercent: 0,
-      basePrice: 100, baseShares: 50, maxShares: 100,
-      dailyGrowthRate: 0.01, dividendRate: 0,
-      isTeacherControlled: true, teacherSetToday: false,
-      lastPriceUpdate: '', active: true,
-      currency: 'gold',
-      classId,
-      teacherUid,
-      scopeKey,
-      updatedAt: new Date().toISOString(),
-      updatedDate: getKstDateKey(),
-    });
-    showToast('선생님의 영혼 ETF가 생성되었습니다!');
-    fetchAll();
-  };
-
-  // ── 선생님의 영혼 배당 지급 (가격 초기화 + 학생 수령 대기) ─────
-  const paySoulDividend = () => {
-    const soul = etfs.find(e => e.id === soulEtfId);
-    if (!soul) return showToast('선생님의 영혼 ETF가 없습니다.', 'error');
-
-    const dividendPerShare = Math.floor(soul.currentPrice - 100);
-    if (dividendPerShare <= 0) {
-      return showToast('현재 가격이 100골드 이하입니다. 1일 이상 지나야 배당금이 발생합니다.', 'error');
-    }
-
-    showConfirm(
-      `선생님의 영혼 배당금을 지급하시겠습니까?\n\n` +
-      `현재 가격: 🪙${soul.currentPrice}\n` +
-      `주당 배당금: 🪙${dividendPerShare}\n` +
-      `가격 100G로 초기화됩니다.\n\n` +
-      `학생들은 "보상 수령하기" 버튼을 눌러 수령합니다.`,
-      async () => {
-    setIsSoulSaving(true);
-    try {
-      // 모든 학생 보유 현황 로드
-      const allStudents = students;
-      if (allStudents.length === 0) {
-        showToast('학급 학생이 없습니다.', 'error');
-        return;
-      }
-
-      const batch = writeBatch(db);
-      let count = 0, totalPaid = 0;
-
-      await Promise.all(
-        allStudents.map(async stu => {
-          const holdSnap = await getDocs(collection(db, 'portfolios', stu.id, 'holdings'));
-          const soulDoc  = holdSnap.docs.find(d => d.id === soulEtfId);
-          if (!soulDoc) return;
-          const qty = soulDoc.data().quantity || 0;
-          if (qty <= 0) return;
-
-          const amount = dividendPerShare * qty;
-          batch.update(doc(db, 'students', stu.id), {
-            pendingSoulDividend: (stu.pendingSoulDividend || 0) + amount,
-          });
-          totalPaid += amount;
-          count++;
-        })
-      );
-
-      // 가격 100G으로 초기화
-      const today = getKstDateKey();
-      batch.update(doc(db, 'etfs', soulEtfId), {
-        prevPrice:       soul.currentPrice,
-        currentPrice:    100,
-        changePercent:   parseFloat(((100 - soul.currentPrice) / soul.currentPrice * 100).toFixed(2)),
-        lastPriceUpdate: today,
-        teacherSetToday: true,
-        updatedDate:     today,
-      });
-
-      await batch.commit();
-
-      setEtfs(prev => prev.map(e => e.id === soulEtfId
-        ? { ...e, prevPrice: e.currentPrice, currentPrice: 100 }
-        : e
-      ));
-
-      showToast(`배당금 지급 완료! ${count}명 · 🪙${totalPaid.toLocaleString()} 지급 대기`);
-    } catch (err) {
-      console.error('영혼 배당 에러:', err);
-      showToast('배당 지급 중 오류가 발생했습니다.', 'error');
-    } finally {
-      setIsSoulSaving(false);
-    }
-      }
-    );
-  };
-
-  // ── 선생님의 영혼 활성화/비활성화 ──────────────────────────
-  const toggleSoulActive = () => {
-    const soul = etfs.find(e => e.id === soulEtfId);
-    if (!soul) return;
-    const newActive = soul.active === false;
-    showConfirm(
-      newActive
-        ? '선생님의 영혼 ETF를 활성화하시겠습니까?\n학생 시장 탭에 다시 표시됩니다.'
-        : '선생님의 영혼 ETF를 비활성화하시겠습니까?\n학생 시장 탭에서 숨겨집니다. (보유 주식은 유지됩니다)',
-      async () => {
-        setIsSoulToggling(true);
-        try {
-          await updateDoc(doc(db, 'etfs', soulEtfId), { active: newActive });
-          setEtfs(prev => prev.map(e => e.id === soulEtfId ? { ...e, active: newActive } : e));
-          showToast(newActive ? '활성화되었습니다.' : '비활성화되었습니다.');
-        } catch (err) {
-          console.error(err);
-        } finally {
-          setIsSoulToggling(false);
-        }
-      }
-    );
-  };
-
-  // ── 선생님의 영혼 가격 수동 설정 ───────────────────────────
-  const setSoulPriceManual = async () => {
-    const price = parseFloat(soulPrice);
-    if (!price || price <= 0) return showToast('올바른 가격을 입력해주세요.', 'error');
-    const soulEtf = etfs.find(e => e.id === soulEtfId);
-    if (!soulEtf) return showToast('먼저 ETF를 초기 생성해주세요.', 'error');
-
-    const prevPrice   = soulEtf.currentPrice || 100;
-    const changePct   = parseFloat(((price - prevPrice) / prevPrice * 100).toFixed(2));
-    const today       = getKstDateKey();
-
-    setIsSoulSaving(true);
-    try {
-      await updateDoc(doc(db, 'etfs', soulEtfId), {
-        prevPrice, currentPrice: price,
-        changePercent: changePct,
-        lastPriceUpdate: today,
-        teacherSetToday: true,   // 오늘은 자동 1% 적용 안 함
-        updatedAt: new Date().toISOString(),
-        updatedDate: today,
-      });
-      setEtfs(prev => prev.map(e => e.id === soulEtfId
-        ? { ...e, prevPrice, currentPrice: price, changePercent: changePct }
-        : e
-      ));
-      setSoulPrice('');
-      showToast(`가격 🪙${price.toLocaleString()}으로 설정됨 (오늘 자동 상승 미적용)`);
-    } catch (err) {
-      console.error(err);
-      showToast('가격 설정 실패', 'error');
-    } finally {
-      setIsSoulSaving(false);
-    }
-  };
-
   // ── ETF 설정 저장 ────────────────────────────────────────────
   const saveEtfEdit = async (etfId, updates) => {
     try {
@@ -584,6 +417,7 @@ function StockManage({ selectedClass }) {
         let studentDividend = 0;
 
         for (const [etfId, holding] of Object.entries(holdings)) {
+          if (isTeacherSoulId(etfId)) continue;
           const etf = etfs.find(e => e.id === etfId);
           if (!etf || !etf.dividendRate || holding.quantity <= 0) continue;
           const div = Math.floor(holding.quantity * (etf.currentPrice || 0) * etf.dividendRate);
@@ -630,8 +464,12 @@ function StockManage({ selectedClass }) {
   };
 
   // ── 파생 데이터 ──────────────────────────────────────────────
-  const totalDivPaid = dividendLogs.reduce((s, l) => s + (l.dividendAmount || 0), 0);
-  const lastDivDate  = dividendLogs[0]?.weekOf || '-';
+  const managedDividendLogs = dividendLogs.filter(log => !isTeacherSoulId(log.etfId));
+  const totalDivPaid = managedDividendLogs.reduce((s, l) => s + (l.dividendAmount || 0), 0);
+  const lastDivDate  = managedDividendLogs[0]?.weekOf || '-';
+  const getManagedHoldingEntries = (holdings = {}) =>
+    Object.entries(holdings).filter(([etfId]) => !isTeacherSoulId(etfId) && etfs.some(e => e.id === etfId));
+  const portfolioStudents = students.filter(s => getManagedHoldingEntries(portfolioMap[s.id]).length > 0);
 
   if (!scopeKey) {
     return (
@@ -712,98 +550,6 @@ function StockManage({ selectedClass }) {
           </div>
         </div>
 
-        {/* 선생님의 영혼 ETF 관리 카드 */}
-        {(() => {
-          const soul = etfs.find(e => e.id === soulEtfId);
-          return (
-            <div className="relative rounded-2xl overflow-hidden shadow-md mb-6 text-white"
-              style={{ background: 'linear-gradient(135deg, #5b21b6, #be185d)' }}>
-              {/* 배경 이미지 */}
-              <div className="absolute inset-0" style={{
-                backgroundImage: 'url(/images/soul-bond-bg.png)',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                opacity: 0.55,
-              }} />
-              {/* 그라데이션 오버레이 */}
-              <div className="absolute inset-0 bg-gradient-to-r from-violet-900/65 to-pink-900/55" />
-              {/* 실제 컨텐츠 */}
-              <div className="relative z-10 p-5">
-              <div className="flex flex-col md:flex-row justify-between gap-4">
-                <div>
-                  <div className="text-xs font-bold opacity-70 mb-1">👻 특별 채권 관리</div>
-                  <h2 className="font-extrabold text-xl mb-1">선생님의 영혼</h2>
-                  {soul ? (
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl font-black">🪙 {(soul.currentPrice || 100).toLocaleString()}</span>
-                      <span className={`text-sm font-bold px-2 py-0.5 rounded-full
-                        ${soul.changePercent > 0 ? 'bg-white/20' : soul.changePercent < 0 ? 'bg-red-900/30' : 'bg-white/10'}`}>
-                        {soul.changePercent > 0 ? '+' : ''}{(soul.changePercent || 0).toFixed(2)}%
-                        {soul.changePercent > 0 ? ' ▲' : soul.changePercent < 0 ? ' ▼' : ''}
-                      </span>
-                      {soul.teacherSetToday && (
-                        <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">오늘 수동 설정됨</span>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-white/70 text-sm">아직 생성되지 않았습니다</div>
-                  )}
-                  <div className="text-xs opacity-60 mt-1">매일 1% 자동 상승 · 기본 50주 지급 · 최대 100주</div>
-                  <div className="text-xs bg-white/15 rounded-lg px-3 py-2 mt-2 leading-relaxed space-y-0.5">
-                    <div>💡 매일 1%씩 자동 상승 (선생님의 영혼 형태)</div>
-                    <div>💰 배당 지급 시 (현재가 - 100G) × 보유주수를 학생에게 지급 후 100G 초기화</div>
-                    <div>🎓 교실 상황에 따라 가격을 선생님이 직접 조정 가능</div>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 min-w-[220px]">
-                  {soul ? (
-                    <>
-                      <div className="flex gap-2">
-                        <input
-                          type="number" min="1" value={soulPrice}
-                          onChange={e => setSoulPrice(e.target.value)}
-                          placeholder={`현재: ${soul.currentPrice || 100}`}
-                          className="flex-1 bg-white/20 border border-white/30 rounded-xl px-3 py-2 text-white placeholder-white/50 font-bold text-sm focus:outline-none focus:border-white"
-                        />
-                        <button onClick={setSoulPriceManual} disabled={isSoulSaving || !soulPrice}
-                          className="px-4 py-2 bg-white text-violet-700 font-extrabold text-sm rounded-xl hover:bg-white/90 transition-colors disabled:opacity-50">
-                          {isSoulSaving ? '...' : '설정'}
-                        </button>
-                      </div>
-                      {/* 배당 지급: 현재가 > 100 일 때만 활성화 */}
-                      <button
-                        onClick={paySoulDividend}
-                        disabled={isSoulSaving || (soul.currentPrice || 100) <= 100}
-                        className="w-full py-2 rounded-xl font-extrabold text-sm bg-amber-400 hover:bg-amber-300 text-amber-900 transition-colors disabled:opacity-40">
-                        💰 배당금 지급 ({Math.floor((soul.currentPrice || 100) - 100)}G/주) + 가격 100G 초기화
-                      </button>
-                      <button
-                        onClick={toggleSoulActive}
-                        disabled={isSoulToggling}
-                        className={`w-full py-2 rounded-xl font-bold text-sm transition-colors disabled:opacity-50
-                          ${soul.active !== false
-                            ? 'bg-white/20 hover:bg-red-500/40 text-white border border-white/30'
-                            : 'bg-emerald-500 hover:bg-emerald-400 text-white'}`}>
-                        {isSoulToggling ? '처리 중...'
-                          : soul.active !== false ? '🔴 비활성화 (학생 시장에서 숨김)' : '🟢 활성화하기'}
-                      </button>
-                      <div className="text-[10px] text-white/60 text-center">
-                        수동 설정 시 오늘 자동 1% 적용 안 됨
-                      </div>
-                    </>
-                  ) : (
-                    <button onClick={initSoulEtf}
-                      className="px-5 py-2.5 bg-white text-violet-700 font-extrabold text-sm rounded-xl hover:bg-white/90 transition-colors">
-                      👻 ETF 초기 생성하기
-                    </button>
-                  )}
-                </div>
-              </div>
-              </div>
-            </div>
-          );
-        })()}
-
         {/* 배당 요약 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
@@ -825,7 +571,7 @@ function StockManage({ selectedClass }) {
           {[
             ['etfs',      `ETF 목록 (${etfs.length})`],
             ['portfolio', '학생 포트폴리오'],
-            ['logs',      `배당 내역 (${dividendLogs.length})`],
+            ['logs',      `배당 내역 (${managedDividendLogs.length})`],
           ].map(([val, label]) => (
             <button key={val} onClick={() => setTab(val)}
               className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors
@@ -909,20 +655,21 @@ function StockManage({ selectedClass }) {
             <div className="px-5 py-3 bg-slate-50 border-b border-slate-100">
               <h3 className="font-bold text-slate-700 text-sm">학생별 보유 ETF 현황</h3>
             </div>
-            {Object.keys(portfolioMap).length === 0 ? (
+            {portfolioStudents.length === 0 ? (
               <div className="text-center py-12 text-slate-400">
                 <div className="text-4xl mb-2">💼</div>
                 <p className="font-bold">포트폴리오 보유 학생이 없습니다</p>
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {students.filter(s => portfolioMap[s.id]).map(student => {
+                {portfolioStudents.map(student => {
                   const holdings = portfolioMap[student.id] || {};
-                  const totalValue = Object.entries(holdings).reduce((sum, [etfId, h]) => {
+                  const managedHoldings = getManagedHoldingEntries(holdings);
+                  const totalValue = managedHoldings.reduce((sum, [etfId, h]) => {
                     const etf = etfs.find(e => e.id === etfId);
                     return sum + (etf ? (etf.currentPrice || 0) * h.quantity : 0);
                   }, 0);
-                  const totalCost = Object.values(holdings).reduce((sum, h) => sum + h.avgBuyPrice * h.quantity, 0);
+                  const totalCost = managedHoldings.reduce((sum, [, h]) => sum + h.avgBuyPrice * h.quantity, 0);
                   const pnl = totalValue - totalCost;
 
                   return (
@@ -940,7 +687,7 @@ function StockManage({ selectedClass }) {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {Object.entries(holdings).map(([etfId, h]) => {
+                        {managedHoldings.map(([etfId, h]) => {
                           const etf = etfs.find(e => e.id === etfId);
                           return (
                             <span key={etfId} className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-full border border-indigo-100">
@@ -962,9 +709,9 @@ function StockManage({ selectedClass }) {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-bold text-slate-700 text-sm">배당 지급 내역</h3>
-              <span className="text-xs text-slate-400">{dividendLogs.length}건 · 누적 🪙{totalDivPaid.toLocaleString()}</span>
+              <span className="text-xs text-slate-400">{managedDividendLogs.length}건 · 누적 🪙{totalDivPaid.toLocaleString()}</span>
             </div>
-            {dividendLogs.length === 0 ? (
+            {managedDividendLogs.length === 0 ? (
               <div className="text-center py-12 text-slate-400">
                 <div className="text-4xl mb-2">💰</div>
                 <p className="font-bold">배당 내역이 없습니다</p>
@@ -984,7 +731,7 @@ function StockManage({ selectedClass }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {dividendLogs.map(log => (
+                    {managedDividendLogs.map(log => (
                       <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-5 py-3">
                           <div className="font-bold text-slate-800 text-sm">{log.studentName}</div>

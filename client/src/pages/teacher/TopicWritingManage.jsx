@@ -111,7 +111,7 @@ const getSubmissionDateKey = (item) => {
   return date ? getKoreaDateKey(date) : '';
 };
 
-export default function TopicWritingManage({ selectedClass }) {
+export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefresh }) {
   const teacherUid = selectedClass?.teacherUid || null;
   const classId = selectedClass?.id || null;
 
@@ -348,6 +348,7 @@ export default function TopicWritingManage({ selectedClass }) {
       showToast(`보상 지급 완료: ${rewards.gold}G / ${rewards.exp}EXP / ${rewards.diamond}Dia`);
       setSelectedSubmission(null);
       await loadData();
+      await onApprovalBadgeRefresh?.();
     } catch (err) {
       console.error('[TopicWritingManage] pay reward failed:', err);
       showToast(err.message || '보상 지급에 실패했습니다.', 'error');
@@ -375,6 +376,7 @@ export default function TopicWritingManage({ selectedClass }) {
       });
       showToast(`주제글쓰기 ${result.approvedCount}건 승인 완료!`);
       await loadData();
+      await onApprovalBadgeRefresh?.();
     } catch (err) {
       console.error('[TopicWritingManage] bulk approve failed:', err);
       showToast('일괄 승인에 실패했습니다.', 'error');

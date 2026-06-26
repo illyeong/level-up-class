@@ -158,7 +158,7 @@ function QuizSetPicker({ selectedSetId, onSelect }) {
   );
 }
 
-// large + boss 티어만 보스 레이드에 사용
+// large + boss 티어만 퀴즈레이드에 사용
 const BOSS_MONSTERS = Object.values(MONSTERS_DB)
   .filter(m => m.tier === 'boss')
   .sort((a, b) => a.sizeOrder - b.sizeOrder || a.name.localeCompare(b.name));
@@ -701,11 +701,11 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
     const questions = (selectedQuizSet.questions || []).filter(q => q.type !== 'short' && q.type !== 'sa');
     if (questions.length === 0) return showToast('선택한 퀴즈에 객관식 문제가 없습니다.', 'error');
 
-    showConfirm(`"${form.bossName}" 보스 레이드를 오픈할까요?\n학생들이 대기실에서 입장합니다.`, async () => {
+    showConfirm(`"${form.bossName}" 퀴즈레이드를 오픈할까요?\n학생들이 대기실에서 입장합니다.`, async () => {
       setIsCreating(true);
       try {
         await addDoc(collection(db, 'worldBossRaids'), {
-          title:            `${selectedQuizSet.title} 보스 레이드`,
+          title:            `${selectedQuizSet.title} 퀴즈레이드`,
           classId:          selectedClass?.id || null,
           teacherUid:       selectedClass?.teacherUid || auth.currentUser?.uid || null,
           bossId:           form.bossId,
@@ -911,8 +911,8 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
         {/* 헤더 */}
         <div className="boss-raid-manage-header flex flex-wrap items-center justify-between gap-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:p-6">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100 md:text-3xl">🐉 보스 레이드 관리</h1>
-            <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">퀴즈와 보스를 선택해 학급 전체가 참여하는 협동 레이드를 운영하세요.</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100 md:text-3xl">🐉 퀴즈레이드 관리</h1>
+            <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">퀴즈와 레이드 목표를 선택해 학급 전체가 참여하는 협동 학습을 운영하세요.</p>
           </div>
           <div className="boss-raid-manage-tabs grid w-full grid-cols-3 gap-2 rounded-2xl bg-slate-100 p-1.5 dark:bg-slate-950 sm:flex sm:w-auto">
             {[['active', '진행/대기'], ['create', '레이드 생성'], ['history', '결과 확인']].map(([t, l]) => (
@@ -1025,7 +1025,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
                 <AILessonQuizSetBuilder
                   selectedClass={selectedClass}
                   accent="rose"
-                  title="AI학습관 차시로 보스레이드 퀴즈 만들기"
+                  title="AI학습관 차시로 퀴즈레이드 만들기"
                   description="등록된 수학 차시를 골라 객관식 퀴즈를 생성하면 레이드 퀴즈로 바로 선택됩니다."
                   defaultQuestionCount={8}
                   defaultDifficulty="normal"
@@ -1075,7 +1075,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
                 {/* HP */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1 dark:text-slate-300">
-                    보스 HP
+                    레이드 HP
                     {autoHP && <span className="text-indigo-500 ml-1">(추천: {autoHP.toLocaleString()})</span>}
                   </label>
                   <div className="text-[10px] text-slate-400 mb-1 dark:text-slate-300">

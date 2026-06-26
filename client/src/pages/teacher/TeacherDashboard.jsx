@@ -140,6 +140,7 @@ function TeacherDashboard({
   isDark = false,
   operationMode = 'custom',
   onApplyOperationMode,
+  onApprovalBadgeRefresh,
 }) {
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -298,6 +299,7 @@ function TeacherDashboard({
       }
       showToast(`✅ 배움노트 ${ok}건 승인 완료!`);
       await fetchAiSummary(students, questStats);
+      await onApprovalBadgeRefresh?.();
     } catch (e) {
       console.error(e);
       showToast('배움노트 일괄 승인 중 오류가 발생했습니다.', 'error');
@@ -322,6 +324,7 @@ function TeacherDashboard({
       });
       showToast(`✅ 주제글쓰기 ${result.approvedCount}건 승인 완료!`);
       await fetchAiSummary(students, questStats);
+      await onApprovalBadgeRefresh?.();
     } catch (e) {
       console.error(e);
       showToast('주제글쓰기 일괄 승인 중 오류가 발생했습니다.', 'error');
@@ -926,7 +929,7 @@ function TeacherDashboard({
             onClick={onOpenBossRaidDemo}
             className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base"
           >
-            보스레이드 발표 테스트
+            퀴즈레이드 발표 테스트
           </button>
           <a
             href="https://github.com/illyeong/level-up-class/releases/download/v1.0.0/LevelUpTeacherWidgetSetup.exe"

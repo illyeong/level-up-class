@@ -561,7 +561,7 @@ function App() {
   };
 
   // ── 교사 → 학생 테스트 로그인 ────────────────────────────────
-  const handleStudentTestLogin = async (code) => {
+  const handleStudentTestLogin = async (code, targetView = 'quest') => {
     const normalizedCode = String(code || 'SINSEOK-5-15').trim().toUpperCase();
     setTestStudentCode(normalizedCode);
     try {
@@ -578,7 +578,7 @@ function App() {
       console.error('테스트 학생 연동 실패:', e);
     }
     setAppMode('student');
-    setCurrentView('quest');
+    setCurrentView(targetView);
   };
 
   // ── 현재 studentCode (실제 or 테스트) ────────────────────────
@@ -796,6 +796,8 @@ function App() {
       <LoginPage
         onTeacherLogin={handleTeacherLogin}
         onStudentLogin={handleStudentLogin}
+        onStudentTestLogin={handleStudentTestLogin}
+        onTeacherTestLogin={handleTeacherTestPage}
       />
     );
   }
