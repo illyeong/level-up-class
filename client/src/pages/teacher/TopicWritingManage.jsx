@@ -69,10 +69,10 @@ const DEFAULT_TOPIC = {
 };
 
 const STATUS_META = {
-  submitted: { label: 'AI 대기', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
-  ai_graded: { label: 'AI 완료', cls: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-  reviewed: { label: '확인 완료', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  rewarded: { label: '보상 지급', cls: 'bg-sky-100 text-sky-700 border-sky-200' },
+  submitted: { label: 'AI 대기', cls: 'bg-amber-100 text-amber-800 border-amber-300' },
+  ai_graded: { label: 'AI 완료', cls: 'bg-indigo-600 text-white border-indigo-500' },
+  reviewed: { label: '확인 완료', cls: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  rewarded: { label: '보상 지급', cls: 'bg-sky-100 text-sky-800 border-sky-300' },
 };
 
 const toDateText = (value) => {
@@ -386,7 +386,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6">
+    <div className="topic-writing-manage-page min-h-screen bg-slate-100 p-6">
       <div className="mx-auto max-w-7xl space-y-5">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -543,7 +543,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
         )}
 
         {tab === 'submissions' && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="topic-writing-submission-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <h2 className="text-lg font-black text-slate-800">제출물 확인</h2>
               <div className="flex flex-wrap gap-2">
@@ -588,18 +588,18 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                       key={item.id}
                       type="button"
                       onClick={() => openSubmission(item)}
-                      className="rounded-xl border border-slate-200 p-4 text-left hover:border-indigo-300 hover:bg-indigo-50/40"
+                      className="topic-writing-submission-card rounded-xl border border-slate-200 p-4 text-left hover:border-indigo-300 hover:bg-indigo-50/40"
                     >
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-slate-800">{item.studentName || item.studentCode}</p>
-                          <p className="truncate text-xs font-bold text-slate-400">{item.topicTitle}</p>
+                          <p className="topic-writing-student-name truncate text-sm font-black text-slate-800">{item.studentName || item.studentCode}</p>
+                          <p className="topic-writing-topic truncate text-xs font-bold text-slate-400">{item.topicTitle}</p>
                         </div>
-                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${meta.cls}`}>{meta.label}</span>
+                        <span data-status={item.status || 'submitted'} className={`topic-writing-status-badge shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${meta.cls}`}>{meta.label}</span>
                       </div>
-                      <h3 className="truncate text-sm font-black text-slate-700">{item.title}</h3>
-                      <p className="mt-1 line-clamp-3 text-xs font-semibold leading-relaxed text-slate-500">{item.content}</p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold text-slate-400">
+                      <h3 className="topic-writing-title truncate text-sm font-black text-slate-700">{item.title}</h3>
+                      <p className="topic-writing-content mt-1 line-clamp-3 text-xs font-semibold leading-relaxed text-slate-500">{item.content}</p>
+                      <div className="topic-writing-card-meta mt-3 flex flex-wrap gap-2 text-[10px] font-bold text-slate-400">
                         <span>{item.charCount || 0}자</span>
                         {item.aiGrade?.score != null && <span>AI {item.aiGrade.score}점</span>}
                         {item.aiStatus === 'failed' && <span className="text-rose-500">AI 실패</span>}
@@ -718,7 +718,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="min-w-0 truncate text-sm font-extrabold text-slate-700">{item.title || item.topicTitle}</span>
-                                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${meta.cls}`}>{meta.label}</span>
+                                  <span data-status={item.status || 'submitted'} className={`topic-writing-status-badge shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${meta.cls}`}>{meta.label}</span>
                                 </div>
                                 <div className="mt-1 truncate text-[11px] font-bold text-slate-400">{item.topicTitle}</div>
                               </button>

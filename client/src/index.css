@@ -122,6 +122,94 @@
     color: #64748b;
 }
 
+/* Topic writing management needs stronger contrast for dense review cards. */
+.teacher-theme-dark .topic-writing-manage-page {
+    background: #07111f !important;
+}
+
+.teacher-theme-dark .topic-writing-manage-page :is(.bg-white, .bg-slate-50, .bg-slate-100) {
+    background-color: #111c2f !important;
+}
+
+.teacher-theme-dark .topic-writing-manage-page > div > .rounded-2xl {
+    border-color: #3b4d6d !important;
+    background: linear-gradient(180deg, #111c2f 0%, #0d1728 100%) !important;
+}
+
+.teacher-theme-dark .topic-writing-manage-page :is(.text-slate-900, .text-slate-800, .text-slate-700) {
+    color: #f8fafc !important;
+}
+
+.teacher-theme-dark .topic-writing-manage-page :is(.text-slate-600, .text-slate-500, .text-slate-400) {
+    color: #bfd0e8 !important;
+}
+
+.teacher-theme-dark .topic-writing-submission-card {
+    border-color: #405475 !important;
+    background: linear-gradient(180deg, #132139 0%, #0f1a2d 100%) !important;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 10px 22px rgb(0 0 0 / 0.16);
+}
+
+.teacher-theme-dark .topic-writing-submission-card:hover {
+    border-color: #818cf8 !important;
+    background: linear-gradient(180deg, #182944 0%, #111f35 100%) !important;
+}
+
+.teacher-theme-dark .topic-writing-student-name {
+    color: #ffffff !important;
+    font-size: 0.95rem;
+}
+
+.teacher-theme-dark .topic-writing-topic {
+    color: #93c5fd !important;
+}
+
+.teacher-theme-dark .topic-writing-title {
+    color: #f8fafc !important;
+    font-size: 0.95rem;
+}
+
+.teacher-theme-dark .topic-writing-content {
+    color: #dbeafe !important;
+    font-size: 0.82rem;
+    line-height: 1.65;
+}
+
+.teacher-theme-dark .topic-writing-card-meta {
+    color: #93c5fd !important;
+}
+
+.teacher-theme-dark .topic-writing-status-badge {
+    background-color: #1e293b !important;
+    border-color: #64748b !important;
+    color: #f8fafc !important;
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.04);
+}
+
+.teacher-theme-dark .topic-writing-status-badge[data-status="ai_graded"] {
+    background-color: #4f46e5 !important;
+    border-color: #818cf8 !important;
+    color: #ffffff !important;
+}
+
+.teacher-theme-dark .topic-writing-status-badge[data-status="reviewed"] {
+    background-color: #059669 !important;
+    border-color: #34d399 !important;
+    color: #ecfdf5 !important;
+}
+
+.teacher-theme-dark .topic-writing-status-badge[data-status="rewarded"] {
+    background-color: #0284c7 !important;
+    border-color: #38bdf8 !important;
+    color: #f0f9ff !important;
+}
+
+.teacher-theme-dark .topic-writing-status-badge[data-status="submitted"] {
+    background-color: #b45309 !important;
+    border-color: #f59e0b !important;
+    color: #fffbeb !important;
+}
+
 /* Teacher dashboard dark mode keeps contrast without switching panels to white. */
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface {
     background: #101b2f !important;

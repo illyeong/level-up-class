@@ -93,22 +93,20 @@ const TOPIC_WRITING_FONT = {
 function RewriteGuide({ submission, minLength, charCount }) {
   const aiGrade = submission?.aiGrade;
   const improvements = aiGrade?.improvements || [];
-  const strengths = aiGrade?.strengths || [];
   const remainingChars = Math.max(0, minLength - charCount);
-  const checklist = [
-    improvements.length > 0 ? 'AI가 말한 고칠 점을 한 가지씩 본문에 반영하기' : '주제와 관련 없는 문장을 줄이고 핵심 생각을 더 분명하게 쓰기',
-    '이유만 쓰지 말고 구체적인 예시나 경험을 1~2개 더 넣기',
-    '처음-가운데-끝 흐름이 자연스러운지 문단 순서 확인하기',
-    '반복되는 말, 어색한 문장, 맞춤법을 마지막에 다시 확인하기',
-    remainingChars === 0 ? `최소 ${minLength}자 조건은 충족했습니다.` : `최소 글자 수까지 ${remainingChars}자 더 쓰기`,
+  const firstImprovement = improvements[0];
+  const quickTips = [
+    firstImprovement ? `먼저 이것부터 고치기: ${firstImprovement}` : '내 생각이 잘 보이게 한 문장 더 쓰기',
+    '왜 그렇게 생각했는지 이유 쓰기',
+    '내 경험이나 예시 하나 넣기',
   ];
 
   return (
     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-black text-amber-600">점수 올리는 고쳐쓰기 도움말</p>
-          <h3 className="mt-1 text-base font-black text-slate-900">AI 피드백을 보고 바로 고칠 부분을 체크하세요.</h3>
+          <p className="text-xs font-black text-amber-600">점수 올리는 고쳐쓰기</p>
+          <h3 className="mt-1 text-base font-black text-slate-900">딱 3가지만 고쳐 보세요.</h3>
         </div>
         {aiGrade?.score != null && (
           <span className="w-fit rounded-full bg-white px-3 py-1 text-xs font-black text-amber-700">
@@ -117,51 +115,20 @@ function RewriteGuide({ submission, minLength, charCount }) {
         )}
       </div>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <div className="rounded-xl bg-white p-3">
-          <p className="mb-2 text-xs font-black text-slate-500">고쳐쓰기 체크</p>
-          <ul className="space-y-1.5 text-sm font-semibold leading-relaxed text-slate-700">
-            {checklist.map((item, idx) => (
-              <li key={`${item}-${idx}`} className="flex gap-2">
-                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <ul className="mt-3 space-y-2 rounded-xl bg-white p-3 text-sm font-bold leading-6 text-slate-700">
+        {quickTips.map((item, idx) => (
+          <li key={`${item}-${idx}`} className="flex gap-2">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-black text-amber-700">
+              {idx + 1}
+            </span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
 
-        <div className="rounded-xl bg-white p-3">
-          <p className="mb-2 text-xs font-black text-slate-500">이번 글에서 바로 고칠 부분</p>
-          {improvements.length > 0 ? (
-            <ul className="space-y-1.5 text-sm font-semibold leading-relaxed text-slate-700">
-              {improvements.map((item, idx) => (
-                <li key={`${item}-${idx}`} className="flex gap-2">
-                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-rose-400" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm font-semibold leading-relaxed text-slate-600">
-              아직 AI 피드백이 없으면 주제와 이유, 예시, 마무리 문장을 먼저 보강하세요.
-            </p>
-          )}
-        </div>
+      <div className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs font-black text-slate-600">
+        {remainingChars === 0 ? '글자 수는 충분해요. 마지막으로 맞춤법만 확인!' : `${remainingChars}자만 더 쓰면 글자 수도 OK!`}
       </div>
-
-      {(strengths.length > 0 || aiGrade?.studentComment) && (
-        <div className="mt-3 rounded-xl bg-white p-3">
-          <p className="text-xs font-black text-emerald-600">살리면 좋은 점</p>
-          {strengths.length > 0 && (
-            <p className="mt-1 text-sm font-semibold leading-relaxed text-slate-700">
-              {strengths.slice(0, 2).join(' / ')}
-            </p>
-          )}
-          {aiGrade?.studentComment && (
-            <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-700">{aiGrade.studentComment}</p>
-          )}
-        </div>
-      )}
     </div>
   );
 }
