@@ -1,13 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import {
-  collection, getDocs, getDoc, doc, writeBatch,
+  collection, getDocs, getDoc, doc, runTransaction,
   setDoc, serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
+const getKoreaDateKey = (date = new Date()) => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(date);
+
+const toDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value?.toDate === 'function') return value.toDate();
+  if (value?.seconds) return new Date(value.seconds * 1000);
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getInterestDateKey = (value) => {
+  const date = toDate(value);
+  return date ? getKoreaDateKey(date) : '';
+};
+
 const fmtDate = (ts) => {
   if (!ts) return '없음';
-  const d = ts.toDate ? ts.toDate() : ts.seconds ? new Date(ts.seconds * 1000) : new Date(ts);
+  const d = toDate(ts);
+  if (!d) return '없음';
   return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
@@ -15,6 +37,7 @@ function BankManage({ selectedClass }) {
   const [students, setStudents]         = useState([]);
   const [settings, setSettings]         = useState({ weeklyDiamondRate: 3, weeklyGoldRate: 3 });
   const [lastInterest, setLastInterest] = useState(null);
+  const [lastInterestDateKey, setLastInterestDateKey] = useState('');
   const [isLoading, setIsLoading]       = useState(true);
   const [isSaving, setIsSaving]         = useState(false);
   const [isApplying, setIsApplying]     = useState(false);
@@ -36,6 +59,7 @@ function BankManage({ selectedClass }) {
     if (!scopeKey || !studentScopeValue) {
       setStudents([]);
       setLastInterest(null);
+      setLastInterestDateKey('');
       setIsLoading(false);
       return;
     }
@@ -43,6 +67,7 @@ function BankManage({ selectedClass }) {
     setIsLoading(true);
     setSettings({ weeklyDiamondRate: 3, weeklyGoldRate: 3 });
     setLastInterest(null);
+    setLastInterestDateKey('');
     try {
       const settingsDoc = await getDoc(doc(db, 'bankSettings', scopeKey));
       if (settingsDoc.exists()) {
@@ -52,6 +77,7 @@ function BankManage({ selectedClass }) {
           weeklyGoldRate:    parseFloat(((d.weeklyGoldRate    || 0.03) * 100).toFixed(1)),
         });
         setLastInterest(d.lastInterestApplied || null);
+        setLastInterestDateKey(d.lastInterestAppliedDate || getInterestDateKey(d.lastInterestApplied));
       }
 
       const snap = await getDocs(
@@ -77,8 +103,8 @@ function BankManage({ selectedClass }) {
     setIsSaving(true);
     try {
       await setDoc(doc(db, 'bankSettings', scopeKey), {
-        weeklyDiamondRate: settings.weeklyDiamondRate / 100,
-        weeklyGoldRate:    settings.weeklyGoldRate    / 100,
+        weeklyDiamondRate: Math.max(0, Math.min(100, Number(settings.weeklyDiamondRate) || 0)) / 100,
+        weeklyGoldRate:    Math.max(0, Math.min(100, Number(settings.weeklyGoldRate) || 0)) / 100,
         classId,
         teacherUid,
         scopeKey,
@@ -99,6 +125,11 @@ function BankManage({ selectedClass }) {
       showToast('학급 정보를 찾지 못했습니다.', 'error');
       return;
     }
+    const todayKey = getKoreaDateKey();
+    if (lastInterestDateKey === todayKey) {
+      showToast('오늘은 이미 이자를 지급했습니다. 수동 지급은 하루 1번만 가능합니다.', 'error');
+      return;
+    }
 
     showConfirm(
       `현재 이율로 모든 학생에게 이자를 지급하시겠습니까?\n💎 ${settings.weeklyDiamondRate}% / 🪙 ${settings.weeklyGoldRate}%`,
@@ -108,73 +139,99 @@ function BankManage({ selectedClass }) {
           const snap = await getDocs(
             query(collection(db, 'students'), where(studentScopeField, '==', studentScopeValue))
           );
-          const depositors = snap.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .filter(s => (s.bankDiamond || 0) > 0 || (s.bankGold || 0) > 0);
+          const depositorRefs = snap.docs
+            .filter(d => {
+              const s = d.data();
+              return (s.bankDiamond || 0) > 0 || (s.bankGold || 0) > 0;
+            })
+            .map(d => doc(db, 'students', d.id));
 
-          if (depositors.length === 0) {
+          if (depositorRefs.length === 0) {
             showToast('예치금이 있는 학생이 없습니다.', 'error');
             return;
           }
 
-          const diaRate  = settings.weeklyDiamondRate / 100;
-          const goldRate = settings.weeklyGoldRate    / 100;
-          const now      = serverTimestamp();
+          const diaRate  = Math.max(0, Math.min(1, Number(settings.weeklyDiamondRate) / 100 || 0));
+          const goldRate = Math.max(0, Math.min(1, Number(settings.weeklyGoldRate) / 100 || 0));
+          const settingsRef = doc(db, 'bankSettings', scopeKey);
+          const todayDateKey = getKoreaDateKey();
 
-          const batch = writeBatch(db);
-          let totalDiaInt = 0, totalGoldInt = 0;
-
-          for (const s of depositors) {
-            const dDep   = s.bankDiamond || 0;
-            const gDep   = s.bankGold    || 0;
-            const dInt   = Math.floor(dDep * diaRate);
-            const gInt   = Math.floor(gDep * goldRate);
-
-            const updates = { bankLastInterestAt: now };
-            if (dInt > 0) {
-              updates.bankDiamond        = dDep + dInt;
-              updates.bankDiamondInterest = (s.bankDiamondInterest || 0) + dInt;
-              totalDiaInt += dInt;
-            }
-            if (gInt > 0) {
-              updates.bankGold        = gDep + gInt;
-              updates.bankGoldInterest = (s.bankGoldInterest || 0) + gInt;
-              totalGoldInt += gInt;
+          const { totalDiaInt, totalGoldInt } = await runTransaction(db, async (transaction) => {
+            const settingsSnap = await transaction.get(settingsRef);
+            const bankSettings = settingsSnap.exists() ? settingsSnap.data() : {};
+            const lastAppliedDate = bankSettings.lastInterestAppliedDate || getInterestDateKey(bankSettings.lastInterestApplied);
+            if (lastAppliedDate === todayDateKey) {
+              throw new Error('오늘은 이미 이자를 지급했습니다. 수동 지급은 하루 1번만 가능합니다.');
             }
 
-            batch.update(doc(db, 'students', s.id), updates);
+            let nextTotalDiaInt = 0;
+            let nextTotalGoldInt = 0;
+            const now = serverTimestamp();
+            const studentSnaps = [];
 
-            if (dInt > 0) {
-              batch.set(doc(collection(db, 'bankLogs')), {
-                studentId: s.id, studentCode: s.studentCode, studentName: s.name || s.studentCode,
-                type: 'interest', currency: 'diamond',
-                amount: dInt, rate: diaRate, newDeposit: dDep + dInt, createdAt: now,
-                classId, teacherUid, scopeKey,
-              });
+            for (const studentRef of depositorRefs) {
+              const studentSnap = await transaction.get(studentRef);
+              studentSnaps.push({ studentRef, studentSnap });
             }
-            if (gInt > 0) {
-              batch.set(doc(collection(db, 'bankLogs')), {
-                studentId: s.id, studentCode: s.studentCode, studentName: s.name || s.studentCode,
-                type: 'interest', currency: 'gold',
-                amount: gInt, rate: goldRate, newDeposit: gDep + gInt, createdAt: now,
-                classId, teacherUid, scopeKey,
-              });
-            }
-          }
 
-          batch.set(doc(db, 'bankSettings', scopeKey), {
-            lastInterestApplied: now,
-            classId,
-            teacherUid,
-            scopeKey,
-          }, { merge: true });
-          await batch.commit();
+            for (const { studentRef, studentSnap } of studentSnaps) {
+              if (!studentSnap.exists()) continue;
+              const s = { id: studentSnap.id, ...studentSnap.data() };
+              const dDep = s.bankDiamond || 0;
+              const gDep = s.bankGold || 0;
+              if (dDep <= 0 && gDep <= 0) continue;
+
+              const dInt = Math.floor(dDep * diaRate);
+              const gInt = Math.floor(gDep * goldRate);
+              const updates = { bankLastInterestAt: now };
+
+              if (dInt > 0) {
+                updates.bankDiamond = dDep + dInt;
+                updates.bankDiamondInterest = (s.bankDiamondInterest || 0) + dInt;
+                nextTotalDiaInt += dInt;
+              }
+              if (gInt > 0) {
+                updates.bankGold = gDep + gInt;
+                updates.bankGoldInterest = (s.bankGoldInterest || 0) + gInt;
+                nextTotalGoldInt += gInt;
+              }
+
+              transaction.update(studentRef, updates);
+
+              if (dInt > 0) {
+                transaction.set(doc(collection(db, 'bankLogs')), {
+                  studentId: s.id, studentCode: s.studentCode, studentName: s.name || s.studentCode,
+                  type: 'interest', currency: 'diamond',
+                  amount: dInt, rate: diaRate, newDeposit: dDep + dInt, createdAt: now,
+                  classId, teacherUid, scopeKey, interestDate: todayDateKey,
+                });
+              }
+              if (gInt > 0) {
+                transaction.set(doc(collection(db, 'bankLogs')), {
+                  studentId: s.id, studentCode: s.studentCode, studentName: s.name || s.studentCode,
+                  type: 'interest', currency: 'gold',
+                  amount: gInt, rate: goldRate, newDeposit: gDep + gInt, createdAt: now,
+                  classId, teacherUid, scopeKey, interestDate: todayDateKey,
+                });
+              }
+            }
+
+            transaction.set(settingsRef, {
+              lastInterestApplied: now,
+              lastInterestAppliedDate: todayDateKey,
+              classId,
+              teacherUid,
+              scopeKey,
+            }, { merge: true });
+
+            return { totalDiaInt: nextTotalDiaInt, totalGoldInt: nextTotalGoldInt };
+          });
 
           showToast(`이자 지급 완료! 💎+${totalDiaInt.toLocaleString()} 🪙+${totalGoldInt.toLocaleString()}`);
           fetchAll();
         } catch (err) {
           console.error('이자 지급 에러:', err);
-          showToast('이자 지급 중 오류가 발생했습니다.', 'error');
+          showToast(err.message || '이자 지급 중 오류가 발생했습니다.', 'error');
         } finally {
           setIsApplying(false);
         }
@@ -184,6 +241,7 @@ function BankManage({ selectedClass }) {
 
   const totalDiaDep  = students.reduce((s, stu) => s + (stu.bankDiamond || 0), 0);
   const totalGoldDep = students.reduce((s, stu) => s + (stu.bankGold    || 0), 0);
+  const hasAppliedInterestToday = lastInterestDateKey === getKoreaDateKey();
 
   if (!scopeKey) {
     return (
@@ -243,12 +301,17 @@ function BankManage({ selectedClass }) {
               <h2 className="font-bold text-slate-800 text-lg mb-1">💰 이자 수동 지급</h2>
               <p className="text-sm text-slate-500">예치금이 있는 모든 학생에게 현재 이율로 이자를 지급합니다. (복리)</p>
               <p className="text-xs text-slate-400 mt-1">마지막 지급: {fmtDate(lastInterest)}</p>
+              {hasAppliedInterestToday && (
+                <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">
+                  오늘은 이미 이자를 지급했습니다. 수동 지급은 내일 다시 가능합니다.
+                </p>
+              )}
             </div>
             <button
               onClick={applyInterest}
-              disabled={isApplying || isLoading || students.length === 0}
+              disabled={isApplying || isLoading || students.length === 0 || hasAppliedInterestToday}
               className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-sm rounded-xl transition-colors disabled:opacity-50 shadow-sm self-start shrink-0">
-              {isApplying ? '지급 중...' : `이자 지급하기 (${students.length}명)`}
+              {isApplying ? '지급 중...' : hasAppliedInterestToday ? '오늘 지급 완료' : `이자 지급하기 (${students.length}명)`}
             </button>
           </div>
         </div>

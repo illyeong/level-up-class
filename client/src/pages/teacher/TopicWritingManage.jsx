@@ -65,7 +65,13 @@ const DEFAULT_TOPIC = {
   minLength: 200,
   dueDate: '',
   active: true,
-  rewards: DEFAULT_REWARDS,
+  rewards: { ...DEFAULT_REWARDS },
+};
+
+const clampReward = (value, fallback = 0) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(0, Math.min(99999, Math.floor(number)));
 };
 
 const STATUS_META = {
@@ -238,9 +244,25 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
     setTeacherComment(item.teacherComment || '');
   };
 
+  const updateRewardField = (type, value) => {
+    setForm(prev => ({
+      ...prev,
+      rewards: {
+        ...DEFAULT_REWARDS,
+        ...(prev.rewards || {}),
+        [type]: clampReward(value, 0),
+      },
+    }));
+  };
+
   const createTopic = async () => {
     if (!teacherUid) return showToast('교사 정보가 없습니다.', 'error');
     if (!form.title.trim()) return showToast('주제 제목을 입력해주세요.', 'error');
+    const rewards = {
+      gold: clampReward(form.rewards?.gold, DEFAULT_REWARDS.gold),
+      exp: clampReward(form.rewards?.exp, DEFAULT_REWARDS.exp),
+      diamond: clampReward(form.rewards?.diamond, DEFAULT_REWARDS.diamond),
+    };
     setSavingTopic(true);
     try {
       await addDoc(collection(db, 'writingTopics'), {
@@ -249,7 +271,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
         minLength: Math.max(1, Number(form.minLength) || 100),
         dueDate: form.dueDate || '',
         active: form.active !== false,
-        rewards: DEFAULT_REWARDS,
+        rewards,
         teacherUid,
         classId,
         createdAt: serverTimestamp(),
@@ -485,11 +507,26 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                   </div>
                 </div>
                 <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
-                  <p className="mb-2 text-xs font-black text-amber-700">기본 보상</p>
-                  <div className="grid grid-cols-3 gap-2 text-center text-sm font-black">
-                    <RewardPill type="gold" value={DEFAULT_REWARDS.gold} />
-                    <RewardPill type="exp" value={DEFAULT_REWARDS.exp} />
-                    <RewardPill type="diamond" value={DEFAULT_REWARDS.diamond} />
+                  <p className="mb-3 text-xs font-black text-amber-700">주제 보상</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      ['gold', '골드', 'G'],
+                      ['exp', '경험치', 'EXP'],
+                      ['diamond', '다이아', ''],
+                    ].map(([type, label, suffix]) => (
+                      <label key={type} className="block">
+                        <span className="mb-1 block text-[10px] font-black text-slate-500">{label}</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={99999}
+                          value={form.rewards?.[type] ?? DEFAULT_REWARDS[type]}
+                          onChange={e => updateRewardField(type, e.target.value)}
+                          className="w-full rounded-lg border-2 border-white bg-white px-2 py-2 text-center text-sm font-black outline-none focus:border-amber-300"
+                        />
+                        {suffix && <span className="mt-1 block text-center text-[10px] font-bold text-slate-400">{suffix}</span>}
+                      </label>
+                    ))}
                   </div>
                 </div>
                 <button
@@ -613,7 +650,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
         )}
 
         {tab === 'students' && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="topic-writing-students-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-lg font-black text-slate-800">학생별 보기</h2>
@@ -636,7 +673,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
             ) : (
               <div className="space-y-4">
                 <div className="grid gap-3 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+                  <div className="topic-writing-today-panel topic-writing-today-panel-submitted rounded-2xl border border-sky-100 bg-sky-50 p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <h3 className="text-sm font-black text-sky-900">오늘 제출한 학생</h3>
                       <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-sky-700">{todaySubmittedRows.length}명</span>
@@ -660,7 +697,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                     )}
                   </div>
 
-                  <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
+                  <div className="topic-writing-today-panel topic-writing-today-panel-missing rounded-2xl border border-rose-100 bg-rose-50 p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <h3 className="text-sm font-black text-rose-900">오늘 미제출 학생</h3>
                       <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-rose-700">{todayMissingRows.length}명</span>
@@ -685,7 +722,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                     const rewardedCount = items.filter(item => item.rewardsPaid || item.status === 'rewarded').length;
                     const submittedToday = todayItems.length > 0;
                     return (
-                      <div key={student.id} className="rounded-xl border border-slate-200 p-4">
+                      <div key={student.id} className="topic-writing-student-row-card rounded-xl border border-slate-200 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <h3 className="truncate text-base font-black text-slate-800">
@@ -714,10 +751,10 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                                 key={item.id}
                                 type="button"
                                 onClick={() => openSubmission(item)}
-                                className="w-full rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                                className="topic-writing-student-submission-card w-full rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
                               >
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="min-w-0 truncate text-sm font-extrabold text-slate-700">{item.title || item.topicTitle}</span>
+                                  <span className="topic-writing-student-submission-title min-w-0 truncate text-sm font-extrabold text-slate-700">{item.title || item.topicTitle}</span>
                                   <span data-status={item.status || 'submitted'} className={`topic-writing-status-badge shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${meta.cls}`}>{meta.label}</span>
                                 </div>
                                 <div className="mt-1 truncate text-[11px] font-bold text-slate-400">{item.topicTitle}</div>
@@ -748,7 +785,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
             <div className="flex items-start justify-between border-b border-slate-100 bg-slate-50 p-4">
               <div>
                 <p className="text-xs font-bold text-indigo-500">{selectedSubmission.topicTitle}</p>
-                <h3 className="mt-1 text-xl font-black text-slate-800">{selectedSubmission.title}</h3>
+                <h3 className="topic-writing-modal-title mt-1 text-xl font-black text-slate-800">{selectedSubmission.title}</h3>
                 <p className="mt-1 text-xs font-semibold text-slate-400">
                   {selectedSubmission.studentName || selectedSubmission.studentCode} · {toDateText(selectedSubmission.submittedAt)}
                 </p>

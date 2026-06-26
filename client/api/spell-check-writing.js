@@ -45,6 +45,9 @@ export default async function handler(req, res) {
   const prompt = `너는 초등학생 글쓰기의 맞춤법과 띄어쓰기를 도와주는 국어 선생님입니다.
 아래 글의 뜻과 학생의 표현을 최대한 유지하면서 맞춤법, 띄어쓰기, 문장부호, 어색한 조사만 자연스럽게 고쳐 주세요.
 내용을 새로 쓰거나 더 훌륭한 글로 과하게 바꾸지 마세요.
+corrections의 before는 학생 원문에 실제로 들어 있는 단어 또는 짧은 문장 그대로 쓰세요.
+corrections의 after는 before를 클릭했을 때 바로 바꿔 넣을 수 있는 수정 표현만 쓰세요.
+reason은 초등학생이 이해할 수 있게 아주 짧게 쓰세요.
 반드시 JSON 객체만 응답하세요.
 
 응답 형식:
@@ -97,4 +100,3 @@ ${writingContent}`;
     return res.status(500).json({ error: err.message || '맞춤법 검사 중 오류가 발생했습니다.' });
   }
 }
-

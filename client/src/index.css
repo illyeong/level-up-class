@@ -165,8 +165,8 @@
 }
 
 .teacher-theme-dark .topic-writing-title {
-    color: #f8fafc !important;
-    font-size: 0.95rem;
+    color: #fde68a !important;
+    font-size: 0.98rem;
 }
 
 .teacher-theme-dark .topic-writing-content {
@@ -177,6 +177,52 @@
 
 .teacher-theme-dark .topic-writing-card-meta {
     color: #93c5fd !important;
+}
+
+.teacher-theme-dark .topic-writing-students-panel {
+    border-color: #3b4d6d !important;
+    background: linear-gradient(180deg, #111c2f 0%, #0d1728 100%) !important;
+}
+
+.teacher-theme-dark .topic-writing-today-panel {
+    border-color: #526989 !important;
+    background: #1a2940 !important;
+}
+
+.teacher-theme-dark .topic-writing-today-panel-submitted h3,
+.teacher-theme-dark .topic-writing-today-panel-submitted span,
+.teacher-theme-dark .topic-writing-today-panel-submitted button {
+    color: #dbeafe !important;
+}
+
+.teacher-theme-dark .topic-writing-today-panel-missing h3,
+.teacher-theme-dark .topic-writing-today-panel-missing span {
+    color: #fecdd3 !important;
+}
+
+.teacher-theme-dark .topic-writing-student-row-card {
+    border-color: #405475 !important;
+    background: linear-gradient(180deg, #122038 0%, #0e192b 100%) !important;
+}
+
+.teacher-theme-dark .topic-writing-student-submission-card {
+    border-color: #3a4b68 !important;
+    background: #18263b !important;
+}
+
+.teacher-theme-dark .topic-writing-student-submission-card:hover {
+    border-color: #818cf8 !important;
+    background: #20314d !important;
+}
+
+.teacher-theme-dark .topic-writing-student-submission-title,
+.teacher-theme-dark .topic-writing-modal-title {
+    color: #fde68a !important;
+}
+
+.teacher-theme-dark .topic-writing-manage-page .topic-writing-ai-score {
+    background-color: #4f46e5 !important;
+    color: #ffffff !important;
 }
 
 .teacher-theme-dark .topic-writing-status-badge {

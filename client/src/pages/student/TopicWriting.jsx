@@ -398,6 +398,27 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
     setSpellPracticeText('');
   };
 
+  const applySingleSpellingFix = (item, index) => {
+    const before = String(item?.before || '').trim();
+    const after = String(item?.after || '').trim();
+    if (!before || !after) return;
+
+    if (!content.includes(before)) {
+      setError('이미 고쳤거나 본문에서 찾을 수 없는 표현입니다.');
+      return;
+    }
+
+    setContent(prev => prev.replace(before, after));
+    if (spellPracticeOpen) {
+      setSpellPracticeText(prev => prev.replace(before, after));
+    }
+    setSpellResult(prev => prev ? {
+      ...prev,
+      corrections: (prev.corrections || []).filter((_, idx) => idx !== index),
+    } : prev);
+    setError('');
+  };
+
   const submitWriting = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
@@ -645,7 +666,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                         <div className="mt-3 rounded-xl border border-indigo-100 bg-white p-3">
                           <div className="mb-2 flex items-center justify-between gap-2">
                             <p className="text-sm font-black text-indigo-900">AI 피드백</p>
-                            <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700">{item.aiGrade.score}점 · {item.aiGrade.level}</span>
+                            <span className="topic-writing-ai-score rounded-full bg-indigo-50 px-4 py-1.5 text-sm font-black text-indigo-700">{item.aiGrade.score}점 · {item.aiGrade.level}</span>
                           </div>
                           <div className="grid gap-2 md:grid-cols-2">
                             <div className="rounded-xl bg-emerald-50 p-3">
@@ -782,7 +803,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                         </div>
                         <div className="mt-2 flex items-center gap-2 text-[10px] font-bold text-slate-400">
                           <span>{item.charCount || 0}자</span>
-                          {item.aiGrade?.score != null && <span>AI {item.aiGrade.score}점</span>}
+                          {item.aiGrade?.score != null && <span className="rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-black text-indigo-700">AI {item.aiGrade.score}점</span>}
                         </div>
                       </button>
                     );
@@ -950,16 +971,29 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                         )}
                         {spellResult.corrections?.length > 0 && (
                           <div className="mt-3 grid gap-2 md:grid-cols-2">
-                            {spellResult.corrections.map((item, idx) => (
-                              <div key={`${item.before}-${idx}`} className="rounded-xl bg-white p-3 text-sm">
+                            {spellResult.corrections.map((item, idx) => {
+                              const canApply = !!item.before && !!item.after && content.includes(item.before);
+                              return (
+                              <button
+                                key={`${item.before}-${idx}`}
+                                type="button"
+                                onClick={() => applySingleSpellingFix(item, idx)}
+                                disabled={!canApply}
+                                className="rounded-xl bg-white p-3 text-left text-sm ring-2 ring-transparent transition hover:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                title={canApply ? '누르면 본문에 바로 적용됩니다.' : '이미 고쳤거나 본문에서 찾을 수 없습니다.'}
+                              >
                                 <p className="font-black text-slate-800">
                                   <span className="text-rose-500">{item.before || '-'}</span>
                                   <span className="mx-1 text-slate-300">→</span>
                                   <span className="text-emerald-600">{item.after || '-'}</span>
                                 </p>
                                 {item.reason && <p className="mt-1 text-xs font-semibold text-slate-500">{item.reason}</p>}
-                              </div>
-                            ))}
+                                <p className="mt-2 text-[11px] font-black text-emerald-600">
+                                  {canApply ? '눌러서 이 부분만 고치기' : '이미 고친 표현'}
+                                </p>
+                              </button>
+                            );
+                            })}
                           </div>
                         )}
                       </div>
@@ -1021,7 +1055,7 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
                 <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <h4 className="font-black text-indigo-900">AI 피드백</h4>
-                    <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-indigo-700">{detail.aiGrade.score}점 · {detail.aiGrade.level}</span>
+                    <span className="topic-writing-ai-score rounded-full bg-white px-4 py-2 text-base font-black text-indigo-700">{detail.aiGrade.score}점 · {detail.aiGrade.level}</span>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="rounded-xl bg-white p-3">

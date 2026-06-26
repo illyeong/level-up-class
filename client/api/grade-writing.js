@@ -19,9 +19,9 @@ const normalizeGrade = (raw) => {
   return {
     score,
     level: String(raw?.level || (score >= 90 ? '매우 좋음' : score >= 75 ? '좋음' : score >= 60 ? '보통' : '연습 필요')).trim(),
-    strengths: safeArray(raw?.strengths, ['주제에 맞게 자신의 생각을 표현했습니다.']),
-    improvements: safeArray(raw?.improvements, ['이유와 예시를 조금 더 자세히 쓰면 좋겠습니다.']),
-    studentComment: String(raw?.studentComment || '글을 끝까지 완성했어요. 다음에는 생각의 이유와 예시를 더 자세히 써 보세요.').trim(),
+    strengths: safeArray(raw?.strengths, ['내 생각을 잘 썼어요.']).slice(0, 2),
+    improvements: safeArray(raw?.improvements, ['이유나 예시를 한 가지 더 써 보세요.']).slice(0, 2),
+    studentComment: String(raw?.studentComment || '잘 썼어요. 다음에는 왜 그렇게 생각했는지 한 문장 더 써 보세요.').trim(),
     teacherViewComment: String(raw?.teacherViewComment || '교사는 주제 적합성, 구체적인 예시, 문단 구성을 중심으로 추가 피드백하면 좋습니다.').trim(),
   };
 };
@@ -54,7 +54,9 @@ export default async function handler(req, res) {
 5. 맞춤법과 표현이 적절한가
 
 주의:
-- 학생에게 보이는 코멘트는 격려형으로 씁니다.
+- 학생에게 보이는 코멘트는 초등학생이 바로 이해할 수 있는 쉬운 말로 씁니다.
+- strengths와 improvements는 각각 1~2개만 쓰고, 한 항목은 25자 안팎의 짧은 문장으로 씁니다.
+- studentComment는 2문장 이내로 씁니다. 어려운 평가 용어 대신 "왜", "예시", "처음-가운데-끝"처럼 바로 행동할 말을 씁니다.
 - 교사용 코멘트에는 지도 포인트를 구체적으로 씁니다.
 - 비난하거나 민감한 추정을 하지 않습니다.
 - JSON 이외의 설명을 쓰지 않습니다.
