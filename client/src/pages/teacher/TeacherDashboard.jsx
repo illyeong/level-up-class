@@ -875,12 +875,12 @@ function TeacherDashboard({
   const onboardingDoneCount = onboardingSteps.filter(step => step.done).length;
   const showOnboardingChecklist = quickSetupInfo?.completed && !quickSetupInfo.onboardingDismissed && onboardingDoneCount < onboardingSteps.length;
   const dashboardBg = isDark ? 'bg-slate-950' : 'bg-slate-100';
-  const mainSurface = 'dashboard-light-surface border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10';
+  const mainSurface = 'dashboard-light-surface teacher-dashboard-surface border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10';
   const mutedText = 'text-slate-600';
 
   return (
-    <div className={`teacher-dashboard-page min-h-screen px-4 md:px-8 pt-5 pb-8 relative ${dashboardBg}`}>
-      <div className={`mb-5 overflow-hidden rounded-2xl border p-6 shadow-xl ${
+    <div className={`teacher-dashboard-page ${isDark ? 'teacher-dashboard-dark-mode' : 'teacher-dashboard-light-mode'} min-h-screen px-4 md:px-8 pt-5 pb-8 relative ${dashboardBg}`}>
+      <div className={`teacher-dashboard-hero mb-5 overflow-hidden rounded-2xl border p-6 shadow-xl ${
         isDark
           ? 'border-indigo-300/25 bg-gradient-to-br from-indigo-600 via-violet-600 to-sky-600 text-white shadow-indigo-950/30'
           : 'border-indigo-100 bg-gradient-to-br from-white via-indigo-50 to-sky-50 text-slate-900'
@@ -1154,7 +1154,7 @@ function TeacherDashboard({
 
       {/* ── AI 오늘의 운영 요약 ── */}
       <div className="mb-4">
-        <div className="dashboard-light-surface rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10 overflow-hidden">
+        <div className="dashboard-light-surface teacher-dashboard-surface rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10 overflow-hidden">
           {/* 헤더 */}
           <div className={`px-5 py-4 flex items-center justify-between border-b ${
             isDark
@@ -1375,7 +1375,7 @@ function TeacherDashboard({
       <AICoursewareCard teacherUid={selectedClass?.teacherUid} onNavigate={(view) => window.dispatchEvent(new CustomEvent('teacher-nav', { detail: { view } }))} />
 
       {/* 퀘스트 현황 */}
-      <div className="dashboard-light-surface mb-5 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-xl shadow-black/10">
+      <div className="dashboard-light-surface teacher-dashboard-surface mb-5 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-xl shadow-black/10">
         <div className="flex items-center gap-2 mb-3">
           <img src={iconQuest} alt="퀘스트" className="w-6 h-6 object-contain" />
           <h2 className="font-extrabold text-slate-900 text-lg">오늘의 퀘스트 현황</h2>
@@ -1395,7 +1395,7 @@ function TeacherDashboard({
               const isDaily = quest.type === 'daily';
               return (
                 <div key={quest.id}
-                  className={`shrink-0 w-52 rounded-2xl shadow-sm border-2 overflow-hidden ${
+                  className={`teacher-dashboard-quest-card shrink-0 w-52 rounded-2xl shadow-sm border-2 overflow-hidden ${
                     isDark
                       ? isDaily
                         ? 'border-sky-500/45 bg-slate-900'
@@ -1439,10 +1439,10 @@ function TeacherDashboard({
 
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-extrabold text-white">학생 현황</h2>
-          <p className="mt-1 text-sm font-semibold text-slate-400">캐릭터, 레벨, 학급 재화를 한눈에 확인합니다.</p>
+          <h2 className={`text-xl font-extrabold ${isDark ? 'text-white' : 'text-slate-950'}`}>학생 현황</h2>
+          <p className={`mt-1 text-sm font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>캐릭터, 레벨, 학급 재화를 한눈에 확인합니다.</p>
         </div>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-200">{students.length}명</span>
+        <span className={`rounded-full px-3 py-1 text-xs font-black ${isDark ? 'bg-white/10 text-slate-200' : 'bg-slate-900 text-white'}`}>{students.length}명</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {students.map((student) => {

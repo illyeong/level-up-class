@@ -388,6 +388,44 @@
     color: #fffbeb !important;
 }
 
+/* Teacher dashboard light mode needs clear surface hierarchy, not flat white cards. */
+.teacher-dashboard-light-mode {
+    background:
+        radial-gradient(circle at 8% 0%, rgb(99 102 241 / 0.12), transparent 30rem),
+        linear-gradient(180deg, #f8fafc 0%, #e7eef8 100%) !important;
+    color: #0f172a;
+}
+
+.teacher-dashboard-light-mode .teacher-dashboard-hero {
+    border-color: #c7d2fe !important;
+    background:
+        linear-gradient(135deg, rgb(255 255 255 / 0.96), rgb(224 231 255 / 0.92) 48%, rgb(219 234 254 / 0.94)) !important;
+    box-shadow: 0 18px 42px rgb(30 41 59 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.9) !important;
+}
+
+.teacher-dashboard-light-mode .dashboard-light-surface {
+    border-color: #cbd5e1 !important;
+    background: #ffffff !important;
+    box-shadow: 0 16px 36px rgb(15 23 42 / 0.12), 0 2px 8px rgb(15 23 42 / 0.06) !important;
+}
+
+.teacher-dashboard-light-mode .dashboard-light-surface > :first-child:is(.bg-gradient-to-r, .bg-slate-50, .bg-indigo-50) {
+    border-color: #bfdbfe !important;
+    background: linear-gradient(90deg, #dbeafe 0%, #eef2ff 52%, #f8fafc 100%) !important;
+}
+
+.teacher-dashboard-light-mode .dashboard-light-surface :is(.bg-slate-50, .bg-white) {
+    border-color: #d5dfeb;
+}
+
+.teacher-dashboard-light-mode .teacher-dashboard-quest-card {
+    box-shadow: 0 8px 20px rgb(15 23 42 / 0.11);
+}
+
+.teacher-dashboard-light-mode .teacher-dashboard-quest-card:is(.bg-gradient-to-b) {
+    background: linear-gradient(180deg, #ffffff 0%, #f1f7ff 100%) !important;
+}
+
 /* Teacher dashboard dark mode keeps contrast without switching panels to white. */
 .teacher-theme-dark .teacher-dashboard-page .dashboard-light-surface {
     background: #101b2f !important;
@@ -1052,9 +1090,31 @@
     border: 1px solid #2f4462;
 }
 
+.ai-learning-manage .ai-scatter-plot .ai-scatter-label-line {
+    stroke: rgb(71 85 105 / 0.46);
+    stroke-width: 1.2;
+    stroke-dasharray: 3 3;
+}
+
+.ai-learning-manage .ai-scatter-plot .ai-scatter-label-bg {
+    fill: rgb(248 250 252 / 0.96);
+    stroke: rgb(148 163 184 / 0.72);
+    stroke-width: 1;
+    filter: drop-shadow(0 2px 4px rgb(15 23 42 / 0.22));
+}
+
 .teacher-theme-dark .ai-learning-manage .ai-scatter-plot {
     background-color: #111e33 !important;
     border-color: #425a79 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-scatter-plot .ai-scatter-label-line {
+    stroke: rgb(203 213 225 / 0.42);
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-scatter-plot .ai-scatter-label-bg {
+    fill: rgb(15 23 42 / 0.92);
+    stroke: rgb(148 163 184 / 0.75);
 }
 
 .teacher-theme-dark .ai-learning-manage .ai-scatter-plot .ai-scatter-axis-label,

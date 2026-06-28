@@ -129,6 +129,7 @@ const RAID_BREAK_GAIN = 20;
 const RAID_FINISHER_DURATION_MS = 3000;
 const QUESTION_DURATION_MIN = 6;
 const FOCUS_BREAK_TIME_PENALTY = 2;
+const BONUS_DIAMOND_PER_QUESTION = 50;
 
 const PRESENTATION_FALLBACK_QUESTIONS = [
   {
@@ -197,6 +198,9 @@ export const createPresentationTestRaid = async ({ classId, teacherUid, rosterCo
     autoAdvance: true,
     rewards: { gold: 0, exp: 0, diamond: 0 },
     rewardsPaid: true,
+    bonusStage: false,
+    bonusDiamondEarned: 0,
+    bonusQuestionCount: 0,
     morale: 100,
     combo: 0,
     maxCombo: 0,
@@ -932,8 +936,11 @@ function BattlePhase({
     const playerPoint = getRaidActorPoint(playerActorRef.current, 'player');
     if (!bossPoint || !playerPoint) return;
     if (myAnswer.correct) {
-      const damage = myAnswer.damage || raid.damagePerHit || 100;
-      const damageLabel = myAnswer.breakTriggered
+      const damage = Number(myAnswer.damage ?? raid.damagePerHit ?? 100);
+      const isBonusHit = damage <= 0 && (raid.bonusStage || raid.currentHP <= 0);
+      const damageLabel = isBonusHit
+        ? `보너스 +${BONUS_DIAMOND_PER_QUESTION}다이아`
+        : myAnswer.breakTriggered
         ? `방어막 파괴! -${damage.toLocaleString()}`
         : myAnswer.critical
           ? `CRITICAL -${damage.toLocaleString()}`
@@ -977,8 +984,11 @@ function BattlePhase({
       if (!participantPoint) return;
 
       if ((participant.correctCount || 0) > (previous.correctCount || 0)) {
-        const damage = participant.lastDamage || raid.damagePerHit || 100;
-        const damageLabel = participant.lastBreakTriggered
+        const damage = Number(participant.lastDamage ?? raid.damagePerHit ?? 100);
+        const isBonusHit = damage <= 0 && (raid.bonusStage || raid.currentHP <= 0);
+        const damageLabel = isBonusHit
+          ? `보너스 +${BONUS_DIAMOND_PER_QUESTION}다이아`
+          : participant.lastBreakTriggered
           ? `방어막 파괴! -${damage.toLocaleString()}`
           : participant.lastHitCritical
             ? `CRITICAL -${damage.toLocaleString()}`
@@ -1067,6 +1077,14 @@ function BattlePhase({
           </div>
         </div>
         <BossHpBar current={raid.currentHP} max={raid.maxHP} />
+        {(raid.bonusStage || raid.currentHP <= 0) && raid.status === 'active' && (
+          <div className="mt-2 rounded-xl border border-amber-300/50 bg-amber-400/15 px-3 py-2 text-sm font-extrabold text-amber-100 shadow-sm">
+            🎁 보너스 스테이지: 남은 문제를 계속 풀 수 있습니다. 문제를 넘길 때마다 추가 보상 💎 {BONUS_DIAMOND_PER_QUESTION}다이아가 누적됩니다.
+            {Number(raid.bonusDiamondEarned || 0) > 0 && (
+              <span className="ml-2 text-amber-200">현재 추가 보상 +{raid.bonusDiamondEarned}다이아</span>
+            )}
+          </div>
+        )}
         <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-4">
           <div>
             <div className="mb-1 flex items-center justify-between text-[9px] font-extrabold text-slate-300 sm:text-[10px]">
@@ -1327,7 +1345,7 @@ function BattlePhase({
               disabled={raid.finishing || raid.paused}
               className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-extrabold text-white shadow-lg shadow-rose-950/30 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {qIdx >= totalQ - 1 || raid.currentHP <= 0 ? '결과 처리 →' : '다음 문제 →'}
+              {qIdx >= totalQ - 1 ? '결과 처리 →' : '다음 문제 →'}
             </button>
           )}
         </div>
@@ -2221,6 +2239,7 @@ export default function BossRaid({
             answeredAt: new Date().toISOString(),
           },
           ...(isCorrect ? { currentHP: increment(-damage), phase: nextPhase, breakGauge: increment(RAID_BREAK_GAIN) } : {}),
+          ...(isCorrect && currentHP > 0 && currentHP - damage <= 0 ? { bonusStage: true, defeatedAt: serverTimestamp() } : {}),
           ...(!isCorrect ? { morale: moraleBroken ? 30 : increment(-moralePenalty) } : {}),
           ...(moraleBroken ? {
             currentHP: Math.min(maxHP, currentHP + getBossSkillHealAmount(raid, currentPhase)),
@@ -2312,10 +2331,9 @@ export default function BossRaid({
           if (isCorrect) {
             updates.currentHP = nextHP;
             updates.phase = nextPhase;
-            if (nextHP <= 0) {
-              updates.finishing = true;
-              updates.finishingStartedAt = serverTimestamp();
-              updates.finisherBy = latestParticipant.name || '학생';
+            if (currentHP > 0 && nextHP <= 0) {
+              updates.bonusStage = true;
+              updates.defeatedAt = serverTimestamp();
             }
           }
 
@@ -2456,16 +2474,18 @@ export default function BossRaid({
     const durationPenalty = Math.max(0, Number(raid.questionDurationPenalty) || 0);
     const nextQuestionDuration = Math.max(QUESTION_DURATION_MIN, baseQuestionDuration - durationPenalty);
 
-    if (nextIdx >= questions.length || raid.currentHP <= 0) {
+    if (nextIdx >= questions.length) {
+      const cleared = Boolean(raid.bonusStage) || raid.currentHP <= 0;
       updateDoc(doc(db, 'worldBossRaids', raid.id), {
-        status: raid.currentHP <= 0 ? 'cleared' : 'failed',
+        status: cleared ? 'cleared' : 'failed',
         clearedAt: serverTimestamp(),
         paused: false,
         pausedTimeLeft: deleteField(),
         pausedAt: deleteField(),
       }).catch(() => {});
     } else {
-      updateDoc(doc(db, 'worldBossRaids', raid.id), {
+      const enteringBonusQuestion = Boolean(raid.bonusStage) || raid.currentHP <= 0;
+      const updates = {
         currentQuestionIdx: nextIdx,
         questionStartedAt:  serverTimestamp(),
         questionDuration: nextQuestionDuration,
@@ -2473,7 +2493,15 @@ export default function BossRaid({
         paused: false,
         pausedTimeLeft: deleteField(),
         pausedAt: deleteField(),
-      }).catch(() => {});
+      };
+      if (enteringBonusQuestion) {
+        updates.bonusStage = true;
+        updates.bonusQuestionCount = increment(1);
+        updates.bonusDiamondEarned = increment(BONUS_DIAMOND_PER_QUESTION);
+        updates['rewards.diamond'] = increment(BONUS_DIAMOND_PER_QUESTION);
+        updates[`bonusQuestionRewards.q${nextIdx}`] = BONUS_DIAMOND_PER_QUESTION;
+      }
+      updateDoc(doc(db, 'worldBossRaids', raid.id), updates).catch(() => {});
     }
   };
 
@@ -2686,10 +2714,9 @@ export default function BossRaid({
 
       if (correct) updates.currentHP = increment(-damage);
       if (correct) updates.breakGauge = increment(RAID_BREAK_GAIN);
-      if (correct && nextHP <= 0) {
-        updates.finishing = true;
-        updates.finishingStartedAt = serverTimestamp();
-        updates.finisherBy = myP?.name || '테스트계정';
+      if (correct && currentHP > 0 && nextHP <= 0) {
+        updates.bonusStage = true;
+        updates.defeatedAt = serverTimestamp();
       }
       if (breakTriggered) {
         updates.breakCount = increment(1);
@@ -2767,7 +2794,7 @@ export default function BossRaid({
       }
 
       const nextPhase = Math.max(currentPhase, getRaidPhase(nextHP, maxHP));
-      const finishing = correct && nextHP <= 0;
+      const bossDefeatedNow = correct && currentHP > 0 && nextHP <= 0;
       const nextParticipant = {
         ...latestParticipant,
         answeredCount: (latestParticipant.answeredCount || 0) + 1,
@@ -2819,10 +2846,9 @@ export default function BossRaid({
         updates.questionDurationPenalty = (Number(latest.questionDurationPenalty) || 0) + FOCUS_BREAK_TIME_PENALTY;
       }
       if (nextPhase > currentPhase) updates.phaseChangedAt = serverTimestamp();
-      if (finishing) {
-        updates.finishing = true;
-        updates.finishingStartedAt = serverTimestamp();
-        updates.finisherBy = latestParticipant.name || '학생';
+      if (bossDefeatedNow) {
+        updates.bonusStage = true;
+        updates.defeatedAt = serverTimestamp();
       }
 
       transaction.update(raidDocRef, updates);

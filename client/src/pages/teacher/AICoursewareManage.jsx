@@ -221,6 +221,42 @@ const StudentScatterPlot = ({ students, maxProgress, avgScore }) => {
     }
     return { fill: '#6366f1', stroke: '#4338ca', label: '학습 중' };
   };
+  const labelSlots = [
+    { dx: 0, dy: -22 },
+    { dx: 34, dy: -14 },
+    { dx: -34, dy: -14 },
+    { dx: 0, dy: 28 },
+    { dx: 42, dy: 12 },
+    { dx: -42, dy: 12 },
+  ];
+  const pointNudges = [
+    { dx: 0, dy: 0 },
+    { dx: 13, dy: -8 },
+    { dx: -13, dy: 8 },
+    { dx: 13, dy: 9 },
+    { dx: -13, dy: -9 },
+    { dx: 0, dy: 14 },
+  ];
+  const labelBucketCounts = new Map();
+  const positionedStudents = chartStudents.map(student => {
+    const rawX = xFor(student.completions);
+    const rawY = yFor(student.avgScore);
+    const tone = getPointTone(student);
+    const seat = getSeatNum(student.studentCode);
+    const name = getStudentDisplayName(student);
+    const label = String(name).slice(0, 3);
+    const bucketKey = `${Math.round(rawX / 44)}:${Math.round(rawY / 32)}`;
+    const bucketIndex = labelBucketCounts.get(bucketKey) || 0;
+    labelBucketCounts.set(bucketKey, bucketIndex + 1);
+    const nudge = pointNudges[bucketIndex % pointNudges.length];
+    const x = Math.min(Math.max(rawX + nudge.dx, pad.left + 12), width - pad.right - 12);
+    const y = Math.min(Math.max(rawY + nudge.dy, pad.top + 12), pad.top + plotHeight - 12);
+    const slot = labelSlots[bucketIndex % labelSlots.length];
+    const labelWidth = Math.max(34, label.length * 13 + 14);
+    const labelX = Math.min(Math.max(x + slot.dx, pad.left + labelWidth / 2), width - pad.right - labelWidth / 2);
+    const labelY = Math.min(Math.max(y + slot.dy, pad.top + 14), pad.top + plotHeight - 6);
+    return { student, x, y, tone, seat, name, label, labelX, labelY, labelWidth };
+  });
 
   return (
     <div className="ai-scatter-plot rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -269,15 +305,17 @@ const StudentScatterPlot = ({ students, maxProgress, avgScore }) => {
             <line x1={avgX} x2={avgX} y1={pad.top} y2={pad.top + plotHeight} stroke="#7c3aed" strokeWidth="2" strokeDasharray="6 5" />
             <text x={pad.left} y={18} className="ai-scatter-axis-label fill-slate-700 text-[11px] font-black">평균 정답률</text>
             <text x={width - pad.right} y={height - 6} textAnchor="end" className="ai-scatter-axis-label fill-slate-700 text-[11px] font-black">완료 학습 수</text>
-            {chartStudents.map(student => {
-              const x = xFor(student.completions);
-              const y = yFor(student.avgScore);
-              const tone = getPointTone(student);
+            {positionedStudents.map(({ student, x, y, tone, seat, name, label, labelX, labelY, labelWidth }) => {
               const isHovered = hoveredStudent?.id === student.id;
-              const seat = getSeatNum(student.studentCode);
-              const name = getStudentDisplayName(student);
               return (
                 <g key={student.id || student.studentCode}>
+                  <line
+                    x1={x}
+                    y1={y - 13}
+                    x2={labelX}
+                    y2={labelY - 9}
+                    className="ai-scatter-label-line pointer-events-none"
+                  />
                   <circle
                     cx={x}
                     cy={y}
@@ -300,8 +338,16 @@ const StudentScatterPlot = ({ students, maxProgress, avgScore }) => {
                   <text x={x} y={y + 4} textAnchor="middle" className="pointer-events-none fill-white text-[10px] font-black">
                     {seat || ''}
                   </text>
-                  <text x={x} y={y - 16} textAnchor="middle" className="ai-scatter-point-label pointer-events-none fill-slate-800 text-[10px] font-black">
-                    {String(name).slice(0, 3)}
+                  <rect
+                    x={labelX - labelWidth / 2}
+                    y={labelY - 12}
+                    width={labelWidth}
+                    height="18"
+                    rx="9"
+                    className="ai-scatter-label-bg pointer-events-none"
+                  />
+                  <text x={labelX} y={labelY + 1} textAnchor="middle" className="ai-scatter-point-label pointer-events-none fill-slate-800 text-[10px] font-black">
+                    {label}
                   </text>
                 </g>
               );
