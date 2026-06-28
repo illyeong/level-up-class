@@ -689,11 +689,19 @@ export default function ExplorationDungeon({ studentCode, tickets, onUseTicket, 
     const unityUrl = `${DUNGEON_URL}?dungeonIndex=${encodeURIComponent(dungeonLaunchIndex)}&t=${launchTimestampRef.current || Date.now()}`;
     console.log('[ExplorationDungeon] unityUrl', unityUrl);
     return (
-      <div className="relative w-full" style={{ height: 'calc(100vh - 88px)', touchAction: 'none' }}>
-        <iframe ref={iframeRef} id="dungeon-iframe" src={unityUrl}
+      <div
+        className="relative w-full bg-slate-950 overflow-hidden flex items-center justify-center"
+        style={{ height: 'calc(100vh - 88px)', touchAction: 'none' }}
+      >
+        <div
+          className="relative h-full w-full"
+          style={{ maxWidth: 'calc((100vh - 88px) * 16 / 9)' }}
+        >
+          <iframe ref={iframeRef} id="dungeon-iframe" src={unityUrl}
           onLoad={handleIframeLoad} className="w-full h-full border-0"
           allow="fullscreen" title="탐험던전"
           style={{ touchAction: 'none', display: 'block' }} />
+        </div>
         <button onClick={() => setPhase('map')}
           className="absolute top-3 right-3 z-10 bg-slate-900/70 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-xl backdrop-blur-sm">
           ✕ 나가기

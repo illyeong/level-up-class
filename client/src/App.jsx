@@ -1284,7 +1284,7 @@ function App() {
         </button>
       )}
 
-      <main className="flex-1 overflow-auto relative" style={shouldUseAdventureBg ? { background: ADVENTURE_BG } : undefined}>
+      <main className="flex-1 min-w-0 overflow-auto relative" style={shouldUseAdventureBg ? { background: ADVENTURE_BG } : undefined}>
         {currentView === 'dashboard'    && <StudentDashboard studentCode={activeStudentCode} onChangeView={setCurrentView} themeMode={themeMode} />}
         {currentView === 'myCharacter'  && <MyCharacter      studentCode={activeStudentCode} themeMode={themeMode} onChangeView={setCurrentView} />}
         {currentView === 'avatarRoom'    && <AvatarRoom studentCode={activeStudentCode} />}
