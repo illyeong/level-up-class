@@ -120,6 +120,79 @@
 }
 
 /* ── 투기장 피격 흔들림 ───────────────────────────────────────── */
+@keyframes raid-result-confetti-fall {
+  0% { opacity: 0; transform: translate3d(0, -14vh, 0) rotate(0deg) scale(.75); }
+  10% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(var(--drift, 0px), 112vh, 0) rotate(var(--rot, 720deg)) scale(1); }
+}
+
+@keyframes raid-result-firework-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.2);
+    box-shadow:
+      0 0 0 0 #facc15,
+      0 0 0 0 #fb7185,
+      0 0 0 0 #38bdf8,
+      0 0 0 0 #34d399,
+      0 0 0 0 #a78bfa,
+      0 0 0 0 #f97316;
+  }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(.65); }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.15);
+    box-shadow:
+      0 -74px 0 4px #facc15,
+      58px -45px 0 3px #fb7185,
+      72px 18px 0 4px #38bdf8,
+      28px 68px 0 3px #34d399,
+      -42px 58px 0 4px #a78bfa,
+      -76px -8px 0 3px #f97316,
+      -36px -64px 0 4px #facc15;
+  }
+}
+
+.raid-result-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.raid-result-confetti-piece {
+  position: absolute;
+  top: -12vh;
+  left: var(--x);
+  width: var(--w);
+  height: var(--h);
+  border-radius: var(--r);
+  background: var(--c);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--c) 65%, transparent);
+  animation: raid-result-confetti-fall var(--dur) cubic-bezier(.16,.82,.28,1) var(--delay) forwards;
+}
+
+.raid-result-confetti-piece:nth-child(3n) { transform-origin: 50% 120%; }
+.raid-result-confetti-piece:nth-child(4n) { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.raid-result-confetti-piece:nth-child(5n) { filter: blur(.25px); }
+
+.raid-result-firework {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: white;
+  filter: drop-shadow(0 0 14px rgba(255,255,255,.8));
+  animation: raid-result-firework-pop 1.25s ease-out .18s both;
+}
+
+.raid-result-firework-left { left: 27%; top: 25%; }
+.raid-result-firework-right { left: 73%; top: 20%; animation-delay: .42s; }
+
 @keyframes arena-hit {
   0%   { transform: translateX(0) scale(1); }
   15%  { transform: translateX(-14px) scale(0.97); }

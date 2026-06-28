@@ -641,7 +641,10 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
         )}
 
         <div className="mt-8 border-t border-white/10 pt-6">
-          <div className="rounded-3xl border border-white/25 bg-slate-950/80 p-4 shadow-2xl shadow-slate-950/60 ring-1 ring-white/10 backdrop-blur-md">
+          <div
+            className="rounded-3xl border border-white/25 bg-slate-950/80 p-4 shadow-2xl shadow-slate-950/60 ring-1 ring-white/10 backdrop-blur-md"
+            style={{ fontFamily: '"Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif' }}
+          >
             <div className="mb-3">
               <p className="text-base font-black text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.75)]">AI교수학습 협력설계 챌린지</p>
               <p className="mt-1 text-xs font-bold leading-relaxed text-white/90 drop-shadow-[0_2px_6px_rgba(0,0,0,0.75)]">

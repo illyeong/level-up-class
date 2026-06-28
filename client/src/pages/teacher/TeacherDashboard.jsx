@@ -176,6 +176,7 @@ function TeacherDashboard({
   const [extensionBannerHidden, setExtensionBannerHidden] = useState(
     () => localStorage.getItem('extensionBannerNeverShow') === '1'
   );
+  const [showHeaderTools, setShowHeaderTools] = useState(false);
   const [aiSummaryExpanded, setAiSummaryExpanded] = useState(
     () => localStorage.getItem('aiSummaryCollapsed') !== '1'
   );
@@ -872,6 +873,7 @@ function TeacherDashboard({
     },
   ] : [];
   const onboardingDoneCount = onboardingSteps.filter(step => step.done).length;
+  const showOnboardingChecklist = quickSetupInfo?.completed && !quickSetupInfo.onboardingDismissed && onboardingDoneCount < onboardingSteps.length;
   const dashboardBg = isDark ? 'bg-slate-950' : 'bg-slate-100';
   const mainSurface = 'dashboard-light-surface border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10';
   const mutedText = 'text-slate-600';
@@ -883,7 +885,7 @@ function TeacherDashboard({
           ? 'border-indigo-300/25 bg-gradient-to-br from-indigo-600 via-violet-600 to-sky-600 text-white shadow-indigo-950/30'
           : 'border-indigo-100 bg-gradient-to-br from-white via-indigo-50 to-sky-50 text-slate-900'
       }`}>
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-5">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
         <div>
           <div className={`mb-2 inline-flex rounded-full px-3 py-1 text-xs font-black ${
             isDark ? 'bg-white/15 text-indigo-50' : 'bg-indigo-100 text-indigo-700'
@@ -893,12 +895,45 @@ function TeacherDashboard({
           <h1 className={`text-4xl font-extrabold flex items-center ${isDark ? 'text-white' : 'text-slate-900'}`}>
             학급 전체 대시보드
           </h1>
-          <p className={`mt-2 text-base font-semibold ${isDark ? 'text-indigo-50/90' : 'text-slate-600'}`}>
-            새 학급은 아래 3단계만 끝내면 바로 운영을 시작할 수 있습니다.
+          <p className={`mt-2 max-w-xl text-base font-semibold leading-relaxed ${isDark ? 'text-indigo-50/90' : 'text-slate-600'}`}>
+            {showOnboardingChecklist
+              ? '아래 3단계만 끝내면 기본 학급 운영을 바로 시작할 수 있습니다.'
+              : '오늘 필요한 학급 운영과 보상 처리를 빠르게 확인합니다.'}
           </p>
         </div>
         
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap justify-start gap-2 md:justify-end">
+          <button onClick={() => openModal('add')}
+            className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm transition-colors">
+            지급하기
+          </button>
+          <button onClick={() => openModal('sub')}
+            className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm transition-colors">
+            차감하기
+          </button>
+          <button
+            type="button"
+            onClick={onOpenBossRaidDemo}
+            className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base"
+          >
+            퀴즈레이드 발표 테스트
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowHeaderTools(value => !value)}
+            className={`px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base border ${
+              isDark
+                ? 'border-white/20 bg-white/15 text-white hover:bg-white/25'
+                : 'border-slate-300 bg-slate-900 text-white hover:bg-slate-800'
+            }`}
+          >
+            운영 도구 {showHeaderTools ? '접기 ▲' : '더보기 ▼'}
+          </button>
+        </div>
+        </div>
+
+        {showHeaderTools && (
+          <div className={`mt-4 flex flex-wrap gap-2 border-t pt-4 ${isDark ? 'border-white/15' : 'border-slate-200'}`}>
           {selectedClass?.teacherUid === 'admin_master_001' && (
             <button
               onClick={() => {
@@ -913,24 +948,21 @@ function TeacherDashboard({
           <button onClick={async () => {
             const list = await fetchStudents();
             await fetchQuestStats(list.map(s => s.id));
-          }} className="bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base border border-white/20">
+          }} className={`px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base border ${
+            isDark
+              ? 'border-white/20 bg-white/15 text-white hover:bg-white/25'
+              : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-100'
+          }`}>
             새로고침
           </button>
           {onStudentTestLogin && (
             <button
               onClick={() => onStudentTestLogin('SINSEOK-5-15')}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base"
-            >
-              학생 테스트 (SINSEOK-5-15)
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onOpenBossRaidDemo}
-            className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base"
           >
-            퀴즈레이드 발표 테스트
+            학생 테스트 (SINSEOK-5-15)
           </button>
+          )}
           <a
             href="https://github.com/illyeong/level-up-class/releases/download/v1.0.0/LevelUpTeacherWidgetSetup.exe"
             target="_blank"
@@ -943,16 +975,8 @@ function TeacherDashboard({
           <button onClick={fetchLogs} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base">
             지급/차감 내역 보기
           </button>
-          <button onClick={() => openModal('add')}
-            className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm transition-colors">
-            지급하기
-          </button>
-          <button onClick={() => openModal('sub')}
-            className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm transition-colors">
-            차감하기
-          </button>
-        </div>
-        </div>
+          </div>
+        )}
       </div>
 
       {quickSetupInfo && !quickSetupInfo.completed && (
@@ -976,7 +1000,7 @@ function TeacherDashboard({
         </div>
       )}
 
-      {quickSetupInfo?.completed && !quickSetupInfo.onboardingDismissed && onboardingDoneCount < onboardingSteps.length && (
+      {showOnboardingChecklist && (
         <div className={`mb-5 overflow-hidden rounded-2xl border shadow-xl ${
           isDark
             ? 'border-slate-700 bg-slate-900 text-slate-100 shadow-black/30'

@@ -1393,9 +1393,47 @@ function ResultPhase({ raid, myId, bossData, onGoToIntro, onStartWrongReview }) 
   const answerDetails = Object.values(myP.answerDetails || {})
     .sort((a, b) => (a.questionIdx || 0) - (b.questionIdx || 0));
   const wrongDetails = answerDetails.filter(item => !item.isCorrect);
+  const confettiColors = ['#facc15', '#fb7185', '#38bdf8', '#34d399', '#a78bfa', '#f97316'];
+  const confettiPieces = isCleared
+    ? Array.from({ length: 54 }, (_, index) => ({
+        id: index,
+        x: (index * 19 + 7) % 100,
+        drift: ((index % 9) - 4) * 18,
+        delay: (index % 12) * 0.11,
+        duration: 2.4 + (index % 7) * 0.18,
+        color: confettiColors[index % confettiColors.length],
+        width: 7 + (index % 3) * 3,
+        height: 10 + (index % 4) * 4,
+        radius: index % 3 === 0 ? '999px' : '2px',
+        rotate: 360 + (index % 6) * 95,
+      }))
+    : [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center p-6 text-center">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center p-6 text-center">
+      {isCleared && (
+        <div className="raid-result-confetti" aria-hidden="true">
+          {confettiPieces.map(piece => (
+            <span
+              key={piece.id}
+              className="raid-result-confetti-piece"
+              style={{
+                '--x': `${piece.x}%`,
+                '--drift': `${piece.drift}px`,
+                '--delay': `${piece.delay}s`,
+                '--dur': `${piece.duration}s`,
+                '--c': piece.color,
+                '--w': `${piece.width}px`,
+                '--h': `${piece.height}px`,
+                '--r': piece.radius,
+                '--rot': `${piece.rotate}deg`,
+              }}
+            />
+          ))}
+          <span className="raid-result-firework raid-result-firework-left" />
+          <span className="raid-result-firework raid-result-firework-right" />
+        </div>
+      )}
       <div className="flex items-center justify-center mb-3 mt-8 overflow-visible" style={{ height: 180 }}>
         <BossSprite bossData={bossData} anim={isCleared ? 'death' : 'idle'} scale={1.25} />
       </div>
