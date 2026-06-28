@@ -6688,7 +6688,7 @@ MonoBehaviour:
   iceFieldRadius: 3.2
   iceFieldDuration: 3.5
   iceFieldTickInterval: 0.55
-  iceFieldDamageMultiplier: 0.28
+  iceFieldDamageMultiplier: 0.8
   iceFieldMoveSpeedMultiplier: 0.45
   iceFieldSlowDuration: 0.75
   iceSpikeCount: 5
