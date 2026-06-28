@@ -211,7 +211,7 @@ const getTimedPetEnergy = (pet = {}) => {
   return Math.min(100, (pet.energy ?? 100) + getPetElapsedDays(ref) * PET_ENERGY_RECOVERY_PER_DAY);
 };
 
-const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','classOperation','miniGame'];
+const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','arena2','bossRaid','classOperation','miniGame'];
 const THEMEABLE_VIEWS = new Set(['dashboard', 'classAll', 'quest', 'learningNote', 'myCharacter']);
 const ADVENTURE_BG = 'linear-gradient(160deg, #020617 0%, #0f172a 50%, #1e1b4b 100%)';
 const STUDENT_SESSION_KEY = 'studentInfo';

@@ -137,6 +137,7 @@ function TeacherDashboard({
   onGoAccountIssue,
   onStudentTestLogin,
   onOpenBossRaidDemo,
+  canUseBossRaidDemo = false,
   isDark = false,
   operationMode = 'custom',
   onApplyOperationMode,
@@ -911,13 +912,15 @@ function TeacherDashboard({
             className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm transition-colors">
             차감하기
           </button>
-          <button
-            type="button"
-            onClick={onOpenBossRaidDemo}
-            className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base"
-          >
-            퀴즈레이드 발표 테스트
-          </button>
+          {canUseBossRaidDemo && (
+            <button
+              type="button"
+              onClick={onOpenBossRaidDemo}
+              className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base"
+            >
+              퀴즈레이드 발표 테스트
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowHeaderTools(value => !value)}

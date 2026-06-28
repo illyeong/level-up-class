@@ -1,6 +1,6 @@
 export const STUDENT_MENU_IDS = [
   'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement',
-  'board','learningNote','topicWriting','adventure','classOperation','quizDungeon','explorationDungeon','arena','bossRaid','trade',
+  'board','learningNote','topicWriting','adventure','classOperation','quizDungeon','explorationDungeon','arena','arena2','bossRaid','trade',
   'classBank','classShop','stockMarket','town','freeBoard','classVote','settings','editProfile','themeSettings',
 ];
 
@@ -30,7 +30,7 @@ export const OPERATION_MODE_PRESETS = {
     description: '퀘스트와 상점에 어드벤처, 퀴즈던전, 퀴즈레이드, 투기장을 더합니다.',
     studentHidden: hideExcept(STUDENT_MENU_IDS, [
       'dashboard','classAll','myCharacter','avatarRoom','equipment','gachaBox','quest','achievement','learningNote','topicWriting',
-      'adventure','classOperation','quizDungeon','explorationDungeon','arena','bossRaid','trade','classShop','settings','editProfile','themeSettings',
+      'adventure','classOperation','quizDungeon','explorationDungeon','arena','arena2','bossRaid','trade','classShop','settings','editProfile','themeSettings',
     ]),
     teacherHidden: hideExcept(TEACHER_MENU_IDS, [
       'dashboard','myCharacter','topicWritingManage','questManage','questKiosk','adventure','classOperationManage','quizBank','quizDungeonManage','bossRaidManage',

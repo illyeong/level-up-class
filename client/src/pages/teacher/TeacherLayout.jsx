@@ -43,6 +43,8 @@ const BOSS_RAID_PRESENTATION_CODES = Array.from(
   { length: 15 },
   (_, index) => `SINSEOK-5-${String(index + 1).padStart(2, '0')}`,
 );
+const BOSS_RAID_DEMO_ALLOWED_TEACHER_EMAIL = 'imdlffud2@gmail.com';
+const normalizeTeacherEmail = (email) => String(email || '').trim().toLowerCase();
 
 const KOREAN_STUDENT_MENU_LABELS = {
   dashboard: '대시보드',
@@ -129,6 +131,8 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   const [dismissedIds, setDismissedIds] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('dismissedNotices') || '[]'); } catch { return []; }
   });
+  const currentTeacherEmail = normalizeTeacherEmail(user?.email);
+  const canUseBossRaidDemo = currentTeacherEmail === BOSS_RAID_DEMO_ALLOWED_TEACHER_EMAIL;
 
   useEffect(() => {
     getDocs(query(collection(db, 'notices'), where('active', '==', true)))
@@ -250,6 +254,11 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
   }, []);
 
   const openBossRaidDemo = useCallback(async () => {
+    if (!canUseBossRaidDemo) {
+      setCurrentView('dashboard');
+      setBossRaidDemo({ status: 'idle', raidId: null, error: null });
+      return;
+    }
     setCurrentView('bossRaidDemo');
     setBossRaidDemo({ status: 'creating', raidId: null, error: null });
     try {
@@ -267,13 +276,13 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         error: error?.message || '퀴즈레이드 발표 테스트를 만들지 못했습니다.',
       });
     }
-  }, [selectedClass?.id, selectedClass?.teacherUid, user?.uid]);
+  }, [canUseBossRaidDemo, selectedClass?.id, selectedClass?.teacherUid, user?.uid]);
 
   useEffect(() => {
-    if (!autoOpenBossRaidDemoKey || autoOpenedBossRaidDemoRef.current === autoOpenBossRaidDemoKey) return;
+    if (!canUseBossRaidDemo || !autoOpenBossRaidDemoKey || autoOpenedBossRaidDemoRef.current === autoOpenBossRaidDemoKey) return;
     autoOpenedBossRaidDemoRef.current = autoOpenBossRaidDemoKey;
     openBossRaidDemo();
-  }, [autoOpenBossRaidDemoKey, openBossRaidDemo]);
+  }, [autoOpenBossRaidDemoKey, canUseBossRaidDemo, openBossRaidDemo]);
 
   const visibleNotices = notices.filter(n => !dismissedIds.includes(n.id));
 
@@ -453,6 +462,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             selectedClass={selectedClass}
             onGoAccountIssue={() => setCurrentView('accountIssue')}
             onOpenBossRaidDemo={openBossRaidDemo}
+            canUseBossRaidDemo={canUseBossRaidDemo}
             isDark={isDark}
             operationMode={operationMode}
             onApplyOperationMode={applyOperationMode}
@@ -497,7 +507,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             onExit={() => setCurrentView('bossRaidManage')}
           />
         )}
-        {currentView === 'bossRaidDemo' && bossRaidDemo.status === 'creating' && (
+        {canUseBossRaidDemo && currentView === 'bossRaidDemo' && bossRaidDemo.status === 'creating' && (
           <div className="flex min-h-[calc(100vh-48px)] items-center justify-center bg-slate-950 p-6 text-center">
             <div className="max-w-md rounded-3xl border border-slate-700 bg-slate-900 px-8 py-7 shadow-2xl">
               <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-rose-500" />
@@ -508,7 +518,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             </div>
           </div>
         )}
-        {currentView === 'bossRaidDemo' && bossRaidDemo.status === 'error' && (
+        {canUseBossRaidDemo && currentView === 'bossRaidDemo' && bossRaidDemo.status === 'error' && (
           <div className="flex min-h-[calc(100vh-48px)] items-center justify-center bg-slate-950 p-6 text-center">
             <div className="max-w-lg rounded-3xl border border-rose-500/40 bg-slate-900 px-8 py-7 shadow-2xl">
               <div className="mb-4 text-5xl">⚠️</div>
@@ -535,7 +545,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             </div>
           </div>
         )}
-        {currentView === 'bossRaidDemo' && bossRaidDemo.status === 'ready' && bossRaidDemo.raidId && (
+        {canUseBossRaidDemo && currentView === 'bossRaidDemo' && bossRaidDemo.status === 'ready' && bossRaidDemo.raidId && (
           <BossRaid
             studentCode="SINSEOK-5-15"
             selectedClass={selectedClass}
