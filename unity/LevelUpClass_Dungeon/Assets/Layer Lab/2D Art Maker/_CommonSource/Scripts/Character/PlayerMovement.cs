@@ -30,6 +30,8 @@ namespace LayerLab.ArtMaker
         
         private bool isGrounded;
         private string currentAnim = "";
+        private float baseMoveSpeed;
+        private Coroutine moveSpeedModifierRoutine;
 
         public void ResetAnimState() { currentAnim = ""; }
 
@@ -39,6 +41,7 @@ namespace LayerLab.ArtMaker
             skeletonAnim = GetComponent<SkeletonAnimation>();
             skeletonGraphic = GetComponent<SkeletonGraphic>();
             playerCombat = GetComponent<PlayerCombat>();
+            baseMoveSpeed = moveSpeed;
 
             // Inspector에서 연결 안 됐으면 씬에서 자동 탐색
             // 씬 전환 직후엔 1프레임 뒤 재탐색으로 타이밍 문제 방지
@@ -113,6 +116,24 @@ namespace LayerLab.ArtMaker
                 skeletonAnim.AnimationState.SetAnimation(0, animName, loop);
                 
             currentAnim = animName;
+        }
+
+        public void ApplyMoveSpeedMultiplier(float multiplier, float duration)
+        {
+            if (duration <= 0f) return;
+
+            if (moveSpeedModifierRoutine != null)
+                StopCoroutine(moveSpeedModifierRoutine);
+
+            moveSpeedModifierRoutine = StartCoroutine(MoveSpeedModifierRoutine(multiplier, duration));
+        }
+
+        private IEnumerator MoveSpeedModifierRoutine(float multiplier, float duration)
+        {
+            moveSpeed = baseMoveSpeed * Mathf.Clamp(multiplier, 0.1f, 2f);
+            yield return new WaitForSeconds(duration);
+            moveSpeed = baseMoveSpeed;
+            moveSpeedModifierRoutine = null;
         }
 
         void OnDrawGizmosSelected()

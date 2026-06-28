@@ -20,7 +20,8 @@ public class BossFSM : MonoBehaviour
         PoisonPool,
         Smash,
         StoneGolem,
-        MeadowDragon
+        MeadowDragon,
+        IceWorm
     }
 
     public UnityEngine.UI.Slider bossHpBar;
@@ -109,6 +110,32 @@ public class BossFSM : MonoBehaviour
     public float dragonPhase2CooldownMultiplier = 0.7f;
     public float dragonSkillTriggerRange = 8f;
 
+    [Header("Ice Worm Unique Patterns")]
+    public bool iceWormPatternsStartInPhase1 = true;
+    public float iceWormSpecialCooldown = 6f;
+    public float iceWormPhase2CooldownMultiplier = 0.65f;
+    public float iceWormSkillTriggerRange = 8.5f;
+    public GameObject iceBurrowEffectPrefab;
+    public GameObject iceEmergeEffectPrefab;
+    public GameObject iceFieldEffectPrefab;
+    public GameObject iceSpikeWarningEffectPrefab;
+    public GameObject iceSpikeImpactEffectPrefab;
+    public float iceBurrowDuration = 0.45f;
+    public float iceBurrowAlpha = 0.45f;
+    public float iceEmergeOffsetFromPlayer = 1.25f;
+    public float iceEmergeRadius = 2.8f;
+    public float iceEmergeDamageMultiplier = 1.6f;
+    public float iceFieldRadius = 3.2f;
+    public float iceFieldDuration = 3.5f;
+    public float iceFieldTickInterval = 0.55f;
+    public float iceFieldDamageMultiplier = 0.28f;
+    [Range(0.1f, 1f)] public float iceFieldMoveSpeedMultiplier = 0.45f;
+    public float iceFieldSlowDuration = 0.75f;
+    public int iceSpikeCount = 5;
+    public int phase2IceSpikeCount = 8;
+    public float iceSpikeInterval = 0.25f;
+    public float iceSpikeSpread = 3.2f;
+
     [Header("지형 감지")]
     public Transform frontCheck;
     public LayerMask groundLayer;
@@ -160,6 +187,7 @@ public class BossFSM : MonoBehaviour
     private SpriteRenderer spriteRenderer;
     private Vector3 initialLocalScale;
     private readonly List<GameObject> activeFallingRocks = new();
+    private readonly List<Collider2D> burrowDisabledColliders = new();
 
     public int CurrentHealth => currentHealth;
     public bool isDead { get; private set; } = false;
@@ -181,6 +209,8 @@ public class BossFSM : MonoBehaviour
     private bool firstStoneRockPending = false;
     private float lastDragonSpecialTime = 0f;
     private int nextDragonPattern = 0;
+    private float lastIceWormSpecialTime = 0f;
+    private int nextIceWormPattern = 0;
 
     void Start()
     {
@@ -247,6 +277,15 @@ public class BossFSM : MonoBehaviour
             Time.time >= lastDragonSpecialTime + GetDragonSpecialCooldown())
         {
             StartNextDragonPattern();
+            return;
+        }
+
+        if (phase2Skill == Phase2SkillType.IceWorm &&
+            (iceWormPatternsStartInPhase1 || isPhase2) &&
+            dist <= iceWormSkillTriggerRange &&
+            Time.time >= lastIceWormSpecialTime + GetIceWormSpecialCooldown())
+        {
+            StartNextIceWormPattern();
             return;
         }
 
@@ -797,6 +836,238 @@ public class BossFSM : MonoBehaviour
         nextDragonPattern = (nextDragonPattern + 1) % 3;
     }
 
+    float GetIceWormSpecialCooldown()
+    {
+        float multiplier = isPhase2 ? iceWormPhase2CooldownMultiplier : 1f;
+        return Mathf.Max(1f, iceWormSpecialCooldown * multiplier);
+    }
+
+    void StartNextIceWormPattern()
+    {
+        lastIceWormSpecialTime = Time.time;
+
+        switch (nextIceWormPattern)
+        {
+            case 0:
+                StartCoroutine(IceWormBurrowAmbush());
+                break;
+            case 1:
+                StartCoroutine(IceWormFrozenField());
+                break;
+            default:
+                StartCoroutine(IceWormSpikeBarrage());
+                break;
+        }
+
+        nextIceWormPattern = (nextIceWormPattern + 1) % 3;
+    }
+
+    IEnumerator IceWormBurrowAmbush()
+    {
+        isAttacking = true;
+        rb.linearVelocity = Vector2.zero;
+
+        PlayAnim(string.IsNullOrEmpty(skillAnimName) ? attackAnimName : skillAnimName, false);
+
+        Vector3 startPosition = transform.position;
+        SpawnShortEffect(iceBurrowEffectPrefab != null ? iceBurrowEffectPrefab : smashWarningEffectPrefab, startPosition, 1.2f, 8);
+        SetCombatCollidersEnabled(false);
+        SetVisualsEnabled(false);
+
+        yield return new WaitForSeconds(iceBurrowDuration);
+
+        Vector3 emergePosition = startPosition;
+        if (playerTarget != null)
+        {
+            float side = playerTarget.position.x >= startPosition.x ? -1f : 1f;
+            emergePosition = new Vector3(
+                playerTarget.position.x + side * iceEmergeOffsetFromPlayer,
+                startPosition.y,
+                startPosition.z
+            );
+            FaceDirection(playerTarget.position.x - emergePosition.x);
+        }
+
+        transform.position = emergePosition;
+        rb.linearVelocity = Vector2.zero;
+        yield return null;
+
+        SetVisualsEnabled(true);
+        SetVisualAlpha(1f);
+        SetCombatCollidersEnabled(true);
+
+        SpawnShortEffect(iceEmergeEffectPrefab != null ? iceEmergeEffectPrefab : landingEffectPrefab, transform.position, 2f, 15);
+        CameraFollow.Instance?.Shake(shakeDuration, shakeMagnitude);
+        DamagePlayersInRadius(transform.position, iceEmergeRadius, Mathf.RoundToInt(attackPower * iceEmergeDamageMultiplier));
+
+        yield return new WaitForSeconds(0.45f);
+        isAttacking = false;
+    }
+
+    IEnumerator IceWormFrozenField()
+    {
+        isAttacking = true;
+        rb.linearVelocity = Vector2.zero;
+
+        PlayAnim(string.IsNullOrEmpty(skillAnimName) ? attackAnimName : skillAnimName, false);
+        yield return new WaitForSeconds(poisonCastDelay);
+
+        Vector3 center = playerTarget != null ? playerTarget.position : transform.position;
+        center.z = transform.position.z;
+
+        GameObject field = iceFieldEffectPrefab != null ? iceFieldEffectPrefab : poisonPoolEffectPrefab;
+        SpawnShortEffect(field, center, iceFieldDuration + 0.5f, 5);
+
+        int tickDamage = Mathf.Max(1, Mathf.RoundToInt(attackPower * iceFieldDamageMultiplier));
+        float elapsed = 0f;
+        while (elapsed < iceFieldDuration)
+        {
+            Collider2D[] hits = Physics2D.OverlapCircleAll(center, iceFieldRadius, LayerMask.GetMask("Player"));
+            foreach (var hit in hits)
+            {
+                var pc = hit.GetComponent<LayerLab.ArtMaker.PlayerCombat>();
+                if (pc != null)
+                    pc.TakePlayerDamage(tickDamage, center);
+
+                var movement = hit.GetComponent<LayerLab.ArtMaker.PlayerMovement>();
+                if (movement != null)
+                    movement.ApplyMoveSpeedMultiplier(iceFieldMoveSpeedMultiplier, iceFieldSlowDuration);
+            }
+
+            yield return new WaitForSeconds(iceFieldTickInterval);
+            elapsed += iceFieldTickInterval;
+        }
+
+        isAttacking = false;
+    }
+
+    IEnumerator IceWormSpikeBarrage()
+    {
+        isAttacking = true;
+        rb.linearVelocity = Vector2.zero;
+
+        PlayAnim(string.IsNullOrEmpty(skillAnimName) ? attackAnimName : skillAnimName, false);
+        yield return new WaitForSeconds(rockFallCastDelay);
+
+        int count = isPhase2 ? phase2IceSpikeCount : iceSpikeCount;
+        for (int i = 0; i < count; i++)
+        {
+            Vector3 center = playerTarget != null ? playerTarget.position : transform.position;
+            float offset = Random.Range(-iceSpikeSpread, iceSpikeSpread);
+            Vector3 target = new Vector3(center.x + offset, center.y, transform.position.z);
+            SpawnIceSpike(target);
+            yield return new WaitForSeconds(iceSpikeInterval);
+        }
+
+        yield return new WaitForSeconds(0.35f);
+        isAttacking = false;
+    }
+
+    void SpawnIceSpike(Vector3 target)
+    {
+        GameObject warning = iceSpikeWarningEffectPrefab != null ? iceSpikeWarningEffectPrefab : rockWarningEffectPrefab;
+        GameObject impact = iceSpikeImpactEffectPrefab != null ? iceSpikeImpactEffectPrefab : rockImpactEffectPrefab;
+
+        if (fallingRockPrefab != null)
+        {
+            StoneGolemFallingRock spike = Instantiate(
+                fallingRockPrefab,
+                target + Vector3.up * rockFallHeight,
+                Quaternion.identity
+            );
+            activeFallingRocks.Add(spike.gameObject);
+            spike.Initialize(
+                target,
+                rockFallDuration,
+                rockFallRadius,
+                Mathf.RoundToInt(attackPower * rockFallDamageMultiplier),
+                warning,
+                impact
+            );
+            return;
+        }
+
+        StartCoroutine(FallbackIceSpikeImpact(target, warning, impact));
+    }
+
+    IEnumerator FallbackIceSpikeImpact(Vector3 target, GameObject warningPrefab, GameObject impactPrefab)
+    {
+        GameObject warning = null;
+        if (warningPrefab != null)
+            warning = Instantiate(warningPrefab, target, Quaternion.identity);
+
+        yield return new WaitForSeconds(rockFallDuration);
+
+        if (warning != null) Destroy(warning);
+        SpawnShortEffect(impactPrefab, target, 2f, 12);
+
+        CameraFollow.Instance?.Shake(shakeDuration * 0.55f, shakeMagnitude * 0.55f);
+        DamagePlayersInRadius(target, rockFallRadius, Mathf.RoundToInt(attackPower * rockFallDamageMultiplier));
+    }
+
+    void SpawnShortEffect(GameObject prefab, Vector3 position, float lifetime, int orderOffset)
+    {
+        if (prefab == null) return;
+
+        GameObject effect = Instantiate(prefab, position, Quaternion.identity);
+        BringEffectToFront(effect, orderOffset);
+        Destroy(effect, lifetime);
+    }
+
+    void SetVisualAlpha(float alpha)
+    {
+        alpha = Mathf.Clamp01(alpha);
+
+        foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
+        {
+            foreach (Material material in renderer.materials)
+            {
+                if (!material.HasProperty("_Color")) continue;
+                Color color = material.color;
+                color.a = alpha;
+                material.color = color;
+            }
+        }
+
+        foreach (Graphic graphic in GetComponentsInChildren<Graphic>(true))
+        {
+            Color color = graphic.color;
+            color.a = alpha;
+            graphic.color = color;
+        }
+    }
+
+    void SetVisualsEnabled(bool enabled)
+    {
+        foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
+        {
+            renderer.enabled = enabled;
+        }
+
+        if (skeletonGraphic != null)
+            skeletonGraphic.enabled = enabled;
+    }
+
+    void SetCombatCollidersEnabled(bool enabled)
+    {
+        if (!enabled)
+        {
+            burrowDisabledColliders.Clear();
+            foreach (Collider2D col in GetComponentsInChildren<Collider2D>(true))
+            {
+                if (col == null || !col.enabled || !col.isTrigger) continue;
+                burrowDisabledColliders.Add(col);
+                col.enabled = false;
+            }
+            return;
+        }
+
+        foreach (Collider2D col in burrowDisabledColliders)
+            if (col != null) col.enabled = true;
+
+        burrowDisabledColliders.Clear();
+    }
+
     void SpawnFallingRock(Vector3 target)
     {
         if (fallingRockPrefab != null)
@@ -1069,6 +1340,9 @@ public class BossFSM : MonoBehaviour
         isDead = true;
         StopAllCoroutines();
         rb.linearVelocity = Vector2.zero;
+        SetVisualsEnabled(true);
+        SetVisualAlpha(1f);
+        SetCombatCollidersEnabled(true);
 
         foreach (GameObject rock in activeFallingRocks)
             if (rock != null) Destroy(rock);

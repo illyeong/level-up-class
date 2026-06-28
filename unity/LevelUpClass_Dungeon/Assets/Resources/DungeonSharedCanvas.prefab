@@ -3890,6 +3890,8 @@ MonoBehaviour:
   chestSpacing: 4
   openAnimName: Open
   idleAnimName: Idle
+  dungeon6PlusChestPrefab: {fileID: 2505659550044296927, guid: ff63f59b68c19bb4581b0ae8d028ce26, type: 3}
+  dungeon6PlusChestStartIndex: 6
   rewardTextPrefab: {fileID: 0}
   deathPanel: {fileID: 7287521330542059502}
   killCountText: {fileID: 8781666756112061819}

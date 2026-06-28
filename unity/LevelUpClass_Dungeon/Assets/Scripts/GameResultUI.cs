@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using Spine.Unity;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// 보스 클리어 보상 선택창 + 사망 화면.
@@ -28,6 +29,9 @@ public class GameResultUI : MonoBehaviour
     public float        chestSpacing = 4f;       // 상자 간격
     public string       openAnimName = "Open";
     public string       idleAnimName = "Idle";
+    [Header("Dungeon 6+ Chest")]
+    public GameObject   dungeon6PlusChestPrefab;
+    [Min(1)] public int dungeon6PlusChestStartIndex = 6;
 
     [Header("보상 텍스트 (World Space)")]
     public GameObject   rewardTextPrefab;       // 월드에 띄울 텍스트 프리팹 (TMP 포함)
@@ -130,7 +134,8 @@ public class GameResultUI : MonoBehaviour
             if (obj) Destroy(obj);
         _spawnedChests.Clear();
 
-        if (chestPrefab == null) return;
+        GameObject activeChestPrefab = GetChestPrefabForCurrentDungeon();
+        if (activeChestPrefab == null) return;
 
         // 플레이어 위치를 기준으로 상자를 배치한다. 플레이어를 찾지 못한 경우에만 카메라 중앙을 사용한다.
         GameObject player = GameObject.FindWithTag("Player");
@@ -151,7 +156,7 @@ public class GameResultUI : MonoBehaviour
         {
             float offsetX = (i - 1) * chestSpacing;
             var pos   = center + new Vector3(offsetX, 0f, 0f);
-            var chest = Instantiate(chestPrefab, pos, Quaternion.identity);
+            var chest = Instantiate(activeChestPrefab, pos, Quaternion.identity);
             _spawnedChests.Add(chest);
 
             foreach (var sr in chest.GetComponentsInChildren<SpriteRenderer>())
@@ -168,6 +173,30 @@ public class GameResultUI : MonoBehaviour
     }
 
     // ChestClickHandler에서 호출
+    GameObject GetChestPrefabForCurrentDungeon()
+    {
+        int idx = GetCurrentDungeonIndex();
+        if (idx >= Mathf.Max(1, dungeon6PlusChestStartIndex) && dungeon6PlusChestPrefab != null)
+            return dungeon6PlusChestPrefab;
+
+        return chestPrefab;
+    }
+
+    int GetCurrentDungeonIndex()
+    {
+        int idx = GameManager.Instance != null ? GameManager.Instance.dungeonIndex : 1;
+        string sceneName = SceneManager.GetActiveScene().name;
+
+        if (!string.IsNullOrEmpty(sceneName) && sceneName.Length >= 3 && sceneName[0] == 'D')
+        {
+            string numberText = sceneName.Substring(1, 2);
+            if (int.TryParse(numberText, out int sceneIndex))
+                idx = Mathf.Max(idx, sceneIndex);
+        }
+
+        return Mathf.Max(1, idx);
+    }
+
     public void OnChestClick(int index)
     {
         if (_selected != -1) return;
