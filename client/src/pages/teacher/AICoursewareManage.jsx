@@ -221,49 +221,38 @@ const StudentScatterPlot = ({ students, maxProgress, avgScore }) => {
     }
     return { fill: '#6366f1', stroke: '#4338ca', label: '학습 중' };
   };
-  const labelSlots = [
-    { dx: 0, dy: -22 },
-    { dx: 34, dy: -14 },
-    { dx: -34, dy: -14 },
-    { dx: 0, dy: 28 },
-    { dx: 42, dy: 12 },
-    { dx: -42, dy: 12 },
-  ];
   const pointNudges = [
     { dx: 0, dy: 0 },
-    { dx: 13, dy: -8 },
-    { dx: -13, dy: 8 },
-    { dx: 13, dy: 9 },
-    { dx: -13, dy: -9 },
-    { dx: 0, dy: 14 },
+    { dx: 16, dy: -10 },
+    { dx: -16, dy: 10 },
+    { dx: 16, dy: 12 },
+    { dx: -16, dy: -12 },
+    { dx: 0, dy: 18 },
+    { dx: 24, dy: 0 },
+    { dx: -24, dy: 0 },
   ];
-  const labelBucketCounts = new Map();
+  const pointBucketCounts = new Map();
   const positionedStudents = chartStudents.map(student => {
     const rawX = xFor(student.completions);
     const rawY = yFor(student.avgScore);
     const tone = getPointTone(student);
     const seat = getSeatNum(student.studentCode);
     const name = getStudentDisplayName(student);
-    const label = String(name).slice(0, 3);
     const bucketKey = `${Math.round(rawX / 44)}:${Math.round(rawY / 32)}`;
-    const bucketIndex = labelBucketCounts.get(bucketKey) || 0;
-    labelBucketCounts.set(bucketKey, bucketIndex + 1);
+    const bucketIndex = pointBucketCounts.get(bucketKey) || 0;
+    pointBucketCounts.set(bucketKey, bucketIndex + 1);
     const nudge = pointNudges[bucketIndex % pointNudges.length];
     const x = Math.min(Math.max(rawX + nudge.dx, pad.left + 12), width - pad.right - 12);
     const y = Math.min(Math.max(rawY + nudge.dy, pad.top + 12), pad.top + plotHeight - 12);
-    const slot = labelSlots[bucketIndex % labelSlots.length];
-    const labelWidth = Math.max(34, label.length * 13 + 14);
-    const labelX = Math.min(Math.max(x + slot.dx, pad.left + labelWidth / 2), width - pad.right - labelWidth / 2);
-    const labelY = Math.min(Math.max(y + slot.dy, pad.top + 14), pad.top + plotHeight - 6);
-    return { student, x, y, tone, seat, name, label, labelX, labelY, labelWidth };
+    return { student, x, y, tone, seat, name };
   });
 
   return (
     <div className="ai-scatter-plot rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">진행도 × 평균 정답률</h3>
-          <p className="mt-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-300">오른쪽 위일수록 많이 학습하고 정답률도 높은 학생입니다.</p>
+          <h3 className="ai-scatter-title text-sm font-black text-slate-800 dark:text-slate-100">진행도 × 평균 정답률</h3>
+          <p className="ai-scatter-subtitle mt-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-300">오른쪽 위일수록 많이 학습하고 정답률도 높은 학생입니다. 점의 번호에 마우스를 올리면 이름이 보입니다.</p>
         </div>
         <div className="flex flex-wrap gap-2 text-[10px] font-black">
           {[
@@ -282,7 +271,7 @@ const StudentScatterPlot = ({ students, maxProgress, avgScore }) => {
       {chartStudents.length === 0 ? (
         <div className="rounded-xl bg-slate-50 py-14 text-center text-xs font-bold text-slate-400 dark:bg-slate-800 dark:text-slate-300">산점도로 볼 학습 기록이 없습니다.</div>
       ) : (
-        <div className="relative overflow-x-auto rounded-xl bg-slate-50 p-2 dark:bg-slate-950">
+        <div className="ai-scatter-canvas relative overflow-x-auto rounded-xl bg-slate-50 p-2 dark:bg-slate-950">
           <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} className="max-w-none">
             {[0, 50, 75, 90, 100].map(tick => (
               <g key={tick}>
@@ -305,21 +294,14 @@ const StudentScatterPlot = ({ students, maxProgress, avgScore }) => {
             <line x1={avgX} x2={avgX} y1={pad.top} y2={pad.top + plotHeight} stroke="#7c3aed" strokeWidth="2" strokeDasharray="6 5" />
             <text x={pad.left} y={18} className="ai-scatter-axis-label fill-slate-700 text-[11px] font-black">평균 정답률</text>
             <text x={width - pad.right} y={height - 6} textAnchor="end" className="ai-scatter-axis-label fill-slate-700 text-[11px] font-black">완료 학습 수</text>
-            {positionedStudents.map(({ student, x, y, tone, seat, name, label, labelX, labelY, labelWidth }) => {
+            {positionedStudents.map(({ student, x, y, tone, seat, name }) => {
               const isHovered = hoveredStudent?.id === student.id;
               return (
                 <g key={student.id || student.studentCode}>
-                  <line
-                    x1={x}
-                    y1={y - 13}
-                    x2={labelX}
-                    y2={labelY - 9}
-                    className="ai-scatter-label-line pointer-events-none"
-                  />
                   <circle
                     cx={x}
                     cy={y}
-                    r={isHovered ? '13' : '11'}
+                    r={isHovered ? '14' : '12'}
                     fill={tone.fill}
                     fillOpacity="0.96"
                     stroke={isHovered ? '#0f172a' : tone.stroke}
@@ -337,17 +319,6 @@ const StudentScatterPlot = ({ students, maxProgress, avgScore }) => {
                   </circle>
                   <text x={x} y={y + 4} textAnchor="middle" className="pointer-events-none fill-white text-[10px] font-black">
                     {seat || ''}
-                  </text>
-                  <rect
-                    x={labelX - labelWidth / 2}
-                    y={labelY - 12}
-                    width={labelWidth}
-                    height="18"
-                    rx="9"
-                    className="ai-scatter-label-bg pointer-events-none"
-                  />
-                  <text x={labelX} y={labelY + 1} textAnchor="middle" className="ai-scatter-point-label pointer-events-none fill-slate-800 text-[10px] font-black">
-                    {label}
                   </text>
                 </g>
               );

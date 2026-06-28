@@ -873,6 +873,7 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
         <HallOfFame
           studentCode={studentCode}
           teacherUid={studentData?.teacherUid}
+          themeMode={themeMode}
           onHallFrameChange={(hallOfFameFrame) => {
             setStudentData(prev => prev ? { ...prev, hallOfFameFrame } : prev);
           }}

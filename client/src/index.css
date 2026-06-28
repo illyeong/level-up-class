@@ -44,6 +44,97 @@
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Hall of Fame dark mode: keep podium rows readable instead of pale cards. */
+.hall-of-fame-dark .hall-of-fame-title {
+    color: #f8fafc !important;
+    text-shadow: 0 2px 10px rgb(0 0 0 / 0.35);
+}
+
+.hall-of-fame-dark .hall-of-fame-tab {
+    background-color: #111c30 !important;
+    border-color: #334863 !important;
+    color: #cbd5e1 !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-tab:hover {
+    border-color: #818cf8 !important;
+    background-color: #172744 !important;
+    color: #f8fafc !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-tab-active {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+    border-color: #818cf8 !important;
+    color: #ffffff !important;
+    box-shadow: 0 10px 24px rgb(79 70 229 / 0.34);
+}
+
+.hall-of-fame-dark .hall-of-fame-board {
+    box-shadow: 0 18px 40px rgb(0 0 0 / 0.36);
+}
+
+.hall-of-fame-dark .hall-of-fame-board-inner {
+    background-color: #0d1728 !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-row {
+    border-color: #344761 !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-row-top {
+    background:
+        radial-gradient(circle at 18% 50%, rgb(250 204 21 / 0.18), transparent 9rem),
+        linear-gradient(90deg, #17233a 0%, #111c30 48%, #0f1a2e 100%) !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-row-normal {
+    background-color: #0f172a !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-row-normal:hover,
+.hall-of-fame-dark .hall-of-fame-row-top:hover {
+    background-color: #17233a !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-row.bg-indigo-50 {
+    background:
+        linear-gradient(90deg, rgb(79 70 229 / 0.28), rgb(15 23 42 / 0.96)) !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-avatar {
+    background-color: #101827 !important;
+    border-color: #42536d !important;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.05), 0 8px 18px rgb(0 0 0 / 0.28) !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-row-top .hall-of-fame-avatar {
+    border-color: #facc15 !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-name {
+    color: #dbeafe !important;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+.hall-of-fame-dark .hall-of-fame-row-top .hall-of-fame-name {
+    color: #fff7ed !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-value {
+    color: #bfdbfe !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-row-top .hall-of-fame-value {
+    color: #fde68a !important;
+}
+
+.hall-of-fame-dark .hall-of-fame-my-rank {
+    background-color: #101b2f !important;
+    border-color: #334863 !important;
+    color: #cbd5e1 !important;
+    box-shadow: 0 10px 24px rgb(0 0 0 / 0.25) !important;
+}
+
 /* Teacher mode uses many legacy light-only pages. Scope dark surfaces at the layout root. */
 .teacher-theme-dark {
     color-scheme: dark;
@@ -1090,17 +1181,32 @@
     border: 1px solid #2f4462;
 }
 
-.ai-learning-manage .ai-scatter-plot .ai-scatter-label-line {
-    stroke: rgb(71 85 105 / 0.46);
-    stroke-width: 1.2;
-    stroke-dasharray: 3 3;
+.ai-learning-manage .ai-scatter-plot {
+    background-color: #ffffff !important;
+    border-color: #cbd5e1 !important;
 }
 
-.ai-learning-manage .ai-scatter-plot .ai-scatter-label-bg {
-    fill: rgb(248 250 252 / 0.96);
-    stroke: rgb(148 163 184 / 0.72);
-    stroke-width: 1;
-    filter: drop-shadow(0 2px 4px rgb(15 23 42 / 0.22));
+.ai-learning-manage .ai-scatter-title {
+    color: #0f172a !important;
+}
+
+.ai-learning-manage .ai-scatter-subtitle {
+    color: #475569 !important;
+}
+
+.ai-learning-manage .ai-scatter-canvas {
+    background:
+        linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%) !important;
+    border: 1px solid #cbd5e1;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+.ai-learning-manage .ai-scatter-plot .ai-scatter-axis-label {
+    fill: #334155 !important;
+}
+
+.ai-learning-manage .ai-scatter-plot .ai-scatter-average-label {
+    fill: #0369a1 !important;
 }
 
 .teacher-theme-dark .ai-learning-manage .ai-scatter-plot {
@@ -1108,13 +1214,18 @@
     border-color: #425a79 !important;
 }
 
-.teacher-theme-dark .ai-learning-manage .ai-scatter-plot .ai-scatter-label-line {
-    stroke: rgb(203 213 225 / 0.42);
+.teacher-theme-dark .ai-learning-manage .ai-scatter-title {
+    color: #f8fafc !important;
 }
 
-.teacher-theme-dark .ai-learning-manage .ai-scatter-plot .ai-scatter-label-bg {
-    fill: rgb(15 23 42 / 0.92);
-    stroke: rgb(148 163 184 / 0.75);
+.teacher-theme-dark .ai-learning-manage .ai-scatter-subtitle {
+    color: #cbd5e1 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-scatter-canvas {
+    background: #081120 !important;
+    border-color: #2f4462;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 .teacher-theme-dark .ai-learning-manage .ai-scatter-plot .ai-scatter-axis-label,

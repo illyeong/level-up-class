@@ -1347,7 +1347,7 @@ function App() {
           </div>
         )}
         {currentView === 'freeBoard'  && <FreeBoard    studentCode={activeStudentCode} />}
-        {currentView === 'hallOfFame' && <HallOfFame   studentCode={activeStudentCode} />}
+        {currentView === 'hallOfFame' && <HallOfFame   studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'classVote'  && <ClassVote    studentCode={activeStudentCode} />}
         {currentView === 'petHouse'  && <PetHouse studentCode={activeStudentCode} />}
         {currentView === 'equipment' && <Equipment studentCode={activeStudentCode} themeMode={themeMode} />}

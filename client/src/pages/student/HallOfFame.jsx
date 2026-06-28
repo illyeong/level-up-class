@@ -100,7 +100,7 @@ function RankBadge({ rank }) {
   );
 }
 
-export default function HallOfFame({ studentCode, teacherUid: propTeacherUid, onHallFrameChange }) {
+export default function HallOfFame({ studentCode, teacherUid: propTeacherUid, onHallFrameChange, themeMode = 'dark' }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [activeTab, setActiveTab] = useState('level');
@@ -240,17 +240,17 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid, on
   const currentWinnerIds = new Set(getTopStudents(cat, displayStudents).map(s => s.id));
 
   return (
-    <div className="max-w-xl mx-auto p-6">
-      <h1 className="text-2xl font-extrabold text-slate-800 mb-6">🏆 명예의 전당</h1>
+    <div className={`hall-of-fame-page ${themeMode === 'dark' ? 'hall-of-fame-dark' : 'hall-of-fame-light'} max-w-xl mx-auto p-6`}>
+      <h1 className="hall-of-fame-title text-2xl font-extrabold text-slate-800 mb-6">🏆 명예의 전당</h1>
 
       {/* 카테고리 탭 */}
-      <div className="flex mb-6 overflow-x-auto scrollbar-none gap-1.5 pb-0.5">
+      <div className="hall-of-fame-tabs flex mb-6 overflow-x-auto scrollbar-none gap-1.5 pb-0.5">
         {CATEGORIES.map(c => (
           <button
             key={c.id}
             onClick={() => setActiveTab(c.id)}
             className={`shrink-0 px-3 py-2 rounded-xl font-bold text-xs whitespace-nowrap transition-colors
-              ${activeTab === c.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300'}`}
+              ${activeTab === c.id ? 'hall-of-fame-tab-active bg-indigo-600 text-white shadow-md' : 'hall-of-fame-tab bg-white border border-slate-200 text-slate-600 hover:border-indigo-300'}`}
           >
             {c.label}
           </button>
@@ -258,8 +258,8 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid, on
       </div>
 
       {/* 랭킹 카드 */}
-      <div className={`bg-gradient-to-br ${cat.gradient} p-0.5 rounded-3xl shadow-lg`}>
-        <div className="bg-white rounded-[22px] overflow-hidden">
+      <div className={`hall-of-fame-board bg-gradient-to-br ${cat.gradient} p-0.5 rounded-3xl shadow-lg`}>
+        <div className="hall-of-fame-board-inner bg-white rounded-[22px] overflow-hidden">
           {ranked.length === 0 ? (
             <div className="text-center py-12 text-slate-400">학생 데이터가 없습니다</div>
           ) : ranked.map((s, i) => {
@@ -270,7 +270,7 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid, on
             return (
               <div
                 key={s.id}
-                className={`flex items-center gap-3 px-5 py-3 transition-colors
+                className={`hall-of-fame-row ${isTop3 ? 'hall-of-fame-row-top' : 'hall-of-fame-row-normal'} flex items-center gap-3 px-5 py-3 transition-colors
                   ${isTop3 ? (cat.bg + ' border-b border-white/60') : 'border-b border-slate-50'}
                   ${isMe ? 'ring-2 ring-inset ring-indigo-300 bg-indigo-50' : ''}
                   ${i === ranked.length - 1 ? 'border-b-0' : ''}
@@ -279,7 +279,7 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid, on
                 <RankBadge rank={rank} />
                 {s.characterImage ? (
                   <div
-                    className="w-20 h-20 rounded-xl bg-white border-2 border-slate-100 overflow-hidden shrink-0 flex items-center justify-center shadow-sm"
+                    className="hall-of-fame-avatar w-20 h-20 rounded-xl bg-white border-2 border-slate-100 overflow-hidden shrink-0 flex items-center justify-center shadow-sm"
                     style={hasHallFrame ? hallFrameStyle : undefined}
                   >
                     <img
@@ -291,21 +291,21 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid, on
                   </div>
                 ) : (
                   <div
-                    className="w-20 h-20 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-3xl shadow-sm"
+                    className="hall-of-fame-avatar w-20 h-20 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-3xl shadow-sm"
                     style={hasHallFrame ? hallFrameStyle : undefined}
                   >
                     🧑‍🎓
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className={`font-extrabold truncate text-sm ${isMe ? 'text-indigo-700' : isTop3 ? 'text-slate-800' : 'text-slate-600'}`}>
+                  <div className={`hall-of-fame-name font-extrabold truncate text-sm ${isMe ? 'text-indigo-700' : isTop3 ? 'text-slate-800' : 'text-slate-600'}`}>
                     {s.name || s.studentCode}
                     {isMe && (
                       <span className="ml-2 text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full align-middle">나</span>
                     )}
                   </div>
                 </div>
-                <div className={`font-extrabold text-sm shrink-0 ${isMe ? 'text-indigo-600' : isTop3 ? 'text-slate-700' : 'text-slate-400'}`}>
+                <div className={`hall-of-fame-value font-extrabold text-sm shrink-0 ${isMe ? 'text-indigo-600' : isTop3 ? 'text-slate-700' : 'text-slate-400'}`}>
                   {cat.value(s)}
                 </div>
               </div>
@@ -319,7 +319,7 @@ export default function HallOfFame({ studentCode, teacherUid: propTeacherUid, on
         const myRank = [...displayStudents].sort(cat.sort).findIndex(s => s.studentCode === studentCode);
         if (myRank < 0) return null;
         return (
-          <div className="mt-4 text-center text-sm text-slate-500 bg-white rounded-2xl py-3 border border-slate-100 shadow-sm">
+          <div className="hall-of-fame-my-rank mt-4 text-center text-sm text-slate-500 bg-white rounded-2xl py-3 border border-slate-100 shadow-sm">
             내 순위:{' '}
             <span
               className="font-black text-indigo-600 text-base"

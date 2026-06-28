@@ -681,7 +681,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         )}
         {currentView === 'classVoteManage' && <ClassVoteManage selectedClass={selectedClass} />}
         {currentView === 'freeBoard'       && <FreeBoard teacherUid={selectedClass?.teacherUid} isTeacher={true} />}
-        {currentView === 'hallOfFame'      && <HallOfFame teacherUid={selectedClass?.teacherUid} />}
+        {currentView === 'hallOfFame'      && <HallOfFame teacherUid={selectedClass?.teacherUid} themeMode={teacherThemeMode} />}
         
       </main>
 
