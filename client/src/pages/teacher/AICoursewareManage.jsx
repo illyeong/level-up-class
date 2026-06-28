@@ -359,6 +359,8 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
   const [tab, setTab] = useState('overview');
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [analysisPeriod, setAnalysisPeriod] = useState('7');
+  const [studentFilter, setStudentFilter] = useState('support');
+  const [studentSort, setStudentSort] = useState('priority');
 
   const createReviewQuizDraft = useCallback((wrongAnswers, title = 'AI 학습관 취약 개념 복습') => {
     const unique = [];
@@ -571,6 +573,32 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
   };
 
   const filteredUnits = units.filter(u => unitSem === 'all' || String(u.semester || '') === unitSem);
+  const unitSummaries = filteredUnits.map(unit => ({ unit, stats: getUnitStats(unit) }));
+  const unitOverview = {
+    total: unitSummaries.length,
+    started: unitSummaries.filter(item => item.stats.progressPct > 0).length,
+    done: unitSummaries.filter(item => item.stats.progressPct >= 70 || item.stats.completedStudents > 0).length,
+    review: unitSummaries.filter(item => item.stats.classAvg != null && item.stats.classAvg < 75).length,
+  };
+  const studentAnalysisCards = [...studentStats]
+    .filter(student => {
+      if (studentFilter === 'support') {
+        return student.status === 'support' || student.status === 'inactive' || student.retryCount > 0 || student.unresolvedWrongCount > 0;
+      }
+      if (studentFilter === 'today') return student.todayCount > 0;
+      if (studentFilter === 'active') return student.completions > 0;
+      return true;
+    })
+    .sort((a, b) => {
+      const statusOrder = { support: 0, inactive: 1, learning: 2, stable: 3, excellent: 4 };
+      if (studentSort === 'recent') return getCompletedSeconds(b.allRecentProgress?.[0]) - getCompletedSeconds(a.allRecentProgress?.[0]);
+      if (studentSort === 'completions') return (b.completions || 0) - (a.completions || 0);
+      if (studentSort === 'score') return (a.avgScore ?? 101) - (b.avgScore ?? 101);
+      return statusOrder[a.status] - statusOrder[b.status]
+        || (b.unresolvedWrongCount || 0) - (a.unresolvedWrongCount || 0)
+        || (b.retryCount || 0) - (a.retryCount || 0)
+        || (a.avgScore ?? 101) - (b.avgScore ?? 101);
+    });
 
   // ── 렌더 ────────────────────────────────────────────────────
   const TABS = [
@@ -585,13 +613,13 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
       <div className="max-w-6xl mx-auto">
 
         {/* 헤더 */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="ai-learning-header mb-5 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-800">AI 학습 관리</h1>
-            <p className="text-slate-500 text-sm mt-1">학생의 현재 실력과 학습 변화를 확인하고 다음 수업을 준비하세요.</p>
+            <h1 className="text-3xl font-extrabold text-slate-900">AI 학습 관리</h1>
+            <p className="mt-1 text-sm font-semibold text-slate-500">오늘 확인할 학생, 어려워한 차시, 학급 참여 흐름을 한 화면에서 정리합니다.</p>
           </div>
           <button onClick={loadAll} disabled={loadingData}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition-all disabled:opacity-50">
+            className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-900 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:bg-slate-700 disabled:opacity-50">
             {loadingData
               ? <span className="w-4 h-4 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
               : <span>↻</span>}
@@ -600,12 +628,13 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
         </div>
 
         {/* 탭 */}
-        <div className="flex max-w-full gap-1 overflow-x-auto p-1 bg-white border border-slate-200 rounded-2xl shadow-sm mb-6 w-fit">
+        <div className="ai-learning-tabs mb-5 grid gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all
-                ${tab === t.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
-              {t.label}
+              className={`rounded-xl px-4 py-3 text-left transition-all
+                ${tab === t.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>
+              <span className="block text-sm font-black">{t.label}</span>
+              <span className={`mt-0.5 block text-[11px] font-semibold ${tab === t.id ? 'text-indigo-100' : 'text-slate-400'}`}>{t.desc}</span>
             </button>
           ))}
         </div>
@@ -628,36 +657,41 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
         {tab === 'units' && (
           <div>
             {/* 필터 바 */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 mb-5 flex items-center gap-6 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">학년</span>
-                <div className="flex gap-1">
-                  {['1','2','3','4','5','6'].map(g => (
-                    <button key={g} onClick={() => { setUnitGrade(g); setSelectedUnit(null); }}
-                      className={`w-8 h-8 rounded-lg font-extrabold text-sm transition-all
-                        ${unitGrade === g ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-indigo-50 hover:text-indigo-600'}`}>
-                      {g}
-                    </button>
-                  ))}
+            <div className="ai-unit-toolbar rounded-3xl border border-slate-200 bg-white p-5 shadow-sm mb-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">단원·차시 분석</h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">어느 단원을 시작했고, 어느 차시에서 막히는지 확인합니다.</p>
                 </div>
-              </div>
-              {unitGrade && (
-                <>
-                  <div className="w-px h-6 bg-slate-200" />
+                <div className="flex flex-wrap items-center gap-5">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">학기</span>
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">학년</span>
                     <div className="flex gap-1">
-                      {[['all','전체'],['1','1학기'],['2','2학기']].map(([v, l]) => (
-                        <button key={v} onClick={() => { setUnitSem(v); setSelectedUnit(null); }}
-                          className={`px-3 h-8 rounded-lg font-bold text-xs transition-all
-                            ${unitSem === v ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-indigo-50 hover:text-indigo-600'}`}>
-                          {l}
+                      {['1','2','3','4','5','6'].map(g => (
+                        <button key={g} onClick={() => { setUnitGrade(g); setSelectedUnit(null); }}
+                          className={`w-8 h-8 rounded-lg font-extrabold text-sm transition-all
+                            ${unitGrade === g ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-indigo-50 hover:text-indigo-600'}`}>
+                          {g}
                         </button>
                       ))}
                     </div>
                   </div>
-                </>
-              )}
+                  {unitGrade && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">학기</span>
+                      <div className="flex gap-1">
+                        {[['all','전체'],['1','1학기'],['2','2학기']].map(([v, l]) => (
+                          <button key={v} onClick={() => { setUnitSem(v); setSelectedUnit(null); }}
+                            className={`px-3 h-8 rounded-lg font-bold text-xs transition-all
+                              ${unitSem === v ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-indigo-50 hover:text-indigo-600'}`}>
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {!unitGrade ? (
@@ -668,9 +702,23 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
               </div>
             ) : loadingUnits ? <Spinner /> : !selectedUnit ? (
               /* 단원 카드 그리드 */
+              <>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 mb-4">
+                {[
+                  ['표시 단원', `${unitOverview.total}개`, '선택한 학년·학기 기준'],
+                  ['시작한 단원', `${unitOverview.started}개`, '한 명 이상 학습 완료'],
+                  ['완료권 단원', `${unitOverview.done}개`, '진행률 70% 이상 또는 완료자 있음'],
+                  ['보충 후보', `${unitOverview.review}개`, '평균 75점 미만'],
+                ].map(([label, value, note]) => (
+                  <div key={label} className="ai-unit-summary-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs font-bold text-slate-500">{label}</p>
+                    <p className="mt-1 text-2xl font-black text-slate-900">{value}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-400">{note}</p>
+                  </div>
+                ))}
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredUnits.map(unit => {
-                  const s = getUnitStats(unit);
+                {unitSummaries.map(({ unit, stats: s }) => {
                   const mastCfg = s.classAvg != null ? MASTERY[getMasteryLevel(s.classAvg)] : null;
                   const hasProgress = s.progressPct > 0;
                   const progressBorder = s.progressPct >= 70
@@ -751,6 +799,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
                   );
                 })}
               </div>
+              </>
             ) : (
               /* 단원 상세 뷰 */
               <div>
@@ -983,31 +1032,57 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
         {tab === 'students' && (
           loadingData ? <Spinner /> : (
             <div className="space-y-4">
-              {/* 요약 칩 */}
-              <div className="flex gap-3 flex-wrap">
-                {[
-                  { label: '전체', val: students.length, color: 'bg-slate-700 text-white' },
-                  { label: '활동', val: studentStats.filter(s => s.completions > 0).length, color: 'bg-indigo-600 text-white' },
-                  { label: '오늘 활동', val: studentStats.filter(s => s.todayCount > 0).length, color: 'bg-emerald-500 text-white' },
-                  { label: '미활동', val: studentStats.filter(s => s.completions === 0).length, color: 'bg-slate-200 text-slate-600' },
-                ].map(c => (
-                  <div key={c.label} className={`${c.color} px-4 py-2 rounded-xl text-sm font-extrabold shadow-sm`}>
-                    {c.val}명 {c.label}
+              <div className="ai-student-analysis-header rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900">학생별 분석</h2>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">개별 학생의 참여, 정답률, 재도전 차시를 빠르게 비교합니다.</p>
                   </div>
-                ))}
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      ['support', `확인 필요 ${studentStats.filter(s => s.status === 'support' || s.status === 'inactive' || s.retryCount > 0 || s.unresolvedWrongCount > 0).length}`],
+                      ['today', `오늘 활동 ${studentStats.filter(s => s.todayCount > 0).length}`],
+                      ['active', `학습 참여 ${studentStats.filter(s => s.completions > 0).length}`],
+                      ['all', `전체 ${students.length}`],
+                    ].map(([value, label]) => (
+                      <button key={value} type="button" onClick={() => setStudentFilter(value)}
+                        className={`rounded-xl px-3 py-2 text-xs font-extrabold transition-colors ${
+                          studentFilter === value ? 'bg-indigo-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                        }`}>
+                        {label}
+                      </button>
+                    ))}
+                    <select value={studentSort} onChange={event => setStudentSort(event.target.value)}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-400">
+                      <option value="priority">확인 우선순</option>
+                      <option value="recent">최근 학습순</option>
+                      <option value="completions">완료 많은순</option>
+                      <option value="score">정답률 낮은순</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
               {/* 학생 카드 그리드 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {[...studentStats].sort((a, b) => (b.completions || 0) - (a.completions || 0)).map(stu => {
+                {studentAnalysisCards.length === 0 ? (
+                  <div className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center text-sm font-bold text-slate-400">
+                    조건에 맞는 학생이 없습니다.
+                  </div>
+                ) : studentAnalysisCards.map(stu => {
                   const dist = { excellent: 0, good: 0, normal: 0, retry: 0 };
                   stu.masteries.forEach(m => { if (dist[m.masteryLevel] !== undefined) dist[m.masteryLevel]++; });
                   const totalMast = stu.masteries.length;
+                  const isPriority = stu.status === 'support' || stu.status === 'inactive' || stu.retryCount > 0 || stu.unresolvedWrongCount > 0;
                   return (
                     <button type="button" onClick={() => setSelectedStudent(stu)} key={stu.id}
-                      className="w-full text-left bg-white border border-slate-200 rounded-2xl shadow-sm p-4 flex items-start gap-4 hover:border-indigo-300 hover:shadow-md transition-all">
+                      className={`ai-student-analysis-card w-full text-left bg-white border rounded-2xl shadow-sm p-4 flex items-start gap-4 hover:border-indigo-300 hover:shadow-md transition-all ${
+                        isPriority ? 'border-rose-200 bg-rose-50/35' : 'border-slate-200'
+                      }`}>
                       {/* 아바타 */}
-                      <div className="w-10 h-10 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center shrink-0 overflow-hidden">
+                      <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0 overflow-hidden ${
+                        isPriority ? 'bg-rose-100 border-rose-200' : 'bg-indigo-100 border-indigo-200'
+                      }`}>
                         {stu.characterImage
                           ? <img src={stu.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
                           : <span className="text-lg">🧑‍🎓</span>}
@@ -1024,6 +1099,16 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
                           {stu.todayCount > 0 && <span className="text-emerald-500 font-bold">오늘 {stu.todayCount}회</span>}
                           {stu.lastDate && <span>마지막 {fmtDate(stu.lastDate)}</span>}
                         </div>
+                        {stu.supportReasons?.length > 0 && (
+                          <div className="mb-2 flex flex-wrap gap-1.5">
+                            {stu.supportReasons.slice(0, 2).map(reason => (
+                              <span key={reason} className="rounded-full border border-rose-200 bg-white px-2 py-0.5 text-[10px] font-extrabold text-rose-700">{reason}</span>
+                            ))}
+                            {stu.unresolvedWrongCount > 0 && (
+                              <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-extrabold text-amber-700">오답 {stu.unresolvedWrongCount}</span>
+                            )}
+                          </div>
+                        )}
                         {totalMast > 0 && (
                           <div className="flex gap-1.5 flex-wrap">
                             {Object.entries(MASTERY).map(([lv, m]) =>
@@ -1047,6 +1132,19 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
         {/* ═══════════════ 종합 현황 ═══════════════ */}
         {tab === 'dashboard' && (
           <div className="space-y-5">
+            <div className="ai-record-header rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">학습 기록</h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">오늘 완료된 학습과 최근 점수 흐름을 시간순으로 확인합니다.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-xl bg-indigo-50 px-3 py-2 text-xs font-extrabold text-indigo-700">분석 기간 기록 {analysisProgress.length}건</span>
+                  <span className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-extrabold text-emerald-700">오늘 완료 {todayProg.length}건</span>
+                </div>
+              </div>
+            </div>
+
             {/* 스탯 카드 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatCard icon="✅" label="총 학습 완료" value={allProgress.length} sub="건" accent="indigo" />
@@ -1056,20 +1154,24 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
             </div>
 
             {/* 오늘 활동 */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="ai-record-list bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="font-extrabold text-slate-700">📅 오늘 학습 활동</h3>
+                <div>
+                  <h3 className="font-extrabold text-slate-800">📅 오늘 학습 활동</h3>
+                  <p className="mt-0.5 text-xs font-semibold text-slate-400">최신 완료 기록 20건까지 표시합니다.</p>
+                </div>
                 <span className="text-sm text-slate-400">{todayProg.length}건</span>
               </div>
               {todayProg.length === 0 ? (
                 <div className="py-16 text-center text-slate-400">
                   <div className="text-3xl mb-2">📭</div>
-                  <p className="text-sm">오늘 완료된 학습이 없습니다</p>
+                  <p className="text-sm font-bold">오늘 완료된 학습이 없습니다.</p>
+                  <p className="mt-1 text-xs">학생들이 AI 학습을 완료하면 이곳에 바로 쌓입니다.</p>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
                   {[...todayProg].sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0)).slice(0, 20).map((p, i) => (
-                    <div key={i} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 transition-colors">
+                    <div key={i} className="ai-record-row flex items-center gap-4 px-5 py-3 hover:bg-slate-50 transition-colors">
                       <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 text-sm">
                         {students.find(s => s.studentCode === p.studentCode)?.characterImage
                           ? <img src={students.find(s => s.studentCode === p.studentCode).characterImage} className="w-full h-full object-contain scale-[1.5] rounded-full" alt="" />
@@ -1115,6 +1217,7 @@ function LearningOverviewTab({
 }) {
   const [queryText, setQueryText] = useState('');
   const [sortBy, setSortBy] = useState('support');
+  const [showCharts, setShowCharts] = useState(false);
   const studentTableRef = useRef(null);
 
   const summary = useMemo(() => {
@@ -1179,33 +1282,113 @@ function LearningOverviewTab({
     });
   }, [students, queryText, sortBy]);
 
+  const supportStudents = useMemo(() => {
+    const statusOrder = { support: 0, inactive: 1, learning: 2, stable: 3, excellent: 4 };
+    return [...students]
+      .filter(student =>
+        student.status === 'support'
+        || student.status === 'inactive'
+        || (student.unresolvedWrongCount || 0) > 0
+        || (student.retryCount || 0) > 0
+      )
+      .sort((a, b) =>
+        statusOrder[a.status] - statusOrder[b.status]
+        || (b.unresolvedWrongCount || 0) - (a.unresolvedWrongCount || 0)
+        || (b.retryCount || 0) - (a.retryCount || 0)
+        || (a.avgScore ?? 101) - (b.avgScore ?? 101)
+      )
+      .slice(0, 4);
+  }, [students]);
+
+  const recentActiveStudents = useMemo(() => (
+    [...students]
+      .filter(student => student.todayCount > 0)
+      .sort((a, b) => getCompletedSeconds(b.recentProgress?.[0]) - getCompletedSeconds(a.recentProgress?.[0]))
+      .slice(0, 3)
+  ), [students]);
+
   if (loading) return <Spinner label="학급 학습 현황을 정리하는 중..." />;
 
+  const activeRate = students.length ? Math.round((summary.activeCount / students.length) * 100) : 0;
+  const todayRate = students.length ? Math.round((summary.todayCount / students.length) * 100) : 0;
+  const primaryDecision = summary.supportCount > 0
+    ? {
+        tone: 'attention',
+        eyebrow: '오늘 먼저 볼 것',
+        title: `${summary.supportCount}명은 교사 확인이 필요합니다.`,
+        detail: '정답률이 낮거나 학습을 멈춘 학생부터 먼저 확인하세요.',
+      }
+    : summary.inactiveCount > 0
+      ? {
+          tone: 'notice',
+          eyebrow: '학습 시작 안내',
+          title: `${summary.inactiveCount}명이 아직 AI 학습을 시작하지 않았습니다.`,
+          detail: '수업 전 접속 안내나 짧은 시작 과제를 주면 흐름을 만들 수 있습니다.',
+        }
+      : {
+          tone: 'stable',
+          eyebrow: '운영 상태 양호',
+          title: '현재 학급 학습 흐름은 안정적입니다.',
+          detail: '어려워한 차시를 확인해 다음 수업 보충 포인트만 잡으면 됩니다.',
+        };
+
   const overviewCards = [
-    { label: '오늘 참여 학생', value: `${summary.todayCount} / ${students.length}명`, note: `학습 참여 ${summary.activeCount}명`, accent: 'border-indigo-200 bg-indigo-50 text-indigo-700' },
-    { label: '평균 정답률', value: summary.avgScore == null ? '-' : `${summary.avgScore}%`, note: `${allProgress.length}건의 완료 기록`, accent: 'border-sky-200 bg-sky-50 text-sky-700' },
-    { label: '평균 숙달도', value: summary.masteryAvg == null ? '-' : `${summary.masteryAvg}%`, note: '최근 4회 학습 기반', accent: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
-    { label: '지원 필요 학생', value: `${summary.supportCount}명`, note: `미학습 ${summary.inactiveCount}명`, accent: 'border-rose-200 bg-rose-50 text-rose-700' },
+    { label: '오늘 참여율', value: `${todayRate}%`, note: `${summary.todayCount} / ${students.length}명`, accent: 'border-indigo-200 bg-indigo-50 text-indigo-700' },
+    { label: '누적 참여율', value: `${activeRate}%`, note: `학습 참여 ${summary.activeCount}명`, accent: 'border-sky-200 bg-sky-50 text-sky-700' },
+    { label: '평균 정답률', value: summary.avgScore == null ? '-' : `${summary.avgScore}%`, note: `${allProgress.length}건 완료`, accent: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+    { label: '지원 필요', value: `${summary.supportCount}명`, note: `미학습 ${summary.inactiveCount}명`, accent: 'border-rose-200 bg-rose-50 text-rose-700' },
   ];
 
   return (
     <div className="space-y-5">
-      <div className="ai-overview-toolbar flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <div>
-          <p className="text-sm font-black text-slate-800">분석 기간</p>
-          <p className="mt-0.5 text-[11px] font-medium text-slate-400">활동·정답률·성장 추세에 적용되며 숙달도는 누적 기준입니다.</p>
+      <section className={`ai-command-center ai-command-${primaryDecision.tone} rounded-3xl border p-5 shadow-sm`}>
+        <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-wide">{primaryDecision.eyebrow}</p>
+            <h2 className="mt-2 text-2xl font-black leading-tight text-slate-950">{primaryDecision.title}</h2>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">{primaryDecision.detail}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={() => { setSortBy('support'); studentTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+                className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm hover:bg-slate-800">
+                지원 학생 바로 보기
+              </button>
+              <button type="button" onClick={onOpenUnits}
+                className="rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-extrabold text-indigo-700 shadow-sm hover:bg-indigo-50">
+                어려운 차시 확인
+              </button>
+            </div>
+          </div>
+          <div className="ai-priority-card rounded-2xl border border-white/70 bg-white/78 p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-black text-slate-900">먼저 확인할 학생</h3>
+              <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-black text-white">{supportStudents.length}명</span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {supportStudents.length ? supportStudents.map(student => (
+                <button key={student.id} type="button" onClick={() => onOpenStudent(student)}
+                  className="ai-priority-student flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left shadow-sm hover:border-indigo-300 hover:bg-indigo-50">
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+                    student.status === 'support' ? 'bg-rose-100 text-rose-700' : student.status === 'inactive' ? 'bg-slate-100 text-slate-600' : 'bg-indigo-100 text-indigo-700'
+                  }`}>
+                    {getSeatNum(student.studentCode) || '·'}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-extrabold text-slate-900">{student.name || student.studentName || student.studentCode}</span>
+                    <span className="block truncate text-[11px] font-semibold text-slate-500">
+                      {student.supportReasons?.[0] || (student.avgScore != null ? `정답률 ${student.avgScore}%` : '학습 확인')}
+                    </span>
+                  </span>
+                  <span className="text-xs font-black text-rose-600">{student.unresolvedWrongCount > 0 ? `오답 ${student.unresolvedWrongCount}` : ''}</span>
+                </button>
+              )) : (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-5 text-center text-sm font-extrabold text-emerald-700">
+                  오늘 긴급 확인 학생이 없습니다.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex rounded-xl bg-slate-100 p-1">
-          {[['1', '오늘'], ['7', '최근 7일'], ['30', '최근 30일'], ['all', '전체']].map(([value, label]) => (
-            <button type="button" key={value} onClick={() => onPeriodChange(value)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition-colors ${
-                analysisPeriod === value ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}>
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      </section>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {overviewCards.map(card => (
@@ -1217,63 +1400,27 @@ function LearningOverviewTab({
         ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <StudentDotPlot
-          title="전체 학습 진행도 점도표"
-          subtitle="완료한 학습 수가 많은 학생부터 정렬됩니다."
-          students={students}
-          valueKey="completions"
-          valueLabel="완료 학습"
-          maxValue={chartSummary.maxProgress}
-          suffix="개"
-          color="#4f46e5"
-          average={chartSummary.avgProgress}
-        />
-        <StudentDotPlot
-          title="전체 평균 정답률 점도표"
-          subtitle="평균 정답률이 높은 학생부터 정렬됩니다."
-          students={students}
-          valueKey="avgScore"
-          valueLabel="평균 정답률"
-          maxValue={100}
-          suffix="%"
-          color="#0ea5e9"
-          average={summary.avgScore}
-        />
-      </div>
-
-      <StudentScatterPlot
-        students={students}
-        maxProgress={chartSummary.maxProgress}
-        avgScore={summary.avgScore}
-      />
-
-      <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <div className="ai-overview-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-extrabold text-indigo-600">오늘의 학습 판단</p>
-              <h2 className="mt-1 text-lg font-black text-slate-800">
-                {summary.supportCount > 0
-                  ? `${summary.supportCount}명의 학생에게 교사 확인이 필요합니다.`
-                  : summary.inactiveCount > 0
-                    ? `${summary.inactiveCount}명의 학생이 아직 AI 학습을 시작하지 않았습니다.`
-                    : '현재 학급은 안정적으로 학습하고 있습니다.'}
-              </h2>
-              <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
-                점수 한 번보다 최근 학습 결과, 반복 재도전, 숙달도 변화를 함께 반영했습니다.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => { setSortBy('support'); studentTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
-                className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-extrabold text-white hover:bg-slate-700">
-                지원 필요 학생 보기
+          <div className="flex items-center justify-between">
+            <h3 className="font-black text-slate-800">오늘 학습한 학생</h3>
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-extrabold text-emerald-700">{summary.todayCount}명</span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {recentActiveStudents.length ? recentActiveStudents.map(student => (
+              <button key={student.id} type="button" onClick={() => onOpenStudent(student)}
+                className="flex w-full items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5 text-left hover:bg-indigo-50">
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-extrabold text-slate-800">{student.name || student.studentName || student.studentCode}</span>
+                  <span className="block truncate text-[11px] font-semibold text-slate-500">{student.recentProgress?.[0]?.lessonTitle || '최근 학습 기록'}</span>
+                </span>
+                <span className={`shrink-0 text-sm font-black ${student.avgScore == null ? 'text-slate-300' : scoreColor(student.avgScore)}`}>
+                  {student.avgScore == null ? '-' : `${student.avgScore}%`}
+                </span>
               </button>
-              <button type="button" onClick={onOpenUnits}
-                className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-extrabold text-indigo-700 hover:bg-indigo-100">
-                차시 숙달도 확인
-              </button>
-            </div>
+            )) : (
+              <div className="rounded-xl bg-slate-50 px-3 py-6 text-center text-xs font-bold text-slate-400">오늘 완료한 AI 학습이 없습니다.</div>
+            )}
           </div>
         </div>
 
@@ -1297,6 +1444,67 @@ function LearningOverviewTab({
             )}
           </div>
         </div>
+      </div>
+
+      <div className="ai-overview-toolbar flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div>
+          <p className="text-sm font-black text-slate-800">분석 기간</p>
+          <p className="mt-0.5 text-[11px] font-medium text-slate-400">활동·정답률·성장 추세에 적용되며 숙달도는 누적 기준입니다.</p>
+        </div>
+        <div className="flex rounded-xl bg-slate-100 p-1">
+          {[['1', '오늘'], ['7', '최근 7일'], ['30', '최근 30일'], ['all', '전체']].map(([value, label]) => (
+            <button type="button" key={value} onClick={() => onPeriodChange(value)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition-colors ${
+                analysisPeriod === value ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="ai-chart-disclosure overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <button type="button" onClick={() => setShowCharts(value => !value)}
+          className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left hover:bg-slate-50">
+          <span>
+            <span className="block text-sm font-black text-slate-800">학습 분포 차트</span>
+            <span className="mt-0.5 block text-xs font-semibold text-slate-500">전체 분포가 필요할 때 펼쳐서 확인합니다.</span>
+          </span>
+          <span className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-extrabold text-white">{showCharts ? '접기 ▲' : '보기 ▼'}</span>
+        </button>
+        {showCharts && (
+          <div className="space-y-4 border-t border-slate-100 p-4">
+            <div className="grid gap-4 xl:grid-cols-2">
+              <StudentDotPlot
+                title="전체 학습 진행도 점도표"
+                subtitle="완료한 학습 수가 많은 학생부터 정렬됩니다."
+                students={students}
+                valueKey="completions"
+                valueLabel="완료 학습"
+                maxValue={chartSummary.maxProgress}
+                suffix="개"
+                color="#4f46e5"
+                average={chartSummary.avgProgress}
+              />
+              <StudentDotPlot
+                title="전체 평균 정답률 점도표"
+                subtitle="평균 정답률이 높은 학생부터 정렬됩니다."
+                students={students}
+                valueKey="avgScore"
+                valueLabel="평균 정답률"
+                maxValue={100}
+                suffix="%"
+                color="#0ea5e9"
+                average={summary.avgScore}
+              />
+            </div>
+            <StudentScatterPlot
+              students={students}
+              maxProgress={chartSummary.maxProgress}
+              avgScore={summary.avgScore}
+            />
+          </div>
+        )}
       </div>
 
       <div ref={studentTableRef} className="ai-student-table overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

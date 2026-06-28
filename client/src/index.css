@@ -1152,9 +1152,174 @@
     color: #f1f5f9 !important;
 }
 
+.ai-learning-manage .ai-learning-header,
+.ai-learning-manage .ai-learning-tabs,
+.ai-learning-manage .ai-command-center,
+.ai-learning-manage .ai-chart-disclosure,
+.ai-learning-manage .ai-unit-toolbar,
+.ai-learning-manage .ai-unit-summary-card,
+.ai-learning-manage .ai-student-analysis-header,
+.ai-learning-manage .ai-record-header,
+.ai-learning-manage .ai-record-list {
+    box-shadow: 0 14px 32px rgb(15 23 42 / 0.08);
+}
+
+.ai-learning-manage .ai-learning-header {
+    background:
+        linear-gradient(135deg, #ffffff 0%, #eef2ff 52%, #f0f9ff 100%) !important;
+}
+
+.ai-learning-manage .ai-command-center {
+    color: #0f172a;
+}
+
+.ai-learning-manage .ai-command-attention {
+    border-color: #fecdd3 !important;
+    background:
+        radial-gradient(circle at 92% 10%, rgb(251 113 133 / 0.16), transparent 18rem),
+        linear-gradient(135deg, #fff7ed 0%, #fff1f2 54%, #ffffff 100%) !important;
+}
+
+.ai-learning-manage .ai-command-notice {
+    border-color: #bfdbfe !important;
+    background:
+        radial-gradient(circle at 92% 10%, rgb(59 130 246 / 0.14), transparent 18rem),
+        linear-gradient(135deg, #eff6ff 0%, #eef2ff 54%, #ffffff 100%) !important;
+}
+
+.ai-learning-manage .ai-command-stable {
+    border-color: #bbf7d0 !important;
+    background:
+        radial-gradient(circle at 92% 10%, rgb(16 185 129 / 0.14), transparent 18rem),
+        linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 54%, #ffffff 100%) !important;
+}
+
+.ai-learning-manage .ai-priority-card {
+    backdrop-filter: blur(10px);
+}
+
+.ai-learning-manage .ai-priority-student {
+    transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.ai-learning-manage .ai-priority-student:hover {
+    transform: translateY(-1px);
+}
+
+.ai-learning-manage .ai-unit-toolbar,
+.ai-learning-manage .ai-student-analysis-header,
+.ai-learning-manage .ai-record-header {
+    background:
+        linear-gradient(135deg, #ffffff 0%, #f8fafc 58%, #eef2ff 100%) !important;
+}
+
+.ai-learning-manage .ai-unit-summary-card,
+.ai-learning-manage .ai-student-analysis-card {
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.ai-learning-manage .ai-student-analysis-card:hover,
+.ai-learning-manage .ai-unit-summary-card:hover {
+    transform: translateY(-1px);
+}
+
+.ai-learning-manage .ai-record-row:hover {
+    box-shadow: inset 4px 0 0 #6366f1;
+}
+
 .teacher-theme-dark .ai-learning-manage .ai-overview-toolbar {
     background-color: #101d31 !important;
     border-color: #425a79 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-learning-header,
+.teacher-theme-dark .ai-learning-manage .ai-learning-tabs,
+.teacher-theme-dark .ai-learning-manage .ai-chart-disclosure,
+.teacher-theme-dark .ai-learning-manage .ai-unit-toolbar,
+.teacher-theme-dark .ai-learning-manage .ai-unit-summary-card,
+.teacher-theme-dark .ai-learning-manage .ai-student-analysis-header,
+.teacher-theme-dark .ai-learning-manage .ai-record-header,
+.teacher-theme-dark .ai-learning-manage .ai-record-list {
+    background-color: #101d31 !important;
+    border-color: #425a79 !important;
+    box-shadow: 0 14px 32px rgb(0 0 0 / 0.24) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-learning-header {
+    background:
+        radial-gradient(circle at 90% 0%, rgb(99 102 241 / 0.22), transparent 22rem),
+        linear-gradient(135deg, #101d31 0%, #111e33 100%) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-unit-toolbar,
+.teacher-theme-dark .ai-learning-manage .ai-student-analysis-header,
+.teacher-theme-dark .ai-learning-manage .ai-record-header {
+    background:
+        radial-gradient(circle at 92% 0%, rgb(14 165 233 / 0.16), transparent 20rem),
+        linear-gradient(135deg, #101d31 0%, #111e33 100%) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-command-center {
+    border-color: #425a79 !important;
+    color: #f8fafc;
+    box-shadow: 0 16px 34px rgb(0 0 0 / 0.28) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-command-attention {
+    background:
+        radial-gradient(circle at 92% 10%, rgb(244 63 94 / 0.18), transparent 18rem),
+        linear-gradient(135deg, #241424 0%, #101d31 62%, #0c1728 100%) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-command-notice {
+    background:
+        radial-gradient(circle at 92% 10%, rgb(59 130 246 / 0.18), transparent 18rem),
+        linear-gradient(135deg, #111f3a 0%, #101d31 62%, #0c1728 100%) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-command-stable {
+    background:
+        radial-gradient(circle at 92% 10%, rgb(16 185 129 / 0.16), transparent 18rem),
+        linear-gradient(135deg, #0f2a27 0%, #101d31 62%, #0c1728 100%) !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-command-center h2,
+.teacher-theme-dark .ai-learning-manage .ai-command-center h3,
+.teacher-theme-dark .ai-learning-manage .ai-priority-card .text-slate-900 {
+    color: #f8fafc !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-command-center .text-slate-600,
+.teacher-theme-dark .ai-learning-manage .ai-priority-card .text-slate-500 {
+    color: #cbd5e1 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-priority-card {
+    background-color: rgb(15 27 47 / 0.86) !important;
+    border-color: #52647e !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-priority-student {
+    background-color: #132239 !important;
+    border-color: #40516a !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-priority-student:hover {
+    background-color: #1c3150 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-student-analysis-card {
+    background-color: #132239 !important;
+    border-color: #40516a !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-student-analysis-card.bg-rose-50\/35 {
+    background-color: rgb(76 20 42 / 0.62) !important;
+    border-color: #be3150 !important;
+}
+
+.teacher-theme-dark .ai-learning-manage .ai-record-row:hover {
+    background-color: #1c3150 !important;
 }
 
 .teacher-theme-dark .ai-learning-manage .ai-overview-stat {
