@@ -335,18 +335,18 @@
 
 @keyframes arena2-finisher-me {
   0% { transform: translateX(0) translateY(0) scale(1); filter: brightness(1); }
-  16% { transform: translateX(10px) translateY(-18px) scale(1.08); filter: brightness(1.45) drop-shadow(0 0 18px rgba(251, 146, 60, .85)); }
-  38% { transform: translateX(calc(var(--arena2-lunge) * 1.65)) translateY(-12px) scale(1.22) rotate(-2deg); filter: brightness(1.8) drop-shadow(0 0 28px rgba(251, 191, 36, .9)); }
-  58% { transform: translateX(calc(var(--arena2-lunge) * 1.15)) translateY(4px) scale(1.12) rotate(1deg); }
-  100% { transform: translateX(0) translateY(0) scale(1.05); filter: brightness(1); }
+  16% { transform: translateX(8px) translateY(-4px) scale(1.04); filter: brightness(1.45) drop-shadow(0 0 18px rgba(251, 146, 60, .85)); }
+  38% { transform: translateX(calc(var(--arena2-lunge) * .95)) translateY(0) scale(1.08) rotate(-1deg); filter: brightness(1.8) drop-shadow(0 0 28px rgba(251, 191, 36, .9)); }
+  58% { transform: translateX(calc(var(--arena2-lunge) * .45)) translateY(2px) scale(1.04) rotate(.5deg); }
+  100% { transform: translateX(0) translateY(0) scale(1); filter: brightness(1); }
 }
 
 @keyframes arena2-finisher-opp {
   0% { transform: translateX(0) translateY(0) scale(1); filter: brightness(1); }
-  16% { transform: translateX(-10px) translateY(-18px) scale(1.08); filter: brightness(1.45) drop-shadow(0 0 18px rgba(251, 146, 60, .85)); }
-  38% { transform: translateX(calc(var(--arena2-lunge) * -1.65)) translateY(-12px) scale(1.22) rotate(2deg); filter: brightness(1.8) drop-shadow(0 0 28px rgba(251, 191, 36, .9)); }
-  58% { transform: translateX(calc(var(--arena2-lunge) * -1.15)) translateY(4px) scale(1.12) rotate(-1deg); }
-  100% { transform: translateX(0) translateY(0) scale(1.05); filter: brightness(1); }
+  16% { transform: translateX(-8px) translateY(-4px) scale(1.04); filter: brightness(1.45) drop-shadow(0 0 18px rgba(251, 146, 60, .85)); }
+  38% { transform: translateX(calc(var(--arena2-lunge) * -.95)) translateY(0) scale(1.08) rotate(1deg); filter: brightness(1.8) drop-shadow(0 0 28px rgba(251, 191, 36, .9)); }
+  58% { transform: translateX(calc(var(--arena2-lunge) * -.45)) translateY(2px) scale(1.04) rotate(-.5deg); }
+  100% { transform: translateX(0) translateY(0) scale(1); filter: brightness(1); }
 }
 
 @keyframes arena2-finish-hit-me {
@@ -409,26 +409,26 @@
 
 @keyframes arena2-victory-pose {
   0% { transform: translateY(0) scale(1) rotate(0deg); filter: brightness(1); }
-  18% { transform: translateY(-52px) scale(1.12) rotate(-3deg); filter: brightness(1.55) drop-shadow(0 0 22px rgba(250, 204, 21, .9)); }
-  38% { transform: translateY(10px) scale(1.02) rotate(2deg); }
-  58% { transform: translateY(-24px) scale(1.16) rotate(-2deg); }
-  100% { transform: translateY(-14px) scale(1.12) rotate(0deg); filter: brightness(1.32) drop-shadow(0 0 34px rgba(250, 204, 21, .95)); }
+  18% { transform: translateY(-18px) scale(1.06) rotate(-2deg); filter: brightness(1.55) drop-shadow(0 0 22px rgba(250, 204, 21, .9)); }
+  38% { transform: translateY(4px) scale(1.02) rotate(1deg); }
+  58% { transform: translateY(-10px) scale(1.08) rotate(-1deg); }
+  100% { transform: translateY(-6px) scale(1.06) rotate(0deg); filter: brightness(1.32) drop-shadow(0 0 34px rgba(250, 204, 21, .95)); }
 }
 
 @keyframes arena2-victory-pose-me {
   0% { transform: translateX(0) translateY(0) scale(1) rotate(0deg); filter: brightness(1); }
-  18% { transform: translateX(34px) translateY(-54px) scale(1.13) rotate(-4deg); filter: brightness(1.55) drop-shadow(0 0 22px rgba(250, 204, 21, .9)); }
-  38% { transform: translateX(18px) translateY(10px) scale(1.03) rotate(2deg); }
-  58% { transform: translateX(28px) translateY(-24px) scale(1.17) rotate(-2deg); }
-  100% { transform: translateX(22px) translateY(-14px) scale(1.12) rotate(0deg); filter: brightness(1.32) drop-shadow(0 0 34px rgba(250, 204, 21, .95)); }
+  18% { transform: translateX(6px) translateY(-18px) scale(1.06) rotate(-2deg); filter: brightness(1.55) drop-shadow(0 0 22px rgba(250, 204, 21, .9)); }
+  38% { transform: translateX(2px) translateY(4px) scale(1.02) rotate(1deg); }
+  58% { transform: translateX(5px) translateY(-10px) scale(1.08) rotate(-1deg); }
+  100% { transform: translateX(3px) translateY(-6px) scale(1.06) rotate(0deg); filter: brightness(1.32) drop-shadow(0 0 34px rgba(250, 204, 21, .95)); }
 }
 
 @keyframes arena2-victory-pose-opp {
   0% { transform: translateX(0) translateY(0) scale(1) rotate(0deg); filter: brightness(1); }
-  18% { transform: translateX(-34px) translateY(-54px) scale(1.13) rotate(4deg); filter: brightness(1.55) drop-shadow(0 0 22px rgba(250, 204, 21, .9)); }
-  38% { transform: translateX(-18px) translateY(10px) scale(1.03) rotate(-2deg); }
-  58% { transform: translateX(-28px) translateY(-24px) scale(1.17) rotate(2deg); }
-  100% { transform: translateX(-22px) translateY(-14px) scale(1.12) rotate(0deg); filter: brightness(1.32) drop-shadow(0 0 34px rgba(250, 204, 21, .95)); }
+  18% { transform: translateX(-6px) translateY(-18px) scale(1.06) rotate(2deg); filter: brightness(1.55) drop-shadow(0 0 22px rgba(250, 204, 21, .9)); }
+  38% { transform: translateX(-2px) translateY(4px) scale(1.02) rotate(-1deg); }
+  58% { transform: translateX(-5px) translateY(-10px) scale(1.08) rotate(1deg); }
+  100% { transform: translateX(-3px) translateY(-6px) scale(1.06) rotate(0deg); filter: brightness(1.32) drop-shadow(0 0 34px rgba(250, 204, 21, .95)); }
 }
 
 .arena2-winner {
@@ -616,8 +616,8 @@
   place-items: center;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 45%, rgba(251, 191, 36, .32), transparent 20%),
-    linear-gradient(180deg, rgba(2, 6, 23, .82), rgba(15, 23, 42, .48) 42%, rgba(2, 6, 23, .86));
+    radial-gradient(circle at 50% 45%, rgba(251, 191, 36, .36), transparent 20%),
+    linear-gradient(180deg, rgba(2, 6, 23, .94), rgba(15, 23, 42, .82) 42%, rgba(2, 6, 23, .96));
   animation: arena2-final-screen-fade 2200ms ease-out forwards;
 }
 
