@@ -1738,6 +1738,18 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
     return (
       <div className={`arena2-battle-shell bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-4 gap-3 ${battleFx.isCrit ? 'arena2-crit-flash' : ''} ${isFinisherFx ? 'arena2-finish-mode' : ''}`}
         style={{ height: 'calc(100vh - 88px)' }}>
+        {isFinisherFx && (
+          <div key={`finish-screen-${battleFx.seq}`} className="arena2-final-screen-burst pointer-events-none">
+            <div className="arena2-final-screen-panel">
+              <small>FINISHING MOVE</small>
+              <strong>최후의 일격</strong>
+              <span>FINAL STRIKE</span>
+            </div>
+            <i className="arena2-final-slash arena2-final-slash-a" />
+            <i className="arena2-final-slash arena2-final-slash-b" />
+            <i className="arena2-final-slash arena2-final-slash-c" />
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3 shrink-0">
           <div className="rounded-xl border border-indigo-500/30 bg-slate-950/70 px-3 py-2">

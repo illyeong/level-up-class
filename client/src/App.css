@@ -224,6 +224,8 @@
   --arena2-lunge: 52px;
   --arena2-recoil: 16px;
   --arena2-dodge: 40px;
+  position: relative;
+  overflow: hidden;
 }
 
 .arena2-stage {
@@ -423,6 +425,115 @@
 .arena2-finish-mode .arena2-stage {
   animation: arena2-stage-finish 2200ms cubic-bezier(.16,.8,.2,1);
 }
+
+.arena2-finish-mode {
+  animation: arena2-final-screen-shake 2200ms cubic-bezier(.16,.8,.22,1);
+}
+
+@keyframes arena2-final-screen-shake {
+  0%, 100% { transform: translate3d(0,0,0); }
+  16% { transform: translate3d(-5px, 3px, 0); }
+  21% { transform: translate3d(6px, -4px, 0); }
+  26% { transform: translate3d(-8px, 4px, 0); }
+  31% { transform: translate3d(8px, -2px, 0); }
+  38% { transform: translate3d(-4px, 2px, 0); }
+  48% { transform: translate3d(2px, -1px, 0); }
+}
+
+.arena2-final-screen-burst {
+  position: absolute;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(251, 191, 36, .32), transparent 20%),
+    linear-gradient(180deg, rgba(2, 6, 23, .82), rgba(15, 23, 42, .48) 42%, rgba(2, 6, 23, .86));
+  animation: arena2-final-screen-fade 2200ms ease-out forwards;
+}
+
+.arena2-final-screen-panel {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transform: rotate(-4deg);
+  text-align: center;
+  animation: arena2-final-panel-pop 2200ms cubic-bezier(.16,.8,.22,1) forwards;
+}
+
+.arena2-final-screen-panel small {
+  color: #fde68a;
+  font-size: clamp(.65rem, 2vw, .9rem);
+  font-weight: 1000;
+  letter-spacing: .32em;
+  text-shadow: 0 2px 0 rgba(15, 23, 42, .95), 0 0 18px rgba(251, 191, 36, .95);
+}
+
+.arena2-final-screen-panel strong {
+  color: #fff7ed;
+  font-size: clamp(2.6rem, 12vw, 6.6rem);
+  font-weight: 1000;
+  line-height: .96;
+  letter-spacing: 0;
+  text-shadow:
+    0 7px 0 rgba(127, 29, 29, .95),
+    0 0 28px rgba(251, 146, 60, .95),
+    0 0 70px rgba(239, 68, 68, .75);
+}
+
+.arena2-final-screen-panel span {
+  color: #fb923c;
+  font-size: clamp(1rem, 4vw, 2.2rem);
+  font-weight: 1000;
+  font-style: italic;
+  letter-spacing: .14em;
+  text-shadow: 0 3px 0 rgba(15, 23, 42, .95), 0 0 22px rgba(251, 146, 60, .95);
+}
+
+.arena2-final-slash {
+  position: absolute;
+  left: -16%;
+  width: 132%;
+  height: 22px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255, 247, 237, 1), rgba(251, 146, 60, .98), transparent);
+  box-shadow: 0 0 30px rgba(255, 247, 237, .95), 0 0 80px rgba(239, 68, 68, .85);
+  transform-origin: left center;
+  animation: arena2-final-slash-sweep 2200ms cubic-bezier(.14,.84,.18,1) forwards;
+}
+
+.arena2-final-slash-a { top: 35%; transform: rotate(-14deg) scaleX(0); animation-delay: 120ms; }
+.arena2-final-slash-b { top: 51%; height: 30px; transform: rotate(-8deg) scaleX(0); animation-delay: 230ms; }
+.arena2-final-slash-c { top: 66%; transform: rotate(-18deg) scaleX(0); animation-delay: 340ms; }
+
+@keyframes arena2-final-screen-fade {
+  0% { opacity: 0; }
+  8% { opacity: 1; }
+  78% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes arena2-final-panel-pop {
+  0% { opacity: 0; transform: translateY(24px) rotate(-4deg) scale(.62); }
+  14% { opacity: 1; transform: translateY(0) rotate(-4deg) scale(1.08); }
+  56% { opacity: 1; transform: translateY(-2px) rotate(-4deg) scale(1); }
+  100% { opacity: 0; transform: translateY(-28px) rotate(-4deg) scale(.9); }
+}
+
+@keyframes arena2-final-slash-sweep {
+  0%, 14% { opacity: 0; transform: rotate(var(--slash-rotate, -12deg)) scaleX(0); }
+  30% { opacity: 1; transform: rotate(var(--slash-rotate, -12deg)) scaleX(1); }
+  64% { opacity: .92; transform: rotate(var(--slash-rotate, -12deg)) scaleX(1.08); }
+  100% { opacity: 0; transform: rotate(var(--slash-rotate, -12deg)) scaleX(1.16); }
+}
+
+.arena2-final-slash-a { --slash-rotate: -14deg; }
+.arena2-final-slash-b { --slash-rotate: -8deg; }
+.arena2-final-slash-c { --slash-rotate: -18deg; }
 
 @keyframes arena2-stage-finish {
   0% { box-shadow: inset 0 0 0 rgba(248, 113, 113, 0), inset 0 -42px 90px rgba(2, 6, 23, .72); }
