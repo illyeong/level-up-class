@@ -70,7 +70,6 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] 
         { title: '퀴즈던전',  id: 'quizDungeon' },
         { title: '탐험던전',  id: 'explorationDungeon' },
         { title: '투기장',   id: 'arena' },
-        { title: '투기장2',  id: 'arena2' },
         { title: '퀴즈레이드', id: 'bossRaid' },
         { title: '🔒 미니 게임 (업데이트)', id: 'miniGame', isReady: false }
       ]

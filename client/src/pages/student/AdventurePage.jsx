@@ -5,7 +5,6 @@ import { getMaxExpForLevel } from '../../utils/leveling';
 import QuizDungeon from './QuizDungeon';
 import BossRaid from './BossRaid';
 import ExplorationDungeon from './ExplorationDungeon';
-import Arena from './Arena';
 import Arena2 from './Arena2';
 
 // ── 이용권 설정 ────────────────────────────────────────────────
@@ -28,7 +27,6 @@ const VIEW_CONFIG = {
   explorationDungeon: { title: '탐험던전',   icon: '🗺️',  ticketKey: 'dungeon'  },
   bossRaid:           { title: '퀴즈레이드', icon: '👹',  ticketKey: 'bossRaid' },
   arena:              { title: '투기장',     icon: '🏟️',  ticketKey: 'arena'    },
-  arena2:             { title: '투기장2',    icon: '⚔️',  ticketKey: 'arena'    },
   miniGame:           { title: '미니 게임', icon: '🎮',  ticketKey: null       },
 };
 
@@ -180,18 +178,6 @@ const ADVENTURE_CARDS = [
     dot: 'bg-violet-400',
     shadow: 'shadow-violet-950',
     btn: 'bg-violet-500 hover:bg-violet-400',
-  },
-  {
-    id: 'arena2',
-    icon: '⚔️', sub: 'Arena V2',
-    title: '투기장2',
-    desc: '새 전투 연출 테스트용 · 기존 투기장과 별도 진입',
-    ticketKey: 'arena',
-    bg: 'from-fuchsia-950 to-slate-950',
-    border: 'border-fuchsia-800/60',
-    dot: 'bg-fuchsia-400',
-    shadow: 'shadow-fuchsia-950',
-    btn: 'bg-fuchsia-500 hover:bg-fuchsia-400',
   },
 ];
 
@@ -502,12 +488,6 @@ function AdventurePage({ currentView, studentCode, onChangeView }) {
           onUseTicket={handleUseTicket}
         />
       ) : currentView === 'arena' ? (
-        <Arena
-          studentCode={studentCode}
-          tickets={tickets}
-          onUseTicket={handleUseTicket}
-        />
-      ) : currentView === 'arena2' ? (
         <Arena2
           studentCode={studentCode}
           tickets={tickets}

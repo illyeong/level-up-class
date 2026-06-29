@@ -78,6 +78,51 @@ const LOSE_REWARD = { gold: 0,   diamond: 0,  exp: 25 };
 const CHANGE_COST = 30;
 const MAX_CHANGES = 3;
 
+const ARENA_TACTICS = [
+  {
+    id: 'balanced',
+    name: '균형형',
+    icon: '⚖️',
+    desc: '스탯 변화 없이 안정적으로 대련합니다.',
+    apply: (stats) => stats,
+  },
+  {
+    id: 'attack',
+    name: '공격형',
+    icon: '⚔️',
+    desc: '공격력 +10%, 방어력 -5%',
+    apply: (stats) => ({
+      ...stats,
+      attack: Math.max(1, Math.floor(stats.attack * 1.1)),
+      defense: Math.max(0, Math.floor(stats.defense * 0.95)),
+    }),
+  },
+  {
+    id: 'defense',
+    name: '방어형',
+    icon: '🛡️',
+    desc: '방어력 +15%, 공격력 -5%',
+    apply: (stats) => ({
+      ...stats,
+      attack: Math.max(1, Math.floor(stats.attack * 0.95)),
+      defense: Math.floor(stats.defense * 1.15),
+    }),
+  },
+  {
+    id: 'speed',
+    name: '민첩형',
+    icon: '💨',
+    desc: '회피율 +7%, 치명타 -3%',
+    apply: (stats) => ({
+      ...stats,
+      dodge: Math.min(45, (stats.dodge || 0) + 7),
+      crit: Math.max(0, (stats.crit || 0) - 3),
+    }),
+  },
+];
+
+const getArenaTactic = (id) => ARENA_TACTICS.find(t => t.id === id) || ARENA_TACTICS[0];
+
 // ── 전적 기록 화면 ────────────────────────────────────────────
 function HistoryScreen({ studentDocId, studentCode, onBack }) {
   const [logs, setLogs]       = useState([]);
@@ -270,7 +315,7 @@ function RankingScreen({ classmates, studentDocId, onBack }) {
     <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-5">
       <div className="flex items-center gap-3 mb-5">
         <button onClick={onBack} className="text-slate-400 hover:text-white text-sm font-bold px-3 py-1.5 bg-slate-800 rounded-xl">← 뒤로</button>
-        <h2 className="font-extrabold text-white text-lg">🏆 투기장2 랭킹</h2>
+        <h2 className="font-extrabold text-white text-lg">🏆 투기장 랭킹</h2>
       </div>
 
       {loading ? (
@@ -552,8 +597,56 @@ function CharacterCard({ student, label, isMe, highlight, rank, equipmentItems =
   );
 }
 
+const buildBattleSummary = ({ stats, isWin, myName, oppName, finalMyHP, myMaxHP, finalOppHP, oppMaxHP, tactic }) => {
+  const hpPct = myMaxHP ? finalMyHP / myMaxHP : 0;
+  const oppHpPct = oppMaxHP ? finalOppHP / oppMaxHP : 0;
+  let title = isWin ? '투기장 승자' : '다음 대련 준비 중';
+  let subtitle = isWin ? `${oppName}을(를) 제압했습니다.` : `${oppName}에게 아쉽게 패배했습니다.`;
+
+  if (isWin && hpPct <= 0.25) {
+    title = '역전승의 주인공';
+    subtitle = `HP ${finalMyHP}만 남기고 버텨낸 승리입니다.`;
+  } else if (isWin && oppHpPct <= 0 && hpPct >= 0.75) {
+    title = '압도적 승리';
+    subtitle = '상대를 크게 흔들며 전투를 끝냈습니다.';
+  } else if (isWin && stats.maxDamage >= 120) {
+    title = '한 방의 지배자';
+    subtitle = `${stats.maxDamage} 데미지로 경기 흐름을 가져왔습니다.`;
+  } else if (stats.crits >= 2) {
+    title = isWin ? '치명타 장인' : '날카로운 도전자';
+    subtitle = `치명타 ${stats.crits}회로 강한 압박을 만들었습니다.`;
+  } else if (stats.dodges >= 2) {
+    title = isWin ? '회피의 달인' : '민첩한 도전자';
+    subtitle = `공격 ${stats.dodges}회를 회피했습니다.`;
+  } else if (stats.guards > 0) {
+    title = isWin ? '철벽 전술가' : '끈질긴 수비수';
+    subtitle = '방어 태세로 큰 피해를 줄였습니다.';
+  } else if (stats.heals > 0) {
+    title = isWin ? '생존 전문가' : '끝까지 버틴 전사';
+    subtitle = '위기에서 회복으로 한 번 더 버텼습니다.';
+  }
+
+  const highlights = [];
+  if (stats.maxDamage > 0) highlights.push(`최고 데미지: ${stats.maxDamage} (${stats.maxDamageLabel || '공격'})`);
+  if (stats.finalBlow) highlights.push(`마지막 일격: ${stats.finalBlow}`);
+  if (stats.heals > 0) highlights.push(`회복 발동: ${stats.heals}회`);
+  if (stats.dodges > 0) highlights.push(`회피 성공: ${stats.dodges}회`);
+  if (stats.guards > 0) highlights.push(`방어 태세: ${stats.guards}회`);
+  if (stats.powerHits > 0) highlights.push(`강타 사용: ${stats.powerHits}회`);
+  highlights.push(`선택 작전: ${tactic.icon} ${tactic.name}`);
+
+  return {
+    title,
+    subtitle,
+    highlights: highlights.slice(0, 4),
+    tacticName: tactic.name,
+    turns: stats.turns,
+    resultLine: isWin ? `${myName} 승리` : `${oppName} 승리`,
+  };
+};
+
 // ── 결과 화면 ─────────────────────────────────────────────────
-function ResultScreen({ isWin, opponent, reward, onClose }) {
+function ResultScreen({ isWin, opponent, reward, battleSummary, onClose }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -625,7 +718,7 @@ function ResultScreen({ isWin, opponent, reward, onClose }) {
           className="absolute inset-0 pointer-events-none"
           style={{ width: '100%', height: '100%' }} />
       )}
-      <div className={`relative bg-slate-900 rounded-3xl p-8 w-full max-w-sm text-center border shadow-2xl
+      <div className={`relative bg-slate-900 rounded-3xl p-6 w-full max-w-md text-center border shadow-2xl max-h-[92vh] overflow-y-auto
         ${isWin ? 'border-yellow-600/60 shadow-yellow-900/40' : 'border-slate-700'}`}>
         <div className="text-6xl mb-4">{isWin ? '🏆' : '💀'}</div>
         <h2 className={`text-3xl font-extrabold mb-2 ${isWin ? 'text-yellow-400' : 'text-slate-400'}`}>
@@ -636,6 +729,30 @@ function ResultScreen({ isWin, opponent, reward, onClose }) {
             ? `${opponent?.name || '상대'}를 물리쳤습니다!`
             : `${opponent?.name || '상대'}에게 패배했습니다.`}
         </p>
+
+        {battleSummary && (
+          <div className="mb-5 rounded-2xl border border-indigo-500/40 bg-indigo-950/40 p-4 text-left">
+            <div className="text-[10px] font-black uppercase tracking-[0.24em] text-indigo-300">Battle Title</div>
+            <div className="mt-1 text-xl font-black text-white">{battleSummary.title}</div>
+            <p className="mt-1 text-xs leading-relaxed text-slate-400">{battleSummary.subtitle}</p>
+            <div className="mt-2 inline-flex rounded-full border border-slate-600 bg-slate-950/60 px-2.5 py-1 text-[10px] font-extrabold text-slate-300">
+              선택 작전 · {battleSummary.tacticName}
+            </div>
+            {battleSummary.highlights?.length > 0 && (
+              <div className="mt-3 rounded-xl bg-slate-950/55 p-3">
+                <div className="mb-2 text-[10px] font-extrabold text-amber-300">하이라이트</div>
+                <div className="space-y-1.5">
+                  {battleSummary.highlights.map((line, index) => (
+                    <div key={index} className="flex items-start gap-2 text-xs text-slate-300">
+                      <span className="mt-0.5 text-amber-300">◆</span>
+                      <span>{line}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 보상 */}
         <div className={`rounded-2xl p-4 mb-6 ${isWin ? 'bg-yellow-950/60 border border-yellow-700' : 'bg-slate-800 border border-slate-700'}`}>
@@ -661,7 +778,7 @@ function ResultScreen({ isWin, opponent, reward, onClose }) {
 // ── 메인 ─────────────────────────────────────────────────────
 export default function Arena2({ studentCode, tickets, onUseTicket }) {
   // sessionStorage로 매칭 상태 유지 (네비게이션 이동해도 상대 유지)
-  const savedMatch = (() => { try { return JSON.parse(sessionStorage.getItem('arena2Match') || 'null'); } catch { return null; } })();
+  const savedMatch = (() => { try { return JSON.parse(sessionStorage.getItem('arenaMatch') || 'null'); } catch { return null; } })();
 
   const [phase, setPhase]         = useState(savedMatch ? 'vs' : 'lobby');
   const [opponent, setOpponent]   = useState(savedMatch?.opponent || null);
@@ -725,18 +842,18 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
 
   // 매칭 상태 저장
   const saveMatch = (opp, ch) => {
-    sessionStorage.setItem('arena2Match', JSON.stringify({ opponent: opp, changes: ch }));
+    sessionStorage.setItem('arenaMatch', JSON.stringify({ opponent: opp, changes: ch }));
   };
-  const clearMatch = () => sessionStorage.removeItem('arena2Match');
+  const clearMatch = () => sessionStorage.removeItem('arenaMatch');
 
   // 최근 대련 상대 기록 (세션 내 중복 방지)
   const recentOpponents = useRef(
-    (() => { try { return JSON.parse(sessionStorage.getItem('arena2Recent') || '[]'); } catch { return []; } })()
+    (() => { try { return JSON.parse(sessionStorage.getItem('arenaRecent') || '[]'); } catch { return []; } })()
   );
   const addRecentOpponent = (id) => {
     const list = [id, ...recentOpponents.current.filter(x => x !== id)].slice(0, 5);
     recentOpponents.current = list;
-    sessionStorage.setItem('arena2Recent', JSON.stringify(list));
+    sessionStorage.setItem('arenaRecent', JSON.stringify(list));
   };
 
   const [me, setMe]               = useState(null);
@@ -749,6 +866,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
   const [showRanking, setShowRanking] = useState(false);
   const [ticketUsedMsg, setTicketUsedMsg] = useState(false);
   const [matchAnim, setMatchAnim] = useState(false);
+  const [selectedTactic, setSelectedTactic] = useState('balanced');
   const studentDocIdRef           = useRef(null);
   const meBattleRef               = useRef(null);
   const oppBattleRef              = useRef(null);
@@ -881,7 +999,8 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
     try {
       clearMatch(); // 전투 시작 시 매칭 초기화
 
-      const myStats  = getStats(me, equipmentItems);
+      const tactic = getArenaTactic(selectedTactic);
+      const myStats  = tactic.apply(getStats(me, equipmentItems));
       const oppStats = getStats(opponent, equipmentItems);
       const myMaxHP = Math.max(1, Number(myStats.hp) || 1);
       const oppMaxHP = Math.max(1, Number(oppStats.hp) || 1);
@@ -909,7 +1028,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       addLog(`⚔️ 대련 시작! ${myFirst ? myName : oppName}이(가) 선공!`, 'system');
       setBattleBanner(`${myFirst ? myName : oppName} 선공`);
 
-      const TURN_MS  = 900;
+      const TURN_MS  = 1100;
       const MAX_TURN = 20;
       const actionCount = { me: 0, opp: 0 };
       const healUsed = { me: false, opp: false };
@@ -920,11 +1039,23 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
         me:  { stats: myStats,  name: myName,  enemyName: oppName },
         opp: { stats: oppStats, name: oppName, enemyName: myName },
       };
+      const battleStats = {
+        turns: 0,
+        maxDamage: 0,
+        maxDamageLabel: '',
+        crits: 0,
+        dodges: 0,
+        heals: 0,
+        guards: 0,
+        powerHits: 0,
+        finalBlow: '',
+      };
 
       for (let turn = 1; turn <= MAX_TURN; turn++) {
         if (myHP <= 0 || oppHP <= 0) break;
         await new Promise(r => setTimeout(r, TURN_MS));
         if (myHP <= 0 || oppHP <= 0) break;
+        battleStats.turns = turn;
 
         const side = order[(turn - 1) % 2];
         const target = side === 'me' ? 'opp' : 'me';
@@ -939,12 +1070,14 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           if (side === 'me') myHP = Math.min(myMaxHP, myHP + heal);
           else oppHP = Math.min(oppMaxHP, oppHP + heal);
           healUsed[side] = true;
+          if (side === 'me') battleStats.heals += 1;
           addLog(`✨ ${actor.name}이(가) 회복을 사용했습니다. HP +${heal}`, 'heal');
           setBattleBanner('회복');
           triggerBattleFx({ actor: side, target: side, kind: 'heal', text: `+${heal}` });
         } else if (!guardUsed[side] && actorHP <= actorMaxHP * 0.45) {
           guardUsed[side] = true;
           guarding[side] = true;
+          if (side === 'me') battleStats.guards += 1;
           addLog(`🛡️ ${actor.name}이(가) 방어 태세를 취했습니다. 다음 피해 감소!`, 'guard');
           setBattleBanner('방어 태세');
           triggerBattleFx({ actor: side, target: side, kind: 'guard', text: 'GUARD' });
@@ -954,6 +1087,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           const skillName = isPower ? '강타' : '공격';
 
           if (dodged) {
+            if (target === 'me') battleStats.dodges += 1;
             addLog(`💨 ${actor.enemyName}이(가) ${actor.name}의 ${skillName}을 회피했습니다!`, 'dodge');
             setBattleBanner('회피');
             triggerBattleFx({ actor: side, target, kind: 'dodge', text: 'MISS' });
@@ -968,11 +1102,20 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
             const critText = isCrit ? '💥 크리티컬! ' : '';
             const guardText = guarded ? ' 방어 감소 적용.' : '';
             addLog(`${critText}${actor.name}의 ${skillName} → ${dmg} 데미지.${guardText}`, isCrit ? 'crit' : isPower ? 'skill' : 'attack');
+            if (side === 'me') {
+              if (isCrit) battleStats.crits += 1;
+              if (isPower) battleStats.powerHits += 1;
+              if (dmg > battleStats.maxDamage) {
+                battleStats.maxDamage = dmg;
+                battleStats.maxDamageLabel = `${skillName}${isCrit ? ' / 치명타' : ''}`;
+              }
+            }
             setBattleBanner(isCrit ? 'CRITICAL' : isPower ? '강타' : '공격');
             triggerBattleFx({ actor: side, target, kind: isPower ? 'power' : 'attack', damage: dmg, isCrit });
 
             const nextTargetHP = target === 'me' ? myHP : oppHP;
             if (nextTargetHP <= 0) {
+              battleStats.finalBlow = `${actor.name}의 ${skillName}`;
               addLog(`⚡ 최후의 일격! ${actor.name}이(가) ${actor.enemyName}을(를) 쓰러뜨렸습니다!`, 'result');
             }
           }
@@ -989,6 +1132,17 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       // 결과 판정
       const isWin = myHP > oppHP;
       addLog(isWin ? `🏆 ${myName} 승리!` : `💀 ${oppName} 승리!`, 'result');
+      const battleSummary = buildBattleSummary({
+        stats: battleStats,
+        isWin,
+        myName,
+        oppName,
+        finalMyHP: myHP,
+        myMaxHP,
+        finalOppHP: oppHP,
+        oppMaxHP,
+        tactic,
+      });
       setBattleWinner(isWin ? 'me' : 'opp');
       setBattleBanner(isWin ? `${myName} 승리` : `${oppName} 승리`);
       setBattleLog([...log]);
@@ -1017,7 +1171,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       });
 
       await new Promise(r => setTimeout(r, 1200));
-      setResult({ isWin, reward });
+      setResult({ isWin, reward, battleSummary });
       setPhase('result');
     } catch (e) { console.error(e); }
     finally { setIsBusy(false); }
@@ -1037,7 +1191,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       <>
       <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col items-center justify-center p-6">
         <div className="text-6xl mb-4">🏟️</div>
-        <h1 className="text-3xl font-extrabold text-white mb-2">투기장2</h1>
+        <h1 className="text-3xl font-extrabold text-white mb-2">투기장</h1>
         <p className="text-slate-400 text-sm mb-8 text-center">
           우리반 친구와 1:1 대련으로 실력을 겨뤄보세요!
         </p>
@@ -1118,7 +1272,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           onClick={e => e.target === e.currentTarget && setShowRanking(false)}>
           <div className="bg-slate-900 rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden border border-slate-700 shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
-              <h2 className="font-extrabold text-white text-lg">🏆 투기장2 랭킹</h2>
+              <h2 className="font-extrabold text-white text-lg">🏆 투기장 랭킹</h2>
               <button onClick={() => setShowRanking(false)} className="text-slate-400 hover:text-white text-xl w-8 h-8 flex items-center justify-center">✕</button>
             </div>
             <div className="flex-1 overflow-y-auto min-h-0 p-4">
@@ -1153,7 +1307,8 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
 
   // ── VS 화면 ─────────────────────────────────────────────────
   if (phase === 'vs' && opponent) {
-    const myStats  = getStats(me, equipmentItems);
+    const tactic = getArenaTactic(selectedTactic);
+    const myStats  = tactic.apply(getStats(me, equipmentItems));
     const oppStats = getStats(opponent, equipmentItems);
     const canChange = changes < MAX_CHANGES && (me?.diamonds || 0) >= CHANGE_COST;
     const myPower   = myStats.attack * 2 + myStats.defense + myStats.hp / 20;
@@ -1183,6 +1338,36 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           </div>
 
           <div className="flex-1"><CharacterCard student={opponent} label="상대" isMe={false} rank={rankMap[opponent?.id]} equipmentItems={equipmentItems} /></div>
+        </div>
+
+        <div className="mb-3 rounded-2xl border border-slate-700 bg-slate-900/55 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div>
+              <div className="text-xs font-extrabold text-slate-300">작전 선택</div>
+              <div className="text-[10px] text-slate-500">자동전투 전에 내 전투 성향을 정합니다</div>
+            </div>
+            <div className="rounded-full bg-indigo-950 px-2.5 py-1 text-[10px] font-extrabold text-indigo-300">
+              {tactic.icon} {tactic.name}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {ARENA_TACTICS.map(item => {
+              const active = selectedTactic === item.id;
+              return (
+                <button key={item.id} type="button" onClick={() => setSelectedTactic(item.id)}
+                  className={`rounded-xl border px-3 py-2 text-left transition-all active:scale-[0.98]
+                    ${active
+                      ? 'border-amber-400 bg-amber-400/15 text-white shadow-lg shadow-amber-950/30'
+                      : 'border-slate-700 bg-slate-950/60 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}>
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold">
+                    <span>{item.icon}</span>
+                    <span>{item.name}</span>
+                  </div>
+                  <div className="mt-0.5 text-[10px] leading-snug opacity-80">{item.desc}</div>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* 상대 바꾸기 */}
@@ -1241,7 +1426,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           onClick={e => e.target === e.currentTarget && setShowRanking(false)}>
           <div className="bg-slate-900 rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden border border-slate-700 shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
-              <h2 className="font-extrabold text-white text-lg">🏆 투기장2 랭킹</h2>
+              <h2 className="font-extrabold text-white text-lg">🏆 투기장 랭킹</h2>
               <button onClick={() => setShowRanking(false)} className="text-slate-400 hover:text-white text-xl w-8 h-8 flex items-center justify-center">✕</button>
             </div>
             <div className="flex-1 overflow-y-auto min-h-0 p-4">
@@ -1319,7 +1504,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
             <div key={`crit-${battleFx.seq}`} className="absolute inset-0 z-20 pointer-events-none battle-impact-flash" />
           )}
 
-          <div ref={meBattleRef} className={fighterClass('me')} key={`me-fighter-${battleFx.seq}-${battleWinner || 'live'}`}>
+          <div ref={meBattleRef} className={fighterClass('me')}>
             <div className="arena2-nameplate arena2-nameplate-me">나</div>
             <div className="arena2-character-wrap">
               {me?.characterImage
@@ -1330,7 +1515,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
 
           <div className="absolute left-1/2 bottom-[42%] z-10 -translate-x-1/2 text-4xl font-black text-slate-600/70">VS</div>
 
-          <div ref={oppBattleRef} className={fighterClass('opp')} key={`opp-fighter-${battleFx.seq}-${battleWinner || 'live'}`}>
+          <div ref={oppBattleRef} className={fighterClass('opp')}>
             <div className="arena2-nameplate arena2-nameplate-opp">상대</div>
             <div className="arena2-character-wrap">
               {opponent?.characterImage
@@ -1393,6 +1578,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           isWin={result.isWin}
           opponent={opponent}
           reward={result.reward}
+          battleSummary={result.battleSummary}
           onClose={reset}
         />
       </div>

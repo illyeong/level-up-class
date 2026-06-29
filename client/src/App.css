@@ -218,9 +218,12 @@
 }
 .animate-arena-crit { animation: arena-crit 0.65s ease-in-out; }
 
-/* ── 투기장2 전투 무대 ───────────────────────────────────────── */
+/* ── 투기장 전투 무대 ───────────────────────────────────────── */
 .arena2-battle-shell {
   --arena2-ground: rgba(99, 102, 241, .22);
+  --arena2-lunge: 52px;
+  --arena2-recoil: 16px;
+  --arena2-dodge: 40px;
 }
 
 .arena2-stage {
@@ -296,38 +299,50 @@
 .arena2-nameplate-me { color: #bfdbfe; }
 .arena2-nameplate-opp { color: #fecdd3; }
 
-.arena2-actor-me { transform: translateX(84px) scale(1.04); }
-.arena2-actor-opp { transform: translateX(-84px) scale(1.04); }
+@keyframes arena2-lunge-me {
+  0%, 100% { transform: translateX(0) translateY(0) scale(1); }
+  28% { transform: translateX(var(--arena2-lunge)) translateY(-7px) scale(1.035); }
+  54% { transform: translateX(calc(var(--arena2-lunge) * .58)) translateY(1px) scale(1.015); }
+}
+
+@keyframes arena2-lunge-opp {
+  0%, 100% { transform: translateX(0) translateY(0) scale(1); }
+  28% { transform: translateX(calc(var(--arena2-lunge) * -1)) translateY(-7px) scale(1.035); }
+  54% { transform: translateX(calc(var(--arena2-lunge) * -.58)) translateY(1px) scale(1.015); }
+}
+
+.arena2-actor-me { animation: arena2-lunge-me 620ms cubic-bezier(.16,.84,.22,1); }
+.arena2-actor-opp { animation: arena2-lunge-opp 620ms cubic-bezier(.16,.84,.22,1); }
 
 @keyframes arena2-hit-me {
   0%, 100% { transform: translateX(0) rotate(0deg); filter: brightness(1); }
-  24% { transform: translateX(-24px) rotate(-3deg); filter: brightness(1.75) saturate(.65); }
-  48% { transform: translateX(8px) rotate(1deg); }
-  72% { transform: translateX(-6px); }
+  22% { transform: translateX(calc(var(--arena2-recoil) * -1)) translateY(3px) rotate(-2deg); filter: brightness(1.65) saturate(.7); }
+  52% { transform: translateX(5px) rotate(.8deg); }
+  76% { transform: translateX(-3px); }
 }
 
 @keyframes arena2-hit-opp {
   0%, 100% { transform: translateX(0) rotate(0deg); filter: brightness(1); }
-  24% { transform: translateX(24px) rotate(3deg); filter: brightness(1.75) saturate(.65); }
-  48% { transform: translateX(-8px) rotate(-1deg); }
-  72% { transform: translateX(6px); }
+  22% { transform: translateX(var(--arena2-recoil)) translateY(3px) rotate(2deg); filter: brightness(1.65) saturate(.7); }
+  52% { transform: translateX(-5px) rotate(-.8deg); }
+  76% { transform: translateX(3px); }
 }
 
-.arena2-target-me { animation: arena2-hit-me 430ms cubic-bezier(.2,.8,.2,1); }
-.arena2-target-opp { animation: arena2-hit-opp 430ms cubic-bezier(.2,.8,.2,1); }
+.arena2-target-me { animation: arena2-hit-me 520ms cubic-bezier(.18,.82,.24,1); }
+.arena2-target-opp { animation: arena2-hit-opp 520ms cubic-bezier(.18,.82,.24,1); }
 
 @keyframes arena2-dodge-me {
   0%, 100% { transform: translateX(0); }
-  40% { transform: translateX(-54px) translateY(-8px); }
+  42% { transform: translateX(calc(var(--arena2-dodge) * -1)) translateY(-8px); }
 }
 
 @keyframes arena2-dodge-opp {
   0%, 100% { transform: translateX(0); }
-  40% { transform: translateX(54px) translateY(-8px); }
+  42% { transform: translateX(var(--arena2-dodge)) translateY(-8px); }
 }
 
-.arena2-dodge-me { animation: arena2-dodge-me 480ms ease-out; }
-.arena2-dodge-opp { animation: arena2-dodge-opp 480ms ease-out; }
+.arena2-dodge-me { animation: arena2-dodge-me 540ms cubic-bezier(.18,.82,.24,1); }
+.arena2-dodge-opp { animation: arena2-dodge-opp 540ms cubic-bezier(.18,.82,.24,1); }
 
 .arena2-guarding::after,
 .arena2-healing::after {
@@ -377,6 +392,11 @@
 }
 
 @media (max-width: 640px) {
+  .arena2-battle-shell {
+    --arena2-lunge: 34px;
+    --arena2-recoil: 12px;
+    --arena2-dodge: 30px;
+  }
   .arena2-fighter {
     bottom: 19%;
     width: 118px;
@@ -386,8 +406,6 @@
   .arena2-fighter-opp { right: 6%; }
   .arena2-character-img-me { transform: scaleX(-1) scale(1.9); }
   .arena2-character-img-opp { transform: scale(1.9); }
-  .arena2-actor-me { transform: translateX(46px) scale(1.04); }
-  .arena2-actor-opp { transform: translateX(-46px) scale(1.04); }
 }
 
 /* ── 강화 애니메이션 ─────────────────────────────────────────── */

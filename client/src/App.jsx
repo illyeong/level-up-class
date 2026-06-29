@@ -26,7 +26,6 @@ import TopicWriting     from './pages/student/TopicWriting.jsx';
 import PetHouse        from './pages/student/PetHouse.jsx';
 import Equipment      from './pages/student/Equipment.jsx';
 import GachaBox       from './pages/student/GachaBox.jsx';
-import Arena          from './pages/student/Arena.jsx';
 import FreeBoard      from './pages/student/FreeBoard.jsx';
 import HallOfFame     from './pages/student/HallOfFame.jsx';
 import ClassVote      from './pages/student/ClassVote.jsx';
@@ -211,7 +210,7 @@ const getTimedPetEnergy = (pet = {}) => {
   return Math.min(100, (pet.energy ?? 100) + getPetElapsedDays(ref) * PET_ENERGY_RECOVERY_PER_DAY);
 };
 
-const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','arena2','bossRaid','classOperation','miniGame'];
+const ADVENTURE_VIEWS = ['adventure','quizDungeon','explorationDungeon','arena','bossRaid','classOperation','miniGame'];
 const THEMEABLE_VIEWS = new Set(['dashboard', 'classAll', 'quest', 'learningNote', 'myCharacter']);
 const ADVENTURE_BG = 'linear-gradient(160deg, #020617 0%, #0f172a 50%, #1e1b4b 100%)';
 const STUDENT_SESSION_KEY = 'studentInfo';
