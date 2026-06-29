@@ -77,6 +77,7 @@ const WIN_REWARD  = { gold: 100, diamond: 50, exp: 50 };
 const LOSE_REWARD = { gold: 0,   diamond: 0,  exp: 25 };
 const CHANGE_COST = 30;
 const MAX_CHANGES = 3;
+const FINAL_STRIKE_FX_MS = 2200;
 
 const ARENA_TACTICS = [
   {
@@ -883,7 +884,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
     setFloatTexts(items => [...items, { id, side, text, kind, isCrit }]);
     setTimeout(() => {
       setFloatTexts(items => items.filter(item => item.id !== id));
-    }, 1100);
+    }, kind === 'finish' ? FINAL_STRIKE_FX_MS : 1100);
   };
 
   const getActorRect = (side) => {
@@ -918,7 +919,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
     battleFxTimerRef.current = setTimeout(() => {
       setBattleFx(prev => ({ ...prev, actor: null, target: null, kind: null, isCrit: false }));
       battleFxTimerRef.current = null;
-    }, isFinisher ? 1280 : isCrit ? 760 : 620);
+    }, isFinisher ? FINAL_STRIKE_FX_MS : isCrit ? 760 : 620);
   };
 
   // 매칭 상태 저장
@@ -1307,7 +1308,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
         isWin, reward, createdAt: serverTimestamp(),
       });
 
-      await new Promise(r => setTimeout(r, 1200));
+      await new Promise(r => setTimeout(r, battleStats.finalBlow ? FINAL_STRIKE_FX_MS : 1200));
       setResult({ isWin, reward, battleSummary });
       setPhase('result');
     } catch (e) { console.error(e); }

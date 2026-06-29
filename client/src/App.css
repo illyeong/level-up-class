@@ -361,10 +361,10 @@
   68% { transform: translateX(calc(var(--arena2-recoil) * .55)) translateY(2px) rotate(2deg); }
 }
 
-.arena2-finisher-me { animation: arena2-finisher-me 1180ms cubic-bezier(.14,.84,.2,1) both; z-index: 28; }
-.arena2-finisher-opp { animation: arena2-finisher-opp 1180ms cubic-bezier(.14,.84,.2,1) both; z-index: 28; }
-.arena2-finish-target-me { animation: arena2-finish-hit-me 980ms cubic-bezier(.16,.78,.22,1) both; }
-.arena2-finish-target-opp { animation: arena2-finish-hit-opp 980ms cubic-bezier(.16,.78,.22,1) both; }
+.arena2-finisher-me { animation: arena2-finisher-me 1850ms cubic-bezier(.14,.84,.2,1) both; z-index: 58; }
+.arena2-finisher-opp { animation: arena2-finisher-opp 1850ms cubic-bezier(.14,.84,.2,1) both; z-index: 58; }
+.arena2-finish-target-me { animation: arena2-finish-hit-me 1650ms cubic-bezier(.16,.78,.22,1) both; z-index: 48; }
+.arena2-finish-target-opp { animation: arena2-finish-hit-opp 1650ms cubic-bezier(.16,.78,.22,1) both; z-index: 48; }
 
 @keyframes arena2-dodge-me {
   0%, 100% { transform: translateX(0); }
@@ -421,7 +421,7 @@
 }
 
 .arena2-finish-mode .arena2-stage {
-  animation: arena2-stage-finish 1180ms cubic-bezier(.16,.8,.2,1);
+  animation: arena2-stage-finish 2200ms cubic-bezier(.16,.8,.2,1);
 }
 
 @keyframes arena2-stage-finish {
@@ -440,14 +440,14 @@
 .arena2-finish-cinematic {
   position: absolute;
   inset: 0;
-  z-index: 24;
+  z-index: 62;
   display: grid;
   place-items: center;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 44%, rgba(251, 191, 36, .24), transparent 22%),
-    linear-gradient(110deg, transparent 0 34%, rgba(15, 23, 42, .74) 39% 61%, transparent 66% 100%);
-  animation: arena2-finish-cutin 1180ms cubic-bezier(.16,.8,.22,1) forwards;
+    radial-gradient(circle at 50% 44%, rgba(251, 191, 36, .34), transparent 25%),
+    linear-gradient(110deg, rgba(2, 6, 23, .18) 0 30%, rgba(15, 23, 42, .88) 38% 62%, rgba(2, 6, 23, .18) 70% 100%);
+  animation: arena2-finish-cutin 2200ms cubic-bezier(.16,.8,.22,1) forwards;
 }
 
 .arena2-finish-cinematic span {
@@ -461,7 +461,7 @@
   font-style: italic;
   letter-spacing: .08em;
   text-shadow: 0 4px 0 rgba(15, 23, 42, .95), 0 0 22px rgba(251, 146, 60, .95);
-  animation: arena2-finish-title 1180ms ease-out forwards;
+  animation: arena2-finish-title 2200ms ease-out forwards;
 }
 
 .arena2-finish-cinematic i {
@@ -469,33 +469,33 @@
   left: -12%;
   top: 47%;
   width: 124%;
-  height: 16px;
+  height: 24px;
   border-radius: 999px;
   background: linear-gradient(90deg, transparent, rgba(255, 247, 237, .98), rgba(251, 146, 60, .95), transparent);
-  box-shadow: 0 0 22px rgba(251, 146, 60, .95), 0 0 48px rgba(239, 68, 68, .7);
+  box-shadow: 0 0 28px rgba(251, 146, 60, .98), 0 0 70px rgba(239, 68, 68, .82);
   transform: rotate(-13deg) scaleX(0);
   transform-origin: left center;
-  animation: arena2-finish-slash 1180ms cubic-bezier(.16,.8,.22,1) forwards;
+  animation: arena2-finish-slash 2200ms cubic-bezier(.16,.8,.22,1) forwards;
 }
 
 @keyframes arena2-finish-cutin {
   0% { opacity: 0; }
-  12% { opacity: 1; }
-  74% { opacity: 1; }
+  10% { opacity: 1; }
+  82% { opacity: 1; }
   100% { opacity: 0; }
 }
 
 @keyframes arena2-finish-title {
   0% { opacity: 0; transform: translateY(20px) scale(.8); }
-  18% { opacity: 1; transform: translateY(0) scale(1); }
-  52% { opacity: 1; transform: translateY(-2px) scale(1.08); }
+  16% { opacity: 1; transform: translateY(0) scale(1); }
+  68% { opacity: 1; transform: translateY(-2px) scale(1.1); }
   100% { opacity: 0; transform: translateY(-22px) scale(.94); }
 }
 
 @keyframes arena2-finish-slash {
-  0%, 22% { opacity: 0; transform: rotate(-13deg) scaleX(0); }
-  38% { opacity: 1; transform: rotate(-13deg) scaleX(1); }
-  66% { opacity: .75; transform: rotate(-13deg) scaleX(1.06); }
+  0%, 20% { opacity: 0; transform: rotate(-13deg) scaleX(0); }
+  34% { opacity: 1; transform: rotate(-13deg) scaleX(1); }
+  72% { opacity: .85; transform: rotate(-13deg) scaleX(1.08); }
   100% { opacity: 0; transform: rotate(-13deg) scaleX(1.14); }
 }
 
@@ -1131,6 +1131,9 @@
   font-size: clamp(1.75rem, 4vw, 3rem);
   letter-spacing: .08em;
 }
+.battle-impact-finisher {
+  z-index: 74 !important;
+}
 .battle-impact-ring {
   position: absolute;
   left: 50%;
@@ -1168,6 +1171,8 @@
 .battle-damage-tier-4 { font-size: 2.8rem; filter: drop-shadow(0 0 8px rgba(250,204,21,.8)); }
 .battle-damage-finisher {
   font-size: clamp(2.8rem, 8vw, 5rem);
+  z-index: 76 !important;
+  animation-duration: 2.2s;
   text-shadow: 0 5px 0 rgba(15,23,42,.95), 0 0 18px rgba(251,146,60,.95), 0 0 42px rgba(239,68,68,.72);
 }
 
