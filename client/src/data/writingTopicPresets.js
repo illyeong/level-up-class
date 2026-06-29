@@ -220,6 +220,75 @@ const TITLES_BY_GRADE = {
   ],
 };
 
+const cleanTopicTitle = (title) =>
+  String(title || '')
+    .trim()
+    .replace(/[.?!。？！]+$/g, '');
+
+const hasFinalConsonant = (word) => {
+  const charCode = word.charCodeAt(word.length - 1);
+  if (charCode < 0xac00 || charCode > 0xd7a3) return false;
+  return (charCode - 0xac00) % 28 !== 0;
+};
+
+const objectTopic = (topic) => `${topic}${hasFinalConsonant(topic) ? '을' : '를'}`;
+
+const buildTopicDescription = (title, grade) => {
+  const topic = cleanTopicTitle(title);
+  const topicObject = objectTopic(topic);
+  const lowerGrade = Number(grade) <= 2;
+  const upperGrade = Number(grade) >= 5;
+
+  if (/소개해요$/.test(topic)) {
+    const subject = topic.replace(/\s*[을를]\s*소개해요$/, '');
+    return `${subject}의 특징, 좋은 점, 기억에 남는 모습을 읽는 사람이 알 수 있게 써 보세요.`;
+  }
+  if (/편지|보내는 글|드리는 편지/.test(topic)) {
+    return `${topic}에 담고 싶은 마음과 꼭 전하고 싶은 말을 차례대로 써 보세요.`;
+  }
+  if (/소개/.test(topic)) {
+    return `${topic}의 특징, 좋은 점, 기억에 남는 모습을 읽는 사람이 알 수 있게 써 보세요.`;
+  }
+  if (/방법|방안|아이디어|제안|만드는 법|줄이기/.test(topic)) {
+    return `${topic}에 어울리는 구체적인 방법과 그렇게 하면 좋은 까닭을 써 보세요.`;
+  }
+  if (/이유|필요|중요|해야 할까|좋을까|옳을까|나쁠까|보장|제한|강화|높여야|낮춰야/.test(topic)) {
+    return `${topic}에 대한 내 생각을 정하고, 그 생각을 뒷받침하는 까닭을 써 보세요.`;
+  }
+  if (/무엇인가|란 무엇|란 /.test(topic)) {
+    return `${topic}에 대해 생각해 보고, 내가 내린 뜻과 그 까닭을 써 보세요.`;
+  }
+  if (/있다면|한다면|된다면|만든다면|시작한다면|만난다면|라면|꿈에서|미래/.test(topic)) {
+    return `${topic} 어떤 상황이 펼쳐질지 상상하고, 내가 하고 싶은 일을 자세히 써 보세요.`;
+  }
+  if (/경험|있었던 일|즐거웠던 일|기억나는 일|해낸 일|배운 점|실패|성공|칭찬/.test(topic)) {
+    return `${topicObject} 떠올리며 있었던 일, 그때의 마음, 배운 점을 차례대로 써 보세요.`;
+  }
+  if (/좋아하는|추천|존경|받고 싶은|하고 싶은|가 보고 싶은|키우고 싶은|만들고 싶은|바꾸고 싶은/.test(topic)) {
+    return `${topicObject} 고른 까닭과 특별히 마음에 드는 점을 예를 들어 써 보세요.`;
+  }
+  if (/규칙|약속|예절|책임|권리|공정|리더|갈등|비밀|협동|배려|정직|칭찬|격려/.test(topic)) {
+    return `${topic}이 왜 중요한지 생각하고, 생활 속에서 실천할 수 있는 모습을 써 보세요.`;
+  }
+  if (/환경|쓰레기|플라스틱|기후|친환경|동물|반려동물|지역|사회 문제/.test(topic)) {
+    return `${topic}과 관련된 문제를 살펴보고, 내가 할 수 있는 실천이나 해결책을 써 보세요.`;
+  }
+  if (/AI|SNS|인터넷|스마트폰|미디어|온라인|영상|기술/.test(topic)) {
+    return `${topicObject} 살펴보고, 편리한 점과 조심할 점을 함께 생각해 써 보세요.`;
+  }
+  if (/장점|강점|노력|목표|계획|진로|직업|성장/.test(topic)) {
+    return `${topicObject} 통해 나의 모습과 앞으로 실천하고 싶은 일을 써 보세요.`;
+  }
+
+  if (lowerGrade) {
+    return `${topic}에 대해 떠오르는 일과 내 마음을 쉬운 문장으로 써 보세요.`;
+  }
+  if (upperGrade) {
+    return `${topic}에 대한 내 관점과 근거를 정리해 설득력 있게 써 보세요.`;
+  }
+  return `${topic}에 대해 겪은 일, 생각, 까닭을 자세히 이어서 써 보세요.`;
+};
+
 export const WRITING_TOPIC_PRESETS_BY_GRADE = Object.fromEntries(
   Object.entries(TITLES_BY_GRADE).map(([grade, titles]) => {
     const config = GUIDE_BY_GRADE[grade];
@@ -229,7 +298,7 @@ export const WRITING_TOPIC_PRESETS_BY_GRADE = Object.fromEntries(
         id: `grade-${grade}-${String(index + 1).padStart(2, '0')}`,
         grade: Number(grade),
         title,
-        description: config.guide,
+        description: buildTopicDescription(title, grade),
         minLength: config.minLength,
       })),
     ];
