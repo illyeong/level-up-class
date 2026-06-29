@@ -78,6 +78,7 @@ const LOSE_REWARD = { gold: 0,   diamond: 0,  exp: 25 };
 const CHANGE_COST = 30;
 const MAX_CHANGES = 3;
 const FINAL_STRIKE_FX_MS = 2200;
+const VICTORY_FX_MS = 1700;
 
 const ARENA_TACTICS = [
   {
@@ -1308,7 +1309,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
         isWin, reward, createdAt: serverTimestamp(),
       });
 
-      await new Promise(r => setTimeout(r, battleStats.finalBlow ? FINAL_STRIKE_FX_MS : 1200));
+      await new Promise(r => setTimeout(r, (battleStats.finalBlow ? FINAL_STRIKE_FX_MS : 0) + VICTORY_FX_MS));
       setResult({ isWin, reward, battleSummary });
       setPhase('result');
     } catch (e) { console.error(e); }
@@ -1734,6 +1735,11 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       battleWinner && battleWinner !== side ? 'arena2-defeated' : '',
     ].filter(Boolean).join(' ');
     const isFinisherFx = battleFx.kind === 'finish';
+    const winnerName = battleWinner === 'me'
+      ? (me?.name || me?.studentCode || '나')
+      : battleWinner === 'opp'
+        ? (opponent?.name || opponent?.studentCode || '상대')
+        : '';
 
     return (
       <div className={`arena2-battle-shell bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-4 gap-3 ${battleFx.isCrit ? 'arena2-crit-flash' : ''} ${isFinisherFx ? 'arena2-finish-mode' : ''}`}
@@ -1782,6 +1788,20 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           </div>
           {battleFx.isCrit && (
             <div key={`crit-${battleFx.seq}`} className="absolute inset-0 z-20 pointer-events-none battle-impact-flash" />
+          )}
+          {battleWinner && !isFinisherFx && (
+            <div key={`victory-${battleWinner}`} className={`arena2-victory-stage arena2-victory-${battleWinner} pointer-events-none`}>
+              <div className="arena2-victory-rays" />
+              <div className="arena2-victory-banner">
+                <small>WINNER</small>
+                <strong>{winnerName}</strong>
+                <span>승리!</span>
+              </div>
+              <i className="arena2-victory-spark arena2-victory-spark-1" />
+              <i className="arena2-victory-spark arena2-victory-spark-2" />
+              <i className="arena2-victory-spark arena2-victory-spark-3" />
+              <i className="arena2-victory-spark arena2-victory-spark-4" />
+            </div>
           )}
           {isFinisherFx && (
             <div key={`finish-${battleFx.seq}`} className="arena2-finish-cinematic pointer-events-none">
