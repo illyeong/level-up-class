@@ -18,10 +18,11 @@ const getStats = (studentOrLevel = 1, equipmentItems = []) => {
     ? studentOrLevel : null;
 
   const base = {
-    hp:          100 + Math.floor(level * 10),
+    hp:          100 + Math.floor(level * 12),
     attack:      10  + Math.floor(level * 2),
-    defense:     5   + Math.floor(level * 1.5),
-    crit:        5   + Math.floor(level * 0.5),
+    defense:     Math.floor(level * 1.2),
+    crit:        8,
+    dodge:       5,
     attackSpeed: 10  + Math.floor(level * 1),
   };
 
@@ -51,6 +52,7 @@ const getStats = (studentOrLevel = 1, equipmentItems = []) => {
     attack:      base.attack  + atkBonus + (equipBonus.attack || 0),
     defense:     base.defense + defBonus + (equipBonus.defense || 0),
     crit:        base.crit    + critBonus + (equipBonus.crit || 0),
+    dodge:       base.dodge + Math.floor((base.attackSpeed + (equipBonus.attackSpeed || 0)) / 20),
     attackSpeed: base.attackSpeed + (equipBonus.attackSpeed || 0),
   };
 };
@@ -67,6 +69,7 @@ const STAT_META = [
   { key:'attack',      label:'공격력',   img:'/images/ItemIcon_Weapon_Sword.png',   icon:'⚔️' },
   { key:'defense',     label:'방어력',   img:'/images/ItemIcon_Weapon_Shield.png',  icon:'🛡️' },
   { key:'crit',        label:'크리티컬', img:'/images/Icon_Fire01.png',             icon:'💥' },
+  { key:'dodge',       label:'회피율',   img:null,                                  icon:'💨' },
   { key:'attackSpeed', label:'공격속도', img:null,                                  icon:'💨' },
 ];
 
@@ -666,28 +669,58 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
   const [battleLog, setBattleLog] = useState([]);
   const [battleHP, setBattleHP]   = useState({ me: 0, opp: 0 });
   const [battleMaxHP, setBattleMaxHP] = useState({ me: 0, opp: 0 });
-  const [hitFlash, setHitFlash]   = useState({ me: false, opp: false });
-  const [hitDmg, setHitDmg]       = useState({ me: null, opp: null }); // { dmg, isCrit } | null
-  const [hitAnimSeq, setHitAnimSeq] = useState({ me: 0, opp: 0 });
+  const [battleFx, setBattleFx]   = useState({ actor: null, target: null, kind: null, isCrit: false, seq: 0 });
+  const [floatTexts, setFloatTexts] = useState([]);
+  const [battleBanner, setBattleBanner] = useState('전투 준비');
+  const [battleWinner, setBattleWinner] = useState(null);
   const logRef = useRef(null);
-  const hitTimerRef = useRef({ me: null, opp: null });
+  const battleFxTimerRef = useRef(null);
+  const floatSeqRef = useRef(0);
 
   useEffect(() => () => {
-    if (hitTimerRef.current.me) clearTimeout(hitTimerRef.current.me);
-    if (hitTimerRef.current.opp) clearTimeout(hitTimerRef.current.opp);
+    if (battleFxTimerRef.current) clearTimeout(battleFxTimerRef.current);
   }, []);
 
-  const triggerHitFx = (side, dmg, isCrit) => {
-    setHitFlash(h => ({ ...h, [side]: true }));
-    setHitDmg(h => ({ ...h, [side]: { dmg, isCrit } }));
-    setHitAnimSeq(s => ({ ...s, [side]: s[side] + 1 }));
+  const addFloatText = (side, text, kind = 'damage', isCrit = false) => {
+    const id = ++floatSeqRef.current;
+    setFloatTexts(items => [...items, { id, side, text, kind, isCrit }]);
+    setTimeout(() => {
+      setFloatTexts(items => items.filter(item => item.id !== id));
+    }, 1100);
+  };
 
-    if (hitTimerRef.current[side]) clearTimeout(hitTimerRef.current[side]);
-    hitTimerRef.current[side] = setTimeout(() => {
-      setHitFlash(h => ({ ...h, [side]: false }));
-      setHitDmg(h => ({ ...h, [side]: null }));
-      hitTimerRef.current[side] = null;
-    }, 700);
+  const getActorRect = (side) => {
+    const el = side === 'me' ? meBattleRef.current : oppBattleRef.current;
+    return el?.getBoundingClientRect?.() || null;
+  };
+
+  const triggerBattleFx = ({ actor, target, kind = 'attack', damage = 0, isCrit = false, text = null }) => {
+    if (battleFxTimerRef.current) clearTimeout(battleFxTimerRef.current);
+    setBattleFx(prev => ({ actor, target, kind, isCrit, seq: prev.seq + 1 }));
+
+    if (text) {
+      addFloatText(target || actor, text, kind === 'heal' ? 'heal' : kind === 'dodge' ? 'dodge' : 'damage', isCrit);
+    } else if (damage > 0 && target) {
+      addFloatText(target, `${isCrit ? 'CRIT ' : ''}-${damage}`, 'damage', isCrit);
+    }
+
+    if (actor && target && kind !== 'dodge' && kind !== 'heal' && kind !== 'guard') {
+      const fromR = getActorRect(actor);
+      const toR = getActorRect(target);
+      if (fromR && toR) {
+        fireProjectile({
+          from: { x: fromR.left + fromR.width / 2, y: fromR.top + fromR.height * 0.48 },
+          to:   { x: toR.left + toR.width / 2, y: toR.top + toR.height * 0.48 },
+          type: isCrit ? 'fire' : kind === 'power' ? 'energy' : 'magic',
+          power: isCrit ? 1.35 : kind === 'power' ? 1.2 : 1,
+        });
+      }
+    }
+
+    battleFxTimerRef.current = setTimeout(() => {
+      setBattleFx(prev => ({ ...prev, actor: null, target: null, kind: null, isCrit: false }));
+      battleFxTimerRef.current = null;
+    }, isCrit ? 760 : 620);
   };
 
   // 매칭 상태 저장
@@ -832,10 +865,13 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
   };
 
   // ── 데미지 계산 ──────────────────────────────────────────────
-  const calcDmg = (atkStats, defStats) => {
-    const base   = Math.max(1, atkStats.attack - Math.floor(defStats.defense / 2));
+  const calcDmg = (atkStats, defStats, { power = 1, guarded = false } = {}) => {
+    const variance = 0.92 + Math.random() * 0.16;
+    const raw = Math.max(1, (atkStats.attack * power) - Math.floor(defStats.defense * 0.45));
     const isCrit = Math.random() * 100 < atkStats.crit;
-    return { dmg: isCrit ? Math.floor(base * 1.6) : base, isCrit };
+    let dmg = Math.floor(raw * variance * (isCrit ? 1.6 : 1));
+    if (guarded) dmg = Math.max(1, Math.floor(dmg * 0.6));
+    return { dmg, isCrit };
   };
 
   // ── 대련 시작 (자동 턴제) ─────────────────────────────────────
@@ -855,10 +891,11 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       setBattleMaxHP({ me: myMaxHP, opp: oppMaxHP });
       setBattleHP({ me: myMaxHP, opp: oppMaxHP });
       setBattleLog([]);
-      if (hitTimerRef.current.me) { clearTimeout(hitTimerRef.current.me); hitTimerRef.current.me = null; }
-      if (hitTimerRef.current.opp) { clearTimeout(hitTimerRef.current.opp); hitTimerRef.current.opp = null; }
-      setHitFlash({ me: false, opp: false });
-      setHitDmg({ me: null, opp: null });
+      setBattleFx({ actor: null, target: null, kind: null, isCrit: false, seq: 0 });
+      setFloatTexts([]);
+      setBattleBanner('전투 준비');
+      setBattleWinner(null);
+      if (battleFxTimerRef.current) { clearTimeout(battleFxTimerRef.current); battleFxTimerRef.current = null; }
       setPhase('battle');
 
       const myName  = me?.name  || me?.studentCode  || '나';
@@ -870,71 +907,90 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       const myFirst = myStats.attackSpeed > oppStats.attackSpeed ||
         (myStats.attackSpeed === oppStats.attackSpeed && Math.random() < 0.5);
       addLog(`⚔️ 대련 시작! ${myFirst ? myName : oppName}이(가) 선공!`, 'system');
+      setBattleBanner(`${myFirst ? myName : oppName} 선공`);
 
-      const TURN_MS  = 1000;  // 1초 간격
-      const MAX_TURN = 15;    // 최대 15턴 (~15초)
+      const TURN_MS  = 900;
+      const MAX_TURN = 20;
+      const actionCount = { me: 0, opp: 0 };
+      const healUsed = { me: false, opp: false };
+      const guardUsed = { me: false, opp: false };
+      const guarding = { me: false, opp: false };
+      const order = myFirst ? ['me', 'opp'] : ['opp', 'me'];
+      const actorData = {
+        me:  { stats: myStats,  name: myName,  enemyName: oppName },
+        opp: { stats: oppStats, name: oppName, enemyName: myName },
+      };
 
       for (let turn = 1; turn <= MAX_TURN; turn++) {
         if (myHP <= 0 || oppHP <= 0) break;
-
-        // 약간의 딜레이 후 턴 실행
         await new Promise(r => setTimeout(r, TURN_MS));
-
         if (myHP <= 0 || oppHP <= 0) break;
 
-        const attackOrder = myFirst
-          ? [{ atk: myStats, def: oppStats, name: myName, isMe: true  },
-             { atk: oppStats, def: myStats, name: oppName, isMe: false }]
-          : [{ atk: oppStats, def: myStats, name: oppName, isMe: false },
-             { atk: myStats, def: oppStats, name: myName, isMe: true  }];
+        const side = order[(turn - 1) % 2];
+        const target = side === 'me' ? 'opp' : 'me';
+        const actorHP = side === 'me' ? myHP : oppHP;
+        const actorMaxHP = side === 'me' ? myMaxHP : oppMaxHP;
+        const targetStats = target === 'me' ? myStats : oppStats;
+        const actor = actorData[side];
+        actionCount[side] += 1;
 
-        for (const { atk, def, name, isMe } of attackOrder) {
-          if (myHP <= 0 || oppHP <= 0) break;
+        if (!healUsed[side] && actorHP <= actorMaxHP * 0.3) {
+          const heal = Math.max(18, Math.floor(actorMaxHP * 0.24));
+          if (side === 'me') myHP = Math.min(myMaxHP, myHP + heal);
+          else oppHP = Math.min(oppMaxHP, oppHP + heal);
+          healUsed[side] = true;
+          addLog(`✨ ${actor.name}이(가) 회복을 사용했습니다. HP +${heal}`, 'heal');
+          setBattleBanner('회복');
+          triggerBattleFx({ actor: side, target: side, kind: 'heal', text: `+${heal}` });
+        } else if (!guardUsed[side] && actorHP <= actorMaxHP * 0.45) {
+          guardUsed[side] = true;
+          guarding[side] = true;
+          addLog(`🛡️ ${actor.name}이(가) 방어 태세를 취했습니다. 다음 피해 감소!`, 'guard');
+          setBattleBanner('방어 태세');
+          triggerBattleFx({ actor: side, target: side, kind: 'guard', text: 'GUARD' });
+        } else {
+          const isPower = actionCount[side] % 3 === 0;
+          const dodged = Math.random() * 100 < targetStats.dodge;
+          const skillName = isPower ? '강타' : '공격';
 
-          const { dmg, isCrit } = calcDmg(atk, def);
-          if (isMe) {
-            oppHP = Math.max(0, oppHP - dmg);
-            addLog(`${isCrit ? '💥 크리티컬! ' : ''}${name}의 공격 → ${dmg} 데미지`, isCrit ? 'crit' : 'attack');
-            if (oppHP <= 0) {
-              addLog(`⚡ 최후의 일격! ${name}이(가) ${oppName}을(를) 쓰러뜨렸습니다!`, 'result');
-              const meR  = meBattleRef.current?.getBoundingClientRect();
-              const oppR = oppBattleRef.current?.getBoundingClientRect();
-              if (meR && oppR) fireProjectile({
-                from: { x: meR.left + meR.width / 2, y: meR.top + meR.height / 2 },
-                to:   { x: oppR.left + oppR.width / 2, y: oppR.top + oppR.height / 2 },
-                type: 'magic',
-              });
-            }
-            triggerHitFx('opp', dmg, isCrit);
+          if (dodged) {
+            addLog(`💨 ${actor.enemyName}이(가) ${actor.name}의 ${skillName}을 회피했습니다!`, 'dodge');
+            setBattleBanner('회피');
+            triggerBattleFx({ actor: side, target, kind: 'dodge', text: 'MISS' });
           } else {
-            myHP = Math.max(0, myHP - dmg);
-            addLog(`${isCrit ? '💥 크리티컬! ' : ''}${name}의 반격 → ${dmg} 데미지`, isCrit ? 'crit' : 'attack');
-            if (myHP <= 0) {
-              addLog(`⚡ 최후의 일격! ${name}이(가) ${myName}을(를) 쓰러뜨렸습니다!`, 'result');
-              const meR  = meBattleRef.current?.getBoundingClientRect();
-              const oppR = oppBattleRef.current?.getBoundingClientRect();
-              if (meR && oppR) fireProjectile({
-                from: { x: oppR.left + oppR.width / 2, y: oppR.top + oppR.height / 2 },
-                to:   { x: meR.left + meR.width / 2, y: meR.top + meR.height / 2 },
-                type: 'fire',
-              });
-            }
-            triggerHitFx('me', dmg, isCrit);
-          }
-          setBattleHP({
-            me: Math.max(0, Math.min(myHP, myMaxHP)),
-            opp: Math.max(0, Math.min(oppHP, oppMaxHP)),
-          });
-          setBattleLog([...log]);
-          if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+            const guarded = guarding[target];
+            const { dmg, isCrit } = calcDmg(actor.stats, targetStats, { power: isPower ? 1.5 : 1, guarded });
+            guarding[target] = false;
 
-          await new Promise(r => setTimeout(r, 500));
+            if (target === 'me') myHP = Math.max(0, myHP - dmg);
+            else oppHP = Math.max(0, oppHP - dmg);
+
+            const critText = isCrit ? '💥 크리티컬! ' : '';
+            const guardText = guarded ? ' 방어 감소 적용.' : '';
+            addLog(`${critText}${actor.name}의 ${skillName} → ${dmg} 데미지.${guardText}`, isCrit ? 'crit' : isPower ? 'skill' : 'attack');
+            setBattleBanner(isCrit ? 'CRITICAL' : isPower ? '강타' : '공격');
+            triggerBattleFx({ actor: side, target, kind: isPower ? 'power' : 'attack', damage: dmg, isCrit });
+
+            const nextTargetHP = target === 'me' ? myHP : oppHP;
+            if (nextTargetHP <= 0) {
+              addLog(`⚡ 최후의 일격! ${actor.name}이(가) ${actor.enemyName}을(를) 쓰러뜨렸습니다!`, 'result');
+            }
+          }
         }
+
+        setBattleHP({
+          me: Math.max(0, Math.min(myHP, myMaxHP)),
+          opp: Math.max(0, Math.min(oppHP, oppMaxHP)),
+        });
+        setBattleLog([...log]);
+        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
       }
 
       // 결과 판정
       const isWin = myHP > oppHP;
       addLog(isWin ? `🏆 ${myName} 승리!` : `💀 ${oppName} 승리!`, 'result');
+      setBattleWinner(isWin ? 'me' : 'opp');
+      setBattleBanner(isWin ? `${myName} 승리` : `${oppName} 승리`);
       setBattleLog([...log]);
 
       const reward = isWin ? WIN_REWARD : LOSE_REWARD;
@@ -1204,98 +1260,114 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
     const oppMaxHP = battleMaxHP.opp || 1;
     const myPct    = Math.max(0, Math.round((battleHP.me  / myMaxHP)  * 100));
     const oppPct   = Math.max(0, Math.round((battleHP.opp / oppMaxHP) * 100));
-    const LOG_COLORS = { crit: 'text-yellow-400', attack: 'text-slate-200', system: 'text-indigo-400', result: 'text-emerald-400' };
+    const LOG_COLORS = {
+      crit: 'text-yellow-400',
+      skill: 'text-fuchsia-300',
+      attack: 'text-slate-200',
+      heal: 'text-emerald-300',
+      guard: 'text-sky-300',
+      dodge: 'text-cyan-300',
+      system: 'text-indigo-400',
+      result: 'text-emerald-400',
+    };
+    const fighterClass = (side) => [
+      'arena2-fighter',
+      side === 'me' ? 'arena2-fighter-me' : 'arena2-fighter-opp',
+      battleFx.actor === side ? `arena2-actor-${side}` : '',
+      battleFx.target === side ? `arena2-target-${side}` : '',
+      battleFx.kind === 'dodge' && battleFx.target === side ? `arena2-dodge-${side}` : '',
+      battleFx.kind === 'guard' && battleFx.actor === side ? 'arena2-guarding' : '',
+      battleFx.kind === 'heal' && battleFx.actor === side ? 'arena2-healing' : '',
+      battleWinner === side ? 'arena2-winner' : '',
+      battleWinner && battleWinner !== side ? 'arena2-defeated' : '',
+    ].filter(Boolean).join(' ');
 
     return (
-      <div className="bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-5 gap-5"
+      <div className={`arena2-battle-shell bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-4 gap-3 ${battleFx.isCrit ? 'arena2-crit-flash' : ''}`}
         style={{ height: 'calc(100vh - 88px)' }}>
 
-        {/* 캐릭터 + HP */}
-        <div className="flex items-stretch gap-4 flex-1 min-h-0" style={{ maxHeight: '55%' }}>
-          {/* 나 */}
-          <div ref={meBattleRef} className={`flex-1 flex flex-col items-center gap-3 bg-indigo-950/60 rounded-3xl p-5 border-2
-            ${hitFlash.me
-              ? (hitDmg.me?.isCrit ? 'border-yellow-400 bg-yellow-950/30' : 'border-rose-500 bg-rose-950/40')
-              : 'border-indigo-700 transition-colors'}
-            ${hitFlash.me ? (hitDmg.me?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
-            <div className="text-xs font-extrabold text-indigo-400 tracking-widest">나</div>
-            {/* key 변경으로 CSS 애니메이션 강제 재시작 */}
-            <div key={`me-${hitAnimSeq.me}`}
-              className={`flex-1 w-full flex items-center justify-center relative z-10
-                ${hitFlash.me ? (hitDmg.me?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
-              <div className="w-64 h-64 flex items-center justify-center overflow-hidden">
-                {me?.characterImage
-                  ? <img src={me.characterImage} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', imageRendering:'pixelated', transform:'scaleX(-1) scale(3)', transformOrigin:'center' }} />
-                  : <span className="text-5xl">🧑‍🎓</span>}
-              </div>
-              {hitDmg.me && (
-                <div className={`absolute -top-2 left-1/2 -translate-x-1/2 font-extrabold animate-bounce pointer-events-none z-10
-                  ${hitDmg.me.isCrit ? 'text-yellow-300 text-2xl drop-shadow-[0_0_8px_#facc15]' : 'text-rose-400 text-xl'}`}>
-                  {hitDmg.me.isCrit ? '💥 ' : ''}-{hitDmg.me.dmg}
-                </div>
-              )}
+        <div className="grid grid-cols-2 gap-3 shrink-0">
+          <div className="rounded-xl border border-indigo-500/30 bg-slate-950/70 px-3 py-2">
+            <div className="flex items-center justify-between gap-2 text-xs mb-1.5">
+              <span className="font-extrabold text-indigo-200 truncate">{me?.name || me?.studentCode || '나'}</span>
+              <span className={`font-black tabular-nums ${myPct < 30 ? 'text-rose-300' : 'text-slate-200'}`}>{battleHP.me}/{myMaxHP}</span>
             </div>
-            <div className="w-full relative z-30 bg-slate-900/35 rounded-xl border border-slate-700/50 px-2 py-2">
-              <div className="text-white font-extrabold text-sm truncate text-center mb-2">{me?.name || me?.studentCode}</div>
-              <div className="flex justify-between text-xs text-slate-400 mb-1.5">
-                <span className="font-bold">HP</span>
-                <span className={`font-extrabold ${myPct < 30 ? 'text-rose-400' : 'text-slate-300'}`}>{battleHP.me} / {myMaxHP}</span>
-              </div>
-              <div className="w-full h-4 bg-slate-700 rounded-full overflow-hidden shadow-inner">
-                <div className={`h-full rounded-full transition-all duration-500 ${myPct > 50 ? 'bg-emerald-500' : myPct > 25 ? 'bg-amber-500' : 'bg-rose-500'}`}
-                  style={{ width: `${myPct}%` }} />
-              </div>
+            <div className="h-3 rounded-full bg-slate-800 overflow-hidden border border-slate-700">
+              <div className={`h-full rounded-full transition-all duration-500 ${myPct > 50 ? 'bg-emerald-400' : myPct > 25 ? 'bg-amber-400' : 'bg-rose-500'}`}
+                style={{ width: `${myPct}%` }} />
             </div>
           </div>
-
-          {/* VS */}
-          <div className="flex flex-col items-center justify-center shrink-0 gap-2">
-            <div className="text-slate-500 font-extrabold text-2xl">VS</div>
-            <div className="flex gap-1">
-              {[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 bg-slate-600 rounded-full animate-bounce" style={{ animationDelay: `${i*0.2}s` }} />)}
+          <div className="rounded-xl border border-rose-500/30 bg-slate-950/70 px-3 py-2">
+            <div className="flex items-center justify-between gap-2 text-xs mb-1.5">
+              <span className="font-extrabold text-rose-200 truncate">{opponent?.name || opponent?.studentCode || '상대'}</span>
+              <span className={`font-black tabular-nums ${oppPct < 30 ? 'text-rose-300' : 'text-slate-200'}`}>{battleHP.opp}/{oppMaxHP}</span>
             </div>
-          </div>
-
-          {/* 상대 */}
-          <div ref={oppBattleRef} className={`flex-1 flex flex-col items-center gap-3 bg-rose-950/60 rounded-3xl p-5 border-2
-            ${hitFlash.opp
-              ? (hitDmg.opp?.isCrit ? 'border-yellow-400 bg-yellow-950/30' : 'border-rose-400 bg-rose-950/60')
-              : 'border-rose-800 transition-colors'}
-            ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
-            <div className="text-xs font-extrabold text-rose-400 tracking-widest">상대</div>
-            {/* key 변경으로 CSS 애니메이션 강제 재시작 */}
-            <div key={`opp-${hitAnimSeq.opp}`}
-              className={`flex-1 w-full flex items-center justify-center relative z-10
-                ${hitFlash.opp ? (hitDmg.opp?.isCrit ? 'animate-arena-crit' : 'animate-arena-hit') : ''}`}>
-              <div className="w-64 h-64 flex items-center justify-center overflow-hidden">
-                {opponent?.characterImage
-                  ? <img src={opponent.characterImage} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', imageRendering:'pixelated', transform:'scale(3)', transformOrigin:'center' }} />
-                  : <span className="text-5xl">🧑‍🎓</span>}
-              </div>
-              {hitDmg.opp && (
-                <div className={`absolute -top-2 left-1/2 -translate-x-1/2 font-extrabold animate-bounce pointer-events-none z-10
-                  ${hitDmg.opp.isCrit ? 'text-yellow-300 text-2xl drop-shadow-[0_0_8px_#facc15]' : 'text-rose-400 text-xl'}`}>
-                  {hitDmg.opp.isCrit ? '💥 ' : ''}-{hitDmg.opp.dmg}
-                </div>
-              )}
-            </div>
-            <div className="w-full relative z-30 bg-slate-900/35 rounded-xl border border-slate-700/50 px-2 py-2">
-              <div className="text-white font-extrabold text-sm truncate text-center mb-2">{opponent?.name || opponent?.studentCode}</div>
-              <div className="flex justify-between text-xs text-slate-400 mb-1.5">
-                <span className="font-bold">HP</span>
-                <span className={`font-extrabold ${oppPct < 30 ? 'text-rose-400' : 'text-slate-300'}`}>{battleHP.opp} / {oppMaxHP}</span>
-              </div>
-              <div className="w-full h-4 bg-slate-700 rounded-full overflow-hidden shadow-inner">
-                <div className={`h-full rounded-full transition-all duration-500 ${oppPct > 50 ? 'bg-emerald-500' : oppPct > 25 ? 'bg-amber-500' : 'bg-rose-500'}`}
-                  style={{ width: `${oppPct}%` }} />
-              </div>
+            <div className="h-3 rounded-full bg-slate-800 overflow-hidden border border-slate-700">
+              <div className={`h-full rounded-full transition-all duration-500 ${oppPct > 50 ? 'bg-emerald-400' : oppPct > 25 ? 'bg-amber-400' : 'bg-rose-500'}`}
+                style={{ width: `${oppPct}%` }} />
             </div>
           </div>
         </div>
 
-        {/* 전투 로그 */}
+        <div className="arena2-stage relative flex-1 min-h-[310px] overflow-hidden rounded-xl border border-slate-700/60 bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-950">
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-[18%] h-px bg-indigo-300/20" />
+          <div className="absolute left-1/2 top-5 z-30 -translate-x-1/2 rounded-full border border-slate-600/70 bg-slate-950/75 px-4 py-1.5 text-xs font-black tracking-[0.18em] text-slate-200 shadow-lg">
+            {battleBanner}
+          </div>
+          {battleFx.isCrit && (
+            <div key={`crit-${battleFx.seq}`} className="absolute inset-0 z-20 pointer-events-none battle-impact-flash" />
+          )}
+
+          <div ref={meBattleRef} className={fighterClass('me')} key={`me-fighter-${battleFx.seq}-${battleWinner || 'live'}`}>
+            <div className="arena2-nameplate arena2-nameplate-me">나</div>
+            <div className="arena2-character-wrap">
+              {me?.characterImage
+                ? <img src={me.characterImage} alt="" className="arena2-character-img arena2-character-img-me" />
+                : <span className="text-7xl">🧑‍🎓</span>}
+            </div>
+          </div>
+
+          <div className="absolute left-1/2 bottom-[42%] z-10 -translate-x-1/2 text-4xl font-black text-slate-600/70">VS</div>
+
+          <div ref={oppBattleRef} className={fighterClass('opp')} key={`opp-fighter-${battleFx.seq}-${battleWinner || 'live'}`}>
+            <div className="arena2-nameplate arena2-nameplate-opp">상대</div>
+            <div className="arena2-character-wrap">
+              {opponent?.characterImage
+                ? <img src={opponent.characterImage} alt="" className="arena2-character-img arena2-character-img-opp" />
+                : <span className="text-7xl">🧑‍🎓</span>}
+            </div>
+          </div>
+
+          {battleFx.target && battleFx.kind && !['heal', 'guard', 'dodge'].includes(battleFx.kind) && (
+            <div key={`impact-${battleFx.seq}`}
+              className={`absolute z-30 pointer-events-none battle-impact ${battleFx.isCrit ? 'battle-impact-tier-4' : battleFx.kind === 'power' ? 'battle-impact-tier-3' : 'battle-impact-tier-2'}`}
+              style={{ left: battleFx.target === 'me' ? '30%' : '70%', top: '48%' }}>
+              <span className="battle-impact-ring" />
+              <strong className={battleFx.isCrit ? 'text-yellow-200' : 'text-amber-200'}>
+                {battleFx.isCrit ? 'CRITICAL!' : battleFx.kind === 'power' ? 'POWER HIT!' : 'HIT!'}
+              </strong>
+            </div>
+          )}
+
+          {floatTexts.map(item => (
+            <div key={item.id}
+              className={`absolute z-40 pointer-events-none font-black battle-damage-float
+                ${item.isCrit ? 'battle-damage-tier-4 text-yellow-300' : item.kind === 'heal' ? 'text-emerald-300' : item.kind === 'dodge' ? 'text-cyan-200' : 'text-rose-300'}`}
+              style={{ left: item.side === 'me' ? '30%' : '70%', top: item.kind === 'heal' ? '38%' : '34%' }}>
+              {item.text}
+            </div>
+          ))}
+
+          <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center">
+            <div className="rounded-full border border-slate-600/60 bg-slate-950/70 px-4 py-1 text-[11px] font-bold text-slate-400">
+              자동 전투 · 3번째 행동마다 강타 · HP 30% 이하 회복
+            </div>
+          </div>
+        </div>
+
         <div ref={logRef}
-          className="flex-1 min-h-0 bg-slate-900/80 rounded-3xl border border-slate-700 p-4 overflow-y-auto">
+          className="h-[28%] min-h-[150px] bg-slate-900/85 rounded-xl border border-slate-700 p-4 overflow-y-auto">
           {battleLog.length === 0 ? (
             <p className="text-slate-600 text-sm text-center py-6 animate-pulse">⚔️ 전투 준비 중...</p>
           ) : (
