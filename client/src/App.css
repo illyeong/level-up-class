@@ -248,7 +248,7 @@
 .arena2-fighter {
   position: absolute;
   z-index: 15;
-  bottom: 18%;
+  bottom: 14.5%;
   width: clamp(128px, 22vw, 230px);
   height: clamp(178px, 31vh, 290px);
   display: flex;
@@ -809,7 +809,7 @@
     --arena2-dodge: 30px;
   }
   .arena2-fighter {
-    bottom: 19%;
+    bottom: 15.5%;
     width: 118px;
     height: 188px;
   }
