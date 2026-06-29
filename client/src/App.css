@@ -436,6 +436,11 @@
   animation: arena2-victory-pose 1650ms cubic-bezier(.16,.8,.22,1) both;
 }
 
+.arena2-winner .arena2-character-wrap {
+  position: relative;
+  z-index: 2;
+}
+
 .arena2-fighter-me.arena2-winner { animation-name: arena2-victory-pose-me; }
 .arena2-fighter-opp.arena2-winner { animation-name: arena2-victory-pose-opp; }
 
@@ -450,7 +455,33 @@
   background: radial-gradient(ellipse, rgba(250, 204, 21, .72), rgba(251, 146, 60, .24) 45%, transparent 72%);
   filter: blur(2px);
   transform: translateX(-50%);
+  z-index: 0;
   animation: arena2-victory-platform 1650ms ease-out both;
+}
+
+.arena2-winner::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 132%;
+  height: 108%;
+  border-radius: 999px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(254, 243, 199, .55), rgba(250, 204, 21, .28) 22%, rgba(251, 146, 60, .12) 42%, transparent 62%),
+    conic-gradient(from 0deg, transparent 0 14deg, rgba(250, 204, 21, .32) 16deg 22deg, transparent 24deg 44deg);
+  filter: blur(.5px);
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  animation: arena2-victory-halo 1650ms ease-out both;
+}
+
+@keyframes arena2-victory-halo {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.58) rotate(0deg); }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(1.08) rotate(18deg); }
+  74% { opacity: .9; transform: translate(-50%, -50%) scale(1) rotate(48deg); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.12) rotate(70deg); }
 }
 
 @keyframes arena2-victory-platform {
@@ -475,9 +506,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  background:
-    radial-gradient(circle at var(--victory-x) 58%, rgba(250, 204, 21, .3), transparent 24%),
-    linear-gradient(180deg, transparent, rgba(2, 6, 23, .26));
+  background: linear-gradient(180deg, transparent, rgba(2, 6, 23, .2));
   animation: arena2-victory-fade 1700ms ease-out both;
 }
 
@@ -492,12 +521,7 @@
 }
 
 .arena2-victory-rays {
-  position: absolute;
-  inset: -18%;
-  opacity: .8;
-  background: conic-gradient(from 0deg, transparent 0 14deg, rgba(250, 204, 21, .34) 16deg 22deg, transparent 24deg 44deg);
-  transform-origin: var(--victory-x) 58%;
-  animation: arena2-victory-rays-spin 1700ms linear both;
+  display: none;
 }
 
 .arena2-victory-banner {
