@@ -1721,6 +1721,8 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       system: 'text-indigo-400',
       result: 'text-emerald-400',
     };
+    const isFinisherFx = battleFx.kind === 'finish';
+    const showVictoryFx = Boolean(battleWinner && !isFinisherFx);
     const fighterClass = (side) => [
       'arena2-fighter',
       side === 'me' ? 'arena2-fighter-me' : 'arena2-fighter-opp',
@@ -1731,10 +1733,9 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       battleFx.kind === 'dodge' && battleFx.target === side ? `arena2-dodge-${side}` : '',
       battleFx.kind === 'guard' && battleFx.actor === side ? 'arena2-guarding' : '',
       battleFx.kind === 'heal' && battleFx.actor === side ? 'arena2-healing' : '',
-      battleWinner === side ? 'arena2-winner' : '',
-      battleWinner && battleWinner !== side ? 'arena2-defeated' : '',
+      showVictoryFx && battleWinner === side ? 'arena2-winner' : '',
+      showVictoryFx && battleWinner !== side ? 'arena2-defeated' : '',
     ].filter(Boolean).join(' ');
-    const isFinisherFx = battleFx.kind === 'finish';
     const winnerName = battleWinner === 'me'
       ? (me?.name || me?.studentCode || '나')
       : battleWinner === 'opp'

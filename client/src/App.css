@@ -409,16 +409,35 @@
 
 @keyframes arena2-victory-pose {
   0% { transform: translateY(0) scale(1) rotate(0deg); filter: brightness(1); }
-  18% { transform: translateY(-34px) scale(1.06) rotate(-2deg); filter: brightness(1.45) drop-shadow(0 0 18px rgba(250, 204, 21, .75)); }
-  38% { transform: translateY(8px) scale(1.02) rotate(1deg); }
-  58% { transform: translateY(-14px) scale(1.08) rotate(-1deg); }
-  100% { transform: translateY(-10px) scale(1.07) rotate(0deg); filter: brightness(1.25) drop-shadow(0 0 28px rgba(250, 204, 21, .85)); }
+  18% { transform: translateY(-52px) scale(1.12) rotate(-3deg); filter: brightness(1.55) drop-shadow(0 0 22px rgba(250, 204, 21, .9)); }
+  38% { transform: translateY(10px) scale(1.02) rotate(2deg); }
+  58% { transform: translateY(-24px) scale(1.16) rotate(-2deg); }
+  100% { transform: translateY(-14px) scale(1.12) rotate(0deg); filter: brightness(1.32) drop-shadow(0 0 34px rgba(250, 204, 21, .95)); }
+}
+
+@keyframes arena2-victory-pose-me {
+  0% { transform: translateX(0) translateY(0) scale(1) rotate(0deg); filter: brightness(1); }
+  18% { transform: translateX(34px) translateY(-54px) scale(1.13) rotate(-4deg); filter: brightness(1.55) drop-shadow(0 0 22px rgba(250, 204, 21, .9)); }
+  38% { transform: translateX(18px) translateY(10px) scale(1.03) rotate(2deg); }
+  58% { transform: translateX(28px) translateY(-24px) scale(1.17) rotate(-2deg); }
+  100% { transform: translateX(22px) translateY(-14px) scale(1.12) rotate(0deg); filter: brightness(1.32) drop-shadow(0 0 34px rgba(250, 204, 21, .95)); }
+}
+
+@keyframes arena2-victory-pose-opp {
+  0% { transform: translateX(0) translateY(0) scale(1) rotate(0deg); filter: brightness(1); }
+  18% { transform: translateX(-34px) translateY(-54px) scale(1.13) rotate(4deg); filter: brightness(1.55) drop-shadow(0 0 22px rgba(250, 204, 21, .9)); }
+  38% { transform: translateX(-18px) translateY(10px) scale(1.03) rotate(-2deg); }
+  58% { transform: translateX(-28px) translateY(-24px) scale(1.17) rotate(2deg); }
+  100% { transform: translateX(-22px) translateY(-14px) scale(1.12) rotate(0deg); filter: brightness(1.32) drop-shadow(0 0 34px rgba(250, 204, 21, .95)); }
 }
 
 .arena2-winner {
   z-index: 42;
   animation: arena2-victory-pose 1650ms cubic-bezier(.16,.8,.22,1) both;
 }
+
+.arena2-fighter-me.arena2-winner { animation-name: arena2-victory-pose-me; }
+.arena2-fighter-opp.arena2-winner { animation-name: arena2-victory-pose-opp; }
 
 .arena2-winner::before {
   content: "";
@@ -447,6 +466,9 @@
 }
 
 .arena2-victory-stage {
+  --victory-x: 50%;
+  --banner-x: 50%;
+  --banner-shift: -50%;
   position: absolute;
   inset: 0;
   z-index: 34;
@@ -454,9 +476,19 @@
   place-items: center;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 50%, rgba(250, 204, 21, .18), transparent 26%),
+    radial-gradient(circle at var(--victory-x) 58%, rgba(250, 204, 21, .3), transparent 24%),
     linear-gradient(180deg, transparent, rgba(2, 6, 23, .26));
   animation: arena2-victory-fade 1700ms ease-out both;
+}
+
+.arena2-victory-me {
+  --victory-x: 30%;
+  --banner-x: 30%;
+}
+
+.arena2-victory-opp {
+  --victory-x: 70%;
+  --banner-x: 70%;
 }
 
 .arena2-victory-rays {
@@ -464,16 +496,17 @@
   inset: -18%;
   opacity: .8;
   background: conic-gradient(from 0deg, transparent 0 14deg, rgba(250, 204, 21, .34) 16deg 22deg, transparent 24deg 44deg);
+  transform-origin: var(--victory-x) 58%;
   animation: arena2-victory-rays-spin 1700ms linear both;
 }
 
 .arena2-victory-banner {
   position: absolute;
   top: 12%;
-  left: 50%;
+  left: var(--banner-x);
   z-index: 2;
   min-width: min(82%, 390px);
-  transform: translateX(-50%);
+  transform: translateX(var(--banner-shift));
   border-top: 2px solid rgba(253, 224, 71, .78);
   border-bottom: 2px solid rgba(253, 224, 71, .78);
   background: linear-gradient(90deg, transparent, rgba(15, 23, 42, .78) 18% 82%, transparent);
@@ -517,6 +550,16 @@
 .arena2-victory-spark-3 { left: 30%; top: 67%; animation-delay: 260ms; }
 .arena2-victory-spark-4 { left: 78%; top: 63%; animation-delay: 360ms; }
 
+.arena2-victory-me .arena2-victory-spark-1 { left: 18%; top: 34%; }
+.arena2-victory-me .arena2-victory-spark-2 { left: 38%; top: 30%; }
+.arena2-victory-me .arena2-victory-spark-3 { left: 24%; top: 68%; }
+.arena2-victory-me .arena2-victory-spark-4 { left: 42%; top: 61%; }
+
+.arena2-victory-opp .arena2-victory-spark-1 { left: 58%; top: 34%; }
+.arena2-victory-opp .arena2-victory-spark-2 { left: 78%; top: 30%; }
+.arena2-victory-opp .arena2-victory-spark-3 { left: 62%; top: 68%; }
+.arena2-victory-opp .arena2-victory-spark-4 { left: 82%; top: 61%; }
+
 @keyframes arena2-victory-fade {
   0% { opacity: 0; }
   12% { opacity: 1; }
@@ -531,10 +574,10 @@
 }
 
 @keyframes arena2-victory-banner-pop {
-  0% { opacity: 0; transform: translateX(-50%) translateY(-18px) scale(.82); }
-  18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.05); }
-  70% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(.96); }
+  0% { opacity: 0; transform: translateX(var(--banner-shift)) translateY(-18px) scale(.82); }
+  18% { opacity: 1; transform: translateX(var(--banner-shift)) translateY(0) scale(1.05); }
+  70% { opacity: 1; transform: translateX(var(--banner-shift)) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(var(--banner-shift)) translateY(-10px) scale(.96); }
 }
 
 @keyframes arena2-victory-spark {
