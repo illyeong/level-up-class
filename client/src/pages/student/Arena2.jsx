@@ -681,7 +681,7 @@ function CharacterCard({ student, label, isMe, highlight, rank, equipmentItems =
   );
 }
 
-const buildBattleSummary = ({ stats, isWin, myName, oppName, finalMyHP, myMaxHP, finalOppHP, oppMaxHP, tactic, learningBuff }) => {
+const buildBattleSummary = ({ stats, isWin, myName, oppName, finalMyHP, myMaxHP, finalOppHP, oppMaxHP, learningBuff }) => {
   const hpPct = myMaxHP ? finalMyHP / myMaxHP : 0;
   const oppHpPct = oppMaxHP ? finalOppHP / oppMaxHP : 0;
   let title = isWin ? '투기장 승자' : '다음 대련 준비 중';
@@ -717,14 +717,12 @@ const buildBattleSummary = ({ stats, isWin, myName, oppName, finalMyHP, myMaxHP,
   if (stats.dodges > 0) highlights.push(`회피 성공: ${stats.dodges}회`);
   if (stats.guards > 0) highlights.push(`방어 태세: ${stats.guards}회`);
   if (stats.powerHits > 0) highlights.push(`강타 사용: ${stats.powerHits}회`);
-  highlights.push(`선택 작전: ${tactic.icon} ${tactic.name}`);
   if (learningBuff) highlights.push(`전략 퀴즈 버프: ${learningBuff.name}`);
 
   return {
     title,
     subtitle,
     highlights: highlights.slice(0, 4),
-    tacticName: tactic.name,
     turns: stats.turns,
     resultLine: isWin ? `${myName} 승리` : `${oppName} 승리`,
   };
@@ -820,9 +818,6 @@ function ResultScreen({ isWin, opponent, reward, battleSummary, onClose }) {
             <div className="text-[10px] font-black uppercase tracking-[0.24em] text-indigo-300">Battle Title</div>
             <div className="mt-1 text-xl font-black text-white">{battleSummary.title}</div>
             <p className="mt-1 text-xs leading-relaxed text-slate-400">{battleSummary.subtitle}</p>
-            <div className="mt-2 inline-flex rounded-full border border-slate-600 bg-slate-950/60 px-2.5 py-1 text-[10px] font-extrabold text-slate-300">
-              선택 작전 · {battleSummary.tacticName}
-            </div>
             {battleSummary.highlights?.length > 0 && (
               <div className="mt-3 rounded-xl bg-slate-950/55 p-3">
                 <div className="mb-2 text-[10px] font-extrabold text-amber-300">하이라이트</div>
@@ -952,7 +947,6 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
   const [showRanking, setShowRanking] = useState(false);
   const [ticketUsedMsg, setTicketUsedMsg] = useState(false);
   const [matchAnim, setMatchAnim] = useState(false);
-  const [selectedTactic, setSelectedTactic] = useState('balanced');
   const [strategyQuiz, setStrategyQuiz] = useState(null);
   const [quizAnswer, setQuizAnswer] = useState(null);
   const [quizOutcome, setQuizOutcome] = useState(null);
@@ -1084,18 +1078,22 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
     setQuizAnswer(null);
     setQuizOutcome(null);
     setLearningBuff(null);
-    setPhase('quiz');
   };
 
   const answerStrategyQuiz = (index) => {
     if (!strategyQuiz || quizOutcome) return;
     const correct = index === strategyQuiz.answer;
+    const randomBuff = correct ? LEARNING_BUFFS[Math.floor(Math.random() * LEARNING_BUFFS.length)] : null;
     setQuizAnswer(index);
-    setQuizOutcome({ correct });
+    setQuizOutcome({ correct, buff: randomBuff });
+    setLearningBuff(randomBuff);
   };
 
   const startBattleWithBuff = (buff) => {
     setLearningBuff(buff || null);
+    setStrategyQuiz(null);
+    setQuizAnswer(null);
+    setQuizOutcome(null);
     startBattle(buff || null);
   };
 
@@ -1117,9 +1115,8 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
     try {
       clearMatch(); // 전투 시작 시 매칭 초기화
 
-      const tactic = getArenaTactic(selectedTactic);
       const activeLearningBuff = selectedBuff || null;
-      const myStats  = applyLearningBuffToStats(tactic.apply(getStats(me, equipmentItems)), activeLearningBuff);
+      const myStats  = applyLearningBuffToStats(getStats(me, equipmentItems), activeLearningBuff);
       const oppStats = getStats(opponent, equipmentItems);
       const myMaxHP = Math.max(1, Number(myStats.hp) || 1);
       const oppMaxHP = Math.max(1, Number(oppStats.hp) || 1);
@@ -1280,7 +1277,6 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
         myMaxHP,
         finalOppHP: oppHP,
         oppMaxHP,
-        tactic,
         learningBuff: activeLearningBuff,
       });
       setBattleWinner(isWin ? 'me' : 'opp');
@@ -1395,6 +1391,83 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
         </div>
       </div>
 
+      {strategyQuiz && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl border border-indigo-500/35 bg-slate-900 p-5 shadow-2xl shadow-indigo-950/50">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-indigo-300">
+                  {strategyQuiz.subject === 'english' ? '영어' : '수학'} · 쉬운 복습
+                </div>
+                <div className="mt-1 text-xs font-bold text-slate-500">
+                  정답이면 전투 버프가 랜덤으로 적용됩니다
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-center">
+                <div className="text-[10px] font-bold text-slate-500">복습</div>
+                <div className="text-sm font-black text-white">{strategyQuiz.grade}학년</div>
+              </div>
+            </div>
+
+            <div className="mb-4 rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+              <div className="text-lg font-black leading-snug text-white">{strategyQuiz.q}</div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              {strategyQuiz.options.map((option, index) => {
+                const selected = quizAnswer === index;
+                const isCorrectOption = quizOutcome && index === strategyQuiz.answer;
+                const isWrongSelected = quizOutcome && selected && !isCorrectOption;
+                return (
+                  <button key={`${strategyQuiz.id}-${index}`} type="button" disabled={!!quizOutcome || isBusy}
+                    onClick={() => answerStrategyQuiz(index)}
+                    className={`rounded-2xl border px-4 py-3 text-left text-sm font-extrabold transition-all active:scale-[0.98] disabled:cursor-default
+                      ${isCorrectOption
+                        ? 'border-emerald-400 bg-emerald-400/15 text-emerald-100'
+                        : isWrongSelected
+                          ? 'border-rose-400 bg-rose-500/15 text-rose-100'
+                          : selected
+                            ? 'border-indigo-400 bg-indigo-400/15 text-white'
+                            : 'border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-500'}`}>
+                    <span className="mr-2 text-slate-500">{index + 1}.</span>{option}
+                  </button>
+                );
+              })}
+            </div>
+
+            {quizOutcome && (
+              <div className={`mt-4 rounded-2xl border p-4 ${quizOutcome.correct ? 'border-emerald-500/40 bg-emerald-950/35' : 'border-rose-500/40 bg-rose-950/35'}`}>
+                <div className={`text-sm font-black ${quizOutcome.correct ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {quizOutcome.correct ? `정답! ${quizOutcome.buff?.name} 버프가 적용됩니다.` : '오답. 버프 없이 전투를 시작합니다.'}
+                </div>
+                {quizOutcome.correct && quizOutcome.buff && (
+                  <div className="mt-3 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-3 py-3">
+                    <div className="mb-1 inline-flex rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-950">
+                      {quizOutcome.buff.badge}
+                    </div>
+                    <div className="text-sm font-black text-white">{quizOutcome.buff.name}</div>
+                    <div className="mt-0.5 text-[11px] leading-snug text-amber-100/80">{quizOutcome.buff.desc}</div>
+                  </div>
+                )}
+                <div className="mt-2 text-xs leading-relaxed text-slate-300">{strategyQuiz.exp}</div>
+              </div>
+            )}
+
+            {quizOutcome ? (
+              <button onClick={() => startBattleWithBuff(quizOutcome.buff || null)} disabled={isBusy}
+                className="mt-4 w-full rounded-2xl bg-gradient-to-r from-rose-600 to-orange-500 py-4 text-base font-extrabold text-white shadow-lg shadow-rose-950/40 transition-all active:scale-95 disabled:opacity-50">
+                {isBusy ? '전투 준비 중...' : '대련 시작'}
+              </button>
+            ) : (
+              <button onClick={() => setStrategyQuiz(null)} disabled={isBusy}
+                className="mt-4 w-full rounded-2xl border border-slate-700 bg-slate-950/70 py-3 text-sm font-bold text-slate-400 transition-all hover:text-white disabled:opacity-50">
+                상대 화면으로 돌아가기
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 전적 기록 모달 */}
       {showHistory && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
@@ -1450,104 +1523,9 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
     );
   }
 
-  if (phase === 'quiz' && strategyQuiz) {
-    const subjectLabel = strategyQuiz.subject === 'english' ? '영어' : '수학';
-    const correct = quizOutcome?.correct;
-
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 p-4 flex flex-col">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <button onClick={() => setPhase('vs')} disabled={isBusy}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300 disabled:opacity-50">
-            ← 상대 화면
-          </button>
-          <div className="rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-[11px] font-black text-amber-200">
-            전략 퀴즈
-          </div>
-        </div>
-
-        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center">
-          <div className="rounded-3xl border border-indigo-500/35 bg-slate-900/75 p-5 shadow-2xl shadow-indigo-950/40">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-indigo-300">
-                  {subjectLabel} · 쉬운 복습
-                </div>
-                <div className="mt-1 text-xs font-bold text-slate-500">
-                  맞히면 전투 시작 버프를 고를 수 있습니다
-                </div>
-              </div>
-              <div className="rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-center">
-                <div className="text-[10px] font-bold text-slate-500">복습</div>
-                <div className="text-sm font-black text-white">{strategyQuiz.grade}학년</div>
-              </div>
-            </div>
-
-            <div className="mb-4 rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
-              <div className="text-lg font-black leading-snug text-white">{strategyQuiz.q}</div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2">
-              {strategyQuiz.options.map((option, index) => {
-                const selected = quizAnswer === index;
-                const isCorrectOption = quizOutcome && index === strategyQuiz.answer;
-                const isWrongSelected = quizOutcome && selected && !isCorrectOption;
-                return (
-                  <button key={option} type="button" disabled={!!quizOutcome || isBusy}
-                    onClick={() => answerStrategyQuiz(index)}
-                    className={`rounded-2xl border px-4 py-3 text-left text-sm font-extrabold transition-all active:scale-[0.98] disabled:cursor-default
-                      ${isCorrectOption
-                        ? 'border-emerald-400 bg-emerald-400/15 text-emerald-100'
-                        : isWrongSelected
-                          ? 'border-rose-400 bg-rose-500/15 text-rose-100'
-                          : selected
-                            ? 'border-indigo-400 bg-indigo-400/15 text-white'
-                            : 'border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-500'}`}>
-                    <span className="mr-2 text-slate-500">{index + 1}.</span>{option}
-                  </button>
-                );
-              })}
-            </div>
-
-            {quizOutcome && (
-              <div className={`mt-4 rounded-2xl border p-4 ${correct ? 'border-emerald-500/40 bg-emerald-950/35' : 'border-rose-500/40 bg-rose-950/35'}`}>
-                <div className={`text-sm font-black ${correct ? 'text-emerald-300' : 'text-rose-300'}`}>
-                  {correct ? '정답! 버프를 선택하세요.' : '오답. 버프 없이 전투를 시작합니다.'}
-                </div>
-                <div className="mt-1 text-xs leading-relaxed text-slate-300">{strategyQuiz.exp}</div>
-              </div>
-            )}
-
-            {quizOutcome?.correct && (
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {LEARNING_BUFFS.map(buff => (
-                  <button key={buff.id} type="button" disabled={isBusy}
-                    onClick={() => startBattleWithBuff(buff)}
-                    className="rounded-2xl border border-amber-400/40 bg-amber-400/10 px-3 py-3 text-left transition-all hover:bg-amber-400/15 active:scale-[0.98] disabled:opacity-50">
-                    <div className="mb-1 inline-flex rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-950">{buff.badge}</div>
-                    <div className="text-sm font-black text-white">{buff.name}</div>
-                    <div className="mt-0.5 text-[11px] leading-snug text-amber-100/80">{buff.desc}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {quizOutcome && !quizOutcome.correct && (
-              <button onClick={() => startBattleWithBuff(null)} disabled={isBusy}
-                className="mt-4 w-full rounded-2xl bg-gradient-to-r from-rose-600 to-orange-500 py-4 text-base font-extrabold text-white shadow-lg shadow-rose-950/40 transition-all active:scale-95 disabled:opacity-50">
-                {isBusy ? '전투 준비 중...' : '버프 없이 대련 시작'}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // ── VS 화면 ─────────────────────────────────────────────────
   if (phase === 'vs' && opponent) {
-    const tactic = getArenaTactic(selectedTactic);
-    const myStats  = tactic.apply(getStats(me, equipmentItems));
+    const myStats  = getStats(me, equipmentItems);
     const oppStats = getStats(opponent, equipmentItems);
     const canChange = changes < MAX_CHANGES && (me?.diamonds || 0) >= CHANGE_COST;
     const myPower   = myStats.attack * 2 + myStats.defense + myStats.hp / 20;
@@ -1577,36 +1555,6 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           </div>
 
           <div className="flex-1"><CharacterCard student={opponent} label="상대" isMe={false} rank={rankMap[opponent?.id]} equipmentItems={equipmentItems} /></div>
-        </div>
-
-        <div className="mb-3 rounded-2xl border border-slate-700 bg-slate-900/55 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div>
-              <div className="text-xs font-extrabold text-slate-300">작전 선택</div>
-              <div className="text-[10px] text-slate-500">자동전투 전에 내 전투 성향을 정합니다</div>
-            </div>
-            <div className="rounded-full bg-indigo-950 px-2.5 py-1 text-[10px] font-extrabold text-indigo-300">
-              {tactic.icon} {tactic.name}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {ARENA_TACTICS.map(item => {
-              const active = selectedTactic === item.id;
-              return (
-                <button key={item.id} type="button" onClick={() => setSelectedTactic(item.id)}
-                  className={`rounded-xl border px-3 py-2 text-left transition-all active:scale-[0.98]
-                    ${active
-                      ? 'border-amber-400 bg-amber-400/15 text-white shadow-lg shadow-amber-950/30'
-                      : 'border-slate-700 bg-slate-950/60 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}>
-                  <div className="flex items-center gap-1.5 text-xs font-extrabold">
-                    <span>{item.icon}</span>
-                    <span>{item.name}</span>
-                  </div>
-                  <div className="mt-0.5 text-[10px] leading-snug opacity-80">{item.desc}</div>
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         {/* 상대 바꾸기 */}
@@ -1642,6 +1590,83 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           </button>
         </div>
       </div>
+
+      {strategyQuiz && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl border border-indigo-500/35 bg-slate-900 p-5 shadow-2xl shadow-indigo-950/50">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-indigo-300">
+                  {strategyQuiz.subject === 'english' ? '영어' : '수학'} · 쉬운 복습
+                </div>
+                <div className="mt-1 text-xs font-bold text-slate-500">
+                  정답이면 전투 버프가 랜덤으로 적용됩니다
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-center">
+                <div className="text-[10px] font-bold text-slate-500">복습</div>
+                <div className="text-sm font-black text-white">{strategyQuiz.grade}학년</div>
+              </div>
+            </div>
+
+            <div className="mb-4 rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+              <div className="text-lg font-black leading-snug text-white">{strategyQuiz.q}</div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              {strategyQuiz.options.map((option, index) => {
+                const selected = quizAnswer === index;
+                const isCorrectOption = quizOutcome && index === strategyQuiz.answer;
+                const isWrongSelected = quizOutcome && selected && !isCorrectOption;
+                return (
+                  <button key={`${strategyQuiz.id}-${index}`} type="button" disabled={!!quizOutcome || isBusy}
+                    onClick={() => answerStrategyQuiz(index)}
+                    className={`rounded-2xl border px-4 py-3 text-left text-sm font-extrabold transition-all active:scale-[0.98] disabled:cursor-default
+                      ${isCorrectOption
+                        ? 'border-emerald-400 bg-emerald-400/15 text-emerald-100'
+                        : isWrongSelected
+                          ? 'border-rose-400 bg-rose-500/15 text-rose-100'
+                          : selected
+                            ? 'border-indigo-400 bg-indigo-400/15 text-white'
+                            : 'border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-500'}`}>
+                    <span className="mr-2 text-slate-500">{index + 1}.</span>{option}
+                  </button>
+                );
+              })}
+            </div>
+
+            {quizOutcome && (
+              <div className={`mt-4 rounded-2xl border p-4 ${quizOutcome.correct ? 'border-emerald-500/40 bg-emerald-950/35' : 'border-rose-500/40 bg-rose-950/35'}`}>
+                <div className={`text-sm font-black ${quizOutcome.correct ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {quizOutcome.correct ? `정답! ${quizOutcome.buff?.name} 버프가 적용됩니다.` : '오답. 버프 없이 전투를 시작합니다.'}
+                </div>
+                {quizOutcome.correct && quizOutcome.buff && (
+                  <div className="mt-3 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-3 py-3">
+                    <div className="mb-1 inline-flex rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-950">
+                      {quizOutcome.buff.badge}
+                    </div>
+                    <div className="text-sm font-black text-white">{quizOutcome.buff.name}</div>
+                    <div className="mt-0.5 text-[11px] leading-snug text-amber-100/80">{quizOutcome.buff.desc}</div>
+                  </div>
+                )}
+                <div className="mt-2 text-xs leading-relaxed text-slate-300">{strategyQuiz.exp}</div>
+              </div>
+            )}
+
+            {quizOutcome ? (
+              <button onClick={() => startBattleWithBuff(quizOutcome.buff || null)} disabled={isBusy}
+                className="mt-4 w-full rounded-2xl bg-gradient-to-r from-rose-600 to-orange-500 py-4 text-base font-extrabold text-white shadow-lg shadow-rose-950/40 transition-all active:scale-95 disabled:opacity-50">
+                {isBusy ? '전투 준비 중...' : '대련 시작'}
+              </button>
+            ) : (
+              <button onClick={() => setStrategyQuiz(null)} disabled={isBusy}
+                className="mt-4 w-full rounded-2xl border border-slate-700 bg-slate-950/70 py-3 text-sm font-bold text-slate-400 transition-all hover:text-white disabled:opacity-50">
+                상대 화면으로 돌아가기
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 전적 기록 모달 */}
       {showHistory && (
