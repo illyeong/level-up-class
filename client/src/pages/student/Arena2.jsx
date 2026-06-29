@@ -123,6 +123,90 @@ const ARENA_TACTICS = [
 
 const getArenaTactic = (id) => ARENA_TACTICS.find(t => t.id === id) || ARENA_TACTICS[0];
 
+const LEARNING_BUFFS = [
+  { id: 'focus', name: '집중', desc: '내 첫 3번 행동의 공격력 +10%', badge: 'ATK' },
+  { id: 'calm', name: '침착', desc: '첫 피격 때 회피율 +10%', badge: 'EVA' },
+  { id: 'review_power', name: '복습의 힘', desc: '전투 시작 HP +15', badge: 'HP' },
+  { id: 'insight', name: '분석', desc: '상대의 첫 강타 피해 감소', badge: 'DEF' },
+];
+
+const ARENA_STRATEGY_QUESTIONS = [
+  { id: 'g1-math-01', grade: 1, subject: 'math', q: '7 + 5 = ?', options: ['10', '11', '12', '13'], answer: 2, exp: '7에 5를 더하면 12입니다.' },
+  { id: 'g1-math-02', grade: 1, subject: 'math', q: '15 - 6 = ?', options: ['7', '8', '9', '10'], answer: 2, exp: '15에서 6을 빼면 9입니다.' },
+  { id: 'g1-math-03', grade: 1, subject: 'math', q: '10보다 3 큰 수는?', options: ['11', '12', '13', '14'], answer: 2, exp: '10보다 3 큰 수는 13입니다.' },
+  { id: 'g1-math-04', grade: 1, subject: 'math', q: '8은 5보다 얼마나 클까요?', options: ['2', '3', '4', '5'], answer: 1, exp: '8 - 5 = 3입니다.' },
+  { id: 'g1-math-05', grade: 1, subject: 'math', q: '20, 21, 22, 다음 수는?', options: ['23', '24', '25', '26'], answer: 0, exp: '1씩 커지므로 다음 수는 23입니다.' },
+  { id: 'g1-math-06', grade: 1, subject: 'math', q: '동전 10원 3개는 모두 얼마인가요?', options: ['20원', '30원', '40원', '50원'], answer: 1, exp: '10원이 3개면 30원입니다.' },
+  { id: 'g2-math-01', grade: 2, subject: 'math', q: '23 + 14 = ?', options: ['35', '36', '37', '38'], answer: 2, exp: '23 + 14 = 37입니다.' },
+  { id: 'g2-math-02', grade: 2, subject: 'math', q: '42 - 18 = ?', options: ['22', '23', '24', '25'], answer: 2, exp: '42 - 18 = 24입니다.' },
+  { id: 'g2-math-03', grade: 2, subject: 'math', q: '5 × 3 = ?', options: ['10', '12', '15', '18'], answer: 2, exp: '5를 3번 더하면 15입니다.' },
+  { id: 'g2-math-04', grade: 2, subject: 'math', q: '2시 30분에서 30분 뒤는?', options: ['2시 40분', '3시', '3시 30분', '4시'], answer: 1, exp: '2시 30분에서 30분 뒤는 3시입니다.' },
+  { id: 'g2-math-05', grade: 2, subject: 'math', q: '100은 10이 몇 개인가요?', options: ['5개', '10개', '20개', '100개'], answer: 1, exp: '10이 10개이면 100입니다.' },
+  { id: 'g2-math-06', grade: 2, subject: 'math', q: '가장 큰 수는?', options: ['46', '64', '56', '60'], answer: 1, exp: '64가 가장 큽니다.' },
+  { id: 'g3-math-01', grade: 3, subject: 'math', q: '36 ÷ 4 = ?', options: ['6', '7', '8', '9'], answer: 3, exp: '4 × 9 = 36이므로 답은 9입니다.' },
+  { id: 'g3-math-02', grade: 3, subject: 'math', q: '125 + 230 = ?', options: ['345', '355', '365', '375'], answer: 1, exp: '125 + 230 = 355입니다.' },
+  { id: 'g3-math-03', grade: 3, subject: 'math', q: '1m는 몇 cm인가요?', options: ['10cm', '50cm', '100cm', '1000cm'], answer: 2, exp: '1m는 100cm입니다.' },
+  { id: 'g3-math-04', grade: 3, subject: 'math', q: '삼각형의 변은 몇 개인가요?', options: ['2개', '3개', '4개', '5개'], answer: 1, exp: '삼각형은 변이 3개입니다.' },
+  { id: 'g3-math-05', grade: 3, subject: 'math', q: '7 × 8 = ?', options: ['48', '54', '56', '64'], answer: 2, exp: '7 × 8 = 56입니다.' },
+  { id: 'g3-math-06', grade: 3, subject: 'math', q: '500 - 125 = ?', options: ['365', '375', '385', '395'], answer: 1, exp: '500 - 125 = 375입니다.' },
+  { id: 'g4-math-01', grade: 4, subject: 'math', q: '3/6과 같은 크기의 분수는?', options: ['1/2', '1/3', '2/3', '3/4'], answer: 0, exp: '3/6은 약분하면 1/2입니다.' },
+  { id: 'g4-math-02', grade: 4, subject: 'math', q: '24 × 3 = ?', options: ['62', '70', '72', '82'], answer: 2, exp: '24 × 3 = 72입니다.' },
+  { id: 'g4-math-03', grade: 4, subject: 'math', q: '96 ÷ 8 = ?', options: ['10', '11', '12', '13'], answer: 2, exp: '8 × 12 = 96입니다.' },
+  { id: 'g4-math-04', grade: 4, subject: 'math', q: '0.3은 분수로?', options: ['3/10', '3/100', '30/1000', '1/3'], answer: 0, exp: '0.3은 3/10입니다.' },
+  { id: 'g4-math-05', grade: 4, subject: 'math', q: '직각은 몇 도인가요?', options: ['45도', '60도', '90도', '180도'], answer: 2, exp: '직각은 90도입니다.' },
+  { id: 'g4-math-06', grade: 4, subject: 'math', q: '가로 5cm, 세로 4cm 직사각형의 넓이는?', options: ['9㎠', '18㎠', '20㎠', '25㎠'], answer: 2, exp: '넓이는 5 × 4 = 20㎠입니다.' },
+  { id: 'g5-math-01', grade: 5, subject: 'math', q: '1.2 + 0.8 = ?', options: ['1.8', '2', '2.2', '2.8'], answer: 1, exp: '1.2 + 0.8 = 2입니다.' },
+  { id: 'g5-math-02', grade: 5, subject: 'math', q: '2/5 + 1/5 = ?', options: ['2/10', '3/10', '3/5', '1/5'], answer: 2, exp: '분모가 같으므로 분자만 더해 3/5입니다.' },
+  { id: 'g5-math-03', grade: 5, subject: 'math', q: '15의 약수는?', options: ['2', '4', '5', '8'], answer: 2, exp: '15는 5로 나누어떨어집니다.' },
+  { id: 'g5-math-04', grade: 5, subject: 'math', q: '4와 6의 최소공배수는?', options: ['8', '10', '12', '24'], answer: 2, exp: '4와 6의 공배수 중 가장 작은 수는 12입니다.' },
+  { id: 'g5-math-05', grade: 5, subject: 'math', q: '평행사변형의 넓이는?', options: ['밑변 × 높이', '밑변 + 높이', '밑변 × 2', '높이 × 2'], answer: 0, exp: '평행사변형의 넓이는 밑변 × 높이입니다.' },
+  { id: 'g5-math-06', grade: 5, subject: 'math', q: '3.5 × 10 = ?', options: ['0.35', '3.5', '35', '350'], answer: 2, exp: '10을 곱하면 소수점이 한 자리 오른쪽으로 이동합니다.' },
+  { id: 'g6-math-01', grade: 6, subject: 'math', q: '50의 10%는?', options: ['3', '5', '10', '15'], answer: 1, exp: '50 × 0.1 = 5입니다.' },
+  { id: 'g6-math-02', grade: 6, subject: 'math', q: '3 : 6과 같은 비는?', options: ['1 : 2', '2 : 1', '3 : 1', '6 : 1'], answer: 0, exp: '3 : 6은 1 : 2로 간단히 나타낼 수 있습니다.' },
+  { id: 'g6-math-03', grade: 6, subject: 'math', q: '원의 지름이 10cm이면 반지름은?', options: ['3cm', '5cm', '10cm', '20cm'], answer: 1, exp: '반지름은 지름의 절반이므로 5cm입니다.' },
+  { id: 'g6-math-04', grade: 6, subject: 'math', q: '2/3 × 3 = ?', options: ['1', '2', '3', '6'], answer: 1, exp: '2/3 × 3 = 2입니다.' },
+  { id: 'g6-math-05', grade: 6, subject: 'math', q: '120을 3명에게 똑같이 나누면 한 명당?', options: ['30', '40', '50', '60'], answer: 1, exp: '120 ÷ 3 = 40입니다.' },
+  { id: 'g6-math-06', grade: 6, subject: 'math', q: '1.5 ÷ 0.5 = ?', options: ['2', '3', '4', '5'], answer: 1, exp: '1.5 안에 0.5가 3번 들어갑니다.' },
+  { id: 'g5-eng-01', grade: 5, subject: 'english', q: '"apple"의 뜻은?', options: ['사과', '바나나', '우유', '학교'], answer: 0, exp: 'apple은 사과입니다.' },
+  { id: 'g5-eng-02', grade: 5, subject: 'english', q: '"book"의 뜻은?', options: ['책', '공', '문', '물'], answer: 0, exp: 'book은 책입니다.' },
+  { id: 'g5-eng-03', grade: 5, subject: 'english', q: '"I am happy."의 뜻은?', options: ['나는 슬프다', '나는 행복하다', '나는 배고프다', '나는 빠르다'], answer: 1, exp: 'happy는 행복한이라는 뜻입니다.' },
+  { id: 'g5-eng-04', grade: 5, subject: 'english', q: '"dog"의 뜻은?', options: ['고양이', '개', '새', '말'], answer: 1, exp: 'dog는 개입니다.' },
+  { id: 'g5-eng-05', grade: 5, subject: 'english', q: '"red"는 어떤 색인가요?', options: ['빨간색', '파란색', '초록색', '노란색'], answer: 0, exp: 'red는 빨간색입니다.' },
+  { id: 'g5-eng-06', grade: 5, subject: 'english', q: '"Thank you."의 뜻은?', options: ['미안해', '고마워', '안녕', '잘 자'], answer: 1, exp: 'Thank you는 고마워라는 뜻입니다.' },
+  { id: 'g6-eng-01', grade: 6, subject: 'english', q: '"What time is it?"의 뜻은?', options: ['몇 살이니?', '몇 시니?', '어디 가니?', '무엇을 먹니?'], answer: 1, exp: 'What time is it?은 몇 시니?입니다.' },
+  { id: 'g6-eng-02', grade: 6, subject: 'english', q: '"I like soccer."의 뜻은?', options: ['나는 축구를 좋아한다', '나는 축구를 싫어한다', '나는 야구를 좋아한다', '나는 달리기를 한다'], answer: 0, exp: 'like는 좋아한다는 뜻입니다.' },
+  { id: 'g6-eng-03', grade: 6, subject: 'english', q: '"Where are you from?"의 뜻은?', options: ['이름이 뭐니?', '어디 출신이니?', '몇 시니?', '무엇을 원하니?'], answer: 1, exp: 'Where are you from?은 어디 출신이니?입니다.' },
+  { id: 'g6-eng-04', grade: 6, subject: 'english', q: '"small"의 반대말은?', options: ['big', 'hot', 'slow', 'short'], answer: 0, exp: 'small의 반대말은 big입니다.' },
+  { id: 'g6-eng-05', grade: 6, subject: 'english', q: '"She can swim."의 뜻은?', options: ['그녀는 수영할 수 있다', '그녀는 달릴 수 있다', '그는 수영할 수 있다', '그녀는 노래한다'], answer: 0, exp: 'can은 할 수 있다는 뜻입니다.' },
+  { id: 'g6-eng-06', grade: 6, subject: 'english', q: '"Monday"는 무슨 요일인가요?', options: ['월요일', '화요일', '수요일', '금요일'], answer: 0, exp: 'Monday는 월요일입니다.' },
+];
+
+const getStudentGrade = (student, fallbackCode = '') => {
+  const explicit = Number(student?.grade || student?.schoolGrade);
+  if (explicit) return explicit;
+  const code = student?.studentCode || fallbackCode || '';
+  const match = String(code).match(/-(\d+)-/);
+  return match ? Number(match[1]) : 5;
+};
+
+const pickStrategyQuestion = (student, fallbackCode = '') => {
+  const grade = getStudentGrade(student, fallbackCode);
+  const reviewGrade = Math.max(1, grade - 1);
+  const mathPool = ARENA_STRATEGY_QUESTIONS.filter(q => q.subject === 'math' && q.grade === reviewGrade);
+  const englishPool = grade >= 5
+    ? ARENA_STRATEGY_QUESTIONS.filter(q => q.subject === 'english' && q.grade === Math.min(6, grade))
+    : [];
+  const pool = [...mathPool, ...englishPool];
+  const fallback = ARENA_STRATEGY_QUESTIONS.filter(q => q.subject === 'math');
+  const candidates = pool.length ? pool : fallback;
+  return candidates[Math.floor(Math.random() * candidates.length)] || null;
+};
+
+const applyLearningBuffToStats = (stats, buff) => {
+  if (buff?.id !== 'review_power') return stats;
+  return { ...stats, hp: (stats.hp || 0) + 15 };
+};
+
 // ── 전적 기록 화면 ────────────────────────────────────────────
 function HistoryScreen({ studentDocId, studentCode, onBack }) {
   const [logs, setLogs]       = useState([]);
@@ -597,7 +681,7 @@ function CharacterCard({ student, label, isMe, highlight, rank, equipmentItems =
   );
 }
 
-const buildBattleSummary = ({ stats, isWin, myName, oppName, finalMyHP, myMaxHP, finalOppHP, oppMaxHP, tactic }) => {
+const buildBattleSummary = ({ stats, isWin, myName, oppName, finalMyHP, myMaxHP, finalOppHP, oppMaxHP, tactic, learningBuff }) => {
   const hpPct = myMaxHP ? finalMyHP / myMaxHP : 0;
   const oppHpPct = oppMaxHP ? finalOppHP / oppMaxHP : 0;
   let title = isWin ? '투기장 승자' : '다음 대련 준비 중';
@@ -634,6 +718,7 @@ const buildBattleSummary = ({ stats, isWin, myName, oppName, finalMyHP, myMaxHP,
   if (stats.guards > 0) highlights.push(`방어 태세: ${stats.guards}회`);
   if (stats.powerHits > 0) highlights.push(`강타 사용: ${stats.powerHits}회`);
   highlights.push(`선택 작전: ${tactic.icon} ${tactic.name}`);
+  if (learningBuff) highlights.push(`전략 퀴즈 버프: ${learningBuff.name}`);
 
   return {
     title,
@@ -813,12 +898,13 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
 
   const triggerBattleFx = ({ actor, target, kind = 'attack', damage = 0, isCrit = false, text = null }) => {
     if (battleFxTimerRef.current) clearTimeout(battleFxTimerRef.current);
-    setBattleFx(prev => ({ actor, target, kind, isCrit, seq: prev.seq + 1 }));
+    const isFinisher = kind === 'finish';
+    setBattleFx(prev => ({ actor, target, kind, isCrit: isCrit || isFinisher, seq: prev.seq + 1 }));
 
     if (text) {
-      addFloatText(target || actor, text, kind === 'heal' ? 'heal' : kind === 'dodge' ? 'dodge' : 'damage', isCrit);
+      addFloatText(target || actor, text, kind === 'heal' ? 'heal' : kind === 'dodge' ? 'dodge' : kind, isCrit || isFinisher);
     } else if (damage > 0 && target) {
-      addFloatText(target, `${isCrit ? 'CRIT ' : ''}-${damage}`, 'damage', isCrit);
+      addFloatText(target, `${isFinisher ? 'FINISH ' : isCrit ? 'CRIT ' : ''}-${damage}`, isFinisher ? 'finish' : 'damage', isCrit || isFinisher);
     }
 
     if (actor && target && kind !== 'dodge' && kind !== 'heal' && kind !== 'guard') {
@@ -828,8 +914,8 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
         fireProjectile({
           from: { x: fromR.left + fromR.width / 2, y: fromR.top + fromR.height * 0.48 },
           to:   { x: toR.left + toR.width / 2, y: toR.top + toR.height * 0.48 },
-          type: isCrit ? 'fire' : kind === 'power' ? 'energy' : 'magic',
-          power: isCrit ? 1.35 : kind === 'power' ? 1.2 : 1,
+          type: isFinisher || isCrit ? 'fire' : kind === 'power' ? 'energy' : 'magic',
+          power: isFinisher ? 1.85 : isCrit ? 1.35 : kind === 'power' ? 1.2 : 1,
         });
       }
     }
@@ -837,7 +923,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
     battleFxTimerRef.current = setTimeout(() => {
       setBattleFx(prev => ({ ...prev, actor: null, target: null, kind: null, isCrit: false }));
       battleFxTimerRef.current = null;
-    }, isCrit ? 760 : 620);
+    }, isFinisher ? 1280 : isCrit ? 760 : 620);
   };
 
   // 매칭 상태 저장
@@ -867,6 +953,10 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
   const [ticketUsedMsg, setTicketUsedMsg] = useState(false);
   const [matchAnim, setMatchAnim] = useState(false);
   const [selectedTactic, setSelectedTactic] = useState('balanced');
+  const [strategyQuiz, setStrategyQuiz] = useState(null);
+  const [quizAnswer, setQuizAnswer] = useState(null);
+  const [quizOutcome, setQuizOutcome] = useState(null);
+  const [learningBuff, setLearningBuff] = useState(null);
   const studentDocIdRef           = useRef(null);
   const meBattleRef               = useRef(null);
   const oppBattleRef              = useRef(null);
@@ -982,25 +1072,54 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
     finally { setIsBusy(false); }
   };
 
+  const openStrategyQuiz = () => {
+    if (isBusy) return;
+    const question = pickStrategyQuestion(me, studentCode);
+    if (!question) {
+      setLearningBuff(null);
+      startBattle(null);
+      return;
+    }
+    setStrategyQuiz(question);
+    setQuizAnswer(null);
+    setQuizOutcome(null);
+    setLearningBuff(null);
+    setPhase('quiz');
+  };
+
+  const answerStrategyQuiz = (index) => {
+    if (!strategyQuiz || quizOutcome) return;
+    const correct = index === strategyQuiz.answer;
+    setQuizAnswer(index);
+    setQuizOutcome({ correct });
+  };
+
+  const startBattleWithBuff = (buff) => {
+    setLearningBuff(buff || null);
+    startBattle(buff || null);
+  };
+
   // ── 데미지 계산 ──────────────────────────────────────────────
-  const calcDmg = (atkStats, defStats, { power = 1, guarded = false } = {}) => {
+  const calcDmg = (atkStats, defStats, { power = 1, guarded = false, damageMultiplier = 1 } = {}) => {
     const variance = 0.92 + Math.random() * 0.16;
     const raw = Math.max(1, (atkStats.attack * power) - Math.floor(defStats.defense * 0.45));
     const isCrit = Math.random() * 100 < atkStats.crit;
     let dmg = Math.floor(raw * variance * (isCrit ? 1.6 : 1));
-    if (guarded) dmg = Math.max(1, Math.floor(dmg * 0.6));
+    if (guarded) return { dmg: 0, isCrit: false };
+    dmg = Math.max(1, Math.floor(dmg * damageMultiplier));
     return { dmg, isCrit };
   };
 
   // ── 대련 시작 (자동 턴제) ─────────────────────────────────────
-  const startBattle = async () => {
+  const startBattle = async (selectedBuff = learningBuff) => {
     if (isBusy) return;
     setIsBusy(true);
     try {
       clearMatch(); // 전투 시작 시 매칭 초기화
 
       const tactic = getArenaTactic(selectedTactic);
-      const myStats  = tactic.apply(getStats(me, equipmentItems));
+      const activeLearningBuff = selectedBuff || null;
+      const myStats  = applyLearningBuffToStats(tactic.apply(getStats(me, equipmentItems)), activeLearningBuff);
       const oppStats = getStats(opponent, equipmentItems);
       const myMaxHP = Math.max(1, Number(myStats.hp) || 1);
       const oppMaxHP = Math.max(1, Number(oppStats.hp) || 1);
@@ -1034,6 +1153,8 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       const healUsed = { me: false, opp: false };
       const guardUsed = { me: false, opp: false };
       const guarding = { me: false, opp: false };
+      let calmReady = activeLearningBuff?.id === 'calm';
+      let insightReady = activeLearningBuff?.id === 'insight';
       const order = myFirst ? ['me', 'opp'] : ['opp', 'me'];
       const actorData = {
         me:  { stats: myStats,  name: myName,  enemyName: oppName },
@@ -1083,8 +1204,11 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           triggerBattleFx({ actor: side, target: side, kind: 'guard', text: 'GUARD' });
         } else {
           const isPower = actionCount[side] % 3 === 0;
-          const dodged = Math.random() * 100 < targetStats.dodge;
+          const calmBonus = target === 'me' && calmReady ? 10 : 0;
+          const dodgeChance = Math.min(60, (targetStats.dodge || 0) + calmBonus);
+          const dodged = Math.random() * 100 < dodgeChance;
           const skillName = isPower ? '강타' : '공격';
+          if (target === 'me' && calmReady) calmReady = false;
 
           if (dodged) {
             if (target === 'me') battleStats.dodges += 1;
@@ -1093,14 +1217,21 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
             triggerBattleFx({ actor: side, target, kind: 'dodge', text: 'MISS' });
           } else {
             const guarded = guarding[target];
-            const { dmg, isCrit } = calcDmg(actor.stats, targetStats, { power: isPower ? 1.5 : 1, guarded });
+            const focusPower = side === 'me' && activeLearningBuff?.id === 'focus' && actionCount.me <= 3 ? 1.1 : 1;
+            const insightActive = target === 'me' && side === 'opp' && isPower && insightReady;
+            const { dmg, isCrit } = calcDmg(actor.stats, targetStats, {
+              power: (isPower ? 1.5 : 1) * focusPower,
+              guarded,
+              damageMultiplier: insightActive ? 0.55 : 1,
+            });
+            if (insightActive) insightReady = false;
             guarding[target] = false;
 
             if (target === 'me') myHP = Math.max(0, myHP - dmg);
             else oppHP = Math.max(0, oppHP - dmg);
 
             const critText = isCrit ? '💥 크리티컬! ' : '';
-            const guardText = guarded ? ' 방어 감소 적용.' : '';
+            const guardText = guarded ? ' 방어 성공.' : insightActive ? ' 분석으로 강타 피해 감소.' : '';
             addLog(`${critText}${actor.name}의 ${skillName} → ${dmg} 데미지.${guardText}`, isCrit ? 'crit' : isPower ? 'skill' : 'attack');
             if (side === 'me') {
               if (isCrit) battleStats.crits += 1;
@@ -1110,10 +1241,18 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
                 battleStats.maxDamageLabel = `${skillName}${isCrit ? ' / 치명타' : ''}`;
               }
             }
-            setBattleBanner(isCrit ? 'CRITICAL' : isPower ? '강타' : '공격');
-            triggerBattleFx({ actor: side, target, kind: isPower ? 'power' : 'attack', damage: dmg, isCrit });
-
             const nextTargetHP = target === 'me' ? myHP : oppHP;
+            const isFinisher = nextTargetHP <= 0;
+            setBattleBanner(guarded ? '방어 성공' : isFinisher ? 'FINAL STRIKE' : isCrit ? 'CRITICAL' : isPower ? '강타' : '공격');
+            triggerBattleFx({
+              actor: guarded ? target : side,
+              target,
+              kind: guarded ? 'guard' : isFinisher ? 'finish' : isPower ? 'power' : 'attack',
+              damage: dmg,
+              isCrit,
+              text: guarded ? 'BLOCK' : null,
+            });
+
             if (nextTargetHP <= 0) {
               battleStats.finalBlow = `${actor.name}의 ${skillName}`;
               addLog(`⚡ 최후의 일격! ${actor.name}이(가) ${actor.enemyName}을(를) 쓰러뜨렸습니다!`, 'result');
@@ -1142,6 +1281,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
         finalOppHP: oppHP,
         oppMaxHP,
         tactic,
+        learningBuff: activeLearningBuff,
       });
       setBattleWinner(isWin ? 'me' : 'opp');
       setBattleBanner(isWin ? `${myName} 승리` : `${oppName} 승리`);
@@ -1167,6 +1307,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
         studentCharacterImage: me.characterImage || '',
         opponentId: opponent?.id, opponentCode: opponent?.studentCode, opponentName: oppName,
         opponentCharacterImage: opponent?.characterImage || '',
+        learningBuff: activeLearningBuff ? { id: activeLearningBuff.id, name: activeLearningBuff.name } : null,
         isWin, reward, createdAt: serverTimestamp(),
       });
 
@@ -1183,6 +1324,10 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
     setOpponent(null);
     setChanges(0);
     setResult(null);
+    setStrategyQuiz(null);
+    setQuizAnswer(null);
+    setQuizOutcome(null);
+    setLearningBuff(null);
   };
 
   // ── 로비 ────────────────────────────────────────────────────
@@ -1305,6 +1450,100 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
     );
   }
 
+  if (phase === 'quiz' && strategyQuiz) {
+    const subjectLabel = strategyQuiz.subject === 'english' ? '영어' : '수학';
+    const correct = quizOutcome?.correct;
+
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 to-indigo-950 p-4 flex flex-col">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <button onClick={() => setPhase('vs')} disabled={isBusy}
+            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300 disabled:opacity-50">
+            ← 상대 화면
+          </button>
+          <div className="rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-[11px] font-black text-amber-200">
+            전략 퀴즈
+          </div>
+        </div>
+
+        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center">
+          <div className="rounded-3xl border border-indigo-500/35 bg-slate-900/75 p-5 shadow-2xl shadow-indigo-950/40">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-indigo-300">
+                  {subjectLabel} · 쉬운 복습
+                </div>
+                <div className="mt-1 text-xs font-bold text-slate-500">
+                  맞히면 전투 시작 버프를 고를 수 있습니다
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-center">
+                <div className="text-[10px] font-bold text-slate-500">복습</div>
+                <div className="text-sm font-black text-white">{strategyQuiz.grade}학년</div>
+              </div>
+            </div>
+
+            <div className="mb-4 rounded-2xl border border-slate-700 bg-slate-950/70 p-4">
+              <div className="text-lg font-black leading-snug text-white">{strategyQuiz.q}</div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              {strategyQuiz.options.map((option, index) => {
+                const selected = quizAnswer === index;
+                const isCorrectOption = quizOutcome && index === strategyQuiz.answer;
+                const isWrongSelected = quizOutcome && selected && !isCorrectOption;
+                return (
+                  <button key={option} type="button" disabled={!!quizOutcome || isBusy}
+                    onClick={() => answerStrategyQuiz(index)}
+                    className={`rounded-2xl border px-4 py-3 text-left text-sm font-extrabold transition-all active:scale-[0.98] disabled:cursor-default
+                      ${isCorrectOption
+                        ? 'border-emerald-400 bg-emerald-400/15 text-emerald-100'
+                        : isWrongSelected
+                          ? 'border-rose-400 bg-rose-500/15 text-rose-100'
+                          : selected
+                            ? 'border-indigo-400 bg-indigo-400/15 text-white'
+                            : 'border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-500'}`}>
+                    <span className="mr-2 text-slate-500">{index + 1}.</span>{option}
+                  </button>
+                );
+              })}
+            </div>
+
+            {quizOutcome && (
+              <div className={`mt-4 rounded-2xl border p-4 ${correct ? 'border-emerald-500/40 bg-emerald-950/35' : 'border-rose-500/40 bg-rose-950/35'}`}>
+                <div className={`text-sm font-black ${correct ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {correct ? '정답! 버프를 선택하세요.' : '오답. 버프 없이 전투를 시작합니다.'}
+                </div>
+                <div className="mt-1 text-xs leading-relaxed text-slate-300">{strategyQuiz.exp}</div>
+              </div>
+            )}
+
+            {quizOutcome?.correct && (
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {LEARNING_BUFFS.map(buff => (
+                  <button key={buff.id} type="button" disabled={isBusy}
+                    onClick={() => startBattleWithBuff(buff)}
+                    className="rounded-2xl border border-amber-400/40 bg-amber-400/10 px-3 py-3 text-left transition-all hover:bg-amber-400/15 active:scale-[0.98] disabled:opacity-50">
+                    <div className="mb-1 inline-flex rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-950">{buff.badge}</div>
+                    <div className="text-sm font-black text-white">{buff.name}</div>
+                    <div className="mt-0.5 text-[11px] leading-snug text-amber-100/80">{buff.desc}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {quizOutcome && !quizOutcome.correct && (
+              <button onClick={() => startBattleWithBuff(null)} disabled={isBusy}
+                className="mt-4 w-full rounded-2xl bg-gradient-to-r from-rose-600 to-orange-500 py-4 text-base font-extrabold text-white shadow-lg shadow-rose-950/40 transition-all active:scale-95 disabled:opacity-50">
+                {isBusy ? '전투 준비 중...' : '버프 없이 대련 시작'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── VS 화면 ─────────────────────────────────────────────────
   if (phase === 'vs' && opponent) {
     const tactic = getArenaTactic(selectedTactic);
@@ -1382,9 +1621,9 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
         </button>
 
         {/* 대련 시작 */}
-        <button onClick={startBattle} disabled={isBusy}
+        <button onClick={openStrategyQuiz} disabled={isBusy}
           className="w-full py-4 rounded-2xl font-extrabold text-lg bg-gradient-to-r from-rose-600 to-orange-500 hover:from-rose-500 hover:to-orange-400 text-white shadow-lg shadow-rose-900 transition-all active:scale-95 disabled:opacity-50">
-          {isBusy ? '처리 중...' : '⚔️ 대련 시작!'}
+          {isBusy ? '처리 중...' : '🧠 전략 퀴즈 풀고 대련 시작!'}
         </button>
 
         <p className="text-center text-[10px] text-slate-600 mt-2">
@@ -1460,15 +1699,18 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       side === 'me' ? 'arena2-fighter-me' : 'arena2-fighter-opp',
       battleFx.actor === side ? `arena2-actor-${side}` : '',
       battleFx.target === side ? `arena2-target-${side}` : '',
+      battleFx.kind === 'finish' && battleFx.actor === side ? `arena2-finisher-${side}` : '',
+      battleFx.kind === 'finish' && battleFx.target === side ? `arena2-finish-target-${side}` : '',
       battleFx.kind === 'dodge' && battleFx.target === side ? `arena2-dodge-${side}` : '',
       battleFx.kind === 'guard' && battleFx.actor === side ? 'arena2-guarding' : '',
       battleFx.kind === 'heal' && battleFx.actor === side ? 'arena2-healing' : '',
       battleWinner === side ? 'arena2-winner' : '',
       battleWinner && battleWinner !== side ? 'arena2-defeated' : '',
     ].filter(Boolean).join(' ');
+    const isFinisherFx = battleFx.kind === 'finish';
 
     return (
-      <div className={`arena2-battle-shell bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-4 gap-3 ${battleFx.isCrit ? 'arena2-crit-flash' : ''}`}
+      <div className={`arena2-battle-shell bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-4 gap-3 ${battleFx.isCrit ? 'arena2-crit-flash' : ''} ${isFinisherFx ? 'arena2-finish-mode' : ''}`}
         style={{ height: 'calc(100vh - 88px)' }}>
 
         <div className="grid grid-cols-2 gap-3 shrink-0">
@@ -1503,6 +1745,12 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           {battleFx.isCrit && (
             <div key={`crit-${battleFx.seq}`} className="absolute inset-0 z-20 pointer-events-none battle-impact-flash" />
           )}
+          {isFinisherFx && (
+            <div key={`finish-${battleFx.seq}`} className="arena2-finish-cinematic pointer-events-none">
+              <span>FINAL STRIKE</span>
+              <i />
+            </div>
+          )}
 
           <div ref={meBattleRef} className={fighterClass('me')}>
             <div className="arena2-nameplate arena2-nameplate-me">나</div>
@@ -1526,11 +1774,11 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
 
           {battleFx.target && battleFx.kind && !['heal', 'guard', 'dodge'].includes(battleFx.kind) && (
             <div key={`impact-${battleFx.seq}`}
-              className={`absolute z-30 pointer-events-none battle-impact ${battleFx.isCrit ? 'battle-impact-tier-4' : battleFx.kind === 'power' ? 'battle-impact-tier-3' : 'battle-impact-tier-2'}`}
+              className={`absolute z-30 pointer-events-none battle-impact ${isFinisherFx ? 'battle-impact-finisher battle-impact-tier-4' : battleFx.isCrit ? 'battle-impact-tier-4' : battleFx.kind === 'power' ? 'battle-impact-tier-3' : 'battle-impact-tier-2'}`}
               style={{ left: battleFx.target === 'me' ? '30%' : '70%', top: '48%' }}>
               <span className="battle-impact-ring" />
-              <strong className={battleFx.isCrit ? 'text-yellow-200' : 'text-amber-200'}>
-                {battleFx.isCrit ? 'CRITICAL!' : battleFx.kind === 'power' ? 'POWER HIT!' : 'HIT!'}
+              <strong className={isFinisherFx ? 'text-orange-200' : battleFx.isCrit ? 'text-yellow-200' : 'text-amber-200'}>
+                {isFinisherFx ? 'FINAL STRIKE!' : battleFx.isCrit ? 'CRITICAL!' : battleFx.kind === 'power' ? 'POWER HIT!' : 'HIT!'}
               </strong>
             </div>
           )}
@@ -1538,7 +1786,7 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           {floatTexts.map(item => (
             <div key={item.id}
               className={`absolute z-40 pointer-events-none font-black battle-damage-float
-                ${item.isCrit ? 'battle-damage-tier-4 text-yellow-300' : item.kind === 'heal' ? 'text-emerald-300' : item.kind === 'dodge' ? 'text-cyan-200' : 'text-rose-300'}`}
+                ${item.kind === 'finish' ? 'battle-damage-tier-4 battle-damage-finisher text-orange-200' : item.isCrit ? 'battle-damage-tier-4 text-yellow-300' : item.kind === 'heal' ? 'text-emerald-300' : item.kind === 'dodge' ? 'text-cyan-200' : 'text-rose-300'}`}
               style={{ left: item.side === 'me' ? '30%' : '70%', top: item.kind === 'heal' ? '38%' : '34%' }}>
               {item.text}
             </div>
