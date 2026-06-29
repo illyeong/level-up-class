@@ -1793,11 +1793,6 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           {battleWinner && !isFinisherFx && (
             <div key={`victory-${battleWinner}`} className={`arena2-victory-stage arena2-victory-${battleWinner} pointer-events-none`}>
               <div className="arena2-victory-rays" />
-              <div className="arena2-victory-banner">
-                <small>WINNER</small>
-                <strong>{winnerName}</strong>
-                <span>승리!</span>
-              </div>
               <i className="arena2-victory-spark arena2-victory-spark-1" />
               <i className="arena2-victory-spark arena2-victory-spark-2" />
               <i className="arena2-victory-spark arena2-victory-spark-3" />
@@ -1818,6 +1813,13 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
                 ? <img src={me.characterImage} alt="" className="arena2-character-img arena2-character-img-me" />
                 : <span className="text-7xl">🧑‍🎓</span>}
             </div>
+            {showVictoryFx && battleWinner === 'me' && (
+              <div className="arena2-winner-badge">
+                <small>WINNER</small>
+                <strong>{winnerName}</strong>
+                <span>승리!</span>
+              </div>
+            )}
           </div>
 
           <div className="absolute left-1/2 bottom-[42%] z-10 -translate-x-1/2 text-4xl font-black text-slate-600/70">VS</div>
@@ -1829,6 +1831,13 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
                 ? <img src={opponent.characterImage} alt="" className="arena2-character-img arena2-character-img-opp" />
                 : <span className="text-7xl">🧑‍🎓</span>}
             </div>
+            {showVictoryFx && battleWinner === 'opp' && (
+              <div className="arena2-winner-badge">
+                <small>WINNER</small>
+                <strong>{winnerName}</strong>
+                <span>승리!</span>
+              </div>
+            )}
           </div>
 
           {battleFx.target && battleFx.kind && !['heal', 'guard', 'dodge'].includes(battleFx.kind) && (

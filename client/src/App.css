@@ -524,23 +524,23 @@
   display: none;
 }
 
-.arena2-victory-banner {
+.arena2-winner-badge {
   position: absolute;
-  top: 12%;
-  left: var(--banner-x);
-  z-index: 2;
-  min-width: min(82%, 390px);
-  transform: translateX(var(--banner-shift));
+  left: 50%;
+  top: -18px;
+  z-index: 5;
+  min-width: min(210px, 130%);
+  transform: translateX(-50%);
   border-top: 2px solid rgba(253, 224, 71, .78);
   border-bottom: 2px solid rgba(253, 224, 71, .78);
   background: linear-gradient(90deg, transparent, rgba(15, 23, 42, .78) 18% 82%, transparent);
-  padding: 8px 18px;
+  padding: 6px 14px;
   text-align: center;
-  animation: arena2-victory-banner-pop 1700ms cubic-bezier(.16,.8,.22,1) both;
+  animation: arena2-winner-badge-pop 1700ms cubic-bezier(.16,.8,.22,1) both;
 }
 
-.arena2-victory-banner small,
-.arena2-victory-banner span {
+.arena2-winner-badge small,
+.arena2-winner-badge span {
   display: block;
   font-size: .68rem;
   font-weight: 1000;
@@ -549,10 +549,10 @@
   text-shadow: 0 2px 0 rgba(15, 23, 42, .95), 0 0 14px rgba(250, 204, 21, .8);
 }
 
-.arena2-victory-banner strong {
+.arena2-winner-badge strong {
   display: block;
   color: #fff7ed;
-  font-size: clamp(1.2rem, 4vw, 2.5rem);
+  font-size: clamp(1rem, 3vw, 1.75rem);
   font-weight: 1000;
   line-height: 1.05;
   text-shadow: 0 4px 0 rgba(120, 53, 15, .9), 0 0 24px rgba(250, 204, 21, .86);
@@ -597,11 +597,11 @@
   100% { transform: rotate(62deg) scale(1.08); opacity: 0; }
 }
 
-@keyframes arena2-victory-banner-pop {
-  0% { opacity: 0; transform: translateX(var(--banner-shift)) translateY(-18px) scale(.82); }
-  18% { opacity: 1; transform: translateX(var(--banner-shift)) translateY(0) scale(1.05); }
-  70% { opacity: 1; transform: translateX(var(--banner-shift)) translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateX(var(--banner-shift)) translateY(-10px) scale(.96); }
+@keyframes arena2-winner-badge-pop {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(.82); }
+  18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.05); }
+  70% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(.96); }
 }
 
 @keyframes arena2-victory-spark {
