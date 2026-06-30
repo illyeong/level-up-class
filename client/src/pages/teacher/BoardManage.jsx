@@ -605,7 +605,7 @@ export default function BoardManage({ selectedClass, user }) {
     <div className={`rounded-2xl border-2 p-4 shadow-sm relative group transition-all
       ${post.pinned ? 'ring-2 ring-amber-400 ring-offset-1' : ''}
       ${post.isTeacher ? 'bg-indigo-50 border-indigo-200' : POST_COLORS[idx % POST_COLORS.length]}
-      dark:!bg-slate-900 dark:!border-slate-700 dark:ring-offset-slate-950`}>
+      dark:!bg-slate-800/95 dark:!border-slate-600 dark:shadow-lg dark:shadow-black/30 dark:ring-offset-slate-950`}>
       {post.pinned
         ? <button onClick={() => togglePin(post.id, post.pinned)}
             className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded-lg flex items-center gap-0.5 hover:bg-amber-500 z-10">
@@ -652,7 +652,7 @@ export default function BoardManage({ selectedClass, user }) {
       )}
       {post.imageBase64 && (
         <img src={post.imageBase64} alt=""
-          className="w-full rounded-xl object-cover max-h-40 mb-2 border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
+          className="w-full rounded-xl object-cover max-h-40 mb-2 border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity dark:border-slate-600"
           onClick={() => setLightboxSrc(post.imageBase64)} />
       )}
       {post.attachment?.dataUrl && (
@@ -673,7 +673,7 @@ export default function BoardManage({ selectedClass, user }) {
           Object.values(post.reactions || {}).forEach(e => { if (e) counts[e] = (counts[e] || 0) + 1; });
           const entries = Object.entries(counts);
           return entries.length > 0 ? entries.map(([emoji, count]) => (
-            <span key={emoji} className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200 dark:bg-slate-800 dark:border-slate-600">
+            <span key={emoji} className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200 dark:bg-slate-950/70 dark:border-slate-600 dark:text-slate-100">
               {emoji} <span className="font-bold text-slate-600 dark:text-slate-300">{count}</span>
             </span>
           )) : (
@@ -681,7 +681,7 @@ export default function BoardManage({ selectedClass, user }) {
           );
         })()}
       </div>
-      <div className="mt-2 border-t border-black/5 pt-2 dark:border-white/10">
+      <div className="mt-3 border-t border-black/5 pt-3 dark:border-slate-700">
         <div className="mb-1.5 text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
           💬 댓글 {(post.comments || []).length}개
         </div>
@@ -694,7 +694,7 @@ export default function BoardManage({ selectedClass, user }) {
                     ? <img src={c.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
                     : <span className="text-sm">👤</span>}
                 </div>
-                <div className="flex-1 rounded-xl bg-white/60 px-2.5 py-1.5 dark:bg-slate-800">
+                <div className="flex-1 rounded-xl bg-white/60 px-2.5 py-1.5 dark:bg-slate-950/70 dark:border dark:border-slate-700">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-200">{c.authorName}</span>
                     <span className="text-[10px] text-slate-400">
@@ -932,15 +932,15 @@ export default function BoardManage({ selectedClass, user }) {
           <div className="absolute left-4 top-4 z-[1100] flex flex-wrap items-center gap-2">
             <button
               onClick={() => { setSelectedBoard(null); setPages([]); setPosts([]); setSheets([]); setSelectedSheetId(null); setEditingSheetId(null); setEditingSheetTitle(''); setSelectedMapPost(null); closeEditPost(); }}
-              className="bg-white hover:bg-rose-50 shadow-lg rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center gap-2 transition-all"
+              className="bg-white hover:bg-rose-50 shadow-lg rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center gap-2 transition-all dark:bg-slate-900/95 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-rose-950/50 dark:hover:border-rose-500/60 dark:hover:text-rose-300"
             >
               ← 목록으로
             </button>
-            <div className="bg-white/95 shadow-lg rounded-xl px-3 py-2 text-xs font-extrabold text-slate-600 border border-slate-200">
+            <div className="bg-white/95 shadow-lg rounded-xl px-3 py-2 text-xs font-extrabold text-slate-600 border border-slate-200 dark:bg-slate-900/95 dark:border-slate-700 dark:text-slate-100">
               📌 게시물 {sorted.length}개
             </div>
             {hasNewPosts && (
-              <div className="bg-amber-100 shadow-lg rounded-xl px-3 py-2 text-xs font-extrabold text-amber-700 border border-amber-200">
+              <div className="bg-amber-100 shadow-lg rounded-xl px-3 py-2 text-xs font-extrabold text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:border-amber-400/50 dark:text-amber-200">
                 새 글이 올라왔어요
               </div>
             )}
@@ -948,32 +948,32 @@ export default function BoardManage({ selectedClass, user }) {
               type="button"
               onClick={() => loadBoardPosts()}
               disabled={loadingPosts}
-              className="bg-white/95 shadow-lg rounded-xl px-3 py-2 text-xs font-extrabold text-slate-600 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50"
+              className="bg-white/95 shadow-lg rounded-xl px-3 py-2 text-xs font-extrabold text-slate-600 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 dark:bg-slate-900/95 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-300"
             >
               새로고침
             </button>
           </div>
-          <div className="absolute bottom-4 left-4 z-[1100] max-w-sm rounded-2xl border border-indigo-100 bg-white/95 px-4 py-3 text-xs text-slate-600 shadow-lg">
-            <div className="font-extrabold text-slate-800">지도에 글 남기기</div>
+          <div className="absolute bottom-4 left-4 z-[1100] max-w-sm rounded-2xl border border-indigo-100 bg-white/95 px-4 py-3 text-xs text-slate-600 shadow-lg dark:bg-slate-900/95 dark:border-slate-700 dark:text-slate-300">
+            <div className="font-extrabold text-slate-800 dark:text-slate-100">지도에 글 남기기</div>
             <div className="mt-1">원하는 위치를 클릭하면 글쓰기 창이 열리고, 게시 후 해당 위치에 번호 핀이 표시됩니다.</div>
           </div>
           <div
             className="absolute right-4 top-4 bottom-4 z-[1100] w-[340px] max-w-[calc(100%-2rem)] pointer-events-none"
           >
-            <div className="h-full rounded-2xl border border-slate-200 bg-white/95 shadow-2xl pointer-events-auto overflow-hidden flex flex-col">
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+            <div className="h-full rounded-2xl border border-slate-200 bg-white/95 shadow-2xl pointer-events-auto overflow-hidden flex flex-col dark:bg-slate-900/95 dark:border-slate-700 dark:shadow-black/40">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-700">
                 <div>
-                  <div className="text-sm font-extrabold text-slate-800">
+                  <div className="text-sm font-extrabold text-slate-800 dark:text-slate-100">
                     {selectedMapPost ? '지도 게시물' : '위치를 선택하세요'}
                   </div>
-                  <div className="text-[11px] font-bold text-slate-400">
+                  <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500">
                     {selectedMapPost ? `${selectedMapPost.studentName || '작성자'} · 핀 상세` : '지도 클릭으로 새 게시물 작성'}
                   </div>
                 </div>
                 {selectedMapPost && (
                   <button
                     onClick={() => setSelectedMapPost(null)}
-                    className="h-8 w-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-500 font-extrabold"
+                    className="h-8 w-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-500 font-extrabold dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-rose-950/60 dark:hover:text-rose-300"
                     title="닫기"
                   >
                     ✕
@@ -982,22 +982,22 @@ export default function BoardManage({ selectedClass, user }) {
               </div>
               {selectedMapPost ? (
                 <div className="flex-1 overflow-y-auto p-4">
-                  <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
-                    <div className="mb-2 text-xs font-extrabold text-indigo-600">{selectedMapPost.studentName || '선생님'}</div>
+                  <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 dark:bg-indigo-950/30 dark:border-indigo-500/40">
+                    <div className="mb-2 text-xs font-extrabold text-indigo-600 dark:text-indigo-300">{selectedMapPost.studentName || '선생님'}</div>
                     {selectedMapPost.title && (
-                      <div className="mb-2 text-sm font-extrabold text-slate-900">{selectedMapPost.title}</div>
+                      <div className="mb-2 text-sm font-extrabold text-slate-900 dark:text-slate-100">{selectedMapPost.title}</div>
                     )}
-                    <div className="whitespace-pre-wrap text-sm font-bold leading-relaxed text-slate-800">
+                    <div className="whitespace-pre-wrap text-sm font-bold leading-relaxed text-slate-800 dark:text-slate-200">
                       {selectedMapPost.content || '내용 없음'}
                     </div>
                     {selectedMapPost.imageBase64 && (
-                      <img src={selectedMapPost.imageBase64} alt="" className="mt-3 max-h-44 w-full rounded-xl object-cover border border-white" />
+                      <img src={selectedMapPost.imageBase64} alt="" className="mt-3 max-h-44 w-full rounded-xl object-cover border border-white dark:border-slate-600" />
                     )}
                     {selectedMapPost.attachment?.name && (
                       <a
                         href={selectedMapPost.attachment.dataUrl}
                         download={selectedMapPost.attachment.name}
-                        className="mt-3 block rounded-xl bg-white px-3 py-2 text-xs font-bold text-indigo-600 border border-indigo-100 hover:bg-indigo-50"
+                        className="mt-3 block rounded-xl bg-white px-3 py-2 text-xs font-bold text-indigo-600 border border-indigo-100 hover:bg-indigo-50 dark:bg-slate-900 dark:border-indigo-500/40 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
                       >
                         📎 {selectedMapPost.attachment.name}
                       </a>
@@ -1006,13 +1006,13 @@ export default function BoardManage({ selectedClass, user }) {
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     <button
                       onClick={() => togglePin(selectedMapPost.id, selectedMapPost.pinned)}
-                      className="rounded-xl border border-amber-200 bg-amber-50 py-2 text-xs font-extrabold text-amber-700 hover:bg-amber-100"
+                      className="rounded-xl border border-amber-200 bg-amber-50 py-2 text-xs font-extrabold text-amber-700 hover:bg-amber-100 dark:bg-amber-500/20 dark:border-amber-400/50 dark:text-amber-200 dark:hover:bg-amber-500/30"
                     >
                       {selectedMapPost.pinned ? '고정 해제' : '상단 고정'}
                     </button>
                     <button
                       onClick={() => openEditPost(selectedMapPost)}
-                      className="rounded-xl border border-indigo-200 bg-indigo-50 py-2 text-xs font-extrabold text-indigo-600 hover:bg-indigo-100"
+                      className="rounded-xl border border-indigo-200 bg-indigo-50 py-2 text-xs font-extrabold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-500/20 dark:border-indigo-400/50 dark:text-indigo-200 dark:hover:bg-indigo-500/30"
                     >
                       수정
                     </button>
@@ -1021,7 +1021,7 @@ export default function BoardManage({ selectedClass, user }) {
                         deletePost(selectedMapPost.id);
                         setSelectedMapPost(null);
                       }}
-                      className="rounded-xl border border-rose-200 bg-rose-50 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-100"
+                      className="rounded-xl border border-rose-200 bg-rose-50 py-2 text-xs font-extrabold text-rose-600 hover:bg-rose-100 dark:bg-rose-500/20 dark:border-rose-400/50 dark:text-rose-200 dark:hover:bg-rose-500/30"
                     >
                       삭제
                     </button>
@@ -1030,8 +1030,8 @@ export default function BoardManage({ selectedClass, user }) {
               ) : (
                 <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
                   <div className="mb-3 text-5xl">📍</div>
-                  <div className="text-sm font-extrabold text-slate-700">지도를 클릭해 글을 작성하세요</div>
-                  <div className="mt-2 text-xs leading-relaxed text-slate-400">
+                  <div className="text-sm font-extrabold text-slate-700 dark:text-slate-200">지도를 클릭해 글을 작성하세요</div>
+                  <div className="mt-2 text-xs leading-relaxed text-slate-400 dark:text-slate-500">
                     위치를 찍으면 글쓰기 창이 열립니다. 이미 등록된 번호 핀을 누르면 여기서 게시물을 확인할 수 있습니다.
                   </div>
                 </div>
@@ -1062,11 +1062,11 @@ export default function BoardManage({ selectedClass, user }) {
       {confirmState && (
         <div className="fixed inset-0 bg-black/50 z-[300] flex items-center justify-center p-4"
           onClick={e => e.target === e.currentTarget && setConfirmState(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
-            <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line">{confirmState.message}</p>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm dark:bg-slate-900 dark:border dark:border-slate-700">
+            <p className="text-slate-700 font-bold text-sm mb-5 leading-relaxed whitespace-pre-line dark:text-slate-100">{confirmState.message}</p>
             <div className="flex gap-3">
               <button onClick={() => setConfirmState(null)}
-                className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm">취소</button>
+                className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-bold rounded-xl text-sm dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">취소</button>
               <button onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
                 className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">확인</button>
             </div>
@@ -1081,27 +1081,27 @@ export default function BoardManage({ selectedClass, user }) {
     const isGroupType = selectedBoard?.boardType === 'vertical-group' || selectedBoard?.boardType === 'horizontal-group';
     return (
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1300] flex items-end sm:items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-          <div className="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center text-xl">👑</div>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden dark:bg-slate-900 dark:border dark:border-slate-700">
+          <div className="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center gap-3 dark:bg-indigo-950/30 dark:border-indigo-500/40">
+            <div className="w-12 h-12 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center text-xl dark:bg-indigo-500/20 dark:border-indigo-400/50">👑</div>
             <div>
-              <div className="font-extrabold text-indigo-800 text-sm">선생님</div>
-              <div className="text-[10px] text-indigo-400">
+              <div className="font-extrabold text-indigo-800 text-sm dark:text-indigo-200">선생님</div>
+              <div className="text-[10px] text-indigo-400 dark:text-indigo-300">
                 {selectedBoard?.title}에 게시
                 {writeLat ? ` · 📍 ${writeLat.toFixed(3)}, ${writeLng.toFixed(3)}` : ''}
               </div>
             </div>
             <button onClick={() => { setShowWrite(false); setWriteTitle(''); setWriteContent(''); setWriteImage(''); setWriteAttachment(null); setWriteLat(null); setWriteLng(null); }}
-              className="ml-auto text-slate-400 hover:text-slate-600 text-xl">✕</button>
+              className="ml-auto text-slate-400 hover:text-slate-600 text-xl dark:hover:text-slate-100">✕</button>
           </div>
           {isGroupType && pages.length > 0 && (
             <div className="px-4 pt-3">
-              <label className="text-xs font-bold text-slate-500 block mb-1.5">그룹 선택</label>
+              <label className="text-xs font-bold text-slate-500 block mb-1.5 dark:text-slate-300">그룹 선택</label>
               <div className="flex gap-2 flex-wrap">
                 {pages.map(p => (
                   <button key={p.id} onClick={() => setWritePageId(p.id)}
                     className={`px-3 py-1 rounded-xl text-xs font-bold border transition-colors
-                      ${writePageId === p.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}>
+                      ${writePageId === p.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:border-indigo-400'}`}>
                     {p.title}
                   </button>
                 ))}
@@ -1113,11 +1113,11 @@ export default function BoardManage({ selectedClass, user }) {
               value={writeTitle}
               onChange={e => setWriteTitle(e.target.value)}
               placeholder="제목을 입력하세요"
-              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-indigo-500"
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-indigo-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
             <textarea ref={textRef} value={writeContent} onChange={e => setWriteContent(e.target.value)}
               placeholder="내용을 입력하세요..." rows={5}
-              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-indigo-500" />
+              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-indigo-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500" />
             {writeImage && (
               <div className="relative">
                 <img src={writeImage} alt="" className="w-full rounded-xl object-cover max-h-48 border border-slate-200" />
@@ -1126,8 +1126,8 @@ export default function BoardManage({ selectedClass, user }) {
               </div>
             )}
             {writeAttachment?.name && (
-              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <span className="truncate text-xs font-bold text-slate-600">📎 {writeAttachment.name}</span>
+              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:bg-slate-800 dark:border-slate-700">
+                <span className="truncate text-xs font-bold text-slate-600 dark:text-slate-200">📎 {writeAttachment.name}</span>
                 <button
                   type="button"
                   onClick={() => setWriteAttachment(null)}
@@ -1173,20 +1173,20 @@ export default function BoardManage({ selectedClass, user }) {
               }}
             />
             <button onClick={() => imageFileRef.current?.click()} disabled={isCompressing}
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-xl border border-slate-200">
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-indigo-300">
               {isCompressing ? '⏳ 처리 중...' : '🖼️ 이미지 첨부'}
             </button>
           </div>
             <button
               type="button"
               onClick={() => attachFileRef.current?.click()}
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-xl border border-slate-200"
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-indigo-300"
             >
               📎 파일 첨부
             </button>
-          <div className="p-4 border-t border-slate-100 flex gap-3">
+          <div className="p-4 border-t border-slate-100 flex gap-3 dark:border-slate-700">
             <button onClick={() => { setShowWrite(false); setWriteTitle(''); setWriteContent(''); setWriteImage(''); setWriteAttachment(null); setWriteLat(null); setWriteLng(null); }}
-              className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm">취소</button>
+              className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">취소</button>
             <button onClick={submitPost} disabled={isPosting || isCompressing || (!writeTitle.trim() && !writeContent.trim() && !writeImage && !writeAttachment)}
               className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40">
               {isPosting ? '게시 중...' : '게시하기 ✓'}
@@ -1203,27 +1203,27 @@ export default function BoardManage({ selectedClass, user }) {
 
     return (
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1400] flex items-end sm:items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-          <div className="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center text-lg">✏️</div>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden dark:bg-slate-900 dark:border dark:border-slate-700">
+          <div className="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center gap-3 dark:bg-indigo-950/30 dark:border-indigo-500/40">
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center text-lg dark:bg-indigo-500/20 dark:border-indigo-400/50">✏️</div>
             <div className="min-w-0">
-              <div className="font-extrabold text-indigo-800 text-sm">게시글 수정</div>
-              <div className="text-[10px] text-indigo-400 truncate">
+              <div className="font-extrabold text-indigo-800 text-sm dark:text-indigo-200">게시글 수정</div>
+              <div className="text-[10px] text-indigo-400 truncate dark:text-indigo-300">
                 {editingPost.studentName || '작성자'} · {selectedBoard?.title}
               </div>
             </div>
             <button onClick={closeEditPost}
-              className="ml-auto text-slate-400 hover:text-slate-600 text-xl">✕</button>
+              className="ml-auto text-slate-400 hover:text-slate-600 text-xl dark:hover:text-slate-100">✕</button>
           </div>
 
           <div className="p-4 space-y-4">
             {isGroupType && (
               <div>
-                <label className="text-xs font-extrabold text-slate-500 block mb-1.5">그룹 변경</label>
+                <label className="text-xs font-extrabold text-slate-500 block mb-1.5 dark:text-slate-300">그룹 변경</label>
                 <select
                   value={editPostPageId || ''}
                   onChange={e => setEditPostPageId(e.target.value)}
-                  className="w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-indigo-500"
+                  className="w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:border-indigo-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
                 >
                   <option value="">그룹 없음</option>
                   {pages.map(page => (
@@ -1234,21 +1234,21 @@ export default function BoardManage({ selectedClass, user }) {
             )}
 
             <div>
-              <label className="text-xs font-extrabold text-slate-500 block mb-1.5">내용</label>
+              <label className="text-xs font-extrabold text-slate-500 block mb-1.5 dark:text-slate-300">내용</label>
               <textarea
                 value={editPostContent}
                 onChange={e => setEditPostContent(e.target.value)}
                 rows={7}
-                className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-indigo-500"
+                className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-indigo-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
                 placeholder="게시글 내용을 입력하세요..."
               />
             </div>
 
             {editingPost.imageBase64 && (
-              <img src={editingPost.imageBase64} alt="" className="w-full rounded-xl object-cover max-h-40 border border-slate-200" />
+              <img src={editingPost.imageBase64} alt="" className="w-full rounded-xl object-cover max-h-40 border border-slate-200 dark:border-slate-600" />
             )}
             {editingPost.attachment?.name && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
                 📎 {editingPost.attachment.name}
               </div>
             )}
@@ -1481,37 +1481,37 @@ export default function BoardManage({ selectedClass, user }) {
       {/* creation modal */}
       {showCreate && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col dark:bg-slate-900 dark:border dark:border-slate-700">
             <div className="p-5 bg-indigo-600 text-white font-bold text-lg flex justify-between rounded-t-2xl shrink-0">
               <span>📋 게시판 만들기</span>
               <button onClick={() => setShowCreate(false)} className="text-indigo-200 hover:text-white">✕</button>
             </div>
             <div className="p-6 space-y-6 overflow-y-auto flex-1">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">제목 *</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 dark:text-slate-300">제목 *</label>
                 <input value={newTitle} onChange={e => setNewTitle(e.target.value)}
                   placeholder="예: 오늘의 수업 정리" autoFocus
-                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500" />
+                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">설명 (선택)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 dark:text-slate-300">설명 (선택)</label>
                 <input value={newDesc} onChange={e => setNewDesc(e.target.value)}
                   placeholder="학생들에게 안내할 내용"
-                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500" />
+                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500" />
               </div>
 
               {/* board type */}
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-3">보드 유형 *</label>
+                <label className="block text-xs font-bold text-slate-600 mb-3 dark:text-slate-300">보드 유형 *</label>
                 <div className="grid grid-cols-2 gap-3">
                   {BOARD_TYPES.map(t => (
                     <button key={t.id} onClick={() => setNewType(t.id)}
                       className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                        newType === t.id ? `${t.border} ${t.bg} shadow-md` : 'border-slate-200 hover:border-slate-300 bg-white'
+                        newType === t.id ? `${t.border} ${t.bg} shadow-md dark:bg-indigo-950/30 dark:border-indigo-500/50` : 'border-slate-200 hover:border-slate-300 bg-white dark:bg-slate-950 dark:border-slate-700 dark:hover:border-slate-500'
                       }`}>
                       <div className="mb-2">{t.icon}</div>
-                      <div className={`font-extrabold text-sm mb-1 ${newType === t.id ? t.color : 'text-slate-700'}`}>{t.label}</div>
-                      <div className="text-xs text-slate-500 leading-relaxed">{t.desc}</div>
+                      <div className={`font-extrabold text-sm mb-1 ${newType === t.id ? t.color : 'text-slate-700 dark:text-slate-100'}`}>{t.label}</div>
+                      <div className="text-xs text-slate-500 leading-relaxed dark:text-slate-400">{t.desc}</div>
                     </button>
                   ))}
                 </div>
@@ -1519,23 +1519,23 @@ export default function BoardManage({ selectedClass, user }) {
 
               {/* background color */}
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-2">보드 배경색</label>
+                <label className="block text-xs font-bold text-slate-600 mb-2 dark:text-slate-300">보드 배경색</label>
                 <div className="relative">
                   <button onClick={() => setShowColorPicker(v => !v)}
-                    className="flex items-center gap-3 w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl hover:border-indigo-400 transition-colors">
+                    className="flex items-center gap-3 w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl hover:border-indigo-400 transition-colors dark:bg-slate-950 dark:border-slate-700 dark:hover:border-indigo-400">
                     <span className="w-5 h-5 rounded-full border border-slate-300 shrink-0" style={{ backgroundColor: newBgColor }} />
-                    <span className="text-sm text-slate-700 font-medium flex-1 text-left">
+                    <span className="text-sm text-slate-700 font-medium flex-1 text-left dark:text-slate-100">
                       {BG_COLORS.find(c => c.value === newBgColor)?.label || '색상 선택'}
                     </span>
                     <span className="text-slate-400 text-xs">{showColorPicker ? '▲' : '▼'}</span>
                   </button>
                   {showColorPicker && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden dark:bg-slate-900 dark:border-slate-700">
                       {BG_COLORS.map(c => (
                         <button key={c.id} onClick={() => { setNewBgColor(c.value); setShowColorPicker(false); }}
-                          className={`flex items-center gap-3 w-full px-4 py-2.5 hover:bg-slate-50 ${newBgColor === c.value ? 'bg-indigo-50' : ''}`}>
+                          className={`flex items-center gap-3 w-full px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 ${newBgColor === c.value ? 'bg-indigo-50 dark:bg-indigo-950/40' : ''}`}>
                           <span className="w-8 h-5 rounded border border-slate-200 shrink-0" style={{ backgroundColor: c.value }} />
-                          <span className="text-sm text-slate-700">{c.label}</span>
+                          <span className="text-sm text-slate-700 dark:text-slate-100">{c.label}</span>
                           {newBgColor === c.value && <span className="ml-auto text-indigo-500 font-bold text-xs">✓</span>}
                         </button>
                       ))}
@@ -1544,9 +1544,9 @@ export default function BoardManage({ selectedClass, user }) {
                 </div>
               </div>
             </div>
-            <div className="p-4 border-t border-slate-100 flex gap-3 shrink-0">
+            <div className="p-4 border-t border-slate-100 flex gap-3 shrink-0 dark:border-slate-700">
               <button onClick={() => setShowCreate(false)}
-                className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm">취소</button>
+                className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">취소</button>
               <button onClick={createBoard} disabled={isCreating || !newTitle.trim()}
                 className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40">
                 {isCreating ? '생성 중...' : '만들기'}
