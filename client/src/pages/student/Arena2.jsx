@@ -80,6 +80,41 @@ const MAX_CHANGES = 3;
 const FINAL_STRIKE_FX_MS = 2200;
 const VICTORY_FX_MS = 1700;
 
+const getArenaBattlePower = (stats) => (
+  (stats.attack || 0) * 2
+  + (stats.defense || 0)
+  + (stats.hp || 0) / 20
+  + (stats.crit || 0) * 0.25
+  + (stats.dodge || 0) * 0.35
+  + (stats.attackSpeed || 0) * 0.2
+);
+
+const getUnderdogBonus = (myStats, oppStats) => {
+  const myPower = Math.max(1, getArenaBattlePower(myStats));
+  const oppPower = Math.max(1, getArenaBattlePower(oppStats));
+  if (myPower >= oppPower) {
+    return {
+      active: false,
+      gap: 0,
+      dodgeBonus: 0,
+      critBonus: 0,
+      damageDealtMultiplier: 1,
+      damageTakenMultiplier: 1,
+    };
+  }
+
+  const gap = Math.min(0.35, (oppPower - myPower) / oppPower);
+  const pressure = Math.max(0, Math.min(1, (gap - 0.08) / 0.14));
+  return {
+    active: true,
+    gap,
+    dodgeBonus: Math.round(1 + pressure * 8),
+    critBonus: Math.round(1 + pressure * 7),
+    damageDealtMultiplier: 1 + pressure * 0.11,
+    damageTakenMultiplier: 1 - pressure * 0.1,
+  };
+};
+
 const ARENA_TACTICS = [
   {
     id: 'balanced',
@@ -1164,8 +1199,16 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       clearMatch(); // 전투 시작 시 매칭 초기화
 
       const activeLearningBuff = selectedBuff || null;
-      const myStats  = applyLearningBuffToStats(getStats(me, equipmentItems), activeLearningBuff);
+      const baseMyStats = applyLearningBuffToStats(getStats(me, equipmentItems), activeLearningBuff);
       const oppStats = getStats(opponent, equipmentItems);
+      const underdogBonus = getUnderdogBonus(baseMyStats, oppStats);
+      const myStats = underdogBonus.active
+        ? {
+            ...baseMyStats,
+            dodge: Math.min(45, (baseMyStats.dodge || 0) + underdogBonus.dodgeBonus),
+            crit: Math.min(35, (baseMyStats.crit || 0) + underdogBonus.critBonus),
+          }
+        : baseMyStats;
       const myMaxHP = Math.max(1, Number(myStats.hp) || 1);
       const oppMaxHP = Math.max(1, Number(oppStats.hp) || 1);
       let myHP  = myMaxHP;
@@ -1190,6 +1233,9 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       const myFirst = myStats.attackSpeed > oppStats.attackSpeed ||
         (myStats.attackSpeed === oppStats.attackSpeed && Math.random() < 0.5);
       addLog(`⚔️ 대련 시작! ${myFirst ? myName : oppName}이(가) 선공!`, 'system');
+      if (underdogBonus.active) {
+        addLog(`🔥 역전 기회! 상대가 더 강해서 회피 +${underdogBonus.dodgeBonus}, 치명타 +${underdogBonus.critBonus} 보정이 적용됩니다.`, 'system');
+      }
       setBattleBanner(`${myFirst ? myName : oppName} 선공`);
 
       const TURN_MS  = 1100;
@@ -1264,10 +1310,15 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
             const guarded = guarding[target];
             const focusPower = side === 'me' && activeLearningBuff?.id === 'focus' && actionCount.me <= 3 ? 1.1 : 1;
             const insightActive = target === 'me' && side === 'opp' && isPower && insightReady;
+            const underdogDamageMultiplier = side === 'me'
+              ? underdogBonus.damageDealtMultiplier
+              : target === 'me'
+                ? underdogBonus.damageTakenMultiplier
+                : 1;
             const { dmg, isCrit } = calcDmg(actor.stats, targetStats, {
               power: (isPower ? 1.5 : 1) * focusPower,
               guarded,
-              damageMultiplier: insightActive ? 0.55 : 1,
+              damageMultiplier: (insightActive ? 0.55 : 1) * underdogDamageMultiplier,
             });
             if (insightActive) insightReady = false;
             guarding[target] = false;
