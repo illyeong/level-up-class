@@ -229,43 +229,44 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center h-full text-slate-400">불러오는 중...</div>
+    <div className="flex items-center justify-center h-full text-slate-400 dark:bg-slate-950 dark:text-slate-300">불러오는 중...</div>
   );
 
   // ── 글쓰기 페이지 ──────────────────────────────────────────────
   if (view === 'write') {
     return (
-      <div className="max-w-4xl mx-auto p-6 space-y-4">
+      <div className="min-h-[calc(100vh-88px)] bg-slate-50 p-6 dark:bg-slate-950">
+      <div className="max-w-4xl mx-auto space-y-4">
         <div className="flex items-center gap-3 mb-2">
-          <button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-800 text-sm font-bold">← 목록</button>
-          <h2 className="text-xl font-extrabold text-slate-800">✏️ 글쓰기</h2>
+          <button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-800 text-sm font-bold dark:text-slate-300 dark:hover:text-white">← 목록</button>
+          <h2 className="text-xl font-extrabold text-slate-800 dark:text-slate-100">✏️ 글쓰기</h2>
         </div>
         <input
           value={title} onChange={e => setTitle(e.target.value)}
           placeholder="제목" maxLength={50}
-          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
         />
         <textarea
           value={content} onChange={e => setContent(e.target.value)}
           placeholder="내용을 입력하세요" maxLength={1000}
-          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
           style={{ minHeight: '280px' }}
         />
         {imageData ? (
           <div className="relative inline-block">
-            <img src={imageData} alt="" className="max-h-48 rounded-xl border border-slate-200" />
+            <img src={imageData} alt="" className="max-h-48 rounded-xl border border-slate-200 dark:border-slate-600" />
             <button onClick={() => setImageData(null)}
               className="absolute top-2 right-2 bg-black/50 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-black/70">✕</button>
           </div>
         ) : (
           <button onClick={() => fileRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-sm">
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-sm dark:border-slate-700 dark:text-slate-300 dark:hover:border-indigo-400 dark:hover:text-indigo-300">
             📷 사진 첨부
           </button>
         )}
         {attachmentData?.name && (
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-            <span className="truncate text-xs font-bold text-slate-600">📎 {attachmentData.name}</span>
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:bg-slate-900 dark:border-slate-700">
+            <span className="truncate text-xs font-bold text-slate-600 dark:text-slate-200">📎 {attachmentData.name}</span>
             <button
               type="button"
               onClick={() => setAttachmentData(null)}
@@ -280,13 +281,14 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
         <input ref={attachmentFileRef} type="file" className="hidden"
           onChange={e => handleAttachmentUpload(e, setAttachmentData)} />
         <button onClick={() => attachmentFileRef.current?.click()}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-sm">
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors text-sm dark:border-slate-700 dark:text-slate-300 dark:hover:border-indigo-400 dark:hover:text-indigo-300">
           📎 파일 첨부
         </button>
         <button onClick={submitPost} disabled={!title.trim() || !content.trim() || isPosting}
           className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold transition-colors disabled:opacity-50">
           {isPosting ? '게시 중...' : '게시하기'}
         </button>
+      </div>
       </div>
     );
   }
@@ -303,10 +305,10 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
 
   // ── 목록 ──────────────────────────────────────────────────────
   return (
-    <div className="p-5" style={{ background: '#f8fafc', minHeight: 'calc(100vh - 88px)' }}>
+    <div className="min-h-[calc(100vh-88px)] bg-slate-50 p-5 dark:bg-slate-950">
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-extrabold text-slate-700">📋 게시판</h1>
+        <h1 className="text-xl font-extrabold text-slate-700 dark:text-slate-100">📋 게시판</h1>
         <button onClick={() => setView('write')}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors shadow-md">
           ✏️ 글쓰기
@@ -314,9 +316,9 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
       </div>
 
       {posts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-3 opacity-50">
+        <div className="flex flex-col items-center justify-center py-24 gap-3 opacity-70">
           <div className="text-6xl">📝</div>
-          <p className="text-slate-500 font-bold text-sm">첫 번째 글을 작성해보세요!</p>
+          <p className="text-slate-500 font-bold text-sm dark:text-slate-400">첫 번째 글을 작성해보세요!</p>
         </div>
       ) : (
         /* 담벼락형 masonry 레이아웃 */
@@ -324,54 +326,43 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
           {posts.map((post, idx) => (
             <div key={post.id} style={{ breakInside: 'avoid', marginBottom: '1rem' }}>
               <div className={`rounded-2xl border-2 p-4 shadow-sm cursor-pointer relative group transition-all hover:shadow-md hover:-translate-y-0.5
-                ${POST_COLORS[idx % POST_COLORS.length]}`}
+                ${POST_COLORS[idx % POST_COLORS.length]} dark:!bg-slate-800/95 dark:!border-slate-600 dark:shadow-lg dark:shadow-black/30`}
                 onClick={() => openDetail(post)}>
                 {/* 작성자 */}
                 <div className="flex items-center gap-2 mb-3 mt-1">
-                  <div className="w-14 h-14 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center">
+                  <div className="w-14 h-14 rounded-xl bg-white border-2 border-white shadow-sm overflow-hidden shrink-0 flex items-center justify-center dark:bg-slate-950 dark:border-slate-700">
                     {post.authorImage
                       ? <img src={post.authorImage} alt="" className="w-full h-full object-contain scale-[2]" />
                       : <span className="text-2xl">🧑‍🎓</span>}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-extrabold text-xs text-slate-700 truncate">{post.authorName}</div>
-                    <div className="text-[10px] text-slate-400">{formatDate(post.createdAt)}</div>
+                    <div className="font-extrabold text-xs text-slate-700 truncate dark:text-slate-200">{post.authorName}</div>
+                    <div className="text-[10px] text-slate-400 dark:text-slate-500">{formatDate(post.createdAt)}</div>
                   </div>
                 </div>
                 {/* 제목 */}
-                <div className="font-extrabold text-sm text-slate-800 mb-1 leading-snug">{post.title}</div>
+                <div className="font-extrabold text-sm text-slate-800 mb-1 leading-snug dark:text-slate-100">{post.title}</div>
                 {/* 내용 */}
-                {post.content && (() => {
-                  const isLong = post.content.length > 50 || post.content.split('\n').length > 3;
-                  return (
-                    <>
-                      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words line-clamp-5 mb-1">{post.content}</p>
-                      {isLong && (
-                        <button onClick={e => { e.stopPropagation(); openDetail(post); }}
-                          className="inline-flex items-center rounded-full bg-white/80 border border-indigo-100 px-2.5 py-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-white font-extrabold transition-colors">
-                          더보기 ▾
-                        </button>
-                      )}
-                    </>
-                  );
-                })()}
+                {post.content && (
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 dark:text-slate-200">{post.content}</p>
+                )}
                 {/* 이미지 */}
                 {post.imageUrl && (
                   <img src={post.imageUrl} alt=""
-                    className="w-full rounded-xl object-cover max-h-40 mt-2 border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
+                    className="w-full rounded-xl object-cover max-h-40 mt-2 border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity dark:border-slate-600"
                     onClick={e => { e.stopPropagation(); setLightboxSrc(post.imageUrl); }} />
                 )}
                 {/* 첨부파일 */}
                 {post.attachment?.name && (
-                  <div className="mt-2 text-[10px] font-bold text-slate-500">📎 {post.attachment.name}</div>
+                  <div className="mt-2 text-[10px] font-bold text-slate-500 dark:text-slate-300">📎 {post.attachment.name}</div>
                 )}
                 {/* 반응 */}
                 <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-                  <span className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-2 py-0.5 border border-slate-200">
-                    ❤️ <span className="font-bold text-slate-600">{post.likes?.length || 0}</span>
+                  <span className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-2 py-0.5 border border-slate-200 dark:bg-slate-950/70 dark:border-slate-600 dark:text-slate-100">
+                    ❤️ <span className="font-bold text-slate-600 dark:text-slate-300">{post.likes?.length || 0}</span>
                   </span>
-                  <span className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-2 py-0.5 border border-slate-200">
-                    💬 <span className="font-bold text-slate-600">{post.commentCount || 0}</span>
+                  <span className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-2 py-0.5 border border-slate-200 dark:bg-slate-950/70 dark:border-slate-600 dark:text-slate-100">
+                    💬 <span className="font-bold text-slate-600 dark:text-slate-300">{post.commentCount || 0}</span>
                   </span>
                 </div>
               </div>
@@ -384,40 +375,40 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
       {selectedPost && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={e => e.target === e.currentTarget && setSelectedPost(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden dark:bg-slate-900 dark:border dark:border-slate-700">
 
             {editMode ? (
               /* ── 수정 모드 ── */
               <>
-                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
-                  <h3 className="font-extrabold text-slate-800">✏️ 게시글 수정</h3>
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0 dark:border-slate-700">
+                  <h3 className="font-extrabold text-slate-800 dark:text-slate-100">✏️ 게시글 수정</h3>
                   <button onClick={() => setEditMode(false)}
-                    className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-400 text-xl">✕</button>
+                    className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-400 text-xl dark:hover:bg-slate-800 dark:hover:text-slate-100">✕</button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-5 space-y-3">
                   <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
                     placeholder="제목" maxLength={50}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500" />
                   <textarea value={editContent} onChange={e => setEditContent(e.target.value)}
                     placeholder="내용" rows={6} maxLength={1000}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500" />
                   {editImageData ? (
                     <div className="relative inline-block">
-                      <img src={editImageData} alt="" className="max-h-40 rounded-xl border border-slate-200" />
+                      <img src={editImageData} alt="" className="max-h-40 rounded-xl border border-slate-200 dark:border-slate-600" />
                       <button onClick={() => setEditImageData(null)}
                         className="absolute top-2 right-2 bg-black/50 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">✕</button>
                     </div>
                   ) : (
                     <button onClick={() => editFileRef.current?.click()}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 text-sm">
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 text-sm dark:border-slate-700 dark:text-slate-300 dark:hover:border-indigo-400 dark:hover:text-indigo-300">
                       📷 사진 첨부
                     </button>
                   )}
                   <input ref={editFileRef} type="file" accept="image/*" className="hidden"
                     onChange={e => handleImageUpload(e, setEditImageData)} />
                   {editAttachmentData?.name && (
-                    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                      <span className="truncate text-xs font-bold text-slate-600">📎 {editAttachmentData.name}</span>
+                    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:bg-slate-800 dark:border-slate-700">
+                      <span className="truncate text-xs font-bold text-slate-600 dark:text-slate-200">📎 {editAttachmentData.name}</span>
                       <button
                         type="button"
                         onClick={() => setEditAttachmentData(null)}
@@ -432,14 +423,14 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                   <button
                     type="button"
                     onClick={() => editAttachmentFileRef.current?.click()}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 text-sm"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 text-sm dark:border-slate-700 dark:text-slate-300 dark:hover:border-indigo-400 dark:hover:text-indigo-300"
                   >
                     📎 파일 첨부
                   </button>
                 </div>
-                <div className="flex gap-3 p-4 border-t border-slate-100 shrink-0">
+                <div className="flex gap-3 p-4 border-t border-slate-100 shrink-0 dark:border-slate-700">
                   <button onClick={() => setEditMode(false)}
-                    className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50">
+                    className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
                     취소
                   </button>
                   <button onClick={updatePost} disabled={!editTitle.trim() || !editContent.trim() || isUpdating}
@@ -451,11 +442,11 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
             ) : (
               /* ── 상세 보기 ── */
               <>
-                <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-100 shrink-0">
+                <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-100 shrink-0 dark:border-slate-700">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-extrabold text-slate-800 text-base leading-snug">{selectedPost.title}</h3>
-                    <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
-                      <span className="font-bold text-slate-500">{selectedPost.authorName}</span>
+                    <h3 className="font-extrabold text-slate-800 text-base leading-snug dark:text-slate-100">{selectedPost.title}</h3>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-slate-400 dark:text-slate-500">
+                      <span className="font-bold text-slate-500 dark:text-slate-300">{selectedPost.authorName}</span>
                       <span>·</span>
                       <span>{formatDate(selectedPost.createdAt)}</span>
                     </div>
@@ -464,65 +455,65 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                     {(isTeacher || selectedPost.authorId === studentCode) && (
                       <>
                         <button onClick={openEdit}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 hover:bg-indigo-50 border border-indigo-100 transition-colors">
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 hover:bg-indigo-50 border border-indigo-100 transition-colors dark:border-indigo-500/40 dark:text-indigo-300 dark:hover:bg-indigo-950/50">
                           수정
                         </button>
                         <button onClick={() => deletePost(selectedPost.id)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-500 hover:bg-rose-50 border border-rose-100 transition-colors">
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-500 hover:bg-rose-50 border border-rose-100 transition-colors dark:border-rose-500/40 dark:text-rose-300 dark:hover:bg-rose-950/50">
                           삭제
                         </button>
                       </>
                     )}
                     <button onClick={() => setSelectedPost(null)}
-                      className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-400 text-xl ml-1">✕</button>
+                      className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-400 text-xl ml-1 dark:hover:bg-slate-800 dark:hover:text-slate-100">✕</button>
                   </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
                   {selectedPost.imageUrl && (
                     <img src={selectedPost.imageUrl} alt=""
-                      className="w-full rounded-xl max-h-72 object-contain bg-slate-50 border border-slate-100 cursor-zoom-in hover:opacity-90 transition-opacity"
+                      className="w-full rounded-xl max-h-72 object-contain bg-slate-50 border border-slate-100 cursor-zoom-in hover:opacity-90 transition-opacity dark:bg-slate-950 dark:border-slate-700"
                       onClick={() => setLightboxSrc(selectedPost.imageUrl)} />
                   )}
                   {selectedPost.attachment?.dataUrl && (
                     <a
                       href={selectedPost.attachment.dataUrl}
                       download={selectedPost.attachment.name || 'attachment'}
-                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700"
                     >
                       📎 {selectedPost.attachment.name || '첨부파일'}
                     </a>
                   )}
-                  <p className="text-slate-700 whitespace-pre-wrap text-sm leading-relaxed">{selectedPost.content}</p>
+                  <p className="text-slate-700 whitespace-pre-wrap text-sm leading-relaxed dark:text-slate-200">{selectedPost.content}</p>
 
-                  <div className="flex items-center gap-4 pt-3 border-t border-slate-100">
+                  <div className="flex items-center gap-4 pt-3 border-t border-slate-100 dark:border-slate-700">
                     <button onClick={() => toggleLike(selectedPost)}
                       className={`flex items-center gap-1.5 text-sm font-bold transition-colors
-                        ${selectedPost.likes?.includes(studentCode) ? 'text-rose-500' : 'text-slate-400 hover:text-rose-400'}`}>
+                        ${selectedPost.likes?.includes(studentCode) ? 'text-rose-500 dark:text-rose-300' : 'text-slate-400 hover:text-rose-400 dark:text-slate-500 dark:hover:text-rose-300'}`}>
                       {selectedPost.likes?.includes(studentCode) ? '❤️' : '🤍'} {selectedPost.likes?.length || 0}
                     </button>
-                    <span className="text-slate-400 text-sm">💬 {comments.length}</span>
+                    <span className="text-slate-400 text-sm dark:text-slate-500">💬 {comments.length}</span>
                   </div>
 
                   {/* 댓글 */}
                   <div className="space-y-2">
                     {comments.map(c => (
-                      <div key={c.id} className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                      <div key={c.id} className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100 dark:bg-slate-950/70 dark:border-slate-700">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-sm text-slate-700">{c.authorName}</span>
-                          <span className="text-xs text-slate-400">{formatDate(c.createdAt)}</span>
+                          <span className="font-bold text-sm text-slate-700 dark:text-slate-200">{c.authorName}</span>
+                          <span className="text-xs text-slate-400 dark:text-slate-500">{formatDate(c.createdAt)}</span>
                         </div>
-                        <p className="text-sm text-slate-600">{c.content}</p>
+                        <p className="text-sm text-slate-600 dark:text-slate-300">{c.content}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="flex gap-2 p-4 border-t border-slate-100 shrink-0">
+                <div className="flex gap-2 p-4 border-t border-slate-100 shrink-0 dark:border-slate-700">
                   <input value={commentText} onChange={e => setCommentText(e.target.value)}
                     placeholder="댓글 입력..."
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); } }}
-                    className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                    className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500" />
                   <button onClick={submitComment} disabled={!commentText.trim() || isCommenting}
                     className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm disabled:opacity-50 transition-colors">
                     등록
