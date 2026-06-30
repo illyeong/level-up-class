@@ -158,7 +158,7 @@ export default function BoardManage({ selectedClass, user }) {
   const [editingSheetTitle, setEditingSheetTitle] = useState('');
   const [editingPageId, setEditingPageId] = useState(null);
   const [editingPageTitle, setEditingPageTitle] = useState('');
-  const [expandedPost, setExpandedPost] = useState(null); // 더보기 팝업
+  const [expandedPost, setExpandedPost] = useState(null); // 상세 팝업
   const [lightboxSrc, setLightboxSrc]   = useState(null); // 이미지 라이트박스
   const [pageSizes, setPageSizes] = useState({}); // { [pageId]: number }
   const pageSizesRef = useRef({});
@@ -649,23 +649,9 @@ export default function BoardManage({ selectedClass, user }) {
           {post.title}
         </h3>
       )}
-      {post.content && (() => {
-        const isLong = post.content.length > 50 || post.content.split('\n').length > 3;
-        return (
-          <>
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 line-clamp-5 dark:text-slate-200">{post.content}</p>
-            {isLong && (
-              <button
-                type="button"
-                onClick={() => setExpandedPost(post)}
-                className="inline-flex items-center rounded-full bg-white/80 border border-indigo-100 px-2.5 py-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-white font-extrabold transition-colors mb-1 dark:bg-slate-800 dark:border-indigo-500/40 dark:text-indigo-300 dark:hover:bg-slate-700"
-              >
-                더보기 ▾
-              </button>
-            )}
-          </>
-        );
-      })()}
+      {post.content && (
+        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 dark:text-slate-200">{post.content}</p>
+      )}
       {post.imageBase64 && (
         <img src={post.imageBase64} alt=""
           className="w-full rounded-xl object-cover max-h-40 mb-2 border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
@@ -1377,7 +1363,7 @@ export default function BoardManage({ selectedClass, user }) {
         {editingPost && <EditPostModal />}
         <Modals />
 
-        {/* 더보기 팝업 */}
+        {/* 상세 팝업 */}
         {expandedPost && (
           <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4"
             onClick={() => setExpandedPost(null)}>

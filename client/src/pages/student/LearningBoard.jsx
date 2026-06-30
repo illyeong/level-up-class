@@ -200,13 +200,12 @@ function CommentSection({ post, boardId, student }) {
 }
 
 // ── 게시물 카드 ────────────────────────────────────────────────
-function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinned, onDelete, onEditRequest, onImageClick, onExpand }) {
+function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinned, onDelete, onEditRequest, onImageClick }) {
   const isMyPost = post.studentId && post.studentId === studentId;
 
   const reactionCounts = {};
   Object.values(post.reactions || {}).forEach(e => { reactionCounts[e] = (reactionCounts[e] || 0) + 1; });
   const myReaction = (post.reactions || {})[studentId];
-  const isLongContent = (post.content || '').length > 50 || (post.content || '').split('\n').length > 3;
 
   return (
     <div className={`rounded-2xl border-2 p-4 shadow-sm relative group transition-all hover:shadow-md hover:-translate-y-0.5
@@ -243,16 +242,7 @@ function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinne
         )}
         {post.content ? (
           <div className="mb-2">
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 line-clamp-5 dark:text-slate-200">{post.content}</p>
-            {isLongContent && (
-              <button
-                type="button"
-                onClick={() => onExpand?.(post)}
-                className="inline-flex items-center rounded-full bg-white/80 border border-indigo-100 px-2.5 py-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-white font-extrabold transition-colors dark:bg-slate-800 dark:border-indigo-500/40 dark:text-indigo-300 dark:hover:bg-slate-700"
-              >
-                더보기 ▾
-              </button>
-            )}
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 dark:text-slate-200">{post.content}</p>
           </div>
         ) : null}
         {post.imageBase64 && (
@@ -316,7 +306,6 @@ export default function LearningBoard({ studentCode }) {
   const [writeLng, setWriteLng]           = useState(null);
 
   const [lightboxSrc, setLightboxSrc] = useState(null); // 이미지 라이트박스
-  const [expandedPost, setExpandedPost] = useState(null);
   const [editingPost, setEditingPost] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
@@ -574,7 +563,6 @@ export default function LearningBoard({ studentCode }) {
       const updates = { title: nextTitle, content: nextContent };
       await updateDoc(doc(db, 'boards', selectedBoard.id, 'posts', editingPost.id), updates);
       setPosts(prev => prev.map(p => p.id === editingPost.id ? { ...p, ...updates } : p));
-      setExpandedPost(prev => prev?.id === editingPost.id ? { ...prev, ...updates } : prev);
       closeEditPost();
     } catch (e) {
       console.error(e);
@@ -618,7 +606,7 @@ export default function LearningBoard({ studentCode }) {
   const postCardProps = (post, idx = 0) => ({
     post, studentId: student?.id, student, boardId: selectedBoard?.id,
     onReact: handleReact, isPinned: post.pinned, onDelete: handleDeletePost, onEditRequest: openEditPost,
-    idx, onImageClick: setLightboxSrc, onExpand: setExpandedPost,
+    idx, onImageClick: setLightboxSrc,
   });
 
   // ── 게시판 유형별 레이아웃 렌더링 ────────────────────────────
@@ -1041,49 +1029,6 @@ export default function LearningBoard({ studentCode }) {
                 >
                   {editSaving ? '저장 중...' : '저장'}
                 </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 더보기 팝업 */}
-        {expandedPost && (
-          <div className="fixed inset-0 bg-black/60 z-[250] flex items-center justify-center p-4"
-            onClick={() => setExpandedPost(null)}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col dark:bg-slate-900 dark:border dark:border-slate-700"
-              onClick={e => e.stopPropagation()}>
-              <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-700">
-                <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-200 shrink-0">
-                  {expandedPost.isTeacher ? <span className="text-xl">👑</span>
-                    : expandedPost.characterImage
-                      ? <img src={expandedPost.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
-                      : <span className="text-xl">🧑‍🎓</span>}
-                </div>
-                <div className="min-w-0">
-                  <div className="font-extrabold text-slate-800 text-sm truncate dark:text-slate-100">{expandedPost.studentName}</div>
-                  <div className="text-[10px] text-slate-400">{fmtDate(expandedPost.createdAt)}</div>
-                </div>
-                <button onClick={() => setExpandedPost(null)}
-                  className="ml-auto text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
-              </div>
-              <div className="overflow-y-auto p-5 space-y-3">
-                {expandedPost.title && (
-                  <h3 className="text-lg font-extrabold text-slate-900 leading-snug break-words dark:text-white">{expandedPost.title}</h3>
-                )}
-                {expandedPost.content && (
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words dark:text-slate-200">{expandedPost.content}</p>
-                )}
-                {expandedPost.imageBase64 && (
-                  <img src={expandedPost.imageBase64} alt=""
-                    className="w-full rounded-xl object-contain border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
-                    onClick={() => setLightboxSrc(expandedPost.imageBase64)} />
-                )}
-                {expandedPost.attachment?.dataUrl && (
-                  <a href={expandedPost.attachment.dataUrl} download={expandedPost.attachment.name || 'attachment'}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700">
-                    📎 {expandedPost.attachment.name || '첨부파일'}
-                  </a>
-                )}
               </div>
             </div>
           </div>
