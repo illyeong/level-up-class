@@ -158,7 +158,6 @@ export default function BoardManage({ selectedClass, user }) {
   const [editingSheetTitle, setEditingSheetTitle] = useState('');
   const [editingPageId, setEditingPageId] = useState(null);
   const [editingPageTitle, setEditingPageTitle] = useState('');
-  const [expandedPost, setExpandedPost] = useState(null); // 상세 팝업
   const [lightboxSrc, setLightboxSrc]   = useState(null); // 이미지 라이트박스
   const [pageSizes, setPageSizes] = useState({}); // { [pageId]: number }
   const pageSizesRef = useRef({});
@@ -515,7 +514,6 @@ export default function BoardManage({ selectedClass, user }) {
       const applyUpdate = (post) => post.id === editingPost.id ? { ...post, ...updates } : post;
       setPosts(prev => prev.map(applyUpdate));
       setSelectedMapPost(prev => prev?.id === editingPost.id ? { ...prev, ...updates } : prev);
-      setExpandedPost(prev => prev?.id === editingPost.id ? { ...prev, ...updates } : prev);
       closeEditPost();
       showToast('게시글을 수정했습니다.');
     } catch {
@@ -671,24 +669,46 @@ export default function BoardManage({ selectedClass, user }) {
       </div>
       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
         {(() => {
-          // reactions 구조: { studentId: emoji } → emoji별 카운트로 변환
           const counts = {};
           Object.values(post.reactions || {}).forEach(e => { if (e) counts[e] = (counts[e] || 0) + 1; });
-          return Object.entries(counts).map(([emoji, count]) => (
+          const entries = Object.entries(counts);
+          return entries.length > 0 ? entries.map(([emoji, count]) => (
             <span key={emoji} className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200 dark:bg-slate-800 dark:border-slate-600">
               {emoji} <span className="font-bold text-slate-600 dark:text-slate-300">{count}</span>
             </span>
-          ));
+          )) : (
+            <span className="text-xs font-bold text-slate-400 dark:text-slate-500">반응 없음</span>
+          );
         })()}
-        {/* 댓글 버튼 — 항상 표시 */}
-        <button
-          onClick={() => setExpandedPost(post)}
-          className="flex items-center gap-0.5 text-xs text-slate-500 bg-white/70 hover:bg-white rounded-full px-1.5 py-0.5 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 transition-colors font-bold dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-indigo-300"
-        >
-          💬 {(post.comments || []).length > 0
-            ? <span>{(post.comments || []).length}</span>
-            : <span className="opacity-60">댓글</span>}
-        </button>
+      </div>
+      <div className="mt-2 border-t border-black/5 pt-2 dark:border-white/10">
+        <div className="mb-1.5 text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
+          💬 댓글 {(post.comments || []).length}개
+        </div>
+        {(post.comments || []).length > 0 ? (
+          <div className="space-y-2">
+            {(post.comments || []).map(c => (
+              <div key={c.id} className="flex items-start gap-2">
+                <div className="w-8 h-8 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center dark:bg-slate-950 dark:border-slate-700">
+                  {c.characterImage
+                    ? <img src={c.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
+                    : <span className="text-sm">👤</span>}
+                </div>
+                <div className="flex-1 rounded-xl bg-white/60 px-2.5 py-1.5 dark:bg-slate-800">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-200">{c.authorName}</span>
+                    <span className="text-[10px] text-slate-400">
+                      {c.createdAt ? new Date(c.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap break-words dark:text-slate-300">{c.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-xs font-bold text-slate-400 dark:text-slate-500">댓글 없음</div>
+        )}
       </div>
     </div>
   );
@@ -1362,97 +1382,6 @@ export default function BoardManage({ selectedClass, user }) {
         {showWrite && <WriteModal />}
         {editingPost && <EditPostModal />}
         <Modals />
-
-        {/* 상세 팝업 */}
-        {expandedPost && (
-          <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4"
-            onClick={() => setExpandedPost(null)}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
-              onClick={e => e.stopPropagation()}>
-              <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-                <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-200 shrink-0">
-                  {expandedPost.isTeacher ? <span className="text-xl">👑</span>
-                    : expandedPost.characterImage
-                      ? <img src={expandedPost.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
-                      : <span className="text-xl">🧑‍🎓</span>}
-                </div>
-                <div>
-                  <div className="font-extrabold text-slate-800 text-sm">{expandedPost.studentName}</div>
-                  <div className="text-[10px] text-slate-400">
-                    {expandedPost.createdAt?.toDate?.()?.toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || ''}
-                  </div>
-                </div>
-                <button onClick={() => setExpandedPost(null)}
-                  className="ml-auto text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
-              </div>
-              <div className="overflow-y-auto p-5 space-y-3">
-                {expandedPost.title && (
-                  <h3 className="text-lg font-extrabold text-slate-900 leading-snug break-words">{expandedPost.title}</h3>
-                )}
-                {expandedPost.content && (
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{expandedPost.content}</p>
-                )}
-                {expandedPost.imageBase64 && (
-                  <img src={expandedPost.imageBase64} alt=""
-                    className="w-full rounded-xl object-contain border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
-                    onClick={() => setLightboxSrc(expandedPost.imageBase64)} />
-                )}
-                {expandedPost.attachment?.dataUrl && (
-                  <a href={expandedPost.attachment.dataUrl} download={expandedPost.attachment.name || 'attachment'}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">
-                    📎 {expandedPost.attachment.name || '첨부파일'}
-                  </a>
-                )}
-
-                {/* 이모지 반응 */}
-                {Object.keys(expandedPost.reactions || {}).length > 0 && (() => {
-                  const counts = {};
-                  Object.values(expandedPost.reactions || {}).forEach(e => { if (e) counts[e] = (counts[e] || 0) + 1; });
-                  const entries = Object.entries(counts);
-                  return entries.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
-                      {entries.map(([emoji, count]) => (
-                        <span key={emoji} className="flex items-center gap-0.5 text-sm bg-slate-100 rounded-full px-2.5 py-1 border border-slate-200">
-                          {emoji} <span className="font-bold text-slate-600 text-xs">{count}</span>
-                        </span>
-                      ))}
-                    </div>
-                  ) : null;
-                })()}
-
-                {/* 댓글 목록 */}
-                {(expandedPost.comments || []).length > 0 && (
-                  <div className="border-t border-slate-100 pt-3 space-y-2">
-                    <div className="text-xs font-extrabold text-slate-500">💬 댓글 {expandedPost.comments.length}개</div>
-                    {expandedPost.comments.map(c => (
-                      <div key={c.id} className="flex items-start gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                          {c.characterImage
-                            ? <img src={c.characterImage} alt="" className="w-full h-full object-contain scale-[2]" />
-                            : <span className="text-sm">🧑</span>}
-                        </div>
-                        <div className="flex-1 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-xs font-extrabold text-slate-700">{c.authorName}</span>
-                            <span className="text-[10px] text-slate-400">
-                              {c.createdAt ? new Date(c.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
-                            </span>
-                          </div>
-                          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{c.text}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {(expandedPost.comments || []).length === 0 && (
-                  <div className="text-center py-3 text-slate-400 text-xs border-t border-slate-100 pt-3">
-                    아직 댓글이 없습니다.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* 이미지 라이트박스 */}
         {lightboxSrc && (

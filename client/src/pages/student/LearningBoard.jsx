@@ -100,7 +100,6 @@ const fmtDate = (ts) => {
 
 // ── 댓글 컴포넌트 ──────────────────────────────────────────────
 function CommentSection({ post, boardId, student }) {
-  const [open, setOpen]           = useState(false);
   const [text, setText]           = useState('');
   const [saving, setSaving]       = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -140,13 +139,11 @@ function CommentSection({ post, boardId, student }) {
 
   return (
     <div className="border-t border-black/5 mt-2 pt-2 dark:border-white/10">
-      <button onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-indigo-600 transition-colors dark:text-slate-400 dark:hover:text-indigo-300">
-        💬 댓글 {localComments.length > 0 && <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full dark:bg-slate-700 dark:text-slate-200">{localComments.length}</span>}
-        <span className="text-slate-300">{open ? '▲' : '▼'}</span>
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2">
+      <div
+        className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+        💬 댓글 <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full dark:bg-slate-700 dark:text-slate-200">{localComments.length}</span>개
+      </div>
+      <div className="mt-2 space-y-2">
           {localComments.map(c => (
             <div key={c.id} className="flex items-start gap-2">
               <div className="w-10 h-10 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center dark:bg-slate-950 dark:border-slate-700">
@@ -194,7 +191,6 @@ function CommentSection({ post, boardId, student }) {
             </div>
           )}
         </div>
-      )}
     </div>
   );
 }
