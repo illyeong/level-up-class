@@ -9,10 +9,10 @@ const STAR_IMG = '/images/Icon_Resources_Star01_Gold.png';
 const STONE_DROP_RATE = 0.3;
 
 const DISMANTLE_REWARDS = {
-  common:    { stones: 1,  gold: 0 },
-  rare:      { stones: 3,  gold: 100 },
-  epic:      { stones: 8,  gold: 300 },
-  legendary: { stones: 20, gold: 1000 },
+  common:    { stones: 1 },
+  rare:      { stones: 3 },
+  epic:      { stones: 8 },
+  legendary: { stones: 20 },
 };
 
 const SYNTHESIS_RECIPES = [
@@ -589,7 +589,6 @@ function DismantleModal({ plan, onApply, onClose }) {
   const appliedRef = useRef(false);
 
   const entries = plan?.entries || [];
-  const totalGold = plan?.totalGold || 0;
   const totalStones = plan?.totalStones || 0;
   const possibleStones = plan?.possibleStones || 0;
   const firstEntry = entries[0];
@@ -713,10 +712,6 @@ function DismantleModal({ plan, onApply, onClose }) {
                   <span className="font-bold text-slate-400">분해 대상</span>
                   <span className="font-extrabold text-white">{entries.length}개</span>
                 </div>
-                <div className="mb-2 flex items-center justify-between text-sm">
-                  <span className="font-bold text-slate-400">확정 골드</span>
-                  <span className="font-extrabold text-amber-300">+{totalGold.toLocaleString()}</span>
-                </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-bold text-slate-400">강화석 기회</span>
                   <span className="font-extrabold text-cyan-300">최대 {possibleStones}개, 각 장비 30%</span>
@@ -754,11 +749,7 @@ function DismantleModal({ plan, onApply, onClose }) {
               <div className={`rounded-2xl border p-5 text-center ${totalStones > 0 ? 'border-cyan-500/50 bg-cyan-950/40' : 'border-slate-700 bg-slate-900'}`}>
                 <div className="mb-2 text-4xl">{totalStones > 0 ? '💎' : '🌫️'}</div>
                 <div className="text-2xl font-extrabold text-white">분해 완료</div>
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-slate-950/70 px-3 py-3">
-                    <div className="text-xs font-bold text-slate-500">골드</div>
-                    <div className="text-lg font-extrabold text-amber-300">+{totalGold.toLocaleString()}</div>
-                  </div>
+                <div className="mt-3">
                   <div className="rounded-xl bg-slate-950/70 px-3 py-3">
                     <div className="text-xs font-bold text-slate-500">강화석</div>
                     <div className={`text-lg font-extrabold ${totalStones > 0 ? 'text-cyan-300' : 'text-slate-500'}`}>+{totalStones}</div>
@@ -786,7 +777,6 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
   const [equipped, setEquipped]   = useState({});
   const [stones, setStones]       = useState(0);
   const [diamonds, setDiamonds]   = useState(0);
-  const [gold, setGold]           = useState(0);
   const [studentDocId, setStudentDocId] = useState(null);
   const [loading, setLoading]     = useState(true);
   const [enhanceTarget, setEnhanceTarget] = useState(null);
@@ -815,7 +805,6 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
           setEquipped(data.equipped || {});
           setStones(data.enhancementStones || 0);
           setDiamonds(data.diamonds || 0);
-          setGold(data.gold || 0);
         }
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
@@ -877,7 +866,6 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
           item,
           reward,
           gradeOrder,
-          earnedGold: reward.gold || 0,
           earnedStones: stoneDropped ? reward.stones : 0,
           possibleStones: reward.stones || 0,
           stoneDropped,
@@ -890,7 +878,6 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
     return {
       id: `dismantle_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       entries,
-      totalGold: entries.reduce((sum, entry) => sum + entry.earnedGold, 0),
       totalStones: entries.reduce((sum, entry) => sum + entry.earnedStones, 0),
       possibleStones: entries.reduce((sum, entry) => sum + entry.possibleStones, 0),
     };
@@ -907,19 +894,16 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
     const consumedIds = new Set(plan.entries.map(entry => entry.inv.id));
     const newInventory = inventory.filter(inv => !consumedIds.has(inv.id));
     const newStones = stones + (plan.totalStones || 0);
-    const newGold = gold + (plan.totalGold || 0);
 
     await updateDoc(doc(db, 'students', studentDocId), {
       equipInventory: newInventory,
       enhancementStones: newStones,
-      gold: newGold,
     });
 
     setInventory(newInventory);
     setStones(newStones);
-    setGold(newGold);
     setSelectedDismantleIds(ids => ids.filter(id => !consumedIds.has(id)));
-  }, [gold, inventory, stones, studentDocId]);
+  }, [inventory, stones, studentDocId]);
 
   const toggleDismantleSelection = useCallback((id) => {
     setSelectedDismantleIds(ids => ids.includes(id) ? ids.filter(v => v !== id) : [...ids, id]);
@@ -1295,7 +1279,6 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                   <p className="text-[11px] text-slate-400 mt-1">착용 중인 장비는 보호됩니다. 강화석은 30% 확률로 획득합니다.</p>
                 </div>
                 <div className="flex gap-2 text-xs font-extrabold">
-                  <span className="rounded-xl border border-amber-300/50 bg-amber-100 px-3 py-2 text-amber-700 shadow-sm">🪙 {gold.toLocaleString()}</span>
                   <span className="rounded-xl border border-sky-300/50 bg-sky-100 px-3 py-2 text-sky-700 shadow-sm">🔮 {stones}</span>
                 </div>
               </div>
@@ -1307,7 +1290,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                     <div key={grade} className={`rounded-xl border px-3 py-2.5 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
                       <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full ${g.badge}`}>{g.label}</span>
                       <div className={`mt-1 text-xs font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                        🪙 +{reward.gold.toLocaleString()} / 🔮 {reward.stones}개 30%
+                        🔮 {reward.stones}개 30%
                       </div>
                     </div>
                   );
@@ -1362,7 +1345,6 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                   {sortedUnequippedInventory.map(inv => {
                     const item = getItem(inv.itemId);
                     if (!item) return null;
-                    const reward = DISMANTLE_REWARDS[item.grade] || DISMANTLE_REWARDS.common;
                     const selected = selectedDismantleIds.includes(inv.id);
                     return (
                       <div key={inv.id} className={`flex min-w-0 flex-col gap-2 rounded-2xl border p-2 transition-all ${selected ? 'border-cyan-400 bg-cyan-950/30 shadow-[0_0_18px_rgba(34,211,238,0.18)]' : isDark ? 'border-slate-800 bg-slate-950/40' : 'border-slate-200 bg-white'}`}>
@@ -1378,7 +1360,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                         </button>
                         <button onClick={() => openDismantleModal([inv])}
                           className="w-full py-2.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 bg-rose-950/70 hover:bg-rose-700 text-white border border-rose-800/70">
-                          분해 🪙 {reward.gold.toLocaleString()} / 🔮 30%
+                          분해 🔮 30%
                         </button>
                       </div>
                     );
