@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { signInWithPopup } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
@@ -422,6 +422,10 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isIntroOpen, setIsIntroOpen] = useState(false);
+  const [challengePassword, setChallengePassword] = useState('');
+  const [challengeError, setChallengeError] = useState('');
+  const [isChallengeAuthOpen, setIsChallengeAuthOpen] = useState(false);
+  const challengeActionRef = useRef(null);
 
   useEffect(() => {
     const codeFromUrl = new URLSearchParams(window.location.search).get('code');
@@ -510,13 +514,28 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
   };
 
   const runChallengeAction = (action) => {
-    const pw = window.prompt('비밀번호를 입력해 주세요');
-    if (pw === null) return;
-    if (pw !== '0626') {
-      alert('비밀번호가 올바르지 않습니다.');
+    challengeActionRef.current = action;
+    setChallengePassword('');
+    setChallengeError('');
+    setIsChallengeAuthOpen(true);
+  };
+
+  const closeChallengeAuth = () => {
+    setIsChallengeAuthOpen(false);
+    setChallengePassword('');
+    setChallengeError('');
+    challengeActionRef.current = null;
+  };
+
+  const submitChallengeAuth = (event) => {
+    event.preventDefault();
+    if (challengePassword.trim() !== '0626') {
+      setChallengeError('비밀번호가 올바르지 않습니다.');
       return;
     }
-    action();
+    const action = challengeActionRef.current;
+    closeChallengeAuth();
+    action?.();
   };
 
   return (
@@ -686,6 +705,51 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
       </div>
 
       <IntroModal open={isIntroOpen} onClose={() => setIsIntroOpen(false)} />
+      {isChallengeAuthOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <form
+            onSubmit={submitChallengeAuth}
+            className="w-full max-w-sm rounded-3xl border border-white/20 bg-slate-950/95 p-6 text-white shadow-2xl"
+          >
+            <h2 className="text-xl font-black">테스트 페이지 비밀번호</h2>
+            <p className="mt-2 text-sm font-bold text-slate-300">
+              안내받은 비밀번호를 입력하면 테스트 페이지로 이동합니다.
+            </p>
+            <input
+              autoFocus
+              value={challengePassword}
+              onChange={(event) => {
+                setChallengePassword(event.target.value.replace(/\D/g, '').slice(0, 4));
+                if (challengeError) setChallengeError('');
+              }}
+              placeholder="4자리 비밀번호"
+              type="password"
+              inputMode="numeric"
+              className="mt-5 w-full rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-center text-lg font-black tracking-[0.35em] outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-500/25"
+            />
+            {challengeError && (
+              <p className="mt-3 rounded-xl bg-rose-500/15 px-3 py-2 text-sm font-bold text-rose-200">
+                {challengeError}
+              </p>
+            )}
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={closeChallengeAuth}
+                className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-black text-slate-100 hover:bg-white/15"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                className="rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-indigo-950/40 hover:bg-indigo-500"
+              >
+                입장하기
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

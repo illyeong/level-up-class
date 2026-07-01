@@ -1,7 +1,15 @@
 import React from 'react';
 import TeacherLayout from './TeacherLayout';
 
-function TeacherLogin({ onStudentTestLogin, onLogout, teacherEmail, selectedClass, onChangeClass, autoOpenBossRaidDemoKey = 0 }) {
+function TeacherLogin({
+  onStudentTestLogin,
+  onLogout,
+  teacherEmail,
+  selectedClass,
+  onChangeClass,
+  autoOpenBossRaidDemoKey = 0,
+  allowBossRaidDemoEntry = false,
+}) {
   return (
     <TeacherLayout
       user={{ email: teacherEmail }}
@@ -10,6 +18,7 @@ function TeacherLogin({ onStudentTestLogin, onLogout, teacherEmail, selectedClas
       selectedClass={selectedClass}
       onChangeClass={onChangeClass}
       autoOpenBossRaidDemoKey={autoOpenBossRaidDemoKey}
+      allowBossRaidDemoEntry={allowBossRaidDemoEntry}
     />
   );
 }

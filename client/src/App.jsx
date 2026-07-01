@@ -520,6 +520,7 @@ function App() {
     const cls = { id: null, teacherUid: 'admin_master_001', schoolName: '교사 테스트 페이지' };
     setSelectedClass(cls);
     sessionStorage.setItem('selectedClass', JSON.stringify(cls));
+    setAutoOpenBossRaidDemoKey(0);
     setAppMode('teacher');
   };
 
@@ -891,6 +892,7 @@ function App() {
             setAppMode('classSelect');
           }}
           autoOpenBossRaidDemoKey={autoOpenBossRaidDemoKey}
+          allowBossRaidDemoEntry={autoOpenBossRaidDemoKey > 0}
         />
       </div>
     );

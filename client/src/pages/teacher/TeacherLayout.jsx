@@ -108,7 +108,15 @@ const KOREAN_TEACHER_MENU_LABELS = {
   inquiry: '건의 및 문의하기',
 };
 
-function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onChangeClass, autoOpenBossRaidDemoKey = 0 }) {
+function TeacherLayout({
+  user,
+  onLogout,
+  onStudentTestLogin,
+  selectedClass,
+  onChangeClass,
+  autoOpenBossRaidDemoKey = 0,
+  allowBossRaidDemoEntry = false,
+}) {
   const [currentView, setCurrentView]   = useState('dashboard');
   const [quizCreationDraft, setQuizCreationDraft] = useState(null);
   const [teacherThemeMode, setTeacherThemeMode] = useState(() => localStorage.getItem('teacherThemeMode') || 'light');
@@ -132,7 +140,9 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
     try { return JSON.parse(sessionStorage.getItem('dismissedNotices') || '[]'); } catch { return []; }
   });
   const currentTeacherEmail = normalizeTeacherEmail(user?.email);
-  const canUseBossRaidDemo = currentTeacherEmail === BOSS_RAID_DEMO_ALLOWED_TEACHER_EMAIL;
+  const canUseBossRaidDemo =
+    allowBossRaidDemoEntry || currentTeacherEmail === BOSS_RAID_DEMO_ALLOWED_TEACHER_EMAIL;
+  const shouldShowBossRaidDemoButton = currentTeacherEmail === BOSS_RAID_DEMO_ALLOWED_TEACHER_EMAIL;
 
   useEffect(() => {
     getDocs(query(collection(db, 'notices'), where('active', '==', true)))
@@ -462,7 +472,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
             selectedClass={selectedClass}
             onGoAccountIssue={() => setCurrentView('accountIssue')}
             onOpenBossRaidDemo={openBossRaidDemo}
-            canUseBossRaidDemo={canUseBossRaidDemo}
+            canUseBossRaidDemo={shouldShowBossRaidDemoButton}
             isDark={isDark}
             operationMode={operationMode}
             onApplyOperationMode={applyOperationMode}
