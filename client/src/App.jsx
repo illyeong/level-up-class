@@ -1274,7 +1274,13 @@ function App() {
       )}
 
       {showStudentNav && (
-        <NavigationBar changeView={setCurrentView} currentView={currentView} classInfo={studentClassInfo} hiddenMenuIds={effectiveHiddenStudentMenuIds} />
+        <NavigationBar
+          changeView={setCurrentView}
+          currentView={currentView}
+          classInfo={studentClassInfo}
+          hiddenMenuIds={effectiveHiddenStudentMenuIds}
+          onLogout={handleLogout}
+        />
       )}
       {!showStudentNav && (
         <button
@@ -1355,14 +1361,6 @@ function App() {
         {currentView === 'gachaBox'     && <GachaBox     studentCode={activeStudentCode} />}
         {currentView === 'aiCourseware' && <AICourseware studentCode={activeStudentCode} themeMode={themeMode} />}
       </main>
-
-      {/* 로그아웃 버튼 */}
-      <button
-        onClick={handleLogout}
-        className="absolute bottom-2 left-2 text-slate-300 hover:text-rose-400 transition-colors z-50 p-2 text-xs font-bold"
-        title="로그아웃">
-        🚪
-      </button>
     </div>
   );
 }

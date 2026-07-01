@@ -5,7 +5,7 @@ import iconDashboard from '../assets/images/icon-dashboard.png';
 import iconQuest from '../assets/images/icon-quest.png';
 import iconAdventure from '../assets/images/icon-adventure.png';
 
-const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] }) => {
+const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [], onLogout }) => {
   const { t } = useTranslation();
   
   const [isSidebarOpen, setSidebarOpen] = useState(() =>
@@ -222,7 +222,11 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [] 
       </ul>
 
       <div className="p-4 border-t border-indigo-900 shrink-0">
-        <button className="flex items-center w-full p-3 text-indigo-300 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors group">
+        <button
+          type="button"
+          onClick={onLogout}
+          className="flex items-center w-full p-3 text-indigo-300 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors group"
+        >
           <span className="text-2xl group-hover:scale-110 transition-transform inline-block w-8 text-center">🚪</span>
           {isSidebarOpen && <span className="ml-4 font-bold text-sm">{t('common.logout', '로그아웃')}</span>}
         </button>
