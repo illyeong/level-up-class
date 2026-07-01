@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy,
-  doc, serverTimestamp,
+  doc, serverTimestamp, arrayUnion,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -99,13 +99,22 @@ const fmtDate = (ts) => {
 };
 
 // ── 댓글 컴포넌트 ──────────────────────────────────────────────
-function CommentSection({ post, boardId, student }) {
+function CommentSection({ post, boardId, student, onCommentsChange }) {
   const [text, setText]           = useState('');
   const [saving, setSaving]       = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText]   = useState('');
   const [localComments, setLocalComments] = useState(post.comments || []);
   const postRef = doc(db, 'boards', boardId, 'posts', post.id);
+
+  useEffect(() => {
+    setLocalComments(post.comments || []);
+  }, [post.id, post.comments]);
+
+  const applyComments = (nextComments) => {
+    setLocalComments(nextComments);
+    onCommentsChange?.(post.id, nextComments);
+  };
 
   const submitComment = async () => {
     if (!text.trim() || !student) return;
@@ -117,9 +126,9 @@ function CommentSection({ post, boardId, student }) {
         characterImage: student.characterImage || '',
         text: text.trim(), createdAt: new Date().toISOString(),
       };
-      const updated = [...localComments, newComment];
-      await updateDoc(postRef, { comments: updated });
-      setLocalComments(updated); post.comments = updated; setText('');
+      await updateDoc(postRef, { comments: arrayUnion(newComment) });
+      applyComments([...localComments, newComment]);
+      setText('');
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
   };
@@ -127,14 +136,15 @@ function CommentSection({ post, boardId, student }) {
   const deleteComment = async (id) => {
     const updated = localComments.filter(c => c.id !== id);
     await updateDoc(postRef, { comments: updated });
-    setLocalComments(updated); post.comments = updated;
+    applyComments(updated);
   };
 
   const saveEdit = async (id) => {
     if (!editText.trim()) return;
     const updated = localComments.map(c => c.id === id ? { ...c, text: editText.trim() } : c);
     await updateDoc(postRef, { comments: updated });
-    setLocalComments(updated); post.comments = updated; setEditingId(null);
+    applyComments(updated);
+    setEditingId(null);
   };
 
   return (
@@ -196,7 +206,7 @@ function CommentSection({ post, boardId, student }) {
 }
 
 // ── 게시물 카드 ────────────────────────────────────────────────
-function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinned, onDelete, onEditRequest, onImageClick }) {
+function PostCard({ post, idx = 0, studentId, student, boardId, onReact, onCommentsChange, isPinned, onDelete, onEditRequest, onImageClick }) {
   const isMyPost = post.studentId && post.studentId === studentId;
 
   const reactionCounts = {};
@@ -270,7 +280,7 @@ function PostCard({ post, idx = 0, studentId, student, boardId, onReact, isPinne
             );
           })}
         </div>
-        <CommentSection post={post} boardId={boardId} student={student} />
+        <CommentSection post={post} boardId={boardId} student={student} onCommentsChange={onCommentsChange} />
     </div>
   );
 }
@@ -586,6 +596,10 @@ export default function LearningBoard({ studentCode }) {
     } catch (e) { console.error(e); }
   };
 
+  const handleCommentsChange = (postId, comments) => {
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments } : p));
+  };
+
   // ── 정렬 + 검색 + 핀 ──────────────────────────────────────────
   const filteredPosts = posts
     .filter(p => !selectedSheetId || (p.sheetId || 'sheet_1') === selectedSheetId)
@@ -601,7 +615,7 @@ export default function LearningBoard({ studentCode }) {
 
   const postCardProps = (post, idx = 0) => ({
     post, studentId: student?.id, student, boardId: selectedBoard?.id,
-    onReact: handleReact, isPinned: post.pinned, onDelete: handleDeletePost, onEditRequest: openEditPost,
+    onReact: handleReact, onCommentsChange: handleCommentsChange, isPinned: post.pinned, onDelete: handleDeletePost, onEditRequest: openEditPost,
     idx, onImageClick: setLightboxSrc,
   });
 

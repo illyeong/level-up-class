@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
-  doc, serverTimestamp, query, where, orderBy,
+  doc, serverTimestamp, query, where, orderBy, arrayUnion,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
+const REACTIONS = ['👍', '❤️', '👏', '🔥'];
 const BOARD_TYPES = [
   {
     id: 'vertical-group', label: '세로그룹형',
@@ -166,6 +167,8 @@ export default function BoardManage({ selectedClass, user }) {
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [hasNewPosts, setHasNewPosts] = useState(false);
   const latestPostIdRef = useRef(null);
+  const [commentDrafts, setCommentDrafts] = useState({});
+  const [commentSavingId, setCommentSavingId] = useState(null);
 
   // write
   const [showWrite, setShowWrite]   = useState(false);
@@ -523,6 +526,52 @@ export default function BoardManage({ selectedClass, user }) {
   };
 
   // ── Leaflet map init ──────────────────────────────────────────
+  const teacherReactionId = `teacher_${String(selectedClass?.teacherUid || user?.uid || 'unknown').replace(/[.~*\/[\]]/g, '_')}`;
+  const teacherDisplayName = user?.displayName || user?.email || '선생님';
+
+  const handleTeacherReact = async (post, emoji) => {
+    if (!selectedBoard?.id || !post?.id) return;
+    const currentReactions = post.reactions || {};
+    const nextReactions = { ...currentReactions };
+    if (nextReactions[teacherReactionId] === emoji) delete nextReactions[teacherReactionId];
+    else nextReactions[teacherReactionId] = emoji;
+
+    try {
+      await updateDoc(doc(db, 'boards', selectedBoard.id, 'posts', post.id), { reactions: nextReactions });
+      const applyUpdate = (p) => p.id === post.id ? { ...p, reactions: nextReactions } : p;
+      setPosts(prev => prev.map(applyUpdate));
+      setSelectedMapPost(prev => prev?.id === post.id ? { ...prev, reactions: nextReactions } : prev);
+    } catch {
+      showToast('반응 저장에 실패했습니다.', 'error');
+    }
+  };
+
+  const submitTeacherComment = async (post) => {
+    const text = (commentDrafts[post.id] || '').trim();
+    if (!selectedBoard?.id || !post?.id || !text) return;
+    const newComment = {
+      id: `${Date.now()}_${teacherReactionId}`,
+      authorId: teacherReactionId,
+      authorName: teacherDisplayName,
+      characterImage: '',
+      text,
+      createdAt: new Date().toISOString(),
+    };
+
+    setCommentSavingId(post.id);
+    try {
+      await updateDoc(doc(db, 'boards', selectedBoard.id, 'posts', post.id), { comments: arrayUnion(newComment) });
+      const nextComments = [...(post.comments || []), newComment];
+      const applyUpdate = (p) => p.id === post.id ? { ...p, comments: nextComments } : p;
+      setPosts(prev => prev.map(applyUpdate));
+      setSelectedMapPost(prev => prev?.id === post.id ? { ...prev, comments: nextComments } : prev);
+      setCommentDrafts(prev => ({ ...prev, [post.id]: '' }));
+    } catch {
+      showToast('댓글 저장에 실패했습니다.', 'error');
+    } finally {
+      setCommentSavingId(null);
+    }
+  };
   useEffect(() => {
     if (!selectedBoard || selectedBoard.boardType !== 'map' || loadingPosts) {
       if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
@@ -668,18 +717,27 @@ export default function BoardManage({ selectedClass, user }) {
         {post.createdAt?.toDate?.()?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || ''}
       </div>
       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-        {(() => {
+        {REACTIONS.map(emoji => {
           const counts = {};
           Object.values(post.reactions || {}).forEach(e => { if (e) counts[e] = (counts[e] || 0) + 1; });
-          const entries = Object.entries(counts);
-          return entries.length > 0 ? entries.map(([emoji, count]) => (
-            <span key={emoji} className="flex items-center gap-0.5 text-xs bg-white/70 rounded-full px-1.5 py-0.5 border border-slate-200 dark:bg-slate-950/70 dark:border-slate-600 dark:text-slate-100">
-              {emoji} <span className="font-bold text-slate-600 dark:text-slate-300">{count}</span>
-            </span>
-          )) : (
-            <span className="text-xs font-bold text-slate-400 dark:text-slate-500">반응 없음</span>
+          const count = counts[emoji] || 0;
+          const isMine = post.reactions?.[teacherReactionId] === emoji;
+          return (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => handleTeacherReact(post, emoji)}
+              className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-bold border transition-colors active:scale-95 ${
+                isMine
+                  ? 'border-indigo-300 bg-indigo-100 text-indigo-700 dark:border-indigo-400/70 dark:bg-indigo-500/20 dark:text-indigo-100'
+                  : 'border-slate-200 bg-white/70 text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-800'
+              }`}
+            >
+              <span>{emoji}</span>
+              {count > 0 && <span className={isMine ? 'text-indigo-600 dark:text-indigo-200' : 'text-slate-400 dark:text-slate-300'}>{count}</span>}
+            </button>
           );
-        })()}
+        })}
       </div>
       <div className="mt-3 border-t border-black/5 pt-3 dark:border-slate-700">
         <div className="mb-1.5 text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
@@ -709,6 +767,28 @@ export default function BoardManage({ selectedClass, user }) {
         ) : (
           <div className="text-xs font-bold text-slate-400 dark:text-slate-500">댓글 없음</div>
         )}
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            value={commentDrafts[post.id] || ''}
+            onChange={e => setCommentDrafts(prev => ({ ...prev, [post.id]: e.target.value }))}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitTeacherComment(post);
+              }
+            }}
+            placeholder="댓글 입력..."
+            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white/70 px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-400 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
+          />
+          <button
+            type="button"
+            onClick={() => submitTeacherComment(post)}
+            disabled={commentSavingId === post.id || !(commentDrafts[post.id] || '').trim()}
+            className="rounded-xl px-3 py-1.5 text-xs font-extrabold text-indigo-600 hover:bg-indigo-50 disabled:opacity-40 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+          >
+            {commentSavingId === post.id ? '...' : '등록'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1002,6 +1082,71 @@ export default function BoardManage({ selectedClass, user }) {
                         📎 {selectedMapPost.attachment.name}
                       </a>
                     )}
+                  </div>
+                  <div className="mt-3 rounded-2xl border border-slate-200 bg-white/80 p-3 dark:bg-slate-950/70 dark:border-slate-700">
+                    <div className="mb-2 flex flex-wrap gap-1.5">
+                      {REACTIONS.map(emoji => {
+                        const counts = {};
+                        Object.values(selectedMapPost.reactions || {}).forEach(e => { if (e) counts[e] = (counts[e] || 0) + 1; });
+                        const count = counts[emoji] || 0;
+                        const isMine = selectedMapPost.reactions?.[teacherReactionId] === emoji;
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleTeacherReact(selectedMapPost, emoji)}
+                            className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-bold border transition-colors active:scale-95 ${
+                              isMine
+                                ? 'border-indigo-300 bg-indigo-100 text-indigo-700 dark:border-indigo-400/70 dark:bg-indigo-500/20 dark:text-indigo-100'
+                                : 'border-slate-200 bg-white/70 text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-800'
+                            }`}
+                          >
+                            <span>{emoji}</span>
+                            {count > 0 && <span className={isMine ? 'text-indigo-600 dark:text-indigo-200' : 'text-slate-400 dark:text-slate-300'}>{count}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="mb-1.5 text-[11px] font-extrabold text-slate-500 dark:text-slate-400">
+                      💬 댓글 {(selectedMapPost.comments || []).length}개
+                    </div>
+                    {(selectedMapPost.comments || []).length > 0 && (
+                      <div className="mb-2 space-y-2">
+                        {(selectedMapPost.comments || []).map(c => (
+                          <div key={c.id} className="rounded-xl bg-slate-50 px-2.5 py-1.5 dark:bg-slate-900 dark:border dark:border-slate-700">
+                            <div className="mb-0.5 flex items-center gap-2">
+                              <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-200">{c.authorName}</span>
+                              <span className="text-[10px] text-slate-400">
+                                {c.createdAt ? new Date(c.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap break-words dark:text-slate-300">{c.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={commentDrafts[selectedMapPost.id] || ''}
+                        onChange={e => setCommentDrafts(prev => ({ ...prev, [selectedMapPost.id]: e.target.value }))}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            submitTeacherComment(selectedMapPost);
+                          }
+                        }}
+                        placeholder="댓글 입력..."
+                        className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white/70 px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-400 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => submitTeacherComment(selectedMapPost)}
+                        disabled={commentSavingId === selectedMapPost.id || !(commentDrafts[selectedMapPost.id] || '').trim()}
+                        className="rounded-xl px-3 py-1.5 text-xs font-extrabold text-indigo-600 hover:bg-indigo-50 disabled:opacity-40 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+                      >
+                        {commentSavingId === selectedMapPost.id ? '...' : '등록'}
+                      </button>
+                    </div>
                   </div>
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     <button
