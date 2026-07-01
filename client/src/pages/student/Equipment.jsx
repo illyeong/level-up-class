@@ -108,8 +108,8 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
   // ── compact=true : 기존 세로 레이아웃 유지 ──
   return (
     <button onClick={onClick}
-      className={`relative flex flex-col items-center rounded-2xl border-2 transition-all active:scale-95
-        ${g.border} ${g.bg} p-2 gap-1
+      className={`relative flex w-full min-h-[230px] flex-col items-center justify-start rounded-2xl border-2 transition-all active:scale-95
+        ${g.border} ${g.bg} p-2.5 gap-1.5
         ${isEquipped ? 'ring-2 ring-indigo-500 ring-offset-2 shadow-lg' : 'hover:shadow-md hover:-translate-y-0.5'}
         ${item.grade === 'legendary' ? 'shadow-amber-100 shadow-md' : ''}
         ${item.grade === 'epic'      ? 'shadow-violet-100 shadow-md' : ''}`}>
@@ -119,17 +119,17 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
       {isEquipped && (
         <span className="absolute top-1 left-1 text-[8px] bg-indigo-600 text-white px-1.5 py-0.5 rounded-full font-bold">착용</span>
       )}
-      <div className="w-20 h-20 flex items-center justify-center">
+      <div className="w-24 h-24 flex items-center justify-center">
         {item.image
           ? <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-sm" />
           : <span className="text-4xl">{SLOTS.find(s => s.key === item.type)?.icon || '🗡️'}</span>}
       </div>
-      <div className="font-extrabold text-slate-800 truncate w-full text-center leading-tight text-[11px]">
+      <div className="font-extrabold text-slate-800 line-clamp-2 min-h-[30px] w-full text-center leading-tight text-xs">
         {item.name}
       </div>
       <Stars count={stars} size="sm" />
       {statEntries.length > 0 && (
-        <div className="w-full space-y-0.5 border-t border-slate-200/70 pt-1 mt-0.5">
+        <div className="w-full space-y-0.5 border-t border-slate-200/70 pt-1.5 mt-0.5">
           {statEntries.map(([key, meta]) => {
             const base  = item.stats[key];
             const total = base + enhBonus;
@@ -139,9 +139,9 @@ export function EquipCard({ item, stars = 0, isEquipped, onClick, compact = fals
                   {meta.img
                     ? <img src={meta.img} alt="" className="w-3 h-3 object-contain" />
                     : <span className="text-[9px]">{meta.icon}</span>}
-                  <span className="text-slate-500 text-[7px]">{meta.label}</span>
+                  <span className="text-slate-500 text-[9px]">{meta.label}</span>
                 </div>
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-0.5 shrink-0">
                   <span className="font-extrabold text-indigo-600 text-[10px]">+{total}</span>
                   {enhBonus > 0 && (
                     <span className="text-amber-500 font-bold text-[7px]">(★+{enhBonus})</span>
@@ -1288,23 +1288,23 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
 
         {tab === 'forge' && (
           <div className="space-y-4">
-            <div className={`rounded-3xl shadow-sm border p-4 ${isDark ? 'bg-slate-900/80 border-slate-700' : 'bg-white border-slate-200'}`}>
-              <div className="flex items-center justify-between mb-3">
+            <div className={`rounded-2xl border p-4 sm:p-5 ${isDark ? 'bg-slate-950/95 border-cyan-900/60 shadow-[0_0_0_1px_rgba(34,211,238,0.08)]' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
                 <div>
                   <h3 className={`font-extrabold text-sm ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>⚒️ 장비 분해소</h3>
                   <p className="text-[11px] text-slate-400 mt-1">착용 중인 장비는 보호됩니다. 강화석은 30% 확률로 획득합니다.</p>
                 </div>
                 <div className="flex gap-2 text-xs font-extrabold">
-                  <span className="rounded-lg bg-amber-100 px-2.5 py-1.5 text-amber-700">🪙 {gold.toLocaleString()}</span>
-                  <span className="rounded-lg bg-sky-100 px-2.5 py-1.5 text-sky-700">🔮 {stones}</span>
+                  <span className="rounded-xl border border-amber-300/50 bg-amber-100 px-3 py-2 text-amber-700 shadow-sm">🪙 {gold.toLocaleString()}</span>
+                  <span className="rounded-xl border border-sky-300/50 bg-sky-100 px-3 py-2 text-sky-700 shadow-sm">🔮 {stones}</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mb-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
                 {Object.entries(DISMANTLE_REWARDS).map(([grade, reward]) => {
                   const g = GRADE[grade] || GRADE.common;
                   return (
-                    <div key={grade} className={`rounded-xl border px-3 py-2 ${isDark ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-slate-50'}`}>
+                    <div key={grade} className={`rounded-xl border px-3 py-2.5 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
                       <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full ${g.badge}`}>{g.label}</span>
                       <div className={`mt-1 text-xs font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                         🪙 +{reward.gold.toLocaleString()} / 🔮 {reward.stones}개 30%
@@ -1315,17 +1315,17 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
               </div>
 
               {unequippedInventory.length > 0 && (
-                <div className={`mb-4 rounded-2xl border p-3 ${isDark ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-slate-50'}`}>
-                  <div className="mb-2 flex items-center justify-between gap-2">
+                <div className={`mb-4 rounded-2xl border p-3.5 ${isDark ? 'border-cyan-800/70 bg-cyan-950/20' : 'border-cyan-200 bg-cyan-50'}`}>
+                  <div className="mb-3 flex items-center justify-between gap-2">
                     <div>
                       <div className={`text-xs font-extrabold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>일괄분해 선택</div>
                       <div className="text-[11px] font-bold text-slate-400">등급이 섞여도 한 번에 분해할 수 있습니다.</div>
                     </div>
-                    <div className="text-xs font-extrabold text-cyan-400">{selectedDismantleItems.length}개 선택</div>
+                    <div className="rounded-full border border-cyan-400/40 bg-cyan-400/10 px-3 py-1 text-xs font-extrabold text-cyan-300">{selectedDismantleItems.length}개 선택</div>
                   </div>
-                  <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
+                  <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
                     <button onClick={() => setSelectedDismantleIds(sortedUnequippedInventory.map(inv => inv.id))}
-                      className="shrink-0 rounded-lg border border-slate-600 bg-slate-900 px-2.5 py-1.5 text-[11px] font-extrabold text-white hover:bg-slate-700">
+                      className="shrink-0 rounded-lg border border-cyan-600/60 bg-slate-950 px-3 py-2 text-[11px] font-extrabold text-white hover:bg-cyan-950">
                       전체
                     </button>
                     {['legendary', 'epic', 'rare', 'common'].map(grade => {
@@ -1339,12 +1339,12 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                       );
                     })}
                     <button onClick={() => setSelectedDismantleIds([])}
-                      className="shrink-0 rounded-lg border border-slate-600 bg-slate-900 px-2.5 py-1.5 text-[11px] font-extrabold text-slate-300 hover:bg-slate-700">
+                      className="shrink-0 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-[11px] font-extrabold text-slate-300 hover:bg-slate-800">
                       해제
                     </button>
                   </div>
                   <button onClick={() => openDismantleModal(selectedDismantleItems)} disabled={selectedDismantleItems.length === 0}
-                    className={`w-full rounded-xl py-2.5 text-xs font-extrabold transition-all active:scale-95
+                    className={`w-full rounded-xl py-3 text-sm font-extrabold transition-all active:scale-95
                       ${selectedDismantleItems.length > 0
                         ? 'bg-gradient-to-r from-rose-600 to-orange-600 text-white shadow-lg shadow-rose-950/30 hover:from-rose-500 hover:to-orange-500'
                         : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
@@ -1358,26 +1358,26 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                   분해할 수 있는 장비가 없습니다
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4 items-stretch">
                   {sortedUnequippedInventory.map(inv => {
                     const item = getItem(inv.itemId);
                     if (!item) return null;
                     const reward = DISMANTLE_REWARDS[item.grade] || DISMANTLE_REWARDS.common;
                     const selected = selectedDismantleIds.includes(inv.id);
                     return (
-                      <div key={inv.id} className="flex flex-col gap-1.5">
-                        <div className={`rounded-2xl transition-all ${selected ? 'ring-2 ring-cyan-400 ring-offset-2 ring-offset-slate-900' : ''}`}>
+                      <div key={inv.id} className={`flex min-w-0 flex-col gap-2 rounded-2xl border p-2 transition-all ${selected ? 'border-cyan-400 bg-cyan-950/30 shadow-[0_0_18px_rgba(34,211,238,0.18)]' : isDark ? 'border-slate-800 bg-slate-950/40' : 'border-slate-200 bg-white'}`}>
+                        <div className={`rounded-2xl transition-all ${selected ? 'ring-2 ring-cyan-400' : ''}`}>
                           <EquipCard item={item} stars={inv.stars} compact onClick={() => toggleDismantleSelection(inv.id)} />
                         </div>
                         <button onClick={() => toggleDismantleSelection(inv.id)}
-                          className={`w-full py-2 rounded-xl text-xs font-extrabold transition-all active:scale-95 border
+                          className={`w-full py-2.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 border
                             ${selected
                               ? 'bg-cyan-600 text-white border-cyan-500'
                               : 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800'}`}>
                           {selected ? '선택됨' : '선택'}
                         </button>
                         <button onClick={() => openDismantleModal([inv])}
-                          className="w-full py-2.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 bg-slate-800 hover:bg-rose-700 text-white border border-slate-700">
+                          className="w-full py-2.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 bg-rose-950/70 hover:bg-rose-700 text-white border border-rose-800/70">
                           분해 🪙 {reward.gold.toLocaleString()} / 🔮 30%
                         </button>
                       </div>
