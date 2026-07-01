@@ -11,12 +11,33 @@ const getSeatNum = (code) => {
   return match ? parseInt(match[1], 10) : 0;
 };
 
-// 기존 학생코드에서 prefix 추출 (예: "SINSEOK-5-01" → "SINSEOK-5")
-const getPrefix = (students) => {
-  if (students.length === 0) return 'SINSEOK-5';
-  const code = students[0].studentCode || '';
-  const parts = code.split('-');
-  return parts.slice(0, parts.length - 1).join('-') || 'SINSEOK-5';
+const getSchoolAbbr = (name = '') =>
+  name.replace(/초등학교$/, '').replace(/중학교$/, '').replace(/고등학교$/, '').replace(/학교$/, '');
+
+const getClassCodePrefix = (selectedClass, students = []) => {
+  if (students.length > 0) {
+    const code = students[0].studentCode || '';
+    if (code.includes('-')) {
+      const parts = code.split('-');
+      return parts.slice(0, parts.length - 1).join('-') || null;
+    }
+    return code.slice(0, -2) || null;
+  }
+
+  const schoolAbbr = getSchoolAbbr(selectedClass?.schoolName || '');
+  const grade = selectedClass?.grade;
+  const classNumber = selectedClass?.classNumber;
+
+  return schoolAbbr && grade && classNumber
+    ? `${schoolAbbr}${grade}${String(classNumber).padStart(2, '0')}`
+    : null;
+};
+
+const makeStudentCode = (selectedClass, students, seatNum) => {
+  const prefix = getClassCodePrefix(selectedClass, students);
+  if (!prefix) return '';
+  const padded = String(seatNum).padStart(2, '0');
+  return prefix.includes('-') ? `${prefix}-${padded}` : `${prefix}${padded}`;
 };
 
 function AccountIssue({ user, selectedClass }) {
@@ -37,6 +58,7 @@ function AccountIssue({ user, selectedClass }) {
   const [isAdding, setIsAdding]         = useState(false);
   const [toast, setToast]               = useState(null);
   const [confirmState, setConfirmState] = useState(null);
+  const teacherUid = selectedClass?.teacherUid || user?.uid || null;
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -60,7 +82,7 @@ function AccountIssue({ user, selectedClass }) {
     }
   };
 
-  useEffect(() => { fetchStudents(); }, []);
+  useEffect(() => { fetchStudents(); }, [selectedClass?.id, selectedClass?.teacherUid]);
 
   // 편집 시작
   const startEdit = (student, field) => {
@@ -100,10 +122,11 @@ function AccountIssue({ user, selectedClass }) {
       async () => {
         setIsLoading(true);
         try {
+          if (!teacherUid) throw new Error('교사 정보가 없습니다.');
           const batch = writeBatch(db);
           for (let i = 1; i <= studentCount; i++) {
-            const num         = String(i).padStart(2, '0');
-            const studentCode = `SINSEOK-5-${num}`;
+            const studentCode = makeStudentCode(selectedClass, students, i);
+            if (!studentCode) throw new Error('학급 코드 정보를 만들 수 없습니다.');
             const pin         = Math.floor(1000 + Math.random() * 9000).toString();
             const studentRef  = doc(db, 'students', studentCode);
 
@@ -116,10 +139,11 @@ function AccountIssue({ user, selectedClass }) {
               level:      1,
               exp:        0,
               maxExp:     100,
-              parts:      '',
+              parts:      {},
+              characterImage: '',
               tickets:    { dungeon: 3, bossRaid: 1, arena: 5 },
               classId:    selectedClass?.id || null,
-              teacherUid: user.uid,
+              teacherUid,
               createdAt:   serverTimestamp(),
             });
           }
@@ -173,13 +197,14 @@ function AccountIssue({ user, selectedClass }) {
   const addStudent = async () => {
     const num = parseInt(addSeatNum);
     if (!num || num < 1 || num > 99) return showToast('1~99 사이의 번호를 입력해주세요.', 'error');
-    const prefix      = getPrefix(students);
-    const studentCode = `${prefix}-${String(num).padStart(2, '0')}`;
+    const studentCode = makeStudentCode(selectedClass, students, num);
+    if (!studentCode) return showToast('학급 정보를 확인할 수 없어 코드를 만들 수 없습니다.', 'error');
     if (students.some(s => s.studentCode === studentCode)) {
       return showToast(`${studentCode} 코드가 이미 존재합니다.`, 'error');
     }
     setIsAdding(true);
     try {
+      if (!teacherUid) throw new Error('교사 정보가 없습니다.');
       const pin  = newPin();
       const data = {
         studentCode,
@@ -190,10 +215,11 @@ function AccountIssue({ user, selectedClass }) {
         level:      1,
         exp:        0,
         maxExp:     100,
-        parts:      '',
+        parts:      {},
+        characterImage: '',
         tickets:    { dungeon: 3, bossRaid: 1, arena: 5 },
         classId:    selectedClass?.id || null,
-        teacherUid: user.uid,
+        teacherUid,
         createdAt:   serverTimestamp(),
       };
       await setDoc(doc(db, 'students', studentCode), data);
@@ -494,7 +520,7 @@ function AccountIssue({ user, selectedClass }) {
                 {addSeatNum && (
                   <p className="text-xs text-slate-400 mt-1">
                     생성 코드: <span className="font-mono font-bold text-indigo-600">
-                      {getPrefix(students)}-{String(parseInt(addSeatNum) || 0).padStart(2, '0')}
+                      {makeStudentCode(selectedClass, students, parseInt(addSeatNum) || 0)}
                     </span>
                   </p>
                 )}

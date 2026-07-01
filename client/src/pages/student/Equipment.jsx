@@ -21,6 +21,8 @@ const SYNTHESIS_RECIPES = [
   { fromGrade: 'epic', required: 3, toGrade: 'legendary' },
 ];
 
+const DISMANTLE_EFFECT_MS = 3000;
+
 // ── 별 표시 컴포넌트 ──────────────────────────────────────────
 function Stars({ count, total = 5, size = 'md' }) {
   const cls = size === 'lg' ? 'w-8 h-8' : size === 'sm' ? 'w-3.5 h-3.5' : 'w-5 h-5';
@@ -581,6 +583,201 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
+function DismantleModal({ plan, onApply, onClose }) {
+  const [stage, setStage] = useState('confirm');
+  const [error, setError] = useState('');
+  const appliedRef = useRef(false);
+
+  const entries = plan?.entries || [];
+  const totalGold = plan?.totalGold || 0;
+  const totalStones = plan?.totalStones || 0;
+  const possibleStones = plan?.possibleStones || 0;
+  const firstEntry = entries[0];
+  const firstItem = firstEntry?.item;
+  const topEntry = entries.reduce((best, entry) => {
+    const bestOrder = best ? (best.gradeOrder ?? 99) : 99;
+    return entry.gradeOrder < bestOrder ? entry : best;
+  }, null);
+  const topGrade = topEntry?.item?.grade || firstItem?.grade || 'common';
+  const g = GRADE[topGrade] || GRADE.common;
+  const isBatch = entries.length > 1;
+
+  useEffect(() => {
+    if (stage !== 'processing') return undefined;
+    const t = setTimeout(async () => {
+      if (appliedRef.current) return;
+      appliedRef.current = true;
+      try {
+        await onApply(plan);
+        setStage('result');
+      } catch (e) {
+        console.error(e);
+        setError('분해 처리 중 오류가 발생했습니다.');
+        setStage('confirm');
+        appliedRef.current = false;
+      }
+    }, DISMANTLE_EFFECT_MS);
+    return () => clearTimeout(t);
+  }, [onApply, plan, stage]);
+
+  if (!plan || entries.length === 0) return null;
+
+  return (
+    <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/75 backdrop-blur-sm px-4">
+      <style>{`
+        @keyframes dismantlePulse { 0%,100% { transform: scale(1); opacity:.75; } 50% { transform: scale(1.12); opacity:1; } }
+        @keyframes dismantleSpin { to { transform: rotate(360deg); } }
+        @keyframes dismantleShake { 0%,100% { transform: translate(0,0) rotate(0deg); } 20% { transform: translate(-3px,2px) rotate(-2deg); } 40% { transform: translate(4px,-2px) rotate(2deg); } 60% { transform: translate(-2px,-3px) rotate(1deg); } 80% { transform: translate(3px,3px) rotate(-1deg); } }
+        @keyframes dismantleShard { 0% { transform: translate(0,0) scale(.4); opacity:0; } 25% { opacity:1; } 100% { transform: translate(var(--dx), var(--dy)) scale(1); opacity:0; } }
+        @keyframes dismantleFlash { 0%,75% { opacity:0; } 86% { opacity:.95; } 100% { opacity:0; } }
+        @keyframes dismantleBar { from { width: 0%; } to { width: 100%; } }
+      `}</style>
+      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-600 bg-slate-950 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+          <div>
+            <h2 className="text-lg font-extrabold text-white">장비 분해</h2>
+            <p className="text-xs font-bold text-slate-500">{isBatch ? `${entries.length}개 일괄 분해` : firstItem?.name}</p>
+          </div>
+          {stage !== 'processing' && (
+            <button onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-800 hover:text-white">
+              ×
+            </button>
+          )}
+        </div>
+
+        <div className="p-5">
+          <div className={`relative mb-4 flex min-h-[260px] items-center justify-center overflow-hidden rounded-3xl border ${g.border} bg-slate-900`}>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(251,191,36,0.18),transparent_55%)]" />
+            <div className="absolute h-44 w-44 rounded-full border border-amber-300/30"
+              style={{ animation: stage === 'processing' ? 'dismantleSpin 2.4s linear infinite' : 'dismantlePulse 2s ease-in-out infinite' }} />
+            <div className="absolute h-32 w-32 rounded-full border border-cyan-300/25"
+              style={{ animation: stage === 'processing' ? 'dismantleSpin 1.5s linear infinite reverse' : 'dismantlePulse 2.4s ease-in-out infinite' }} />
+
+            {stage === 'processing' && Array.from({ length: topGrade === 'legendary' ? 30 : topGrade === 'epic' ? 24 : 18 }, (_, i) => {
+              const angle = (i / 30) * Math.PI * 2;
+              const distance = 80 + (i % 5) * 15;
+              const dx = `${Math.cos(angle) * distance}px`;
+              const dy = `${Math.sin(angle) * distance}px`;
+              return (
+                <span key={i}
+                  className="absolute h-2 w-2 rounded-sm bg-amber-300 shadow-lg shadow-amber-400/50"
+                  style={{
+                    '--dx': dx,
+                    '--dy': dy,
+                    left: '50%',
+                    top: '50%',
+                    animation: `dismantleShard 1.1s ease-out ${0.18 + (i % 10) * 0.08}s infinite`,
+                  }} />
+              );
+            })}
+
+            {stage === 'processing' && totalStones > 0 && Array.from({ length: 10 }, (_, i) => (
+              <span key={`crystal-${i}`}
+                className="absolute h-2.5 w-2.5 rounded-full bg-cyan-300 shadow-lg shadow-cyan-300/70"
+                style={{
+                  '--dx': `${(i % 2 ? 1 : -1) * (55 + i * 7)}px`,
+                  '--dy': `${-80 + (i % 4) * 22}px`,
+                  left: '50%',
+                  top: '50%',
+                  animation: `dismantleShard 1.25s ease-out ${1.4 + i * 0.06}s infinite`,
+                }} />
+            ))}
+
+            <div className="absolute inset-0 bg-white pointer-events-none" style={{ animation: stage === 'processing' ? 'dismantleFlash 3s ease-out forwards' : 'none' }} />
+
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="mb-4 rounded-full border border-amber-500/40 bg-slate-950 px-4 py-1.5 text-xs font-black tracking-wider text-amber-300 shadow-[0_0_24px_rgba(245,158,11,0.25)]">
+                {stage === 'processing' ? 'DISMANTLING' : stage === 'result' ? 'COMPLETE' : 'READY'}
+              </div>
+              <div className={`relative flex h-28 w-28 items-center justify-center rounded-3xl border-2 bg-white/90 ${g.border}`}
+                style={{ animation: stage === 'processing' ? 'dismantleShake .28s linear infinite' : 'none' }}>
+                {isBatch ? (
+                  <div className="flex flex-col items-center">
+                    <div className="text-4xl">⚒️</div>
+                    <div className="mt-1 rounded-full bg-slate-900 px-2 py-0.5 text-xs font-extrabold text-white">{entries.length}개</div>
+                  </div>
+                ) : firstItem?.image ? (
+                  <img src={firstItem.image} alt="" className="h-full w-full object-contain drop-shadow-md" />
+                ) : (
+                  <span className="text-5xl">{SLOTS.find(s => s.key === firstItem?.type)?.icon || '⚔️'}</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {stage === 'confirm' && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4">
+                <div className="mb-2 flex items-center justify-between text-sm">
+                  <span className="font-bold text-slate-400">분해 대상</span>
+                  <span className="font-extrabold text-white">{entries.length}개</span>
+                </div>
+                <div className="mb-2 flex items-center justify-between text-sm">
+                  <span className="font-bold text-slate-400">확정 골드</span>
+                  <span className="font-extrabold text-amber-300">+{totalGold.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-bold text-slate-400">강화석 기회</span>
+                  <span className="font-extrabold text-cyan-300">최대 {possibleStones}개, 각 장비 30%</span>
+                </div>
+              </div>
+              {error && <div className="rounded-xl border border-rose-700 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300">{error}</div>}
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={onClose}
+                  className="rounded-2xl border border-slate-700 bg-slate-800 py-3.5 text-sm font-extrabold text-slate-300 transition-colors hover:bg-slate-700">
+                  취소
+                </button>
+                <button onClick={() => setStage('processing')}
+                  className="rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-orange-950/40 transition-all active:scale-95">
+                  분해 시작
+                </button>
+              </div>
+            </div>
+          )}
+
+          {stage === 'processing' && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="text-xl font-extrabold text-white">장비를 분해하는 중...</div>
+                <div className="mt-1 text-xs font-bold text-slate-500">제련로가 보상을 추출하고 있습니다</div>
+              </div>
+              <div className="h-7 overflow-hidden rounded-full border border-slate-700 bg-slate-800">
+                <div className="h-full rounded-full bg-gradient-to-r from-amber-500 via-orange-400 to-cyan-300"
+                  style={{ animation: `dismantleBar ${DISMANTLE_EFFECT_MS}ms linear forwards` }} />
+              </div>
+            </div>
+          )}
+
+          {stage === 'result' && (
+            <div className="space-y-4">
+              <div className={`rounded-2xl border p-5 text-center ${totalStones > 0 ? 'border-cyan-500/50 bg-cyan-950/40' : 'border-slate-700 bg-slate-900'}`}>
+                <div className="mb-2 text-4xl">{totalStones > 0 ? '💎' : '🌫️'}</div>
+                <div className="text-2xl font-extrabold text-white">분해 완료</div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-slate-950/70 px-3 py-3">
+                    <div className="text-xs font-bold text-slate-500">골드</div>
+                    <div className="text-lg font-extrabold text-amber-300">+{totalGold.toLocaleString()}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-950/70 px-3 py-3">
+                    <div className="text-xs font-bold text-slate-500">강화석</div>
+                    <div className={`text-lg font-extrabold ${totalStones > 0 ? 'text-cyan-300' : 'text-slate-500'}`}>+{totalStones}</div>
+                  </div>
+                </div>
+                {totalStones === 0 && <p className="mt-3 text-xs font-bold text-slate-500">이번에는 강화석이 나오지 않았습니다.</p>}
+              </div>
+              <button onClick={onClose}
+                className="w-full rounded-2xl bg-slate-700 py-3.5 text-sm font-extrabold text-white transition-colors hover:bg-slate-600">
+                확인
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Equipment({ studentCode, themeMode = 'dark' }) {
   const isDark = themeMode === 'dark';
   const [tab, setTab]             = useState('equip');
@@ -598,6 +795,8 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
   const [slotFilter, setSlotFilter]       = useState('all');
   const [buyQty, setBuyQty]               = useState(1);
   const [confirmBuy, setConfirmBuy]       = useState(false);
+  const [selectedDismantleIds, setSelectedDismantleIds] = useState([]);
+  const [dismantlePlan, setDismantlePlan] = useState(null);
 
   useEffect(() => {
     if (!studentCode) return;
@@ -663,25 +862,52 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
     await updateDoc(doc(db, 'students', studentDocId), { diamonds: newDiamonds, enhancementStones: newStones });
   };
 
-  const dismantleEquipment = useCallback(async (invItem) => {
-    if (!studentDocId || !invItem || Object.values(equipped).includes(invItem.id)) return;
-    const item = allItems.find(i => i.id === invItem.itemId);
-    if (!item) return;
+  const createDismantlePlan = useCallback((items) => {
+    const equippedIds = new Set(Object.values(equipped));
+    const entries = items
+      .filter(inv => inv && !equippedIds.has(inv.id))
+      .map(inv => {
+        const item = allItems.find(i => i.id === inv.itemId);
+        if (!item) return null;
+        const reward = DISMANTLE_REWARDS[item.grade] || DISMANTLE_REWARDS.common;
+        const stoneDropped = Math.random() < STONE_DROP_RATE;
+        const gradeOrder = { legendary: 0, epic: 1, rare: 2, common: 3 }[item.grade] ?? 99;
+        return {
+          inv,
+          item,
+          reward,
+          gradeOrder,
+          earnedGold: reward.gold || 0,
+          earnedStones: stoneDropped ? reward.stones : 0,
+          possibleStones: reward.stones || 0,
+          stoneDropped,
+        };
+      })
+      .filter(Boolean);
 
-    const reward = DISMANTLE_REWARDS[item.grade] || DISMANTLE_REWARDS.common;
-    const hasStoneDrop = Math.random() < STONE_DROP_RATE;
-    const earnedStones = hasStoneDrop ? reward.stones : 0;
-    const earnedGold = reward.gold || 0;
+    if (entries.length === 0) return null;
 
-    if (!window.confirm(`${item.name} 장비를 분해할까요?\n강화석은 30% 확률로 획득합니다.`)) return;
+    return {
+      id: `dismantle_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      entries,
+      totalGold: entries.reduce((sum, entry) => sum + entry.earnedGold, 0),
+      totalStones: entries.reduce((sum, entry) => sum + entry.earnedStones, 0),
+      possibleStones: entries.reduce((sum, entry) => sum + entry.possibleStones, 0),
+    };
+  }, [allItems, equipped]);
 
-    const newInventory = inventory.filter(i => i.id !== invItem.id);
-    const newStones = stones + earnedStones;
-    const newGold = gold + earnedGold;
+  const openDismantleModal = useCallback((items) => {
+    const plan = createDismantlePlan(items);
+    if (!plan) return;
+    setDismantlePlan(plan);
+  }, [createDismantlePlan]);
 
-    setInventory(newInventory);
-    setStones(newStones);
-    setGold(newGold);
+  const applyDismantlePlan = useCallback(async (plan) => {
+    if (!studentDocId || !plan?.entries?.length) return;
+    const consumedIds = new Set(plan.entries.map(entry => entry.inv.id));
+    const newInventory = inventory.filter(inv => !consumedIds.has(inv.id));
+    const newStones = stones + (plan.totalStones || 0);
+    const newGold = gold + (plan.totalGold || 0);
 
     await updateDoc(doc(db, 'students', studentDocId), {
       equipInventory: newInventory,
@@ -689,10 +915,15 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
       gold: newGold,
     });
 
-    alert(earnedStones > 0
-      ? `분해 완료!\n골드 +${earnedGold.toLocaleString()}\n강화석 +${earnedStones}`
-      : `분해 완료!\n골드 +${earnedGold.toLocaleString()}\n강화석은 나오지 않았습니다.`);
-  }, [allItems, equipped, gold, inventory, stones, studentDocId]);
+    setInventory(newInventory);
+    setStones(newStones);
+    setGold(newGold);
+    setSelectedDismantleIds(ids => ids.filter(id => !consumedIds.has(id)));
+  }, [gold, inventory, stones, studentDocId]);
+
+  const toggleDismantleSelection = useCallback((id) => {
+    setSelectedDismantleIds(ids => ids.includes(id) ? ids.filter(v => v !== id) : [...ids, id]);
+  }, []);
 
   const synthesizeEquipment = useCallback(async (recipe) => {
     if (!studentDocId || !recipe) return;
@@ -727,6 +958,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
     ];
 
     setInventory(newInventory);
+    setSelectedDismantleIds(ids => ids.filter(id => !consumedIds.has(id)));
     await updateDoc(doc(db, 'students', studentDocId), { equipInventory: newInventory });
     alert(`합성 성공!\n${resultItem.name}을(를) 획득했습니다.`);
   }, [allItems, equipped, inventory, studentDocId]);
@@ -756,6 +988,14 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
   };
 
   const unequippedInventory = inventory.filter(inv => !isEquippedInv(inv.id));
+  const sortedUnequippedInventory = [...unequippedInventory].sort(sortByGradeDesc);
+  const selectedDismantleItems = sortedUnequippedInventory.filter(inv => selectedDismantleIds.includes(inv.id));
+  const selectDismantleGrade = (grade) => {
+    const ids = sortedUnequippedInventory
+      .filter(inv => getItem(inv.itemId)?.grade === grade)
+      .map(inv => inv.id);
+    setSelectedDismantleIds(ids);
+  };
 
   const slotItems   = selectedSlot
     ? inventory.filter(inv => getItem(inv.itemId)?.type === selectedSlot).sort(sortByGradeDesc)
@@ -1074,20 +1314,69 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                 })}
               </div>
 
+              {unequippedInventory.length > 0 && (
+                <div className={`mb-4 rounded-2xl border p-3 ${isDark ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-slate-50'}`}>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div>
+                      <div className={`text-xs font-extrabold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>일괄분해 선택</div>
+                      <div className="text-[11px] font-bold text-slate-400">등급이 섞여도 한 번에 분해할 수 있습니다.</div>
+                    </div>
+                    <div className="text-xs font-extrabold text-cyan-400">{selectedDismantleItems.length}개 선택</div>
+                  </div>
+                  <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
+                    <button onClick={() => setSelectedDismantleIds(sortedUnequippedInventory.map(inv => inv.id))}
+                      className="shrink-0 rounded-lg border border-slate-600 bg-slate-900 px-2.5 py-1.5 text-[11px] font-extrabold text-white hover:bg-slate-700">
+                      전체
+                    </button>
+                    {['legendary', 'epic', 'rare', 'common'].map(grade => {
+                      const g = GRADE[grade] || GRADE.common;
+                      const count = sortedUnequippedInventory.filter(inv => getItem(inv.itemId)?.grade === grade).length;
+                      return (
+                        <button key={grade} onClick={() => selectDismantleGrade(grade)} disabled={count === 0}
+                          className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-extrabold disabled:cursor-not-allowed disabled:opacity-35 ${g.badge}`}>
+                          {g.label} {count}
+                        </button>
+                      );
+                    })}
+                    <button onClick={() => setSelectedDismantleIds([])}
+                      className="shrink-0 rounded-lg border border-slate-600 bg-slate-900 px-2.5 py-1.5 text-[11px] font-extrabold text-slate-300 hover:bg-slate-700">
+                      해제
+                    </button>
+                  </div>
+                  <button onClick={() => openDismantleModal(selectedDismantleItems)} disabled={selectedDismantleItems.length === 0}
+                    className={`w-full rounded-xl py-2.5 text-xs font-extrabold transition-all active:scale-95
+                      ${selectedDismantleItems.length > 0
+                        ? 'bg-gradient-to-r from-rose-600 to-orange-600 text-white shadow-lg shadow-rose-950/30 hover:from-rose-500 hover:to-orange-500'
+                        : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
+                    선택 장비 {selectedDismantleItems.length}개 일괄분해
+                  </button>
+                </div>
+              )}
+
               {unequippedInventory.length === 0 ? (
                 <div className={`text-center py-10 rounded-2xl border border-dashed ${isDark ? 'border-slate-700 text-slate-400' : 'border-slate-200 text-slate-400'}`}>
                   분해할 수 있는 장비가 없습니다
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-3">
-                  {unequippedInventory.sort(sortByGradeDesc).map(inv => {
+                  {sortedUnequippedInventory.map(inv => {
                     const item = getItem(inv.itemId);
                     if (!item) return null;
                     const reward = DISMANTLE_REWARDS[item.grade] || DISMANTLE_REWARDS.common;
+                    const selected = selectedDismantleIds.includes(inv.id);
                     return (
                       <div key={inv.id} className="flex flex-col gap-1.5">
-                        <EquipCard item={item} stars={inv.stars} compact />
-                        <button onClick={() => dismantleEquipment(inv)}
+                        <div className={`rounded-2xl transition-all ${selected ? 'ring-2 ring-cyan-400 ring-offset-2 ring-offset-slate-900' : ''}`}>
+                          <EquipCard item={item} stars={inv.stars} compact onClick={() => toggleDismantleSelection(inv.id)} />
+                        </div>
+                        <button onClick={() => toggleDismantleSelection(inv.id)}
+                          className={`w-full py-2 rounded-xl text-xs font-extrabold transition-all active:scale-95 border
+                            ${selected
+                              ? 'bg-cyan-600 text-white border-cyan-500'
+                              : 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800'}`}>
+                          {selected ? '선택됨' : '선택'}
+                        </button>
+                        <button onClick={() => openDismantleModal([inv])}
                           className="w-full py-2.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 bg-slate-800 hover:bg-rose-700 text-white border border-slate-700">
                           분해 🪙 {reward.gold.toLocaleString()} / 🔮 30%
                         </button>
@@ -1139,6 +1428,14 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
           </div>
         )}
       </div>
+
+      {dismantlePlan && (
+        <DismantleModal
+          plan={dismantlePlan}
+          onApply={applyDismantlePlan}
+          onClose={() => setDismantlePlan(null)}
+        />
+      )}
 
       {enhanceTarget && (
         <EnhanceModal
