@@ -260,7 +260,7 @@ function AccountIssue({ user, selectedClass }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 p-8">
+    <div className="account-issue-page min-h-screen bg-slate-100 p-8">
       {/* 인쇄 전용 카드 영역 (화면에선 숨김) */}
       <style>{`
         @media print {
@@ -310,7 +310,7 @@ function AccountIssue({ user, selectedClass }) {
       <div className="max-w-5xl mx-auto">
 
         {/* 헤더 */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 border border-slate-200 flex justify-between items-center">
+        <div className="account-issue-header bg-white p-6 rounded-2xl shadow-sm mb-6 border border-slate-200 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">👨‍🎓 학생 계정 발급</h1>
             <p className="text-slate-500 mt-1 text-sm">학생 로그인 코드, PIN, 이름을 관리합니다.</p>
@@ -336,15 +336,15 @@ function AccountIssue({ user, selectedClass }) {
         </div>
 
         {/* 학생 목록 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="account-issue-table bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="account-issue-table-toolbar p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <h2 className="text-lg font-bold text-slate-800">📋 학생 목록 (총 {students.length}명)</h2>
             <p className="text-xs text-slate-400">이름 셀을 클릭하면 수정할 수 있습니다</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
+                <tr className="account-issue-table-head bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
                   <th className="p-4 font-semibold w-16 text-center">번호</th>
                   <th className="p-4 font-semibold">이름</th>
                   <th className="p-4 font-semibold">로그인 코드 (ID)</th>
@@ -362,7 +362,7 @@ function AccountIssue({ user, selectedClass }) {
                     const isEditingName = editingId === student.id && editField === 'name';
 
                     return (
-                      <tr key={student.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                      <tr key={student.id} className="account-issue-row border-b border-slate-100 hover:bg-slate-50 transition-colors">
                         {/* 번호 */}
                         <td className="p-4 text-center font-bold text-slate-500 text-sm">
                           {seatNum}
@@ -379,23 +379,23 @@ function AccountIssue({ user, selectedClass }) {
                                 onKeyDown={handleKeyDown}
                                 onBlur={handleRowBlur}
                                 placeholder="이름 입력"
-                                className="border-2 border-indigo-400 rounded-lg px-3 py-1.5 text-sm w-32 focus:outline-none"
+                                className="account-issue-edit-input border-2 border-indigo-400 rounded-lg px-3 py-1.5 text-sm w-32 focus:outline-none"
                               />
                               <button
                                 onClick={saveEdit}
-                                className="text-xs bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition-colors">
+                                className="account-issue-edit-save text-xs bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition-colors">
                                 저장
                               </button>
                               <button
                                 onClick={() => setEditingId(null)}
-                                className="text-xs text-slate-400 hover:text-slate-600 px-1.5 py-1.5">
+                                className="account-issue-edit-cancel text-xs text-slate-400 hover:text-slate-600 px-1.5 py-1.5">
                                 취소
                               </button>
                             </div>
                           ) : (
                             <button
                               onClick={() => startEdit(student, 'name')}
-                              className="flex items-center gap-2 group w-full text-left">
+                              className="account-issue-name-button flex items-center gap-2 group w-full text-left">
                               <span className={`text-sm font-bold ${student.name ? 'text-slate-800' : 'text-slate-300 italic'}`}>
                                 {student.name || '(미입력)'}
                               </span>
@@ -405,19 +405,19 @@ function AccountIssue({ user, selectedClass }) {
                         </td>
 
                         {/* 로그인 코드 */}
-                        <td className="p-4 font-mono font-medium text-indigo-600 text-sm">
+                        <td className="account-issue-code p-4 font-mono font-medium text-indigo-600 text-sm">
                           {student.studentCode}
                         </td>
 
                         {/* PIN */}
                         <td className="p-4">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-rose-500 tracking-widest text-sm">
+                            <span className="account-issue-pin font-mono font-bold text-rose-500 tracking-widest text-sm">
                               {student.pin || '없음'}
                             </span>
                             <button
                               onClick={() => resetPin(student)}
-                              className="text-[10px] text-slate-400 hover:text-rose-500 hover:bg-rose-50 px-1.5 py-0.5 rounded border border-slate-200 hover:border-rose-200 transition-colors"
+                              className="account-issue-pin-reset text-[10px] text-slate-400 hover:text-rose-500 hover:bg-rose-50 px-1.5 py-0.5 rounded border border-slate-200 hover:border-rose-200 transition-colors"
                               title="PIN 초기화">
                               🔄
                             </button>
@@ -425,12 +425,12 @@ function AccountIssue({ user, selectedClass }) {
                         </td>
 
                         {/* 다이아 */}
-                        <td className="p-4 font-semibold text-slate-700 text-sm">
+                        <td className="account-issue-currency p-4 font-semibold text-slate-700 text-sm">
                           {(student.diamonds || 0).toLocaleString()}
                         </td>
 
                         {/* 골드 */}
-                        <td className="p-4 font-semibold text-slate-700 text-sm">
+                        <td className="account-issue-currency p-4 font-semibold text-slate-700 text-sm">
                           {(student.gold || 0).toLocaleString()}
                         </td>
 
@@ -438,7 +438,7 @@ function AccountIssue({ user, selectedClass }) {
                         <td className="p-4 text-center">
                           <button
                             onClick={() => resetStudentData(student)}
-                            className="text-slate-300 hover:text-amber-500 hover:bg-amber-50 w-8 h-8 rounded-lg flex items-center justify-center mx-auto transition-colors"
+                            className="account-issue-icon-button account-issue-reset-button text-slate-300 hover:text-amber-500 hover:bg-amber-50 w-8 h-8 rounded-lg flex items-center justify-center mx-auto transition-colors"
                             title="데이터 초기화">
                             🔄
                           </button>
@@ -448,7 +448,7 @@ function AccountIssue({ user, selectedClass }) {
                         <td className="p-4 text-center">
                           <button
                             onClick={() => deleteStudent(student)}
-                            className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 w-8 h-8 rounded-lg flex items-center justify-center mx-auto transition-colors"
+                            className="account-issue-icon-button account-issue-delete-button text-slate-300 hover:text-rose-500 hover:bg-rose-50 w-8 h-8 rounded-lg flex items-center justify-center mx-auto transition-colors"
                             title="계정 삭제">
                             🗑️
                           </button>

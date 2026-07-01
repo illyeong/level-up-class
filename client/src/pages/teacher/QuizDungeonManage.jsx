@@ -736,9 +736,9 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
                         </button>
 
                         {isExpanded && (
-                          <div className="border-t border-slate-100">
+                          <div className="quiz-dungeon-result-panel border-t border-slate-100">
                             {wrongSummary.length > 0 && (
-                              <div className="border-b border-slate-100 bg-rose-50/50 p-4">
+                              <div className="quiz-dungeon-wrong-summary border-b border-slate-100 bg-rose-50/50 p-4">
                                 <div className="mb-3 flex items-center justify-between gap-3">
                                   <div>
                                     <p className="text-sm font-extrabold text-slate-800">자주 틀린 문항</p>
@@ -754,7 +754,7 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
                                 </div>
                                 <div className="grid gap-2 md:grid-cols-2">
                                   {wrongSummary.map(item => (
-                                    <div key={item.questionKey || item.question} className="rounded-xl border border-rose-100 bg-white p-3">
+                                    <div key={item.questionKey || item.question} className="quiz-dungeon-wrong-card rounded-xl border border-rose-100 bg-white p-3">
                                       <p className="line-clamp-2 text-xs font-extrabold text-slate-700">{item.question}</p>
                                       <p className="mt-1 text-[11px] font-bold text-rose-500">
                                         오답 {item.count}회 · 학생 {item.students.size}명
@@ -780,14 +780,14 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
                                       <th className="px-3 py-2.5 text-right">날짜</th>
                                     </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-slate-50">
+                                  <tbody className="quiz-dungeon-results-body divide-y divide-slate-50">
                                     {items.map((r, idx) => {
                                       const wrongCount = r.totalQuestions - r.score;
                                       const ts = r.completedAt?.toDate ? r.completedAt.toDate()
                                         : r.completedAt?.seconds ? new Date(r.completedAt.seconds * 1000) : null;
                                       const dateStr = ts ? `${ts.getMonth()+1}/${ts.getDate()} ${ts.getHours()}:${String(ts.getMinutes()).padStart(2,'0')}` : '';
                                       return (
-                                        <tr key={idx} className={`${r.cleared ? 'bg-emerald-50/30' : ''} hover:bg-slate-50`}>
+                                        <tr key={idx} className={`quiz-dungeon-result-row ${r.cleared ? 'quiz-dungeon-result-row-cleared bg-emerald-50/30' : ''} hover:bg-slate-50`}>
                                           <td className="px-4 py-2.5 font-bold text-slate-700">{r.studentName || r.studentCode}</td>
                                           <td className="px-3 py-2.5 text-center font-extrabold text-emerald-600">{r.score}</td>
                                           <td className="px-3 py-2.5 text-center font-extrabold text-rose-500">{wrongCount}</td>
@@ -802,7 +802,7 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
                                               type="button"
                                               disabled={!r.answerDetails?.length}
                                               onClick={() => setSelectedResult(r)}
-                                              className="rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 font-bold text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30"
+                                              className="quiz-dungeon-answer-button rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 font-bold text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30"
                                             >
                                               답안 보기
                                             </button>
@@ -946,15 +946,15 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
             {(selectedResult.answerDetails || []).map((detail, index) => (
               <div
                 key={`${detail.questionKey || detail.question}-${index}`}
-                className={`rounded-2xl border p-4 ${detail.isCorrect ? 'border-emerald-200 bg-emerald-50/50' : 'border-rose-200 bg-rose-50/60'}`}
+                className={`quiz-dungeon-answer-detail-card ${detail.isCorrect ? 'quiz-dungeon-answer-detail-correct border-emerald-200 bg-emerald-50/50' : 'quiz-dungeon-answer-detail-wrong border-rose-200 bg-rose-50/60'} rounded-2xl border p-4`}
               >
                 <div className="mb-2 flex items-start gap-2">
                   <span className={`text-xs font-black ${detail.isCorrect ? 'text-emerald-600' : 'text-rose-600'}`}>
                     Q{detail.questionIndex + 1}
                   </span>
-                  <p className="text-sm font-extrabold text-slate-800">{detail.question}</p>
+                  <p className="quiz-dungeon-answer-question text-sm font-extrabold text-slate-800">{detail.question}</p>
                 </div>
-                <div className="space-y-1 text-xs font-bold">
+                <div className="quiz-dungeon-answer-meta space-y-1 text-xs font-bold">
                   <p className="text-slate-500">학생 답: {detail.selectedAnswer || '선택하지 않음'}</p>
                   <p className="text-emerald-600">정답: {detail.correctAnswer}</p>
                   {detail.explanation && <p className="font-medium text-slate-500">{detail.explanation}</p>}

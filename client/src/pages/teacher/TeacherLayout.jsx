@@ -579,19 +579,19 @@ function TeacherLayout({
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
         {currentView === 'dataReset'       && <DataReset selectedClass={selectedClass} onClassDeleted={onChangeClass} />}
         {currentView === 'systemSettings'  && (
-          <div className="p-6">
-            <div className={`max-w-2xl rounded-2xl border p-5 ${isDark ? 'border-slate-700 bg-slate-800 text-slate-100' : 'border-slate-200 bg-white text-slate-800'}`}>
+          <div className="system-settings-page p-6">
+            <div className={`system-settings-panel max-w-2xl rounded-2xl border p-5 ${isDark ? 'border-slate-700 bg-slate-800 text-slate-100' : 'border-slate-200 bg-white text-slate-800'}`}>
               <h2 className="text-xl font-extrabold mb-4">시스템 설정</h2>
-              <div className="mb-5 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-slate-800">
+              <div className="system-settings-mode-panel mb-5 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-slate-800">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="text-sm font-extrabold text-indigo-800">운영 모드 선택</div>
-                    <p className="mt-1 text-xs font-semibold text-indigo-700">
+                    <div className="system-settings-mode-title text-sm font-extrabold text-indigo-800">운영 모드 선택</div>
+                    <p className="system-settings-mode-description mt-1 text-xs font-semibold text-indigo-700">
                       처음에는 꼭 필요한 기능만 보이고, 학급 운영이 익숙해지면 기능을 확장할 수 있습니다.
                     </p>
                   </div>
                   {operationMode === 'custom' && (
-                    <span className="rounded-full bg-slate-800 px-3 py-1 text-[11px] font-extrabold text-white">직접 설정 중</span>
+                    <span className="system-settings-custom-badge rounded-full bg-slate-800 px-3 py-1 text-[11px] font-extrabold text-white">직접 설정 중</span>
                   )}
                 </div>
                 <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -600,14 +600,14 @@ function TeacherLayout({
                       key={mode}
                       type="button"
                       onClick={() => applyOperationMode(mode)}
-                      className={`rounded-xl border p-3 text-left transition ${
+                      className={`system-settings-mode-card rounded-xl border p-3 text-left transition ${
                         operationMode === mode
-                          ? 'border-indigo-500 bg-white shadow-sm ring-2 ring-indigo-200'
-                          : 'border-indigo-100 bg-white/70 hover:border-indigo-300'
+                          ? 'system-settings-mode-card-active border-indigo-500 bg-white shadow-sm ring-2 ring-indigo-200'
+                          : 'system-settings-mode-card-idle border-indigo-100 bg-white/70 hover:border-indigo-300'
                       }`}
                     >
-                      <div className="text-sm font-extrabold text-slate-900">{preset.title}</div>
-                      <div className="mt-1 text-xs font-semibold leading-relaxed text-slate-500">{preset.description}</div>
+                      <div className="system-settings-mode-card-title text-sm font-extrabold text-slate-900">{preset.title}</div>
+                      <div className="system-settings-mode-card-description mt-1 text-xs font-semibold leading-relaxed text-slate-500">{preset.description}</div>
                     </button>
                   ))}
                 </div>

@@ -1010,6 +1010,161 @@
     background-color: #0f1b2e !important;
 }
 
+/* System settings contains selectable preset cards that default to light
+   surfaces. Normalize them for teacher dark mode. */
+.teacher-theme-dark .system-settings-page {
+    background-color: #080f1f !important;
+    color: #e8eef8;
+}
+
+.teacher-theme-dark .system-settings-panel {
+    background-color: #111e33 !important;
+    border-color: #425a79 !important;
+    color: #e8eef8 !important;
+    box-shadow: 0 12px 28px rgb(0 0 0 / 0.22);
+}
+
+.teacher-theme-dark .system-settings-mode-panel {
+    background-color: #101d31 !important;
+    border-color: #405777 !important;
+    color: #e8eef8 !important;
+}
+
+.teacher-theme-dark .system-settings-mode-title {
+    color: #dbeafe !important;
+}
+
+.teacher-theme-dark .system-settings-mode-description {
+    color: #c7d7ee !important;
+}
+
+.teacher-theme-dark .system-settings-custom-badge {
+    background-color: #0a1424 !important;
+    border: 1px solid #5b7293;
+    color: #f8fafc !important;
+}
+
+.teacher-theme-dark .system-settings-mode-card {
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.teacher-theme-dark .system-settings-mode-card-idle {
+    background-color: #1a2a44 !important;
+    border-color: #5b7293 !important;
+    color: #f8fafc !important;
+}
+
+.teacher-theme-dark .system-settings-mode-card-idle:hover {
+    background-color: #203553 !important;
+    border-color: #93c5fd !important;
+}
+
+.teacher-theme-dark .system-settings-mode-card-active {
+    background-color: #1e1b4b !important;
+    border-color: #818cf8 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 2px rgb(129 140 248 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.08) !important;
+}
+
+.teacher-theme-dark .system-settings-mode-card-title {
+    color: #f8fafc !important;
+}
+
+.teacher-theme-dark .system-settings-mode-card-description {
+    color: #cbd5e1 !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-result-panel {
+    background-color: #0d1728 !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-wrong-summary {
+    background:
+        radial-gradient(circle at 96% 0%, rgb(244 63 94 / 0.14), transparent 18rem),
+        linear-gradient(180deg, #172137 0%, #121b2d 100%) !important;
+    border-color: #405777 !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-wrong-summary .text-slate-400 {
+    color: #bfd0e8 !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-wrong-card {
+    background-color: #0b1526 !important;
+    border-color: #8b314a !important;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.teacher-theme-dark .quiz-dungeon-wrong-card .text-slate-700 {
+    color: #f8fafc !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-results-body > :not([hidden]) ~ :not([hidden]) {
+    border-color: #405777 !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-manage-page tbody tr.quiz-dungeon-result-row-cleared {
+    background-color: #12342e !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-manage-page tbody tr.quiz-dungeon-result-row:hover {
+    background-color: #203553 !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-answer-button {
+    background-color: #1e1b4b !important;
+    border-color: #6366f1 !important;
+    color: #dbeafe !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-answer-button:hover:not(:disabled) {
+    background-color: #312e81 !important;
+    color: #ffffff !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-manage-modal .bg-emerald-50\/50 {
+    background-color: rgb(6 78 59 / 0.45) !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-manage-modal .bg-rose-50\/60 {
+    background-color: rgb(76 20 42 / 0.62) !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-answer-detail-card {
+    color: #eef6ff !important;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 8px 18px rgb(0 0 0 / 0.18);
+}
+
+.teacher-theme-dark .quiz-dungeon-answer-detail-correct {
+    background:
+        radial-gradient(circle at 96% 0%, rgb(16 185 129 / 0.1), transparent 14rem),
+        linear-gradient(180deg, #0d3b36 0%, #0b2f2c 100%) !important;
+    border-color: #1f8a75 !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-answer-detail-wrong {
+    background:
+        radial-gradient(circle at 96% 0%, rgb(251 113 133 / 0.14), transparent 14rem),
+        linear-gradient(180deg, #3b142c 0%, #2d1328 100%) !important;
+    border-color: #be3150 !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-answer-question {
+    color: #f8fafc !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-answer-meta .text-slate-500 {
+    color: #cbd5e1 !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-answer-meta .text-emerald-600 {
+    color: #34d399 !important;
+}
+
+.teacher-theme-dark .quiz-dungeon-answer-detail-wrong .quiz-dungeon-answer-meta .text-slate-500:first-child {
+    color: #fda4af !important;
+}
+
 /* Adventure management is a dense operational page. Keep controls, ticket
    summaries, and student rows visually separated in teacher dark mode. */
 .teacher-theme-dark .adventure-manage-page {
@@ -1082,6 +1237,178 @@
 
 .teacher-theme-dark .adventure-manage-page input::placeholder {
     color: #91a5bf !important;
+}
+
+.teacher-theme-dark .adventure-search-input {
+    background-color: #0a1424 !important;
+    border-color: #5b7293 !important;
+    color: #f8fafc !important;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.teacher-theme-dark .adventure-select-checkbox {
+    accent-color: #6366f1;
+    box-shadow: 0 0 0 1px #64748b;
+}
+
+.teacher-theme-dark .adventure-ticket-stepper {
+    background-color: #0a1424 !important;
+    border: 1px solid #263a57;
+    color: #cfe0f5 !important;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.teacher-theme-dark .adventure-ticket-stepper:hover:not(:disabled) {
+    background-color: #1c3150 !important;
+    border-color: #7dd3fc;
+    color: #ffffff !important;
+}
+
+.teacher-theme-dark .adventure-ticket-stepper-minus:hover:not(:disabled) {
+    border-color: #fb7185;
+    color: #fecdd3 !important;
+}
+
+.teacher-theme-dark .adventure-ticket-stepper-plus:hover:not(:disabled) {
+    border-color: #34d399;
+    color: #d1fae5 !important;
+}
+
+.teacher-theme-dark .adventure-ticket-stepper:disabled {
+    background-color: #07111f !important;
+    border-color: #18263a;
+    color: #64748b !important;
+    opacity: 1 !important;
+}
+
+.teacher-theme-dark .adventure-ticket-count {
+    border: 1px solid currentColor;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 4px 10px rgb(0 0 0 / 0.16);
+}
+
+.teacher-theme-dark .adventure-ticket-count-dungeon {
+    background-color: #0c4a6e !important;
+    color: #e0f2fe !important;
+}
+
+.teacher-theme-dark .adventure-ticket-count-arena {
+    background-color: #4c1d95 !important;
+    color: #ede9fe !important;
+}
+
+.teacher-theme-dark .adventure-grant-button {
+    background-color: #1e1b4b !important;
+    border-color: #6366f1 !important;
+    color: #dbeafe !important;
+}
+
+.teacher-theme-dark .adventure-grant-button:hover {
+    background-color: #312e81 !important;
+    color: #ffffff !important;
+}
+
+/* Account issuing is a dense credential table. Keep IDs, PINs, and icon-only
+   actions legible in teacher dark mode. */
+.teacher-theme-dark .account-issue-page {
+    background-color: #080f1f !important;
+    color: #e8eef8;
+}
+
+.teacher-theme-dark .account-issue-header,
+.teacher-theme-dark .account-issue-table {
+    background-color: #111e33 !important;
+    border-color: #425a79 !important;
+    box-shadow: 0 12px 28px rgb(0 0 0 / 0.22) !important;
+}
+
+.teacher-theme-dark .account-issue-table-toolbar,
+.teacher-theme-dark .account-issue-table-head {
+    background-color: #0a1628 !important;
+    border-color: #425a79 !important;
+}
+
+.teacher-theme-dark .account-issue-row {
+    background-color: #132239 !important;
+    border-color: #425a79 !important;
+}
+
+.teacher-theme-dark .account-issue-row:nth-child(even) {
+    background-color: #101d31 !important;
+}
+
+.teacher-theme-dark .account-issue-row:hover {
+    background-color: #1c3150 !important;
+}
+
+.teacher-theme-dark .account-issue-name-button span:first-child {
+    color: #f8fafc !important;
+}
+
+.teacher-theme-dark .account-issue-code {
+    color: #a5b4fc !important;
+    text-decoration-color: rgb(165 180 252 / 0.55);
+}
+
+.teacher-theme-dark .account-issue-pin {
+    color: #fb7185 !important;
+    text-shadow: 0 0 14px rgb(244 63 94 / 0.22);
+}
+
+.teacher-theme-dark .account-issue-currency {
+    color: #e0f2fe !important;
+}
+
+.teacher-theme-dark .account-issue-edit-input {
+    background-color: #0a1424 !important;
+    border-color: #818cf8 !important;
+    color: #f8fafc !important;
+}
+
+.teacher-theme-dark .account-issue-edit-input::placeholder {
+    color: #94a3b8 !important;
+}
+
+.teacher-theme-dark .account-issue-edit-save {
+    background-color: #4f46e5 !important;
+    color: #ffffff !important;
+}
+
+.teacher-theme-dark .account-issue-edit-save:hover {
+    background-color: #4338ca !important;
+}
+
+.teacher-theme-dark .account-issue-edit-cancel {
+    color: #cbd5e1 !important;
+}
+
+.teacher-theme-dark .account-issue-edit-cancel:hover {
+    color: #ffffff !important;
+}
+
+.teacher-theme-dark .account-issue-pin-reset,
+.teacher-theme-dark .account-issue-icon-button {
+    background-color: #0a1424 !important;
+    border: 1px solid #334863 !important;
+    color: #cbd5e1 !important;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.teacher-theme-dark .account-issue-reset-button:hover {
+    background-color: #3b2a12 !important;
+    border-color: #f59e0b !important;
+    color: #fde68a !important;
+}
+
+.teacher-theme-dark .account-issue-pin-reset:hover {
+    background-color: #4c0519 !important;
+    border-color: #fb7185 !important;
+    color: #ffe4e6 !important;
+}
+
+.teacher-theme-dark .account-issue-delete-button:hover {
+    background-color: #4c0519 !important;
+    border-color: #fb7185 !important;
+    color: #ffe4e6 !important;
 }
 
 /* AI learning management uses dense status cards and tables. Preserve their

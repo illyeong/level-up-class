@@ -170,6 +170,9 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
   const latestPostIdRef = useRef(null);
   const [commentDrafts, setCommentDrafts] = useState({});
   const [commentSavingId, setCommentSavingId] = useState(null);
+  const [editingBoardId, setEditingBoardId] = useState(null);
+  const [editingBoardTitle, setEditingBoardTitle] = useState('');
+  const [isSavingBoardTitle, setIsSavingBoardTitle] = useState(false);
 
   // write
   const [showWrite, setShowWrite]   = useState(false);
@@ -244,6 +247,41 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
     setBoards(prev => prev.map(b => b.id === board.id ? { ...b, active: !b.active } : b));
   };
 
+  const beginBoardTitleEdit = (board) => {
+    setEditingBoardId(board.id);
+    setEditingBoardTitle(board.title || '');
+  };
+
+  const cancelBoardTitleEdit = () => {
+    setEditingBoardId(null);
+    setEditingBoardTitle('');
+  };
+
+  const saveBoardTitle = async (board) => {
+    const nextTitle = editingBoardTitle.trim();
+    if (!nextTitle) {
+      showToast('게시판 제목을 입력해주세요.', 'error');
+      return;
+    }
+    if (nextTitle === (board.title || '')) {
+      cancelBoardTitleEdit();
+      return;
+    }
+    setIsSavingBoardTitle(true);
+    try {
+      await updateDoc(doc(db, 'boards', board.id), { title: nextTitle });
+      setBoards(prev => prev.map(b => b.id === board.id ? { ...b, title: nextTitle } : b));
+      setSelectedBoard(prev => prev?.id === board.id ? { ...prev, title: nextTitle } : prev);
+      cancelBoardTitleEdit();
+      showToast('게시판 제목을 수정했습니다.');
+    } catch (e) {
+      console.error(e);
+      showToast('게시판 제목 수정에 실패했습니다.', 'error');
+    } finally {
+      setIsSavingBoardTitle(false);
+    }
+  };
+
   const deleteBoard = (board) => {
     showConfirm(`"${board.title}" 게시판을 삭제할까요?\n모든 게시물이 삭제됩니다.`, async () => {
       await deleteDoc(doc(db, 'boards', board.id));
@@ -269,6 +307,7 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
 
   const openBoard = async (board) => {
     setSelectedBoard(board);
+    cancelBoardTitleEdit();
     setPages(board.pages || []);
     const nextSheets = (board.sheets && board.sheets.length > 0) ? board.sheets : [{ id: 'sheet_1', title: '시트 1' }];
     setSheets(nextSheets);
@@ -1480,7 +1519,46 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
                     {typeInfo.label}
                   </span>
                 )}
-                <h1 className="text-sm font-extrabold text-slate-800 truncate dark:text-slate-100">{selectedBoard.title}</h1>
+                {editingBoardId === selectedBoard.id ? (
+                  <form
+                    className="flex min-w-0 flex-1 items-center gap-1.5"
+                    onSubmit={(e) => { e.preventDefault(); saveBoardTitle(selectedBoard); }}
+                  >
+                    <input
+                      value={editingBoardTitle}
+                      onChange={e => setEditingBoardTitle(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Escape') cancelBoardTitleEdit(); }}
+                      autoFocus
+                      className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-sm font-extrabold text-slate-800 outline-none focus:border-indigo-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSavingBoardTitle}
+                      className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-extrabold text-white disabled:opacity-50"
+                    >
+                      저장
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelBoardTitleEdit}
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-extrabold text-slate-500 hover:bg-slate-100 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      취소
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <h1 className="text-sm font-extrabold text-slate-800 truncate dark:text-slate-100">{selectedBoard.title}</h1>
+                    <button
+                      type="button"
+                      onClick={() => beginBoardTitleEdit(selectedBoard)}
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-extrabold text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300"
+                      title="게시판 제목 수정"
+                    >
+                      수정
+                    </button>
+                  </>
+                )}
               </div>
               {hasNewPosts && (
                 <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-extrabold text-amber-700 border border-amber-200 shrink-0">
@@ -1599,7 +1677,47 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
                         <span>{board.active ? '🟢 공개' : '⏸ 비공개'}</span>
                       </div>
                       <div className="p-4">
-                        <h3 className="font-extrabold text-slate-800 text-base mb-1 group-hover:text-indigo-700 transition-colors dark:text-slate-100 dark:group-hover:text-indigo-300">{board.title}</h3>
+                        {editingBoardId === board.id ? (
+                          <form
+                            className="mb-2 flex items-center gap-1.5"
+                            onClick={e => e.stopPropagation()}
+                            onSubmit={(e) => { e.preventDefault(); saveBoardTitle(board); }}
+                          >
+                            <input
+                              value={editingBoardTitle}
+                              onChange={e => setEditingBoardTitle(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Escape') cancelBoardTitleEdit(); }}
+                              autoFocus
+                              className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm font-extrabold text-slate-800 outline-none focus:border-indigo-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+                            />
+                            <button
+                              type="submit"
+                              disabled={isSavingBoardTitle}
+                              className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-extrabold text-white disabled:opacity-50"
+                            >
+                              저장
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelBoardTitleEdit}
+                              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-extrabold text-slate-500 hover:bg-slate-100 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                            >
+                              취소
+                            </button>
+                          </form>
+                        ) : (
+                          <div className="mb-1 flex items-start gap-2">
+                            <h3 className="min-w-0 flex-1 font-extrabold text-slate-800 text-base group-hover:text-indigo-700 transition-colors dark:text-slate-100 dark:group-hover:text-indigo-300">{board.title}</h3>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); beginBoardTitleEdit(board); }}
+                              className="shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-extrabold text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                              title="게시판 제목 수정"
+                            >
+                              수정
+                            </button>
+                          </div>
+                        )}
                         {board.description && <p className="text-xs text-slate-500 mb-2 line-clamp-2 dark:text-slate-400">{board.description}</p>}
                         <div className="text-[11px] text-slate-400 mb-3 flex items-center gap-1 dark:text-slate-500">
                           🗓 {fmtCreatedAt}
