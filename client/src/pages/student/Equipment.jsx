@@ -6,6 +6,20 @@ import { db } from '../../firebase';
 import { GRADE, SLOTS, ENHANCE, PITY_LIMIT, STAT_LABEL } from '../../constants/equipment';
 
 const STAR_IMG = '/images/Icon_Resources_Star01_Gold.png';
+const STONE_DROP_RATE = 0.3;
+
+const DISMANTLE_REWARDS = {
+  common:    { stones: 1,  gold: 0 },
+  rare:      { stones: 3,  gold: 100 },
+  epic:      { stones: 8,  gold: 300 },
+  legendary: { stones: 20, gold: 1000 },
+};
+
+const SYNTHESIS_RECIPES = [
+  { fromGrade: 'common', required: 5, toGrade: 'rare' },
+  { fromGrade: 'rare', required: 4, toGrade: 'epic' },
+  { fromGrade: 'epic', required: 3, toGrade: 'legendary' },
+];
 
 // ── 별 표시 컴포넌트 ──────────────────────────────────────────
 function Stars({ count, total = 5, size = 'md' }) {
@@ -575,6 +589,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
   const [equipped, setEquipped]   = useState({});
   const [stones, setStones]       = useState(0);
   const [diamonds, setDiamonds]   = useState(0);
+  const [gold, setGold]           = useState(0);
   const [studentDocId, setStudentDocId] = useState(null);
   const [loading, setLoading]     = useState(true);
   const [enhanceTarget, setEnhanceTarget] = useState(null);
@@ -601,6 +616,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
           setEquipped(data.equipped || {});
           setStones(data.enhancementStones || 0);
           setDiamonds(data.diamonds || 0);
+          setGold(data.gold || 0);
         }
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
@@ -609,6 +625,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
 
   const getItem    = id => allItems.find(i => i.id === id);
   const getInvItem = id => inventory.find(i => i.id === id);
+  const isEquippedInv = id => Object.values(equipped).includes(id);
 
   const toggleEquip = async (invItem) => {
     if (!studentDocId) return;
@@ -646,6 +663,74 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
     await updateDoc(doc(db, 'students', studentDocId), { diamonds: newDiamonds, enhancementStones: newStones });
   };
 
+  const dismantleEquipment = useCallback(async (invItem) => {
+    if (!studentDocId || !invItem || Object.values(equipped).includes(invItem.id)) return;
+    const item = allItems.find(i => i.id === invItem.itemId);
+    if (!item) return;
+
+    const reward = DISMANTLE_REWARDS[item.grade] || DISMANTLE_REWARDS.common;
+    const hasStoneDrop = Math.random() < STONE_DROP_RATE;
+    const earnedStones = hasStoneDrop ? reward.stones : 0;
+    const earnedGold = reward.gold || 0;
+
+    if (!window.confirm(`${item.name} 장비를 분해할까요?\n강화석은 30% 확률로 획득합니다.`)) return;
+
+    const newInventory = inventory.filter(i => i.id !== invItem.id);
+    const newStones = stones + earnedStones;
+    const newGold = gold + earnedGold;
+
+    setInventory(newInventory);
+    setStones(newStones);
+    setGold(newGold);
+
+    await updateDoc(doc(db, 'students', studentDocId), {
+      equipInventory: newInventory,
+      enhancementStones: newStones,
+      gold: newGold,
+    });
+
+    alert(earnedStones > 0
+      ? `분해 완료!\n골드 +${earnedGold.toLocaleString()}\n강화석 +${earnedStones}`
+      : `분해 완료!\n골드 +${earnedGold.toLocaleString()}\n강화석은 나오지 않았습니다.`);
+  }, [allItems, equipped, gold, inventory, stones, studentDocId]);
+
+  const synthesizeEquipment = useCallback(async (recipe) => {
+    if (!studentDocId || !recipe) return;
+
+    const candidates = inventory
+      .filter(inv => !Object.values(equipped).includes(inv.id) && allItems.find(item => item.id === inv.itemId)?.grade === recipe.fromGrade)
+      .sort((a, b) => (a.stars || 0) - (b.stars || 0));
+
+    if (candidates.length < recipe.required) return;
+
+    const resultPool = allItems.filter(item => item.grade === recipe.toGrade && item.active !== false);
+    if (resultPool.length === 0) {
+      alert('합성 결과로 받을 장비가 없습니다.');
+      return;
+    }
+
+    const fromLabel = GRADE[recipe.fromGrade]?.label || recipe.fromGrade;
+    const toLabel = GRADE[recipe.toGrade]?.label || recipe.toGrade;
+    if (!window.confirm(`${fromLabel} 장비 ${recipe.required}개를 합성해서 ${toLabel} 장비 1개를 만들까요?`)) return;
+
+    const consumedIds = new Set(candidates.slice(0, recipe.required).map(inv => inv.id));
+    const resultItem = resultPool[Math.floor(Math.random() * resultPool.length)];
+    const newInventory = [
+      ...inventory.filter(inv => !consumedIds.has(inv.id)),
+      {
+        id: `inv_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        itemId: resultItem.id,
+        stars: 0,
+        obtainedAt: new Date().toISOString(),
+        source: 'synthesis',
+      },
+    ];
+
+    setInventory(newInventory);
+    await updateDoc(doc(db, 'students', studentDocId), { equipInventory: newInventory });
+    alert(`합성 성공!\n${resultItem.name}을(를) 획득했습니다.`);
+  }, [allItems, equipped, inventory, studentDocId]);
+
   const equipBonus = Object.keys(STAT_LABEL).reduce((acc, key) => {
     acc[key] = Object.values(equipped).reduce((sum, invId) => {
       const inv  = getInvItem(invId);
@@ -664,8 +749,17 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
   );
 
   const GRADE_ORDER = { legendary: 0, epic: 1, rare: 2, common: 3 };
+  const sortByGradeDesc = (a, b) => {
+    const aOrder = GRADE_ORDER[getItem(a.itemId)?.grade] ?? 99;
+    const bOrder = GRADE_ORDER[getItem(b.itemId)?.grade] ?? 99;
+    return aOrder - bOrder;
+  };
 
-  const slotItems   = selectedSlot ? inventory.filter(inv => getItem(inv.itemId)?.type === selectedSlot) : [];
+  const unequippedInventory = inventory.filter(inv => !isEquippedInv(inv.id));
+
+  const slotItems   = selectedSlot
+    ? inventory.filter(inv => getItem(inv.itemId)?.type === selectedSlot).sort(sortByGradeDesc)
+    : [];
   const filteredInv = inventory
     .filter(inv => {
       const item = getItem(inv.itemId);
@@ -673,11 +767,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
         (gradeFilter === 'all' || item.grade === gradeFilter) &&
         (slotFilter  === 'all' || item.type  === slotFilter);
     })
-    .sort((a, b) => {
-      const aOrder = GRADE_ORDER[getItem(a.itemId)?.grade] ?? 99;
-      const bOrder = GRADE_ORDER[getItem(b.itemId)?.grade] ?? 99;
-      return aOrder - bOrder;
-    });
+    .sort(sortByGradeDesc);
 
   return (
     <div className={`min-h-full ${isDark ? '' : 'bg-slate-100'}`}>
@@ -717,7 +807,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
           </div>
         </div>
         <div className="flex gap-2">
-          {[['equip', '⚔️ 장착 관리'], ['inventory', '📦 인벤토리']].map(([v, l]) => (
+          {[['equip', '⚔️ 장착 관리'], ['inventory', '📦 인벤토리'], ['forge', '⚒️ 대장간']].map(([v, l]) => (
             <button key={v} onClick={() => { setTab(v); setSelectedSlot(null); }}
               className={`flex-1 py-2.5 rounded-xl font-extrabold text-sm transition-colors
                 ${tab === v ? 'bg-white text-slate-800 shadow-sm' : 'bg-white/10 text-white/60 hover:bg-white/20'}`}>
@@ -953,6 +1043,99 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {tab === 'forge' && (
+          <div className="space-y-4">
+            <div className={`rounded-3xl shadow-sm border p-4 ${isDark ? 'bg-slate-900/80 border-slate-700' : 'bg-white border-slate-200'}`}>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className={`font-extrabold text-sm ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>⚒️ 장비 분해소</h3>
+                  <p className="text-[11px] text-slate-400 mt-1">착용 중인 장비는 보호됩니다. 강화석은 30% 확률로 획득합니다.</p>
+                </div>
+                <div className="flex gap-2 text-xs font-extrabold">
+                  <span className="rounded-lg bg-amber-100 px-2.5 py-1.5 text-amber-700">🪙 {gold.toLocaleString()}</span>
+                  <span className="rounded-lg bg-sky-100 px-2.5 py-1.5 text-sky-700">🔮 {stones}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {Object.entries(DISMANTLE_REWARDS).map(([grade, reward]) => {
+                  const g = GRADE[grade] || GRADE.common;
+                  return (
+                    <div key={grade} className={`rounded-xl border px-3 py-2 ${isDark ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-slate-50'}`}>
+                      <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full ${g.badge}`}>{g.label}</span>
+                      <div className={`mt-1 text-xs font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                        🪙 +{reward.gold.toLocaleString()} / 🔮 {reward.stones}개 30%
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {unequippedInventory.length === 0 ? (
+                <div className={`text-center py-10 rounded-2xl border border-dashed ${isDark ? 'border-slate-700 text-slate-400' : 'border-slate-200 text-slate-400'}`}>
+                  분해할 수 있는 장비가 없습니다
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  {unequippedInventory.sort(sortByGradeDesc).map(inv => {
+                    const item = getItem(inv.itemId);
+                    if (!item) return null;
+                    const reward = DISMANTLE_REWARDS[item.grade] || DISMANTLE_REWARDS.common;
+                    return (
+                      <div key={inv.id} className="flex flex-col gap-1.5">
+                        <EquipCard item={item} stars={inv.stars} compact />
+                        <button onClick={() => dismantleEquipment(inv)}
+                          className="w-full py-2.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 bg-slate-800 hover:bg-rose-700 text-white border border-slate-700">
+                          분해 🪙 {reward.gold.toLocaleString()} / 🔮 30%
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className={`rounded-3xl shadow-sm border p-4 ${isDark ? 'bg-slate-900/80 border-slate-700' : 'bg-white border-slate-200'}`}>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className={`font-extrabold text-sm ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>✨ 장비 합성</h3>
+                  <p className="text-[11px] text-slate-400 mt-1">착용하지 않은 낮은 강화 장비부터 재료로 사용합니다.</p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                {SYNTHESIS_RECIPES.map(recipe => {
+                  const fromGrade = GRADE[recipe.fromGrade] || GRADE.common;
+                  const toGrade = GRADE[recipe.toGrade] || GRADE.common;
+                  const count = unequippedInventory.filter(inv => getItem(inv.itemId)?.grade === recipe.fromGrade).length;
+                  const canSynthesize = count >= recipe.required;
+                  return (
+                    <div key={recipe.fromGrade} className={`rounded-2xl border p-3 flex items-center justify-between gap-3 ${isDark ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-slate-50'}`}>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${fromGrade.badge}`}>{fromGrade.label}</span>
+                          <span className={`text-xs font-extrabold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{recipe.required}개</span>
+                          <span className="text-slate-400">→</span>
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${toGrade.badge}`}>{toGrade.label}</span>
+                          <span className={`text-xs font-extrabold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>1개</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-1">보유 재료 {count}/{recipe.required}</div>
+                      </div>
+                      <button onClick={() => synthesizeEquipment(recipe)} disabled={!canSynthesize}
+                        className={`shrink-0 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all active:scale-95
+                          ${canSynthesize
+                            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-500 hover:to-indigo-500'
+                            : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
+                        합성
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>

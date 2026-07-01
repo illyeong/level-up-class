@@ -455,6 +455,11 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
           publisher:     selectedSet.publisher || null,
           part:          selectedSet.part || null,
           unit:          selectedSet.unit || null,
+          unitId:        selectedSet.unitId || null,
+          lessonNo:      selectedSet.lessonNo || null,
+          lessonTitle:   selectedSet.lessonTitle || null,
+          lessonKey:     selectedSet.lessonKey || null,
+          sourceType:    selectedSet.sourceType || null,
           difficulty,
           monsterId:     monsterMode === 'random' ? 'random' : null,
           monsterIds:    monsterMode === 'manual' ? selectedMonsters : null,
@@ -550,9 +555,10 @@ function QuizDungeonManage({ selectedClass, initialQuizSet = null, onInitialQuiz
                   selectedClass={selectedClass}
                   accent="indigo"
                   title="AI학습관 차시로 던전 퀴즈 만들기"
-                  description="등록된 수학 차시를 골라 퀴즈를 생성하면 아래 선택 퀴즈로 바로 들어갑니다."
+                  description="등록된 수학 차시의 기존 문제풀에서 객관식 문항을 불러오면 아래 선택 퀴즈로 바로 들어갑니다."
                   defaultQuestionCount={6}
                   defaultDifficulty={difficulty}
+                  useExistingPool
                   onCreated={(quizSet) => {
                     setSelectedSet(quizSet);
                     setCustomTitle(quizSet.title);
