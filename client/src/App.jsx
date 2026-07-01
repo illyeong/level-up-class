@@ -215,6 +215,160 @@ const THEMEABLE_VIEWS = new Set(['dashboard', 'classAll', 'quest', 'learningNote
 const ADVENTURE_BG = 'linear-gradient(160deg, #020617 0%, #0f172a 50%, #1e1b4b 100%)';
 const STUDENT_SESSION_KEY = 'studentInfo';
 const STUDENT_AUTO_LOGIN_KEY = 'levelupStudentAutoLogin';
+const TEST_PRIVACY_STORAGE_KEY = 'levelupTestPrivacyEnabled';
+const TEST_PRIVACY_CODES = Array.from(
+  { length: 15 },
+  (_, index) => `SINSEOK-5-${String(index + 1).padStart(2, '0')}`,
+);
+
+const normalizePrivacyCode = (code) => String(code || '').trim().toUpperCase();
+const getPrivacyAlias = (code, fallbackIndex = 0) => {
+  const match = normalizePrivacyCode(code).match(/(\d+)$/);
+  const seat = match ? Number.parseInt(match[1], 10) : fallbackIndex + 1;
+  return `학생${Number.isFinite(seat) && seat > 0 ? seat : fallbackIndex + 1}`;
+};
+
+const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const buildPrivacyReplacements = (students = []) => {
+  const replacements = new Map();
+  TEST_PRIVACY_CODES.forEach((code, index) => {
+    const alias = getPrivacyAlias(code, index);
+    replacements.set(code, alias);
+    replacements.set(code.toLowerCase(), alias);
+    replacements.set(code.replace(/-0(\d)$/, '-$1'), alias);
+  });
+  replacements.set('테스트계정', getPrivacyAlias('SINSEOK-5-15', 14));
+
+  students.forEach((student, index) => {
+    const code = normalizePrivacyCode(student.studentCode);
+    const alias = getPrivacyAlias(code, index);
+    [student.name, student.studentName, student.displayName, student.studentCode].forEach((value) => {
+      const text = String(value || '').trim();
+      if (!text || text === alias || /^학생\d+$/.test(text)) return;
+      replacements.set(text, alias);
+    });
+  });
+
+  return Array.from(replacements.entries())
+    .filter(([from, to]) => from && to && from !== to)
+    .sort((a, b) => b[0].length - a[0].length)
+    .map(([from, to]) => [new RegExp(escapeRegExp(from), 'g'), to]);
+};
+
+function TestPrivacyGuard({ active, enabled }) {
+  const [students, setStudents] = useState([]);
+
+  useEffect(() => {
+    if (!active || !enabled) {
+      setStudents([]);
+      return;
+    }
+
+    let cancelled = false;
+    const loadStudents = async () => {
+      try {
+        const chunks = [TEST_PRIVACY_CODES.slice(0, 10), TEST_PRIVACY_CODES.slice(10)];
+        const snaps = await Promise.all([
+          ...chunks.map((codes) => getDocs(query(collection(db, 'students'), where('studentCode', 'in', codes)))),
+          getDocs(query(collection(db, 'students'), where('teacherUid', '==', 'admin_master_001'))),
+        ]);
+        if (cancelled) return;
+        const merged = new Map();
+        snaps.forEach((snap) => {
+          snap.docs.forEach((docSnap) => merged.set(docSnap.id, { id: docSnap.id, ...docSnap.data() }));
+        });
+        setStudents(Array.from(merged.values()));
+      } catch (error) {
+        console.error('테스트 개인정보 보호 학생 목록 로드 실패:', error);
+        if (!cancelled) setStudents([]);
+      }
+    };
+
+    loadStudents();
+    return () => {
+      cancelled = true;
+    };
+  }, [active, enabled]);
+
+  useEffect(() => {
+    if (!active || !enabled || typeof document === 'undefined' || !document.body) return undefined;
+    const replacements = buildPrivacyReplacements(students);
+    if (replacements.length === 0) return undefined;
+
+    const shouldSkip = (node) => {
+      const parent = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+      if (!parent) return true;
+      return !!parent.closest('script, style, noscript, textarea, input, select, option, canvas, svg');
+    };
+
+    const redactValue = (value) => {
+      let next = value;
+      replacements.forEach(([pattern, alias]) => {
+        next = next.replace(pattern, alias);
+      });
+      return next;
+    };
+
+    const redactNode = (node) => {
+      if (shouldSkip(node)) return;
+      if (node.nodeType === Node.TEXT_NODE) {
+        const next = redactValue(node.nodeValue || '');
+        if (next !== node.nodeValue) node.nodeValue = next;
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      ['title', 'aria-label', 'alt'].forEach((attr) => {
+        const current = node.getAttribute?.(attr);
+        if (!current) return;
+        const next = redactValue(current);
+        if (next !== current) node.setAttribute(attr, next);
+      });
+      node.childNodes?.forEach(redactNode);
+    };
+
+    redactNode(document.body);
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'characterData') {
+          redactNode(mutation.target);
+          return;
+        }
+        mutation.addedNodes.forEach(redactNode);
+        if (mutation.type === 'attributes') redactNode(mutation.target);
+      });
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['title', 'aria-label', 'alt'],
+    });
+
+    return () => observer.disconnect();
+  }, [active, enabled, students]);
+
+  return null;
+}
+
+function TestPrivacyToggle({ active, enabled, onToggle }) {
+  if (!active) return null;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`fixed right-4 top-4 z-[9999] rounded-full border px-4 py-2 text-xs font-black shadow-2xl backdrop-blur-md transition-all ${
+        enabled
+          ? 'border-emerald-300/60 bg-emerald-500/90 text-white hover:bg-emerald-400'
+          : 'border-slate-300/40 bg-slate-900/85 text-slate-100 hover:bg-slate-800'
+      }`}
+      title="테스트 페이지 학생 이름 표시를 학생1, 학생2 형식으로 바꿉니다."
+    >
+      개인정보 보호 {enabled ? 'ON' : 'OFF'}
+    </button>
+  );
+}
 
 const readSavedStudentSession = () => {
   const raw = sessionStorage.getItem(STUDENT_SESSION_KEY) || localStorage.getItem(STUDENT_AUTO_LOGIN_KEY);
@@ -303,6 +457,19 @@ function App() {
   const [hideStudentNav, setHideStudentNav] = useState(false);
   const [hiddenStudentMenuIds, setHiddenStudentMenuIds] = useState([]);
   const [forceShowStudentNav, setForceShowStudentNav] = useState(false);
+  const [testPrivacyEnabled, setTestPrivacyEnabled] = useState(() => localStorage.getItem(TEST_PRIVACY_STORAGE_KEY) !== 'off');
+  const [testPrivacyRenderKey, setTestPrivacyRenderKey] = useState(0);
+  const isTestClassPage = selectedClass?.teacherUid === 'admin_master_001' && !selectedClass?.id;
+  const isTestPrivacyPage = (appMode === 'student' && !!testStudentCode) || (appMode === 'teacher' && isTestClassPage);
+  const testPrivacyKey = `${testPrivacyEnabled ? 'private' : 'plain'}-${testPrivacyRenderKey}`;
+  const toggleTestPrivacy = () => {
+    setTestPrivacyEnabled((prev) => {
+      const next = !prev;
+      localStorage.setItem(TEST_PRIVACY_STORAGE_KEY, next ? 'on' : 'off');
+      return next;
+    });
+    setTestPrivacyRenderKey((prev) => prev + 1);
+  };
 
   useEffect(() => {
     localStorage.setItem('studentThemeMode', themeMode);
@@ -534,6 +701,7 @@ function App() {
 
   // ── 학생 로그인 콜백 ─────────────────────────────────────────
   const handleStudentLogin = (data) => {
+    setTestStudentCode(null);
     setStudentInfo(data);
     saveStudentSession(data);
     markStudentActive(data);
@@ -879,7 +1047,9 @@ function App() {
 
   if (appMode === 'teacher') {
     return (
-      <div className="relative w-full h-screen">
+      <div key={`teacher-${testPrivacyKey}`} className="relative w-full h-screen">
+        <TestPrivacyGuard active={isTestPrivacyPage} enabled={testPrivacyEnabled} />
+        <TestPrivacyToggle active={isTestPrivacyPage} enabled={testPrivacyEnabled} onToggle={toggleTestPrivacy} />
         <TeacherLogin
           onStudentTestLogin={handleStudentTestLogin}
           onLogout={handleLogout}
@@ -905,7 +1075,9 @@ function App() {
   const showStudentNav = isStudentTestAccount || !hideStudentNav || forceShowStudentNav;
 
   return (
-    <div className={`flex h-screen relative ${themeMode === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
+    <div key={`student-${testPrivacyKey}`} className={`flex h-screen relative ${themeMode === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
+      <TestPrivacyGuard active={isTestPrivacyPage} enabled={testPrivacyEnabled} />
+      <TestPrivacyToggle active={isTestPrivacyPage} enabled={testPrivacyEnabled} onToggle={toggleTestPrivacy} />
       {/* 전역 걷는 펫 */}
       {activePetMonster && petVisible && (
         <>

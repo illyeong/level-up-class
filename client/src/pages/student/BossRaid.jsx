@@ -612,6 +612,11 @@ function LobbyPhase({ raid, bossData, myId, isTeacher, canStartRaid = isTeacher,
       <div className="relative z-10">
       {/* 보스 배너 */}
       <div className="flex flex-col items-center px-6 pt-6 pb-4">
+        {presentationMode && (
+          <div className="mb-3 rounded-full border border-amber-300/60 bg-amber-400/15 px-4 py-1.5 text-sm font-black text-amber-100 shadow-lg shadow-amber-950/30">
+            테스트 페이지입니다
+          </div>
+        )}
         <div className="text-xs font-extrabold text-rose-400 tracking-widest mb-1 uppercase">World Boss Raid</div>
         <h1 className="text-2xl font-extrabold text-white mb-4">{raid.bossName}</h1>
 
@@ -653,7 +658,7 @@ function LobbyPhase({ raid, bossData, myId, isTeacher, canStartRaid = isTeacher,
           <button
             onClick={() => teacherStartRaid(raid.id, { presentationTest: presentationMode })}
             className="px-10 py-4 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold text-lg rounded-2xl shadow-lg shadow-rose-900/40 transition-all">
-            ⚔️ 레이드 시작 ({pList.length}명 대기 중)
+            ⚔️ {presentationMode ? '테스트 시작' : '레이드 시작'} ({pList.length}명 대기 중)
           </button>
         ) : (
           <div className="flex items-center gap-2 text-slate-400 text-sm animate-pulse">
