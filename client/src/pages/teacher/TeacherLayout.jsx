@@ -561,7 +561,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
         {/* 임시 준비 중 화면들 */}
         {currentView === 'myCharacter'     && <TeacherCharacter selectedClass={selectedClass} />}
         {currentView === 'adventureManage' && <AdventureManage selectedClass={selectedClass} />}
-        {currentView === 'boardManage'        && <BoardManage selectedClass={selectedClass} user={user} />}
+        {currentView === 'boardManage'        && <BoardManage selectedClass={selectedClass} user={user} themeMode={teacherThemeMode} />}
         {currentView === 'learningNoteManage' && <LearningNoteManage selectedClass={selectedClass} onApprovalBadgeRefresh={refreshApprovalBadgeCounts} />}
         {currentView === 'topicWritingManage' && <TopicWritingManage selectedClass={selectedClass} onApprovalBadgeRefresh={refreshApprovalBadgeCounts} />}
         {currentView === 'aiCourseware'       && <AICoursewareManage selectedClass={selectedClass} onNavigate={setCurrentView} />}
@@ -690,7 +690,7 @@ function TeacherLayout({ user, onLogout, onStudentTestLogin, selectedClass, onCh
           </div>
         )}
         {currentView === 'classVoteManage' && <ClassVoteManage selectedClass={selectedClass} />}
-        {currentView === 'freeBoard'       && <FreeBoard teacherUid={selectedClass?.teacherUid} isTeacher={true} />}
+        {currentView === 'freeBoard'       && <FreeBoard teacherUid={selectedClass?.teacherUid} isTeacher={true} themeMode={teacherThemeMode} />}
         {currentView === 'hallOfFame'      && <HallOfFame teacherUid={selectedClass?.teacherUid} themeMode={teacherThemeMode} />}
         
       </main>

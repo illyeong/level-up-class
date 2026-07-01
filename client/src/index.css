@@ -213,6 +213,102 @@
     color: #64748b;
 }
 
+/* Teacher board light mode must ignore OS-level Tailwind dark variants. */
+.teacher-board-light {
+    color-scheme: light;
+    background-color: #f8fafc !important;
+    color: #334155 !important;
+}
+
+.teacher-board-light :is(.bg-white, .bg-white\/70, .bg-white\/80, .bg-white\/90, .bg-white\/95) {
+    background-color: #ffffff !important;
+}
+
+.teacher-board-light :is(.bg-slate-50, .bg-slate-100) {
+    background-color: #f8fafc !important;
+}
+
+.teacher-board-light .bg-slate-200 {
+    background-color: #e2e8f0 !important;
+}
+
+.teacher-board-light .bg-yellow-50 { background-color: #fefce8 !important; }
+.teacher-board-light .bg-sky-50 { background-color: #f0f9ff !important; }
+.teacher-board-light .bg-pink-50 { background-color: #fdf2f8 !important; }
+.teacher-board-light .bg-emerald-50 { background-color: #ecfdf5 !important; }
+.teacher-board-light .bg-violet-50 { background-color: #f5f3ff !important; }
+.teacher-board-light .bg-orange-50 { background-color: #fff7ed !important; }
+.teacher-board-light .bg-indigo-50 { background-color: #eef2ff !important; }
+.teacher-board-light .bg-amber-50 { background-color: #fffbeb !important; }
+.teacher-board-light .bg-rose-50 { background-color: #fff1f2 !important; }
+.teacher-board-light .bg-red-50 { background-color: #fef2f2 !important; }
+
+.teacher-board-light :is(.text-slate-950, .text-slate-900, .text-slate-800, .text-slate-700) {
+    color: #1e293b !important;
+}
+
+.teacher-board-light :is(.text-slate-600, .text-slate-500) {
+    color: #475569 !important;
+}
+
+.teacher-board-light .text-slate-400 {
+    color: #94a3b8 !important;
+}
+
+.teacher-board-light :is(.text-indigo-900, .text-indigo-800, .text-indigo-700) {
+    color: #4338ca !important;
+}
+
+.teacher-board-light :is(.text-sky-800, .text-sky-700, .text-blue-700) {
+    color: #0369a1 !important;
+}
+
+.teacher-board-light :is(.text-emerald-800, .text-emerald-700) {
+    color: #047857 !important;
+}
+
+.teacher-board-light :is(.text-amber-900, .text-amber-800, .text-amber-700, .text-orange-700) {
+    color: #b45309 !important;
+}
+
+.teacher-board-light :is(.text-rose-800, .text-rose-700, .text-red-600) {
+    color: #be123c !important;
+}
+
+.teacher-board-light :is(.text-pink-700, .text-pink-600) {
+    color: #be185d !important;
+}
+
+.teacher-board-light :is(.border-slate-100, .border-slate-200, .border-slate-300) {
+    border-color: #e2e8f0 !important;
+}
+
+.teacher-board-light .border-yellow-200 { border-color: #fde68a !important; }
+.teacher-board-light .border-sky-200 { border-color: #bae6fd !important; }
+.teacher-board-light .border-pink-200 { border-color: #fbcfe8 !important; }
+.teacher-board-light .border-emerald-200 { border-color: #a7f3d0 !important; }
+.teacher-board-light .border-violet-200 { border-color: #ddd6fe !important; }
+.teacher-board-light .border-orange-200 { border-color: #fed7aa !important; }
+.teacher-board-light .border-indigo-100,
+.teacher-board-light .border-indigo-200 { border-color: #c7d2fe !important; }
+.teacher-board-light .border-amber-200 { border-color: #fde68a !important; }
+.teacher-board-light .border-rose-200 { border-color: #fecdd3 !important; }
+.teacher-board-light .border-red-200 { border-color: #fecaca !important; }
+
+.teacher-board-light :is(input, textarea, select) {
+    background-color: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #1e293b !important;
+}
+
+.teacher-board-light :is(input, textarea)::placeholder {
+    color: #94a3b8 !important;
+}
+
+.teacher-board-light :is(.divide-slate-100, .divide-slate-200, .divide-slate-700, .divide-slate-800) > :not([hidden]) ~ :not([hidden]) {
+    border-color: #e2e8f0 !important;
+}
+
 /* Topic writing management needs stronger contrast for dense review cards. */
 .teacher-theme-dark .topic-writing-manage-page {
     background: #07111f !important;

@@ -136,7 +136,8 @@ const toDataUrl = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
-export default function BoardManage({ selectedClass, user }) {
+export default function BoardManage({ selectedClass, user, themeMode }) {
+  const teacherLightModeClass = themeMode === 'light' ? 'teacher-board-light' : '';
   const [boards, setBoards]         = useState([]);
   const [isLoading, setIsLoading]   = useState(true);
 
@@ -1462,7 +1463,7 @@ export default function BoardManage({ selectedClass, user }) {
     );
 
     return (
-      <div className="flex flex-col bg-slate-100 dark:bg-slate-950" style={{ height: 'calc(100vh - 0px)' }}>
+      <div className={`flex flex-col bg-slate-100 dark:bg-slate-950 ${teacherLightModeClass}`} style={{ height: 'calc(100vh - 0px)' }}>
         {/* ── 통합 헤더 (지도형 제외) ── */}
         {!isMapType && (
           <div className="bg-white border-b border-slate-200 shadow-sm shrink-0 dark:bg-slate-900 dark:border-slate-700">
@@ -1552,7 +1553,7 @@ export default function BoardManage({ selectedClass, user }) {
 
   // ── board list ────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-100 p-8 dark:bg-slate-950">
+    <div className={`min-h-screen bg-slate-100 p-8 dark:bg-slate-950 ${teacherLightModeClass}`}>
       <div className="max-w-5xl mx-auto">
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex justify-between items-center mb-6 dark:bg-slate-900 dark:border-slate-700">
           <div>

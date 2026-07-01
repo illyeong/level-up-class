@@ -8,7 +8,8 @@ import { db } from '../../firebase';
 
 const MAX_ATTACHMENT_SIZE = 450 * 1024;
 
-export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isTeacher }) {
+export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isTeacher, themeMode }) {
+  const teacherLightModeClass = isTeacher && themeMode === 'light' ? 'teacher-board-light' : '';
   const [myInfo, setMyInfo]       = useState(null);
   const [posts, setPosts]         = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -235,7 +236,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
   // ── 글쓰기 페이지 ──────────────────────────────────────────────
   if (view === 'write') {
     return (
-      <div className="min-h-[calc(100vh-88px)] bg-slate-50 p-6 dark:bg-slate-950">
+      <div className={`min-h-[calc(100vh-88px)] bg-slate-50 p-6 dark:bg-slate-950 ${teacherLightModeClass}`}>
       <div className="max-w-4xl mx-auto space-y-4">
         <div className="flex items-center gap-3 mb-2">
           <button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-800 text-sm font-bold dark:text-slate-300 dark:hover:text-white">← 목록</button>
@@ -305,7 +306,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
 
   // ── 목록 ──────────────────────────────────────────────────────
   return (
-    <div className="min-h-[calc(100vh-88px)] bg-slate-50 p-5 dark:bg-slate-950">
+    <div className={`min-h-[calc(100vh-88px)] bg-slate-50 p-5 dark:bg-slate-950 ${teacherLightModeClass}`}>
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-extrabold text-slate-700 dark:text-slate-100">📋 게시판</h1>
