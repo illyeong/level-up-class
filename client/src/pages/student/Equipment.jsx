@@ -6,7 +6,7 @@ import { db } from '../../firebase';
 import { GRADE, SLOTS, ENHANCE, PITY_LIMIT, STAT_LABEL } from '../../constants/equipment';
 
 const STAR_IMG = '/images/Icon_Resources_Star01_Gold.png';
-const STONE_DROP_RATE = 0.3;
+const STONE_DROP_RATE = 0.2;
 
 const DISMANTLE_REWARDS = {
   common:    { stones: 1 },
@@ -714,7 +714,7 @@ function DismantleModal({ plan, onApply, onClose }) {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-bold text-slate-400">강화석 기회</span>
-                  <span className="font-extrabold text-cyan-300">최대 {possibleStones}개, 각 장비 30%</span>
+                  <span className="font-extrabold text-cyan-300">최대 {possibleStones}개, 각 장비 20%</span>
                 </div>
               </div>
               {error && <div className="rounded-xl border border-rose-700 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300">{error}</div>}
@@ -1276,7 +1276,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
                 <div>
                   <h3 className={`font-extrabold text-sm ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>⚒️ 장비 분해소</h3>
-                  <p className="text-[11px] text-slate-400 mt-1">착용 중인 장비는 보호됩니다. 강화석은 30% 확률로 획득합니다.</p>
+                  <p className="text-[11px] text-slate-400 mt-1">착용 중인 장비는 보호됩니다. 강화석은 20% 확률로 획득합니다.</p>
                 </div>
                 <div className="flex gap-2 text-xs font-extrabold">
                   <span className="rounded-xl border border-sky-300/50 bg-sky-100 px-3 py-2 text-sky-700 shadow-sm">🔮 {stones}</span>
@@ -1290,7 +1290,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                     <div key={grade} className={`rounded-xl border px-3 py-2.5 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
                       <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full ${g.badge}`}>{g.label}</span>
                       <div className={`mt-1 text-xs font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                        🔮 {reward.stones}개 30%
+                        🔮 {reward.stones}개 20%
                       </div>
                     </div>
                   );
@@ -1360,7 +1360,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                         </button>
                         <button onClick={() => openDismantleModal([inv])}
                           className="w-full py-2.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 bg-rose-950/70 hover:bg-rose-700 text-white border border-rose-800/70">
-                          분해 🔮 30%
+                          분해 🔮 20%
                         </button>
                       </div>
                     );
