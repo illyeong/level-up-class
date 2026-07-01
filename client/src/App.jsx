@@ -358,14 +358,15 @@ function TestPrivacyToggle({ active, enabled, onToggle }) {
     <button
       type="button"
       onClick={onToggle}
-      className={`fixed right-4 top-4 z-[9999] rounded-full border px-4 py-2 text-xs font-black shadow-2xl backdrop-blur-md transition-all ${
+      className={`fixed right-2 top-2 z-[9999] rounded-full border px-2 py-1 text-[10px] font-bold leading-none shadow-lg backdrop-blur-md transition-all ${
         enabled
           ? 'border-emerald-300/60 bg-emerald-500/90 text-white hover:bg-emerald-400'
           : 'border-slate-300/40 bg-slate-900/85 text-slate-100 hover:bg-slate-800'
       }`}
       title="테스트 페이지 학생 이름 표시를 학생1, 학생2 형식으로 바꿉니다."
+      aria-label={`개인정보 보호 ${enabled ? '켜짐' : '꺼짐'}`}
     >
-      개인정보 보호 {enabled ? 'ON' : 'OFF'}
+      보호 {enabled ? 'ON' : 'OFF'}
     </button>
   );
 }
