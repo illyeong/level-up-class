@@ -779,8 +779,11 @@ function SynthesisModal({ plan, onApply, onClose }) {
   const recipe = plan?.recipe;
   const fromGrade = GRADE[recipe?.fromGrade] || GRADE.common;
   const toGrade = GRADE[recipe?.toGrade] || GRADE.common;
-  const success = !!plan?.success;
-  const resultItem = plan?.resultItem;
+  const resultItems = plan?.resultItems || (plan?.resultItem ? [plan.resultItem] : []);
+  const attemptCount = plan?.attemptCount || 1;
+  const successCount = plan?.successCount ?? resultItems.length;
+  const success = successCount > 0;
+  const resultItem = resultItems[0] || null;
   const materialCount = plan?.materials?.length || 0;
 
   useEffect(() => {
@@ -817,7 +820,7 @@ function SynthesisModal({ plan, onApply, onClose }) {
         <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
           <div>
             <h2 className="text-lg font-extrabold text-white">장비 합성</h2>
-            <p className="text-xs font-bold text-slate-500">{fromGrade.label} {materialCount}개 → {toGrade.label} 도전</p>
+            <p className="text-xs font-bold text-slate-500">{fromGrade.label} {materialCount}개 → {toGrade.label} {attemptCount}회 도전</p>
           </div>
           {stage !== 'processing' && (
             <button onClick={onClose}
@@ -897,7 +900,7 @@ function SynthesisModal({ plan, onApply, onClose }) {
               <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4">
                 <div className="mb-2 flex items-center justify-between text-sm">
                   <span className="font-bold text-slate-400">성공률</span>
-                  <span className="font-extrabold text-amber-300">25%</span>
+                  <span className="font-extrabold text-amber-300">25% × {attemptCount}회</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-bold text-slate-400">재료 소모</span>
@@ -936,15 +939,22 @@ function SynthesisModal({ plan, onApply, onClose }) {
               <div className={`rounded-2xl border p-5 text-center ${success ? 'border-amber-500/50 bg-amber-950/30' : 'border-rose-700/60 bg-rose-950/30'}`}>
                 <div className="mb-2 text-4xl">{success ? '🏆' : '💥'}</div>
                 <div className={`text-2xl font-extrabold ${success ? 'text-amber-300' : 'text-rose-300'}`}>
-                  {success ? '합성 성공!' : '합성 실패'}
+                  {success ? `합성 ${successCount}회 성공!` : '합성 실패'}
                 </div>
                 <p className="mt-2 text-sm font-bold text-slate-300">
-                  {success ? `${resultItem?.name || '새 장비'}을(를) 획득했습니다.` : '재료 장비가 소모되었습니다.'}
+                  {success ? `${attemptCount}회 중 ${successCount}회 성공했습니다.` : '재료 장비가 소모되었습니다.'}
                 </p>
-                {success && resultItem && (
-                  <div className={`mt-4 rounded-xl border px-3 py-2 ${toGrade.border} ${toGrade.bg}`}>
-                    <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full ${toGrade.badge}`}>{toGrade.label}</span>
-                    <div className="mt-1 text-sm font-extrabold text-slate-800">{resultItem.name}</div>
+                {success && resultItems.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {resultItems.slice(0, 3).map((item, index) => (
+                      <div key={`${item.id}_${index}`} className={`rounded-xl border px-3 py-2 ${toGrade.border} ${toGrade.bg}`}>
+                        <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full ${toGrade.badge}`}>{toGrade.label}</span>
+                        <div className="mt-1 text-sm font-extrabold text-slate-800">{item.name}</div>
+                      </div>
+                    ))}
+                    {resultItems.length > 3 && (
+                      <div className="text-xs font-extrabold text-amber-300">외 {resultItems.length - 3}개 추가 획득</div>
+                    )}
                   </div>
                 )}
               </div>
@@ -973,6 +983,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
   const [enhanceTarget, setEnhanceTarget] = useState(null);
   const [selectedSlot, setSelectedSlot]   = useState(null);
   const [gradeFilter, setGradeFilter]     = useState('all');
+  const [forgeGradeFilter, setForgeGradeFilter] = useState('all');
   const [slotFilter, setSlotFilter]       = useState('all');
   const [buyQty, setBuyQty]               = useState(1);
   const [confirmBuy, setConfirmBuy]       = useState(false);
@@ -1116,13 +1127,23 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
       return;
     }
 
-    const success = Math.random() < SYNTHESIS_SUCCESS_RATE;
+    const attemptCount = Math.floor(candidates.length / recipe.required);
+    const materials = candidates.slice(0, attemptCount * recipe.required);
+    const resultItems = Array.from({ length: attemptCount }, () => (
+      Math.random() < SYNTHESIS_SUCCESS_RATE
+        ? resultPool[Math.floor(Math.random() * resultPool.length)]
+        : null
+    )).filter(Boolean);
+
     setSynthesisPlan({
       id: `synthesis_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       recipe,
-      materials: candidates.slice(0, recipe.required),
-      success,
-      resultItem: success ? resultPool[Math.floor(Math.random() * resultPool.length)] : null,
+      materials,
+      attemptCount,
+      successCount: resultItems.length,
+      success: resultItems.length > 0,
+      resultItems,
+      resultItem: resultItems[0] || null,
     });
   }, [allItems, equipped, inventory, studentDocId]);
 
@@ -1130,14 +1151,18 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
     if (!studentDocId || !plan?.recipe || !plan?.materials?.length) return;
     const consumedIds = new Set(plan.materials.map(inv => inv.id));
     const baseInventory = inventory.filter(inv => !consumedIds.has(inv.id));
-    const newInventory = plan.success && plan.resultItem
-      ? [...baseInventory, {
-        id: `inv_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-        itemId: plan.resultItem.id,
-        stars: 0,
-        obtainedAt: new Date().toISOString(),
-        source: 'synthesis',
-      }]
+    const resultItems = plan.resultItems || (plan.resultItem ? [plan.resultItem] : []);
+    const newInventory = resultItems.length > 0
+      ? [
+        ...baseInventory,
+        ...resultItems.map((item, index) => ({
+          id: `inv_${Date.now()}_${index}_${Math.random().toString(36).slice(2)}`,
+          itemId: item.id,
+          stars: 0,
+          obtainedAt: new Date().toISOString(),
+          source: 'synthesis',
+        })),
+      ]
       : baseInventory;
 
     await updateDoc(doc(db, 'students', studentDocId), { equipInventory: newInventory });
@@ -1172,12 +1197,17 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
   const unequippedInventory = inventory.filter(inv => !isEquippedInv(inv.id));
   const sortedUnequippedInventory = [...unequippedInventory].sort(sortByGradeDesc);
   const selectedDismantleItems = sortedUnequippedInventory.filter(inv => selectedDismantleIds.includes(inv.id));
-  const selectDismantleGrade = (grade) => {
-    const ids = sortedUnequippedInventory
-      .filter(inv => getItem(inv.itemId)?.grade === grade)
-      .map(inv => inv.id);
-    setSelectedDismantleIds(ids);
-  };
+  const forgeGradeOptions = ['all', 'legendary', 'epic', 'rare', 'common'];
+  const forgeVisibleInventory = sortedUnequippedInventory.filter(inv => {
+    const item = getItem(inv.itemId);
+    return item && (forgeGradeFilter === 'all' || item.grade === forgeGradeFilter);
+  });
+  const forgeRecipe = SYNTHESIS_RECIPES.find(recipe => recipe.fromGrade === forgeGradeFilter);
+  const forgeRecipeCount = forgeRecipe
+    ? sortedUnequippedInventory.filter(inv => getItem(inv.itemId)?.grade === forgeRecipe.fromGrade).length
+    : 0;
+  const forgeAttemptCount = forgeRecipe ? Math.floor(forgeRecipeCount / forgeRecipe.required) : 0;
+  const forgeCanSynthesize = !!forgeRecipe && forgeRecipeCount >= forgeRecipe.required;
 
   const slotItems   = selectedSlot
     ? inventory.filter(inv => getItem(inv.itemId)?.type === selectedSlot).sort(sortByGradeDesc)
@@ -1504,32 +1534,62 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                     </div>
                     <div className="rounded-full border border-cyan-400/40 bg-cyan-400/10 px-3 py-1 text-xs font-extrabold text-cyan-300">{selectedDismantleItems.length}개 선택</div>
                   </div>
-                  <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-                    <button onClick={() => setSelectedDismantleIds(sortedUnequippedInventory.map(inv => inv.id))}
-                      className="shrink-0 rounded-lg border border-cyan-600/60 bg-slate-950 px-3 py-2 text-[11px] font-extrabold text-white hover:bg-cyan-950">
-                      전체
-                    </button>
-                    {['legendary', 'epic', 'rare', 'common'].map(grade => {
-                      const g = GRADE[grade] || GRADE.common;
-                      const count = sortedUnequippedInventory.filter(inv => getItem(inv.itemId)?.grade === grade).length;
-                      return (
-                        <button key={grade} onClick={() => selectDismantleGrade(grade)} disabled={count === 0}
-                          className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-extrabold disabled:cursor-not-allowed disabled:opacity-35 ${g.badge}`}>
-                          {g.label} {count}
+                  <div className="mb-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-extrabold text-slate-400">등급별 보기</span>
+                      <span className="text-[11px] font-extrabold text-cyan-300">보이는 장비 {forgeVisibleInventory.length}개</span>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {forgeGradeOptions.map(grade => {
+                        const g = GRADE[grade] || GRADE.common;
+                        const count = grade === 'all'
+                          ? sortedUnequippedInventory.length
+                          : sortedUnequippedInventory.filter(inv => getItem(inv.itemId)?.grade === grade).length;
+                        const active = forgeGradeFilter === grade;
+                        return (
+                          <button key={grade} onClick={() => setForgeGradeFilter(grade)} disabled={count === 0}
+                            className={`shrink-0 rounded-lg border px-3 py-2 text-[11px] font-extrabold transition-all disabled:cursor-not-allowed disabled:opacity-35
+                              ${active
+                                ? grade === 'all'
+                                  ? 'border-cyan-400 bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-950/30'
+                                  : `${g.badge} border-transparent shadow-lg shadow-slate-950/20`
+                                : isDark
+                                  ? 'border-slate-700 bg-slate-950 text-slate-300 hover:border-cyan-600'
+                                  : 'border-slate-200 bg-white text-slate-600 hover:border-cyan-300'}`}>
+                            {grade === 'all' ? '전체' : g.label} {count}
+                          </button>
+                        );
+                      })}
+                      {selectedDismantleItems.length > 0 && (
+                        <button onClick={() => setSelectedDismantleIds([])}
+                          className="shrink-0 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-[11px] font-extrabold text-slate-300 hover:bg-slate-800">
+                          직접 선택 해제
                         </button>
-                      );
-                    })}
-                    <button onClick={() => setSelectedDismantleIds([])}
-                      className="shrink-0 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-[11px] font-extrabold text-slate-300 hover:bg-slate-800">
-                      해제
-                    </button>
+                      )}
+                    </div>
                   </div>
-                  <button onClick={() => openDismantleModal(selectedDismantleItems)} disabled={selectedDismantleItems.length === 0}
+                  <button onClick={() => openDismantleModal(forgeVisibleInventory)} disabled={forgeVisibleInventory.length === 0}
                     className={`w-full rounded-xl py-3 text-sm font-extrabold transition-all active:scale-95
-                      ${selectedDismantleItems.length > 0
+                      ${forgeVisibleInventory.length > 0
                         ? 'bg-gradient-to-r from-rose-600 to-orange-600 text-white shadow-lg shadow-rose-950/30 hover:from-rose-500 hover:to-orange-500'
                         : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
-                    선택 장비 {selectedDismantleItems.length}개 일괄분해
+                    보이는 장비 {forgeVisibleInventory.length}개 일괄분해
+                  </button>
+                  <button onClick={() => forgeRecipe && synthesizeEquipment(forgeRecipe)} disabled={!forgeCanSynthesize}
+                    className={`mt-2 w-full rounded-xl py-3 text-sm font-extrabold transition-all active:scale-95
+                      ${forgeCanSynthesize
+                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-950/30 hover:from-violet-500 hover:to-indigo-500'
+                        : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
+                    {forgeRecipe
+                      ? `${(GRADE[forgeRecipe.fromGrade] || GRADE.common).label} ${forgeAttemptCount}회 일괄합성`
+                      : '합성할 등급을 선택하세요'}
+                  </button>
+                  <button onClick={() => openDismantleModal(selectedDismantleItems)} disabled={selectedDismantleItems.length === 0}
+                    className={`mt-2 w-full rounded-xl py-3 text-sm font-extrabold transition-all active:scale-95
+                      ${selectedDismantleItems.length > 0
+                        ? 'border border-cyan-500 bg-cyan-600 text-white hover:bg-cyan-500'
+                        : 'border border-slate-700 bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
+                    직접 선택 {selectedDismantleItems.length}개 분해
                   </button>
                 </div>
               )}
@@ -1538,9 +1598,13 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                 <div className={`text-center py-10 rounded-2xl border border-dashed ${isDark ? 'border-slate-700 text-slate-400' : 'border-slate-200 text-slate-400'}`}>
                   분해할 수 있는 장비가 없습니다
                 </div>
+              ) : forgeVisibleInventory.length === 0 ? (
+                <div className={`text-center py-10 rounded-2xl border border-dashed ${isDark ? 'border-slate-700 text-slate-400' : 'border-slate-200 text-slate-400'}`}>
+                  선택한 등급의 장비가 없습니다
+                </div>
               ) : (
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4 items-stretch">
-                  {sortedUnequippedInventory.map(inv => {
+                  {forgeVisibleInventory.map(inv => {
                     const item = getItem(inv.itemId);
                     if (!item) return null;
                     const selected = selectedDismantleIds.includes(inv.id);
@@ -1585,6 +1649,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                   const count = unequippedInventory.filter(inv => getItem(inv.itemId)?.grade === recipe.fromGrade).length;
                   const canSynthesize = count >= recipe.required;
                   const missing = Math.max(0, recipe.required - count);
+                  const attemptCount = Math.floor(count / recipe.required);
                   const progressPct = Math.min(100, Math.round((count / recipe.required) * 100));
                   return (
                     <div key={recipe.fromGrade} className={`rounded-2xl border p-3.5 flex flex-col gap-3 ${canSynthesize
@@ -1621,7 +1686,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                       <div className={`rounded-xl px-3 py-2 text-[11px] font-bold ${canSynthesize
                         ? 'bg-rose-950/40 text-rose-200 border border-rose-800/50'
                         : 'bg-slate-950/50 text-slate-400 border border-slate-800'}`}>
-                        {canSynthesize ? '실패 시 재료가 모두 소모됩니다.' : `재료 ${missing}개 부족`}
+                        {canSynthesize ? `${attemptCount}회 일괄합성 가능 · 실패 시 재료가 소모됩니다.` : `재료 ${missing}개 부족`}
                       </div>
 
                       <button onClick={() => synthesizeEquipment(recipe)} disabled={!canSynthesize}
@@ -1629,7 +1694,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
                           ${canSynthesize
                             ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-950/30'
                             : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
-                        {canSynthesize ? '합성 도전 25%' : '재료 부족'}
+                        {canSynthesize ? `${attemptCount}회 일괄합성 25%` : '재료 부족'}
                       </button>
                     </div>
                   );
