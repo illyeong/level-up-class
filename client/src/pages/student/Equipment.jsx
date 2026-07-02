@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   collection, getDocs, doc, updateDoc, query, where,
 } from 'firebase/firestore';
@@ -179,6 +179,70 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
     starImgRef.current = img;
   }, []);
 
+  // ── 파티클 ──
+  function spawnParticles() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext('2d');
+
+    // 아이템 이미지 위치에서 파티클 출발
+    const itemEl = itemImgRef.current;
+    const rect   = itemEl?.getBoundingClientRect();
+    const cx     = rect ? rect.left + rect.width  / 2 : window.innerWidth  / 2;
+    const cy     = rect ? rect.top  + rect.height / 2 : window.innerHeight / 3;
+
+    const particles = Array.from({ length: 55 }, () => {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2 + Math.random() * 9;
+      return {
+        x:  cx + (Math.random() - 0.5) * 20,
+        y:  cy + (Math.random() - 0.5) * 20,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 3.5,
+        size:  12 + Math.random() * 20,
+        rot:   Math.random() * Math.PI * 2,
+        rotV:  (Math.random() - 0.5) * 0.3,
+        life:  1,
+        decay: 0.010 + Math.random() * 0.008,
+      };
+    });
+
+    const si = starImgRef.current;
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let anyAlive = false;
+      for (const p of particles) {
+        if (p.life <= 0) continue;
+        anyAlive = true;
+        p.x   += p.vx;
+        p.y   += p.vy;
+        p.vy  += 0.2;
+        p.vx  *= 0.98;
+        p.rot += p.rotV;
+        p.life -= p.decay;
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        if (si?.complete && si.naturalWidth > 0) {
+          ctx.drawImage(si, -p.size / 2, -p.size / 2, p.size, p.size);
+        } else {
+          ctx.fillStyle = `hsl(${40 + Math.random() * 25}, 100%, 60%)`;
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      if (anyAlive) requestAnimationFrame(animate);
+      else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+    animate();
+  }
+
   // ── 강화 결과 계산 ── (useEffect보다 먼저 선언)
   const doEnhanceResult = useCallback(() => {
     const stars     = currentStars;           // 호출 시점의 별 수 (클로저 안전)
@@ -231,7 +295,7 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
 
       for (let i = 0; i < 4; i++) {
         particles.push({
-          x:     cx + (Math.random() - 0.5) * rect?.width * 0.8 ?? 30,
+          x:     cx + (Math.random() - 0.5) * (rect?.width ?? 30) * 0.8,
           y:     cy + (Math.random() - 0.5) * 10,
           vx:    (Math.random() - 0.5) * 1.2,
           vy:    -(1.5 + Math.random() * 2.5),
@@ -294,72 +358,7 @@ function EnhanceModal({ invItem, item, stones, onEnhance, onClose }) {
       if (rafId) cancelAnimationFrame(rafId);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
-
-  // ── 파티클 ──
-  const spawnParticles = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    canvas.width  = window.innerWidth;
-    canvas.height = window.innerHeight;
-    const ctx = canvas.getContext('2d');
-
-    // 아이템 이미지 위치에서 파티클 출발
-    const itemEl = itemImgRef.current;
-    const rect   = itemEl?.getBoundingClientRect();
-    const cx     = rect ? rect.left + rect.width  / 2 : window.innerWidth  / 2;
-    const cy     = rect ? rect.top  + rect.height / 2 : window.innerHeight / 3;
-
-    const particles = Array.from({ length: 55 }, () => {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 2 + Math.random() * 9;
-      return {
-        x:  cx + (Math.random() - 0.5) * 20,
-        y:  cy + (Math.random() - 0.5) * 20,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 3.5,
-        size:  12 + Math.random() * 20,
-        rot:   Math.random() * Math.PI * 2,
-        rotV:  (Math.random() - 0.5) * 0.3,
-        life:  1,
-        decay: 0.010 + Math.random() * 0.008,
-      };
-    });
-
-    const si = starImgRef.current;
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      let anyAlive = false;
-      for (const p of particles) {
-        if (p.life <= 0) continue;
-        anyAlive = true;
-        p.x   += p.vx;
-        p.y   += p.vy;
-        p.vy  += 0.2;
-        p.vx  *= 0.98;
-        p.rot += p.rotV;
-        p.life -= p.decay;
-
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, p.life);
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rot);
-        if (si?.complete && si.naturalWidth > 0) {
-          ctx.drawImage(si, -p.size / 2, -p.size / 2, p.size, p.size);
-        } else {
-          ctx.fillStyle = `hsl(${40 + Math.random() * 25}, 100%, 60%)`;
-          ctx.beginPath();
-          ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
-      }
-      if (anyAlive) requestAnimationFrame(animate);
-      else ctx.clearRect(0, 0, canvas.width, canvas.height);
-    };
-    animate();
-  };
 
   return (
     <>
@@ -1035,14 +1034,25 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
   };
 
   const onEnhanceDone = async (success) => {
-    if (!success || !enhanceTarget || !studentDocId) return;
-    const cfg     = ENHANCE[enhanceTarget.stars || 0];
-    const newInv  = inventory.map(i => i.id === enhanceTarget.id ? { ...i, stars: (i.stars || 0) + 1 } : i);
-    const newSt   = Math.max(0, stones - (cfg?.stones || 0));
+    if (!enhanceTarget || !studentDocId) return;
+    const cfg = ENHANCE[enhanceTarget.stars || 0];
+    if (!cfg) return;
+
+    const newInv = success
+      ? inventory.map(i => i.id === enhanceTarget.id ? { ...i, stars: (i.stars || 0) + 1 } : i)
+      : inventory;
+    const newSt = Math.max(0, stones - cfg.stones);
+
     setInventory(newInv);
     setStones(newSt);
-    setEnhanceTarget(prev => prev ? { ...prev, stars: (prev.stars || 0) + 1 } : null);
-    await updateDoc(doc(db, 'students', studentDocId), { equipInventory: newInv, enhancementStones: newSt });
+    if (success) {
+      setEnhanceTarget(prev => prev ? { ...prev, stars: (prev.stars || 0) + 1 } : null);
+    }
+
+    await updateDoc(doc(db, 'students', studentDocId), {
+      equipInventory: newInv,
+      enhancementStones: newSt,
+    });
   };
 
   const buyStones = async (qty) => {
