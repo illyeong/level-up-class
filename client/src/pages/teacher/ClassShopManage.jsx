@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
   doc, setDoc, getDoc, serverTimestamp, query, orderBy, limit,
-  where,
+  where, deleteField,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -240,7 +240,7 @@ function ClassShopManage({ selectedClass }) {
   const [usages, setUsages]       = useState([]);
 
   // 이용권 가격
-  const [ticketPrices, setTicketPrices]   = useState({ dungeon: 200, bossRaid: 200, arena: 200 });
+  const [ticketPrices, setTicketPrices]   = useState({ arena: 200 });
   const [isSavingTicket, setIsSavingTicket] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [tab, setTab]             = useState('items');
@@ -265,7 +265,9 @@ function ClassShopManage({ selectedClass }) {
     setIsSavingTicket(true);
     try {
       await setDoc(doc(db, 'ticketShopSettings', scopeKey), {
-        ...ticketPrices,
+        arena: ticketPrices.arena ?? 200,
+        dungeon: deleteField(),
+        bossRaid: deleteField(),
         classId,
         teacherUid,
         scopeKey,
@@ -350,7 +352,7 @@ function ClassShopManage({ selectedClass }) {
   useEffect(() => {
     (async () => {
       setIsLoading(true);
-      setTicketPrices({ dungeon: 200, bossRaid: 200, arena: 200 });
+      setTicketPrices({ arena: 200 });
       if (!scopeKey) {
         setItems([]);
         setPurchases([]);
@@ -465,10 +467,8 @@ function ClassShopManage({ selectedClass }) {
         <div className="bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-700 mb-6">
           <h2 className="font-extrabold text-white text-sm mb-1">🎫 어드벤처 이용권 가격 설정</h2>
           <p className="text-slate-400 text-xs mb-4">학생이 다이아로 구매하는 이용권 가격입니다 (기본값: 💎200)</p>
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             {[
-              { key: 'dungeon',  icon: '🗡️', label: '던전',    max: 3 },
-              { key: 'bossRaid', icon: '👹', label: '퀴즈레이드', max: 3 },
               { key: 'arena',    icon: '🏟️', label: '투기장',   max: 5 },
             ].map(({ key, icon, label, max }) => (
               <div key={key} className="bg-slate-800 rounded-xl p-3">

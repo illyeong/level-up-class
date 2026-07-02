@@ -7,8 +7,6 @@ import { db } from '../../firebase';
 
 // ── 이용권 설정 ───────────────────────────────────────────────
 const TICKET_META = {
-  dungeon:  { label: '던전 이용권',    icon: '🗡️', max: 3, color: 'sky'    },
-  bossRaid: { label: '퀴즈레이드 이용권', icon: '👹', max: 3, color: 'rose'   },
   arena:    { label: '투기장 이용권',  icon: '🏟️', max: 5, color: 'violet' },
 };
 
@@ -250,7 +248,7 @@ function ClassShop({ studentCode }) {
   const [usages, setUsages]           = useState([]);
   const [tab, setTab]                 = useState('shop');
   const [isLoading, setIsLoading]     = useState(true);
-  const [ticketPrices, setTicketPrices] = useState({ dungeon: 200, bossRaid: 200, arena: 200 });
+  const [ticketPrices, setTicketPrices] = useState({ arena: 200 });
   const [scope, setScope] = useState({ classId: null, teacherUid: null, scopeKey: null });
   const [isBuyingTicket, setIsBuyingTicket] = useState(false);
   const [toast, setToast]       = useState(null);
@@ -274,7 +272,7 @@ function ClassShop({ studentCode }) {
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
-      setTicketPrices({ dungeon: 200, bossRaid: 200, arena: 200 });
+      setTicketPrices({ arena: 200 });
       try {
         if (studentCode) {
           const q    = query(collection(db, 'students'), where('studentCode', '==', studentCode));
