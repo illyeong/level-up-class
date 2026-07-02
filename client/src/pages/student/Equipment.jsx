@@ -22,6 +22,8 @@ const SYNTHESIS_RECIPES = [
 ];
 
 const DISMANTLE_EFFECT_MS = 3000;
+const SYNTHESIS_SUCCESS_RATE = 0.25;
+const SYNTHESIS_EFFECT_MS = 3000;
 
 // ── 별 표시 컴포넌트 ──────────────────────────────────────────
 function Stars({ count, total = 5, size = 'md' }) {
@@ -769,6 +771,195 @@ function DismantleModal({ plan, onApply, onClose }) {
   );
 }
 
+function SynthesisModal({ plan, onApply, onClose }) {
+  const [stage, setStage] = useState('confirm');
+  const [error, setError] = useState('');
+  const appliedRef = useRef(false);
+
+  const recipe = plan?.recipe;
+  const fromGrade = GRADE[recipe?.fromGrade] || GRADE.common;
+  const toGrade = GRADE[recipe?.toGrade] || GRADE.common;
+  const success = !!plan?.success;
+  const resultItem = plan?.resultItem;
+  const materialCount = plan?.materials?.length || 0;
+
+  useEffect(() => {
+    if (stage !== 'processing') return undefined;
+    const t = setTimeout(async () => {
+      if (appliedRef.current) return;
+      appliedRef.current = true;
+      try {
+        await onApply(plan);
+        setStage('result');
+      } catch (e) {
+        console.error(e);
+        setError('합성 처리 중 오류가 발생했습니다.');
+        setStage('confirm');
+        appliedRef.current = false;
+      }
+    }, SYNTHESIS_EFFECT_MS);
+    return () => clearTimeout(t);
+  }, [onApply, plan, stage]);
+
+  if (!plan || !recipe) return null;
+
+  return (
+    <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/75 backdrop-blur-sm px-4">
+      <style>{`
+        @keyframes synthPulse { 0%,100% { transform: scale(1); opacity:.7; } 50% { transform: scale(1.14); opacity:1; } }
+        @keyframes synthSpin { to { transform: rotate(360deg); } }
+        @keyframes synthFloat { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-10px) scale(1.05); } }
+        @keyframes synthShard { 0% { transform: translate(0,0) scale(.4); opacity:0; } 25% { opacity:1; } 100% { transform: translate(var(--dx), var(--dy)) scale(1); opacity:0; } }
+        @keyframes synthFlash { 0%,72% { opacity:0; } 86% { opacity:.95; } 100% { opacity:0; } }
+        @keyframes synthBar { from { width: 0%; } to { width: 100%; } }
+      `}</style>
+      <div className="w-full max-w-md overflow-hidden rounded-3xl border border-violet-700 bg-slate-950 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+          <div>
+            <h2 className="text-lg font-extrabold text-white">장비 합성</h2>
+            <p className="text-xs font-bold text-slate-500">{fromGrade.label} {materialCount}개 → {toGrade.label} 도전</p>
+          </div>
+          {stage !== 'processing' && (
+            <button onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-800 hover:text-white">
+              ×
+            </button>
+          )}
+        </div>
+
+        <div className="p-5">
+          <div className={`relative mb-4 flex min-h-[270px] items-center justify-center overflow-hidden rounded-3xl border ${success && stage === 'result' ? toGrade.border : 'border-violet-700'} bg-slate-900`}>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.26),transparent_58%)]" />
+            <div className="absolute h-48 w-48 rounded-full border border-violet-300/30"
+              style={{ animation: stage === 'processing' ? 'synthSpin 2s linear infinite' : 'synthPulse 2.2s ease-in-out infinite' }} />
+            <div className="absolute h-32 w-32 rounded-full border border-fuchsia-300/25"
+              style={{ animation: stage === 'processing' ? 'synthSpin 1.25s linear infinite reverse' : 'synthPulse 2.6s ease-in-out infinite' }} />
+
+            {stage === 'processing' && Array.from({ length: 26 }, (_, i) => {
+              const angle = (i / 26) * Math.PI * 2;
+              const distance = 75 + (i % 6) * 12;
+              return (
+                <span key={i}
+                  className="absolute h-2 w-2 rounded-full bg-violet-300 shadow-lg shadow-violet-400/70"
+                  style={{
+                    '--dx': `${Math.cos(angle) * distance}px`,
+                    '--dy': `${Math.sin(angle) * distance}px`,
+                    left: '50%',
+                    top: '50%',
+                    animation: `synthShard 1.15s ease-out ${0.16 + (i % 9) * 0.08}s infinite`,
+                  }} />
+              );
+            })}
+
+            {stage === 'processing' && success && Array.from({ length: 10 }, (_, i) => (
+              <span key={`gold-${i}`}
+                className="absolute h-2.5 w-2.5 rounded-full bg-amber-300 shadow-lg shadow-amber-300/70"
+                style={{
+                  '--dx': `${(i % 2 ? 1 : -1) * (45 + i * 8)}px`,
+                  '--dy': `${-90 + (i % 5) * 24}px`,
+                  left: '50%',
+                  top: '50%',
+                  animation: `synthShard 1.25s ease-out ${1.45 + i * 0.05}s infinite`,
+                }} />
+            ))}
+
+            <div className={`absolute inset-0 pointer-events-none ${success ? 'bg-white' : 'bg-rose-500'}`}
+              style={{ animation: stage === 'processing' ? 'synthFlash 3s ease-out forwards' : 'none' }} />
+
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="mb-4 rounded-full border border-violet-400/40 bg-slate-950 px-4 py-1.5 text-xs font-black tracking-wider text-violet-200 shadow-[0_0_24px_rgba(139,92,246,0.3)]">
+                {stage === 'processing' ? 'SYNTHESIZING' : stage === 'result' ? (success ? 'SUCCESS' : 'FAILED') : 'READY'}
+              </div>
+              <div className="flex items-center gap-3">
+                <div className={`flex h-20 w-20 flex-col items-center justify-center rounded-2xl border-2 bg-white/90 ${fromGrade.border}`}
+                  style={{ animation: stage === 'processing' ? 'synthFloat 1.1s ease-in-out infinite' : 'none' }}>
+                  <div className="text-2xl font-black text-slate-800">{materialCount}</div>
+                  <div className="text-[10px] font-extrabold text-slate-500">재료</div>
+                </div>
+                <div className="text-3xl font-black text-violet-200">→</div>
+                <div className={`flex h-24 w-24 items-center justify-center rounded-3xl border-2 bg-white/90 ${toGrade.border}`}
+                  style={{ animation: stage === 'processing' ? 'synthFloat 1.1s ease-in-out .12s infinite' : 'none' }}>
+                  {stage === 'result' && success && resultItem?.image ? (
+                    <img src={resultItem.image} alt="" className="h-full w-full object-contain drop-shadow-md" />
+                  ) : (
+                    <div className="text-center">
+                      <div className="text-3xl">{success || stage !== 'result' ? '✨' : '💥'}</div>
+                      <div className="mt-1 text-[10px] font-black text-slate-700">{toGrade.label}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {stage === 'confirm' && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4">
+                <div className="mb-2 flex items-center justify-between text-sm">
+                  <span className="font-bold text-slate-400">성공률</span>
+                  <span className="font-extrabold text-amber-300">25%</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-bold text-slate-400">재료 소모</span>
+                  <span className="font-extrabold text-rose-300">성공/실패 모두 {materialCount}개</span>
+                </div>
+              </div>
+              {error && <div className="rounded-xl border border-rose-700 bg-rose-950/60 px-3 py-2 text-xs font-bold text-rose-300">{error}</div>}
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={onClose}
+                  className="rounded-2xl border border-slate-700 bg-slate-800 py-3.5 text-sm font-extrabold text-slate-300 transition-colors hover:bg-slate-700">
+                  취소
+                </button>
+                <button onClick={() => setStage('processing')}
+                  className="rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-violet-950/40 transition-all active:scale-95">
+                  합성 시작
+                </button>
+              </div>
+            </div>
+          )}
+
+          {stage === 'processing' && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="text-xl font-extrabold text-white">장비를 합성하는 중...</div>
+                <div className="mt-1 text-xs font-bold text-slate-500">마력 회로가 장비를 재구성하고 있습니다</div>
+              </div>
+              <div className="h-7 overflow-hidden rounded-full border border-slate-700 bg-slate-800">
+                <div className="h-full rounded-full bg-gradient-to-r from-violet-600 via-fuchsia-400 to-amber-300"
+                  style={{ animation: `synthBar ${SYNTHESIS_EFFECT_MS}ms linear forwards` }} />
+              </div>
+            </div>
+          )}
+
+          {stage === 'result' && (
+            <div className="space-y-4">
+              <div className={`rounded-2xl border p-5 text-center ${success ? 'border-amber-500/50 bg-amber-950/30' : 'border-rose-700/60 bg-rose-950/30'}`}>
+                <div className="mb-2 text-4xl">{success ? '🏆' : '💥'}</div>
+                <div className={`text-2xl font-extrabold ${success ? 'text-amber-300' : 'text-rose-300'}`}>
+                  {success ? '합성 성공!' : '합성 실패'}
+                </div>
+                <p className="mt-2 text-sm font-bold text-slate-300">
+                  {success ? `${resultItem?.name || '새 장비'}을(를) 획득했습니다.` : '재료 장비가 소모되었습니다.'}
+                </p>
+                {success && resultItem && (
+                  <div className={`mt-4 rounded-xl border px-3 py-2 ${toGrade.border} ${toGrade.bg}`}>
+                    <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full ${toGrade.badge}`}>{toGrade.label}</span>
+                    <div className="mt-1 text-sm font-extrabold text-slate-800">{resultItem.name}</div>
+                  </div>
+                )}
+              </div>
+              <button onClick={onClose}
+                className="w-full rounded-2xl bg-slate-700 py-3.5 text-sm font-extrabold text-white transition-colors hover:bg-slate-600">
+                확인
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Equipment({ studentCode, themeMode = 'dark' }) {
   const isDark = themeMode === 'dark';
   const [tab, setTab]             = useState('equip');
@@ -787,6 +978,7 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
   const [confirmBuy, setConfirmBuy]       = useState(false);
   const [selectedDismantleIds, setSelectedDismantleIds] = useState([]);
   const [dismantlePlan, setDismantlePlan] = useState(null);
+  const [synthesisPlan, setSynthesisPlan] = useState(null);
 
   useEffect(() => {
     if (!studentCode) return;
@@ -924,28 +1116,34 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
       return;
     }
 
-    const fromLabel = GRADE[recipe.fromGrade]?.label || recipe.fromGrade;
-    const toLabel = GRADE[recipe.toGrade]?.label || recipe.toGrade;
-    if (!window.confirm(`${fromLabel} 장비 ${recipe.required}개를 합성해서 ${toLabel} 장비 1개를 만들까요?`)) return;
+    const success = Math.random() < SYNTHESIS_SUCCESS_RATE;
+    setSynthesisPlan({
+      id: `synthesis_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      recipe,
+      materials: candidates.slice(0, recipe.required),
+      success,
+      resultItem: success ? resultPool[Math.floor(Math.random() * resultPool.length)] : null,
+    });
+  }, [allItems, equipped, inventory, studentDocId]);
 
-    const consumedIds = new Set(candidates.slice(0, recipe.required).map(inv => inv.id));
-    const resultItem = resultPool[Math.floor(Math.random() * resultPool.length)];
-    const newInventory = [
-      ...inventory.filter(inv => !consumedIds.has(inv.id)),
-      {
+  const applySynthesisPlan = useCallback(async (plan) => {
+    if (!studentDocId || !plan?.recipe || !plan?.materials?.length) return;
+    const consumedIds = new Set(plan.materials.map(inv => inv.id));
+    const baseInventory = inventory.filter(inv => !consumedIds.has(inv.id));
+    const newInventory = plan.success && plan.resultItem
+      ? [...baseInventory, {
         id: `inv_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-        itemId: resultItem.id,
+        itemId: plan.resultItem.id,
         stars: 0,
         obtainedAt: new Date().toISOString(),
         source: 'synthesis',
-      },
-    ];
+      }]
+      : baseInventory;
 
+    await updateDoc(doc(db, 'students', studentDocId), { equipInventory: newInventory });
     setInventory(newInventory);
     setSelectedDismantleIds(ids => ids.filter(id => !consumedIds.has(id)));
-    await updateDoc(doc(db, 'students', studentDocId), { equipInventory: newInventory });
-    alert(`합성 성공!\n${resultItem.name}을(를) 획득했습니다.`);
-  }, [allItems, equipped, inventory, studentDocId]);
+  }, [inventory, studentDocId]);
 
   const equipBonus = Object.keys(STAT_LABEL).reduce((acc, key) => {
     acc[key] = Object.values(equipped).reduce((sum, invId) => {
@@ -1271,8 +1469,8 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
         )}
 
         {tab === 'forge' && (
-          <div className="space-y-4">
-            <div className={`rounded-2xl border p-4 sm:p-5 ${isDark ? 'bg-slate-950/95 border-cyan-900/60 shadow-[0_0_0_1px_rgba(34,211,238,0.08)]' : 'bg-white border-slate-200 shadow-sm'}`}>
+          <div className="flex flex-col gap-4">
+            <div className={`order-2 rounded-2xl border p-4 sm:p-5 ${isDark ? 'bg-slate-950/95 border-cyan-900/60 shadow-[0_0_0_1px_rgba(34,211,238,0.08)]' : 'bg-white border-slate-200 shadow-sm'}`}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
                 <div>
                   <h3 className={`font-extrabold text-sm ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>⚒️ 장비 분해소</h3>
@@ -1369,38 +1567,69 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
               )}
             </div>
 
-            <div className={`rounded-3xl shadow-sm border p-4 ${isDark ? 'bg-slate-900/80 border-slate-700' : 'bg-white border-slate-200'}`}>
-              <div className="flex items-center justify-between mb-3">
+            <div className={`order-1 rounded-2xl border p-4 sm:p-5 ${isDark ? 'bg-slate-950/95 border-violet-900/60 shadow-[0_0_0_1px_rgba(139,92,246,0.08)]' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-4">
                 <div>
                   <h3 className={`font-extrabold text-sm ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>✨ 장비 합성</h3>
-                  <p className="text-[11px] text-slate-400 mt-1">착용하지 않은 낮은 강화 장비부터 재료로 사용합니다.</p>
+                  <p className="text-[11px] text-slate-400 mt-1">착용하지 않은 낮은 강화 장비부터 재료로 사용합니다. 실패해도 재료는 소모됩니다.</p>
+                </div>
+                <div className="rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-xs font-extrabold text-violet-200">
+                  성공률 25%
                 </div>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {SYNTHESIS_RECIPES.map(recipe => {
                   const fromGrade = GRADE[recipe.fromGrade] || GRADE.common;
                   const toGrade = GRADE[recipe.toGrade] || GRADE.common;
                   const count = unequippedInventory.filter(inv => getItem(inv.itemId)?.grade === recipe.fromGrade).length;
                   const canSynthesize = count >= recipe.required;
+                  const missing = Math.max(0, recipe.required - count);
+                  const progressPct = Math.min(100, Math.round((count / recipe.required) * 100));
                   return (
-                    <div key={recipe.fromGrade} className={`rounded-2xl border p-3 flex items-center justify-between gap-3 ${isDark ? 'border-slate-700 bg-slate-800/70' : 'border-slate-200 bg-slate-50'}`}>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${fromGrade.badge}`}>{fromGrade.label}</span>
-                          <span className={`text-xs font-extrabold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{recipe.required}개</span>
-                          <span className="text-slate-400">→</span>
-                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${toGrade.badge}`}>{toGrade.label}</span>
-                          <span className={`text-xs font-extrabold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>1개</span>
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-1">보유 재료 {count}/{recipe.required}</div>
+                    <div key={recipe.fromGrade} className={`rounded-2xl border p-3.5 flex flex-col gap-3 ${canSynthesize
+                      ? (isDark ? 'border-violet-600/60 bg-violet-950/20 shadow-[0_0_18px_rgba(139,92,246,0.12)]' : 'border-violet-200 bg-violet-50')
+                      : (isDark ? 'border-slate-700 bg-slate-900/80' : 'border-slate-200 bg-slate-50')}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-[10px] font-extrabold px-2 py-1 rounded-full ${fromGrade.badge}`}>{fromGrade.label} 재료</span>
+                        <span className={`text-[10px] font-extrabold px-2 py-1 rounded-full ${toGrade.badge}`}>{toGrade.label} 도전</span>
                       </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-center">
+                          <div className={`text-2xl font-black ${canSynthesize ? 'text-violet-300' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {count}
+                          </div>
+                          <div className="text-[10px] font-bold text-slate-500">보유</div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="mb-1 flex items-center justify-between text-[10px] font-bold text-slate-400">
+                            <span>{recipe.required}개 필요</span>
+                            <span>{progressPct}%</span>
+                          </div>
+                          <div className="h-2.5 overflow-hidden rounded-full bg-slate-800">
+                            <div className={`h-full rounded-full ${canSynthesize ? 'bg-gradient-to-r from-violet-500 to-fuchsia-400' : 'bg-slate-600'}`}
+                              style={{ width: `${progressPct}%` }} />
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-black text-amber-300">25%</div>
+                          <div className="text-[10px] font-bold text-slate-500">성공</div>
+                        </div>
+                      </div>
+
+                      <div className={`rounded-xl px-3 py-2 text-[11px] font-bold ${canSynthesize
+                        ? 'bg-rose-950/40 text-rose-200 border border-rose-800/50'
+                        : 'bg-slate-950/50 text-slate-400 border border-slate-800'}`}>
+                        {canSynthesize ? '실패 시 재료가 모두 소모됩니다.' : `재료 ${missing}개 부족`}
+                      </div>
+
                       <button onClick={() => synthesizeEquipment(recipe)} disabled={!canSynthesize}
-                        className={`shrink-0 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all active:scale-95
+                        className={`w-full px-4 py-3 rounded-xl text-xs font-extrabold transition-all active:scale-95
                           ${canSynthesize
-                            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-500 hover:to-indigo-500'
+                            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-950/30'
                             : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
-                        합성
+                        {canSynthesize ? '합성 도전 25%' : '재료 부족'}
                       </button>
                     </div>
                   );
@@ -1416,6 +1645,14 @@ export default function Equipment({ studentCode, themeMode = 'dark' }) {
           plan={dismantlePlan}
           onApply={applyDismantlePlan}
           onClose={() => setDismantlePlan(null)}
+        />
+      )}
+
+      {synthesisPlan && (
+        <SynthesisModal
+          plan={synthesisPlan}
+          onApply={applySynthesisPlan}
+          onClose={() => setSynthesisPlan(null)}
         />
       )}
 
