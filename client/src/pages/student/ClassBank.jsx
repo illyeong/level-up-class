@@ -33,6 +33,16 @@ const isLogInScope = (log, scope) => {
   return true;
 };
 
+const toWholeCurrency = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+};
+
+const parseWholeAmount = (value) => {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+};
+
 function ClassBank({ studentCode }) {
   const [student, setStudent]   = useState(null);
   const [docId, setDocId]       = useState(null);
@@ -97,10 +107,12 @@ function ClassBank({ studentCode }) {
     load();
   }, [studentCode]);
 
-  const bankDia          = student?.bankDiamond         || 0;
-  const bankGold         = student?.bankGold            || 0;
-  const diaTotalInterest = student?.bankDiamondInterest || 0;
-  const goldTotalInterest= student?.bankGoldInterest    || 0;
+  const walletDia        = toWholeCurrency(student?.diamonds);
+  const walletGold       = toWholeCurrency(student?.gold);
+  const bankDia          = toWholeCurrency(student?.bankDiamond);
+  const bankGold         = toWholeCurrency(student?.bankGold);
+  const diaTotalInterest = toWholeCurrency(student?.bankDiamondInterest);
+  const goldTotalInterest= toWholeCurrency(student?.bankGoldInterest);
   const diaRate          = settings.weeklyDiamondRate   || 0.03;
   const goldRate         = settings.weeklyGoldRate      || 0.03;
   const nextDiaInt       = Math.floor(bankDia  * diaRate);
@@ -108,9 +120,9 @@ function ClassBank({ studentCode }) {
 
   // ── 예치 ──────────────────────────────────────────────────
   const doDeposit = async (currency) => {
-    const amount = currency === 'diamond' ? Number(diaDeposit) : Number(goldDeposit);
-    if (!amount || amount <= 0) return showToast('금액을 입력해주세요.', 'error');
-    const avail = currency === 'diamond' ? (student?.diamonds || 0) : (student?.gold || 0);
+    const amount = parseWholeAmount(currency === 'diamond' ? diaDeposit : goldDeposit);
+    if (!amount) return showToast('금액은 1 이상의 정수로 입력해주세요.', 'error');
+    const avail = currency === 'diamond' ? walletDia : walletGold;
     if (amount > avail) return showToast(`보유 ${currency === 'diamond' ? '다이아' : '골드'}가 부족합니다. (보유: ${avail.toLocaleString()})`, 'error');
 
     setIsBusy(true);
@@ -120,9 +132,9 @@ function ClassBank({ studentCode }) {
       const sRef   = doc(db, 'students', docId);
 
       if (currency === 'diamond') {
-        batch.update(sRef, { diamonds: (student.diamonds || 0) - amount, bankDiamond: curDep + amount });
+        batch.update(sRef, { diamonds: walletDia - amount, bankDiamond: curDep + amount });
       } else {
-        batch.update(sRef, { gold: (student.gold || 0) - amount, bankGold: curDep + amount });
+        batch.update(sRef, { gold: walletGold - amount, bankGold: curDep + amount });
       }
       batch.set(doc(collection(db, 'bankLogs')), {
         studentId: docId, studentCode: student.studentCode, studentName: student.name || student.studentCode,
@@ -157,8 +169,8 @@ function ClassBank({ studentCode }) {
   // ── 출금 ──────────────────────────────────────────────────
   const doWithdraw = async (currency, all = false) => {
     const curDep = currency === 'diamond' ? bankDia : bankGold;
-    const amount = all ? curDep : (currency === 'diamond' ? Number(diaWithdraw) : Number(goldWithdraw));
-    if (!amount || amount <= 0) return showToast('출금할 금액이 없습니다.', 'error');
+    const amount = all ? curDep : parseWholeAmount(currency === 'diamond' ? diaWithdraw : goldWithdraw);
+    if (!amount) return showToast('출금 금액은 1 이상의 정수로 입력해주세요.', 'error');
     if (amount > curDep) return showToast('예치금보다 많은 금액은 출금할 수 없습니다.', 'error');
 
     setIsBusy(true);
@@ -167,9 +179,9 @@ function ClassBank({ studentCode }) {
       const sRef  = doc(db, 'students', docId);
 
       if (currency === 'diamond') {
-        batch.update(sRef, { diamonds: (student.diamonds || 0) + amount, bankDiamond: curDep - amount });
+        batch.update(sRef, { diamonds: walletDia + amount, bankDiamond: curDep - amount });
       } else {
-        batch.update(sRef, { gold: (student.gold || 0) + amount, bankGold: curDep - amount });
+        batch.update(sRef, { gold: walletGold + amount, bankGold: curDep - amount });
       }
       batch.set(doc(collection(db, 'bankLogs')), {
         studentId: docId, studentCode: student.studentCode, studentName: student.name || student.studentCode,
@@ -272,7 +284,7 @@ function ClassBank({ studentCode }) {
             nextInterest={nextDiaInt}
             nextInterestBg="bg-amber-50"
             nextInterestColor="text-amber-700"
-            available={student?.diamonds || 0}
+            available={walletDia}
             availLabel="보유 다이아"
             depositInputValue={diaDeposit}
             onDepositChange={e => setDiaDeposit(e.target.value)}
@@ -298,7 +310,7 @@ function ClassBank({ studentCode }) {
             nextInterest={nextGoldInt}
             nextInterestBg="bg-orange-50"
             nextInterestColor="text-orange-700"
-            available={student?.gold || 0}
+            available={walletGold}
             availLabel="보유 골드"
             depositInputValue={goldDeposit}
             onDepositChange={e => setGoldDeposit(e.target.value)}
@@ -403,7 +415,7 @@ function CurrencySection({
           {/* 예치 */}
           <div className="flex gap-2 flex-1">
             <input
-              type="number" min="1" value={depositInputValue} onChange={onDepositChange}
+              type="number" min="1" step="1" value={depositInputValue} onChange={onDepositChange}
               placeholder="예치 금액"
               className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400 min-w-0"
             />
@@ -415,7 +427,7 @@ function CurrencySection({
           {/* 출금 */}
           <div className="flex gap-2">
             <input
-              type="number" min="1" max={deposit} value={withdrawInputValue} onChange={onWithdrawChange}
+              type="number" min="1" max={deposit} step="1" value={withdrawInputValue} onChange={onWithdrawChange}
               placeholder="출금 금액"
               className="w-28 border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-rose-300"
             />

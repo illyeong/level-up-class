@@ -33,6 +33,11 @@ const fmtDate = (ts) => {
   return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
+const toWholeCurrency = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+};
+
 function BankManage({ selectedClass }) {
   const [students, setStudents]         = useState([]);
   const [settings, setSettings]         = useState({ weeklyDiamondRate: 3, weeklyGoldRate: 3 });
@@ -177,8 +182,8 @@ function BankManage({ selectedClass }) {
             for (const { studentRef, studentSnap } of studentSnaps) {
               if (!studentSnap.exists()) continue;
               const s = { id: studentSnap.id, ...studentSnap.data() };
-              const dDep = s.bankDiamond || 0;
-              const gDep = s.bankGold || 0;
+              const dDep = toWholeCurrency(s.bankDiamond);
+              const gDep = toWholeCurrency(s.bankGold);
               if (dDep <= 0 && gDep <= 0) continue;
 
               const dInt = Math.floor(dDep * diaRate);
@@ -239,8 +244,8 @@ function BankManage({ selectedClass }) {
     );
   };
 
-  const totalDiaDep  = students.reduce((s, stu) => s + (stu.bankDiamond || 0), 0);
-  const totalGoldDep = students.reduce((s, stu) => s + (stu.bankGold    || 0), 0);
+  const totalDiaDep  = students.reduce((s, stu) => s + toWholeCurrency(stu.bankDiamond), 0);
+  const totalGoldDep = students.reduce((s, stu) => s + toWholeCurrency(stu.bankGold), 0);
   const hasAppliedInterestToday = lastInterestDateKey === getKoreaDateKey();
 
   if (!scopeKey) {
@@ -351,8 +356,12 @@ function BankManage({ selectedClass }) {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {students.map(s => {
-                    const dNext = Math.floor((s.bankDiamond || 0) * (settings.weeklyDiamondRate / 100));
-                    const gNext = Math.floor((s.bankGold    || 0) * (settings.weeklyGoldRate    / 100));
+                    const bankDiamond = toWholeCurrency(s.bankDiamond);
+                    const bankGold = toWholeCurrency(s.bankGold);
+                    const bankDiamondInterest = toWholeCurrency(s.bankDiamondInterest);
+                    const bankGoldInterest = toWholeCurrency(s.bankGoldInterest);
+                    const dNext = Math.floor(bankDiamond * (settings.weeklyDiamondRate / 100));
+                    const gNext = Math.floor(bankGold * (settings.weeklyGoldRate / 100));
                     return (
                       <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-5 py-3">
@@ -360,16 +369,16 @@ function BankManage({ selectedClass }) {
                           {s.name && <div className="text-[10px] text-slate-400 font-mono">{s.studentCode}</div>}
                         </td>
                         <td className="px-5 py-3 font-bold text-indigo-600 text-sm">
-                          {(s.bankDiamond || 0).toLocaleString()}
+                          {bankDiamond.toLocaleString()}
                         </td>
                         <td className="px-5 py-3 font-bold text-emerald-600 text-sm">
-                          +{(s.bankDiamondInterest || 0).toLocaleString()}
+                          +{bankDiamondInterest.toLocaleString()}
                         </td>
                         <td className="px-5 py-3 font-bold text-amber-600 text-sm">
-                          {(s.bankGold || 0).toLocaleString()}
+                          {bankGold.toLocaleString()}
                         </td>
                         <td className="px-5 py-3 font-bold text-emerald-600 text-sm">
-                          +{(s.bankGoldInterest || 0).toLocaleString()}
+                          +{bankGoldInterest.toLocaleString()}
                         </td>
                         <td className="px-5 py-3 text-sm text-slate-500 font-medium">
                           {dNext > 0 && <span className="mr-2">💎+{dNext.toLocaleString()}</span>}
