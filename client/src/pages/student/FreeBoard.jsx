@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
   doc, query, where, arrayUnion, arrayRemove,
@@ -7,6 +7,52 @@ import {
 import { db } from '../../firebase';
 
 const MAX_ATTACHMENT_SIZE = 450 * 1024;
+const URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+const TRAILING_URL_PUNCTUATION = /[.,!?;:)\]}]+$/;
+
+function LinkifiedText({ text, className }) {
+  const source = String(text || '');
+  if (!source) return null;
+
+  const parts = [];
+  let lastIndex = 0;
+
+  for (const match of source.matchAll(URL_PATTERN)) {
+    const matchedUrl = match[0];
+    const startIndex = match.index ?? 0;
+    const trailingMatch = matchedUrl.match(TRAILING_URL_PUNCTUATION);
+    const trailingText = trailingMatch?.[0] || '';
+    const displayUrl = trailingText ? matchedUrl.slice(0, -trailingText.length) : matchedUrl;
+
+    if (!displayUrl) continue;
+    if (startIndex > lastIndex) {
+      parts.push(source.slice(lastIndex, startIndex));
+    }
+
+    const href = displayUrl.startsWith('www.') ? `https://${displayUrl}` : displayUrl;
+    parts.push(
+      <a
+        key={`${startIndex}-${displayUrl}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={e => e.stopPropagation()}
+        className="font-bold text-indigo-600 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-500 dark:text-indigo-300 dark:decoration-indigo-500 dark:hover:text-indigo-200"
+      >
+        {displayUrl}
+      </a>
+    );
+
+    if (trailingText) parts.push(trailingText);
+    lastIndex = startIndex + matchedUrl.length;
+  }
+
+  if (lastIndex < source.length) {
+    parts.push(source.slice(lastIndex));
+  }
+
+  return <p className={className}>{parts}</p>;
+}
 
 export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isTeacher, themeMode }) {
   const teacherLightModeClass = isTeacher && themeMode === 'light' ? 'teacher-board-light' : '';
@@ -345,7 +391,10 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                 <div className="font-extrabold text-sm text-slate-800 mb-1 leading-snug dark:text-slate-100">{post.title}</div>
                 {/* 내용 */}
                 {post.content && (
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 dark:text-slate-200">{post.content}</p>
+                  <LinkifiedText
+                    text={post.content}
+                    className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words mb-1 dark:text-slate-200"
+                  />
                 )}
                 {/* 이미지 */}
                 {post.imageUrl && (
@@ -485,7 +534,10 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                       📎 {selectedPost.attachment.name || '첨부파일'}
                     </a>
                   )}
-                  <p className="text-slate-700 whitespace-pre-wrap text-sm leading-relaxed dark:text-slate-200">{selectedPost.content}</p>
+                  <LinkifiedText
+                    text={selectedPost.content}
+                    className="text-slate-700 whitespace-pre-wrap break-words text-sm leading-relaxed dark:text-slate-200"
+                  />
 
                   <div className="flex items-center gap-4 pt-3 border-t border-slate-100 dark:border-slate-700">
                     <button onClick={() => toggleLike(selectedPost)}
@@ -504,7 +556,10 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
                           <span className="font-bold text-sm text-slate-700 dark:text-slate-200">{c.authorName}</span>
                           <span className="text-xs text-slate-400 dark:text-slate-500">{formatDate(c.createdAt)}</span>
                         </div>
-                        <p className="text-sm text-slate-600 dark:text-slate-300">{c.content}</p>
+                        <LinkifiedText
+                          text={c.content}
+                          className="text-sm text-slate-600 whitespace-pre-wrap break-words dark:text-slate-300"
+                        />
                       </div>
                     ))}
                   </div>
