@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
   doc, serverTimestamp, query, where, orderBy, arrayUnion,
@@ -566,7 +566,7 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
   };
 
   // ── Leaflet map init ──────────────────────────────────────────
-  const teacherReactionId = `teacher_${String(selectedClass?.teacherUid || user?.uid || 'unknown').replace(/[.~*\/[\]]/g, '_')}`;
+  const teacherReactionId = `teacher_${String(selectedClass?.teacherUid || user?.uid || 'unknown').replace(/[.~*/[\]]/g, '_')}`;
   const teacherDisplayName = user?.displayName || user?.email || '선생님';
 
   const handleTeacherReact = async (post, emoji) => {
@@ -612,6 +612,24 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
       setCommentSavingId(null);
     }
   };
+
+  const deleteTeacherComment = (post, commentId) => {
+    if (!selectedBoard?.id || !post?.id || !commentId) return;
+    showConfirm('이 댓글을 삭제할까요?', async () => {
+      const latestPost = posts.find(p => p.id === post.id) || post;
+      const nextComments = (latestPost.comments || []).filter(c => c.id !== commentId);
+      try {
+        await updateDoc(doc(db, 'boards', selectedBoard.id, 'posts', post.id), { comments: nextComments });
+        const applyUpdate = (p) => p.id === post.id ? { ...p, comments: nextComments } : p;
+        setPosts(prev => prev.map(applyUpdate));
+        setSelectedMapPost(prev => prev?.id === post.id ? { ...prev, comments: nextComments } : prev);
+        showToast('댓글을 삭제했습니다.');
+      } catch {
+        showToast('댓글 삭제에 실패했습니다.', 'error');
+      }
+    });
+  };
+
   useEffect(() => {
     if (!selectedBoard || selectedBoard.boardType !== 'map' || loadingPosts) {
       if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
@@ -793,11 +811,18 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
                     : <span className="text-sm">👤</span>}
                 </div>
                 <div className="flex-1 rounded-xl bg-white/60 px-2.5 py-1.5 dark:bg-slate-950/70 dark:border dark:border-slate-700">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-200">{c.authorName}</span>
-                    <span className="text-[10px] text-slate-400">
+                  <div className="mb-0.5 flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-[10px] font-extrabold text-slate-700 dark:text-slate-200">{c.authorName}</span>
+                    <span className="shrink-0 text-[10px] text-slate-400">
                       {c.createdAt ? new Date(c.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => deleteTeacherComment(post, c.id)}
+                      className="shrink-0 rounded-md px-1 py-0.5 text-[10px] font-extrabold text-slate-400 hover:bg-rose-50 hover:text-rose-500 dark:text-slate-500 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+                    >
+                      삭제
+                    </button>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap break-words dark:text-slate-300">{c.text}</p>
                 </div>
@@ -1155,10 +1180,17 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
                         {(selectedMapPost.comments || []).map(c => (
                           <div key={c.id} className="rounded-xl bg-slate-50 px-2.5 py-1.5 dark:bg-slate-900 dark:border dark:border-slate-700">
                             <div className="mb-0.5 flex items-center gap-2">
-                              <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-200">{c.authorName}</span>
-                              <span className="text-[10px] text-slate-400">
+                              <span className="min-w-0 flex-1 truncate text-[10px] font-extrabold text-slate-700 dark:text-slate-200">{c.authorName}</span>
+                              <span className="shrink-0 text-[10px] text-slate-400">
                                 {c.createdAt ? new Date(c.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
                               </span>
+                              <button
+                                type="button"
+                                onClick={() => deleteTeacherComment(selectedMapPost, c.id)}
+                                className="shrink-0 rounded-md px-1 py-0.5 text-[10px] font-extrabold text-slate-400 hover:bg-rose-50 hover:text-rose-500 dark:text-slate-500 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+                              >
+                                삭제
+                              </button>
                             </div>
                             <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap break-words dark:text-slate-300">{c.text}</p>
                           </div>
