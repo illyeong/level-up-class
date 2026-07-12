@@ -1972,24 +1972,13 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
             </div>
           ))}
 
-          <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center">
-            <div className="rounded-full border border-slate-600/60 bg-slate-950/70 px-4 py-1 text-[11px] font-bold text-slate-400">
-              자동 전투 · 3번째 행동마다 강타 · HP 30% 이하 회복
-            </div>
+          <div key={`caption-${battleLog.length}`} className={`arena2-stage-caption arena2-stage-caption-${latestMeta.tone}`}>
+            <span>{latestMeta.icon} {latestMeta.label}</span>
+            <strong>{latestLog?.msg || '⚔️ 전투 준비 중...'}</strong>
           </div>
         </div>
 
-        <div className="arena2-combat-cast">
-          <div className={`arena2-live-card arena2-live-${latestMeta.tone}`}>
-            <div className="arena2-live-head">
-              <span className="arena2-live-dot">LIVE</span>
-              <span>{latestMeta.icon} {latestMeta.label}</span>
-            </div>
-            <div className="arena2-live-message">
-              {latestLog?.msg || '⚔️ 전투 준비 중...'}
-            </div>
-          </div>
-
+        <div className="arena2-combat-cast arena2-combat-strip">
           <div className="arena2-highlight-row">
             {highlightLogs.length === 0 ? (
               <div className="arena2-highlight-card arena2-highlight-empty">

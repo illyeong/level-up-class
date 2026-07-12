@@ -233,17 +233,64 @@
   box-shadow: inset 0 -42px 90px rgba(2, 6, 23, .72);
 }
 
+.arena2-stage-caption {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(48px, 13%, 78px);
+  z-index: 45;
+  width: min(640px, 84%);
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(148, 163, 184, .36);
+  border-radius: 999px;
+  padding: 9px 14px;
+  background: rgba(2, 6, 23, .78);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .34);
+  backdrop-filter: blur(8px);
+  animation: arena2-stage-caption-in 260ms ease-out both;
+  pointer-events: none;
+}
+
+.arena2-stage-caption span {
+  white-space: nowrap;
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 1000;
+}
+
+.arena2-stage-caption strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #f8fafc;
+  font-size: clamp(14px, 2vw, 20px);
+  line-height: 1.05;
+  font-weight: 1000;
+}
+
+.arena2-stage-caption-crit { border-color: rgba(250, 204, 21, .6); box-shadow: 0 0 26px rgba(250, 204, 21, .16), 0 14px 32px rgba(0, 0, 0, .34); }
+.arena2-stage-caption-skill { border-color: rgba(217, 70, 239, .52); }
+.arena2-stage-caption-heal { border-color: rgba(52, 211, 153, .52); }
+.arena2-stage-caption-guard { border-color: rgba(56, 189, 248, .52); }
+.arena2-stage-caption-dodge { border-color: rgba(34, 211, 238, .52); }
+.arena2-stage-caption-result { border-color: rgba(74, 222, 128, .64); }
+
 .arena2-combat-cast {
   flex: 0 0 auto;
   display: grid;
-  gap: 10px;
-  border: 1px solid rgba(71, 85, 105, .9);
-  border-radius: 14px;
-  padding: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(71, 85, 105, .72);
+  border-radius: 12px;
+  padding: 8px 10px;
   background:
-    linear-gradient(135deg, rgba(15, 23, 42, .94), rgba(2, 6, 23, .96)),
-    radial-gradient(circle at 16% 0%, rgba(99, 102, 241, .22), transparent 34%);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, .25);
+    linear-gradient(135deg, rgba(15, 23, 42, .8), rgba(2, 6, 23, .86)),
+    radial-gradient(circle at 16% 0%, rgba(99, 102, 241, .12), transparent 34%);
 }
 
 .arena2-live-card {
@@ -322,15 +369,15 @@
 .arena2-highlight-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  gap: 7px;
 }
 
 .arena2-highlight-card {
-  min-height: 54px;
+  min-height: 38px;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: 9px;
   border: 1px solid rgba(71, 85, 105, .78);
-  padding: 8px 9px;
+  padding: 6px 8px;
   background: rgba(15, 23, 42, .78);
   animation: arena2-highlight-pop 260ms ease-out both;
 }
@@ -341,12 +388,12 @@
   font-size: 11px;
   font-weight: 1000;
   line-height: 1;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .arena2-highlight-card span {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
   color: #94a3b8;
@@ -371,8 +418,9 @@
 }
 
 .arena2-detail-log {
-  border-top: 1px solid rgba(71, 85, 105, .7);
-  padding-top: 2px;
+  min-width: 144px;
+  border-top: 0;
+  padding-top: 0;
 }
 
 .arena2-detail-log summary {
@@ -386,6 +434,10 @@
   font-size: 12px;
   font-weight: 900;
   user-select: none;
+  border-radius: 999px;
+  border: 1px solid rgba(71, 85, 105, .8);
+  padding: 7px 10px;
+  background: rgba(15, 23, 42, .82);
 }
 
 .arena2-detail-log summary::-webkit-details-marker {
@@ -414,6 +466,11 @@
   border: 1px solid rgba(71, 85, 105, .8);
 }
 
+.arena2-detail-log[open] {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 .arena2-detail-log-list {
   max-height: 110px;
   overflow-y: auto;
@@ -439,19 +496,34 @@
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes arena2-stage-caption-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px) scale(.98); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
 @media (max-width: 640px) {
   .arena2-combat-cast {
+    grid-template-columns: 1fr;
     gap: 8px;
-    padding: 10px;
+    padding: 8px;
   }
 
-  .arena2-live-card {
-    min-height: 66px;
-    padding: 10px 11px;
+  .arena2-stage-caption {
+    bottom: 46px;
+    width: calc(100% - 24px);
+    grid-template-columns: 1fr;
+    gap: 4px;
+    border-radius: 14px;
+    padding: 8px 10px;
+    text-align: center;
   }
 
-  .arena2-live-message {
-    font-size: 16px;
+  .arena2-stage-caption strong {
+    font-size: 14px;
+  }
+
+  .arena2-stage-caption span {
+    font-size: 10px;
   }
 
   .arena2-highlight-row {
@@ -459,7 +531,7 @@
   }
 
   .arena2-highlight-card {
-    min-height: 48px;
+    min-height: 36px;
     padding: 7px 8px;
   }
 
