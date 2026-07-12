@@ -21,7 +21,8 @@ public class BossFSM : MonoBehaviour
         Smash,
         StoneGolem,
         MeadowDragon,
-        IceWorm
+        IceWorm,
+        IceGolem
     }
 
     public UnityEngine.UI.Slider bossHpBar;
@@ -136,6 +137,23 @@ public class BossFSM : MonoBehaviour
     public float iceSpikeInterval = 0.25f;
     public float iceSpikeSpread = 3.2f;
 
+    [Header("Ice Golem Unique Patterns")]
+    public bool iceGolemPatternsStartInPhase1 = true;
+    public float iceGolemSpecialCooldown = 6.8f;
+    public float iceGolemPhase2CooldownMultiplier = 0.68f;
+    public float iceGolemSkillTriggerRange = 8.8f;
+    public float iceGolemFieldImpactDamageMultiplier = 0.9f;
+    public int iceGolemFallingIceCount = 4;
+    public int phase2IceGolemFallingIceCount = 7;
+    public float iceGolemFallingIceInterval = 0.22f;
+    public float iceGolemFallingIceSpread = 3.6f;
+    public int iceGolemQuakeCount = 4;
+    public int phase2IceGolemQuakeCount = 6;
+    public float iceGolemQuakeSpacing = 1.45f;
+    public float iceGolemQuakeStepDelay = 0.18f;
+    public float iceGolemQuakeRadius = 1.65f;
+    public float iceGolemQuakeDamageMultiplier = 1.05f;
+
     [Header("지형 감지")]
     public Transform frontCheck;
     public LayerMask groundLayer;
@@ -211,6 +229,8 @@ public class BossFSM : MonoBehaviour
     private int nextDragonPattern = 0;
     private float lastIceWormSpecialTime = 0f;
     private int nextIceWormPattern = 0;
+    private float lastIceGolemSpecialTime = 0f;
+    private int nextIceGolemPattern = 0;
 
     void Start()
     {
@@ -286,6 +306,15 @@ public class BossFSM : MonoBehaviour
             Time.time >= lastIceWormSpecialTime + GetIceWormSpecialCooldown())
         {
             StartNextIceWormPattern();
+            return;
+        }
+
+        if (phase2Skill == Phase2SkillType.IceGolem &&
+            (iceGolemPatternsStartInPhase1 || isPhase2) &&
+            dist <= iceGolemSkillTriggerRange &&
+            Time.time >= lastIceGolemSpecialTime + GetIceGolemSpecialCooldown())
+        {
+            StartNextIceGolemPattern();
             return;
         }
 
@@ -916,7 +945,7 @@ public class BossFSM : MonoBehaviour
         center.z = transform.position.z;
 
         GameObject field = iceFieldEffectPrefab != null ? iceFieldEffectPrefab : poisonPoolEffectPrefab;
-        SpawnShortEffect(field, center, iceFieldDuration + 0.5f, 5);
+        SpawnShortEffect(field, center, iceFieldDuration, 5);
 
         int tickDamage = Mathf.Max(1, Mathf.RoundToInt(attackPower * iceFieldDamageMultiplier));
         float elapsed = 0f;
@@ -1003,6 +1032,167 @@ public class BossFSM : MonoBehaviour
 
         CameraFollow.Instance?.Shake(shakeDuration * 0.55f, shakeMagnitude * 0.55f);
         DamagePlayersInRadius(target, rockFallRadius, Mathf.RoundToInt(attackPower * rockFallDamageMultiplier));
+    }
+
+    float GetIceGolemSpecialCooldown()
+    {
+        float multiplier = isPhase2 ? iceGolemPhase2CooldownMultiplier : 1f;
+        return Mathf.Max(1f, iceGolemSpecialCooldown * multiplier);
+    }
+
+    void StartNextIceGolemPattern()
+    {
+        lastIceGolemSpecialTime = Time.time;
+
+        switch (nextIceGolemPattern)
+        {
+            case 0:
+                StartCoroutine(IceGolemFrozenField());
+                break;
+            case 1:
+                StartCoroutine(IceGolemFallingIceBarrage());
+                break;
+            default:
+                StartCoroutine(IceGolemFrostQuake());
+                break;
+        }
+
+        nextIceGolemPattern = (nextIceGolemPattern + 1) % 3;
+    }
+
+    IEnumerator IceGolemFrozenField()
+    {
+        isAttacking = true;
+        rb.linearVelocity = Vector2.zero;
+
+        PlayAnim(string.IsNullOrEmpty(skillAnimName) ? attackAnimName : skillAnimName, false);
+        yield return new WaitForSeconds(poisonCastDelay);
+
+        Vector3 center = playerTarget != null ? playerTarget.position : transform.position;
+        center.z = transform.position.z;
+
+        GameObject field = iceFieldEffectPrefab != null ? iceFieldEffectPrefab : poisonPoolEffectPrefab;
+        SpawnShortEffect(field, center, iceFieldDuration, 5);
+
+        int impactDamage = Mathf.Max(1, Mathf.RoundToInt(attackPower * iceGolemFieldImpactDamageMultiplier));
+        int tickDamage = Mathf.Max(1, Mathf.RoundToInt(attackPower * iceFieldDamageMultiplier));
+
+        DamageAndSlowPlayersInRadius(center, iceFieldRadius, impactDamage);
+        CameraFollow.Instance?.Shake(shakeDuration * 0.55f, shakeMagnitude * 0.55f);
+
+        float elapsed = 0f;
+        while (elapsed < iceFieldDuration)
+        {
+            DamageAndSlowPlayersInRadius(center, iceFieldRadius, tickDamage);
+            yield return new WaitForSeconds(iceFieldTickInterval);
+            elapsed += iceFieldTickInterval;
+        }
+
+        isAttacking = false;
+    }
+
+    IEnumerator IceGolemFallingIceBarrage()
+    {
+        isAttacking = true;
+        rb.linearVelocity = Vector2.zero;
+
+        PlayAnim(string.IsNullOrEmpty(skillAnimName) ? attackAnimName : skillAnimName, false);
+        yield return new WaitForSeconds(rockFallCastDelay);
+
+        int count = isPhase2 ? phase2IceGolemFallingIceCount : iceGolemFallingIceCount;
+        for (int i = 0; i < count; i++)
+        {
+            Vector3 center = playerTarget != null ? playerTarget.position : transform.position;
+            float offset = Random.Range(-iceGolemFallingIceSpread, iceGolemFallingIceSpread);
+            Vector3 target = new Vector3(center.x + offset, center.y, transform.position.z);
+            SpawnIceGolemFallingIce(target);
+            yield return new WaitForSeconds(iceGolemFallingIceInterval);
+        }
+
+        yield return new WaitForSeconds(0.35f);
+        isAttacking = false;
+    }
+
+    IEnumerator IceGolemFrostQuake()
+    {
+        isAttacking = true;
+        rb.linearVelocity = Vector2.zero;
+
+        PlayAnim(string.IsNullOrEmpty(skillAnimName) ? attackAnimName : skillAnimName, false);
+        yield return new WaitForSeconds(smashCastDelay);
+
+        float direction = movingDir;
+        if (playerTarget != null)
+            direction = Mathf.Sign(playerTarget.position.x - transform.position.x);
+        if (Mathf.Approximately(direction, 0f))
+            direction = movingDir;
+
+        FaceDirection(direction);
+
+        int count = isPhase2 ? phase2IceGolemQuakeCount : iceGolemQuakeCount;
+        Vector3 origin = transform.position;
+        if (bossCollider != null)
+            origin.y = bossCollider.bounds.min.y + 0.05f;
+
+        for (int i = 1; i <= count; i++)
+        {
+            Vector3 target = origin + new Vector3(direction * iceGolemQuakeSpacing * i, 0f, 0f);
+            SpawnShortEffect(iceSpikeWarningEffectPrefab != null ? iceSpikeWarningEffectPrefab : rockWarningEffectPrefab, target, iceGolemQuakeStepDelay + 0.35f, 4);
+            yield return new WaitForSeconds(iceGolemQuakeStepDelay);
+
+            SpawnShortEffect(iceSpikeImpactEffectPrefab != null ? iceSpikeImpactEffectPrefab : rockImpactEffectPrefab, target, 1.6f, 12);
+            DamageAndSlowPlayersInRadius(
+                target,
+                iceGolemQuakeRadius,
+                Mathf.Max(1, Mathf.RoundToInt(attackPower * iceGolemQuakeDamageMultiplier))
+            );
+        }
+
+        CameraFollow.Instance?.Shake(shakeDuration, shakeMagnitude);
+        yield return new WaitForSeconds(0.3f);
+        isAttacking = false;
+    }
+
+    void SpawnIceGolemFallingIce(Vector3 target)
+    {
+        GameObject warning = iceSpikeWarningEffectPrefab != null ? iceSpikeWarningEffectPrefab : rockWarningEffectPrefab;
+        GameObject impact = iceSpikeImpactEffectPrefab != null ? iceSpikeImpactEffectPrefab : rockImpactEffectPrefab;
+
+        if (fallingRockPrefab != null)
+        {
+            StoneGolemFallingRock ice = Instantiate(
+                fallingRockPrefab,
+                target + Vector3.up * rockFallHeight,
+                Quaternion.identity
+            );
+            activeFallingRocks.Add(ice.gameObject);
+            ice.Initialize(
+                target,
+                rockFallDuration,
+                rockFallRadius,
+                Mathf.RoundToInt(attackPower * rockFallDamageMultiplier),
+                warning,
+                impact
+            );
+            return;
+        }
+
+        StartCoroutine(FallbackIceSpikeImpact(target, warning, impact));
+    }
+
+    void DamageAndSlowPlayersInRadius(Vector3 center, float radius, int damage)
+    {
+        Collider2D[] hits = Physics2D.OverlapCircleAll(center, radius, LayerMask.GetMask("Player"));
+        foreach (var hit in hits)
+        {
+            var pc = hit.GetComponent<LayerLab.ArtMaker.PlayerCombat>();
+            if (pc != null)
+                pc.TakePlayerDamage(damage, center);
+
+            var movement = hit.GetComponent<LayerLab.ArtMaker.PlayerMovement>();
+            if (movement != null)
+                movement.ApplyMoveSpeedMultiplier(iceFieldMoveSpeedMultiplier, iceFieldSlowDuration);
+        }
     }
 
     void SpawnShortEffect(GameObject prefab, Vector3 position, float lifetime, int orderOffset)

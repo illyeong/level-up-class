@@ -1818,6 +1818,16 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       system: 'text-indigo-400',
       result: 'text-emerald-400',
     };
+    const LOG_META = {
+      crit: { icon: '🔥', label: '치명타', tone: 'crit' },
+      skill: { icon: '⚡', label: '강타', tone: 'skill' },
+      attack: { icon: '⚔️', label: '공격', tone: 'attack' },
+      heal: { icon: '💚', label: '회복', tone: 'heal' },
+      guard: { icon: '🛡️', label: '방어', tone: 'guard' },
+      dodge: { icon: '💨', label: '회피', tone: 'dodge' },
+      system: { icon: '📣', label: '전투 상황', tone: 'system' },
+      result: { icon: '🏆', label: '결과', tone: 'result' },
+    };
     const isFinisherFx = battleFx.kind === 'finish';
     const showVictoryFx = Boolean(battleWinner && !isFinisherFx);
     const fighterClass = (side) => [
@@ -1838,6 +1848,11 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
       : battleWinner === 'opp'
         ? (opponent?.name || opponent?.studentCode || '상대')
         : '';
+    const latestLog = battleLog[battleLog.length - 1];
+    const latestMeta = LOG_META[latestLog?.type] || LOG_META.system;
+    const highlightLogs = battleLog
+      .filter(entry => ['crit', 'skill', 'heal', 'guard', 'dodge', 'result'].includes(entry.type))
+      .slice(-4);
 
     return (
       <div className={`arena2-battle-shell bg-gradient-to-b from-slate-950 to-indigo-950 flex flex-col p-4 gap-3 ${battleFx.isCrit ? 'arena2-crit-flash' : ''} ${isFinisherFx ? 'arena2-finish-mode' : ''}`}
@@ -1964,19 +1979,52 @@ export default function Arena2({ studentCode, tickets, onUseTicket }) {
           </div>
         </div>
 
-        <div ref={logRef}
-          className="h-[28%] min-h-[150px] bg-slate-900/85 rounded-xl border border-slate-700 p-4 overflow-y-auto">
-          {battleLog.length === 0 ? (
-            <p className="text-slate-600 text-sm text-center py-6 animate-pulse">⚔️ 전투 준비 중...</p>
-          ) : (
-            <div className="space-y-1.5">
-              {battleLog.map((entry, i) => (
-                <div key={i} className={`text-sm font-medium leading-relaxed ${LOG_COLORS[entry.type] || 'text-slate-300'}`}>
-                  {entry.msg}
-                </div>
-              ))}
+        <div className="arena2-combat-cast">
+          <div className={`arena2-live-card arena2-live-${latestMeta.tone}`}>
+            <div className="arena2-live-head">
+              <span className="arena2-live-dot">LIVE</span>
+              <span>{latestMeta.icon} {latestMeta.label}</span>
             </div>
-          )}
+            <div className="arena2-live-message">
+              {latestLog?.msg || '⚔️ 전투 준비 중...'}
+            </div>
+          </div>
+
+          <div className="arena2-highlight-row">
+            {highlightLogs.length === 0 ? (
+              <div className="arena2-highlight-card arena2-highlight-empty">
+                <span>전투 하이라이트 대기 중</span>
+              </div>
+            ) : highlightLogs.map((entry, i) => {
+              const meta = LOG_META[entry.type] || LOG_META.system;
+              return (
+                <div key={`${entry.type}-${i}-${entry.msg}`} className={`arena2-highlight-card arena2-highlight-${meta.tone}`}>
+                  <strong>{meta.icon} {meta.label}</strong>
+                  <span>{entry.msg}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <details className="arena2-detail-log">
+            <summary>
+              <span>상세 전투 기록 보기</span>
+              <b>{battleLog.length}</b>
+            </summary>
+            <div ref={logRef} className="arena2-detail-log-list">
+              {battleLog.length === 0 ? (
+                <p className="text-slate-600 text-sm text-center py-4 animate-pulse">⚔️ 전투 준비 중...</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {battleLog.map((entry, i) => (
+                    <div key={i} className={`text-sm font-medium leading-relaxed ${LOG_COLORS[entry.type] || 'text-slate-300'}`}>
+                      {entry.msg}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </details>
         </div>
       </div>
     );
