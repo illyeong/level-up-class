@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using System.Runtime.InteropServices;
 
 /// <summary>
@@ -100,8 +101,15 @@ public class DungeonCharacterLoader : MonoBehaviour
         int resolvedLevel = s.level > 0 ? s.level : (s.classLevel > 0 ? s.classLevel : gm.level);
         gm.level         = resolvedLevel;
         gm.gold          = s.gold;
-        gm.maxHealth     = s.maxHealth > 0 ? s.maxHealth : (s.hp > 0 ? s.hp : gm.maxHealth);
-        gm.currentHealth = s.currentHealth > 0 ? Mathf.Min(s.currentHealth, gm.maxHealth) : gm.maxHealth;
+        int previousMaxHealth = gm.maxHealth;
+        int previousCurrentHealth = gm.currentHealth;
+        bool keepDungeonHealth = IsDungeonStageScene(SceneManager.GetActiveScene().name)
+                                 && previousCurrentHealth > 0
+                                 && previousCurrentHealth < previousMaxHealth;
+
+        gm.maxHealth = s.maxHealth > 0 ? s.maxHealth : (s.hp > 0 ? s.hp : gm.maxHealth);
+        int receivedHealth = s.currentHealth > 0 ? Mathf.Min(s.currentHealth, gm.maxHealth) : gm.maxHealth;
+        gm.currentHealth = keepDungeonHealth ? Mathf.Min(previousCurrentHealth, gm.maxHealth) : receivedHealth;
 
         int fallbackAttack  = 10 + (resolvedLevel - 1) * 2;
         int fallbackDefense = 5  + (resolvedLevel - 1) * 1;
@@ -126,6 +134,18 @@ public class DungeonCharacterLoader : MonoBehaviour
             pc.defense       = gm.defense;
             pc.critChance    = gm.critChance;
         }
+    }
+
+    static bool IsDungeonStageScene(string sceneName)
+    {
+        return !string.IsNullOrEmpty(sceneName)
+               && sceneName.Length >= 6
+               && sceneName[0] == 'D'
+               && char.IsDigit(sceneName[1])
+               && char.IsDigit(sceneName[2])
+               && sceneName[3] == '_'
+               && sceneName[4] == 'S'
+               && char.IsDigit(sceneName[5]);
     }
 
     public static void ApplyParts(LayerLab.ArtMaker.PartsManager pm, PartsData p)

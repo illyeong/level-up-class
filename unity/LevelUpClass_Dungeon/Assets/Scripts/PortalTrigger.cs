@@ -16,6 +16,8 @@ public class PortalTrigger : MonoBehaviour
     [Header("포탈 이펙트 (선택)")]
     [SerializeField] private GameObject portalEffect;
 
+    bool isLoading;
+
     string ResolveTargetScene()
     {
         if (!string.IsNullOrWhiteSpace(targetScene))
@@ -59,16 +61,19 @@ public class PortalTrigger : MonoBehaviour
     void OnTriggerEnter2D(Collider2D other)
     {
         if (!isActive) return;
-        if (!other.CompareTag("Player")) return;
+        if (isLoading) return;
+
+        var pc = other.GetComponent<LayerLab.ArtMaker.PlayerCombat>()
+                 ?? other.GetComponentInParent<LayerLab.ArtMaker.PlayerCombat>()
+                 ?? other.GetComponentInChildren<LayerLab.ArtMaker.PlayerCombat>();
+        if (pc == null) return;
+        if (!other.CompareTag("Player") && !pc.CompareTag("Player")) return;
 
         // 씬 이동 전 현재 체력을 GameManager에 저장
         if (GameManager.Instance != null)
-        {
-            var pc = other.GetComponent<LayerLab.ArtMaker.PlayerCombat>();
-            if (pc != null)
-                GameManager.Instance.SyncHealth(pc.currentHealth);
-        }
+            GameManager.Instance.SyncHealth(pc.currentHealth);
 
+        isLoading = true;
         SceneManager.LoadScene(ResolveTargetScene());
     }
 
