@@ -665,7 +665,6 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
             style={{ fontFamily: '"Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif' }}
           >
             <div className="mb-3">
-              <p className="text-base font-black text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.75)]">AI교수학습 협력설계 챌린지</p>
               <p className="mt-1 text-xs font-bold leading-relaxed text-white/90 drop-shadow-[0_2px_6px_rgba(0,0,0,0.75)]">
                 테스트 전용 페이지입니다. 각 버튼은 비밀번호 입력 후 이동합니다.
               </p>
