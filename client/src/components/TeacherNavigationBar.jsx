@@ -217,8 +217,8 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
         { title: '📚 퀴즈 은행',    id: 'quizBank' },
         { title: '퀴즈던전 관리',  id: 'quizDungeonManage' },
         { title: '퀴즈레이드 관리', id: 'bossRaidManage' },
-        { title: '🤖 AI 학습현황', id: 'aiCourseware' },
-        { title: 'AI 학습 학생화면', id: 'aiCoursewareView' },
+        { title: '🤖 AI 학습현황', id: 'aiCourseware', isReady: false, statusLabel: '닫힘(점검중)' },
+        { title: 'AI 학습 학생화면', id: 'aiCoursewareView', isReady: false, statusLabel: '닫힘(점검중)' },
       ],
     },
     {
@@ -305,12 +305,13 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
     }
   };
 
-  const handleSubMenuClick = (e, subMenuId) => {
+  const handleSubMenuClick = (e, subMenu) => {
     e.stopPropagation();
-    const parent = teacherMenuData.find(menu => menu.subMenus.some(sub => sub.id === subMenuId));
+    if (subMenu.isReady === false) return;
+    const parent = teacherMenuData.find(menu => menu.subMenus.some(sub => sub.id === subMenu.id));
     if (parent) setExpandedMenu(parent.id);
     if (changeView) {
-      changeView(subMenuId); 
+      changeView(subMenu.id); 
     }
   };
 
@@ -393,15 +394,22 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
                 {menu.subMenus.map((subMenu, idx) => (
                   <li 
                     key={idx} 
-                    onClick={(e) => handleSubMenuClick(e, subMenu.id)}
-                    className={`ml-5 pl-7 pr-2 py-2 text-[12px] rounded-lg cursor-pointer transition-colors flex items-center border-l before:content-[''] before:w-1 before:h-1 before:rounded-full before:mr-2.5
-                      ${currentView === subMenu.id 
+                    onClick={(e) => handleSubMenuClick(e, subMenu)}
+                    className={`ml-5 pl-7 pr-2 py-2 text-[12px] rounded-lg transition-colors flex items-center border-l before:content-[''] before:w-1 before:h-1 before:rounded-full before:mr-2.5
+                      ${subMenu.isReady === false
+                        ? 'border-indigo-900 text-indigo-600 before:bg-indigo-800 cursor-not-allowed opacity-60'
+                        : currentView === subMenu.id 
                         ? 'border-amber-400 text-amber-300 bg-indigo-900/50 before:bg-amber-400 font-bold'
-                        : 'border-indigo-800 text-indigo-300 hover:text-white hover:bg-indigo-900/30 before:bg-indigo-600 hover:before:bg-indigo-300'
+                        : 'border-indigo-800 text-indigo-300 hover:text-white hover:bg-indigo-900/30 before:bg-indigo-600 hover:before:bg-indigo-300 cursor-pointer'
                       }
                     `}
                   >
                     <span className="min-w-0 flex-1 truncate">{subMenu.title}</span>
+                    {subMenu.isReady === false && (
+                      <span className="ml-2 shrink-0 rounded-full bg-indigo-900 px-2 py-0.5 text-[9px] font-bold text-indigo-400">
+                        {subMenu.statusLabel || '준비중'}
+                      </span>
+                    )}
                     <ApprovalBadge count={getBadgeCount(subMenu.id)} />
                   </li>
                 ))}

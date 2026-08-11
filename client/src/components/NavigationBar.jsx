@@ -61,7 +61,7 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [],
       subMenus: []
     },
     {
-      id: 'aiCourseware', icon: '🤖', title: 'AI 학습관', isReady: true, directNav: true,
+      id: 'aiCourseware', icon: '🤖', title: 'AI 학습관', isReady: false, statusLabel: '닫힘(점검중)', directNav: true,
       subMenus: []
     },
     {
@@ -104,6 +104,7 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [],
 
   const handleMenuClick = (menuId) => {
     const menu = menuData.find(m => m.id === menuId);
+    if (menu?.isReady === false) return;
     // 서브메뉴가 없거나 directNav 플래그가 있는 메뉴만 직접 이동
     const shouldNavigate = menu?.subMenus.length === 0 || menu?.directNav;
     if (changeView && shouldNavigate) {
@@ -184,7 +185,7 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [],
                 {isSidebarOpen && (
                   <span className={`ml-4 text-sm font-medium ${(currentView === menu.id || menu.subMenus.some(sub => sub.id === currentView)) ? 'font-bold' : ''}`}>
                     {menu.title}
-                    {!menu.isReady && <span className="ml-2 text-[10px] bg-indigo-800 text-indigo-300 px-2 py-0.5 rounded-full">{t('common.update', '업데이트')}</span>}
+                    {!menu.isReady && <span className="ml-2 text-[10px] bg-indigo-800 text-indigo-300 px-2 py-0.5 rounded-full">{menu.statusLabel || t('common.update', '업데이트')}</span>}
                   </span>
                 )}
               </div>
