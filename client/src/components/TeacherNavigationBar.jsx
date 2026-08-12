@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -191,11 +191,22 @@ const ApprovalBadge = ({ count }) => {
 };
 
 const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, selectedClass, hiddenMenuIds = [], approvalBadges = {} }) => {
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isSidebarOpen, setSidebarOpen] = useState(() => (
+    typeof window === 'undefined' || window.innerWidth >= 1024
+  ));
   const [expandedMenu, setExpandedMenu] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [fbText, setFbText]             = useState('');
   const [fbSaving, setFbSaving]         = useState(false);
+
+  useEffect(() => {
+    const collapseOnSmallScreen = () => {
+      if (window.innerWidth < 768) setSidebarOpen(false);
+    };
+    window.addEventListener('resize', collapseOnSmallScreen);
+    collapseOnSmallScreen();
+    return () => window.removeEventListener('resize', collapseOnSmallScreen);
+  }, []);
 
   const hidden = new Set(hiddenMenuIds || []);
   const teacherMenuData = [
@@ -311,17 +322,19 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
     const parent = teacherMenuData.find(menu => menu.subMenus.some(sub => sub.id === subMenu.id));
     if (parent) setExpandedMenu(parent.id);
     if (changeView) {
-      changeView(subMenu.id); 
+      changeView(subMenu.id);
     }
+    if (window.innerWidth < 768) setSidebarOpen(false);
   };
 
   const handleUtilityClick = (menuId) => {
     changeView?.(menuId);
+    if (window.innerWidth < 768) setSidebarOpen(false);
   };
 
   return (
     <>
-    <nav className={`${isSidebarOpen ? 'w-64' : 'w-[72px]'} bg-indigo-950 text-indigo-100 transition-all duration-300 flex flex-col h-full z-50 shadow-2xl`}>
+    <nav className={`${isSidebarOpen ? 'w-64 max-md:fixed max-md:inset-y-0 max-md:left-0' : 'w-[72px]'} bg-indigo-950 text-indigo-100 transition-all duration-300 flex flex-col h-full z-50 shadow-2xl`}>
       
       {/* 최상단 로고 영역 */}
       <div className="flex items-center justify-between px-4 h-[84px] border-b border-indigo-900 shrink-0">
@@ -341,6 +354,7 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
         )}
         <button 
           onClick={() => setSidebarOpen(!isSidebarOpen)} 
+          aria-label={isSidebarOpen ? '메뉴 접기' : '메뉴 펼치기'}
           className={`flex items-center justify-center w-8 h-8 rounded-full bg-indigo-900 hover:bg-amber-500 hover:text-white transition-all duration-200 border border-indigo-700 hover:border-transparent focus:outline-none shrink-0 ${!isSidebarOpen && 'mx-auto'}`}
         >
           {isSidebarOpen ? (
@@ -391,26 +405,30 @@ const TeacherNavigationBar = ({ changeView, currentView, onLogout, teacherUser, 
             {/* 하위 메뉴 */}
             <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen && visibleExpandedMenu === menu.id ? 'max-h-[420px] opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
               <ul className="space-y-1">
-                {menu.subMenus.map((subMenu, idx) => (
-                  <li 
-                    key={idx} 
-                    onClick={(e) => handleSubMenuClick(e, subMenu)}
-                    className={`ml-5 pl-7 pr-2 py-2 text-[12px] rounded-lg transition-colors flex items-center border-l before:content-[''] before:w-1 before:h-1 before:rounded-full before:mr-2.5
-                      ${subMenu.isReady === false
-                        ? 'border-indigo-900 text-indigo-600 before:bg-indigo-800 cursor-not-allowed opacity-60'
-                        : currentView === subMenu.id 
-                        ? 'border-amber-400 text-amber-300 bg-indigo-900/50 before:bg-amber-400 font-bold'
-                        : 'border-indigo-800 text-indigo-300 hover:text-white hover:bg-indigo-900/30 before:bg-indigo-600 hover:before:bg-indigo-300 cursor-pointer'
-                      }
-                    `}
-                  >
-                    <span className="min-w-0 flex-1 truncate">{subMenu.title}</span>
-                    {subMenu.isReady === false && (
-                      <span className="ml-2 shrink-0 rounded-full bg-indigo-900 px-2 py-0.5 text-[9px] font-bold text-indigo-400">
-                        {subMenu.statusLabel || '준비중'}
-                      </span>
-                    )}
-                    <ApprovalBadge count={getBadgeCount(subMenu.id)} />
+                {menu.subMenus.map((subMenu) => (
+                  <li key={subMenu.id} className="ml-5">
+                    <button
+                      type="button"
+                      onClick={(e) => handleSubMenuClick(e, subMenu)}
+                      disabled={subMenu.isReady === false}
+                      aria-current={currentView === subMenu.id ? 'page' : undefined}
+                      className={`flex w-full items-center rounded-lg border-l py-2 pl-7 pr-2 text-left text-[12px] transition-colors before:mr-2.5 before:h-1 before:w-1 before:shrink-0 before:rounded-full before:content-['']
+                        ${subMenu.isReady === false
+                          ? 'cursor-not-allowed border-indigo-900 text-indigo-600 opacity-60 before:bg-indigo-800'
+                          : currentView === subMenu.id
+                          ? 'border-amber-400 bg-indigo-900/50 font-bold text-amber-300 before:bg-amber-400'
+                          : 'cursor-pointer border-indigo-800 text-indigo-300 before:bg-indigo-600 hover:bg-indigo-900/30 hover:text-white hover:before:bg-indigo-300'
+                        }
+                      `}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{subMenu.title}</span>
+                      {subMenu.isReady === false && (
+                        <span className="ml-2 shrink-0 rounded-full bg-indigo-900 px-2 py-0.5 text-[9px] font-bold text-indigo-400">
+                          {subMenu.statusLabel || '준비중'}
+                        </span>
+                      )}
+                      <ApprovalBadge count={getBadgeCount(subMenu.id)} />
+                    </button>
                   </li>
                 ))}
               </ul>

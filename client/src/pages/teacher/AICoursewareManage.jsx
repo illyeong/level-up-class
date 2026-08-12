@@ -607,39 +607,47 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
 
   // ── 렌더 ────────────────────────────────────────────────────
   const TABS = [
-    { id: 'overview',  label: '학급 학습 현황', desc: '도움이 필요한 학생 확인' },
-    { id: 'units',     label: '단원·차시 분석', desc: '차시별 숙달도 분석' },
-    { id: 'students',  label: '학생별 분석', desc: '개인 학습 현황' },
-    { id: 'dashboard', label: '학습 기록', desc: '최근 학습 활동' },
+    { id: 'overview', icon: '⌂', label: '학급 학습 현황', desc: '도움이 필요한 학생 확인' },
+    { id: 'units', icon: '▦', label: '단원·차시 분석', desc: '차시별 숙달도 분석' },
+    { id: 'students', icon: '◎', label: '학생별 분석', desc: '개인 학습 현황' },
+    { id: 'dashboard', icon: '↗', label: '학습 기록', desc: '최근 학습 활동' },
   ];
 
   return (
-    <div className="ai-learning-manage min-h-screen bg-slate-50 p-5">
-      <div className="max-w-6xl mx-auto">
+    <div className="ai-learning-manage min-h-screen min-w-0 overflow-x-hidden bg-slate-50 p-3 sm:p-5">
+      <div className="mx-auto min-w-0 max-w-6xl">
 
         {/* 헤더 */}
-        <div className="ai-learning-header mb-5 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-extrabold text-slate-900">AI 학습 관리</h1>
-            <p className="mt-1 text-sm font-semibold text-slate-500">오늘 확인할 학생, 어려워한 차시, 학급 참여 흐름을 한 화면에서 정리합니다.</p>
+        <div className="ai-learning-header relative mb-4 overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-cyan-100/70 blur-2xl" />
+          <div className="pointer-events-none absolute right-24 top-8 h-28 w-28 rounded-full bg-indigo-100/70 blur-2xl" />
+          <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-950 text-xl text-white shadow-sm">AI</span>
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-700">Learning intelligence</p>
+                <h1 className="mt-1 text-2xl font-black text-slate-950 sm:text-3xl">AI 학습 관리</h1>
+                <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-500">오늘 확인할 학생, 어려워한 차시, 학급 참여 흐름을 한 화면에서 정리합니다.</p>
+              </div>
+            </div>
+            <button onClick={loadAll} disabled={loadingData}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-950 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:bg-slate-700 disabled:opacity-50 md:w-auto">
+              {loadingData
+                ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-cyan-400" />
+                : <span>↻</span>}
+              새로고침
+            </button>
           </div>
-          <button onClick={loadAll} disabled={loadingData}
-            className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-900 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition-all hover:bg-slate-700 disabled:opacity-50">
-            {loadingData
-              ? <span className="w-4 h-4 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
-              : <span>↻</span>}
-            새로고침
-          </button>
         </div>
 
         {/* 탭 */}
-        <div className="ai-learning-tabs mb-5 grid gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
+        <div className="ai-learning-tabs scrollbar-hide mb-4 flex max-w-full gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid sm:grid-cols-2 lg:grid-cols-4">
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`rounded-xl px-4 py-3 text-left transition-all
-                ${tab === t.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>
-              <span className="block text-sm font-black">{t.label}</span>
-              <span className={`mt-0.5 block text-[11px] font-semibold ${tab === t.id ? 'text-indigo-100' : 'text-slate-400'}`}>{t.desc}</span>
+              className={`min-w-[168px] rounded-xl px-4 py-3 text-left transition-all sm:min-w-0
+                ${tab === t.id ? 'bg-slate-950 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>
+              <span className="flex items-center gap-2 text-sm font-black"><span className={tab === t.id ? 'text-cyan-300' : 'text-slate-400'}>{t.icon}</span>{t.label}</span>
+              <span className={`mt-0.5 block text-[11px] font-semibold ${tab === t.id ? 'text-slate-300' : 'text-slate-400'}`}>{t.desc}</span>
             </button>
           ))}
         </div>
@@ -1345,7 +1353,7 @@ function LearningOverviewTab({
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 space-y-5">
       <section className={`ai-command-center ai-command-${primaryDecision.tone} rounded-3xl border p-5 shadow-sm`}>
         <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
           <div className="min-w-0">
@@ -1405,8 +1413,8 @@ function LearningOverviewTab({
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-        <div className="ai-overview-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[1fr_1fr]">
+        <div className="ai-overview-panel min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <h3 className="font-black text-slate-800">오늘 학습한 학생</h3>
             <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-extrabold text-emerald-700">{summary.todayCount}명</span>
@@ -1429,7 +1437,7 @@ function LearningOverviewTab({
           </div>
         </div>
 
-        <div className="ai-overview-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="ai-overview-panel min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <h3 className="font-black text-slate-800">어려워한 차시</h3>
           </div>

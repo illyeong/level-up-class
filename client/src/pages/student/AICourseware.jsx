@@ -23,6 +23,14 @@ const SHARED_POOL_GROW_Q_NUM = 5;
 const SHARED_POOL_GROW_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 const SHARED_POOL_GROW_LOCK_MS = 2 * 60 * 1000;
 const MASTERY_ATTEMPTS = 4; // 숙달도 판정에 사용할 최고 점수 개수
+const UNIT_CARD_PALETTES = [
+  { from: 'from-[#1d4ed8]', to: 'to-[#3730a3]', ring: 'ring-blue-400/25', num: 'text-blue-100', tag: 'bg-blue-300/15 text-blue-100' },
+  { from: 'from-[#4338ca]', to: 'to-[#312e81]', ring: 'ring-indigo-400/25', num: 'text-indigo-100', tag: 'bg-indigo-300/15 text-indigo-100' },
+  { from: 'from-[#0e7490]', to: 'to-[#155e75]', ring: 'ring-cyan-400/25', num: 'text-cyan-100', tag: 'bg-cyan-300/15 text-cyan-100' },
+  { from: 'from-[#0f766e]', to: 'to-[#115e59]', ring: 'ring-teal-400/25', num: 'text-teal-100', tag: 'bg-teal-300/15 text-teal-100' },
+  { from: 'from-[#6d28d9]', to: 'to-[#4c1d95]', ring: 'ring-violet-400/25', num: 'text-violet-100', tag: 'bg-violet-300/15 text-violet-100' },
+  { from: 'from-[#0369a1]', to: 'to-[#164e63]', ring: 'ring-sky-400/25', num: 'text-sky-100', tag: 'bg-sky-300/15 text-sky-100' },
+];
 const WRONG_CAUSES = [
   ['concept', '개념을 헷갈렸어요'],
   ['calculation', '계산 실수였어요'],
@@ -1180,18 +1188,20 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   // ══════════════════════════════════════════════════════════════
   // ── 단원 브라우즈 화면 ────────────────────────────────────────
   if (step === 'browse') return (
-    <div className={`min-h-full p-4 sm:p-6 max-w-3xl mx-auto ${isDark ? '' : 'text-slate-800'}`}>
-      <div className="flex flex-col items-stretch gap-3 mb-5 sm:flex-row sm:items-center sm:justify-between">
+    <div className={`min-h-full mx-auto max-w-4xl p-4 sm:p-6 ${isDark ? '' : 'text-slate-800'}`}>
+      <div className={`mb-4 flex flex-col items-stretch gap-3 rounded-3xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${
+        isDark ? 'border-slate-800 bg-slate-900/65' : 'border-slate-200 bg-white shadow-sm'
+      }`}>
         <div className="flex items-center gap-3">
-          <span className="text-3xl">🤖</span>
+          <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-2xl ${isDark ? 'bg-cyan-400/10' : 'bg-cyan-50'}`}>🤖</span>
           <div>
             <h1 className={`text-xl font-extrabold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>AI 학습관</h1>
             <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>단원을 선택하면 AI가 개념 카드와 미니퀴즈를 바로 만들어줍니다.</p>
           </div>
         </div>
         {/* 오늘 남은 보상횟수 */}
-        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-          <div className={`px-3 py-2 rounded-2xl text-center border ${
+        <div className="flex w-full shrink-0 items-center gap-1.5 sm:w-auto">
+          <div className={`w-full min-w-[76px] rounded-2xl border px-3 py-2 text-center sm:w-auto ${
             dailyCount >= DAILY_LIMIT
               ? isDark ? 'bg-rose-500/20 border-rose-500/30' : 'bg-rose-50 border-rose-300'
               : isDark ? 'bg-indigo-500/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-300'
@@ -1218,37 +1228,38 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
       {!isTeacher && (
         <button type="button" onClick={loadWrongNotebook} disabled={wrongLoading}
-          className={`mb-5 flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-colors ${
-            isDark ? 'border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/15' : 'border-rose-200 bg-rose-50 hover:bg-rose-100'
+          className={`mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border p-4 text-left transition-colors ${
+            isDark ? 'border-amber-400/20 bg-amber-400/10 hover:bg-amber-400/15' : 'border-amber-200 bg-amber-50 hover:bg-amber-100'
           }`}>
           <div>
-            <p className={`font-extrabold ${isDark ? 'text-rose-200' : 'text-rose-800'}`}>📒 나의 오답노트</p>
+            <p className={`font-extrabold ${isDark ? 'text-amber-100' : 'text-amber-900'}`}>📒 나의 오답노트</p>
             <p className={`mt-1 text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               틀린 문제를 다시 풀고 해결한 개념을 확인해보세요.
             </p>
           </div>
-          <span className={`rounded-xl px-3 py-2 text-xs font-extrabold ${isDark ? 'bg-rose-400/20 text-rose-200' : 'bg-white text-rose-700'}`}>
+          <span className={`shrink-0 rounded-xl px-3 py-2 text-xs font-extrabold ${isDark ? 'bg-amber-300/15 text-amber-100' : 'bg-white text-amber-800'}`}>
             {wrongLoading ? '불러오는 중...' : '오답 다시 풀기 →'}
           </span>
         </button>
       )}
 
       {/* 필터 */}
-      <div className="flex items-center gap-3 flex-wrap mb-5">
+      <div className={`mb-5 grid gap-2 rounded-2xl border p-2 sm:flex sm:items-center ${isDark ? 'border-slate-800 bg-slate-900/75' : 'border-slate-200 bg-white shadow-sm'}`}>
         {/* 학년 select */}
         <select value={filterGrade} onChange={e => { setFG(e.target.value); setFP(''); }}
-          className="bg-white text-slate-800 border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
+          aria-label="학년 선택"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-cyan-500 sm:w-auto">
           <option value="">학년 선택</option>
           {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}학년</option>)}
         </select>
 
         {/* 학기 — 버튼 3개 */}
-        <div className={`flex rounded-xl overflow-hidden border-2 ${isDark ? 'border-slate-700' : 'border-slate-300'}`}>
+        <div className={`grid grid-cols-3 overflow-hidden rounded-xl border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
           {[['','전체학기'],['1','1학기'],['2','2학기']].map(([val, label]) => (
             <button key={val} onClick={() => setFS(val)}
-              className={`px-4 py-2 text-sm font-bold transition-colors
+              className={`px-3 py-2.5 text-sm font-bold transition-colors sm:px-4
                 ${filterSem === val
-                  ? 'bg-indigo-600 text-white'
+                  ? 'bg-cyan-600 text-white'
                   : isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-white text-slate-700 hover:bg-slate-100'}`}>
               {label}
             </button>
@@ -1285,15 +1296,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {units.map((unit, idx) => {
             // 단원별 고정 그라디언트 색상
-            const palettes = [
-              { from: 'from-blue-600',   to: 'to-indigo-700',  ring: 'ring-blue-500/30',   num: 'text-blue-200',   tag: 'bg-blue-500/30 text-blue-200' },
-              { from: 'from-violet-600', to: 'to-purple-700',  ring: 'ring-violet-500/30', num: 'text-violet-200', tag: 'bg-violet-500/30 text-violet-200' },
-              { from: 'from-emerald-600',to: 'to-teal-700',    ring: 'ring-emerald-500/30',num: 'text-emerald-200',tag: 'bg-emerald-500/30 text-emerald-200' },
-              { from: 'from-rose-600',   to: 'to-pink-700',    ring: 'ring-rose-500/30',   num: 'text-rose-200',   tag: 'bg-rose-500/30 text-rose-200' },
-              { from: 'from-amber-500',  to: 'to-orange-600',  ring: 'ring-amber-500/30',  num: 'text-amber-100',  tag: 'bg-amber-500/30 text-amber-100' },
-              { from: 'from-sky-600',    to: 'to-cyan-700',    ring: 'ring-sky-500/30',    num: 'text-sky-200',    tag: 'bg-sky-500/30 text-sky-200' },
-            ];
-            const p = palettes[idx % palettes.length];
+            const p = UNIT_CARD_PALETTES[idx % UNIT_CARD_PALETTES.length];
             const lessons = unit.lessons || [];
             const lessonCount = lessons.length;
             // 단원 도입 제외 카운트 가능한 차시 기준으로 숙달도 계산
@@ -1312,8 +1315,8 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
                 onClick={() => { setUnit(unit); setStep('lessons'); setLesson(null); setContent(null); }}
                 className={`relative overflow-hidden rounded-2xl text-left transition-all duration-200
                   bg-gradient-to-br ${p.from} ${p.to}
-                  hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]
-                  ring-2 ${p.ring} shadow-lg`}>
+                  hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0
+                  ring-1 ${p.ring} shadow-lg`}>
 
                 {/* 배경 장식 */}
                 <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-white/10" />
@@ -1391,15 +1394,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
                   {semUnits.length === 0 ? (
                     <div className="text-center py-8 text-slate-600 text-sm">단원 없음</div>
                   ) : semUnits.map((unit, idx) => {
-                    const palettes = [
-                      { from: 'from-blue-600',    to: 'to-indigo-700',   ring: 'ring-blue-500/30',    tag: 'bg-blue-500/30 text-blue-200' },
-                      { from: 'from-violet-600',  to: 'to-purple-700',   ring: 'ring-violet-500/30',  tag: 'bg-violet-500/30 text-violet-200' },
-                      { from: 'from-emerald-600', to: 'to-teal-700',     ring: 'ring-emerald-500/30', tag: 'bg-emerald-500/30 text-emerald-200' },
-                      { from: 'from-rose-600',    to: 'to-pink-700',     ring: 'ring-rose-500/30',    tag: 'bg-rose-500/30 text-rose-200' },
-                      { from: 'from-amber-500',   to: 'to-orange-600',   ring: 'ring-amber-500/30',   tag: 'bg-amber-500/30 text-amber-100' },
-                      { from: 'from-sky-600',     to: 'to-cyan-700',     ring: 'ring-sky-500/30',     tag: 'bg-sky-500/30 text-sky-200' },
-                    ];
-                    const p = palettes[idx % palettes.length];
+                    const p = UNIT_CARD_PALETTES[idx % UNIT_CARD_PALETTES.length];
                     const uLessons = unit.lessons || [];
                     const unitMastery2 = (() => {
                       const countable = uLessons.filter(l => l.title !== '단원 도입');
@@ -1416,8 +1411,8 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
                         onClick={() => { setUnit(unit); setStep('lessons'); setLesson(null); setContent(null); }}
                         className={`w-full relative overflow-hidden rounded-xl text-left transition-all duration-200
                           bg-gradient-to-br ${p.from} ${p.to}
-                          hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]
-                          ring-2 ${p.ring} shadow-md`}>
+                          hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0
+                          ring-1 ${p.ring} shadow-md`}>
                         <div className="absolute -right-3 -top-3 w-14 h-14 rounded-full bg-white/10" />
                         <div className="relative p-3.5">
                           <div className="flex items-start justify-between mb-1.5">
@@ -1465,11 +1460,11 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   // ══════════════════════════════════════════════════════════════
   // ── 차시 목록 화면 ────────────────────────────────────────────
   if (step === 'lessons' && selectedUnit) return (
-    <div className={`min-h-full p-6 max-w-2xl mx-auto ${isDark ? '' : 'text-slate-800'}`}>
+    <div className={`mx-auto min-h-full max-w-2xl p-4 sm:p-6 ${isDark ? '' : 'text-slate-800'}`}>
       <button onClick={backToBrowse} className={`flex items-center gap-1.5 text-sm font-bold mb-5 ${isDark ? 'text-indigo-400 hover:text-indigo-200' : 'text-indigo-700 hover:text-indigo-900'}`}>
         ← {filterGrade}학년 수학 단원 목록
       </button>
-      <div className={`border rounded-2xl px-5 py-4 mb-5 ${isDark ? 'bg-indigo-900/40 border-indigo-700' : 'bg-indigo-50 border-indigo-300 shadow-sm'}`}>
+      <div className={`mb-5 rounded-3xl border px-5 py-4 ${isDark ? 'border-cyan-400/25 bg-gradient-to-br from-cyan-400/10 to-indigo-500/10' : 'border-cyan-200 bg-cyan-50 shadow-sm'}`}>
         <div className={`text-xs font-bold mb-0.5 ${isDark ? 'text-indigo-400' : 'text-indigo-700'}`}>{selectedUnit.grade}학년 {selectedUnit.semester ? `${selectedUnit.semester}학기 ` : ''}수학</div>
         <h2 className={`text-xl font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>{selectedUnit.unitNumber ? `${selectedUnit.unitNumber}단원 ` : ''}{selectedUnit.unitName}</h2>
         <p className={`text-xs mt-0.5 ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>{(selectedUnit.lessons || []).length}개 차시 · 차시를 눌러 AI 학습을 시작하세요</p>
@@ -1488,19 +1483,19 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
               onPointerEnter={() => queueLessonPreload(selectedUnit, lesson)}
               onFocus={() => queueLessonPreload(selectedUnit, lesson)}
               onTouchStart={() => queueLessonPreload(selectedUnit, lesson)}
-              className={`w-full text-left rounded-xl border-2 px-4 py-3.5 transition-all group ${
+              className={`group w-full rounded-2xl border px-4 py-4 text-left transition-all ${
                 isDark
-                  ? 'border-slate-700 bg-slate-800/50 hover:border-indigo-500 hover:bg-indigo-900/40'
-                  : 'border-slate-200 bg-white hover:border-indigo-400 hover:bg-indigo-50 shadow-sm'
+                  ? 'border-slate-700 bg-slate-800/65 hover:border-cyan-500 hover:bg-slate-800'
+                  : 'border-slate-200 bg-white shadow-sm hover:border-cyan-400 hover:bg-cyan-50'
               }`}>
               <div className="flex items-center gap-3">
-                <span className="text-xs font-extrabold w-14 shrink-0 text-indigo-400 group-hover:text-indigo-300">
+                <span className="w-14 shrink-0 text-xs font-extrabold text-cyan-400 group-hover:text-cyan-300">
                   {lesson.no}차시
                 </span>
                 <span className={`text-sm font-bold flex-1 ${isDark ? 'text-slate-200 group-hover:text-white' : 'text-slate-800 group-hover:text-indigo-900'}`}>
                   {lesson.title}
                 </span>
-                <span className="text-indigo-500 group-hover:text-indigo-300 text-sm font-bold shrink-0">▶</span>
+                <span className="shrink-0 text-sm font-bold text-cyan-500 group-hover:text-cyan-300">▶</span>
               </div>
               {(lesson.keywords || []).length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1.5 pl-[68px]">
