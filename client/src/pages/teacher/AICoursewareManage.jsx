@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { collection, getDocs, getDoc, doc, setDoc, deleteDoc, updateDoc, query, where, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { validateDeterministicMathQuestion } from '../../utils/validateCoursewareMathQuestion';
 
 // ── 상수 ─────────────────────────────────────────────────────
 const MASTERY = {
@@ -14,7 +15,7 @@ const COURSEWARE_PREGENERATE_COUNT = 20;
 const COURSEWARE_CHUNK_SIZE = 5;
 const COURSEWARE_MAX_CHUNK_CALLS = 6;
 const COURSEWARE_MAX_CHUNK_FAILURES = 2;
-const COURSEWARE_QUALITY_VERSION = 'quality-v19-grade56-scope-guard';
+const COURSEWARE_QUALITY_VERSION = 'quality-v20-range-rounding-qa';
 const COURSEWARE_FAILURE_COLLECTION = 'aiCoursewareGenerationFailures';
 const isCurrentLessonContent = (data) =>
   data?.generatorVersion === COURSEWARE_QUALITY_VERSION &&
@@ -24,10 +25,14 @@ const isFreshLessonContent = (data) =>
   data.questions.length >= COURSEWARE_PREGENERATE_COUNT &&
   data.questions.every(question => {
     const options = Array.isArray(question?.options) ? question.options : [];
+    const deterministicResult = validateDeterministicMathQuestion(question);
     return options.length === 4
       && Number.isInteger(question?.answerIndex)
       && question.answerIndex >= 0
       && question.answerIndex <= 3
+      && (!deterministicResult.applicable || (
+        deterministicResult.valid && deterministicResult.answerIndex === question.answerIndex
+      ))
       && new Set(options.map(option => String(option).normalize('NFKC').replace(/\s+/g, '').toLowerCase())).size === 4;
   });
 const getMasteryLevel = (avg) =>
@@ -2087,6 +2092,10 @@ export function TextbookContextTab({ teacherUid, units, loadingUnits, unitGrade,
     const options = Array.isArray(question?.options) ? question.options : [];
     if (options.length !== 4) return false;
     if (!Number.isInteger(question?.answerIndex) || question.answerIndex < 0 || question.answerIndex > 3) return false;
+    const verification = validateDeterministicMathQuestion(question);
+    if (verification.applicable && (
+      !verification.valid || verification.answerIndex !== question.answerIndex
+    )) return false;
     return new Set(options.map(option => String(option).normalize('NFKC').replace(/\s+/g, '').toLowerCase())).size === 4;
   };
 
@@ -3060,10 +3069,18 @@ export function QuestionReviewTab({ teacherUid, students, unitGrade, setUnitGrad
 
   const saveEdit = async () => {
     if (!selectedUnit || !selectedLesson || editingIdx === null) return;
+    const verification = validateDeterministicMathQuestion(editData);
+    if (verification.applicable && !verification.valid) {
+      alert('정답이 없거나 2개 이상인 문제입니다. 보기와 조건을 다시 확인해주세요.');
+      return;
+    }
     setSaving(true);
     const key = lkey(selectedUnit, selectedLesson);
     const newQs = [...(content.questions || [])];
-    newQs[editingIdx] = { ...newQs[editingIdx], ...editData };
+    const verifiedEditData = verification.applicable
+      ? { ...editData, answerIndex: verification.answerIndex }
+      : editData;
+    newQs[editingIdx] = { ...newQs[editingIdx], ...verifiedEditData };
     const newContent = { ...content, questions: newQs };
     await setDoc(doc(db, 'aiLessonContent', key), newContent, { merge: true });
     setContent(newContent); setEditingIdx(null); setSaving(false);

@@ -1,6 +1,7 @@
 export const config = { maxDuration: 60 };
 
 import { hasMissingRequiredVisual, inferFractionBarShape } from '../src/utils/inferFractionBarShape.js';
+import { validateDeterministicMathQuestion } from '../src/utils/validateCoursewareMathQuestion.js';
 
 const SHAPE_TYPES = new Set([
   'clock', 'ruler', 'angle', 'fraction_bar', 'picture_graph', 'bar_chart', 'line_chart',
@@ -10,7 +11,7 @@ const SHAPE_TYPES = new Set([
   'cuboid', 'cube', 'triangular_prism', 'square_pyramid', 'cylinder', 'cone', 'sphere', 'factor_list',
 ]);
 
-const COURSEWARE_GENERATOR_VERSION = 'quality-v19-grade56-scope-guard';
+const COURSEWARE_GENERATOR_VERSION = 'quality-v20-range-rounding-qa';
 
 const stripOptionPrefix = (value) =>
   String(value ?? '')
@@ -858,6 +859,10 @@ const hasExactlyOneVerifiableAnswer = (q) => {
   const options = q.options || [];
   const combined = [question, ...options, q.explanation].join('\n');
   if (hasMalformedFractionText(combined)) return false;
+  const deterministicResult = validateDeterministicMathQuestion(q);
+  if (deterministicResult.applicable) {
+    return deterministicResult.valid && deterministicResult.answerIndex === q.answerIndex;
+  }
   const equivalentPairIndex = getEquivalentFractionPairIndex(question, options);
   if (equivalentPairIndex != null) return equivalentPairIndex >= 0 && q.answerIndex === equivalentPairIndex;
   if (/가장\s*큰|가장\s*작은/.test(question) && options.some(opt => String(opt).includes('/'))) {
@@ -929,6 +934,14 @@ function normalizeQuestion(q, index, context = {}) {
   if (wholeNumberComparisonIndex != null) {
     if (wholeNumberComparisonIndex < 0) return null;
     answerIndex = wholeNumberComparisonIndex;
+  }
+  const deterministicResult = validateDeterministicMathQuestion({
+    ...fractionFixed,
+    answerIndex,
+  });
+  if (deterministicResult.applicable) {
+    if (!deterministicResult.valid) return null;
+    answerIndex = deterministicResult.answerIndex;
   }
   const correct = options[answerIndex];
   const shift = index % 4;
@@ -1327,6 +1340,8 @@ ${acceptedQuestions.map((question, index) => `${index + 1}. ${question.question}
 [생성 요구]
 - 서로 다른 문제 ${missingCount}개를 생성하세요.
 - options는 정확히 4개이며 정답은 정확히 1개여야 합니다.
+- 이상/이하/초과/미만 문제는 경계값의 포함 여부를 직접 대입하여 확인하고, '아닌 것'도 정답이 정확히 1개인지 검산하세요.
+- 올림·버림·반올림 문제는 기준 자리와 결과 자리를 구분해 직접 계산하고, 같은 값을 다르게 표기한 복수 정답을 만들지 마세요.
 - 분수 계산은 정답과 해설의 식을 직접 검산하세요. 분자가 빠진 "/8" 같은 표기는 금지합니다.
 - 도형·그래프 shape를 사용하면 shape의 숫자, 항목, 정답이 문제와 정확히 일치해야 합니다.
 - 그래프가 없어도 풀 수 있는 단순 계산에는 shape:null을 사용하세요.
@@ -1481,6 +1496,8 @@ ${questionMixGuide}
 9. 분수 문제는 정답 보기와 해설 속 계산식을 직접 다시 계산해 검산하세요. 분자가 빠진 "/8" 같은 표기는 절대 만들지 마세요.
 10. shape를 넣으면 shape의 수치·항목·색칠 영역과 문제의 조건 및 정답이 정확히 일치해야 합니다.
 11. 같은 문장 구조에서 숫자만 바꾼 문제를 반복하지 마세요.
+12. 이상은 경계값 포함, 이하는 경계값 포함, 초과는 경계값 제외, 미만은 경계값 제외입니다. 각 보기의 값을 범위에 직접 대입하고, '아닌 것' 문제도 정답이 정확히 1개인지 확인하세요.
+13. 올림·버림·반올림은 문제에서 요구한 자리까지 직접 계산하세요. 예를 들어 '천의 자리에서 반올림'은 만의 자리까지 나타내는 것입니다. 숫자 표기만 다른 같은 값(예: 15000과 15,000)을 복수 보기로 두지 마세요.
 
 [shape 예시]
 - 시계: {"type":"clock","dimensions":{"hour":3,"minute":30}}

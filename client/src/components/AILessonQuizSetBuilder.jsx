@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { validateDeterministicMathQuestion } from '../utils/validateCoursewareMathQuestion';
 
 const DIFFICULTY_OPTIONS = [
   { value: 'easy', label: '쉬움', desc: '기본 개념 확인' },
@@ -22,7 +23,10 @@ const normalizeQuizQuestions = (questions = []) => questions.map((q) => {
     };
   }
 
-  const answer = Number.isInteger(q.answer) ? q.answer : Number(q.answerIndex ?? 0);
+  const sourceAnswer = Number.isInteger(q.answer) ? q.answer : Number(q.answerIndex ?? 0);
+  const verification = validateDeterministicMathQuestion({ ...q, answerIndex: sourceAnswer });
+  if (verification.applicable && !verification.valid) return null;
+  const answer = verification.applicable ? verification.answerIndex : sourceAnswer;
   return {
     type: 'mc',
     question: String(q.question || '').trim(),
@@ -33,7 +37,7 @@ const normalizeQuizQuestions = (questions = []) => questions.map((q) => {
     explanation: String(q.explanation || '').trim(),
     difficulty: q.difficulty || '',
   };
-});
+}).filter(Boolean);
 
 const buildLessonKey = (unit, lesson) =>
   `v3_${unit.grade}_${unit.semester || 0}_${unit.publisher || 'default'}_${unit.id}_${lesson.no}`;

@@ -12,6 +12,7 @@ import {
   hasMissingRequiredVisual,
   inferFractionBarShape,
 } from '../../utils/inferFractionBarShape';
+import { validateDeterministicMathQuestion } from '../../utils/validateCoursewareMathQuestion';
 
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
@@ -29,6 +30,7 @@ const WRONG_CAUSES = [
   ['visual', '단위·그림을 잘못 읽었어요'],
   ['rushed', '너무 빠르게 골랐어요'],
 ];
+const REQUIRED_GENERATOR_VERSION = 'quality-v20-range-rounding-qa';
 
 const questionFingerprint = (q) =>
   [q?.question, ...(Array.isArray(q?.options) ? q.options : []), q?.skill || '']
@@ -44,6 +46,8 @@ const isUsablePoolQuestion = (question) => {
   if (!Number.isInteger(question?.answerIndex) || question.answerIndex < 0 || question.answerIndex > 3) return false;
   const inferredShape = inferFractionBarShape(question?.question, question?.shape);
   if (hasMissingRequiredVisual(question?.question, inferredShape)) return false;
+  const deterministicResult = validateDeterministicMathQuestion(question);
+  if (deterministicResult.applicable && !deterministicResult.valid) return false;
   return new Set(options.map(option => String(option).normalize('NFKC').replace(/\s+/g, '').toLowerCase())).size === 4;
 };
 
@@ -62,6 +66,14 @@ const normalizeEquivalentFractionPairAnswer = (question) => {
   return correctIndexes.length === 1 ? { ...question, answerIndex: correctIndexes[0] } : question;
 };
 
+const normalizeVerifiedMathAnswer = (question) => {
+  const fractionNormalized = normalizeEquivalentFractionPairAnswer(question);
+  const result = validateDeterministicMathQuestion(fractionNormalized);
+  return result.applicable && result.valid
+    ? { ...fractionNormalized, answerIndex: result.answerIndex }
+    : fractionNormalized;
+};
+
 const lessonAttemptId = (studentCode, key) => `${studentCode}_${key}`;
 const wrongAnswerId = (studentCode, questionKey) =>
   `${studentCode}_${questionKey}`.replace(/\//g, '_').slice(0, 1400);
@@ -69,7 +81,7 @@ const wrongAnswerId = (studentCode, questionKey) =>
 const enrichQuestionPool = (data, key) => ({
   ...data,
   questions: (data?.questions || []).filter(isUsablePoolQuestion).map((q, index) => ({
-    ...normalizeEquivalentFractionPairAnswer(q),
+    ...normalizeVerifiedMathAnswer(q),
     __poolIndex: index,
     __questionKey: `${key}_${questionFingerprint(q)}`,
   })),
@@ -107,6 +119,7 @@ function saveRecentQuestionKeys(key, selectedKeys, max = 20) {
 
 function shouldRefreshLessonContent(data) {
   if (!data) return true;
+  if (data.generatorVersion !== REQUIRED_GENERATOR_VERSION) return true;
   const usableCount = Array.isArray(data.questions)
     ? data.questions.filter(isUsablePoolQuestion).length
     : 0;
@@ -438,7 +451,13 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
     try {
       const snap = await getDocs(query(collection(db, 'aiWrongAnswers'), where('studentCode', '==', studentCode)));
       const rawItems = snap.docs
-        .map(item => ({ id: item.id, ...item.data() }))
+        .map(item => {
+          const data = { id: item.id, ...item.data() };
+          const result = validateDeterministicMathQuestion({ ...data, answerIndex: data.correctIdx });
+          if (result.applicable && !result.valid) return null;
+          return result.applicable ? { ...data, correctIdx: result.answerIndex } : data;
+        })
+        .filter(Boolean)
         .sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
       const byQuestion = new Map();
       rawItems.forEach(item => {

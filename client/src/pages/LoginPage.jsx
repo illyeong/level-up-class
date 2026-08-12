@@ -539,169 +539,233 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
+    <div className="relative min-h-screen overflow-x-hidden bg-[#07162e] text-white">
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: 'url(/images/openingpage.png)' }}
+        className="absolute inset-0 bg-cover bg-no-repeat [background-position:68%_center] md:[background-position:center_center]"
+        style={{ backgroundImage: 'url(/images/main-hero-bosses-v1.png)' }}
       />
-      <div className="absolute inset-0 bg-slate-900/55" />
+      <div
+        className="absolute inset-0 md:hidden"
+        style={{
+          background: 'linear-gradient(180deg, rgba(3,10,27,0.6) 0%, rgba(3,10,27,0.78) 38%, rgba(3,10,27,0.97) 100%)',
+        }}
+      />
+      <div
+        className="absolute inset-0 hidden md:block"
+        style={{
+          background: 'linear-gradient(90deg, rgba(3,12,31,0.98) 0%, rgba(3,15,38,0.94) 31%, rgba(5,19,45,0.68) 48%, rgba(5,17,38,0.08) 72%, rgba(3,10,24,0.15) 100%)',
+        }}
+      />
+      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#040b1b]/70 to-transparent" />
 
-      <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-10">
-          <img
-            src={`/images/levelupclass.png?t=${Date.now()}`}
-            alt="LevelUp Class"
-            className="w-full object-contain drop-shadow-lg"
-          />
-          <p className="text-indigo-300 mt-3 font-medium">게임처럼 배우고, AI와 함께 성장하는 스마트 학급경영</p>
-        </div>
+      <main className="relative z-10 flex min-h-screen items-center px-4 py-6 sm:px-8 sm:py-8 lg:px-[6vw]">
+        <section className="mx-auto w-full max-w-[560px] md:mx-0">
+          <header className="mb-5 text-center md:text-left">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-200/25 bg-cyan-300/10 px-3 py-1 text-[10px] font-black tracking-[0.2em] text-cyan-100 backdrop-blur-md sm:text-xs">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.9)]" />
+              GAME-BASED SMART CLASS
+            </div>
+            <img
+              src="/images/levelupclass.png"
+              alt="LevelUp Class"
+              className="mx-auto w-[250px] object-contain drop-shadow-[0_10px_24px_rgba(5,8,24,0.65)] sm:w-[330px] md:mx-0 md:w-[390px]"
+            />
+            <p className="mx-auto mt-1 max-w-[520px] text-sm font-semibold leading-relaxed text-indigo-100/90 drop-shadow-lg sm:text-base md:mx-0">
+              퀘스트를 완수하고, 캐릭터를 키우며, 함께 성장하는 우리 반의 새로운 모험
+            </p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2 md:justify-start">
+              {['퀘스트 성장', '나만의 아바타', '협동 보스 레이드'].map((label) => (
+                <span key={label} className="rounded-full border border-white/15 bg-slate-950/25 px-2.5 py-1 text-[11px] font-bold text-slate-200 backdrop-blur-sm">
+                  {label}
+                </span>
+              ))}
+            </div>
+          </header>
 
-        {mode === null && (
-          <div className="space-y-4">
-            <button
-              onClick={() => setMode('student')}
-              className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-4 px-6 rounded-2xl text-lg transition-all hover:scale-[1.02] shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-3"
-            >
-              <span className="text-2xl">🎓</span> 학생 로그인
-            </button>
-
-            <button
-              onClick={handleTeacherLogin}
-              disabled={loading}
-              className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-4 px-6 rounded-2xl text-lg transition-all hover:scale-[1.02] border border-white/20 flex items-center justify-center gap-3"
-            >
-              <svg className="w-6 h-6" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-              교사 로그인 (Google)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsIntroOpen(true)}
-              className="w-full bg-white/5 hover:bg-white/10 text-indigo-100 font-bold py-3.5 px-6 rounded-2xl border border-white/20 transition-all hover:scale-[1.01]"
-            >
-              소개화면 보기
-            </button>
-          </div>
-        )}
-
-        {mode === 'student' && (
-          <form onSubmit={handleStudentLogin} className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 border border-white/20">
-            <h2 className="text-white font-bold text-xl mb-6 text-center">학생 로그인</h2>
-
-            <div className="space-y-4">
-              {!isCodeLocked ? (
-                <div>
-                  <label className="text-indigo-200 text-sm font-bold mb-1.5 block">학생 코드</label>
-                  <input
-                    type="text"
-                    value={studentCode}
-                    onChange={(e) => setStudentCode(e.target.value)}
-                    placeholder="예: SINSEOK-5-01"
-                    className="w-full bg-white/10 border border-white/20 text-white placeholder-white/40 rounded-xl px-4 py-3 font-mono font-bold focus:outline-none focus:border-indigo-400"
-                    autoCapitalize="characters"
-                  />
-                </div>
-              ) : (
-                <div className="rounded-xl border border-indigo-300/30 bg-indigo-500/10 px-4 py-3 text-center">
-                  <p className="text-indigo-100 text-xs font-bold mb-1">QR 인증 코드</p>
-                  <p className="text-white font-mono font-extrabold">{studentCode}</p>
-                </div>
-              )}
-
+          <div className="rounded-[28px] border border-white/20 bg-[#071326]/80 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.42)] ring-1 ring-cyan-200/10 backdrop-blur-xl sm:p-5">
+            {mode === null && (
               <div>
-                <label className="text-indigo-200 text-sm font-bold mb-1.5 block">PIN 번호</label>
-                <input
-                  type="password"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="4자리 PIN"
-                  maxLength={6}
-                  className="w-full bg-white/10 border border-white/20 text-white placeholder-white/40 rounded-xl px-4 py-3 font-mono text-center text-2xl tracking-widest focus:outline-none focus:border-indigo-400"
-                />
+                <div className="mb-4">
+                  <p className="text-xs font-black tracking-[0.16em] text-cyan-200">WELCOME, ADVENTURER</p>
+                  <h1 className="mt-1 text-xl font-black sm:text-2xl">누구로 시작할까요?</h1>
+                  <p className="mt-1 text-sm font-medium text-slate-300">학생은 코드와 PIN으로, 교사는 Google 계정으로 입장합니다.</p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setMode('student')}
+                    className="group flex min-h-[88px] items-center gap-3 rounded-2xl border border-indigo-300/30 bg-gradient-to-br from-indigo-500 to-violet-600 px-4 py-3 text-left shadow-lg shadow-indigo-950/40 transition-all hover:-translate-y-0.5 hover:from-indigo-400 hover:to-violet-500 focus:outline-none focus:ring-4 focus:ring-indigo-300/30"
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-2xl ring-1 ring-white/20 transition-transform group-hover:scale-105">🎓</span>
+                    <span>
+                      <span className="block text-base font-black">학생 로그인</span>
+                      <span className="mt-0.5 block text-xs font-semibold text-indigo-100">코드 · PIN으로 입장</span>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleTeacherLogin}
+                    disabled={loading}
+                    className="group flex min-h-[88px] items-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-left shadow-lg shadow-black/15 transition-all hover:-translate-y-0.5 hover:bg-white/15 focus:outline-none focus:ring-4 focus:ring-white/15 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white shadow-md transition-transform group-hover:scale-105">
+                      <svg className="h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                      </svg>
+                    </span>
+                    <span>
+                      <span className="block text-base font-black">교사 로그인</span>
+                      <span className="mt-0.5 block text-xs font-semibold text-slate-300">Google 계정으로 시작</span>
+                    </span>
+                  </button>
+                </div>
+
+                {error && (
+                  <p className="mt-3 rounded-xl border border-rose-300/20 bg-rose-500/15 px-4 py-2.5 text-center text-sm font-bold text-rose-200" role="alert">
+                    {error}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setIsIntroOpen(true)}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-indigo-100 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  <span aria-hidden="true">✦</span>
+                  레벨업 클래스 둘러보기
+                  <span className="text-indigo-300" aria-hidden="true">→</span>
+                </button>
               </div>
+            )}
 
-              {error && (
-                <p className="text-rose-400 text-sm font-bold text-center bg-rose-500/10 rounded-xl py-2 px-4">
-                  {error}
-                </p>
-              )}
+            {mode === 'student' && (
+              <form onSubmit={handleStudentLogin}>
+                <div className="mb-5 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode(null);
+                      setError('');
+                    }}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-lg text-indigo-100 transition-colors hover:bg-white/10 hover:text-white"
+                    aria-label="로그인 선택으로 돌아가기"
+                  >
+                    ←
+                  </button>
+                  <div>
+                    <p className="text-xs font-black tracking-[0.16em] text-cyan-200">STUDENT PORTAL</p>
+                    <h1 className="text-xl font-black">학생 로그인</h1>
+                  </div>
+                </div>
 
-              <button
-                type="submit"
-                disabled={loading || !studentCode || !pin}
-                className="w-full bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 text-white font-bold py-3 rounded-xl transition-all"
-              >
-                {loading ? '확인 중...' : '입장하기'}
-              </button>
-            </div>
+                <div className="space-y-4">
+                  {!isCodeLocked ? (
+                    <div>
+                      <label htmlFor="student-code" className="mb-1.5 block text-sm font-bold text-indigo-100">학생 코드</label>
+                      <input
+                        id="student-code"
+                        type="text"
+                        value={studentCode}
+                        onChange={(e) => setStudentCode(e.target.value)}
+                        placeholder="예: SINSEOK-5-01"
+                        className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 font-mono font-bold text-white outline-none transition placeholder:text-white/35 focus:border-cyan-300/70 focus:ring-4 focus:ring-cyan-400/10"
+                        autoCapitalize="characters"
+                        autoComplete="username"
+                      />
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-indigo-300/25 bg-indigo-500/10 px-4 py-3 text-center">
+                      <p className="mb-1 text-xs font-bold text-indigo-100">QR 인증 코드</p>
+                      <p className="font-mono font-extrabold text-white">{studentCode}</p>
+                    </div>
+                  )}
 
-            <button
-              type="button"
-              onClick={() => {
-                setMode(null);
-                setError('');
-              }}
-              className="w-full mt-4 text-indigo-300 hover:text-white text-sm font-medium transition-colors"
-            >
-              뒤로
-            </button>
-          </form>
-        )}
+                  <div>
+                    <label htmlFor="student-pin" className="mb-1.5 block text-sm font-bold text-indigo-100">PIN 번호</label>
+                    <input
+                      id="student-pin"
+                      type="password"
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value)}
+                      placeholder="4자리 PIN"
+                      maxLength={6}
+                      inputMode="numeric"
+                      autoComplete="current-password"
+                      className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-center font-mono text-2xl font-bold tracking-[0.3em] text-white outline-none transition placeholder:text-base placeholder:tracking-normal placeholder:text-white/35 focus:border-cyan-300/70 focus:ring-4 focus:ring-cyan-400/10"
+                    />
+                  </div>
 
-        {error && mode === null && (
-          <p className="text-rose-400 text-sm font-bold text-center mt-4 bg-rose-500/10 rounded-xl py-2 px-4">
-            {error}
-          </p>
-        )}
+                  {error && (
+                    <p className="rounded-xl border border-rose-300/20 bg-rose-500/15 px-4 py-2.5 text-center text-sm font-bold text-rose-200" role="alert">
+                      {error}
+                    </p>
+                  )}
 
-        <div className="mt-8 border-t border-white/10 pt-6">
-          <div
-            className="rounded-3xl border border-white/25 bg-slate-950/80 p-4 shadow-2xl shadow-slate-950/60 ring-1 ring-white/10 backdrop-blur-md"
-            style={{ fontFamily: '"Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif' }}
-          >
-            <div className="mb-3">
-              <p className="mt-1 text-xs font-bold leading-relaxed text-white/90 drop-shadow-[0_2px_6px_rgba(0,0,0,0.75)]">
-                테스트 전용 페이지입니다. 각 버튼은 비밀번호 입력 후 이동합니다.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <button
-                type="button"
-                onClick={() => runChallengeAction(handleStudentTestLogin)}
-                className="rounded-2xl border border-white/35 bg-white/20 px-3 py-3 text-xs font-black text-white shadow-lg shadow-black/25 transition-colors hover:bg-white/30"
-              >
-                학생 테스트페이지
-              </button>
-              <button
-                type="button"
-                onClick={() => runChallengeAction(() => {
-                  if (onTeacherTestLogin) onTeacherTestLogin();
-                  else onTeacherLogin({ email: 'test@test.com', displayName: '테스트 교사' });
-                })}
-                className="rounded-2xl border border-white/35 bg-white/20 px-3 py-3 text-xs font-black text-white shadow-lg shadow-black/25 transition-colors hover:bg-white/30"
-              >
-                교사 테스트페이지
-              </button>
-              <button
-                type="button"
-                onClick={() => runChallengeAction(() => {
-                  if (onQuizRaidDemoLogin) onQuizRaidDemoLogin();
-                  else if (onStudentTestLogin) onStudentTestLogin('SINSEOK-5-15', 'bossRaid');
-                  else handleStudentTestLogin();
-                })}
-                className="rounded-2xl border border-rose-200/60 bg-rose-500/45 px-3 py-3 text-xs font-black text-white shadow-lg shadow-black/25 transition-colors hover:bg-rose-500/60"
-              >
-                퀴즈레이드테스트
-              </button>
-            </div>
+                  <button
+                    type="submit"
+                    disabled={loading || !studentCode || !pin}
+                    className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 py-3.5 font-black text-white shadow-lg shadow-indigo-950/35 transition-all hover:from-indigo-400 hover:to-violet-500 focus:outline-none focus:ring-4 focus:ring-indigo-300/30 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {loading ? '확인 중...' : '모험 시작하기'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
-        </div>
-      </div>
+
+          <details className="group mt-3 rounded-2xl border border-white/10 bg-slate-950/50 text-sm shadow-lg shadow-black/20 backdrop-blur-md">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-bold text-slate-300 transition-colors hover:text-white [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2">
+                <span className="text-cyan-300">⚙</span>
+                테스트 페이지 바로가기
+              </span>
+              <span className="text-xs text-slate-400 transition-transform group-open:rotate-180">▼</span>
+            </summary>
+            <div className="border-t border-white/10 px-3 pb-3 pt-3">
+              <p className="mb-3 text-xs font-semibold leading-relaxed text-slate-400">각 버튼은 비밀번호 입력 후 이동합니다.</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={() => runChallengeAction(handleStudentTestLogin)}
+                  className="rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-xs font-black text-white transition-colors hover:bg-white/15"
+                >
+                  학생 테스트
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runChallengeAction(() => {
+                    if (onTeacherTestLogin) onTeacherTestLogin();
+                    else onTeacherLogin({ email: 'test@test.com', displayName: '테스트 교사' });
+                  })}
+                  className="rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-xs font-black text-white transition-colors hover:bg-white/15"
+                >
+                  교사 테스트
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runChallengeAction(() => {
+                    if (onQuizRaidDemoLogin) onQuizRaidDemoLogin();
+                    else if (onStudentTestLogin) onStudentTestLogin('SINSEOK-5-15', 'bossRaid');
+                    else handleStudentTestLogin();
+                  })}
+                  className="rounded-xl border border-rose-200/25 bg-rose-500/25 px-3 py-2.5 text-xs font-black text-rose-50 transition-colors hover:bg-rose-500/35"
+                >
+                  퀴즈레이드
+                </button>
+              </div>
+            </div>
+          </details>
+
+          <p className="mt-3 text-center text-[11px] font-medium text-slate-400 md:text-left">
+            LevelUp Class · 오늘의 배움이 내일의 레벨이 됩니다.
+          </p>
+        </section>
+      </main>
 
       <IntroModal open={isIntroOpen} onClose={() => setIsIntroOpen(false)} />
       {isChallengeAuthOpen && (
