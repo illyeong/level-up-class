@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { signInWithPopup } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import {
+  collection, doc, getCountFromServer, getDoc, getDocs, query, Timestamp, where,
+} from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
 
 const GUIDE_TABS = [
@@ -416,6 +418,13 @@ function IntroModal({ open, onClose }) {
 
 export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTestLogin, onTeacherTestLogin, onQuizRaidDemoLogin }) {
   const [mode, setMode] = useState(null); // null | 'student'
+  const [publicStats, setPublicStats] = useState({
+    classCount: null,
+    recentClassCount: null,
+    studentCount: null,
+    recentStudentCount: null,
+  });
+  const [isPublicStatsLoading, setIsPublicStatsLoading] = useState(true);
   const [studentCode, setStudentCode] = useState('');
   const [isCodeLocked, setIsCodeLocked] = useState(false);
   const [pin, setPin] = useState('');
@@ -433,6 +442,52 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
     setStudentCode(codeFromUrl.trim().toUpperCase());
     setIsCodeLocked(true);
     setMode('student');
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadPublicStats = async () => {
+      const sevenDaysAgo = Timestamp.fromMillis(Date.now() - (7 * 24 * 60 * 60 * 1000));
+      const statQueries = [
+        ['전체 학급', collection(db, 'classes')],
+        ['최근 학급', query(collection(db, 'classes'), where('createdAt', '>=', sevenDaysAgo))],
+        ['전체 학생', collection(db, 'students')],
+        ['최근 학생', query(collection(db, 'students'), where('createdAt', '>=', sevenDaysAgo))],
+      ];
+
+      const countWithRetry = async (target) => {
+        try {
+          return await getCountFromServer(target);
+        } catch (firstError) {
+          if (firstError?.code !== 'unavailable') throw firstError;
+          await new Promise(resolve => window.setTimeout(resolve, 700));
+          return getCountFromServer(target);
+        }
+      };
+
+      const results = await Promise.allSettled(
+        statQueries.map(([, target]) => countWithRetry(target))
+      );
+      if (!isMounted) return;
+
+      const readCount = (result) => (
+        result.status === 'fulfilled' ? result.value.data().count : null
+      );
+      setPublicStats({
+        classCount: readCount(results[0]),
+        recentClassCount: readCount(results[1]),
+        studentCount: readCount(results[2]),
+        recentStudentCount: readCount(results[3]),
+      });
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.warn(`${statQueries[index][0]} 통계를 불러오지 못했습니다.`, result.reason);
+        }
+      });
+      setIsPublicStatsLoading(false);
+    };
+    loadPublicStats();
+    return () => { isMounted = false; };
   }, []);
 
   const handleTeacherLogin = async () => {
@@ -538,6 +593,31 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
     action?.();
   };
 
+  const publicStatCards = [
+    {
+      id: 'classes',
+      icon: '🏫',
+      label: '가입 학급',
+      value: publicStats.classCount,
+      recent: publicStats.recentClassCount,
+      unit: '개',
+      cardClass: 'border-sky-300/25 bg-sky-400/10',
+      labelClass: 'text-sky-100',
+      valueClass: 'text-cyan-200',
+    },
+    {
+      id: 'students',
+      icon: '🎓',
+      label: '함께하는 학생',
+      value: publicStats.studentCount,
+      recent: publicStats.recentStudentCount,
+      unit: '명',
+      cardClass: 'border-emerald-300/25 bg-emerald-400/10',
+      labelClass: 'text-emerald-100',
+      valueClass: 'text-emerald-200',
+    },
+  ];
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#07162e] text-white">
       <div
@@ -578,6 +658,31 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
                 <span key={label} className="rounded-full border border-white/15 bg-slate-950/25 px-2.5 py-1 text-[11px] font-bold text-slate-200 backdrop-blur-sm">
                   {label}
                 </span>
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2" aria-label="레벨업 클래스 이용 현황">
+              {publicStatCards.map((stat) => (
+                <div key={stat.id} className={`rounded-2xl border px-3 py-2.5 text-left shadow-lg shadow-black/10 backdrop-blur-md ${stat.cardClass}`}>
+                  <div className="flex min-w-0 items-center justify-between gap-2">
+                    <span className={`truncate text-[11px] font-black ${stat.labelClass}`}>
+                      <span className="mr-1" aria-hidden="true">{stat.icon}</span>
+                      {stat.label}
+                    </span>
+                    <span className="shrink-0 text-[9px] font-bold text-white/55">
+                      7일 신규 {Number.isFinite(stat.recent) ? stat.recent.toLocaleString('ko-KR') : '—'}{stat.unit}
+                    </span>
+                  </div>
+                  <div className={`mt-1 text-xl font-black leading-none sm:text-2xl ${stat.valueClass}`} aria-live="polite">
+                    {isPublicStatsLoading ? (
+                      <span className="inline-block h-5 w-16 animate-pulse rounded-lg bg-white/15" aria-label="집계 중" />
+                    ) : (
+                      <>
+                        {Number.isFinite(stat.value) ? stat.value.toLocaleString('ko-KR') : '—'}
+                        <span className="ml-0.5 text-sm font-extrabold">{stat.unit}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           </header>

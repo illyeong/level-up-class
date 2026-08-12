@@ -49,12 +49,12 @@ function ScrollPicker({ items, value, onChange, label }) {
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className="text-xs font-bold text-slate-500">{label}</span>
-      <div className="relative w-28">
+      <span className="text-xs font-extrabold text-slate-600">{label}</span>
+      <div className="relative w-24 sm:w-28">
         {/* ?좏깮 ?곸뿭 ?섏씠?쇱씠??*/}
         <div className="absolute inset-x-0 pointer-events-none z-10"
           style={{ top: ITEM_H * 2, height: ITEM_H }}>
-          <div className="h-full border-t-2 border-b-2 border-indigo-400 bg-indigo-50/60 rounded-lg mx-1" />
+          <div className="mx-1 h-full rounded-lg border-y-2 border-cyan-500 bg-cyan-50/80" />
         </div>
         {/* ?꾩븘??洹몃씪?곗씠???섏씠??*/}
         <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white to-transparent pointer-events-none z-20 rounded-t-2xl" />
@@ -63,7 +63,7 @@ function ScrollPicker({ items, value, onChange, label }) {
         <div
           ref={ref}
           onScroll={handleScroll}
-          className="overflow-y-scroll scrollbar-hide rounded-2xl bg-white border border-slate-200 shadow-inner"
+          className="scrollbar-hide overflow-y-scroll rounded-2xl border border-slate-200 bg-white shadow-inner shadow-slate-200/50"
           style={{
             height: ITEM_H * 5,
             scrollSnapType: 'y mandatory',
@@ -78,7 +78,7 @@ function ScrollPicker({ items, value, onChange, label }) {
               style={{ height: ITEM_H, scrollSnapAlign: 'center' }}
               className={`flex items-center justify-center text-sm font-extrabold cursor-pointer transition-colors select-none
                 ${String(item.value) === String(value)
-                  ? 'text-indigo-700'
+                  ? 'text-teal-700'
                   : 'text-slate-400 hover:text-slate-600'}`}>
               {item.label}
             </div>
@@ -200,68 +200,108 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[calc(100vh-4rem)] overflow-hidden">
-
-        {/* ?ㅻ뜑 */}
-        <div className="p-5 bg-indigo-600 text-white flex justify-between items-center">
-          <h2 className="font-extrabold text-lg">학급 만들기</h2>
-          {!isCreating && <button onClick={onClose} className="text-indigo-200 hover:text-white text-xl">✕</button>}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020b18]/80 p-3 backdrop-blur-md sm:p-5">
+      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-xl flex-col overflow-hidden rounded-[28px] border border-white/70 bg-slate-50 shadow-[0_28px_90px_rgba(2,8,23,0.5)]">
+        <div className="relative overflow-hidden bg-[#071b2a] px-5 py-5 text-white sm:px-6">
+          <div className="absolute -right-16 -top-20 h-48 w-48 rounded-full bg-cyan-400/15 blur-3xl" />
+          <div className="absolute -bottom-20 left-20 h-40 w-40 rounded-full bg-orange-400/10 blur-3xl" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-black tracking-[0.18em] text-cyan-100">
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" /> CLASS SETUP
+              </div>
+              <h2 className="text-xl font-black sm:text-2xl">새 학급 만들기</h2>
+              <p className="mt-1 text-xs font-semibold text-slate-300 sm:text-sm">학교와 학급 정보를 선택하면 학생 계정까지 한 번에 준비됩니다.</p>
+            </div>
+            {!isCreating && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-lg text-slate-200 transition-colors hover:bg-white/20 hover:text-white"
+                aria-label="학급 만들기 닫기"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
 
         {step === 3 ? (
-          <div className="p-10 flex flex-col items-center gap-4">
-            <div className="text-5xl animate-spin">⚙️</div>
-            <p className="font-extrabold text-slate-700 text-lg">학급 및 학생 계정 생성 중...</p>
-            <p className="text-slate-400 text-sm">{studentCount}명의 계정을 만들고 있습니다</p>
+          <div className="flex flex-col items-center gap-4 px-6 py-14 text-center">
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-cyan-50 ring-1 ring-cyan-100">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-cyan-100 border-t-cyan-600" />
+              <span className="absolute text-lg">🏫</span>
+            </div>
+            <div>
+              <p className="text-lg font-black text-slate-800">학급을 준비하고 있어요</p>
+              <p className="mt-1 text-sm font-medium text-slate-500">학생 {studentCount}명의 계정을 안전하게 생성 중입니다.</p>
+            </div>
+            <div className="h-1.5 w-48 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full w-2/3 animate-pulse rounded-full bg-gradient-to-r from-cyan-500 to-teal-500" />
+            </div>
           </div>
         ) : (
-          <div className="p-6 space-y-5 overflow-y-auto flex-1">
-            {/* ?숆탳 寃??*/}
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                학교 이름 검색<span className="text-rose-500">*</span>
-              </label>
+          <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-cyan-100 text-xs font-black text-cyan-800">1</span>
+                <div>
+                  <h3 className="text-sm font-black text-slate-800">학교 찾기</h3>
+                  <p className="text-[11px] font-medium text-slate-400">재직 중인 학교명을 두 글자 이상 입력하세요.</p>
+                </div>
+              </div>
               <div className="relative">
+                <span className="pointer-events-none absolute left-3.5 top-3 text-sm" aria-hidden="true">⌕</span>
                 <input
                   type="text"
                   value={query}
                   onChange={e => { setQuery(e.target.value); setSelectedSchool(null); }}
                   placeholder="예: OO초등학교"
-                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500"
+                  className="w-full rounded-xl border-2 border-slate-200 bg-slate-50 py-2.5 pl-10 pr-20 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:bg-white focus:ring-4 focus:ring-cyan-100"
                 />
                 {loading && (
-                  <div className="absolute right-3 top-3 text-slate-400 text-xs">검색 중...</div>
+                  <div className="absolute right-3 top-3 text-xs font-bold text-cyan-700">검색 중...</div>
                 )}
-                {/* 寃??寃곌낵 ?쒕∼?ㅼ슫 */}
                 {results.length > 0 && !selectedSchool && (
-                  <div className="w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto mt-1">
+                  <div className="mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
                     {results.map((s, i) => (
                       <button
+                        type="button"
                         key={i}
                         onClick={() => selectSchool(s)}
-                        className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-0">
-                        <div className="font-bold text-slate-800 text-sm">{s.name}</div>
-                        <div className="text-xs text-slate-400">{s.location} · {s.type}</div>
+                        className="w-full border-b border-slate-100 px-4 py-3 text-left transition-colors last:border-0 hover:bg-cyan-50"
+                      >
+                        <div className="text-sm font-extrabold text-slate-800">{s.name}</div>
+                        <div className="mt-0.5 text-xs font-medium text-slate-400">{s.location} · {s.type}</div>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
               {selectedSchool && (
-                <div className="mt-1.5 flex items-center gap-2 text-xs text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-lg">
-                  선택됨: {selectedSchool.name} ({selectedSchool.location})
-                  <button onClick={() => { setSelectedSchool(null); setQuery(''); }} className="ml-auto text-slate-400 hover:text-rose-400">삭제</button>
+                <div className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+                  <span aria-hidden="true">✓</span>
+                  <span className="min-w-0 truncate">{selectedSchool.name} · {selectedSchool.location}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedSchool(null); setQuery(''); }}
+                    className="ml-auto shrink-0 text-slate-400 transition-colors hover:text-rose-500"
+                  >
+                    다시 선택
+                  </button>
                 </div>
               )}
-            </div>
+            </section>
 
-            {/* ?숇뀈 / 諛?/ ?숈깮???ㅽ겕濡??쇱빱 */}
-            <div>
-              <div className="text-xs font-bold text-slate-600 mb-3 text-center">
-                학년 · 반 · 학생 수<span className="text-rose-500">*</span>
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-orange-100 text-xs font-black text-orange-700">2</span>
+                <div>
+                  <h3 className="text-sm font-black text-slate-800">학급 정보</h3>
+                  <p className="text-[11px] font-medium text-slate-400">가운데 선에 맞춰 학년·반·학생 수를 선택하세요.</p>
+                </div>
               </div>
-              <div className="flex justify-center gap-4 py-2">
+              <div className="flex justify-center gap-1 py-1 sm:gap-3">
                 <ScrollPicker
                   label="학년"
                   value={grade || '1'}
@@ -281,37 +321,43 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
                   items={Array.from({ length: 32 }, (_, i) => i + 1).map(n => ({ value: String(n), label: `${n}명` }))}
                 />
               </div>
-            </div>
+            </section>
 
-            {/* 誘몃━蹂닿린 */}
             {selectedSchool && grade && classNum && studentCount && (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm space-y-1">
-                <div className="font-bold text-slate-700">계정 생성 미리보기</div>
-                <div className="text-slate-500">
-                  학급: {selectedSchool.name} {grade}학년 {classNum}반
+              <section className="rounded-2xl border border-cyan-300/20 bg-[#071b2a] p-4 text-sm text-white shadow-lg shadow-slate-900/15">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black tracking-[0.16em] text-cyan-300">PREVIEW</p>
+                    <p className="mt-1 font-extrabold">{selectedSchool.name} {grade}학년 {classNum}반</p>
+                  </div>
+                  <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-black text-emerald-200">학생 {studentCount}명</span>
                 </div>
-                <div className="text-slate-500">
-                  학생 코드 예시:&nbsp;
-                  <span className="font-mono font-bold text-indigo-600">
+                <div className="mt-3 rounded-xl bg-white/8 px-3 py-2.5">
+                  <p className="text-[10px] font-bold text-slate-400">자동 생성 학생 코드</p>
+                  <p className="mt-1 break-all font-mono text-xs font-bold text-cyan-100 sm:text-sm">
                     {makeStudentCode(selectedSchool.name, grade, classNum, 1)}
-                    &nbsp;~&nbsp;
+                    <span className="mx-2 text-slate-500">~</span>
                     {makeStudentCode(selectedSchool.name, grade, classNum, parseInt(studentCount)||1)}
-                  </span>
+                  </p>
                 </div>
-                <div className="text-slate-500">학생 {studentCount}명 계정 자동 생성</div>
-              </div>
+              </section>
             )}
 
-            <div className="flex gap-3 pt-1">
-              <button onClick={onClose}
-                className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50">
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border-2 border-slate-200 bg-white py-3 text-sm font-extrabold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-100"
+              >
                 취소
               </button>
               <button
+                type="button"
                 onClick={handleCreate}
                 disabled={!selectedSchool || !grade || !classNum || !studentCount || isCreating}
-                className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-40 transition-colors">
-                학급 만들기
+                className="rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 py-3 text-sm font-extrabold text-white shadow-lg shadow-cyan-900/20 transition-all hover:from-cyan-500 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                학급 만들기 →
               </button>
             </div>
           </div>
@@ -334,12 +380,12 @@ function ClassCard({ cls, onSelect }) {
   return (
     <button
       onClick={() => onSelect(cls)}
-      className="bg-white rounded-2xl shadow-sm border-2 border-slate-200 hover:border-indigo-400 hover:shadow-md transition-all p-6 text-left w-full group">
-      <div className="text-3xl mb-3">🏫</div>
+      className="group w-full rounded-2xl border-2 border-slate-200 bg-white p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-cyan-400 hover:shadow-xl hover:shadow-cyan-950/15">
+      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-50 text-2xl ring-1 ring-cyan-100">🏫</div>
       <h3 className="font-extrabold text-slate-800 text-lg leading-tight mb-1">
         {cls.schoolName}
       </h3>
-      <p className="text-indigo-600 font-extrabold text-base mb-3">
+      <p className="mb-3 text-base font-extrabold text-teal-700">
         {cls.grade}학년 {cls.classNumber}반
       </p>
       <div className="flex items-center gap-3 text-sm text-slate-500">
@@ -349,7 +395,7 @@ function ClassCard({ cls, onSelect }) {
           {cls.schoolAbbr}{cls.grade}{String(cls.classNumber).padStart(2,'0')}XX
         </span>
       </div>
-      <div className="mt-4 text-xs font-bold text-indigo-500 group-hover:text-indigo-600 transition-colors">
+      <div className="mt-4 text-xs font-bold text-cyan-700 transition-colors group-hover:text-teal-700">
         입장하기 →
       </div>
     </button>
@@ -359,11 +405,11 @@ function ClassCard({ cls, onSelect }) {
 // ?? 硫붿씤 ?????????????????????????????????????????????????????
 function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
   return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div className="px-5 py-4 bg-indigo-600 text-white">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#020b18]/80 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg overflow-hidden rounded-[28px] border border-white/60 bg-white shadow-2xl">
+        <div className="bg-[#071b2a] px-5 py-4 text-white">
           <h3 className="text-lg font-extrabold">학급 기본 셋팅</h3>
-          <p className="text-xs text-indigo-100 mt-1">
+          <p className="mt-1 text-xs text-cyan-100/80">
             학급 생성 직후 한 번만 실행하면 기본 운영 환경이 자동으로 준비됩니다.
           </p>
         </div>
@@ -377,7 +423,7 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
           </div>
 
           {!state.isDone && (
-            <p className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700">
+            <p className="rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-800">
               추천 퀘스트와 퀴즈던전 등 학급 운영에 필요한 기본 셋팅을 생성합니다.
             </p>
           )}
@@ -406,14 +452,14 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
             <button
               onClick={onRun}
               disabled={state.isRunning}
-              className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm disabled:opacity-50">
+              className="flex-1 rounded-xl bg-teal-600 py-2.5 text-sm font-bold text-white hover:bg-teal-500 disabled:opacity-50">
               {state.isRunning ? '적용 중...' : '바로 적용'}
             </button>
           ) : (
             <>
               <button
                 onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm">
+                className="flex-1 rounded-xl bg-slate-700 py-2.5 text-sm font-bold text-white hover:bg-slate-600">
                 닫기
               </button>
               <button
@@ -430,7 +476,11 @@ function QuickSetupModal({ state, onClose, onRun, onEnterClass }) {
 }
 
 export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout, isAdmin = false, onEnterAdmin, onEnterTeacherTest, teacherAccessCode }) {
-  const isVerified = !!(teacherUser?.uid && localStorage.getItem(`teacherAuthVerified:${teacherUser.uid}`));
+  const isTestTeacher = !teacherUser?.uid && typeof onEnterTeacherTest === 'function';
+  const activeTeacher = teacherUser?.uid
+    ? teacherUser
+    : { uid: 'admin_master_001', email: '', displayName: '테스트 선생님' };
+  const isVerified = isTestTeacher || !!localStorage.getItem(`teacherAuthVerified:${activeTeacher.uid}`);
   const [authInput,   setAuthInput]   = useState('');
   const [authError,   setAuthError]   = useState('');
   const [verified,    setVerified]    = useState(isVerified);
@@ -440,7 +490,7 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
       setAuthError('인증번호가 올바르지 않습니다.');
       return;
     }
-    localStorage.setItem(`teacherAuthVerified:${teacherUser.uid}`, '1');
+    localStorage.setItem(`teacherAuthVerified:${activeTeacher.uid}`, '1');
     setAuthError('');
     setVerified(true);
   };
@@ -460,7 +510,7 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
   const fetchClasses = async () => {
     try {
       const snap = await getDocs(
-        query(collection(db, 'classes'), where('teacherUid', '==', teacherUser.uid))
+        query(collection(db, 'classes'), where('teacherUid', '==', activeTeacher.uid))
       );
       setClasses(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(item => item.active !== false));
     } catch (err) { console.error(err); }
@@ -523,7 +573,7 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
             }}
             onKeyDown={(e) => e.key === 'Enter' && handleAuthSubmit()}
             placeholder="4자리 인증번호"
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest font-mono focus:outline-none focus:border-indigo-500"
+            className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-center font-mono text-2xl tracking-widest text-white focus:border-cyan-500 focus:outline-none"
             maxLength={4}
             autoFocus
           />
@@ -531,7 +581,7 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
           <button
             onClick={handleAuthSubmit}
             disabled={authInput.length !== 4}
-            className="w-full mt-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-extrabold"
+            className="mt-4 w-full rounded-xl bg-teal-600 py-3 font-extrabold text-white hover:bg-teal-500 disabled:opacity-40"
           >
             인증 완료
           </button>
@@ -544,18 +594,18 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 flex flex-col">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-[#03101f] via-[#07303a] to-[#07111f]">
 
       {/* ?곷떒 諛?*/}
       <div className="flex items-center justify-between px-6 py-4">
         <div className="text-white/60 text-sm font-medium">
-          {teacherUser?.email || teacherUser?.displayName || '선생님'}
+          {activeTeacher.email || activeTeacher.displayName || '선생님'}
         </div>
         <div className="flex items-center gap-2">
         {isAdmin && (
           <button
             onClick={onEnterAdmin}
-            className="text-indigo-100 hover:text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-indigo-300/40 hover:border-indigo-200/80 bg-indigo-500/20 hover:bg-indigo-500/30 transition-colors">
+            className="rounded-lg border border-cyan-300/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-bold text-cyan-100 transition-colors hover:border-cyan-200/70 hover:bg-cyan-400/20 hover:text-white">
             관리자 모드
           </button>
         )}
@@ -607,7 +657,7 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
             {classes.length < 2 ? (
               <button
                 onClick={() => setShowCreate(true)}
-                className="w-full py-4 rounded-2xl border-2 border-dashed border-white/30 hover:border-indigo-400 text-white/50 hover:text-white font-bold transition-all hover:bg-white/5">
+                className="w-full rounded-2xl border-2 border-dashed border-cyan-200/30 py-4 font-bold text-cyan-50/65 transition-all hover:border-cyan-300 hover:bg-cyan-300/10 hover:text-white">
                 + 새 학급 만들기 {classes.length > 0 && `(${2 - classes.length}개 더 가능)`}
               </button>
             ) : (
@@ -621,7 +671,7 @@ export default function ClassSelectPage({ teacherUser, onClassSelected, onLogout
 
       {showCreate && (
         <CreateClassModal
-          teacherUser={teacherUser}
+          teacherUser={activeTeacher}
           onClose={() => setShowCreate(false)}
           onCreated={handleCreated}
         />
