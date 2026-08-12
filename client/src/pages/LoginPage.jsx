@@ -558,19 +558,19 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
       />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#040b1b]/70 to-transparent" />
 
-      <main className="relative z-10 flex min-h-screen items-center px-4 py-6 sm:px-8 sm:py-8 lg:px-[6vw]">
-        <section className="mx-auto w-full max-w-[560px] md:mx-0">
-          <header className="mb-5 text-center md:text-left">
+      <main className="relative z-10 flex min-h-screen items-center px-4 py-6 sm:px-8 sm:py-8 md:px-[5vw] xl:px-[6vw]">
+        <section className="mx-auto w-full max-w-[540px] md:mx-0">
+          <header className="mb-4 text-center md:text-left">
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-200/25 bg-cyan-300/10 px-3 py-1 text-[10px] font-black tracking-[0.2em] text-cyan-100 backdrop-blur-md sm:text-xs">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.9)]" />
               GAME-BASED SMART CLASS
             </div>
             <img
-              src="/images/levelupclass.png"
+              src="/images/levelupclass-logo-modern.png"
               alt="LevelUp Class"
-              className="mx-auto w-[250px] object-contain drop-shadow-[0_10px_24px_rgba(5,8,24,0.65)] sm:w-[330px] md:mx-0 md:w-[390px]"
+              className="mx-auto w-full max-w-[350px] object-contain drop-shadow-[0_10px_24px_rgba(5,8,24,0.65)] sm:max-w-[450px] md:mx-0 md:max-w-[510px]"
             />
-            <p className="mx-auto mt-1 max-w-[520px] text-sm font-semibold leading-relaxed text-indigo-100/90 drop-shadow-lg sm:text-base md:mx-0">
+            <p className="mx-auto mt-2 max-w-[520px] text-sm font-semibold leading-relaxed text-indigo-100/90 drop-shadow-lg sm:text-base md:mx-0">
               퀘스트를 완수하고, 캐릭터를 키우며, 함께 성장하는 우리 반의 새로운 모험
             </p>
             <div className="mt-3 flex flex-wrap justify-center gap-2 md:justify-start">

@@ -30,7 +30,6 @@ const WRONG_CAUSES = [
   ['visual', '단위·그림을 잘못 읽었어요'],
   ['rushed', '너무 빠르게 골랐어요'],
 ];
-const REQUIRED_GENERATOR_VERSION = 'quality-v20-range-rounding-qa';
 
 const questionFingerprint = (q) =>
   [q?.question, ...(Array.isArray(q?.options) ? q.options : []), q?.skill || '']
@@ -119,7 +118,6 @@ function saveRecentQuestionKeys(key, selectedKeys, max = 20) {
 
 function shouldRefreshLessonContent(data) {
   if (!data) return true;
-  if (data.generatorVersion !== REQUIRED_GENERATOR_VERSION) return true;
   const usableCount = Array.isArray(data.questions)
     ? data.questions.filter(isUsablePoolQuestion).length
     : 0;
@@ -1182,8 +1180,8 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   // ══════════════════════════════════════════════════════════════
   // ── 단원 브라우즈 화면 ────────────────────────────────────────
   if (step === 'browse') return (
-    <div className={`min-h-full p-6 max-w-3xl mx-auto ${isDark ? '' : 'text-slate-800'}`}>
-      <div className="flex items-center justify-between gap-3 mb-5">
+    <div className={`min-h-full p-4 sm:p-6 max-w-3xl mx-auto ${isDark ? '' : 'text-slate-800'}`}>
+      <div className="flex flex-col items-stretch gap-3 mb-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="text-3xl">🤖</span>
           <div>
@@ -1192,7 +1190,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           </div>
         </div>
         {/* 오늘 남은 보상횟수 */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
           <div className={`px-3 py-2 rounded-2xl text-center border ${
             dailyCount >= DAILY_LIMIT
               ? isDark ? 'bg-rose-500/20 border-rose-500/30' : 'bg-rose-50 border-rose-300'
@@ -1379,7 +1377,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         </div>
       ) : (
         /* 전체 학기: 좌 1학기 / 우 2학기 */
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {['1','2'].map(sem => {
             const semUnits = units.filter(u => !u.semester || String(u.semester) === sem);
             return (

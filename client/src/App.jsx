@@ -1080,7 +1080,7 @@ function App() {
       <TestPrivacyGuard active={isTestPrivacyPage} enabled={testPrivacyEnabled} />
       <TestPrivacyToggle active={isTestPrivacyPage} enabled={testPrivacyEnabled} onToggle={toggleTestPrivacy} />
       {/* 전역 걷는 펫 */}
-      {activePetMonster && petVisible && (
+      {activePetMonster && petVisible && currentView !== 'aiCourseware' && (
         <>
           <WalkingPet
             monsterData={activePetMonster}
@@ -1432,7 +1432,7 @@ function App() {
         </>
       )}
       {/* 펫 토글 버튼 */}
-      {activePetMonster && (
+      {activePetMonster && currentView !== 'aiCourseware' && (
         <button
           onClick={() => setPetVisible(v => !v)}
           style={{ position: 'fixed', bottom: 6, right: 6, zIndex: 30 }}
