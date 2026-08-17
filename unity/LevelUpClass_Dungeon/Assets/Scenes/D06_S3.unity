@@ -1978,33 +1978,73 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 299893549690302902, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
+    - target: {fileID: 7822718706275986, guid: bfbfc700301867440bee99cc6798e383, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026461, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 6.84
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -6.28
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026459, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_Name
+      value: IceWorm
+      objectReference: {fileID: 0}
+    - target: {fileID: 3151339650595026459, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
       propertyPath: m_Layer
       value: 7
       objectReference: {fileID: 0}
-    - target: {fileID: 1521335860345835710, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
-      propertyPath: m_Layer
-      value: 7
-      objectReference: {fileID: 0}
-    - target: {fileID: 2006874690513664066, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
-      propertyPath: m_Layer
-      value: 7
-      objectReference: {fileID: 0}
-    - target: {fileID: 3653135895520803003, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
-      propertyPath: m_Layer
-      value: 7
-      objectReference: {fileID: 0}
-    - target: {fileID: 4245574236715015668, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
-      propertyPath: m_Layer
-      value: 7
-      objectReference: {fileID: 0}
-    - target: {fileID: 6951088935425906474, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
-      propertyPath: m_Layer
-      value: 7
-      objectReference: {fileID: 0}
-    - target: {fileID: 8276558792108802785, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
-      propertyPath: m_Layer
-      value: 7
+    - target: {fileID: 6927254330169645553, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+      propertyPath: m_SortingOrder
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2555706828913751294, guid: c32d06b663fe42a4894f257cd18333c9, type: 3}
       propertyPath: m_Mesh
@@ -2082,73 +2122,33 @@ PrefabInstance:
       propertyPath: critBoomEffectPrefab
       value: 
       objectReference: {fileID: 5339739117810204693, guid: 26e1cb216e3635e4a820f58a1118d6b9, type: 3}
-    - target: {fileID: 7822718706275986, guid: bfbfc700301867440bee99cc6798e383, type: 3}
-      propertyPath: m_Enabled
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 6.84
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -6.28
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026458, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026459, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_Name
-      value: IceWorm
-      objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026459, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
+    - target: {fileID: 299893549690302902, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
       propertyPath: m_Layer
       value: 7
       objectReference: {fileID: 0}
-    - target: {fileID: 3151339650595026461, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_Enabled
-      value: 1
+    - target: {fileID: 1521335860345835710, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
+      propertyPath: m_Layer
+      value: 7
       objectReference: {fileID: 0}
-    - target: {fileID: 6927254330169645553, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
-      propertyPath: m_SortingOrder
-      value: 1
+    - target: {fileID: 2006874690513664066, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 3653135895520803003, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 4245574236715015668, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 6951088935425906474, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 8276558792108802785, guid: e57710c82d1ace14196bdc60e30402bf, type: 3}
+      propertyPath: m_Layer
+      value: 7
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 3299020447083745753, guid: d438b2ea7813513439d1c9b7b95406ba, type: 3}
@@ -6695,6 +6695,21 @@ MonoBehaviour:
   phase2IceSpikeCount: 8
   iceSpikeInterval: 0.25
   iceSpikeSpread: 3.2
+  iceGolemPatternsStartInPhase1: 1
+  iceGolemSpecialCooldown: 6.8
+  iceGolemPhase2CooldownMultiplier: 0.68
+  iceGolemSkillTriggerRange: 8.8
+  iceGolemFieldImpactDamageMultiplier: 0.9
+  iceGolemFallingIceCount: 4
+  phase2IceGolemFallingIceCount: 7
+  iceGolemFallingIceInterval: 0.22
+  iceGolemFallingIceSpread: 3.6
+  iceGolemQuakeCount: 4
+  phase2IceGolemQuakeCount: 6
+  iceGolemQuakeSpacing: 1.45
+  iceGolemQuakeStepDelay: 0.18
+  iceGolemQuakeRadius: 1.65
+  iceGolemQuakeDamageMultiplier: 1.05
   frontCheck: {fileID: 0}
   groundLayer:
     serializedVersion: 2

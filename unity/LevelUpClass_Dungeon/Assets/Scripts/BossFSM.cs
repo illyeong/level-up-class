@@ -22,7 +22,8 @@ public class BossFSM : MonoBehaviour
         StoneGolem,
         MeadowDragon,
         IceWorm,
-        IceGolem
+        IceGolem,
+        IceDragon
     }
 
     public UnityEngine.UI.Slider bossHpBar;
@@ -154,6 +155,31 @@ public class BossFSM : MonoBehaviour
     public float iceGolemQuakeRadius = 1.65f;
     public float iceGolemQuakeDamageMultiplier = 1.05f;
 
+    [Header("Ice Dragon Combined Patterns")]
+    public bool iceDragonPatternsStartInPhase1 = true;
+    public float iceDragonSpecialCooldown = 6.4f;
+    public float iceDragonPhase2CooldownMultiplier = 0.65f;
+    public float iceDragonSkillTriggerRange = 9f;
+    public GameObject iceDragonBreathEffectPrefab;
+    public Vector3 iceDragonBreathEffectOffset = new Vector3(2.1f, 1.25f, 0f);
+    public float iceDragonBreathCastDelay = 0.35f;
+    public float iceDragonBreathDuration = 0.9f;
+    [Min(0.1f)] public float iceDragonBreathEffectLifetime = 1.8f;
+    public float iceDragonBreathRange = 5.8f;
+    public float iceDragonBreathHeight = 2.1f;
+    [Min(1)] public int iceDragonBreathSegmentCount = 4;
+    public float iceDragonBreathSegmentSpacing = 1.35f;
+    [Min(0.1f)] public float iceDragonBreathSegmentScale = 1f;
+    public float iceDragonBreathTickInterval = 0.22f;
+    public float iceDragonBreathDamageMultiplier = 0.95f;
+    public float iceDragonBreathSlowDuration = 0.35f;
+    public float iceDragonFieldImpactDamageMultiplier = 0.55f;
+    [Min(0f)] public float iceDragonFieldEffectExtraLifetime = 1.4f;
+    public int iceDragonFallingIceCount = 5;
+    public int phase2IceDragonFallingIceCount = 8;
+    public float iceDragonFallingIceInterval = 0.24f;
+    public float iceDragonFallingIceSpread = 3.9f;
+
     [Header("지형 감지")]
     public Transform frontCheck;
     public LayerMask groundLayer;
@@ -231,6 +257,8 @@ public class BossFSM : MonoBehaviour
     private int nextIceWormPattern = 0;
     private float lastIceGolemSpecialTime = 0f;
     private int nextIceGolemPattern = 0;
+    private float lastIceDragonSpecialTime = 0f;
+    private int nextIceDragonPattern = 0;
 
     void Start()
     {
@@ -315,6 +343,15 @@ public class BossFSM : MonoBehaviour
             Time.time >= lastIceGolemSpecialTime + GetIceGolemSpecialCooldown())
         {
             StartNextIceGolemPattern();
+            return;
+        }
+
+        if (phase2Skill == Phase2SkillType.IceDragon &&
+            (iceDragonPatternsStartInPhase1 || isPhase2) &&
+            dist <= iceDragonSkillTriggerRange &&
+            Time.time >= lastIceDragonSpecialTime + GetIceDragonSpecialCooldown())
+        {
+            StartNextIceDragonPattern();
             return;
         }
 
@@ -623,6 +660,7 @@ public class BossFSM : MonoBehaviour
         // 낙하
         rb.linearVelocity = new Vector2(0f, -jumpSlamVelocity * jumpSpeedMultiplier);
         yield return WaitForLanding();
+        rb.linearVelocity = Vector2.zero;
 
         // ── 착지 연출 ─────────────────────────────────────────
         SpawnLandingEffect();
@@ -757,6 +795,7 @@ public class BossFSM : MonoBehaviour
 
             rb.linearVelocity = new Vector2(0f, -12f);
             yield return WaitForLanding();
+            rb.linearVelocity = Vector2.zero;
 
             Vector3 center = transform.position;
             SpawnLandingEffect();
@@ -803,6 +842,7 @@ public class BossFSM : MonoBehaviour
         while (elapsed < 1.2f)
         {
             if (IsOnGround()) yield break;
+            if (elapsed > 0.08f && rb != null && rb.linearVelocity.y >= -0.05f) yield break;
 
             elapsed += Time.fixedDeltaTime;
             yield return new WaitForFixedUpdate();
@@ -813,13 +853,17 @@ public class BossFSM : MonoBehaviour
     {
         if (bossCollider == null)
             bossCollider = FindCombatCollider();
-        if (bossCollider == null || groundLayer.value == 0) return false;
+        if (bossCollider == null) return false;
+        if (groundLayer.value == 0)
+            return rb != null && Mathf.Abs(rb.linearVelocity.y) < 0.05f;
+
+        if (bossCollider.IsTouchingLayers(groundLayer)) return true;
 
         Bounds bounds = bossCollider.bounds;
         RaycastHit2D hit = Physics2D.Raycast(
             bounds.center,
             Vector2.down,
-            bounds.extents.y + 0.18f,
+            bounds.extents.y + 0.35f,
             groundLayer
         );
         return hit.collider != null;
@@ -1192,6 +1236,165 @@ public class BossFSM : MonoBehaviour
             var movement = hit.GetComponent<LayerLab.ArtMaker.PlayerMovement>();
             if (movement != null)
                 movement.ApplyMoveSpeedMultiplier(iceFieldMoveSpeedMultiplier, iceFieldSlowDuration);
+        }
+    }
+
+    float GetIceDragonSpecialCooldown()
+    {
+        float multiplier = isPhase2 ? iceDragonPhase2CooldownMultiplier : 1f;
+        return Mathf.Max(1f, iceDragonSpecialCooldown * multiplier);
+    }
+
+    void StartNextIceDragonPattern()
+    {
+        lastIceDragonSpecialTime = Time.time;
+
+        switch (nextIceDragonPattern)
+        {
+            case 0:
+                StartCoroutine(IceDragonFrostBreath());
+                break;
+            case 1:
+                StartCoroutine(IceDragonFallingIceBarrage());
+                break;
+            case 2:
+                StartCoroutine(JumpAttack());
+                break;
+            default:
+                StartCoroutine(IceDragonBlizzardField());
+                break;
+        }
+
+        nextIceDragonPattern = (nextIceDragonPattern + 1) % 4;
+    }
+
+    IEnumerator IceDragonFrostBreath()
+    {
+        isAttacking = true;
+        rb.linearVelocity = Vector2.zero;
+
+        PlayAnim(string.IsNullOrEmpty(skillAnimName) ? attackAnimName : skillAnimName, false);
+        yield return new WaitForSeconds(iceDragonBreathCastDelay);
+
+        float direction = movingDir >= 0 ? 1f : -1f;
+        if (playerTarget != null)
+            direction = Mathf.Sign(playerTarget.position.x - transform.position.x);
+        if (Mathf.Approximately(direction, 0f))
+            direction = movingDir >= 0 ? 1f : -1f;
+
+        FaceDirection(direction);
+
+        GameObject effectPrefab = iceDragonBreathEffectPrefab != null ? iceDragonBreathEffectPrefab : normalAttackEffectPrefab;
+        if (effectPrefab != null)
+        {
+            int segmentCount = Mathf.Max(1, iceDragonBreathSegmentCount);
+            float mouthDistance = Mathf.Abs(iceDragonBreathEffectOffset.x);
+            float segmentSpacing = Mathf.Max(0.1f, iceDragonBreathSegmentSpacing);
+
+            for (int i = 0; i < segmentCount; i++)
+            {
+                Vector3 effectOffset = iceDragonBreathEffectOffset;
+                effectOffset.x = direction * (mouthDistance + segmentSpacing * i);
+                Vector3 effectPosition = transform.position + effectOffset;
+
+                GameObject effect = Instantiate(effectPrefab, effectPosition, Quaternion.identity);
+                effect.transform.localScale *= normalAttackEffectScale * iceDragonBreathSegmentScale;
+                if (direction < 0f)
+                {
+                    Vector3 scale = effect.transform.localScale;
+                    scale.x = -Mathf.Abs(scale.x);
+                    effect.transform.localScale = scale;
+                }
+                BringEffectToFront(effect, 12 + i);
+                Destroy(effect, Mathf.Max(iceDragonBreathDuration, iceDragonBreathEffectLifetime));
+            }
+        }
+
+        float elapsed = 0f;
+        int tickDamage = Mathf.Max(1, Mathf.RoundToInt(attackPower * iceDragonBreathDamageMultiplier));
+        while (elapsed < iceDragonBreathDuration)
+        {
+            DamageAndSlowPlayersInBreath(direction, tickDamage);
+            yield return new WaitForSeconds(iceDragonBreathTickInterval);
+            elapsed += iceDragonBreathTickInterval;
+        }
+
+        yield return new WaitForSeconds(0.2f);
+        isAttacking = false;
+    }
+
+    IEnumerator IceDragonBlizzardField()
+    {
+        isAttacking = true;
+        rb.linearVelocity = Vector2.zero;
+
+        PlayAnim(string.IsNullOrEmpty(skillAnimName) ? attackAnimName : skillAnimName, false);
+        yield return new WaitForSeconds(poisonCastDelay);
+
+        Vector3 center = playerTarget != null ? playerTarget.position : transform.position;
+        center.z = transform.position.z;
+
+        GameObject field = iceFieldEffectPrefab != null ? iceFieldEffectPrefab : poisonPoolEffectPrefab;
+        SpawnShortEffect(field, center, iceFieldDuration + iceDragonFieldEffectExtraLifetime, 5);
+        SpawnShortEffect(iceSpikeImpactEffectPrefab != null ? iceSpikeImpactEffectPrefab : rockImpactEffectPrefab, center, 1.8f, 14);
+
+        int impactDamage = Mathf.Max(1, Mathf.RoundToInt(attackPower * iceDragonFieldImpactDamageMultiplier));
+        int tickDamage = Mathf.Max(1, Mathf.RoundToInt(attackPower * iceFieldDamageMultiplier));
+
+        DamageAndSlowPlayersInRadius(center, iceFieldRadius, impactDamage);
+        CameraFollow.Instance?.Shake(shakeDuration * 0.45f, shakeMagnitude * 0.45f);
+
+        float elapsed = 0f;
+        while (elapsed < iceFieldDuration)
+        {
+            DamageAndSlowPlayersInRadius(center, iceFieldRadius, tickDamage);
+            yield return new WaitForSeconds(iceFieldTickInterval);
+            elapsed += iceFieldTickInterval;
+        }
+
+        isAttacking = false;
+    }
+
+    IEnumerator IceDragonFallingIceBarrage()
+    {
+        isAttacking = true;
+        rb.linearVelocity = Vector2.zero;
+
+        PlayAnim(string.IsNullOrEmpty(skillAnimName) ? attackAnimName : skillAnimName, false);
+        yield return new WaitForSeconds(rockFallCastDelay);
+
+        int count = isPhase2 ? phase2IceDragonFallingIceCount : iceDragonFallingIceCount;
+        for (int i = 0; i < count; i++)
+        {
+            Vector3 center = playerTarget != null ? playerTarget.position : transform.position;
+            float offset = Random.Range(-iceDragonFallingIceSpread, iceDragonFallingIceSpread);
+            Vector3 target = new Vector3(center.x + offset, center.y, transform.position.z);
+            SpawnIceGolemFallingIce(target);
+            yield return new WaitForSeconds(iceDragonFallingIceInterval);
+        }
+
+        yield return new WaitForSeconds(0.35f);
+        isAttacking = false;
+    }
+
+    void DamageAndSlowPlayersInBreath(float direction, int damage)
+    {
+        Vector2 center = new Vector2(
+            transform.position.x + direction * (iceDragonBreathRange * 0.5f + Mathf.Abs(iceDragonBreathEffectOffset.x) * 0.35f),
+            transform.position.y + iceDragonBreathEffectOffset.y
+        );
+        Vector2 size = new Vector2(iceDragonBreathRange, iceDragonBreathHeight);
+
+        Collider2D[] hits = Physics2D.OverlapBoxAll(center, size, 0f, LayerMask.GetMask("Player"));
+        foreach (var hit in hits)
+        {
+            var pc = hit.GetComponent<LayerLab.ArtMaker.PlayerCombat>();
+            if (pc != null)
+                pc.TakePlayerDamage(damage, transform.position);
+
+            var movement = hit.GetComponent<LayerLab.ArtMaker.PlayerMovement>();
+            if (movement != null)
+                movement.ApplyMoveSpeedMultiplier(iceFieldMoveSpeedMultiplier, iceDragonBreathSlowDuration);
         }
     }
 
