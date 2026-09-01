@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   doc, getDoc, getDocs, collection,
   writeBatch, setDoc, deleteDoc, serverTimestamp,
@@ -72,16 +72,16 @@ function QuestDetail({ questId, onBack, isModal = false }) {
         const map = {};
         completionsSnap.docs.forEach(d => { map[d.id] = d.data(); });
 
-        // 매일반복 퀘스트: 어제 이전의 미보상 completion 삭제 (교사가 상세 열 때 초기화)
+        // 매일반복 퀘스트: 이전 날짜의 completion 삭제 (교사가 상세 열 때 초기화)
+        // 이미 지급된 보상은 학생 데이터에 반영되어 있으므로 completion만 새 주기로 비운다.
         if (questData.repeatDaily) {
           const todayMidnight = new Date();
           todayMidnight.setHours(0, 0, 0, 0);
           const staleDocs = completionsSnap.docs.filter(d => {
             const data = d.data();
-            if (data.rewarded) return false; // 보상된 건 유지
-            const ts = data.checkedAt;
-            const checkedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
-            return checkedAt && checkedAt < todayMidnight;
+            const ts = data.checkedAt || data.rewardedAt;
+            const completedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
+            return completedAt && completedAt < todayMidnight;
           });
           if (staleDocs.length > 0) {
             const batch = writeBatch(db);
