@@ -13,6 +13,7 @@ import {
   inferFractionBarShape,
 } from '../../utils/inferFractionBarShape';
 import { validateDeterministicMathQuestion } from '../../utils/validateCoursewareMathQuestion';
+import { normalizeCoursewareChoices } from '../../utils/coursewareOptions';
 
 const MAX_REWARD = { exp: 30, gold: 20, diamonds: 10 }; // 최대 보상 (정답률 100%)
 const DAILY_LIMIT   = 5;  // 하루 최대 보상 횟수
@@ -48,37 +49,21 @@ const questionFingerprint = (q) =>
     .slice(0, 90);
 
 const isUsablePoolQuestion = (question) => {
-  const options = Array.isArray(question?.options) ? question.options : [];
-  if (options.length !== 4) return false;
-  if (!Number.isInteger(question?.answerIndex) || question.answerIndex < 0 || question.answerIndex > 3) return false;
+  const normalized = normalizeCoursewareChoices(question);
+  if (!normalized) return false;
   const inferredShape = inferFractionBarShape(question?.question, question?.shape);
   if (hasMissingRequiredVisual(question?.question, inferredShape)) return false;
-  const deterministicResult = validateDeterministicMathQuestion(question);
+  const deterministicResult = validateDeterministicMathQuestion(normalized);
   if (deterministicResult.applicable && !deterministicResult.valid) return false;
-  return new Set(options.map(option => String(option).normalize('NFKC').replace(/\s+/g, '').toLowerCase())).size === 4;
-};
-
-const normalizeEquivalentFractionPairAnswer = (question) => {
-  const questionText = String(question?.question || '');
-  if (!['크기가 같은 분수끼리', '같은 크기의 분수', '서로 같은 분수', '같은 분수끼리'].some(text => questionText.includes(text))) {
-    return question;
-  }
-  const matches = (question.options || []).map(option => {
-    const fractions = [...String(option || '').matchAll(/(\d+)\s*\/\s*(\d+)/g)]
-      .map(match => ({ numerator: Number(match[1]), denominator: Number(match[2]) }));
-    return fractions.length === 2
-      && fractions[0].numerator * fractions[1].denominator === fractions[1].numerator * fractions[0].denominator;
-  });
-  const correctIndexes = matches.map((matched, index) => matched ? index : -1).filter(index => index >= 0);
-  return correctIndexes.length === 1 ? { ...question, answerIndex: correctIndexes[0] } : question;
+  return true;
 };
 
 const normalizeVerifiedMathAnswer = (question) => {
-  const fractionNormalized = normalizeEquivalentFractionPairAnswer(question);
-  const result = validateDeterministicMathQuestion(fractionNormalized);
+  const normalized = normalizeCoursewareChoices(question);
+  const result = validateDeterministicMathQuestion(normalized);
   return result.applicable && result.valid
-    ? { ...fractionNormalized, answerIndex: result.answerIndex }
-    : fractionNormalized;
+    ? { ...normalized, answerIndex: result.answerIndex }
+    : normalized;
 };
 
 const lessonAttemptId = (studentCode, key) => `${studentCode}_${key}`;
@@ -121,7 +106,11 @@ function saveRecentQuestionKeys(key, selectedKeys, max = 20) {
     if (item && !unique.includes(item)) unique.push(item);
     if (unique.length >= max) break;
   }
-  localStorage.setItem(`aiCoursewareRecent:${key}`, JSON.stringify(unique));
+  try {
+    localStorage.setItem(`aiCoursewareRecent:${key}`, JSON.stringify(unique));
+  } catch {
+    // Recent-question history is optional on storage-restricted school devices.
+  }
 }
 
 function shouldRefreshLessonContent(data) {
@@ -137,6 +126,7 @@ function pickSessionQuestions(data, key, attemptState = null) {
   if (!data?.questions?.length) return data;
   const enriched = enrichQuestionPool(data, key);
   const pool = enriched.questions;
+  if (!pool.length) throw new Error('검증을 통과한 문제가 없습니다. 차시를 다시 열어 문제를 새로 생성해주세요.');
   if (pool.length <= SESSION_Q_NUM) return enriched;
 
   const byKey = new Map(pool.map(q => [q.__questionKey, q]));
@@ -789,19 +779,29 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
   const startLearning = async () => {
     const key = lessonKey(selectedUnit, selectedLesson);
-    const [cacheSnap, attemptSnap] = await Promise.all([
-      getDoc(doc(db, 'aiLessonContent', key)),
-      getDoc(doc(db, 'aiQuestionAttempts', lessonAttemptId(studentCode, key))),
-    ]);
-    const poolData = cacheSnap.exists() ? cacheSnap.data() : content;
-    const attemptState = attemptSnap.exists() ? attemptSnap.data() : null;
-    setContent(pickSessionQuestions(poolData, key, attemptState));
-    expandLessonPoolInBackground(selectedUnit, selectedLesson, poolData, attemptState);
-    setCardIdx(0); setQIdx(0);
-    setAnswers([]); setSelected(null); setShowResult(false); setFR(null); setExpandedResult(null);
-    setWrongCauseByQuestion({});
-    setMinTimeLeft(0);
-    setStep('concept');
+    try {
+      const [cacheSnap, attemptSnap] = await Promise.all([
+        getDoc(doc(db, 'aiLessonContent', key)),
+        getDoc(doc(db, 'aiQuestionAttempts', lessonAttemptId(studentCode, key))),
+      ]);
+      let poolData = cacheSnap.exists() ? cacheSnap.data() : content;
+      if (shouldRefreshLessonContent(poolData)) {
+        preloadMap.delete(key);
+        poolData = await queueLessonPreload(selectedUnit, selectedLesson);
+        if (!poolData) throw new Error('문제를 새로 생성하지 못했습니다. 잠시 후 다시 시도해주세요.');
+      }
+      const attemptState = attemptSnap.exists() ? attemptSnap.data() : null;
+      setContent(pickSessionQuestions(poolData, key, attemptState));
+      expandLessonPoolInBackground(selectedUnit, selectedLesson, poolData, attemptState);
+      setCardIdx(0); setQIdx(0);
+      setAnswers([]); setSelected(null); setShowResult(false); setFR(null); setExpandedResult(null);
+      setWrongCauseByQuestion({});
+      setMinTimeLeft(0);
+      setStep('concept');
+    } catch (error) {
+      console.error('AI 학습관 재시작 실패:', error);
+      showToast('사용 가능한 문제를 불러오지 못했습니다. 차시를 다시 열어주세요.', 'error');
+    }
   };
 
   // ── 최소 응답 시간: 문제 바뀔 때마다 5초 카운트다운 ─────────

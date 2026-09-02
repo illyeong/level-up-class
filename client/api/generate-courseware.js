@@ -2,6 +2,8 @@ export const config = { maxDuration: 60 };
 
 import { hasMissingRequiredVisual, inferFractionBarShape } from '../src/utils/inferFractionBarShape.js';
 import { validateDeterministicMathQuestion } from '../src/utils/validateCoursewareMathQuestion.js';
+import { normalizeCoursewareChoices } from '../src/utils/coursewareOptions.js';
+import { getEquivalentFractionAnswerIndex as getEquivalentFractionPairIndex } from '../src/utils/coursewareArithmetic.js';
 
 const SHAPE_TYPES = new Set([
   'clock', 'ruler', 'angle', 'fraction_bar', 'picture_graph', 'bar_chart', 'line_chart',
@@ -11,16 +13,7 @@ const SHAPE_TYPES = new Set([
   'cuboid', 'cube', 'triangular_prism', 'square_pyramid', 'cylinder', 'cone', 'sphere', 'factor_list',
 ]);
 
-const COURSEWARE_GENERATOR_VERSION = 'quality-v20-range-rounding-qa';
-
-const stripOptionPrefix = (value) =>
-  String(value ?? '')
-    .trim()
-    .replace(/^\s*(?:[\u2460-\u2463\u2776-\u2779])\s*/u, '')
-    .replace(/^\s*(?:[1-4][.)])\s+/u, '')
-    .replace(/^\s*(?:[①②③④❶❷❸❹])\s*/u, '')
-    .trim() ||
-  String(value ?? '').trim().replace(/^[①②③④]\s*/, '').trim();
+const COURSEWARE_GENERATOR_VERSION = 'quality-v21-shared-choice-arithmetic-qa';
 
 const normalizeKey = (value) =>
   String(value ?? '').replace(/\s+/g, '').replace(/[①②③④0-9().,!?~]/g, '').slice(0, 80);
@@ -235,16 +228,6 @@ const getWholeNumberComparisonIndex = (question, options) => {
 const hasKoreanPhrase = (text, phrases) => {
   const src = normalizeText(text);
   return phrases.some(phrase => src.includes(normalizeText(phrase)));
-};
-
-const getEquivalentFractionPairIndex = (question, options = []) => {
-  if (!includesAny(question, ['크기가 같은 분수끼리', '같은 크기의 분수', '서로 같은 분수', '같은 분수끼리'])) return null;
-  const checks = options.map(option => {
-    const fractions = parseFractions(option);
-    return fractions.length === 2 ? sameFraction(fractions[0], fractions[1]) : null;
-  });
-  if (checks.some(check => check === null)) return -1;
-  return uniqueIndex(checks, Boolean);
 };
 
 const fixFractionAnswer = (q) => {
@@ -903,25 +886,24 @@ function tryParseJson(text) {
 function normalizeQuestion(q, index, context = {}) {
   if (!q || typeof q !== 'object') return null;
 
-  const options = Array.isArray(q.options)
-    ? q.options.map(stripOptionPrefix).filter(Boolean).slice(0, 4)
-    : [];
-  if (options.length !== 4) return null;
-  if (new Set(options.map(option => normalizeText(option).replace(/\s+/g, ''))).size !== 4) return null;
-
-  let answerIndex = Number(q.answerIndex);
-  if (!Number.isInteger(answerIndex) || answerIndex < 0 || answerIndex > 3) answerIndex = 0;
-
-  const fractionFixed = fixFractionAnswer({
+  const choices = normalizeCoursewareChoices(q);
+  if (!choices) return null;
+  const { options } = choices;
+  let { answerIndex } = choices;
+  const verified = validateDeterministicMathQuestion(choices);
+  if (verified.applicable && !verified.valid) return null;
+  const baseQuestion = {
     question: String(q.question || '').trim(),
     options,
-    answerIndex,
+    answerIndex: verified.applicable ? verified.answerIndex : answerIndex,
     explanation: String(q.explanation || '').trim(),
-  });
+  };
+  // Exact calculation takes precedence over the older word-based heuristics.
+  const fractionFixed = verified.applicable ? baseQuestion : fixFractionAnswer(baseQuestion);
   if (!fractionFixed) return null;
 
   answerIndex = fractionFixed.answerIndex;
-  const wholeNumberExpected = getWholeNumberExpected(fractionFixed.question);
+  const wholeNumberExpected = verified.applicable ? null : getWholeNumberExpected(fractionFixed.question);
   if (wholeNumberExpected != null) {
     const wholeNumberOptions = options.map(parseWholeNumberOption);
     if (wholeNumberOptions.every(value => value != null)) {
@@ -1567,6 +1549,15 @@ async function callClaude({ apiKey, model, prompt, maxTokens, temperature = 0.55
 
   const data = await response.json();
   return data.content?.[0]?.text || '';
+}
+
+// Read-only inspection for backed-up content audits. This does not generate,
+// delete, or persist questions; rejected items still need human review.
+export function inspectCoursewareQuestion(question, lesson = {}) {
+  return {
+    normalized: normalizeQuestion(question, 0, buildLessonContext(lesson)),
+    shapeConsistent: verifyShapeQuestionConsistency(question),
+  };
 }
 
 export default async function handler(req, res) {

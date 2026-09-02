@@ -1,4 +1,5 @@
 import React from 'react';
+import { getFactorListLayout, getNumberLineLayout, getRectangleLayout } from '../utils/mathDiagramLayout';
 
 const W = 220, H = 170;
 
@@ -185,18 +186,14 @@ const renderers = {
 
   // ── 직사각형 ─────────────────────────────────────────────────
   rectangle({ d, u }) {
-    const ratio = d.width && d.height ? d.width / d.height : 1.8;
-    let rw = 130, rh = 90;
-    if (ratio > rw / rh) rh = rw / ratio;
-    else rw = rh * ratio;
-    rw = Math.min(Math.max(rw, 60), 150);
-    rh = Math.min(Math.max(rh, 50), 110);
-    const x = W/2 - rw/2, y = H/2 - rh/2;
+    const { x, y, width: rw, height: rh, cells, diagonal } = getRectangleLayout(d);
     const wLbl = d.width  ? `${d.width}${u}` : '';
     const hLbl = d.height ? `${d.height}${u}` : '';
     return (
       <>
         <rect x={x} y={y} width={rw} height={rh} fill={FILL} stroke={STROKE} strokeWidth={SW} />
+        {cells.map((cell, index) => <rect key={index} x={cell.x} y={cell.y} width={cell.width} height={cell.height} fill={cell.filled ? FILL : 'white'} stroke={STROKE} strokeWidth="1" />)}
+        {diagonal && <line x1={x} y1={y} x2={x+rw} y2={y+rh} stroke={STROKE} strokeWidth="1.5" />}
         <Label x={W/2}  y={y + rh + 18} text={wLbl} />
         <Label x={x-18} y={H/2 + 5}     text={hLbl} anchor="end" />
       </>
@@ -324,32 +321,27 @@ const renderers = {
   },
 
   factor_list({ d }) {
-    const groups = Array.isArray(d.groups) ? d.groups.slice(0, 3) : [];
+    const layout = getFactorListLayout(d, W);
     const highlight = new Set((Array.isArray(d.highlight) ? d.highlight : []).map(v => String(v)));
-    const rowH = groups.length >= 3 ? 42 : 50;
-    const startY = H / 2 - (groups.length * rowH) / 2 + 4;
     return (
       <>
-        {groups.map((group, row) => {
-          const y = startY + row * rowH;
-          const values = Array.isArray(group.values) ? group.values.slice(0, 10) : [];
+        {layout.groups.map((group, row) => {
           return (
             <React.Fragment key={row}>
-              <text x={18} y={y + 16} fontSize={11} fill="#1e293b" fontWeight="700" textAnchor="start">
+              <text x={12} y={group.labelY} fontSize={11} fill="#1e293b" fontWeight="700" textAnchor="start">
                 {group.label}
               </text>
-              {values.map((value, i) => {
-                const x = 78 + i * 23;
+              {group.cells.map(({ value, x, y, width }, i) => {
                 const active = highlight.has(String(value));
                 return (
                   <g key={i}>
                     <rect
-                      x={x - 9} y={y + 1} width={20} height={22} rx={6}
+                      x={x} y={y} width={width} height={22} rx={6}
                       fill={active ? '#dcfce7' : '#eff6ff'}
                       stroke={active ? '#16a34a' : STROKE}
                       strokeWidth="1.4"
                     />
-                    <text x={x + 1} y={y + 16} fontSize={10} fill={active ? '#166534' : '#1e40af'} fontWeight="700" textAnchor="middle">
+                    <text x={x + width / 2} y={y + 15} fontSize={10} fill={active ? '#166534' : '#1e40af'} fontWeight="700" textAnchor="middle">
                       {value}
                     </text>
                   </g>
@@ -359,7 +351,7 @@ const renderers = {
           );
         })}
         {highlight.size > 0 && (
-          <text x={W/2} y={H-8} textAnchor="middle" fontSize={10} fill="#166534" fontWeight="700">
+          <text x={W/2} y={layout.height-8} textAnchor="middle" fontSize={10} fill="#166534" fontWeight="700">
             초록색: 공통으로 들어가는 수
           </text>
         )}
@@ -669,17 +661,12 @@ const renderers = {
 
   // ── 수직선 ────────────────────────────────────────────────────
   number_line({ d }) {
-    const min  = d.min  ?? 0;
-    const max  = d.max  ?? 10;
+    const { min, max, ticks, highlight, pointer, width, openLeft, openRight } = getNumberLineLayout(d);
     const unit = d.unit || '';
-    const marks     = d.marks     || [];
-    const highlight = d.highlight; // {from, to}
     const lineY = H / 2 + 10;
-    const lX1 = 18, lX2 = W - 18;
+    const lX1 = 18, lX2 = width - 18;
     const range = max - min || 1;
     const toX = (v) => lX1 + ((v - min) / range) * (lX2 - lX1);
-    const steps = max - min;
-    const step = steps <= 10 ? 1 : Math.ceil(steps / 10);
 
     return (
       <>
@@ -688,23 +675,23 @@ const renderers = {
         )}
         <line x1={lX1-4} y1={lineY} x2={lX2+4} y2={lineY} stroke={STROKE} strokeWidth={2} />
         <polygon points={`${lX2+8},${lineY} ${lX2+1},${lineY-4} ${lX2+1},${lineY+4}`} fill={STROKE} />
-        {Array.from({ length: Math.floor(steps / step) + 1 }, (_, i) => {
-          const val = min + i * step;
-          if (val > max) return null;
+        {ticks.map(({ value: val, marked: isMark, label }, i) => {
           const x = toX(val);
-          const isMark = marks.includes(val);
           const inRange = highlight && val >= highlight.from && val <= highlight.to;
+          const isEndpoint = highlight && (val === highlight.from || val === highlight.to);
+          const isOpen = highlight && ((val === highlight.from && openLeft) || (val === highlight.to && openRight));
           return (
             <React.Fragment key={i}>
               <line x1={x} y1={lineY-5} x2={x} y2={lineY+5} stroke={isMark || inRange ? '#1e40af' : STROKE} strokeWidth={isMark ? 2 : 1} />
-              <text x={x} y={lineY+17} textAnchor="middle" fontSize={9} fill={isMark || inRange ? '#1e40af' : '#475569'} fontWeight={isMark ? 'bold' : 'normal'}>
-                {val}{unit}
+              <text x={x} y={lineY+17} textAnchor={val === min ? 'start' : val === max ? 'end' : 'middle'} fontSize={9} fill={isMark || inRange ? '#1e40af' : '#475569'} fontWeight={isMark ? 'bold' : 'normal'}>
+                {label}{label !== '' ? unit : ''}
               </text>
-              {isMark && <circle cx={x} cy={lineY} r={5} fill="#3b82f6" />}
+              {(isMark || isEndpoint) && <circle cx={x} cy={lineY} r={5} fill={isOpen ? 'white' : '#3b82f6'} stroke="#3b82f6" strokeWidth={2} />}
             </React.Fragment>
           );
         })}
-        {d.label && <text x={W/2} y={H-4} textAnchor="middle" fontSize={9} fill="#64748b">{d.label}</text>}
+        {pointer != null && <path d={`M ${toX(pointer)} ${lineY-35} V ${lineY-12} m -4 -5 l 4 5 l 4 -5`} fill="none" stroke="#dc2626" strokeWidth={2} />}
+        {d.label && <text x={width/2} y={H-4} textAnchor="middle" fontSize={9} fill="#64748b">{d.label}</text>}
       </>
     );
   },
@@ -980,14 +967,14 @@ export default function ShapeRenderer({ shape, className = '' }) {
   const element = renderer({ d: shape.dimensions || {}, u: shape.unit || '' });
   // bar_chart는 세로로 더 넓게
   const isWideChart = ['picture_graph', 'bar_chart', 'line_chart', 'band_chart'].includes(shape.type);
-  const vw = isWideChart ? 240 : W;
-  const vh = isWideChart ? 160 : H;
+  const vw = shape.type === 'number_line' ? getNumberLineLayout(shape.dimensions || {}).width : isWideChart ? 240 : W;
+  const vh = shape.type === 'factor_list' ? getFactorListLayout(shape.dimensions || {}, W).height : isWideChart ? 160 : H;
 
   return (
     <div className={`flex justify-center my-3 ${className}`}>
       <svg
         viewBox={`0 0 ${vw} ${vh}`}
-        className={`w-full h-auto ${isWideChart ? 'max-w-[300px]' : 'max-w-[220px]'}`}
+        className={`w-full h-auto ${shape.type === 'number_line' ? 'max-w-[760px]' : isWideChart ? 'max-w-[300px]' : 'max-w-[220px]'}`}
       >
         {element}
       </svg>

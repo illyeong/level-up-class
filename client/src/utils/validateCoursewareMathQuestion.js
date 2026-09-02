@@ -1,3 +1,5 @@
+import { getArithmeticAnswerIndex, getEquivalentFractionAnswerIndex } from './coursewareArithmetic.js';
+
 const NUMBER_TOKEN = /-?\d[\d,]*(?:\.\d+)?/g;
 
 const parseNumbers = (value) => {
@@ -146,6 +148,11 @@ export const validateDeterministicMathQuestion = (question) => {
   const options = Array.isArray(question?.options) ? question.options : [];
   const answerIndex = Number(question?.answerIndex);
   if (options.length !== 4) return { applicable: false, valid: false, answerIndex: -1 };
+
+  for (const [type, check] of [['arithmetic', getArithmeticAnswerIndex], ['equivalent-fractions', getEquivalentFractionAnswerIndex]]) {
+    const index = check(question?.question, options);
+    if (index != null) return { applicable: true, valid: index >= 0, answerIndex: index, type };
+  }
 
   const rangeIndex = getRangeAnswerIndex(question?.question, options);
   if (rangeIndex != null) {

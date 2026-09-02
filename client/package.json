@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test:courseware": "node scripts/check-courseware-math-validation.mjs",
+    "test:courseware": "node scripts/check-courseware-math-validation.mjs && node scripts/check-courseware-choice-validation.mjs && node scripts/check-math-diagrams.mjs",
+    "test:class-operation": "node scripts/check-class-operation-feedback.mjs",
     "deploy:prod": "node scripts/deploy-production.mjs",
     "lint": "eslint .",
     "preview": "vite preview"

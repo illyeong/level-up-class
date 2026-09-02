@@ -7,10 +7,12 @@ import { MONSTERS_DB, resolveBossBg } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 import { getClassOperationAttack, getLocalDateKey, getRemainingDays } from '../../utils/classOperation';
 import { fireProjectile } from '../../utils/projectile';
+import { getClassOperationErrorMessage, playOptionalClassOperationEffect } from '../../utils/classOperationFeedback';
 
 const formatNumber = value => Math.max(0, Number(value) || 0).toLocaleString('ko-KR');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const CLASS_OPERATION_PROJECTILE_TYPES = ['magic', 'fire', 'ice', 'arrow', 'energy'];
+const EMPTY_ATTACKS = [];
 
 const getRandomClassOperationProjectileType = () =>
   CLASS_OPERATION_PROJECTILE_TYPES[Math.floor(Math.random() * CLASS_OPERATION_PROJECTILE_TYPES.length)];
@@ -47,8 +49,8 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
   const [student, setStudent] = useState(null);
   const [operation, setOperation] = useState(null);
   const [equipmentItems, setEquipmentItems] = useState([]);
-  const [attacks, setAttacks] = useState([]);
-  const [hasAttackedToday, setHasAttackedToday] = useState(false);
+  const [attackHistory, setAttackHistory] = useState({ operationId: null, items: EMPTY_ATTACKS });
+  const [todayAttack, setTodayAttack] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAttacking, setIsAttacking] = useState(false);
   const [bossAnim, setBossAnim] = useState('idle');
@@ -56,15 +58,31 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
   const [message, setMessage] = useState('');
   const [hitEffect, setHitEffect] = useState(null);
   const [attackPhase, setAttackPhase] = useState('idle');
-  const [soundEnabled, setSoundEnabled] = useState(() => typeof window === 'undefined' || localStorage.getItem('classOperationSound') !== 'off');
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try { return typeof window === 'undefined' || localStorage.getItem('classOperationSound') !== 'off'; }
+    catch { return true; }
+  });
+  const [dateKey, setDateKey] = useState(getLocalDateKey);
+  const attacks = attackHistory.operationId === operation?.id ? attackHistory.items : EMPTY_ATTACKS;
+  const hasAttackedToday = todayAttack?.operationId === operation?.id
+    && todayAttack?.studentId === student?.id && todayAttack?.dateKey === dateKey && todayAttack?.exists;
   const characterCardRef = useRef(null);
   const bossTargetRef = useRef(null);
 
   useEffect(() => {
+    const refreshDay = () => setDateKey(getLocalDateKey());
+    const timer = setInterval(refreshDay, 60_000);
+    window.addEventListener('focus', refreshDay);
+    return () => { clearInterval(timer); window.removeEventListener('focus', refreshDay); };
+  }, []);
+
+  useEffect(() => {
     let unsubscribeOperation = () => {};
-    let unsubscribeAttack = () => {};
-    let unsubscribeAttackList = () => {};
     let mounted = true;
+    const handleLoadError = error => {
+      console.error('우리반 대작전 로딩 실패:', error);
+      if (mounted) { setMessage(getClassOperationErrorMessage(error)); setIsLoading(false); }
+    };
 
     const load = async () => {
       if (isTeacher) {
@@ -85,18 +103,9 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
               .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
             const current = operations.find(item => item.status === 'active') || operations[0] || null;
             setOperation(current);
-            unsubscribeAttackList();
-            if (current) {
-              unsubscribeAttackList = onSnapshot(
-                collection(db, 'classOperations', current.id, 'attacks'),
-                attackListSnap => setAttacks(attackListSnap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (b.attackedAt?.seconds || 0) - (a.attackedAt?.seconds || 0))),
-              );
-            } else {
-              setAttacks([]);
-            }
             setIsLoading(false);
           },
-          () => setIsLoading(false),
+          handleLoadError,
         );
         return;
       }
@@ -135,39 +144,39 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
             .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
           const current = operations.find(item => item.status === 'active') || operations[0] || null;
           setOperation(current);
-          unsubscribeAttack();
-          unsubscribeAttackList();
-          if (current) {
-            const attackId = `${studentDoc.id}_${getLocalDateKey()}`;
-            unsubscribeAttack = onSnapshot(
-              doc(db, 'classOperations', current.id, 'attacks', attackId),
-              attackSnap => setHasAttackedToday(attackSnap.exists()),
-            );
-            unsubscribeAttackList = onSnapshot(
-              collection(db, 'classOperations', current.id, 'attacks'),
-              attackListSnap => setAttacks(attackListSnap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (b.attackedAt?.seconds || 0) - (a.attackedAt?.seconds || 0))),
-            );
-          } else {
-            setHasAttackedToday(false);
-            setAttacks([]);
-          }
           setIsLoading(false);
         },
-        () => setIsLoading(false),
+        handleLoadError,
       );
     };
 
-    load().catch(error => {
-      console.error('우리반 대작전 로딩 실패:', error);
-      if (mounted) setIsLoading(false);
-    });
+    load().catch(handleLoadError);
     return () => {
       mounted = false;
       unsubscribeOperation();
-      unsubscribeAttack();
-      unsubscribeAttackList();
     };
   }, [studentCode, isTeacher, selectedClass?.id, selectedClass?.classId, selectedClass?.teacherUid]);
+
+  // Subscribe once per operation, not again on every HP/attack-count update.
+  // Keeping the listener lets Firestore deliver only changed attack documents.
+  useEffect(() => {
+    if (!operation?.id) return;
+    return onSnapshot(
+      collection(db, 'classOperations', operation.id, 'attacks'),
+      snapshot => setAttackHistory({ operationId: operation.id, items: snapshot.docs.map(item => ({ id: item.id, ...item.data() }))
+        .sort((a, b) => (b.attackedAt?.seconds || 0) - (a.attackedAt?.seconds || 0)) }),
+      error => { console.error('대작전 공격 기록 조회 실패:', error); setMessage(getClassOperationErrorMessage(error)); },
+    );
+  }, [operation?.id]);
+
+  useEffect(() => {
+    if (isTeacher || !student?.id || !operation?.id) return;
+    return onSnapshot(
+      doc(db, 'classOperations', operation.id, 'attacks', `${student.id}_${dateKey}`),
+      snapshot => setTodayAttack({ operationId: operation.id, studentId: student.id, dateKey, exists: snapshot.exists() }),
+      error => { console.error('대작전 오늘 공격 조회 실패:', error); setMessage(getClassOperationErrorMessage(error)); },
+    );
+  }, [operation?.id, student?.id, isTeacher, dateKey]);
 
   const attackStats = useMemo(
     () => getClassOperationAttack(student || {}, equipmentItems),
@@ -195,8 +204,8 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
     return [...rows.values()].sort((a, b) => b.damage - a.damage);
   }, [attacks]);
   const todayAttacks = useMemo(
-    () => attacks.filter(attackItem => attackItem.dateKey === getLocalDateKey()),
-    [attacks],
+    () => attacks.filter(attackItem => attackItem.dateKey === dateKey),
+    [attacks, dateKey],
   );
   const comboBonusPercent = Math.min(20, Math.floor(todayAttacks.length / 5) * 5);
   const todayParticipantCount = new Set(todayAttacks.map(attackItem => attackItem.studentId || attackItem.studentCode)).size;
@@ -208,6 +217,7 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
     if (!canAttack || !student?.id || isAttacking) return;
     setIsAttacking(true);
     setMessage('');
+    const attackDateKey = getLocalDateKey();
     const critical = Math.random() * 100 < attackStats.criticalChance;
     const criticalDamage = critical
       ? Math.floor(attackStats.damage * attackStats.criticalMultiplier)
@@ -218,7 +228,7 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
 
     const commitAttack = async () => {
       const operationRef = doc(db, 'classOperations', operation.id);
-      const attackId = `${student.id}_${getLocalDateKey()}`;
+      const attackId = `${student.id}_${attackDateKey}`;
       const attackRef = doc(db, 'classOperations', operation.id, 'attacks', attackId);
       return runTransaction(db, async transaction => {
         const [operationSnap, attackSnap] = await Promise.all([
@@ -245,7 +255,7 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
           comboBonusPercent,
           characterImage: student.characterImage || '',
           statSnapshot: attackStats,
-          dateKey: getLocalDateKey(),
+          dateKey: attackDateKey,
           attackedAt: serverTimestamp(),
         });
         transaction.update(operationRef, {
@@ -260,15 +270,18 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
     };
 
     try {
+      // Commit independently of the optional canvas effect. The transaction
+      // still atomically prevents duplicate daily attacks and reduces HP.
+      const result = await commitAttack();
+      setTodayAttack({ operationId: operation.id, studentId: student.id, dateKey: attackDateKey, exists: true });
       await wait(critical ? 520 : 340);
       const characterRect = characterCardRef.current?.getBoundingClientRect();
       const bossRect = bossTargetRef.current?.getBoundingClientRect();
       setAttackPhase('projectile');
-      const result = await new Promise((resolve, reject) => {
-        const applyHit = () => commitAttack().then(resolve).catch(reject);
+      await playOptionalClassOperationEffect(finish => {
         const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
         if (!characterRect || !bossRect) {
-          applyHit();
+          finish();
           return;
         }
         fireProjectile({
@@ -277,7 +290,8 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
           type: getRandomClassOperationProjectileType(),
           power: critical ? 2 : 1.6,
           reducedMotion: reduceMotion,
-          onHit: applyHit,
+          onHit: finish,
+          onComplete: finish,
         });
       });
       setAttackPhase(result.cleared ? 'final' : result.critical ? 'critical-impact' : 'impact');
@@ -289,15 +303,16 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
       setTimeout(() => setAttackPhase('idle'), result.cleared ? 2400 : 850);
       setMessage(`${result.cleared ? '🏆 최후의 일격! ' : result.critical ? '💥 크리티컬! ' : ''}오늘의 공격 성공! ${formatNumber(result.appliedDamage)} 피해를 함께 보탰습니다.${comboBonusPercent > 0 ? ` 협동 콤보 +${comboBonusPercent}%` : ''}`);
     } catch (error) {
+      console.error('우리반 대작전 공격 실패:', { code: error.code, name: error.name, message: error.message });
       setAttackPhase('idle');
-      setMessage(error.message || '공격 중 오류가 발생했습니다.');
+      setMessage(getClassOperationErrorMessage(error));
     } finally {
       setIsAttacking(false);
     }
   };
 
   if (isLoading) return <div className="min-h-screen grid place-items-center bg-slate-950 text-slate-300 font-bold">우리반 대작전을 불러오는 중...</div>;
-  if (!operation) return <div className="min-h-screen grid place-items-center bg-slate-950 text-center text-slate-300"><div><div className="text-6xl mb-4">🏰</div><h1 className="text-2xl font-extrabold text-white">아직 시작된 우리반 대작전이 없습니다</h1><p className="mt-2 text-sm">선생님이 공동 목표를 열면 이곳에서 함께 공격할 수 있어요.</p></div></div>;
+  if (!operation) return <div className="min-h-screen grid place-items-center bg-slate-950 text-center text-slate-300"><div><div className="text-6xl mb-4">🏰</div><h1 className="text-2xl font-extrabold text-white">{message ? '대작전을 불러오지 못했습니다' : '아직 시작된 우리반 대작전이 없습니다'}</h1><p className="mt-2 text-sm">{message || '선생님이 공동 목표를 열면 이곳에서 함께 공격할 수 있어요.'}</p></div></div>;
 
   return (
     <div className={`class-operation-page relative min-h-screen overflow-hidden bg-slate-950 text-white ${['impact', 'critical-impact', 'final'].includes(attackPhase) ? `class-operation-${attackPhase}` : ''}`}>
@@ -313,13 +328,14 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
         <header className="rounded-3xl border border-white/15 bg-black/35 p-5 text-center backdrop-blur-md">
           <button onClick={() => setSoundEnabled(current => {
             const next = !current;
-            localStorage.setItem('classOperationSound', next ? 'on' : 'off');
+            try { localStorage.setItem('classOperationSound', next ? 'on' : 'off'); } catch { /* Optional preference. */ }
             return next;
           })} className="absolute right-4 top-4 rounded-xl border border-white/15 bg-black/35 px-3 py-2 text-xs font-bold text-white/65 hover:bg-white/10" title="효과음 켜기/끄기">{soundEnabled ? '🔊' : '🔇'}</button>
           <p className="text-xs font-extrabold tracking-[0.28em] text-amber-300">우리반 대작전</p>
           <h1 className="mt-2 text-2xl font-black md:text-4xl">{operation.title}</h1>
           <p className="mt-2 text-sm text-white/70">{isTeacher ? '학생들이 보는 화면과 동일한 실시간 진행상황입니다.' : '하루 한 번, 우리 반 모두의 힘으로 공동 목표를 완성하세요.'}</p>
         </header>
+        {message && <p role="status" className="mt-3 rounded-xl bg-white/10 p-3 text-center text-xs font-bold text-amber-100">{message}</p>}
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 backdrop-blur-md">
           <div><div className="text-[10px] font-bold text-white/45">오늘의 협동 콤보</div><div className="text-lg font-black text-amber-300">{todayAttacks.length} HIT {comboBonusPercent > 0 && <span className="ml-1 text-xs text-emerald-300">공격 +{comboBonusPercent}%</span>} {fullParticipation && <span className="ml-1 text-xs text-sky-300">✨ 전원 참여!</span>}</div></div>
@@ -408,7 +424,6 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
                   className="mt-5 w-full rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 py-4 text-lg font-black text-slate-950 shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:grayscale disabled:opacity-60">
                   {operation.status === 'cleared' ? '🎉 공동 목표 달성!' : hasAttackedToday ? '✅ 오늘 공격 완료' : isAttacking ? attackPhase.includes('charge') ? '✨ 힘을 모으는 중...' : '⚡ 공격 중...' : '⚔️ 오늘의 공격하기'}
                 </button>
-                {message && <p className="mt-3 rounded-xl bg-white/10 p-3 text-center text-xs font-bold text-amber-100">{message}</p>}
                 <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs leading-6 text-white/55">
                   <strong className="block text-sm text-white">함께하는 규칙</strong>
                   매일 1번 공격할 수 있습니다.<br />내 레벨과 장비 공격력이 피해량에 반영됩니다.<br />개인 순위 없이 모든 피해가 우리 반 목표에 합쳐집니다.
