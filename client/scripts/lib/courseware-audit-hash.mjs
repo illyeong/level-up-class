@@ -13,3 +13,10 @@ const canonical = value => {
 
 export const questionContentHash = value => createHash('sha256')
   .update(JSON.stringify(canonical(value))).digest('hex');
+
+// Approval covers both the exact edit and its exact Firestore destination.
+// Repeated questions in different lessons must not share approval authority.
+export const auditChangeHash = (proposal, target) => createHash('sha256').update(JSON.stringify({
+  id: proposal.id, grade: target.grade, lessonId: target.lessonId, questionIndex: target.questionIndex,
+  beforeHash: proposal.beforeHash, patch: proposal.patch,
+})).digest('hex');

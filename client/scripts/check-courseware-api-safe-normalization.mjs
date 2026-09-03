@@ -55,6 +55,10 @@ check('threshold is not an extremum', () => {
   assert.equal(inspect(q)?.answerIndex, 3);
   assert.equal(inspect(question('다음 중 1보다 큰 것은 어느 것입니까?', ['1/2', '2', '3', '1/4'], 1)), null);
 });
+check('threshold equality tolerates decimal floating-point roundoff', () => {
+  keep(question('다음 중 1보다 작은 것은 어느 것입니까?', ['0.7 + 0.2 + 0.1', '1/2', '2', '3'], 1));
+  keep(question('다음 중 1보다 큰 것은 어느 것입니까?', ['0.1 + 0.2 + 0.3 + 0.1 + 0.2 + 0.1', '1/2', '2', '1/4'], 2));
+});
 check('fraction-operation extrema respect division', () => {
   const q = question('다음 식을 계산했을 때 결과가 가장 작은 것은 어느 것입니까?',
     ['7/8÷2', '4/5÷2', '3/4÷2', '5/6÷3'], 0);
@@ -74,6 +78,20 @@ check('numeric explanation is checked only when wholly interpretable', () => {
   const q = question('알맞은 답을 고르세요.', ['1', '2', '3', '4'], 3);
   assert.equal(inspect({ ...q, explanation: '2 + 2 = 5' }), null);
   keep({ ...q, explanation: '2 + 2 = 5는 잘못된 계산입니다. 답은 4입니다.' });
+  assert.equal(inspect({ ...q, question: '2 + 2를 계산하세요.', explanation: '2 + 2 = 5' }), null);
+  keep({ ...q, question: '2 + 2를 계산하세요.', explanation: '2 + 2 = 4' });
+});
+check('complete equality chains are evaluated without truncation', () => {
+  const q = question('다음 중 계산이 맞는 것은 어느 것입니까?',
+    ['8 + 4 × 2 = 8 + 8 = 16', '8 + 4 × 2 = 12 × 2 = 24', '6 ÷ 3 = 3', '3 × 2 = 5'], 2);
+  assert.equal(inspect(q)?.answerIndex, 0);
+  keep(question('다음 중 계산이 맞는 것은 어느 것입니까?',
+    ['연필 5자루 = 지우개 15개', '10 = 5', '10 = 20', '10 = 30'], 0));
+});
+check('semantic digit fragments and representation constraints remain unsupported', () => {
+  keep(question('2/3 ÷ 4/9 = 2/3 × □ 입니다. □에 들어갈 분수는?', ['2/3', '9/4', '4/9', '3/2'], 1));
+  keep(question('5.2÷1.3을 나누는 수가 자연수인 나눗셈으로 바르게 바꾼 것은 무엇입니까?',
+    ['52÷13으로 변환', '52÷1.3으로 변환', '5.2÷1.30으로 변환', '5.2÷13으로 변환'], 0));
 });
 check('array rows and object rows retain table data', () => {
   for (const rows of [[['사과', 3]], [{ cells: ['사과', 3] }]]) {
@@ -90,6 +108,18 @@ check('symmetry point geometry is retained', () => {
     { shape: { type: 'symmetry', dimensions } });
   assert.deepEqual(inspect(q)?.shape.dimensions, dimensions);
 });
+check('horizontal fractional symmetry points, legacy cells, and invalid points', () => {
+  const dimensions = { gridSize: 8, axis: 'horizontal', axisPosition: '7/2',
+    points: [{ x: '1/2', y: 2, label: 'A' }, { x: '1/2', y: 5, label: 'B' }], connect: false };
+  const q = question('점 A의 이름을 고르세요.', ['A', 'B', 'C', 'D'], 0,
+    { shape: { type: 'symmetry', dimensions } });
+  const original = JSON.stringify(q);
+  assert.deepEqual(inspect(q)?.shape.dimensions, dimensions);
+  assert.equal(JSON.stringify(q), original);
+  const cells = { axis: 'vertical', cells: [{ x: 1, y: 2 }, { x: 2, y: 2 }] };
+  assert.deepEqual(inspect({ ...q, shape: { type: 'symmetry', dimensions: cells } })?.shape.dimensions, cells);
+  assert.equal(inspect({ ...q, shape: { type: 'symmetry', dimensions: { ...dimensions, points: [null] } } }), null);
+});
 check('polygon vertices and diagonals above ten sides are retained', () => {
   const dimensions = { sides: 12, vertices: Array.from({ length: 12 }, (_, i) => `V${i}`), diagonals: [{ from: 'V0', to: 'V6' }] };
   const q = question('점 V0의 이름을 고르세요.', ['V0', 'V1', 'V2', 'V3'], 0,
@@ -98,6 +128,39 @@ check('polygon vertices and diagonals above ten sides are retained', () => {
   assert.equal(result?.sides, dimensions.sides);
   assert.deepEqual(result?.vertices, dimensions.vertices);
   assert.deepEqual(result?.diagonals, dimensions.diagonals);
+});
+check('grade-five planar vertices are allowed only in named planar lessons', () => {
+  const q = question('삼각형 A의 꼭짓점은 (1,1), (1,2), (2,1)입니다. 세로 대칭축 x=3으로 대칭이동한 꼭짓점은?',
+    ['(5,1),(5,2),(4,1)', '(1,5),(1,4),(2,5)', '(2,1),(2,2),(3,1)', '(1,1),(1,2),(2,1)'], 0,
+    { shape: { type: 'symmetry', dimensions: { axis: 'vertical', axisPosition: 3, gridSize: 8,
+      points: [{ x: 1, y: 1, label: 'A1' }, { x: 1, y: 2, label: 'A2' }, { x: 2, y: 1, label: 'A3' }], connect: true } } });
+  for (const unitName of ['합동과 대칭', '평면도형', '다각형']) {
+    assert.equal(inspectCoursewareQuestion(q, { grade: 5, unitName }).normalized?.answerIndex, 0);
+  }
+  assert.equal(inspectCoursewareQuestion(q, { grade: 5, unitName: '규칙과 대응' }).normalized, null);
+  assert.equal(inspectCoursewareQuestion(q, { grade: 5, unitName: '규칙과 대응', keywords: ['대칭'] }).normalized, null);
+  for (const text of ['정육면체의 꼭짓점은 몇 개입니까?', '모서리는 몇 개입니까?']) {
+    assert.equal(inspectCoursewareQuestion(question(text, ['4', '6', '8', '12'], 2),
+      { grade: 5, unitName: '합동과 대칭' }).normalized, null);
+  }
+});
+check('circle measurements retain tables and permit only related decimal multiplication', () => {
+  const table = { headers: ['반지름(cm)', '넓이(cm²)'], rows: [['5', '?']] };
+  const q = question('표에서 반지름 5cm인 원의 넓이는 몇 cm²입니까? 원주율은 3.14입니다.',
+    ['50.24', '78.5', '100.48', '153.86'], 1,
+    { table, explanation: '반지름이 5cm인 원의 넓이는 5 × 5 × 3.14 = 78.5cm²입니다.' });
+  const circleLesson = { grade: 6, unitName: '원의 넓이', lessonTitle: '원의 넓이를 활용해 볼까요' };
+  const result = inspectCoursewareQuestion(q, circleLesson).normalized;
+  assert.equal(result?.answerIndex, 1);
+  assert.deepEqual(result?.table, table);
+  const circumference = question('지름이 4cm인 원의 원주는 얼마입니까? 원주율은 3.14입니다.',
+    ['6.28', '12.56', '18.84', '25.12'], 1, { explanation: '지름에 원주율을 곱하면 4 × 3.14 = 12.56cm입니다.' });
+  assert.equal(inspectCoursewareQuestion(circumference, { grade: 6, unitName: '원주와 원주율' }).normalized?.answerIndex, 1);
+  assert.equal(inspectCoursewareQuestion(q, { grade: 6, unitName: '다각형의 넓이' }).normalized, null);
+  assert.equal(inspectCoursewareQuestion(q, { grade: 6, unitName: '다각형의 넓이', keywords: ['원주율'] }).normalized, null);
+  const unrelated = question('0.2 × 0.3을 계산하세요.', ['0.06', '0.6', '6', '0.006'], 0);
+  assert.equal(inspectCoursewareQuestion(unrelated, circleLesson).normalized, null);
+  assert.equal(inspectCoursewareQuestion(unrelated, { grade: 6, unitName: '소수의 나눗셈' }).normalized, null);
 });
 
 let corpus = null;
@@ -137,6 +200,13 @@ if (fs.existsSync(auditPath) && fs.existsSync(planPath)) {
     }
     if (hasVertices && JSON.stringify(q.shape.dimensions.diagonals) !== JSON.stringify(result.shape?.dimensions?.diagonals)) {
       retentionIssues.push({ id: record.id, field: 'diagonals' });
+    }
+    if (hasPoints) {
+      for (const field of ['gridSize', 'axisPosition', 'connect']) {
+        if (q.shape.dimensions[field] !== result.shape?.dimensions?.[field]) retentionIssues.push({ id: record.id, field });
+      }
+      const expectedAxis = q.shape.dimensions.axis === 'horizontal' ? 'horizontal' : 'vertical';
+      if (result.shape?.dimensions?.axis !== expectedAxis) retentionIssues.push({ id: record.id, field: 'axis' });
     }
   }
   corpus = { total: records.length, planChanges: plan.size, accepted: acceptedIds.length,

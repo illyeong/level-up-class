@@ -1,6 +1,36 @@
 # AI 학습관 4~6학년 전수검수 — 작업 상태 (2026-09-03)
 
-## 최신 상태 — 아래의 9월 2일 기록보다 우선
+## 최종 상태 — 2026-09-03 오후, 아래 이력보다 우선
+
+**4~6학년 전수검수 및 로컬 수정/최종 통합 QA 완료. 남은 단계는 운영 반영이며, Firestore quota로 차단되어 있다.**
+
+| 학년 | 차시 | 검수 문항 | 최종 수정안 |
+| --- | ---: | ---: | ---: |
+| 4학년 | 98 | 1,908 | 629 |
+| 5학년 | 134 | 2,471 | 961 |
+| 6학년 | 109 | 1,741 | 601 |
+| 합계 | 341 | 6,120 | 2,191 |
+
+- 최종 통합 계획은 330차시/2,191개 수정안이며 공통 검산 충돌0. 전체 구조·필수 시각자료·미완성 해설 후검사 후보0. 동치값 후보4학년14/5학년82/6학년58은 각 담당자가 표현 조건 또는 동치 오답으로 확인했다.
+- 5학년은 마지막 조건 문구/단위41개/기존 정밀화/띄어쓰기까지 완료. 내용·문구913개와 추가 표시 정돈만48개로 총961개. `grade5-review-report.json`의 finalQaComplete=true, 수정안 파일 SHA256은 `af9d7421c206445ec7e1d8c6360ffa89fd8737a0912a79f19f0da59761e49a39`.
+- API 버전 `quality-v23-scoped-geometry-qa`. 부분식/빈칸/괄호/어림셈 정답 오보정, 부동소수점 비교, 숫자 해설 검증 누락을 보완했다. 평면대칭 꼭짓점 및 원의 측정에 필요한 소수 곱셈의 오거절도 해당 차시 범위에 한해 해결하고 prompt와 일치시켰다.
+- API 최종 전수 대조6,120개: 정답 변경0/실행 예외0/자료 손실0, 고정 회귀22/22. 표3/3, 대칭점44/44, 꼭짓점 다각형2/2 모두 accepted 및 보존. 기존 차시/도형 필터 제외278개는 문항 오류 판정과 다르다.
+- `npm run test:courseware`(선택지28+API22+범위/그림/안전반영 검사), `npm run test:class-operation`, `npm run build`, 감사 스크립트 lint, API 문법 검사 통과. `final-validation.json`에 실행 결과 저장. 기존 API lint8개와 Vite 큰 청크 경고는 별도 주의사항.
+- 정상 문항을 잘못된 위치에 적용하지 않도록 승인 해시에 grade/lessonId/questionIndex까지 포함했다. apply는 원본 backup.rows와 audit 대상도 대조한다. 운영 대상이 바뀌거나 동시 수정이 있으면 중단, 이미 같은 수정이면 건너뛰며 무관한 문항은 보존한다.
+- **`approvals.json`에 2,191개 로컬 검토 승인 저장 완료.** 이는 검토된 수정안의 해시 목록이지 운영 반영 성공 기록이 아니다. 기존 파일을 임의 덮어쓰지 말고 수정안 변경 시 재검수/승인 필요.
+- 통합 계획 SHA256(JSON 문자열 기준): `dca577489b7ddb3685e2566bead65498a3371b6c36f05817c0383db1e01a8b9c`.
+- 원본/최종 자료는 `client/courseware-audit.local/2026-09-02/`에 있다. `*.local`로 Git 제외되므로 삭제하지 말 것. 최신 요약 `summary.json`은 contentReviewComplete=true, finalQaComplete=true, productionApplied=false. `AUDIT_RESULT.md`, `corrected-questions.local.json`, `plan-4-5-6.json`도 최신 상태다.
+- **2026-09-03 15:58 KST 읽기 전용 트랜잭션1회에서 RESOURCE_EXHAUSTED / Quota exceeded 재확인. 운영 DB 수정0건, 배포 없음.** `db-access-check.json`에 기록. 사용자에게 Firestore 초과 항목 확인을 요청했으며 응답은 아직 없다. 반복 실패 요청/무조건 덮어쓰기/요금제 변경 금지.
+- 모든 보조 검수 완료. 임시 Vite 서버5175 종료. commit/push는 이번 작업에서 하지 않았다(시작 HEAD75d978c2, 기존 작업은 사용자가 이미 커밋한 상태였음).
+
+### 다음에 운영 반영을 이어갈 때
+
+1. 재검수를 처음부터 하지 말 것. 먼저 사용자 확인으로 Firestore 할당량 문제가 해결됐는지 확인하고 `node scripts/check-courseware-db-access.mjs`로 읽기1회만 점검.
+2. client에서 `node scripts/apply-courseware-audit.mjs` dry-run, 후검사 및 `npm run test:courseware`로 최신 수정안/승인 해시 일치 확인. 변경이 있었다면 stale승인을 사용하지 않는다.
+3. 할당량 해소 후 `node scripts/apply-courseware-audit.mjs --apply`로 승인된 위치만 트랜잭션 적용. 첫 실패에서 중단, 생성된 `apply-*/outcomes.json`과 사전 백업을 읽고 안전하게 재개한다. 실제 DB 조회검증까지 해야 운영 반영 완료다.
+4. 운영 적용 후 summary/report의 productionApplied 상태와 실제 적용 건수를 갱신한다(현재 요약 스크립트는 미반영 상태를 기록하므로 성공 후 그대로 재생성하면 안 됨). 코드 배포 여부도 따로 확인/진행하고 사용자에게 구분해 보고한다.
+
+## 9월 3일 오전 중단 기록 — 이력용
 
 사용자 요청으로 작업을 재개했다가 **2026-09-03 09시경 사용자의 재개 저장 요청으로 다시 중단**했다. 운영 DB 쓰기와 배포는 아직 하지 않았다. 다음 요청 때 아래 지점부터 재개한다.
 

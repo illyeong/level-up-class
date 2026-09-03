@@ -7,7 +7,8 @@ import { initializeApp, deleteApp } from 'firebase/app';
 import { getFirestore, doc, collection, query, where, documentId, getDocs, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { normalizeCoursewareChoices } from '../src/utils/coursewareOptions.js';
 import { validateDeterministicMathQuestion } from '../src/utils/validateCoursewareMathQuestion.js';
-import { questionContentHash } from './lib/courseware-audit-hash.mjs';
+import { questionContentHash, auditChangeHash } from './lib/courseware-audit-hash.mjs';
+import { prepareCoursewareLessonUpdate } from './lib/courseware-lesson-update.mjs';
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const output = resolve('courseware-audit.local/2026-09-02');
@@ -16,6 +17,7 @@ const backup = await json('aiLessonContent.backup.json');
 const audit = await json('audit.json');
 if (!backup.complete) throw new Error('Incomplete backup');
 const source = new Map(audit.records.map(record => [record.id, record]));
+const sourceLessons = new Map(backup.rows.map(row => [row.id, row]));
 const gradeArg = process.argv.find(arg => arg.startsWith('--grade='));
 const grades = gradeArg ? [Number(gradeArg.split('=')[1])] : [4, 5, 6];
 if (grades.some(grade => ![4, 5, 6].includes(grade))) throw new Error('Only grades 4–6 are in scope');
@@ -32,6 +34,10 @@ const plan = proposals.map(proposal => {
   if (seen.has(proposal.id)) throw new Error(`Duplicate proposal ${proposal.id}`);
   seen.add(proposal.id);
   if (proposal.beforeHash !== record.beforeHash || hash(record.question) !== record.beforeHash) throw new Error(`Backup hash mismatch ${proposal.id}`);
+  const originalLesson = sourceLessons.get(record.lessonId);
+  if (!originalLesson || Number(originalLesson.grade) !== record.grade
+    || !Number.isInteger(record.questionIndex) || record.questionIndex < 0
+    || hash(originalLesson.data?.questions?.[record.questionIndex]) !== record.beforeHash) throw new Error(`Audit target does not match original backup ${proposal.id}`);
   if (!proposal.reason || !proposal.verification) throw new Error(`Missing review evidence ${proposal.id}`);
   if (!proposal.patch || Object.keys(proposal.patch).some(key => !allowedFields.has(key))) throw new Error(`Unsupported field ${proposal.id}`);
   const after = { ...record.question, ...proposal.patch };
@@ -40,7 +46,7 @@ const plan = proposals.map(proposal => {
   if (typeof after.question !== 'string' || !after.question.trim() || typeof after.explanation !== 'string' || !after.explanation.trim()) throw new Error(`Missing question/explanation ${proposal.id}`);
   const deterministic = validateDeterministicMathQuestion(normalizeCoursewareChoices(after));
   const validatorConflict = deterministic.applicable && (!deterministic.valid || deterministic.answerIndex !== after.answerIndex);
-  const changeHash = hash({ id: proposal.id, beforeHash: proposal.beforeHash, patch: proposal.patch });
+  const changeHash = auditChangeHash(proposal, record);
   if (apply) {
     const approved = approvals.get(proposal.id);
     if (approved?.changeHash !== changeHash) throw new Error(`Edit not approved or changed after approval: ${proposal.id}`);
@@ -68,16 +74,7 @@ try {
         const snapshot = await transaction.get(ref);
         if (!snapshot.exists()) throw new Error(`Lesson disappeared: ${lessonId}`);
         const current = snapshot.data();
-        if (changes.some(change => Number(current.grade) !== change.grade)) throw new Error(`Live grade changed: ${lessonId}`);
-        const questions = [...current.questions];
-        let applied = 0;
-        for (const change of changes) {
-          const liveHash = questionContentHash(questions[change.questionIndex]);
-          if (liveHash === questionContentHash(change.after)) continue; // Idempotent resume.
-          if (liveHash !== questionContentHash(change.before)) throw new Error(`Concurrent question edit; do not overwrite ${change.id}`);
-          questions[change.questionIndex] = change.after;
-          applied += 1;
-        }
+        const { questions, applied } = prepareCoursewareLessonUpdate(current, changes);
         if (!applied) return { applied: 0, alreadyApplied: true };
         await writeFile(resolve(runDir, `${hash(lessonId)}.before.json`), JSON.stringify({ lessonId, data: current }, null, 2), { flag: 'wx' });
         transaction.update(ref, { questions, updatedAt: serverTimestamp() });

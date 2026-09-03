@@ -14,7 +14,7 @@ const SHAPE_TYPES = new Set([
   'cuboid', 'cube', 'triangular_prism', 'square_pyramid', 'cylinder', 'cone', 'sphere', 'factor_list',
 ]);
 
-const COURSEWARE_GENERATOR_VERSION = 'quality-v22-conservative-answer-qa';
+const COURSEWARE_GENERATOR_VERSION = 'quality-v23-scoped-geometry-qa';
 
 const normalizeKey = (value) =>
   String(value ?? '').replace(/\s+/g, '').replace(/[①②③④0-9().,!?~]/g, '').slice(0, 80);
@@ -122,8 +122,10 @@ const getNumericSelectionAnswerIndex = (question, options) => {
   const values = options.map(evaluateCoursewareExpression);
   if (values.some(value => value == null)) return null;
   const criterion = comparison[1];
-  if (criterion === '1보다큰') return uniqueIndex(values, value => value > 1);
-  if (criterion === '1보다작은') return uniqueIndex(values, value => value < 1);
+  // Decimal expressions equal to one can land just above/below it in binary
+  // floating point (e.g. 0.7 + 0.2 + 0.1). Use the same equality tolerance.
+  if (criterion === '1보다큰') return uniqueIndex(values, value => value - 1 > 1e-9);
+  if (criterion === '1보다작은') return uniqueIndex(values, value => 1 - value > 1e-9);
   const target = criterion.endsWith('작은') ? Math.min(...values) : Math.max(...values);
   return uniqueIndex(values, value => Math.abs(value - target) < 1e-9);
 };
@@ -276,6 +278,7 @@ const buildQuestionMixGuide = (payload, poolSize, ragSection = '') => {
 const buildLessonContext = (payload, ragSection = '') => {
   const text = lessonTopicText(payload);
   const lessonTitle = String(payload?.lessonTitle || '');
+  const namedLessonText = [payload?.unitName, payload?.lessonTitle].filter(Boolean).join(' ');
   const titleAddition = includesAny(lessonTitle, ['덧셈', '더하기', '더한', '합을', '합은', '합하면']);
   const titleSubtraction = includesAny(lessonTitle, ['뺄셈', '빼기', '뺀', '차']);
   return {
@@ -287,6 +290,8 @@ const buildLessonContext = (payload, ragSection = '') => {
     angleLesson: includesAny(text, ['각도', '각의 크기', '몇 도', '예각', '둔각']),
     measurementLesson: includesAny(text, ['길이', '재기', 'cm', '센티미터', '미터', '자로 재기']),
     areaLesson: includesAny(text, ['넓이', '둘레']),
+    planeGeometryLesson: includesAny(namedLessonText, ['평면도형', '다각형', '삼각형', '사각형', '합동', '대칭']),
+    circleMeasurementLesson: /원(?:의)?\s*(?:넓이|둘레|측정)|원주(?:율)?/.test(namedLessonText),
     fractionLesson: includesAny(text, ['분수', '진분수', '대분수', '통분', '약분']),
     fractionAddSubLesson: includesAny(text, ['분수의 덧셈', '분수의 뺄셈', '진분수의 덧셈', '진분수의 뺄셈', '대분수의 덧셈', '대분수의 뺄셈']),
     fractionMultiplyLesson: includesAny(text, ['분수의 곱셈', '분수의 곱', '분수)×', '×(분수']),
@@ -661,7 +666,8 @@ const isOffTopicQuestion = (q, context = {}) => {
   }
   if (context.grade === 5) {
     const fractionContext = context.fractionLesson || context.probabilityLesson;
-    if (!context.solidShape && includesAny(text, ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '모서리', '꼭짓점'])) return true;
+    if (!context.solidShape && includesAny(text, ['입체도형', '직육면체', '정육면체', '각기둥', '각뿔', '원기둥', '원뿔', '모서리'])) return true;
+    if (!context.solidShape && !context.planeGeometryLesson && includesAny(text, ['꼭짓점'])) return true;
     if (context.solidShape && includesAny(text, ['각기둥', '각뿔', '원기둥', '원뿔', '구 모양', '구의 성질'])) return true;
     if (!fractionContext && (includesAny(text, ['분수', '분모', '분자', '통분', '약분']) || /\d+\s*\/\s*\d+/.test(text))) return true;
     if (hasFractionDivisionExpression(text)) return true;
@@ -685,7 +691,9 @@ const isOffTopicQuestion = (q, context = {}) => {
       (hasFractionDivisionExpression(text) || hasFractionMultiplicationExpression(text))
       && !context.fractionDivideLesson
     ) return true;
-    if (hasDecimalMultiplicationExpression(text)) return true;
+    const circleMeasurementCalculation = context.circleMeasurementLesson
+      && includesAny(text, ['반지름', '지름', '원주', '원의 넓이', '원의 둘레']);
+    if (hasDecimalMultiplicationExpression(text) && !circleMeasurementCalculation) return true;
     if (hasDecimalDivisionExpression(text) && !context.decimalDivideLesson) return true;
     if (!context.graphLesson && includesAny(text, ['막대그래프', '꺾은선그래프', '원그래프', '띠그래프', '그림그래프'])) return true;
   }
@@ -701,11 +709,11 @@ const hasExactlyOneVerifiableAnswer = (q) => {
   const options = q.options || [];
   const combined = [question, ...options, q.explanation].join('\n');
   if (hasMalformedFractionText(combined)) return false;
+  if (!verifyNumericExplanation(q)) return false;
   const deterministicResult = validateDeterministicMathQuestion(q);
   if (deterministicResult.applicable) {
     return deterministicResult.valid && deterministicResult.answerIndex === q.answerIndex;
   }
-  if (!verifyNumericExplanation(q)) return false;
   const selectionIndex = getNumericSelectionAnswerIndex(question, options);
   return selectionIndex == null || (selectionIndex >= 0 && selectionIndex === q.answerIndex);
 };
@@ -1149,6 +1157,8 @@ ${acceptedQuestions.map((question, index) => `${index + 1}. ${question.question}
 - 도형·그래프 shape를 사용하면 shape의 숫자, 항목, 정답이 문제와 정확히 일치해야 합니다.
 - 그래프가 없어도 풀 수 있는 단순 계산에는 shape:null을 사용하세요.
 - 기존 문제와 숫자만 바꾼 문제를 만들지 마세요.
+${Number(payload.grade) === 5 ? '- 평면도형의 꼭짓점은 단원명/차시명이 평면도형·다각형·삼각형·사각형·합동·대칭을 다룰 때만 허용합니다. 이 예외로 입체도형이나 모서리 내용을 도입하지 마세요.' : ''}
+${Number(payload.grade) === 6 ? '- 소수 곱셈은 단원명/차시명이 원의 측정(원주·원주율·원의 둘레·원의 넓이)을 다룰 때 반지름·지름·원주·넓이에 필요한 계산으로만 허용합니다. 독립적인 소수 곱셈 문제나 무관한 차시의 소수 곱셈은 금지합니다.' : ''}
 
 {"questions":[{"question":"문제","shape":null,"options":["보기1","보기2","보기3","보기4"],"answerIndex":0,"explanation":"검산된 해설","skill":"문항 유형","difficultyTag":"기초|적용|심화"}]}
 `;
@@ -1164,6 +1174,7 @@ function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
   const diffLabel = difficulty === 'easy' ? '기초' : difficulty === 'hard' ? '심화' : '기본';
   const lessonLabel = isUnitTest ? '단원평가' : `${lessonNo ? `${lessonNo}차시 ` : ''}${lessonTitle}`;
   const questionMixGuide = buildQuestionMixGuide(payload, poolSize, ragSection);
+  const lessonContext = buildLessonContext(payload);
 
   const sameDenomRules = hasSameDenominatorFractionFocus(payload, ragSection)
     ? `
@@ -1246,6 +1257,7 @@ function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
 [Grade 5 scope rules]
 - Use only the exact unit, lesson title, learning goal, and keywords shown below.
 - Solid geometry is limited to cuboids and cubes, and only in the cuboid unit. Never use prisms, pyramids, cylinders, cones, or spheres.
+- Flat-shape vertices (꼭짓점) are allowed only when the named unit or lesson is planar geometry, polygons, triangles, quadrilaterals, congruence, or symmetry. This does not permit solid-geometry terms or solid questions in those lessons.
 - Fraction addition/subtraction, fraction multiplication, reduction/common denominators, decimals multiplication, and probability must appear only in their matching units.
 - Never create fraction division or decimal division questions.
 - Do not create graph questions unless the lesson explicitly covers data, graphs, averages, or probability.
@@ -1257,7 +1269,7 @@ function buildPrompt(payload, poolSize, isUnitTest, ragSection) {
 - Use only the exact unit, lesson title, learning goal, and keywords shown below.
 - Match solid geometry to its unit: cuboids only for volume/surface-area lessons, prisms/pyramids only for prism/pyramid lessons, cubes only for block-stacking lessons, and cylinders/cones/spheres only for their named unit.
 - Fraction operations are limited to fraction division lessons. Ratios and percentages may use a fraction as a representation, but must not introduce unrelated fraction operations.
-- Decimal operations are limited to decimal division. Never create decimal multiplication questions.
+- Decimal division belongs only in its matching lesson. ${lessonContext.circleMeasurementLesson ? 'In this circle-measurement lesson, decimal multiplication is allowed only as a necessary step for radius, diameter, circumference, or circle-area calculations (for example using 3.14). Do not create unrelated standalone decimal multiplication questions.' : 'Never create decimal multiplication questions in this lesson; the only exception is necessary circle-measurement calculation in an explicitly named circle-measurement unit or lesson.'}
 - Graph questions belong only to graph lessons. For the "여러 가지 그래프" unit, use band_chart or pie_chart when appropriate.
 `
     : '';
