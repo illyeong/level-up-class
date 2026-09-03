@@ -8,6 +8,7 @@
     "build": "vite build",
     "test:courseware": "node scripts/check-courseware-math-validation.mjs && node scripts/check-courseware-choice-validation.mjs && node scripts/check-math-diagrams.mjs && node scripts/check-courseware-api-safe-normalization.mjs && node scripts/check-courseware-audit-hash.mjs",
     "test:class-operation": "node scripts/check-class-operation-feedback.mjs",
+    "test:support": "node --experimental-vm-modules scripts/check-support-requests.mjs",
     "deploy:prod": "node scripts/deploy-production.mjs",
     "lint": "eslint .",
     "preview": "vite preview"

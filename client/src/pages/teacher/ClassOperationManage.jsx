@@ -3,6 +3,7 @@ import {
   addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where,
 } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
+import { getClassOperationErrorMessage } from '../../utils/classOperationFeedback';
 import { MONSTERS_DB, resolveBossBg } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 import ClassOperation from '../student/ClassOperation';
@@ -50,6 +51,7 @@ export default function ClassOperationManage({ selectedClass }) {
     const unsubscribe = onSnapshot(
       operationQuery,
       snapshot => setOperations(snapshot.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))),
+      error => setMessage(getClassOperationErrorMessage(error)),
     );
     const loadStudents = async () => {
       setIsStudentsLoading(true);
@@ -74,6 +76,7 @@ export default function ClassOperationManage({ selectedClass }) {
         setEquipmentItems(equipmentSnap.docs.map(item => ({ id: item.id, ...item.data() })));
       } catch (error) {
         console.error('우리반 대작전 설정 로딩 실패:', error);
+        setMessage(getClassOperationErrorMessage(error));
       } finally {
         setIsStudentsLoading(false);
       }
@@ -109,6 +112,7 @@ export default function ClassOperationManage({ selectedClass }) {
     return onSnapshot(
       collection(db, 'classOperations', activeOperation.id, 'attacks'),
       snapshot => setAttacks(snapshot.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (b.attackedAt?.seconds || 0) - (a.attackedAt?.seconds || 0))),
+      error => setMessage(getClassOperationErrorMessage(error)),
     );
   }, [activeOperation?.id]);
 
@@ -147,7 +151,7 @@ export default function ClassOperationManage({ selectedClass }) {
       setMessage('우리반 대작전이 시작되었습니다. 학생 메뉴에서 바로 공격할 수 있습니다.');
     } catch (error) {
       console.error('우리반 대작전 생성 실패:', error);
-      setMessage('대작전 생성 중 오류가 발생했습니다.');
+      setMessage(getClassOperationErrorMessage(error));
     } finally {
       setIsCreating(false);
     }

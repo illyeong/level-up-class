@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
   collection, getDocs, doc, setDoc, deleteDoc,
-  serverTimestamp, writeBatch,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { getClassScopedDocs } from '../../utils/scopedFirestore';
+import { currentQuestCompletion } from '../../utils/questPeriod';
+import { getClassOperationErrorMessage } from '../../utils/classOperationFeedback';
 
 const getSeatNum = (code) => parseInt(code?.split('-').pop()) || 0;
 
@@ -246,8 +249,8 @@ function QuestKiosk({ onExit, selectedClass }) {
       setIsLoading(true);
       try {
         const [questSnap, studentSnap] = await Promise.all([
-          getDocs(collection(db, 'quests')),
-          getDocs(collection(db, 'students')),
+          getClassScopedDocs(db, 'quests', selectedClass),
+          getClassScopedDocs(db, 'students', selectedClass),
         ]);
 
         const allQuests = questSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -267,11 +270,11 @@ function QuestKiosk({ onExit, selectedClass }) {
         setStudents(
           classStudents.sort((a, b) => getSeatNum(a.studentCode) - getSeatNum(b.studentCode))
         );
-      } catch (err) { console.error(err); }
+      } catch (err) { console.error(err); window.alert(getClassOperationErrorMessage(err)); }
       finally { setIsLoading(false); }
     };
     load();
-  }, [tid]);
+  }, [tid, selectedClass?.id]);
 
   // 퀘스트 선택 → 완료 현황 로드
   const selectQuest = async (quest) => {
@@ -279,32 +282,12 @@ function QuestKiosk({ onExit, selectedClass }) {
     try {
       const snap = await getDocs(collection(db, 'quests', quest.id, 'completions'));
       const map = {};
-      snap.docs.forEach(d => { map[d.id] = d.data(); });
-
-      // 매일반복 퀘스트는 오늘 체크한 기록만 표시한다.
-      // 이전 날짜의 completion은 제거해 전날 보상 여부와 관계없이 다시 체크할 수 있게 한다.
-      if (quest.repeatDaily) {
-        const todayMidnight = new Date();
-        todayMidnight.setHours(0, 0, 0, 0);
-        const staleDocs = snap.docs.filter(d => {
-          const data = d.data();
-          const ts = data.checkedAt || data.rewardedAt;
-          const completedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
-          return completedAt && completedAt < todayMidnight;
-        });
-
-        if (staleDocs.length > 0) {
-          const batch = writeBatch(db);
-          staleDocs.forEach(d => {
-            batch.delete(doc(db, 'quests', quest.id, 'completions', d.id));
-            delete map[d.id];
-          });
-          await batch.commit();
-        }
-      }
-
+      snap.docs.forEach(d => {
+        const current = currentQuestCompletion(quest, d.data());
+        if (current) map[d.id] = current;
+      });
       setCompletions(map);
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error(err); window.alert(getClassOperationErrorMessage(err)); }
     setScreen('students');
   };
 
@@ -318,11 +301,11 @@ function QuestKiosk({ onExit, selectedClass }) {
         await deleteDoc(ref);
         setCompletions(prev => { const n = { ...prev }; delete n[student.id]; return n; });
       } else {
-        const data = { checked: true, checkedAt: serverTimestamp(), rewarded: false, rewardedBy: null };
+        const data = { checked: true, checkedAt: serverTimestamp(), rewarded: false, rewardedBy: null, rewardedAt: null, acknowledgedAt: null };
         await setDoc(ref, data, { merge: true });
         setCompletions(prev => ({ ...prev, [student.id]: { checked: true, rewarded: false } }));
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error(err); window.alert(getClassOperationErrorMessage(err)); }
     finally { setIsBusy(false); }
   };
 

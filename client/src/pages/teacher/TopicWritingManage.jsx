@@ -3,22 +3,20 @@ import {
   addDoc,
   collection,
   doc,
-  getDoc,
-  getDocs,
-  query,
   serverTimestamp,
   updateDoc,
-  where,
-  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import iconDiamond from '../../assets/images/icon-diamond.png';
 import iconGold from '../../assets/images/icon-gold.png';
-import { applyExpDelta } from '../../utils/leveling';
+import { getClassScopedDocs } from '../../utils/scopedFirestore';
 import {
   DEFAULT_TOPIC_WRITING_REWARDS,
   approveTopicWritingSubmissions,
   isTopicWritingRewardPending,
+  reviewTopicWritingSubmission,
+  payTopicWritingSubmission,
+  setTopicWritingSubmissionDeleted,
 } from '../../utils/topicWritingRewards';
 
 const DEFAULT_REWARDS = DEFAULT_TOPIC_WRITING_REWARDS;
@@ -123,7 +121,8 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
 
   const [tab, setTab] = useState('submissions');
   const [topics, setTopics] = useState([]);
-  const [submissions, setSubmissions] = useState([]);
+  const [allSubmissions, setSubmissions] = useState([]);
+  const submissions = useMemo(() => allSubmissions.filter(item => !item.deleted), [allSubmissions]);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(DEFAULT_TOPIC);
@@ -146,9 +145,9 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
     setLoading(true);
     try {
       const [topicSnap, submissionSnap, studentSnap] = await Promise.all([
-        getDocs(query(collection(db, 'writingTopics'), where('teacherUid', '==', teacherUid))),
-        getDocs(query(collection(db, 'writingSubmissions'), where('teacherUid', '==', teacherUid))),
-        getDocs(query(collection(db, 'students'), where('teacherUid', '==', teacherUid))),
+        getClassScopedDocs(db, 'writingTopics', { teacherUid, classId }),
+        getClassScopedDocs(db, 'writingSubmissions', { teacherUid, classId }),
+        getClassScopedDocs(db, 'students', { teacherUid, classId }),
       ]);
       setTopics(topicSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
       setSubmissions(sortRecent(submissionSnap.docs.map(d => ({ id: d.id, ...d.data() }))));
@@ -159,7 +158,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
     } finally {
       setLoading(false);
     }
-  }, [teacherUid]);
+  }, [teacherUid, classId]);
 
   useEffect(() => {
     if (!teacherUid) return undefined;
@@ -193,7 +192,10 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
     [submissions],
   );
 
-  const filteredSubmissions = submissions.filter(item => {
+  const filteredSubmissions = allSubmissions.filter(item => {
+    if (statusFilter === 'deleted') return !!item.deleted;
+    if (item.deleted) return false;
+    if (statusFilter === 'reviewed') return item.status === 'reviewed' && !item.rewardsPaid;
     if (statusFilter === 'needsReview') return isTopicWritingRewardPending(item);
     if (statusFilter === 'rewarded') return item.rewardsPaid || item.status === 'rewarded';
     if (statusFilter === 'aiFailed') return item.aiStatus === 'failed';
@@ -304,18 +306,13 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
     if (!selectedSubmission) return;
     setProcessing(true);
     try {
-      const score = teacherScore === '' ? null : Math.max(0, Math.min(100, Number(teacherScore) || 0));
-      const updates = {
-        teacherScore: score,
-        teacherComment: teacherComment.trim(),
-        status: selectedSubmission.rewardsPaid ? 'rewarded' : 'reviewed',
-        reviewedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-      await updateDoc(doc(db, 'writingSubmissions', selectedSubmission.id), updates);
+      const updates = await reviewTopicWritingSubmission({
+        id: selectedSubmission.id, teacherUid, classId, teacherScore, teacherComment,
+      });
       setSubmissions(prev => prev.map(item => item.id === selectedSubmission.id ? { ...item, ...updates } : item));
       setSelectedSubmission(prev => prev ? { ...prev, ...updates } : prev);
-      showToast('교사 확인 내용을 저장했습니다.');
+      showToast('보상 없이 확인했습니다. 일괄 보상 대상에서도 제외됩니다.');
+      await onApprovalBadgeRefresh?.();
     } catch (err) {
       console.error('[TopicWritingManage] save review failed:', err);
       showToast('저장에 실패했습니다.', 'error');
@@ -326,48 +323,13 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
 
   const payReward = async () => {
     if (!selectedSubmission || selectedSubmission.rewardsPaid) return;
+    if (!window.confirm('이 글의 보상을 학생에게 지급할까요?')) return;
     setProcessing(true);
     try {
-      const studentRef = doc(db, 'students', selectedSubmission.studentId);
-      const studentSnap = await getDoc(studentRef);
-      if (!studentSnap.exists()) throw new Error('학생 문서를 찾을 수 없습니다.');
-
-      const student = studentSnap.data();
-      const rewards = selectedSubmission.rewards || DEFAULT_REWARDS;
-      const progress = applyExpDelta(student.level ?? 1, student.exp ?? 0, rewards.exp || 0);
-      const score = teacherScore === '' ? selectedSubmission.aiGrade?.score ?? null : Math.max(0, Math.min(100, Number(teacherScore) || 0));
-      const batch = writeBatch(db);
-
-      batch.update(studentRef, {
-        gold: (student.gold || 0) + (rewards.gold || 0),
-        diamonds: (student.diamonds || 0) + (rewards.diamond || 0),
-        level: progress.level,
-        exp: progress.exp,
-        maxExp: progress.maxExp,
+      const paid = await payTopicWritingSubmission({
+        id: selectedSubmission.id, teacherUid, classId, teacherScore, teacherComment, allowReviewed: true,
       });
-      batch.update(doc(db, 'writingSubmissions', selectedSubmission.id), {
-        teacherScore: score,
-        teacherComment: teacherComment.trim(),
-        status: 'rewarded',
-        rewardsPaid: true,
-        reviewedAt: serverTimestamp(),
-        rewardedAt: serverTimestamp(),
-        rewardedBy: teacherUid,
-        updatedAt: serverTimestamp(),
-      });
-      batch.set(doc(collection(db, 'writingRewardLogs')), {
-        submissionId: selectedSubmission.id,
-        topicId: selectedSubmission.topicId,
-        studentId: selectedSubmission.studentId,
-        studentName: selectedSubmission.studentName || '',
-        teacherUid,
-        classId,
-        rewards,
-        createdAt: serverTimestamp(),
-      });
-
-      await batch.commit();
-      showToast(`보상 지급 완료: ${rewards.gold}G / ${rewards.exp}EXP / ${rewards.diamond}Dia`);
+      showToast(paid ? '보상 지급 완료!' : '이미 처리되었거나 삭제된 글입니다.');
       setSelectedSubmission(null);
       await loadData();
       await onApprovalBadgeRefresh?.();
@@ -377,6 +339,23 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
     } finally {
       setProcessing(false);
     }
+  };
+
+  const toggleSubmissionDeleted = async () => {
+    if (!selectedSubmission || processing) return;
+    const deleted = !selectedSubmission.deleted;
+    if (!window.confirm(deleted
+      ? '이 글을 삭제할까요? 학생 화면에서 숨겨지며, 삭제된 글 탭에서 복구할 수 있습니다. 이미 지급된 보상은 회수하지 않습니다.'
+      : '이 글을 복구할까요? 학생 화면에 다시 표시됩니다.')) return;
+    setProcessing(true);
+    try {
+      const updates = await setTopicWritingSubmissionDeleted({ id: selectedSubmission.id, teacherUid, classId, deleted });
+      setSubmissions(prev => prev.map(item => item.id === selectedSubmission.id ? { ...item, ...updates } : item));
+      setSelectedSubmission(null);
+      showToast(deleted ? '글을 삭제했습니다. 삭제된 글 탭에서 복구할 수 있습니다.' : '글을 복구했습니다.');
+      await onApprovalBadgeRefresh?.();
+    } catch (err) { showToast(err.message || '처리에 실패했습니다.', 'error'); }
+    finally { setProcessing(false); }
   };
 
   const approveAll = async () => {
@@ -589,6 +568,8 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                   ['needsReview', '확인 대기'],
                   ['all', '전체'],
                   ['rewarded', '보상 완료'],
+                  ['reviewed', '보상 없이 확인'],
+                  ['deleted', '삭제된 글'],
                   ['aiFailed', 'AI 실패'],
                 ].map(([id, label]) => (
                   <button
@@ -606,7 +587,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                 <button
                   type="button"
                   onClick={approveAll}
-                  disabled={bulkApproving || pendingSubmissions.length === 0}
+                  disabled={processing || bulkApproving || pendingSubmissions.length === 0}
                   className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {bulkApproving ? '승인 중...' : `일괄 승인 ${pendingSubmissions.length}건`}
@@ -879,7 +860,7 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                     />
                   </div>
 
-                  {selectedSubmission.rewardsPaid ? (
+                  {selectedSubmission.deleted ? <p className="text-sm text-rose-700">삭제된 글입니다. 복구 후 확인할 수 있습니다.</p> : selectedSubmission.rewardsPaid ? (
                     <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-black text-emerald-700">
                       이미 보상이 지급되었습니다.
                     </div>
@@ -888,15 +869,15 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                       <button
                         type="button"
                         onClick={saveReview}
-                        disabled={processing}
+                        disabled={processing || bulkApproving}
                         className="rounded-xl border border-slate-200 bg-white py-3 text-sm font-black text-slate-600 hover:bg-slate-50 disabled:opacity-40"
                       >
-                        확인만 저장
+                        보상 없이 확인
                       </button>
                       <button
                         type="button"
                         onClick={payReward}
-                        disabled={processing}
+                        disabled={processing || bulkApproving}
                         className="rounded-xl bg-emerald-600 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-40"
                       >
                         보상 지급
@@ -904,6 +885,10 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                     </div>
                   )}
                 </div>
+                <button type="button" disabled={processing || bulkApproving} onClick={toggleSubmissionDeleted}
+                  className="mt-4 w-full rounded-xl border border-rose-200 bg-rose-50 py-3 text-sm font-bold text-rose-700 disabled:opacity-40">
+                  {selectedSubmission.deleted ? '글 복구' : '글 삭제'}
+                </button>
               </aside>
             </div>
           </div>

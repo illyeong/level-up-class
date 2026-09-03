@@ -7,6 +7,7 @@ import {
   query,
   serverTimestamp,
   updateDoc,
+  runTransaction,
   where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -68,7 +69,7 @@ function RewardInline({ rewards = DEFAULT_REWARDS }) {
 const STATUS_META = {
   submitted: { label: 'AI 채점 대기', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
   ai_graded: { label: 'AI 채점 완료', cls: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-  reviewed: { label: '교사 확인 완료', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  reviewed: { label: '교사 확인 완료 · 보상 없음', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
   rewarded: { label: '보상 지급 완료', cls: 'bg-sky-100 text-sky-700 border-sky-200' },
 };
 
@@ -79,7 +80,7 @@ const toDateText = (value) => {
   return date ? date.toLocaleDateString('ko-KR') : '';
 };
 
-const sortByRecent = (items) => [...items].sort((a, b) => {
+const sortByRecent = (items) => items.filter(item => !item.deleted).sort((a, b) => {
   const at = a.submittedAt?.seconds || a.createdAt?.seconds || 0;
   const bt = b.submittedAt?.seconds || b.createdAt?.seconds || 0;
   return bt - at;
@@ -449,19 +450,24 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
         teacherComment: '',
         rewards,
         rewardsPaid: false,
+        rewardDecision: null,
         submittedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
       if (targetSubmissionId) {
         submissionRef = doc(db, 'writingSubmissions', targetSubmissionId);
-        await updateDoc(submissionRef, {
-          ...payload,
-          aiError: null,
-          teacherScore: null,
-          teacherComment: '',
-          rewardsPaid: false,
-          rewrittenAt: serverTimestamp(),
+        await runTransaction(db, async tx => {
+          const live = await tx.get(submissionRef);
+          if (!live.exists() || live.data().deleted || live.data().rewardsPaid) throw new Error('이미 처리된 글입니다. 목록을 새로고침해주세요.');
+          tx.update(submissionRef, {
+            ...payload,
+            aiError: null,
+            teacherScore: null,
+            teacherComment: '',
+            rewardsPaid: false,
+            rewrittenAt: serverTimestamp(),
+          });
         });
         setSubmissions(prev => sortByRecent(prev.map(item => (
           item.id === targetSubmissionId
@@ -497,12 +503,16 @@ export default function TopicWriting({ studentCode, themeMode = 'dark' }) {
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || 'AI 채점에 실패했습니다.');
 
-        await updateDoc(doc(db, 'writingSubmissions', submissionRef.id), {
-          aiGrade: result.aiGrade,
-          aiStatus: 'complete',
-          status: 'ai_graded',
-          aiGradedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+        await runTransaction(db, async tx => {
+          const live = await tx.get(submissionRef);
+          if (!live.exists() || live.data().deleted || live.data().content !== payload.content) return;
+          tx.update(submissionRef, {
+            aiGrade: result.aiGrade,
+            aiStatus: 'complete',
+            status: ['reviewed', 'rewarded'].includes(live.data().status) ? live.data().status : 'ai_graded',
+            aiGradedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
         });
       } catch (aiError) {
         console.error('[TopicWriting] AI grading failed:', aiError);

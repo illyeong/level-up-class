@@ -4,6 +4,8 @@ import {
   query, where, serverTimestamp, runTransaction,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import useCoursewareAccess from '../../hooks/useCoursewareAccess';
+import { allowedCoursewareGrades, filterCoursewareUnits, isCoursewareLessonAllowed } from '../../utils/coursewareAccess';
 import { renderMath, TableRenderer, stripOptionPrefix } from '../../utils/renderMath';
 import ShapeRenderer from '../../components/ShapeRenderer';
 import { getMaxExpForLevel } from '../../utils/leveling';
@@ -398,6 +400,8 @@ const LOADING_MSGS = [
 export default function AICourseware({ studentCode, isTeacher = false, teacherUid, classGrade, themeMode = 'dark' }) {
   const isDark = themeMode === 'dark';
   const [student, setStudent]   = useState(null);
+  const { ready: accessReady, policy: accessPolicy, assertAllowed, error: accessError } = useCoursewareAccess(student, isTeacher);
+  const allowedGrades = allowedCoursewareGrades(accessPolicy);
   // 교사 모드: 학생 데이터 없이 단원/차시 브라우징 및 미리보기 가능
 
   // 브라우징 상태
@@ -411,6 +415,8 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
   // 학습 상태
   const [selectedLesson, setLesson] = useState(null);
+  const lessonLoadEpoch = useRef(0);
+  const finishLockRef = useRef(false);
   const [content, setContent]       = useState(null);   // AI 콘텐츠 (캐시 or 신규)
   const [contentLoading, setCL]     = useState(false);
   const [myProgress, setMyProgress] = useState(null);   // 오늘 이미 완료했는지
@@ -569,9 +575,22 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       });
   }, [isTeacher, studentCode, teacherUid, classGrade]);
 
+  useEffect(() => {
+    if (!accessReady) return;
+    const grades = allowedCoursewareGrades(accessPolicy);
+    if (accessPolicy && accessPolicy.mode !== 'all' && !grades.includes(Number(filterGrade))) {
+      setFG(String(grades[0] || '')); setFS(''); setFP('');
+    }
+    if (selectedLesson && !isCoursewareLessonAllowed(accessPolicy, selectedUnit, selectedLesson)) {
+      lessonLoadEpoch.current++;
+      setStep('browse'); setUnit(null); setLesson(null); setContent(null);
+    }
+  }, [accessReady, accessPolicy, filterGrade, selectedUnit, selectedLesson]);
+
   // ── 단원 로드 ──────────────────────────────────────────────────
   useEffect(() => {
-    if (!filterGrade) { setUnits([]); return; }
+    if (!filterGrade || !accessReady) { setUnits([]); return; }
+    let cancelled = false;
     setLU(true);
     getDocs(query(
       collection(db, 'curriculumUnits'),
@@ -583,9 +602,11 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         .filter(u => !filterSem || !u.semester || String(u.semester) === String(filterSem))
         .filter(u => !filterPub || u.publisher === filterPub || u.publisher === '공통')
         .sort((a, b) => (a.unitNumber || 99) - (b.unitNumber || 99));
-      setUnits(list);
-    }).finally(() => setLU(false));
-  }, [filterGrade, filterSem, filterPub]);
+      if (!cancelled) setUnits(filterCoursewareUnits(list, accessPolicy));
+    }).catch(() => { if (!cancelled) setUnits([]); })
+      .finally(() => { if (!cancelled) setLU(false); });
+    return () => { cancelled = true; };
+  }, [filterGrade, filterSem, filterPub, accessReady, accessPolicy]);
 
   // ── 브라우즈 화면용: 학생 전체 mastery 일괄 로드 ──────────────
   useEffect(() => {
@@ -601,7 +622,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   // ── 차시 목록 진입 시 mastery 데이터 로드 ────────────────────
   useEffect(() => {
     if (step !== 'lessons' || !selectedUnit || !studentCode) return;
-    const lessons = selectedUnit.lessons || [];
+    const lessons = (selectedUnit.lessons || []).filter(lesson => isCoursewareLessonAllowed(accessPolicy, selectedUnit, lesson));
     if (!lessons.length) return;
     Promise.all(
       lessons.map(l => getDoc(doc(db, 'aiLessonMastery', `${studentCode}_${lessonKey(selectedUnit, l)}`)))
@@ -610,12 +631,13 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       docs.forEach((d, i) => { if (d.exists()) map[lessonKey(selectedUnit, lessons[i])] = d.data(); });
       setMasteryMap(map);
     });
-  }, [step, selectedUnit, studentCode]);
+  }, [step, selectedUnit, studentCode, accessPolicy]);
 
   // ── 차시 목록 진입 시 첫 번째 차시 프리로딩 (컴포넌트 내부 처리) ──
   useEffect(() => {
     if (step !== 'lessons' || !selectedUnit) return;
-    const lessons = selectedUnit.lessons || [];
+    if (!accessReady) return;
+    const lessons = (selectedUnit.lessons || []).filter(lesson => isCoursewareLessonAllowed(accessPolicy, selectedUnit, lesson));
     if (lessons.length === 0) return;
 
     queueLessonPreload(selectedUnit, lessons[0]);
@@ -624,7 +646,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       t = setTimeout(() => queueLessonPreload(selectedUnit, lessons[1]), 1200);
     }
     return () => clearTimeout(t);
-  }, [step, selectedUnit]);
+  }, [step, selectedUnit, accessReady, accessPolicy]);
 
   // ── 차시 선택 → AI 콘텐츠 로드/생성 후 바로 학습 시작 ──────
   const expandLessonPoolInBackground = (unit, lesson, currentData, attemptState = null, extraLessonContext = '') => {
@@ -735,6 +757,9 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   };
 
   const openLesson = async (unit, lesson) => {
+    try { await assertAllowed(unit, lesson); }
+    catch (error) { showToast(error.message, 'error'); return; }
+    const epoch = ++lessonLoadEpoch.current;
     setUnit(unit); setLesson(lesson);
     setCardIdx(0); setQIdx(0);
     setAnswers([]); setSelected(null); setShowResult(false); setFR(null); setExpandedResult(null);
@@ -762,6 +787,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         getDoc(doc(db, 'aiQuestionAttempts', attemptId)),
         contentPromise,
       ]);
+      if (epoch !== lessonLoadEpoch.current) { stepTimer.clear(); return; }
       if (progDoc.exists()) setMyProgress(progDoc.data());
       if (!data) throw new Error('생성 실패');
 
@@ -771,6 +797,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       expandLessonPoolInBackground(unit, lesson, data, attemptDoc.exists() ? attemptDoc.data() : null);
     } catch (e) {
       stepTimer.clear();
+      if (epoch !== lessonLoadEpoch.current) return;
       showToast('콘텐츠 로드에 실패했습니다. 다시 시도해주세요.', 'error');
       setStep('lessons');
       console.error(e);
@@ -778,6 +805,9 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   };
 
   const startLearning = async () => {
+    try { await assertAllowed(selectedUnit, selectedLesson); }
+    catch (error) { showToast(error.message, 'error'); return; }
+    const epoch = lessonLoadEpoch.current;
     const key = lessonKey(selectedUnit, selectedLesson);
     try {
       const [cacheSnap, attemptSnap] = await Promise.all([
@@ -791,6 +821,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         if (!poolData) throw new Error('문제를 새로 생성하지 못했습니다. 잠시 후 다시 시도해주세요.');
       }
       const attemptState = attemptSnap.exists() ? attemptSnap.data() : null;
+      if (epoch !== lessonLoadEpoch.current) return;
       setContent(pickSessionQuestions(poolData, key, attemptState));
       expandLessonPoolInBackground(selectedUnit, selectedLesson, poolData, attemptState);
       setCardIdx(0); setQIdx(0);
@@ -972,6 +1003,10 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
   // ── 완료 + 차등 보상 ──────────────────────────────────────────
   const finishQuiz = async () => {
+    if (finishLockRef.current) return;
+    finishLockRef.current = true;
+    try { await assertAllowed(selectedUnit, selectedLesson); }
+    catch (error) { finishLockRef.current = false; showToast(error.message, 'error'); return; }
     // answers에 이미 모든 답이 들어있음 (confirmAnswer가 마지막 답도 추가했으므로 중복 추가 X)
     const total = Math.max(1, content.questions.length);
     const answerByQuestion = new Map();
@@ -1177,10 +1212,10 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       });
       setStep('result');
     } catch (e) { console.error(e); showToast('저장 오류', 'error'); }
-    finally { setSaving(false); }
+    finally { setSaving(false); finishLockRef.current = false; }
   };
 
-  const backToBrowse = () => { setStep('browse'); setUnit(null); setLesson(null); setContent(null); };
+  const backToBrowse = () => { lessonLoadEpoch.current++; setStep('browse'); setUnit(null); setLesson(null); setContent(null); };
   const backToLessons = () => { setStep('lessons'); setCardIdx(0); setQIdx(0); setAnswers([]); setSelected(null); setShowResult(false); };
 
   const publishers = [...new Set(units.map(u => u.publisher).filter(Boolean))];
@@ -1243,14 +1278,19 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         </button>
       )}
 
+      {!isTeacher && <p role="status" className="mb-3 rounded-xl border border-indigo-300/40 bg-indigo-500/10 p-3 text-sm">
+        {accessError || (!accessReady ? '학급 학습 허용 설정 확인 중...' : accessPolicy?.mode && accessPolicy.mode !== 'all'
+          ? '선생님이 지정한 콘텐츠만 표시됩니다.' : '현재 전체 콘텐츠를 학습할 수 있습니다.')}
+      </p>}
       {/* 필터 */}
       <div className={`mb-5 grid gap-2 rounded-2xl border p-2 sm:flex sm:items-center ${isDark ? 'border-slate-800 bg-slate-900/75' : 'border-slate-200 bg-white shadow-sm'}`}>
         {/* 학년 select */}
         <select value={filterGrade} onChange={e => { setFG(e.target.value); setFP(''); }}
+          disabled={!accessReady}
           aria-label="학년 선택"
           className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-cyan-500 sm:w-auto">
           <option value="">학년 선택</option>
-          {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}학년</option>)}
+          {allowedGrades.map(n => <option key={n} value={n}>{n}학년</option>)}
         </select>
 
         {/* 학기 — 버튼 3개 */}
@@ -1467,7 +1507,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
       <div className={`mb-5 rounded-3xl border px-5 py-4 ${isDark ? 'border-cyan-400/25 bg-gradient-to-br from-cyan-400/10 to-indigo-500/10' : 'border-cyan-200 bg-cyan-50 shadow-sm'}`}>
         <div className={`text-xs font-bold mb-0.5 ${isDark ? 'text-indigo-400' : 'text-indigo-700'}`}>{selectedUnit.grade}학년 {selectedUnit.semester ? `${selectedUnit.semester}학기 ` : ''}수학</div>
         <h2 className={`text-xl font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>{selectedUnit.unitNumber ? `${selectedUnit.unitNumber}단원 ` : ''}{selectedUnit.unitName}</h2>
-        <p className={`text-xs mt-0.5 ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>{(selectedUnit.lessons || []).length}개 차시 · 차시를 눌러 AI 학습을 시작하세요</p>
+        <p className={`text-xs mt-0.5 ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>{(selectedUnit.lessons || []).filter(lesson => isCoursewareLessonAllowed(accessPolicy, selectedUnit, lesson)).length}개 차시 · 차시를 눌러 AI 학습을 시작하세요</p>
       </div>
 
       {/* 차시 목록 — 클릭 즉시 학습 시작 */}
@@ -1476,7 +1516,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           <div className="text-center py-10 text-slate-400">
             <p className="font-bold">이 단원에 등록된 차시가 없습니다</p>
           </div>
-        ) : (selectedUnit.lessons || []).map(lesson => (
+        ) : (selectedUnit.lessons || []).filter(lesson => isCoursewareLessonAllowed(accessPolicy, selectedUnit, lesson)).map(lesson => (
           <div key={lesson.no}>
             <button
               onClick={() => openLesson(selectedUnit, lesson)}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { collection, getDocs, getDoc, doc, setDoc, deleteDoc, updateDoc, query, where, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
+import CoursewareAccessSettings from '../../components/CoursewareAccessSettings';
 import { validateDeterministicMathQuestion } from '../../utils/validateCoursewareMathQuestion';
 
 // ── 상수 ─────────────────────────────────────────────────────
@@ -607,6 +608,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
 
   // ── 렌더 ────────────────────────────────────────────────────
   const TABS = [
+    { id: 'assignment', icon: '☑', label: '학습 콘텐츠 지정', desc: '학년·단원·차시 허용 설정' },
     { id: 'overview', icon: '⌂', label: '학급 학습 현황', desc: '도움이 필요한 학생 확인' },
     { id: 'units', icon: '▦', label: '단원·차시 분석', desc: '차시별 숙달도 분석' },
     { id: 'students', icon: '◎', label: '학생별 분석', desc: '개인 학습 현황' },
@@ -641,7 +643,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
         </div>
 
         {/* 탭 */}
-        <div className="ai-learning-tabs scrollbar-hide mb-4 flex max-w-full gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid sm:grid-cols-2 lg:grid-cols-4">
+        <div className="ai-learning-tabs scrollbar-hide mb-4 flex max-w-full gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid sm:grid-cols-2 lg:grid-cols-5">
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`min-w-[168px] rounded-xl px-4 py-3 text-left transition-all sm:min-w-0
@@ -652,6 +654,7 @@ export default function AICoursewareManage({ selectedClass, onNavigate }) {
           ))}
         </div>
 
+        {tab === 'assignment' && <CoursewareAccessSettings key={selectedClass?.id || selectedClass?.teacherUid} selectedClass={selectedClass} />}
         {/* ═══════════════ 학급 학습 현황 ═══════════════ */}
         {tab === 'overview' && (
           <LearningOverviewTab

@@ -5,6 +5,9 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { applyExpDelta } from '../../utils/leveling';
+import { getClassScopedDocs } from '../../utils/scopedFirestore';
+import { currentQuestCompletion } from '../../utils/questPeriod';
+import { getClassOperationErrorMessage } from '../../utils/classOperationFeedback';
 
 const SKILL_COLORS = {
   '인성':   'bg-purple-100 text-purple-700',
@@ -35,6 +38,7 @@ function QuestDetail({ questId, onBack, isModal = false }) {
   const [activeTab, setActiveTab] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [toast, setToast] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
 
@@ -48,14 +52,13 @@ function QuestDetail({ questId, onBack, isModal = false }) {
     const load = async () => {
       setIsLoading(true);
       try {
-        const [questDoc, studentsSnap, completionsSnap] = await Promise.all([
-          getDoc(doc(db, 'quests', questId)),
-          getDocs(collection(db, 'students')),
-          getDocs(collection(db, 'quests', questId, 'completions')),
-        ]);
-
+        const questDoc = await getDoc(doc(db, 'quests', questId));
         if (!questDoc.exists()) { onBack(); return; }
         const questData = questDoc.data();
+        const [studentsSnap, completionsSnap] = await Promise.all([
+          getClassScopedDocs(db, 'students', questData),
+          getDocs(collection(db, 'quests', questId, 'completions')),
+        ]);
         setQuest({ id: questDoc.id, ...questData });
 
         // 같은 학급 학생만 표시 (teacherUid 필터)
@@ -70,32 +73,17 @@ function QuestDetail({ questId, onBack, isModal = false }) {
         setStudents(studentList);
 
         const map = {};
-        completionsSnap.docs.forEach(d => { map[d.id] = d.data(); });
-
-        // 매일반복 퀘스트: 이전 날짜의 completion 삭제 (교사가 상세 열 때 초기화)
-        // 이미 지급된 보상은 학생 데이터에 반영되어 있으므로 completion만 새 주기로 비운다.
-        if (questData.repeatDaily) {
-          const todayMidnight = new Date();
-          todayMidnight.setHours(0, 0, 0, 0);
-          const staleDocs = completionsSnap.docs.filter(d => {
-            const data = d.data();
-            const ts = data.checkedAt || data.rewardedAt;
-            const completedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
-            return completedAt && completedAt < todayMidnight;
-          });
-          if (staleDocs.length > 0) {
-            const batch = writeBatch(db);
-            staleDocs.forEach(d => {
-              batch.delete(doc(db, 'quests', questId, 'completions', d.id));
-              delete map[d.id];
-            });
-            await batch.commit();
-          }
-        }
+        // Reset the view by period, without deleting documents just to open a modal.
+        completionsSnap.docs.forEach(d => {
+          const current = currentQuestCompletion(questData, d.data());
+          if (current) map[d.id] = current;
+        });
 
         setCompletions(map);
       } catch (err) {
         console.error('퀘스트 상세 로딩 에러:', err);
+        setLoadError(getClassOperationErrorMessage(err));
+        showToast(getClassOperationErrorMessage(err), 'error');
       } finally {
         setIsLoading(false);
       }
@@ -126,6 +114,7 @@ function QuestDetail({ questId, onBack, isModal = false }) {
       }
     } catch (err) {
       console.error('체크 토글 에러:', err);
+      showToast(getClassOperationErrorMessage(err), 'error');
     }
   };
 
@@ -153,6 +142,7 @@ function QuestDetail({ questId, onBack, isModal = false }) {
             rewarded:    true,
             rewardedAt:  serverTimestamp(),
             rewardedBy:  'teacher',
+            acknowledgedAt: null,
           }, { merge: true });
         });
         await batch.commit();
@@ -177,7 +167,7 @@ function QuestDetail({ questId, onBack, isModal = false }) {
         showToast('보상 지급 완료!');
       } catch (err) {
         console.error('보상 지급 에러:', err);
-        showToast('보상 지급 중 오류가 발생했습니다.', 'error');
+        showToast(getClassOperationErrorMessage(err), 'error');
       } finally {
         setIsBusy(false);
       }
@@ -259,7 +249,10 @@ function QuestDetail({ questId, onBack, isModal = false }) {
       </div>
     );
   }
-  if (!quest) return null;
+  if (!quest) return <div role="alert" className="rounded-xl bg-rose-50 p-6 text-rose-800">
+    {loadError || '퀘스트를 찾을 수 없습니다.'}
+    <button onClick={onBack} className="ml-3 underline">목록으로 돌아가기</button>
+  </div>;
 
   const diff = DIFF[quest.difficulty] || DIFF.easy;
   const checkedNotRewarded = students.filter(s => isChecked(s.id) && !isRewarded(s.id)).length;

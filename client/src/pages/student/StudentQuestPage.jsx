@@ -4,6 +4,7 @@ import {
   writeBatch, serverTimestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { getClassScopedDocs } from '../../utils/scopedFirestore';
 import iconQuest from '../../assets/images/icon-quest.png';
 import { getMaxExpForLevel } from '../../utils/leveling';
 
@@ -258,23 +259,8 @@ function StudentQuestPage({ studentCode, themeMode = 'dark' }) {
             setStudentId(sDoc.id);
             setStudentName(sData.name || sData.studentCode);
 
-            // teacherUid로 퀘스트 필터링
-            // fallback(teacherUid:null)은 테스트 계정(admin_master_001)에만 적용
-            const isTestAccount = sData.teacherUid === 'admin_master_001';
-            let allQuests = [];
-            if (sData.teacherUid) {
-              const qs = await getDocs(
-                query(collection(db, 'quests'), where('teacherUid', '==', sData.teacherUid))
-              );
-              allQuests = qs.docs.map(d => ({ id: d.id, ...d.data() }));
-              if (allQuests.length === 0 && isTestAccount) {
-                const qs2 = await getDocs(collection(db, 'quests'));
-                allQuests = qs2.docs.map(d => ({ id: d.id, ...d.data() })).filter(q => !q.teacherUid);
-              }
-            } else {
-              const qs = await getDocs(collection(db, 'quests'));
-              allQuests = qs.docs.map(d => ({ id: d.id, ...d.data() }));
-            }
+            const qs = await getClassScopedDocs(db, 'quests', sData);
+            const allQuests = qs.docs.map(d => ({ id: d.id, ...d.data() }));
             allQuests.sort((a, b) => {
               if (a.type !== b.type) return a.type === 'daily' ? -1 : 1;
               return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);

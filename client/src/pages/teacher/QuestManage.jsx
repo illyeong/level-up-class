@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, setDoc,
-  serverTimestamp, query, where, writeBatch,
+  serverTimestamp, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import iconQuest from '../../assets/images/icon-quest.png';
 import QuestDetail from './QuestDetail';
 import { applyExpDelta } from '../../utils/leveling';
+import { getClassScopedDocs } from '../../utils/scopedFirestore';
+import { currentQuestCompletion } from '../../utils/questPeriod';
+import { getClassOperationErrorMessage } from '../../utils/classOperationFeedback';
 
 const SKILL_OPTIONS = ['인성', '의사소통', '성실성', '창의성', '협동심', '자기관리'];
 
@@ -599,6 +602,7 @@ function QuestManage({ selectedClass }) {
   const [quests, setQuests]       = useState([]);
   const [studentCount, setStudentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [mainTab, setMainTab]     = useState('active');
   const [recommended, setRecommended] = useState(RECOMMENDED);
   const [filter, setFilter]       = useState('all');
@@ -621,10 +625,11 @@ function QuestManage({ selectedClass }) {
 
   const fetchData = async () => {
     setIsLoading(true);
+    setLoadError('');
     try {
       const [studentsSnap, questsSnap] = await Promise.all([
-        getDocs(collection(db, 'students')),
-        getDocs(collection(db, 'quests')),
+        getClassScopedDocs(db, 'students', selectedClass),
+        getClassScopedDocs(db, 'quests', selectedClass),
       ]);
 
       // teacherUid로 필터링 (없으면 전체, admin_master_001은 null 퀘스트 포함)
@@ -640,21 +645,12 @@ function QuestManage({ selectedClass }) {
       // 각 퀘스트의 체크 완료 인원 가져오기
       const listWithStats = await Promise.all(
         list.map(async quest => {
-          try {
+          if (quest.active === false) return quest;
             const snap = await getDocs(collection(db, 'quests', quest.id, 'completions'));
-            const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
             const checkedCount = snap.docs.filter(d => {
-              const data = d.data();
-              if (data.checked !== true) return false;
-              if (!quest.repeatDaily) return true; // 반복 아닌 퀘스트는 날짜 무관
-              const ts = data.checkedAt;
-              const checkedAt = ts?.toDate?.() ?? (ts?.seconds ? new Date(ts.seconds * 1000) : null);
-              return !checkedAt || checkedAt >= todayMidnight; // 오늘 체크한 것만 카운트
+              return currentQuestCompletion(quest, d.data())?.checked === true;
             }).length;
             return { ...quest, checkedCount };
-          } catch {
-            return { ...quest, checkedCount: 0 };
-          }
         })
       );
 
@@ -662,6 +658,7 @@ function QuestManage({ selectedClass }) {
       setQuests(listWithStats);
     } catch (err) {
       console.error('데이터 로딩 에러:', err);
+      setLoadError(getClassOperationErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -673,7 +670,7 @@ function QuestManage({ selectedClass }) {
     getDoc(doc(db, 'systemConfig', 'questTemplates'))
       .then(snap => { if (snap.exists()) setRecommended(snap.data().templates); })
       .catch(() => {});
-  }, []);
+  }, [selectedClass?.id, selectedClass?.teacherUid]);
 
   const loadSharedQuests = async () => {
     setIsSharedLoading(true);
@@ -961,14 +958,14 @@ function QuestManage({ selectedClass }) {
     showConfirm(`"${quest.title}"\n보상을 아직 받지 못한 학생 전체에게 지급할까요?`, async () => {
       try {
         const [studentsSnap, completionsSnap] = await Promise.all([
-          getDocs(collection(db, 'students')),
+          getClassScopedDocs(db, 'students', selectedClass),
           getDocs(collection(db, 'quests', quest.id, 'completions')),
         ]);
         const allStudents = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         const questTid = selectedClass?.teacherUid;
         const students = questTid ? allStudents.filter(s => s.teacherUid === questTid) : allStudents;
         const rewardedIds = new Set(
-          completionsSnap.docs.filter(d => d.data().rewarded).map(d => d.id)
+          completionsSnap.docs.filter(d => currentQuestCompletion(quest, d.data())?.rewarded).map(d => d.id)
         );
         const targets = students.filter(s => !rewardedIds.has(s.id));
 
@@ -990,6 +987,7 @@ function QuestManage({ selectedClass }) {
             rewarded:   true,
             rewardedAt: serverTimestamp(),
             rewardedBy: 'teacher_bulk',
+            acknowledgedAt: null,
           }, { merge: true });
         });
         await batch.commit();
@@ -997,7 +995,7 @@ function QuestManage({ selectedClass }) {
         fetchData();
       } catch (err) {
         console.error('일괄 승인 에러:', err);
-        showToast('일괄 승인 중 오류가 발생했습니다.', 'error');
+        showToast(getClassOperationErrorMessage(err), 'error');
       }
     });
   };
@@ -1016,6 +1014,10 @@ function QuestManage({ selectedClass }) {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
+      {loadError && <div role="alert" className="m-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        {loadError}
+        <button onClick={fetchData} disabled={isLoading} className="ml-3 underline">다시 불러오기</button>
+      </div>}
       {/* 헤더 */}
       <div className="p-6 pb-4">
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

@@ -4,7 +4,8 @@ import { db } from '../../firebase';
 import LevelUpEffect from '../../components/LevelUpEffect';
 import { applyClassQuickSetup, QUICK_SETUP_VERSION } from '../../utils/classQuickSetup';
 import { applyExpDelta, getMaxExpForLevel } from '../../utils/leveling';
-import { approveTopicWritingSubmissions } from '../../utils/topicWritingRewards';
+import { approveTopicWritingSubmissions, isTopicWritingRewardPending } from '../../utils/topicWritingRewards';
+import { getClassScopedDocs } from '../../utils/scopedFirestore';
 import { getEffectiveCosmeticStyles, getHallOfFameBadgeText } from '../../data/avatarCosmetics';
 import { OPERATION_MODE_PRESETS } from '../../utils/operationModePresets';
 
@@ -395,7 +396,7 @@ function TeacherDashboard({
       const pendingNotes = notesSnap.docs.filter(note => studentIds.has(note.data().studentId)).length;
       const pendingTopicWritings = writingSnap.docs.filter(item => {
         const data = item.data();
-        return studentIds.has(data.studentId) && !data.rewardsPaid && data.status !== 'rewarded';
+        return studentIds.has(data.studentId) && isTopicWritingRewardPending(data);
       }).length;
       const pendingQuestRewards = (currentQuestStats || [])
         .reduce((sum, quest) => sum + (quest.pendingRewardCount || 0), 0);
@@ -517,7 +518,7 @@ function TeacherDashboard({
     if (!teacherUid) return;
     try {
       // QuestManage? ?숈씪??諛⑹떇: ?꾩껜 議고쉶 ??硫붾え由??꾪꽣 (where ?몃뜳??臾몄젣 ?뚰뵾)
-      const questsSnap = await getDocs(collection(db, 'quests'));
+      const questsSnap = await getClassScopedDocs(db, 'quests', selectedClass);
       const allQuests = questsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       console.log('[Quest Debug] teacherUid:', teacherUid, '/ ?꾩껜 ?섏뒪????', allQuests.length);
       console.log('[Quest Debug] ?섑뵆:', allQuests.slice(0,3).map(q => ({ id: q.id, teacherUid: q.teacherUid, active: q.active, title: q.title })));
