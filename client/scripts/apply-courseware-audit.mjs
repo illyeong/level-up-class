@@ -8,7 +8,7 @@ import { getFirestore, doc, collection, query, where, documentId, getDocs, runTr
 import { normalizeCoursewareChoices } from '../src/utils/coursewareOptions.js';
 import { validateDeterministicMathQuestion } from '../src/utils/validateCoursewareMathQuestion.js';
 import { questionContentHash, auditChangeHash } from './lib/courseware-audit-hash.mjs';
-import { prepareCoursewareLessonUpdate } from './lib/courseware-lesson-update.mjs';
+import { prepareCoursewareLessonUpdate, serializeCoursewareQuestionForFirestore } from './lib/courseware-lesson-update.mjs';
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const output = resolve('courseware-audit.local/2026-09-02');
@@ -69,12 +69,16 @@ const outcomes = [];
 try {
   for (const [lessonId, changes] of groups) {
     try {
+      const firestoreChanges = changes.map(change => ({
+        ...change,
+        after: serializeCoursewareQuestionForFirestore(change.after),
+      }));
       const result = await runTransaction(db, async transaction => {
         const ref = doc(db, 'aiLessonContent', lessonId);
         const snapshot = await transaction.get(ref);
         if (!snapshot.exists()) throw new Error(`Lesson disappeared: ${lessonId}`);
         const current = snapshot.data();
-        const { questions, applied } = prepareCoursewareLessonUpdate(current, changes);
+        const { questions, applied } = prepareCoursewareLessonUpdate(current, firestoreChanges);
         if (!applied) return { applied: 0, alreadyApplied: true };
         await writeFile(resolve(runDir, `${hash(lessonId)}.before.json`), JSON.stringify({ lessonId, data: current }, null, 2), { flag: 'wx' });
         transaction.update(ref, { questions, updatedAt: serverTimestamp() });
@@ -82,7 +86,7 @@ try {
       }, { maxAttempts: 1 });
       const verifiedSnapshot = await getDocs(query(collection(db, 'aiLessonContent'), where(documentId(), '==', lessonId)));
       const currentQuestions = verifiedSnapshot.docs[0]?.data().questions;
-      if (!currentQuestions || changes.some(change => questionContentHash(currentQuestions[change.questionIndex]) !== questionContentHash(change.after))) throw new Error(`Post-write verification failed: ${lessonId}`);
+      if (!currentQuestions || firestoreChanges.some(change => questionContentHash(currentQuestions[change.questionIndex]) !== questionContentHash(change.after))) throw new Error(`Post-write verification failed: ${lessonId}`);
       outcomes.push({ lessonId, status: 'verified', ...result, ids: changes.map(change => change.id) });
       console.log(JSON.stringify(outcomes.at(-1)));
     } catch (error) {

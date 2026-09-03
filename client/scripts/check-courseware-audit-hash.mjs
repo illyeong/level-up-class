@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { questionContentHash, auditChangeHash } from './lib/courseware-audit-hash.mjs';
-import { prepareCoursewareLessonUpdate } from './lib/courseware-lesson-update.mjs';
+import { prepareCoursewareLessonUpdate, serializeCoursewareQuestionForFirestore } from './lib/courseware-lesson-update.mjs';
 
 const question = { question: '두 점을 고르세요.', options: ['A','B','C','D'], answerIndex: 1,
   shape: { type: 'polygon', dimensions: { sides: 3, vertices: [{x:1,y:2},{x:3,y:4},{x:5,y:6}] } } };
@@ -25,6 +25,11 @@ assert.throws(() => prepareCoursewareLessonUpdate({...current, grade:4}, [change
 assert.throws(() => prepareCoursewareLessonUpdate({...current, questions:[{...question, explanation:'다른 교사의 수정'},untouched]}, [change]), /Concurrent/);
 assert.throws(() => prepareCoursewareLessonUpdate(current, [change,change]), /position/);
 assert.throws(() => prepareCoursewareLessonUpdate(current, [{...change,questionIndex:2}]), /position/);
+
+const legacyTable = { ...question, table: { headers: ['항목', '값'], rows: [['넓이', '12.56']] } };
+const safeTable = serializeCoursewareQuestionForFirestore(legacyTable);
+assert.deepEqual(safeTable.table.rows, [{ cells: ['넓이', '12.56'] }]);
+assert.equal(serializeCoursewareQuestionForFirestore(question), question);
 assert.deepEqual(current.questions, [question,untouched]);
 console.log('문항 반영 사전검사: 동시 수정 차단·재실행 건너뛰기·무관 문항 보존 통과');
 const proposal = { id:'G5-L001-Q01', beforeHash:questionContentHash(question), patch:{answerIndex:2} };

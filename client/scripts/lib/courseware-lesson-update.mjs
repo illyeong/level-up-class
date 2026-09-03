@@ -1,5 +1,20 @@
 import { questionContentHash } from './courseware-audit-hash.mjs';
 
+// Firestore accepts arrays inside maps, but rejects a direct array-of-arrays.
+// The renderer supports both legacy row arrays and the Firestore-safe { cells }
+// representation, so convert only the storage shape without changing content.
+export function serializeCoursewareQuestionForFirestore(question) {
+  const rows = question?.table?.rows;
+  if (!Array.isArray(rows) || !rows.some(Array.isArray)) return question;
+  return {
+    ...question,
+    table: {
+      ...question.table,
+      rows: rows.map(row => Array.isArray(row) ? { cells: [...row] } : row),
+    },
+  };
+}
+
 // Pure preflight for a transaction. Never mutates the live snapshot or replaces
 // unrelated questions, and refuses partial matching after a concurrent edit.
 export function prepareCoursewareLessonUpdate(current, changes) {
