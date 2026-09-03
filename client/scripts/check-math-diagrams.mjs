@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { getFactorListLayout, getNumberLineLayout, getRectangleLayout } from '../src/utils/mathDiagramLayout.js';
+import { getFactorListLayout, getNumberLineLayout, getRectangleLayout, getPolygonLayout, getTrapezoidLayout, getSymmetryPointLayout } from '../src/utils/mathDiagramLayout.js';
 
 const values = Array.from({ length: 12 }, (_, index) => (index + 1) * 8);
 const factors = getFactorListLayout({ groups: [{ label: '8의 배수', values }, { label: '12의 배수', values: [12,24,36,48,60,72,84,96] }] });
@@ -31,4 +31,23 @@ assert.equal(partialGrid.cells.filter(cell => cell.filled).length, 1);
 assert.equal(getRectangleLayout({ width: 3, height: 2, gridSize: 1 }).cells.length, 6);
 const unknownSide = getRectangleLayout({ width: 5, height: '?' });
 assert.ok([unknownSide.x, unknownSide.y, unknownSide.width, unknownSide.height].every(Number.isFinite));
+const octagon = getPolygonLayout({ sides: 8, diagonals: [2,3,4,5,6].map(to => ({ from: 0, to })) });
+assert.equal(octagon.diagonals.length, 5);
+const pentagon = getPolygonLayout({ sides: 5, vertices: ['A','B','C','D','E'], diagonals: [{from:'B',to:'D'},{from:'B',to:'E'},{from:'B',to:'A'},{from:'B',to:'B'},{from:'D',to:'B'}] });
+assert.equal(pentagon.diagonals.length, 2);
+assert.equal(pentagon.diagonals[0].from.label, 'B');
+const supplied = getPolygonLayout({ sides: 3, vertices: [{x:0,y:0,label:'A'},{x:1000,y:0,label:'B'},{x:0,y:1000,label:'C'}] });
+assert.ok(supplied.points.every(p => p.x > 0 && p.x < 220 && p.y > 0 && p.y < 170));
 console.log('약수·배수 목록, 분수/소수/불규칙 눈금, 열린 구간, 직사각형 격자/대각선/미지수 그림 회귀검사 통과');
+console.log('다각형 대각선·꼭짓점 이름·좌표 회귀검사 통과');
+const invertedTrapezoid = getTrapezoidLayout({ topBase: 32, bottomBase: 20 });
+assert.ok(invertedTrapezoid.top > invertedTrapezoid.bottom);
+assert.equal(invertedTrapezoid.top / invertedTrapezoid.bottom, 32/20);
+assert.equal(getTrapezoidLayout({ topBase: 10, bottomBase: 10 }).top, 120);
+const symmetry = getSymmetryPointLayout({axis:'vertical',axisPosition:3,points:[{x:1,y:2,label:'A'},{x:5,y:2,label:'B'}],gridSize:8});
+assert.equal(symmetry.points.length, 2); // Never generate additional mirrors.
+assert.equal(symmetry.axisStart.x, (symmetry.points[0].x+symmetry.points[1].x)/2);
+assert.equal(symmetry.points[0].y, 108);
+const horizontal = getSymmetryPointLayout({axis:'horizontal',axisPosition:4,points:[{x:2,y:1},{x:2,y:7}],gridSize:8});
+assert.equal(horizontal.axisStart.y,(horizontal.points[0].y+horizontal.points[1].y)/2);
+console.log('대칭축 좌표·이름 붙은 교점·자동반사 방지 회귀검사 통과');

@@ -7,6 +7,7 @@ import { initializeApp, deleteApp } from 'firebase/app';
 import { getFirestore, doc, collection, query, where, documentId, getDocs, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { normalizeCoursewareChoices } from '../src/utils/coursewareOptions.js';
 import { validateDeterministicMathQuestion } from '../src/utils/validateCoursewareMathQuestion.js';
+import { questionContentHash } from './lib/courseware-audit-hash.mjs';
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const output = resolve('courseware-audit.local/2026-09-02');
@@ -19,7 +20,9 @@ const gradeArg = process.argv.find(arg => arg.startsWith('--grade='));
 const grades = gradeArg ? [Number(gradeArg.split('=')[1])] : [4, 5, 6];
 if (grades.some(grade => ![4, 5, 6].includes(grade))) throw new Error('Only grades 4–6 are in scope');
 const apply = process.argv.includes('--apply');
-const proposals = (await Promise.all(grades.map(grade => json(`grade${grade}-corrections.json`)))).flat();
+const proposalFiles = grades.flatMap(grade => grade === 4
+  ? ['grade4-corrections.json', 'grade4-root-corrections.json'] : [`grade${grade}-corrections.json`]);
+const proposals = (await Promise.all(proposalFiles.map(json))).flat();
 const approvals = apply ? new Map((await json('approvals.json')).map(item => [item.id, item])) : new Map();
 const allowedFields = new Set(['question', 'options', 'answerIndex', 'explanation', 'shape', 'table']);
 const seen = new Set();
@@ -65,13 +68,13 @@ try {
         const snapshot = await transaction.get(ref);
         if (!snapshot.exists()) throw new Error(`Lesson disappeared: ${lessonId}`);
         const current = snapshot.data();
-        if (!grades.includes(Number(current.grade))) throw new Error(`Live grade no longer in scope: ${lessonId}`);
+        if (changes.some(change => Number(current.grade) !== change.grade)) throw new Error(`Live grade changed: ${lessonId}`);
         const questions = [...current.questions];
         let applied = 0;
         for (const change of changes) {
-          const liveHash = hash(questions[change.questionIndex]);
-          if (liveHash === change.afterHash) continue; // Idempotent resume.
-          if (liveHash !== change.beforeHash) throw new Error(`Concurrent question edit; do not overwrite ${change.id}`);
+          const liveHash = questionContentHash(questions[change.questionIndex]);
+          if (liveHash === questionContentHash(change.after)) continue; // Idempotent resume.
+          if (liveHash !== questionContentHash(change.before)) throw new Error(`Concurrent question edit; do not overwrite ${change.id}`);
           questions[change.questionIndex] = change.after;
           applied += 1;
         }
@@ -82,7 +85,7 @@ try {
       }, { maxAttempts: 1 });
       const verifiedSnapshot = await getDocs(query(collection(db, 'aiLessonContent'), where(documentId(), '==', lessonId)));
       const currentQuestions = verifiedSnapshot.docs[0]?.data().questions;
-      if (!currentQuestions || changes.some(change => hash(currentQuestions[change.questionIndex]) !== change.afterHash)) throw new Error(`Post-write verification failed: ${lessonId}`);
+      if (!currentQuestions || changes.some(change => questionContentHash(currentQuestions[change.questionIndex]) !== questionContentHash(change.after))) throw new Error(`Post-write verification failed: ${lessonId}`);
       outcomes.push({ lessonId, status: 'verified', ...result, ids: changes.map(change => change.id) });
       console.log(JSON.stringify(outcomes.at(-1)));
     } catch (error) {

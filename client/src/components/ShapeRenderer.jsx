@@ -1,5 +1,5 @@
 import React from 'react';
-import { getFactorListLayout, getNumberLineLayout, getRectangleLayout } from '../utils/mathDiagramLayout';
+import { getFactorListLayout, getNumberLineLayout, getRectangleLayout, getPolygonLayout, getTrapezoidLayout, getSymmetryPointLayout } from '../utils/mathDiagramLayout';
 
 const W = 220, H = 170;
 
@@ -445,7 +445,6 @@ const renderers = {
         {/* 눈금 (12개) */}
         {Array.from({ length: 12 }, (_, i) => {
           const a = (i / 12) * 2 * Math.PI - Math.PI / 2;
-          const isMajor = true;
           const r1 = r - 8, r2 = r - 2;
           return (
             <line key={i}
@@ -698,20 +697,16 @@ const renderers = {
 
   // ── 다각형 (오각형·육각형 등) ─────────────────────────────────
   polygon({ d, u }) {
-    const sides = Math.max(3, d.sides || 5);
-    const r = 60;
-    const cx = W/2, cy = H/2;
-    const start = -Math.PI / 2;
-    const pts = Array.from({ length: sides }, (_, i) => {
-      const a = start + (2 * Math.PI * i) / sides;
-      return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-    });
+    const { sides, points, diagonals } = getPolygonLayout(d);
+    const pts = points.map(point => [point.x, point.y]);
     const ptsStr = pts.map(([x, y]) => `${x},${y}`).join(' ');
     const sideLabel = d.side ? `${d.side}${u}` : '';
 
     return (
       <>
         <polygon points={ptsStr} fill={FILL} stroke={STROKE} strokeWidth={SW} />
+        {diagonals.map((line, i) => <line key={i} x1={line.from.x} y1={line.from.y} x2={line.to.x} y2={line.to.y} stroke="#dc2626" strokeWidth="1.5" />)}
+        {points.map((point, i) => point.label ? <Label key={i} x={point.x + (point.x - W/2) * 0.18} y={point.y + (point.y - H/2) * 0.18 + 4} text={point.label} small /> : null)}
         {sideLabel && (
           <Label x={(pts[0][0]+pts[1][0])/2+6} y={(pts[0][1]+pts[1][1])/2+4} text={sideLabel} small />
         )}
@@ -884,6 +879,26 @@ const renderers = {
 
   // ── 사다리꼴 ─────────────────────────────────────────────────
   symmetry({ d }) {
+    // Explicit points are already the intended figure, not cells to mirror.
+    if (Array.isArray(d.points)) {
+      const layout = getSymmetryPointLayout(d);
+      const { grid, x0, y0, size, step, points, axisStart, axisEnd } = layout;
+      return <>
+        {Array.from({length:grid+1}, (_,i) => <React.Fragment key={i}>
+          <line x1={x0+i*step} y1={y0} x2={x0+i*step} y2={y0+size} stroke="#cbd5e1" strokeWidth="1" />
+          <line x1={x0} y1={y0+i*step} x2={x0+size} y2={y0+i*step} stroke="#cbd5e1" strokeWidth="1" />
+          <text x={x0+i*step} y={y0+size+13} textAnchor="middle" fontSize="8" fill="#475569">{i}</text>
+          <text x={x0-8} y={y0+size-i*step+3} textAnchor="end" fontSize="8" fill="#475569">{i}</text>
+        </React.Fragment>)}
+        {layout.connect && points.length >= 3 && <polygon points={points.map(p=>`${p.x},${p.y}`).join(' ')} fill={FILL} fillOpacity="0.65" stroke={STROKE} strokeWidth="1.5" />}
+        <line x1={axisStart.x} y1={axisStart.y} x2={axisEnd.x} y2={axisEnd.y} stroke="#ef4444" strokeWidth="2" strokeDasharray="4,4" />
+        {points.map((p,i) => <React.Fragment key={i}>
+          <circle cx={p.x} cy={p.y} r="3" fill={STROKE} />
+          <text x={p.x+5} y={p.y-5} fontSize="10" fill="#1e40af" fontWeight="600">{p.label}</text>
+        </React.Fragment>)}
+        <text x={W/2} y={H-3} textAnchor="middle" fontSize="9" fill="#64748b">대칭축: {layout.axis === 'vertical' ? 'x' : 'y'}={layout.axisPosition}</text>
+      </>;
+    }
     const axis = d.axis === 'horizontal' ? 'horizontal' : 'vertical';
     const cells = Array.isArray(d.cells) ? d.cells.slice(0, 8) : [];
     const grid = 8;
@@ -933,7 +948,7 @@ const renderers = {
   },
 
   trapezoid({ d, u }) {
-    const bB = 120, tB = 70, hLen = 72;
+    const { bottom: bB, top: tB, height: hLen } = getTrapezoidLayout(d);
     const cx = W/2, cy = H/2;
     const y1 = cy + hLen/2, y2 = cy - hLen/2;
     const pts = `${cx-bB/2},${y1} ${cx+bB/2},${y1} ${cx+tB/2},${y2} ${cx-tB/2},${y2}`;
@@ -946,9 +961,9 @@ const renderers = {
         <Label x={cx} y={y1 + 18} text={bbLbl} />
         <Label x={cx} y={y2 - 7}  text={tbLbl} />
         {hLbl && <>
-          <line x1={cx - bB/2 - 14} y1={y2} x2={cx - bB/2 - 14} y2={y1}
+          <line x1={cx - Math.max(tB,bB)/2 - 14} y1={y2} x2={cx - Math.max(tB,bB)/2 - 14} y2={y1}
             stroke="#93c5fd" strokeWidth="1.5" strokeDasharray="3,3" />
-          <Label x={cx - bB/2 - 20} y={(y1+y2)/2 + 4} text={hLbl} anchor="end" />
+          <Label x={cx - Math.max(tB,bB)/2 - 20} y={(y1+y2)/2 + 4} text={hLbl} anchor="end" />
         </>}
       </>
     );
@@ -974,7 +989,7 @@ export default function ShapeRenderer({ shape, className = '' }) {
     <div className={`flex justify-center my-3 ${className}`}>
       <svg
         viewBox={`0 0 ${vw} ${vh}`}
-        className={`w-full h-auto ${shape.type === 'number_line' ? 'max-w-[760px]' : isWideChart ? 'max-w-[300px]' : 'max-w-[220px]'}`}
+        className={`w-full h-auto overflow-visible ${shape.type === 'number_line' ? 'max-w-[760px]' : isWideChart ? 'max-w-[300px]' : 'max-w-[220px]'}`}
       >
         {element}
       </svg>

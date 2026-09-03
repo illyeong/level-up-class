@@ -3,7 +3,8 @@ export const config = { maxDuration: 60 };
 import { hasMissingRequiredVisual, inferFractionBarShape } from '../src/utils/inferFractionBarShape.js';
 import { validateDeterministicMathQuestion } from '../src/utils/validateCoursewareMathQuestion.js';
 import { normalizeCoursewareChoices } from '../src/utils/coursewareOptions.js';
-import { getEquivalentFractionAnswerIndex as getEquivalentFractionPairIndex } from '../src/utils/coursewareArithmetic.js';
+import { evaluateCoursewareExpression } from '../src/utils/coursewareArithmetic.js';
+import { getSymmetryPointLayout } from '../src/utils/mathDiagramLayout.js';
 
 const SHAPE_TYPES = new Set([
   'clock', 'ruler', 'angle', 'fraction_bar', 'picture_graph', 'bar_chart', 'line_chart',
@@ -13,7 +14,7 @@ const SHAPE_TYPES = new Set([
   'cuboid', 'cube', 'triangular_prism', 'square_pyramid', 'cylinder', 'cone', 'sphere', 'factor_list',
 ]);
 
-const COURSEWARE_GENERATOR_VERSION = 'quality-v21-shared-choice-arithmetic-qa';
+const COURSEWARE_GENERATOR_VERSION = 'quality-v22-conservative-answer-qa';
 
 const normalizeKey = (value) =>
   String(value ?? '').replace(/\s+/g, '').replace(/[①②③④0-9().,!?~]/g, '').slice(0, 80);
@@ -75,35 +76,14 @@ const parseSingleFractionValue = (text) => {
   return integer ? simplifyFraction({ num: Number(integer[0]), den: 1 }) : null;
 };
 
-const evalFractionExpression = (text) => {
-  const compact = normalizeMathText(text).replace(/\s+(?=\d+\s*\/)/g, ' ');
-  const parts = compact.match(/[+-]?\s*\d+(?:\s+\d+\s*\/\s*\d+|\s*\/\s*\d+)?/g) || [];
-  const fractions = parts.map(part => {
-    const sign = part.startsWith('-') ? -1 : 1;
-    const raw = part.replace(/^[+-]/, '').trim();
-    const fraction = parseSingleFractionValue(raw);
-    return fraction ? { n: fraction.num * sign, d: fraction.den } : null;
-  });
-  if (!fractions.length || fractions.some(v => !v)) return null;
-  let num = 0;
-  let den = 1;
-  fractions.forEach(f => {
-    num = num * f.d + f.n * den;
-    den *= f.d;
-    const g = gcd(num, den);
-    num /= g;
-    den /= g;
-  });
-  return { num, den, value: num / den };
-};
-
-const evalFractionEquation = (text) => {
+// Only complete numeric sides are evaluable. Words, unknown operands, units,
+// and statements such as "pencil 5 = eraser 15" must never lose their meaning.
+const evaluateNumericEquation = (text) => {
   const parts = String(text || '').split('=');
-  if (parts.length !== 2) return null;
-  const left = evalFractionExpression(parts[0]);
-  const right = evalFractionExpression(parts[1]);
-  if (!left || !right) return null;
-  return Math.abs(left.value - right.value) < 1e-9;
+  if (parts.length < 2) return null;
+  const values = parts.map(evaluateCoursewareExpression);
+  if (values.some(value => value == null)) return null;
+  return values.every(value => Math.abs(value - values[0]) < 1e-9);
 };
 
 const simplifyFraction = ({ num, den }) => {
@@ -118,157 +98,34 @@ const sameFraction = (a, b) => {
   return !!left && !!right && left.num === right.num && left.den === right.den;
 };
 
-const getSameDenominatorSum = (text) => {
-  const src = String(text || '');
-  const asksSum = src.includes('+') || includesAny(src, ['합', '더', '모두', '얼마', '구하']);
-  if (!asksSum) return null;
-  const leftSide = src.split('=')[0];
-  const fractions = parseFractions(leftSide);
-  if (fractions.length < 2) return null;
-  const dens = new Set(fractions.map(f => f.d));
-  if (dens.size !== 1) return null;
-  return { num: fractions.reduce((sum, f) => sum + f.n, 0), den: fractions[0].d };
-};
-
-const getFractionOperationExpected = (text) => {
-  const src = String(text || '');
-  if (!/[+-]/.test(src) && !includesAny(src, ['합', '더', '덧셈', '차', '빼', '뺐', '남은'])) return null;
-  const fractions = parseFractions(src.split('=')[0]);
-  if (fractions.length < 2) return null;
-  const isSubtraction = /-/.test(src) || (includesAny(src, ['차', '빼', '뺐', '남은']) && !includesAny(src, ['합', '더', '덧셈', '모두']));
-  let num = fractions[0].n;
-  let den = fractions[0].d;
-  fractions.slice(1).forEach(f => {
-    num = isSubtraction ? num * f.d - f.n * den : num * f.d + f.n * den;
-    den *= f.d;
-    const g = gcd(num, den);
-    num /= g;
-    den /= g;
-  });
-  return simplifyFraction({ num, den });
-};
-
-const getFractionMulDivExpected = (text) => {
-  const operand = String.raw`(?:\d+\s+\d+\s*\/\s*\d+|\d+\s*\/\s*\d+|\d+)`;
-  const match = String(text || '').match(new RegExp(`(${operand})\\s*([×xX*÷])\\s*(${operand})`));
-  if (!match) return null;
-  const left = parseSingleFractionValue(match[1]);
-  const right = parseSingleFractionValue(match[3]);
-  if (!left || !right || (match[2] === '÷' && right.num === 0)) return null;
-  return match[2] === '÷'
-    ? simplifyFraction({ num: left.num * right.den, den: left.den * right.num })
-    : simplifyFraction({ num: left.num * right.num, den: left.den * right.den });
-};
-
-const evalFractionMulDivEquation = (text) => {
-  const parts = String(text || '').split('=');
-  if (parts.length !== 2) return null;
-  const left = getFractionMulDivExpected(parts[0]);
-  const right = parseSingleFractionValue(parts[1]);
-  return left && right ? sameFraction(left, right) : null;
-};
-
 const uniqueIndex = (items, predicate) => {
   const matches = items.map(predicate);
   return matches.filter(Boolean).length === 1 ? matches.findIndex(Boolean) : -1;
 };
 
-const evaluateWholeNumberExpression = (text) => {
-  const numbers = String(text || '').match(/\d+(?:\.\d+)?/g)?.map(Number) || [];
-  const operators = String(text || '').match(/[+\-×xX*÷]/g) || [];
-  if (numbers.length < 2 || operators.length !== numbers.length - 1) return null;
-  const reducedNumbers = [numbers[0]];
-  const reducedOperators = [];
-  operators.forEach((operator, index) => {
-    const next = numbers[index + 1];
-    if (operator === '×' || operator === 'x' || operator === 'X' || operator === '*' || operator === '÷') {
-      const previous = reducedNumbers.pop();
-      reducedNumbers.push(operator === '÷' ? (next === 0 ? NaN : previous / next) : previous * next);
-    } else {
-      reducedOperators.push(operator);
-      reducedNumbers.push(next);
-    }
-  });
-  const result = reducedOperators.reduce(
-    (value, operator, index) => operator === '+' ? value + reducedNumbers[index + 1] : value - reducedNumbers[index + 1],
-    reducedNumbers[0],
-  );
-  return Number.isFinite(result) ? result : null;
-};
-
-const getWholeNumberExpected = (text) => {
-  const source = String(text || '');
-  const numberPattern = String.raw`\d+(?:\.\d+)?`;
-  const expressionPattern = new RegExp(`(${numberPattern}\\s*[+\\-×xX*÷]\\s*${numberPattern}(?:\\s*[+\\-×xX*÷]\\s*${numberPattern})?)`);
-  const equation = source.match(new RegExp(`${expressionPattern.source}\\s*=\\s*[?□]`));
-  if (equation) return evaluateWholeNumberExpression(equation[1]);
-  if (!includesAny(source, ['계산하세요', '계산하면', '계산하여', '계산을 하세요', '값은 얼마'])) return null;
-  const expressions = source.match(new RegExp(expressionPattern.source, 'g')) || [];
-  return expressions.length === 1 ? evaluateWholeNumberExpression(expressions[0]) : null;
-};
-
-const parseWholeNumberOption = (value) => {
-  const match = String(value ?? '').trim().match(/^(-?\d+(?:\.\d+)?)(?:개|명|마리|자루|점|m|cm|㎡|㎠|㎥|%|배)?$/);
-  return match ? Number(match[1]) : null;
-};
-
-const getWholeNumberComparisonIndex = (question, options) => {
-  const asksLargest = includesAny(question, ['계산 결과가 가장 큰']);
-  const asksSmallest = includesAny(question, ['계산 결과가 가장 작은']);
-  if (!asksLargest && !asksSmallest) return null;
-  const values = options.map(option => {
-    const expression = String(option || '').match(/^\s*\d+(?:\.\d+)?\s*[+\-×xX*÷]\s*\d+(?:\.\d+)?\s*$/);
-    return expression ? evaluateWholeNumberExpression(expression[0]) : parseWholeNumberOption(option);
-  });
-  if (values.some(value => value == null)) return -1;
-  const target = asksSmallest ? Math.min(...values) : Math.max(...values);
-  return uniqueIndex(values, value => value === target);
-};
-
-const hasKoreanPhrase = (text, phrases) => {
-  const src = normalizeText(text);
-  return phrases.some(phrase => src.includes(normalizeText(phrase)));
-};
-
-const fixFractionAnswer = (q) => {
-  const options = q.options || [];
-  const combined = [q.question, ...options, q.explanation].join('\n');
-  if (hasMalformedFractionText(combined)) return null;
-
-  const equivalentPairIndex = getEquivalentFractionPairIndex(q.question, options);
-  if (equivalentPairIndex != null) {
-    return equivalentPairIndex >= 0 ? { ...q, answerIndex: equivalentPairIndex } : null;
+// null means unsupported semantics: preserve the supplied answer. -1 means a
+// completely understood selection has zero/multiple correct choices: reject it.
+const getNumericSelectionAnswerIndex = (question, options) => {
+  const text = String(question || '').replace(/\s+/g, '').replace(/[?.!]+$/, '');
+  const ending = '(?:것|것은|것을|수|수는|수를|분수|분수는|분수를)(?:어느것(?:입니까|인가요|일까요)|무엇(?:입니까|인가요)|고르(?:세요|시오)|찾으(?:세요|시오))?';
+  // Equation truth is not the same as selecting the right model, operation,
+  // simplified form, or intermediate step. Only generic truth prompts qualify.
+  const truth = text.match(new RegExp(`^(?:다음(?:중|식중|계산중|계산식중|등식중))?(?:(?:계산(?:결과)?|계산식|등식|식|몫)(?:이|가|을|를)?)?(올바르게계산한|바르게계산한|바르게짝지은|올바른|옳은|맞는|틀린|잘못된|맞지않는|옳지않은)${ending}$`));
+  if (truth) {
+    const checks = options.map(evaluateNumericEquation);
+    if (checks.some(value => value == null)) return null;
+    const asksIncorrect = /틀린|잘못된|않/.test(truth[1]);
+    return uniqueIndex(checks, value => asksIncorrect ? !value : value);
   }
-
-  const equationChecks = options.map(evalFractionEquation);
-  if (equationChecks.some(v => v !== null)) {
-    if (equationChecks.some(v => v === null)) return null;
-    const idx = uniqueIndex(equationChecks, Boolean);
-    return idx >= 0 ? { ...q, answerIndex: idx } : null;
-  }
-
-  const expected = getFractionOperationExpected(q.question)
-    || getFractionMulDivExpected(q.question)
-    || getSameDenominatorSum(q.question);
-  if (expected) {
-    const idx = uniqueIndex(options, opt => {
-      const value = parseSingleFractionValue(opt);
-      return value && sameFraction(value, expected);
-    });
-    return idx >= 0 ? { ...q, answerIndex: idx } : null;
-  }
-
-  const asksLargest = hasKoreanPhrase(q.question, ['가장 큰', '제일 큰', '큰 것은', '가장 클']);
-  const asksSmallest = hasKoreanPhrase(q.question, ['가장 작은', '제일 작은', '작은 것은', '1보다 작은']);
-  if ((asksLargest || asksSmallest) && options.some(opt => String(opt).includes('/'))) {
-    const values = options.map(getComparableFractionValue);
-    if (values.some(v => v == null)) return null;
-    const target = asksSmallest ? Math.min(...values) : Math.max(...values);
-    const idx = uniqueIndex(values, v => Math.abs(v - target) < 1e-9);
-    return idx >= 0 ? { ...q, answerIndex: idx } : null;
-  }
-
-  return q;
+  const comparison = text.match(new RegExp(`^(?:다음(?:중|수중|분수중|식중)|다음식을계산했을때)?(?:(?:분수의나눗셈|계산)?결과가|계산한값이|크기가)?(가장큰|가장작은|제일큰|제일작은|1보다큰|1보다작은)${ending}$`));
+  if (!comparison) return null;
+  const values = options.map(evaluateCoursewareExpression);
+  if (values.some(value => value == null)) return null;
+  const criterion = comparison[1];
+  if (criterion === '1보다큰') return uniqueIndex(values, value => value > 1);
+  if (criterion === '1보다작은') return uniqueIndex(values, value => value < 1);
+  const target = criterion.endsWith('작은') ? Math.min(...values) : Math.max(...values);
+  return uniqueIndex(values, value => Math.abs(value - target) < 1e-9);
 };
 
 const hasSameDenominatorFractionFocus = (payload, ragSection) => {
@@ -317,13 +174,6 @@ const hasDecimalDivisionExpression = (text) =>
 
 const hasMalformedFractionText = (text) =>
   /(^|[^\d])\/\s*\d+/.test(String(text || '')) || /\d+\s*\/(?!\s*\d)/.test(String(text || ''));
-
-const getComparableFractionValue = (text) => {
-  const expr = evalFractionExpression(text);
-  if (expr) return expr.value;
-  const frac = parseFractions(text)[0];
-  return frac ? frac.n / frac.d : null;
-};
 
 const finite = (value, fallback = null) => {
   const n = Number(value);
@@ -543,7 +393,8 @@ const sanitizeShape = (shape, context = {}) => {
     return { type, dimensions: d, unit };
   }
   if (type === 'polygon') {
-    return { type, dimensions: { ...d, sides: Math.round(clamp(d.sides, 3, 10, 5)), side: finite(d.side) || undefined }, unit };
+    // Preserve explicit vertices/diagonals, including polygons above 10 sides.
+    return { type, dimensions: { ...d, sides: Math.trunc(clamp(d.sides, 3, 30, 5)), side: finite(d.side) || undefined }, unit };
   }
   if (type === 'angle') {
     if (!context.angleLesson) return null;
@@ -587,6 +438,11 @@ const sanitizeShape = (shape, context = {}) => {
     };
   }
   if (type === 'symmetry') {
+    if (Array.isArray(d.points) && d.points.length) {
+      const layout = getSymmetryPointLayout(d);
+      if (layout.points.length !== d.points.length) return null;
+      return { type, dimensions: { ...d, axis: layout.axis, points: d.points.map(point => ({ ...point })) } };
+    }
     const axis = d.axis === 'horizontal' ? 'horizontal' : 'vertical';
     const cells = asList(d.cells, 8)
       .map(cell => Array.isArray(cell) ? { x: finite(cell[0]), y: finite(cell[1]) } : { x: finite(cell.x), y: finite(cell.y) })
@@ -596,6 +452,21 @@ const sanitizeShape = (shape, context = {}) => {
   }
 
   return { type, dimensions: d, unit };
+};
+
+const sanitizeTable = (table) => {
+  if (table == null) return null;
+  if (typeof table !== 'object' || !Array.isArray(table.headers) || !table.headers.length || !Array.isArray(table.rows)) return null;
+  const cellIsRenderable = cell => typeof cell === 'string' || (typeof cell === 'number' && Number.isFinite(cell));
+  if (!table.headers.every(cellIsRenderable)) return null;
+  const rows = table.rows.map(row => Array.isArray(row) ? row : row?.cells);
+  if (rows.some(row => !Array.isArray(row) || row.length !== table.headers.length || !row.every(cellIsRenderable))) return null;
+  // Both row arrays and { cells } are supported by the shared table renderer.
+  return {
+    ...table,
+    headers: [...table.headers],
+    rows: table.rows.map(row => Array.isArray(row) ? [...row] : { ...row, cells: [...row.cells] }),
+  };
 };
 
 const optionNumber = (value) => {
@@ -742,23 +613,11 @@ const isNearDuplicate = (left, right) => {
   return intersection / union >= 0.82;
 };
 
-const verifyFractionQuestionAnswer = (q) => {
-  const question = String(q.question || '');
-  const expected = getFractionOperationExpected(question) || getFractionMulDivExpected(question);
-  if (!expected) return true;
-  const correct = parseSingleFractionValue(q.options?.[q.answerIndex] || '');
-  return !!correct && sameFraction(correct, expected);
-};
-
-const verifyFractionExplanation = (q) => {
-  const equations = String(q.explanation || '').match(
-    /(?:\d+\s+(?:\d+\s*\/\s*\d+)|\d+\s*\/\s*\d+|\d+)(?:\s*[+-]\s*(?:\d+\s+(?:\d+\s*\/\s*\d+)|\d+\s*\/\s*\d+|\d+))+\s*=\s*(?:\d+\s+(?:\d+\s*\/\s*\d+)|\d+\s*\/\s*\d+|\d+)/g,
-  ) || [];
-  const mulDivEquations = String(q.explanation || '').match(
-    /(?:\d+\s+\d+\s*\/\s*\d+|\d+\s*\/\s*\d+|\d+)\s*[×xX*÷]\s*(?:\d+\s+\d+\s*\/\s*\d+|\d+\s*\/\s*\d+|\d+)\s*=\s*(?:\d+\s+\d+\s*\/\s*\d+|\d+\s*\/\s*\d+|\d+)(?!\s*[\/×xX*÷=])/g,
-  ) || [];
-  return equations.every(equation => evalFractionEquation(equation) === true)
-    && mulDivEquations.every(equation => evalFractionMulDivEquation(equation) === true);
+const verifyNumericExplanation = (q) => {
+  // Do not extract a calculation from prose: it may describe a wrong example,
+  // an intermediate step, or only one part of a longer equality chain.
+  const equation = String(q.explanation || '').trim().replace(/[.!]+$/, '');
+  return evaluateNumericEquation(equation) !== false;
 };
 
 const isOffTopicQuestion = (q, context = {}) => {
@@ -846,31 +705,9 @@ const hasExactlyOneVerifiableAnswer = (q) => {
   if (deterministicResult.applicable) {
     return deterministicResult.valid && deterministicResult.answerIndex === q.answerIndex;
   }
-  const equivalentPairIndex = getEquivalentFractionPairIndex(question, options);
-  if (equivalentPairIndex != null) return equivalentPairIndex >= 0 && q.answerIndex === equivalentPairIndex;
-  if (/가장\s*큰|가장\s*작은/.test(question) && options.some(opt => String(opt).includes('/'))) {
-    const values = options.map(getComparableFractionValue);
-    if (values.some(v => v == null)) return false;
-    const target = /가장\s*작은/.test(question) ? Math.min(...values) : Math.max(...values);
-    const matches = values.map(v => Math.abs(v - target) < 1e-9);
-    return matches.filter(Boolean).length === 1 && matches[q.answerIndex] === true;
-  }
-  if (!verifyFractionQuestionAnswer(q)) return false;
-  if (!verifyFractionExplanation(q)) return false;
-  if (/올바른|맞는/.test(question) && options.some(opt => String(opt).includes('='))) {
-    const checks = options.map(evalFractionEquation);
-    if (checks.some(v => v === null)) return false;
-    return checks.filter(Boolean).length === 1 && checks[q.answerIndex] === true;
-  }
-  if (/1보다\s*작은/.test(question)) {
-    const checks = options.map(opt => {
-      const value = evalFractionExpression(opt)?.value;
-      return value == null ? null : value < 1;
-    });
-    if (checks.some(v => v === null)) return false;
-    return checks.filter(Boolean).length === 1 && checks[q.answerIndex] === true;
-  }
-  return true;
+  if (!verifyNumericExplanation(q)) return false;
+  const selectionIndex = getNumericSelectionAnswerIndex(question, options);
+  return selectionIndex == null || (selectionIndex >= 0 && selectionIndex === q.answerIndex);
 };
 
 function tryParseJson(text) {
@@ -898,54 +735,38 @@ function normalizeQuestion(q, index, context = {}) {
     answerIndex: verified.applicable ? verified.answerIndex : answerIndex,
     explanation: String(q.explanation || '').trim(),
   };
-  // Exact calculation takes precedence over the older word-based heuristics.
-  const fractionFixed = verified.applicable ? baseQuestion : fixFractionAnswer(baseQuestion);
-  if (!fractionFixed) return null;
-
-  answerIndex = fractionFixed.answerIndex;
-  const wholeNumberExpected = verified.applicable ? null : getWholeNumberExpected(fractionFixed.question);
-  if (wholeNumberExpected != null) {
-    const wholeNumberOptions = options.map(parseWholeNumberOption);
-    if (wholeNumberOptions.every(value => value != null)) {
-      const correctedIndex = uniqueIndex(wholeNumberOptions, value => Math.abs(value - wholeNumberExpected) < 1e-9);
-      if (correctedIndex < 0) return null;
-      answerIndex = correctedIndex;
+  answerIndex = baseQuestion.answerIndex;
+  if (!verified.applicable) {
+    const selectionIndex = getNumericSelectionAnswerIndex(baseQuestion.question, options);
+    if (selectionIndex != null) {
+      if (selectionIndex < 0) return null;
+      answerIndex = selectionIndex;
     }
-  }
-  const wholeNumberComparisonIndex = getWholeNumberComparisonIndex(fractionFixed.question, options);
-  if (wholeNumberComparisonIndex != null) {
-    if (wholeNumberComparisonIndex < 0) return null;
-    answerIndex = wholeNumberComparisonIndex;
-  }
-  const deterministicResult = validateDeterministicMathQuestion({
-    ...fractionFixed,
-    answerIndex,
-  });
-  if (deterministicResult.applicable) {
-    if (!deterministicResult.valid) return null;
-    answerIndex = deterministicResult.answerIndex;
   }
   const correct = options[answerIndex];
   const shift = index % 4;
   const rotated = [...options.slice(shift), ...options.slice(0, shift)];
   const rotatedAnswerIndex = rotated.findIndex(o => o === correct);
 
-  if (isOffTopicQuestion(fractionFixed, context)) return null;
+  if (isOffTopicQuestion(baseQuestion, context)) return null;
 
   const rawShapeType = q.shape?.type;
   if (context.factorMultiple && ['picture_graph', 'bar_chart', 'line_chart', 'pie_chart', 'band_chart'].includes(rawShapeType)) return null;
   if (context.solidShape && rawShapeType && rawShapeType !== 'multi' && !allowedSolidShapeTypes(context).has(rawShapeType)) return null;
 
   const inferredShape = context.fractionLesson
-    ? inferFractionBarShape(fractionFixed.question, q.shape)
+    ? inferFractionBarShape(baseQuestion.question, q.shape)
     : q.shape;
   const shape = sanitizeShape(inferredShape, context);
   if (q.shape && !shape) return null;
-  if (hasMissingRequiredVisual(fractionFixed.question, shape)) return null;
+  if (hasMissingRequiredVisual(baseQuestion.question, shape)) return null;
+  const table = sanitizeTable(q.table);
+  if (q.table != null && !table) return null;
 
   const normalized = {
     question: String(q.question || '').trim(),
     shape,
+    table,
     options: rotated,
     answerIndex: rotatedAnswerIndex >= 0 ? rotatedAnswerIndex : answerIndex,
     explanation: String(q.explanation || '').trim(),

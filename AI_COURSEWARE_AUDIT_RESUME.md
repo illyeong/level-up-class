@@ -1,6 +1,45 @@
-# AI 학습관 4~6학년 전수검수 — 재개 지점 (2026-09-02)
+# AI 학습관 4~6학년 전수검수 — 작업 상태 (2026-09-03)
 
-사용자가 토큰 소진으로 **현재 작업을 중단하고 저장**하도록 요청했다. 다음에 이어서 요청하면 아래 상태부터 재개한다. 아직 전수검수/운영 반영이 완료되지 않았다.
+## 최신 상태 — 아래의 9월 2일 기록보다 우선
+
+사용자 요청으로 작업을 재개했다가 **2026-09-03 09시경 사용자의 재개 저장 요청으로 다시 중단**했다. 운영 DB 쓰기와 배포는 아직 하지 않았다. 다음 요청 때 아래 지점부터 재개한다.
+
+- 4학년: 전체 1,908문항 검수 완료. 에이전트 1,546문항/519개 수정안 + Root L100–118 전체 362문항/110개 수정안 = 총 629개 수정안.
+- 5학년: **전체 2,471문항 읽기 완료, 수정안 907개 저장 확정**. 기존 후속23개 및 마지막139-Q02/153-Q12/207-Q07 수정도 JSON에 반영. 최종 통합 QA·띄어쓰기·일부 그림 단위/문구 후보 정돈은 미완료이며 `grade5-resume.md` 맨 위에 기록.
+- 6학년: 전체 1,741문항 검수 완료, 수정안 601개. 원본 해시/구조/공통 계산/필수 시각자료/미완성 해설 오류 0. 동치값 후보 58개 정상 사유 기록. `grade6-verification.json` 참고.
+- `apply-courseware-audit.mjs`는 4학년 에이전트 파일과 Root 파일을 함께 읽는다. 에이전트 생성 파일에 Root 수정안을 수동 병합하지 말 것.
+- `check-courseware-audit-proposals.mjs`는 미수정 문항까지 6,120개를 후검사한다. 동치값 경고는 오답끼리 같은 경우/표현 조건 문제도 있으므로 자동 오류로 취급하지 않는다.
+- `summarize-courseware-audit.mjs`는 최신 통합 계획/실제 검토 상태에서 `summary.json`과 `corrected-questions.local.json`을 재생성한다.
+- 공유 계산기: 대분수 Unicode/분수 나눗셈/모호한 슬래시 연쇄 및 선택지 중복 판정 보완. 그림: 다각형 꼭짓점·대각선, 사다리꼴 윗변/아랫변 비율, 격자 교점의 대칭축·점 표시 지원.
+- 회귀 테스트 28건 및 그림/대작전 테스트, 변경 파일 lint, Vite 빌드가 한 차례 통과했다. 이후 생성 API 오보정 발견으로 해당 API 추가 수정 진행 중이므로 **최종 상태 테스트/빌드는 다시 필요**하다. API 수정 중 실행한 테스트는 `getWholeNumberComparisonIndex is not defined`로 실패했으나, 중간 저장 시점과 겹쳤으므로 최종 체크포인트와 재대조한다.
+- API 추가 작업: `inspectCoursewareQuestion`으로 이전 통합본 6,120개를 검사했을 때 정답 인덱스를 잘못 바꾸는 사례 70개 발견. 괄호/빈칸/부분곱/어림셈/가격관계/틀린 식 찾기를 단순 숫자 추출로 오보정하는 원인이다. `review_grade6`가 `generate-courseware.js`를 shared 계산기 기반 보수적 판정으로 변경 중. table 누락 및 symmetry.points/polygon 필드 보존도 담당. `grade6-api-resume.md`가 있으면 먼저 읽을 것. 생성 API의 차시 필터에 의한 reject는 문항 오류와 구분한다.
+- Root 추가 코드: Unicode 대분수와 단독 지수를 구분, `cm²` 표시 보존, `2²`를22로 계산하지 않도록 방어. API와 무관한 숫자/단위 회귀 확인은 통과했다.
+- 반영 스크립트 추가 안전장치: `scripts/lib/courseware-audit-hash.mjs`로 운영 문항 비교 시 객체 키 순서는 무시하되 보기/꼭짓점 배열 순서는 유지. 운영 학년도 원래 수정안과 정확히 일치해야 한다. `check-courseware-audit-hash.mjs` 통과.
+- 실제 UI: 수정된 분수 눈금/대분수, 다각형 B-D/B-E 대각선, 윗변32/아랫변20 사다리꼴 및 단위 라벨, 분수 나눗셈/반지름-넓이 표를 확인했다. 로컬 미리보기 HTML 보존, Vite 임시서버5175 종료.
+- **중단 직전 통합 계획 저장 완료: 2,137개 수정안 / 330차시, 공통 검증 충돌0.** 최종5학년 저장 이후 `G5-L207-Q07` 등3개 후보가 해결됐고, 전체6,120개 후검사에서 구조/공통 검산/필수 시각자료/미완성 해설 후보0. 동치값 후보는4학년14/5학년82/6학년58(각 담당자가 조건부 정상 확인). `AUDIT_RESULT.md`, `corrected-questions.local.json`, `summary.json`, `plan-4-5-6.json`을 현재 수정안으로 재생성했다. 단, 추가 API 통합 QA와5학년 마무리 정돈은 남았으므로 즉시 운영 반영용 최종 승인본은 아니다.
+- `summarize-courseware-audit.mjs`에는 현재 수정안과 계획의 해시가 다르면 중단하는 검사를 추가했다. **dry-run 성공 후에만** summary를 재생성한다.
+- 2026-09-03 읽기 전용 Firestore 트랜잭션 1회에서 `RESOURCE_EXHAUSTED: Quota exceeded` 재확인. 사용자에게 사용량/결제 안내 확인 요청했으며 응답 대기. 실패 재시도 반복이나 무조건 덮어쓰기 금지.
+- 운영 DB 수정 0건, 배포 없음, 승인 파일 `approvals.json` 아직 없음.
+
+### 다음 재개 순서
+
+1. `grade5-resume.md`, `grade5-review-report.json`, `grade6-api-resume.md` 및 아래 중단 확정 내용을 읽고 실제 파일 상태 확인.
+2. API 추가 작업 마무리와 전용 회귀 테스트. 전체 수정문항을 `inspectCoursewareQuestion`에 다시 대조하여 잘못된 정답 재보정이 사라졌는지 확인.
+3. `node scripts/apply-courseware-audit.mjs` dry-run → `node scripts/check-courseware-audit-proposals.mjs` → `node scripts/summarize-courseware-audit.mjs` 순으로 재생성. 모든 실제 검수 ID 합계6,120, 미검토0, 원본해시/중복/공통검산 충돌0 확인.
+4. `npm run test:courseware`, `npm run test:class-operation`, `node scripts/check-courseware-audit-hash.mjs`, 새 API 테스트, 변경 파일 lint와 `npm run build` 재실행.
+5. 사용자에게 Firestore 할당량 해소 여부 확인. 해소 전 DB 쓰기/배포 완료라고 보고하지 말 것. 승인 해시 파일 생성 및 트랜잭션 기반 반영/사후 조회는 아직 남아 있다.
+
+### 중단 시 추가 확인
+
+- API 담당 에이전트가 ReferenceError 해결 및 전체6,120개 실행 가능 확인. 기존70개 오보정은 제거됐고, **구버전 통합 계획 기준** 정답변경2개(`G5-L227-Q07`, `G5-L227-Q14`)는 기존 문제의 정답 오류 후보라고 보고했다. 최신5학년 수정안에 이미 반영됐는지 먼저 대조. 당시 API accepted5,839/rejected281(차시 필터 등 포함)이며 아직 최종 통합 검증은 아니다.
+- Root의 `node --check api/generate-courseware.js` 통과. 새 회귀 스크립트/진단 파일은 담당 에이전트 중단 메모 확인.
+- API 담당 저장 확정: `scripts/check-courseware-api-safe-normalization.mjs` 16/16 통과, `api-safe-normalization-verification.json`과 `grade6-api-resume.md` 저장. 5학년 담당자는 L227-Q07(index0)/Q14(index3)가 최신907개 수정안에 이미 포함됐음을 확인. API 진단은 구버전 계획 기준이므로 최신2,137개 계획으로 다시 실행해야 한다.
+- 최종 저장 시 전체 검수6,120/6,120, 수정안4학년629 + 5학년907 + 6학년601 = **2,137개**. 계획 SHA256(JSON 문자열 기준): `72f40bfb7cc16441cb1276f3dacbef0a3f3dad37a5d0f787dbc7c3ca67dc255d`.
+- 모든 보조 에이전트 중단 저장 완료. 사용자 요청대로 추가 작업하지 않고 종료한다. Git commit/push는 하지 않았으며 작업 파일은 현재 디스크에 보존돼 있다.
+
+## 이전 중단 기록 (2026-09-02, 이력용)
+
+아래 내용은 재개 전 체크포인트다. 완료 수/남은 범위는 위 최신 상태를 우선한다.
 
 ## 현재 요청과 권한
 

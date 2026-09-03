@@ -116,6 +116,9 @@ const getRoundingAnswerIndex = (question, options) => {
   const instruction = getRoundingInstruction(question);
   if (!instruction) return null;
   const sourceText = String(question || '').replace(/^\s*\d+[.)]\s+/, '');
+  // This checker handles one rounding operation, not arithmetic performed
+  // after rounding (e.g. round 23 to 20, then estimate 23×4 as 80).
+  if (/[×÷*+]|\d\s*[-−]\s*\d|(?:나타낸|어림한|반올림한)\s*(?:뒤|후)|곱하면|곱한|나누면|나눈|빼면|뺀\s*값/.test(sourceText)) return null;
   if (/\ub354\ud558\uba74|\ud569\uc740|\ud569\uacc4|\ucc28\ub294|\ucd5c\uc18c\s*\uba87|\uba87\s*(?:\uc0c1\uc790|\ubd09\uc9c0|\ubb36\uc74c|\uc870|\ub300|\ud1b5)\uac00?\s*\ud544\uc694/.test(sourceText)) return null;
   const directSource = sourceText.match(/(-?\d[\d,]*(?:\.\d+)?)\s*(?:\uc744|\ub97c)[^.?!]{0,60}?(?:\ubc18\uc62c\ub9bc|\uc62c\ub9bc|\ubc84\ub9bc)/)
     || sourceText.match(/(-?\d[\d,]*(?:\.\d+)?)\s*\uc758\s*(?:\uc18c\uc218\s*(?:\uccab\uc9f8|\ub458\uc9f8|\uc14b\uc9f8|\ub137\uc9f8)|(?:\ucc9c\ub9cc|\ubc31\ub9cc|\uc2ed\ub9cc|\uc5b5|\ub9cc|\ucc9c|\ubc31|\uc2ed|\uc77c)\uc758\s*\uc790\ub9ac)[^.?!]{0,60}?(?:\ubc18\uc62c\ub9bc|\uc62c\ub9bc|\ubc84\ub9bc)/);

@@ -1,12 +1,31 @@
 // A small parser, not eval: only numeric expressions with arithmetic operators
 // are accepted. Unsupported word problems are left to other validators.
+export const normalizeCoursewareNumericTypography = (value) => String(value ?? '')
+  // Insert the mixed-number boundary BEFORE NFKC merges 2⅖ into 22/5.
+  .replace(/([0-9０-９])([⁰¹²³⁴⁵⁶⁷⁸⁹]+[⁄/][₀₁₂₃₄₅₆₇₈₉]+)/g, '$1 $2')
+  .replace(/[¼½¾⅐⅑⅒⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]/g, fraction => ` ${fraction.normalize('NFKC')}`)
+  // A standalone superscript is a power/unit, not another base-ten digit.
+  // Fraction numerators (³/₂₀) still undergo numeric normalization.
+  .split(/([⁰¹²³⁴⁵⁶⁷⁸⁹]+)(?![⁰¹²³⁴⁵⁶⁷⁸⁹/⁄])/g)
+  .map(part => /^[⁰¹²³⁴⁵⁶⁷⁸⁹]+$/.test(part) ? part : part.normalize('NFKC'))
+  .join('').replace(/⁄/g, '/');
+
 export const evaluateCoursewareExpression = (value) => {
-  const source = String(value ?? '').normalize('NFKC')
-    .replace(/⁄/g, '/')
+  // Superscript powers are not supported here. Do not flatten 2² to 22.
+  // Superscript numerators followed by a fraction slash remain supported.
+  if (/[0-9０-９][⁰¹²³⁴⁵⁶⁷⁸⁹]+(?![⁰¹²³⁴⁵⁶⁷⁸⁹/⁄])/.test(String(value ?? ''))) return null;
+  const normalized = normalizeCoursewareNumericTypography(value)
     .replace(/(?<=\d),(?=\d{3}(?:\D|$))/g, '')
-    .replace(/[−–—]/g, '-').replace(/[×xX]/g, '*').replace(/÷/g, '/')
+    .replace(/[−–—]/g, '-').replace(/[×xX]/g, '*')
     .replace(/(\d+)\s*(?:과|와)\s*(\d+)\s*\/\s*(\d+)/g, '($1+$2/$3)')
     .replace(/(\d+)[ \t]+(\d+)\s*\/\s*(\d+)/g, '($1+$2/$3)');
+  // Slash chains are ambiguous as written fractions. Do not guess grouping.
+  if (/\d\s*\/\s*\d+(?:\.\d+)?\s*\//.test(normalized)) return null;
+  const source = normalized
+    // A slash within a written fraction binds its numerator/denominator.
+    // Keep ÷ distinct until fractions are grouped: a/b ÷ c/d ≠ a/b/c/d.
+    .replace(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/g, '($1/$2)')
+    .replace(/÷/g, '/');
   const tokens = source.match(/\d+(?:\.\d+)?|[()+\-*/]/g) || [];
   if (!tokens.length || tokens.join('') !== source.replace(/\s+/g, '')) return null;
   let position = 0;
@@ -48,7 +67,7 @@ export const evaluateCoursewareExpression = (value) => {
 };
 
 export const getArithmeticAnswerIndex = (question, options) => {
-  let text = String(question || '').normalize('NFKC').trim().replace(/^\d+[.)]\s+/, '');
+  let text = normalizeCoursewareNumericTypography(question).trim().replace(/^\d+[.)]\s+/, '');
   // Only an explicit calculation, never an equation with an unknown operand,
   // comparison, counting problem, or a fragment inside a story.
   text = text.replace(/^(?:다음(?:의)?\s*)?(?:식을?\s*)?계산(?:하세요|하시오|해\s*보세요)[.:]?\s*/, '')

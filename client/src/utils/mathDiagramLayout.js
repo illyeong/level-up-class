@@ -88,3 +88,56 @@ export const getRectangleLayout = (dimensions) => {
   }) : [];
   return { x, y, width: rw, height: rh, cells, diagonal: dimensions.diagonal === true };
 };
+
+export const getPolygonLayout = (dimensions) => {
+  const sides = Math.max(3, Math.min(30, Math.trunc(Number(dimensions.sides) || 5)));
+  const vertices = Array.isArray(dimensions.vertices) && dimensions.vertices.length === sides ? dimensions.vertices : [];
+  const coordinates = vertices.length === sides && vertices.every(v => Number.isFinite(v?.x) && Number.isFinite(v?.y));
+  let points = Array.from({ length: sides }, (_, i) => {
+    const angle = -Math.PI / 2 + 2 * Math.PI * i / sides;
+    return { x: 110 + 60 * Math.cos(angle), y: 85 + 60 * Math.sin(angle) };
+  });
+  if (coordinates) {
+    const xs = vertices.map(v => v.x), ys = vertices.map(v => v.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+    if (maxX > minX && maxY > minY) {
+      const scale = Math.min(130 / (maxX - minX), 110 / (maxY - minY));
+      points = vertices.map(v => ({ x: 110 + (v.x - (minX + maxX) / 2) * scale, y: 85 + (v.y - (minY + maxY) / 2) * scale }));
+    }
+  }
+  points = points.map((point, i) => ({ ...point, label: typeof vertices[i] === 'string' ? vertices[i] : vertices[i]?.label ?? '' }));
+  const endpoint = value => typeof value === 'number' && Number.isInteger(value) ? value : points.findIndex(p => p.label && p.label === value);
+  const seen = new Set();
+  const diagonals = (Array.isArray(dimensions.diagonals) ? dimensions.diagonals : []).flatMap(line => {
+    const from = endpoint(line?.from), to = endpoint(line?.to);
+    const key = [from, to].sort((a, b) => a - b).join(':');
+    const distance = Math.abs(from - to);
+    if (from < 0 || to < 0 || from >= sides || to >= sides || distance <= 1 || distance === sides - 1 || seen.has(key)) return [];
+    seen.add(key);
+    return [{ from: points[from], to: points[to] }];
+  });
+  return { sides, points, diagonals };
+};
+
+export const getTrapezoidLayout = (dimensions) => {
+  const top = numberValue(dimensions.topBase), bottom = numberValue(dimensions.bottomBase);
+  const max = top > 0 && bottom > 0 ? Math.max(top, bottom) : null;
+  return { top: max ? 120 * top / max : 70, bottom: max ? 120 * bottom / max : 120, height: 72 };
+};
+
+export const getSymmetryPointLayout = (dimensions) => {
+  const grid = Math.max(2, Math.min(20, Math.trunc(Number(dimensions.gridSize) || 8)));
+  const axis = dimensions.axis === 'horizontal' ? 'horizontal' : 'vertical';
+  const requestedAxis = numberValue(dimensions.axisPosition);
+  const axisPosition = requestedAxis != null && requestedAxis >= 0 && requestedAxis <= grid ? requestedAxis : grid / 2;
+  const x0 = 50, y0 = 18, size = 120, step = size / grid;
+  const screen = (x, y) => ({ x: x0 + x * step, y: y0 + size - y * step });
+  const points = (Array.isArray(dimensions.points) ? dimensions.points : []).flatMap(point => {
+    const x = numberValue(point?.x), y = numberValue(point?.y);
+    if (x == null || y == null || x < 0 || y < 0 || x > grid || y > grid) return [];
+    return [{ ...screen(x,y), label: typeof point.label === 'string' ? point.label : '' }];
+  });
+  return { grid, axis, axisPosition, x0, y0, size, step, points, connect: dimensions.connect === true,
+    axisStart: axis === 'vertical' ? screen(axisPosition, 0) : screen(0, axisPosition),
+    axisEnd: axis === 'vertical' ? screen(axisPosition, grid) : screen(grid, axisPosition) };
+};
