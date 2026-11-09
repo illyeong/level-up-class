@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  collection, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy,
-  doc, serverTimestamp, arrayUnion,
+  collection, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, limit,
+  doc, serverTimestamp, arrayUnion, onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -320,6 +320,7 @@ export default function LearningBoard({ studentCode }) {
   // 필터
   const [sort, setSort]               = useState('newest');
   const [searchQuery, setSearchQuery] = useState('');
+  const [boardSearch, setBoardSearch] = useState('');
 
   const textRef        = useRef(null);
   const imageFileRef   = useRef(null);
@@ -339,11 +340,14 @@ export default function LearningBoard({ studentCode }) {
           const d = ss.docs[0].data();
           setStudent({ id: ss.docs[0].id, ...d });
           let boardsList = [];
-          if (d.teacherUid) {
+          if (d.classId) {
+            const bs = await getDocs(query(collection(db, 'boards'), where('classId', '==', d.classId)));
+            boardsList = bs.docs.map(b => ({ id: b.id, ...b.data() })).filter(b => b.active !== false);
+          } else if (d.teacherUid) {
             const bs = await getDocs(query(collection(db, 'boards'), where('teacherUid', '==', d.teacherUid)));
             boardsList = bs.docs.map(b => ({ id: b.id, ...b.data() })).filter(b => b.active !== false);
           }
-          if (boardsList.length === 0) {
+          if (boardsList.length === 0 && !d.classId && !d.teacherUid) {
             const bs = await getDocs(collection(db, 'boards'));
             boardsList = bs.docs.map(b => ({ id: b.id, ...b.data() }))
               .filter(b => b.active !== false && !b.teacherUid);
@@ -378,6 +382,7 @@ export default function LearningBoard({ studentCode }) {
     setSelectedSheetId(nextSheets[0]?.id || null);
     setShowWrite(false);
     setWriteLat(null); setWriteLng(null);
+    setSearchQuery(''); setSort('newest');
     latestPostIdRef.current = null;
     setHasNewPosts(false);
     await loadBoardPosts(board);
@@ -444,22 +449,19 @@ export default function LearningBoard({ studentCode }) {
 
   useEffect(() => {
     if (!selectedBoard?.id) return;
-    const timer = setInterval(async () => {
-      if (loadingPosts) return;
-      try {
-        const snap = await getDocs(
-          query(collection(db, 'boards', selectedBoard.id, 'posts'), orderBy('createdAt', 'desc'))
-        );
-        const latestId = snap.docs[0]?.id || null;
-        if (latestPostIdRef.current && latestId && latestId !== latestPostIdRef.current) {
-          setHasNewPosts(true);
-        }
-      } catch (e) {
-        console.error(e);
+    const latestPostQuery = query(
+      collection(db, 'boards', selectedBoard.id, 'posts'),
+      orderBy('createdAt', 'desc'),
+      limit(1),
+    );
+    const unsubscribe = onSnapshot(latestPostQuery, (snap) => {
+      const latestId = snap.docs[0]?.id || null;
+      if (latestPostIdRef.current && latestId && latestId !== latestPostIdRef.current) {
+        setHasNewPosts(true);
       }
-    }, 20000);
-    return () => clearInterval(timer);
-  }, [selectedBoard?.id, loadingPosts]);
+    }, (error) => console.error('최신 게시글 감지 오류:', error));
+    return unsubscribe;
+  }, [selectedBoard?.id]);
 
   // ── 이미지 선택 ──────────────────────────────────────────────
   const handleImageSelect = async (e) => {
@@ -612,6 +614,10 @@ export default function LearningBoard({ studentCode }) {
       if (sort === 'popular') return Object.values(b.reactions || {}).length - Object.values(a.reactions || {}).length;
       return 0;
     });
+  const normalizedBoardSearch = boardSearch.trim().toLocaleLowerCase('ko-KR');
+  const visibleBoards = boards.filter(board => !normalizedBoardSearch
+    || String(board.title || '').toLocaleLowerCase('ko-KR').includes(normalizedBoardSearch)
+    || String(board.description || '').toLocaleLowerCase('ko-KR').includes(normalizedBoardSearch));
 
   const postCardProps = (post, idx = 0) => ({
     post, studentId: student?.id, student, boardId: selectedBoard?.id,
@@ -823,9 +829,10 @@ export default function LearningBoard({ studentCode }) {
                 )}
               </div>
               {hasNewPosts && (
-                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-extrabold text-amber-700 border border-amber-200 shrink-0">
-                  새 글이 올라왔어요
-                </span>
+                <button type="button" onClick={() => loadBoardPosts()}
+                  className="shrink-0 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[11px] font-extrabold text-amber-700 hover:bg-amber-200">
+                  새 글 보기
+                </button>
               )}
               <button
                 type="button"
@@ -852,6 +859,23 @@ export default function LearningBoard({ studentCode }) {
                 </button>
               ))}
             </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <label className="relative min-w-0 flex-1">
+                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-slate-400">⌕</span>
+                <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="제목·내용·작성자 검색"
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-9 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:bg-white dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+                {searchQuery && <button type="button" onClick={() => setSearchQuery('')} aria-label="검색어 지우기" className="absolute inset-y-0 right-3 text-xs font-bold text-slate-400 hover:text-slate-700">✕</button>}
+              </label>
+              <div className="grid grid-cols-3 rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-950">
+                {[[ 'newest', '최신순' ], [ 'oldest', '오래된순' ], [ 'popular', '인기순' ]].map(([value, label]) => (
+                  <button type="button" key={value} onClick={() => setSort(value)}
+                    className={`rounded-lg px-3 py-1.5 text-[11px] font-extrabold transition-colors ${sort === value ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -868,7 +892,7 @@ export default function LearningBoard({ studentCode }) {
             setShowWrite(true);
             setTimeout(() => textRef.current?.focus(), 50);
           }}
-            className="fixed bottom-6 right-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-xl px-5 py-3 font-extrabold text-sm flex items-center gap-2 transition-all active:scale-95 z-10">
+            className="fixed bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3.5 text-sm font-extrabold text-white shadow-2xl shadow-indigo-950/30 transition-all hover:bg-indigo-700 active:scale-95">
             ✏️ 글쓰기
           </button>
         )}
@@ -1068,23 +1092,51 @@ export default function LearningBoard({ studentCode }) {
 
   // ── 게시판 목록 ────────────────────────────────────────────────
   return (
-    <div className="min-h-full bg-slate-50 p-6 dark:bg-slate-950">
-      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-900 dark:border-slate-700">
-        <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">📋 공유 게시판</h1>
-        <p className="text-slate-500 text-sm mt-0.5 dark:text-slate-400">학생들이 학습 결과를 카드 형태로 자유롭게 공유하는 게시판</p>
-      </div>
+    <div className="min-h-full bg-slate-50 p-4 sm:p-6 dark:bg-slate-950">
+      <div className="mx-auto max-w-6xl">
+      <section className="relative mb-5 overflow-hidden rounded-[28px] bg-gradient-to-br from-sky-600 via-indigo-600 to-violet-700 p-5 text-white shadow-xl shadow-indigo-950/20 sm:p-7">
+        <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-white/10" />
+        <div className="pointer-events-none absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-fuchsia-300/10 blur-2xl" />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-extrabold ring-1 ring-white/20">✦ 우리 반 이야기 공간</span>
+            <h1 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">공유 게시판</h1>
+            <p className="mt-2 max-w-xl text-sm font-medium leading-6 text-indigo-100">배운 내용과 생각을 카드로 나누고, 친구의 글에 반응과 댓글을 남겨보세요.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/15"><strong className="block text-2xl font-black">{boards.length}</strong><span className="text-[11px] font-bold text-indigo-100">열린 게시판</span></div>
+            <div className="rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/15"><strong className="block text-2xl font-black">{new Set(boards.map(board => board.boardType)).size}</strong><span className="text-[11px] font-bold text-indigo-100">게시판 유형</span></div>
+          </div>
+        </div>
+      </section>
+
+      {!isLoading && boards.length > 0 && (
+        <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:p-4 dark:border-slate-800 dark:bg-slate-900">
+          <label className="relative min-w-0 flex-1">
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">⌕</span>
+            <input value={boardSearch} onChange={e => setBoardSearch(e.target.value)} placeholder="게시판 이름이나 설명 검색"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-9 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:bg-white dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+            {boardSearch && <button type="button" onClick={() => setBoardSearch('')} aria-label="검색어 지우기" className="absolute inset-y-0 right-3 text-xs font-bold text-slate-400 hover:text-slate-700">✕</button>}
+          </label>
+          <span className="shrink-0 text-xs font-bold text-slate-400">{visibleBoards.length}개 표시</span>
+        </div>
+      )}
 
       {isLoading ? (
-        <div className="text-center py-20 text-slate-400 font-bold animate-pulse">불러오는 중...</div>
+        <div className="flex items-center justify-center gap-3 py-20 text-slate-400 font-bold"><span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500" /> 게시판 불러오는 중...</div>
       ) : boards.length === 0 ? (
-        <div className="text-center py-20 text-slate-400">
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-white py-20 text-center text-slate-400 dark:border-slate-700 dark:bg-slate-900">
           <div className="text-6xl mb-4 opacity-40">📋</div>
-          <p className="font-bold text-slate-600">아직 열린 게시판이 없습니다</p>
+          <p className="font-bold text-slate-600 dark:text-slate-300">아직 열린 게시판이 없습니다</p>
           <p className="text-sm mt-1">선생님이 게시판을 만들면 여기 표시됩니다</p>
         </div>
+      ) : visibleBoards.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-white py-16 text-center dark:border-slate-700 dark:bg-slate-900">
+          <p className="text-4xl">🔎</p><p className="mt-3 font-extrabold text-slate-700 dark:text-slate-200">검색 결과가 없습니다.</p><button type="button" onClick={() => setBoardSearch('')} className="mt-3 rounded-xl bg-indigo-50 px-4 py-2 text-xs font-extrabold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">전체 게시판 보기</button>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {boards.map((board, boardIndex) => {
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {visibleBoards.map((board, boardIndex) => {
             const typeInfo = BOARD_TYPE_INFO[board.boardType];
             const stripColor = getBoardCardStrip(board, boardIndex);
             const fmtCreatedAt = board.createdAt?.toDate
@@ -1093,30 +1145,24 @@ export default function LearningBoard({ studentCode }) {
                 ? new Date(board.createdAt.seconds * 1000).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
                 : '날짜 없음';
             return (
-              <div key={board.id}
-                className="bg-white rounded-2xl border-2 border-slate-200 shadow-sm overflow-hidden transition-all cursor-pointer group hover:shadow-lg hover:-translate-y-0.5 dark:bg-slate-900 dark:border-slate-700 dark:hover:border-slate-600"
+              <button key={board.id} type="button"
+                className="group overflow-hidden rounded-3xl border border-slate-200 bg-white text-left shadow-sm transition-all hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:hover:border-indigo-500/60"
                 onClick={() => openBoard(board)}>
-                <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center ${stripColor}`}>
-                  <span>{typeInfo?.label || '기본형'}</span>
-                  <span>🟢 공개</span>
-                </div>
-                <div className="p-4">
-                  <h3 className="font-extrabold text-slate-800 text-base mb-1 group-hover:text-indigo-700 transition-colors dark:text-slate-100 dark:group-hover:text-indigo-300">{board.title}</h3>
-                  {board.description && <p className="text-xs text-slate-500 mb-2 line-clamp-2 dark:text-slate-400">{board.description}</p>}
-                  <div className="text-[11px] text-slate-400 mb-3 flex items-center gap-1 dark:text-slate-500">
-                    🗓 {fmtCreatedAt}
+                <div className={`h-2 ${stripColor}`} />
+                <div className="p-5">
+                  <div className="mb-4 flex items-center justify-between">
+                    <span className={`grid h-11 w-11 place-items-center rounded-2xl text-xl ${stripColor} bg-opacity-10`}>{typeInfo?.emoji || '📋'}</span>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">● 참여 가능</span>
                   </div>
-                  <div className="flex gap-2 mt-1">
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); openBoard(board); }}
-                      className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors"
-                    >
-                      열기
-                    </button>
+                  <h3 className="line-clamp-1 text-base font-black text-slate-900 transition-colors group-hover:text-indigo-700 dark:text-white dark:group-hover:text-indigo-300">{board.title}</h3>
+                  <p className="mt-1 min-h-10 line-clamp-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{board.description || '친구들과 생각과 자료를 나눠보세요.'}</p>
+                  <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
+                    <span className="text-[11px] font-bold text-slate-400">{typeInfo?.label || '기본형'} · 시트 {(board.sheets || []).length || 1}개</span>
+                    <span className="text-[11px] font-extrabold text-indigo-600 dark:text-indigo-300">입장하기 →</span>
                   </div>
+                  <span className="mt-2 block text-[10px] text-slate-400">{fmtCreatedAt}</span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -1140,6 +1186,7 @@ export default function LearningBoard({ studentCode }) {
           >✕</button>
         </div>
       )}
+      </div>
     </div>
   );
 }

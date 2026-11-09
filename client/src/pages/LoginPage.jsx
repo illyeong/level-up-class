@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { signInWithPopup } from 'firebase/auth';
 import {
-  collection, doc, getCountFromServer, getDoc, getDocs, query, Timestamp, where,
+  collection, doc, getDoc, getDocs, query, where,
 } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
+import { getPublicStatsRef, PUBLIC_STATS_FALLBACK } from '../utils/publicStats';
 
 const GUIDE_TABS = [
   { id: 'student', label: '🎓 학생 메뉴' },
@@ -418,12 +419,7 @@ function IntroModal({ open, onClose }) {
 
 export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTestLogin, onTeacherTestLogin, onQuizRaidDemoLogin }) {
   const [mode, setMode] = useState(null); // null | 'student'
-  const [publicStats, setPublicStats] = useState({
-    classCount: null,
-    recentClassCount: null,
-    studentCount: null,
-    recentStudentCount: null,
-  });
+  const [publicStats, setPublicStats] = useState(PUBLIC_STATS_FALLBACK);
   const [isPublicStatsLoading, setIsPublicStatsLoading] = useState(true);
   const [studentCode, setStudentCode] = useState('');
   const [isCodeLocked, setIsCodeLocked] = useState(false);
@@ -447,44 +443,39 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
   useEffect(() => {
     let isMounted = true;
     const loadPublicStats = async () => {
-      const sevenDaysAgo = Timestamp.fromMillis(Date.now() - (7 * 24 * 60 * 60 * 1000));
-      const statQueries = [
-        ['전체 학급', collection(db, 'classes')],
-        ['최근 학급', query(collection(db, 'classes'), where('createdAt', '>=', sevenDaysAgo))],
-        ['전체 학생', collection(db, 'students')],
-        ['최근 학생', query(collection(db, 'students'), where('createdAt', '>=', sevenDaysAgo))],
-      ];
+      const cacheKey = 'levelup_public_stats_v2';
+      let cachedStats = null;
+      try {
+        const cached = JSON.parse(window.localStorage.getItem(cacheKey) || 'null');
+        if (Number.isFinite(cached?.classCount) && Number.isFinite(cached?.studentCount)) {
+          cachedStats = { classCount: cached.classCount, studentCount: cached.studentCount };
+          setPublicStats(cachedStats);
+          setIsPublicStatsLoading(false);
+          if (cached.savedAt && Date.now() - cached.savedAt < 30 * 60 * 1000) return;
+        }
+      } catch {
+        // 저장소가 차단된 환경에서도 기본 집계값을 표시합니다.
+      }
 
-      const countWithRetry = async (target) => {
+      try {
+        const statsSnap = await getDoc(getPublicStatsRef());
+        if (!isMounted) return;
+        const data = statsSnap.exists() ? statsSnap.data() : null;
+        const nextStats = Number.isFinite(data?.classCount) && Number.isFinite(data?.studentCount)
+          ? { classCount: data.classCount, studentCount: data.studentCount }
+          : cachedStats || PUBLIC_STATS_FALLBACK;
+        setPublicStats(nextStats);
         try {
-          return await getCountFromServer(target);
-        } catch (firstError) {
-          if (firstError?.code !== 'unavailable') throw firstError;
-          await new Promise(resolve => window.setTimeout(resolve, 700));
-          return getCountFromServer(target);
+          window.localStorage.setItem(cacheKey, JSON.stringify({ ...nextStats, savedAt: Date.now() }));
+        } catch {
+          // 통계 표시는 브라우저 저장소에 의존하지 않습니다.
         }
-      };
-
-      const results = await Promise.allSettled(
-        statQueries.map(([, target]) => countWithRetry(target))
-      );
-      if (!isMounted) return;
-
-      const readCount = (result) => (
-        result.status === 'fulfilled' ? result.value.data().count : null
-      );
-      setPublicStats({
-        classCount: readCount(results[0]),
-        recentClassCount: readCount(results[1]),
-        studentCount: readCount(results[2]),
-        recentStudentCount: readCount(results[3]),
-      });
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          console.warn(`${statQueries[index][0]} 통계를 불러오지 못했습니다.`, result.reason);
-        }
-      });
-      setIsPublicStatsLoading(false);
+      } catch (statsError) {
+        console.warn('공개 이용 통계를 불러오지 못했습니다. 마지막 정상값을 표시합니다.', statsError);
+        if (isMounted && !cachedStats) setPublicStats(PUBLIC_STATS_FALLBACK);
+      } finally {
+        if (isMounted) setIsPublicStatsLoading(false);
+      }
     };
     loadPublicStats();
     return () => { isMounted = false; };
@@ -599,7 +590,6 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
       icon: '🏫',
       label: '가입 학급',
       value: publicStats.classCount,
-      recent: publicStats.recentClassCount,
       unit: '개',
       cardClass: 'border-sky-300/25 bg-sky-400/10',
       labelClass: 'text-sky-100',
@@ -610,7 +600,6 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
       icon: '🎓',
       label: '함께하는 학생',
       value: publicStats.studentCount,
-      recent: publicStats.recentStudentCount,
       unit: '명',
       cardClass: 'border-emerald-300/25 bg-emerald-400/10',
       labelClass: 'text-emerald-100',
@@ -668,9 +657,7 @@ export default function LoginPage({ onTeacherLogin, onStudentLogin, onStudentTes
                       <span className="mr-1" aria-hidden="true">{stat.icon}</span>
                       {stat.label}
                     </span>
-                    <span className="shrink-0 text-[9px] font-bold text-white/55">
-                      7일 신규 {Number.isFinite(stat.recent) ? stat.recent.toLocaleString('ko-KR') : '—'}{stat.unit}
-                    </span>
+                    <span className="shrink-0 text-[9px] font-bold text-white/55">누적 등록</span>
                   </div>
                   <div className={`mt-1 text-xl font-black leading-none sm:text-2xl ${stat.valueClass}`} aria-live="polite">
                     {isPublicStatsLoading ? (

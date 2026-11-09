@@ -9,6 +9,36 @@ export const getLocalDateKey = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
+export const getEquippedEquipmentItemIds = (students = []) => {
+  const ids = new Set();
+  students.forEach(student => {
+    const equippedIds = new Set(Object.values(student?.equipped || {}).map(String));
+    const inventory = Array.isArray(student?.equipInventory) ? student.equipInventory : [];
+    inventory.forEach(inventoryItem => {
+      if (equippedIds.has(String(inventoryItem?.id)) && inventoryItem?.itemId) {
+        ids.add(String(inventoryItem.itemId));
+      }
+    });
+  });
+  return [...ids];
+};
+
+export const getClassOperationDailySummary = (operation = {}, dateKey = getLocalDateKey()) => {
+  const summary = operation?.dailyAttackSummary;
+  if (!summary || summary.dateKey !== dateKey) {
+    return { dateKey, attackCount: 0, participantIds: [], participantCount: 0, lastAttacks: [], contributions: [] };
+  }
+  const participantIds = Array.isArray(summary.participantIds) ? summary.participantIds.map(String) : [];
+  return {
+    dateKey,
+    attackCount: Math.max(0, Number(summary.attackCount) || 0),
+    participantIds,
+    participantCount: Math.max(participantIds.length, Number(summary.participantCount) || 0),
+    lastAttacks: Array.isArray(summary.lastAttacks) ? summary.lastAttacks : [],
+    contributions: Array.isArray(summary.contributions) ? summary.contributions : [],
+  };
+};
+
 export const getClassOperationAttack = (student = {}, equipmentItems = []) => {
   const level = Math.max(1, Number(student.level) || 1);
   const baseAttack = 10 + Math.floor(level * 2);

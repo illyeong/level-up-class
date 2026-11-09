@@ -59,6 +59,8 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
   const [myInfo, setMyInfo]       = useState(null);
   const [posts, setPosts]         = useState([]);
   const [loading, setLoading]     = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [retryKey, setRetryKey] = useState(0);
   const [view, setView]           = useState('list'); // 'list' | 'write'
   const [selectedPost, setSelectedPost] = useState(null);
   const [lightboxSrc, setLightboxSrc] = useState(null);
@@ -88,23 +90,39 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
   const [isCommenting, setIsCommenting] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError('');
+    setMyInfo(null);
     if (propTeacherUid) {
       setMyInfo({ docId: null, name: '선생님', teacherUid: propTeacherUid });
       return;
     }
-    if (!studentCode) return;
+    if (!studentCode) { setLoadError('로그인 정보를 확인할 수 없습니다. 다시 로그인해 주세요.'); setLoading(false); return; }
     (async () => {
+      try {
       const snap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)));
+      if (cancelled) return;
       if (!snap.empty) {
         const d = snap.docs[0];
         setMyInfo({ docId: d.id, name: d.data().name, teacherUid: d.data().teacherUid });
+      } else { setLoadError('학생 정보를 찾을 수 없습니다. 선생님께 계정을 확인해 주세요.'); setLoading(false); }
+      } catch (error) {
+        if (!cancelled) { console.error(error); setLoadError('학생 정보를 불러오지 못했습니다. 다시 시도해 주세요.'); setLoading(false); }
       }
     })();
-  }, [studentCode, propTeacherUid]);
+    return () => { cancelled = true; };
+  }, [studentCode, propTeacherUid, retryKey]);
+
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => { setLoadError('연결이 지연되고 있습니다. 네트워크를 확인하고 다시 시도해 주세요.'); setLoading(false); }, 20000);
+    return () => clearTimeout(timer);
+  }, [loading, retryKey]);
 
   useEffect(() => {
     if (!myInfo) return;
-    if (!myInfo.teacherUid) { setLoading(false); return; }
+    if (!myInfo.teacherUid) { setLoadError('연결된 학급 정보가 없습니다. 선생님께 확인해 주세요.'); setLoading(false); return; }
 
     const q = query(
       collection(db, 'boardPosts'),
@@ -117,11 +135,12 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
           .map(d => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         setPosts(list);
+        setLoadError('');
         setLoading(false);
         // 상세 팝업이 열려있으면 최신 데이터 반영
         setSelectedPost(prev => prev ? (list.find(p => p.id === prev.id) || prev) : null);
       },
-      err => { console.error('FreeBoard 에러:', err); setLoading(false); }
+      err => { console.error('FreeBoard 에러:', err); setLoadError('게시글을 불러오지 못했습니다. 다시 시도해 주세요.'); setLoading(false); }
     );
     return unsub;
   }, [myInfo]);
@@ -275,6 +294,7 @@ export default function FreeBoard({ studentCode, teacherUid: propTeacherUid, isT
     return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
   };
 
+  if (loadError) return <div role="alert" className="p-8 text-center"><p>{loadError}</p><button onClick={() => setRetryKey(key => key + 1)} className="mt-4 rounded-xl bg-indigo-600 px-5 py-3 text-white">다시 시도</button></div>;
   if (loading) return (
     <div className="flex items-center justify-center h-full text-slate-400 dark:bg-slate-950 dark:text-slate-300">불러오는 중...</div>
   );

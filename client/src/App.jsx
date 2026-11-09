@@ -23,6 +23,7 @@ import StockMarket      from './pages/student/StockMarket.jsx';
 import LearningBoard    from './pages/student/LearningBoard.jsx';
 import LearningNote     from './pages/student/LearningNote.jsx';
 import TopicWriting     from './pages/student/TopicWriting.jsx';
+import SurveyPage       from './pages/student/SurveyPage.jsx';
 import PetHouse        from './pages/student/PetHouse.jsx';
 import Equipment      from './pages/student/Equipment.jsx';
 import GachaBox       from './pages/student/GachaBox.jsx';
@@ -1054,6 +1055,7 @@ function App() {
         <TeacherLogin
           onStudentTestLogin={handleStudentTestLogin}
           onLogout={handleLogout}
+          teacherUser={teacherUser}
           teacherEmail={teacherUser?.email}
           selectedClass={selectedClass}
           onChangeClass={() => {
@@ -1488,6 +1490,7 @@ function App() {
         {currentView === 'board'        && <LearningBoard  studentCode={activeStudentCode} />}
         {currentView === 'learningNote' && <LearningNote   studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'topicWriting' && <TopicWriting   studentCode={activeStudentCode} themeMode={themeMode} />}
+        {currentView === 'survey'       && <SurveyPage     studentCode={activeStudentCode} themeMode={themeMode} />}
         {currentView === 'themeSettings' && (
           <div className="p-6 md:p-8">
             <div className={`max-w-xl rounded-3xl border p-6 ${

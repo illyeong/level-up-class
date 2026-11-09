@@ -5,6 +5,7 @@ import {
 import { db } from '../../firebase';
 import { applyClassQuickSetup } from '../../utils/classQuickSetup';
 import { getOperationModeFields } from '../../utils/operationModePresets';
+import { adjustPublicStats } from '../../utils/publicStats';
 
 // ?? ?숆탳紐????쎌묶 (珥덈벑?숆탳/以묓븰援?怨좊벑?숆탳 ?쒓굅) ??????????????
 const getSchoolAbbr = (name = '') =>
@@ -158,6 +159,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
         ...getOperationModeFields('basic'),
         createdAt:    serverTimestamp(),
       });
+      await adjustPublicStats({ classDelta: 1 });
 
       // 2. ?숈깮 怨꾩젙 ?쇨큵 ?앹꽦 (batch: 500媛??쒗븳 ??50紐낆씠硫?OK)
       const batch = writeBatch(db);
@@ -181,6 +183,7 @@ function CreateClassModal({ onClose, onCreated, teacherUser }) {
         });
       }
       await batch.commit();
+      await adjustPublicStats({ studentDelta: count });
 
       onCreated({
         id:           classRef.id,

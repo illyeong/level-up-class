@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import TeacherNavigationBar, { HELP_CONTENT as TEACHER_HELP_CONTENT } from '../../components/TeacherNavigationBar';
@@ -19,6 +20,7 @@ import AdventureManage from './AdventureManage';
 import BoardManage from './BoardManage';
 import LearningNoteManage from './LearningNoteManage';
 import TopicWritingManage from './TopicWritingManage';
+import SurveyManage from './SurveyManage';
 import TeacherCharacter from './TeacherCharacter';
 import FeedbackBoard from './FeedbackBoard';
 import DataReset from './DataReset';
@@ -46,6 +48,104 @@ const BOSS_RAID_PRESENTATION_CODES = Array.from(
 const BOSS_RAID_DEMO_ALLOWED_TEACHER_EMAIL = 'imdlffud2@gmail.com';
 const normalizeTeacherEmail = (email) => String(email || '').trim().toLowerCase();
 
+const TEACHER_UPDATE_ANNOUNCEMENT = Object.freeze({
+  id: '2026-09-10-survey-stability',
+  dateLabel: '2026. 09 업데이트',
+  title: '새로운 설문지와 더 안정적인 학급 운영',
+  summary: '선생님들의 의견을 반영해 설문지 기능을 추가하고, 주요 기능의 서버 오류를 개선했습니다.',
+  items: [
+    {
+      icon: '📊',
+      title: '설문지 기능 추가',
+      description: '교사는 설문을 만들고 응답 통계를 확인할 수 있어요. 학생은 마을광장 → 설문지에서 참여합니다.',
+      tone: 'indigo',
+    },
+    {
+      icon: '🏦',
+      title: '학급은행 안정화',
+      description: '골드·다이아 예치와 출금, 은행 기록 표시 과정에서 발생하던 오류를 개선했습니다.',
+      tone: 'emerald',
+    },
+    {
+      icon: '⚔️',
+      title: '대작전·AI학습관 안정화',
+      description: '서버 사용량 한도 오류를 해결하고 불필요한 데이터 조회를 줄여 더 안정적으로 이용할 수 있습니다.',
+      tone: 'amber',
+    },
+  ],
+});
+
+const ANNOUNCEMENT_TONES = {
+  indigo: 'border-indigo-100 bg-indigo-50 text-indigo-700',
+  emerald: 'border-emerald-100 bg-emerald-50 text-emerald-700',
+  amber: 'border-amber-100 bg-amber-50 text-amber-700',
+};
+
+function TeacherUpdateAnnouncement({ onClose }) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[240] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="teacher-update-announcement-title"
+    >
+      <div className="relative max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[28px] border border-white/20 bg-white shadow-[0_32px_90px_rgba(15,23,42,0.38)]">
+        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-500 px-6 pb-7 pt-6 text-white sm:px-8">
+          <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-white/15 blur-sm" />
+          <div className="pointer-events-none absolute -bottom-20 -left-10 h-40 w-40 rounded-full bg-indigo-300/20" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-xl font-black text-white transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/70"
+            aria-label="업데이트 안내 닫기"
+          >
+            ×
+          </button>
+          <div className="relative pr-10">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-extrabold tracking-wide text-white">
+              <span aria-hidden="true">🎉</span> {TEACHER_UPDATE_ANNOUNCEMENT.dateLabel}
+            </span>
+            <h2 id="teacher-update-announcement-title" className="mt-4 text-2xl font-black leading-tight sm:text-3xl">
+              {TEACHER_UPDATE_ANNOUNCEMENT.title}
+            </h2>
+            <p className="mt-3 max-w-lg text-sm font-semibold leading-6 text-indigo-50 sm:text-base">
+              {TEACHER_UPDATE_ANNOUNCEMENT.summary}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3 px-5 py-5 sm:px-8 sm:py-7">
+          {TEACHER_UPDATE_ANNOUNCEMENT.items.map(item => (
+            <div key={item.title} className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-xl ${ANNOUNCEMENT_TONES[item.tone]}`} aria-hidden="true">
+                {item.icon}
+              </div>
+              <div className="min-w-0 pt-0.5">
+                <h3 className="text-sm font-black text-slate-900 sm:text-base">{item.title}</h3>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 sm:text-sm">{item.description}</p>
+              </div>
+            </div>
+          ))}
+
+          <div className="flex items-start gap-2 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-xs font-semibold leading-5 text-sky-800 sm:text-sm">
+            <span className="mt-0.5" aria-hidden="true">💡</span>
+            <p>기존 화면을 열어둔 경우 새로고침하거나 다시 로그인해 주세요. 문제가 계속되면 건의 및 문의하기로 알려주세요.</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-1 w-full rounded-2xl bg-slate-900 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-200"
+          >
+            확인했습니다
+          </button>
+          <p className="text-center text-[11px] font-semibold text-slate-400">확인한 안내는 이 브라우저에서 다시 표시되지 않습니다.</p>
+        </div>
+      </div>
+    </div>
+  , document.body);
+}
+
 const KOREAN_STUDENT_MENU_LABELS = {
   dashboard: '대시보드',
   classAll: '우리반 전체 보기',
@@ -58,6 +158,7 @@ const KOREAN_STUDENT_MENU_LABELS = {
   board: '공유 게시판',
   learningNote: '배움노트',
   topicWriting: '주제글쓰기',
+  survey: '설문지',
   adventure: '어드벤처',
   quizDungeon: '퀴즈던전',
   explorationDungeon: '탐험던전',
@@ -93,6 +194,7 @@ const KOREAN_TEACHER_MENU_LABELS = {
   boardManage: '공유 게시판',
   learningNoteManage: '배움노트 관리',
   topicWritingManage: '주제글쓰기 관리',
+  surveyManage: '설문지 관리',
   economyManage: '학급 경제 관리',
   classShopManage: '학급 상점 관리',
   bankManage: '은행 관리',
@@ -117,6 +219,11 @@ function TeacherLayout({
   autoOpenBossRaidDemoKey = 0,
   allowBossRaidDemoEntry = false,
 }) {
+  const currentTeacherEmail = normalizeTeacherEmail(user?.email);
+  const updateAnnouncementRecipient = user?.uid || currentTeacherEmail || selectedClass?.teacherUid;
+  const updateAnnouncementStorageKey = updateAnnouncementRecipient
+    ? `levelup_teacher_update_seen:${TEACHER_UPDATE_ANNOUNCEMENT.id}:${updateAnnouncementRecipient}`
+    : null;
   const [currentView, setCurrentView]   = useState('dashboard');
   const [quizCreationDraft, setQuizCreationDraft] = useState(null);
   const [teacherThemeMode, setTeacherThemeMode] = useState(() => localStorage.getItem('teacherThemeMode') || 'light');
@@ -136,13 +243,33 @@ function TeacherLayout({
   const autoOpenedBossRaidDemoRef = React.useRef(0);
   const [approvalBadges, setApprovalBadges] = useState({});
   const [notices, setNotices]           = useState([]);
+  const [showUpdateAnnouncement, setShowUpdateAnnouncement] = useState(() => {
+    if (!updateAnnouncementStorageKey) return false;
+    try { return localStorage.getItem(updateAnnouncementStorageKey) !== '1'; }
+    catch { return true; }
+  });
   const [dismissedIds, setDismissedIds] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('dismissedNotices') || '[]'); } catch { return []; }
   });
-  const currentTeacherEmail = normalizeTeacherEmail(user?.email);
   const canUseBossRaidDemo =
     allowBossRaidDemoEntry || currentTeacherEmail === BOSS_RAID_DEMO_ALLOWED_TEACHER_EMAIL;
   const shouldShowBossRaidDemoButton = currentTeacherEmail === BOSS_RAID_DEMO_ALLOWED_TEACHER_EMAIL;
+
+  const closeUpdateAnnouncement = useCallback(() => {
+    if (updateAnnouncementStorageKey) {
+      try { localStorage.setItem(updateAnnouncementStorageKey, '1'); } catch { /* 브라우저 저장소를 사용할 수 없어도 안내는 닫습니다. */ }
+    }
+    setShowUpdateAnnouncement(false);
+  }, [updateAnnouncementStorageKey]);
+
+  useEffect(() => {
+    if (!showUpdateAnnouncement) return undefined;
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') closeUpdateAnnouncement();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showUpdateAnnouncement, closeUpdateAnnouncement]);
 
   useEffect(() => {
     getDocs(query(collection(db, 'notices'), where('active', '==', true)))
@@ -345,6 +472,7 @@ function TeacherLayout({
     adventureManage: '어드벤처 관리',
     boardManage: '공유 게시판',
     learningNoteManage: '배움노트 관리',
+    surveyManage: '설문지 관리',
     economyManage: '학급 경제 관리',
     classShopManage: '학급 상점 관리',
     bankManage: '은행 관리',
@@ -574,6 +702,7 @@ function TeacherLayout({
         {currentView === 'boardManage'        && <BoardManage selectedClass={selectedClass} user={user} themeMode={teacherThemeMode} />}
         {currentView === 'learningNoteManage' && <LearningNoteManage selectedClass={selectedClass} onApprovalBadgeRefresh={refreshApprovalBadgeCounts} />}
         {currentView === 'topicWritingManage' && <TopicWritingManage selectedClass={selectedClass} onApprovalBadgeRefresh={refreshApprovalBadgeCounts} />}
+        {currentView === 'surveyManage'       && <SurveyManage selectedClass={selectedClass} />}
         {currentView === 'aiCourseware'       && <AICoursewareManage selectedClass={selectedClass} onNavigate={setCurrentView} />}
         {currentView === 'aiCoursewareView'   && <AICourseware teacherUid={selectedClass?.teacherUid} classGrade={selectedClass?.grade} isTeacher themeMode={teacherThemeMode} />}
         {currentView === 'inquiry'         && <FeedbackBoard selectedClass={selectedClass} />}
@@ -764,6 +893,10 @@ function TeacherLayout({
             </div>
           </div>
         </div>
+      )}
+
+      {showUpdateAnnouncement && (
+        <TeacherUpdateAnnouncement onClose={closeUpdateAnnouncement} />
       )}
     </div>
   );

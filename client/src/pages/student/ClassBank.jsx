@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  collection, getDocs, getDoc, doc, writeBatch,
-  setDoc, serverTimestamp, query, where,
+  collection, getDocs, getDoc, doc,
+  serverTimestamp, query, where, runTransaction,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { calculateStudentInterest, getKoreaWeekKey } from '../../utils/bankInterest';
 
 const fmtDate = (ts) => {
   if (!ts) return '';
@@ -43,11 +44,84 @@ const parseWholeAmount = (value) => {
   return Number.isInteger(n) && n > 0 ? n : null;
 };
 
+const DEFAULT_BANK_SETTINGS = {
+  weeklyDiamondRate: 0.03,
+  weeklyGoldRate: 0.03,
+  autoInterestEnabled: true,
+};
+
+const settleStudentAutoInterest = async ({ studentId, scope }) => {
+  if (!studentId || !scope?.scopeKey) return null;
+  const studentRef = doc(db, 'students', studentId);
+  const settingsRef = doc(db, 'bankSettings', scope.scopeKey);
+
+  return runTransaction(db, async transaction => {
+    const studentSnap = await transaction.get(studentRef);
+    const settingsSnap = await transaction.get(settingsRef);
+    if (!studentSnap.exists()) return null;
+
+    const studentData = studentSnap.data();
+    const bankSettings = settingsSnap.exists()
+      ? { ...DEFAULT_BANK_SETTINGS, ...settingsSnap.data() }
+      : DEFAULT_BANK_SETTINGS;
+    if (bankSettings.autoInterestEnabled === false) return null;
+
+    const settlement = calculateStudentInterest({
+      student: studentData,
+      diamondRate: bankSettings.weeklyDiamondRate,
+      goldRate: bankSettings.weeklyGoldRate,
+    });
+    if (!settlement.hasDueInterest) return null;
+
+    const now = serverTimestamp();
+    transaction.update(studentRef, { ...settlement.updates, bankLastInterestAt: now });
+
+    const baseLog = {
+      studentId,
+      studentCode: studentData.studentCode,
+      studentName: studentData.name || studentData.studentCode,
+      type: 'interest',
+      createdAt: now,
+      classId: scope.classId || null,
+      teacherUid: scope.teacherUid || null,
+      scopeKey: scope.scopeKey,
+      interestWeek: settlement.currentWeek,
+      automatic: true,
+    };
+    if (settlement.diamond.interest > 0) {
+      transaction.set(doc(collection(db, 'bankLogs')), {
+        ...baseLog,
+        currency: 'diamond',
+        amount: settlement.diamond.interest,
+        rate: Number(bankSettings.weeklyDiamondRate) || 0,
+        weeks: settlement.diamond.weeks,
+        newDeposit: settlement.diamond.balance,
+      });
+    }
+    if (settlement.gold.interest > 0) {
+      transaction.set(doc(collection(db, 'bankLogs')), {
+        ...baseLog,
+        currency: 'gold',
+        amount: settlement.gold.interest,
+        rate: Number(bankSettings.weeklyGoldRate) || 0,
+        weeks: settlement.gold.weeks,
+        newDeposit: settlement.gold.balance,
+      });
+    }
+
+    return {
+      student: { id: studentId, ...studentData, ...settlement.updates },
+      settings: bankSettings,
+      settlement,
+    };
+  });
+};
+
 function ClassBank({ studentCode }) {
   const [student, setStudent]   = useState(null);
   const [docId, setDocId]       = useState(null);
   const [scope, setScope]       = useState({ classId: null, teacherUid: null, scopeKey: null });
-  const [settings, setSettings] = useState({ weeklyDiamondRate: 0.03, weeklyGoldRate: 0.03 });
+  const [settings, setSettings] = useState(DEFAULT_BANK_SETTINGS);
   const [logs, setLogs]         = useState([]);
   const [tab, setTab]           = useState('overview');
   const [isLoading, setIsLoading] = useState(true);
@@ -68,7 +142,7 @@ function ClassBank({ studentCode }) {
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
-      setSettings({ weeklyDiamondRate: 0.03, weeklyGoldRate: 0.03 });
+      setSettings(DEFAULT_BANK_SETTINGS);
       try {
         if (studentCode) {
           const q    = query(collection(db, 'students'), where('studentCode', '==', studentCode));
@@ -78,13 +152,39 @@ function ClassBank({ studentCode }) {
             const sData = sDoc.data();
             const nextScope = getScopeFromStudent(sData);
             setDocId(sDoc.id);
-            setStudent({ id: sDoc.id, ...sData });
             setScope(nextScope);
 
+            let loadedSettings = DEFAULT_BANK_SETTINGS;
             if (nextScope.scopeKey) {
               const settingsDoc = await getDoc(doc(db, 'bankSettings', nextScope.scopeKey));
-              if (settingsDoc.exists()) setSettings(settingsDoc.data());
+              if (settingsDoc.exists()) loadedSettings = { ...DEFAULT_BANK_SETTINGS, ...settingsDoc.data() };
             }
+            setSettings(loadedSettings);
+
+            let loadedStudent = { id: sDoc.id, ...sData };
+            // 자동 이자 정산이 실패하더라도 기존 예치금은 먼저 화면에 표시합니다.
+            setStudent(loadedStudent);
+            const preview = calculateStudentInterest({
+              student: sData,
+              diamondRate: loadedSettings.weeklyDiamondRate,
+              goldRate: loadedSettings.weeklyGoldRate,
+            });
+            if (loadedSettings.autoInterestEnabled !== false && preview.hasDueInterest) {
+              try {
+                const result = await settleStudentAutoInterest({ studentId: sDoc.id, scope: nextScope });
+                if (result?.student) {
+                  loadedStudent = result.student;
+                  setSettings(result.settings);
+                  if (result.settlement.totalInterest > 0) {
+                    showToast(`주간 이자 자동 지급! 💎+${result.settlement.diamond.interest.toLocaleString()} 🪙+${result.settlement.gold.interest.toLocaleString()}`);
+                  }
+                }
+              } catch (interestError) {
+                console.error('자동 이자 정산 에러:', interestError);
+                showToast('예치금은 정상입니다. 이자 자동 지급만 잠시 지연되고 있습니다.', 'error');
+              }
+            }
+            setStudent(loadedStudent);
 
             const logsSnap = await getDocs(
               query(collection(db, 'bankLogs'), where('studentId', '==', sDoc.id))
@@ -113,8 +213,8 @@ function ClassBank({ studentCode }) {
   const bankGold         = toWholeCurrency(student?.bankGold);
   const diaTotalInterest = toWholeCurrency(student?.bankDiamondInterest);
   const goldTotalInterest= toWholeCurrency(student?.bankGoldInterest);
-  const diaRate          = settings.weeklyDiamondRate   || 0.03;
-  const goldRate         = settings.weeklyGoldRate      || 0.03;
+  const diaRate          = Number(settings.weeklyDiamondRate ?? 0.03);
+  const goldRate         = Number(settings.weeklyGoldRate ?? 0.03);
   const nextDiaInt       = Math.floor(bankDia  * diaRate);
   const nextGoldInt      = Math.floor(bankGold * goldRate);
 
@@ -127,40 +227,59 @@ function ClassBank({ studentCode }) {
 
     setIsBusy(true);
     try {
-      const curDep = currency === 'diamond' ? bankDia : bankGold;
-      const batch  = writeBatch(db);
-      const sRef   = doc(db, 'students', docId);
+      const sRef = doc(db, 'students', docId);
+      const result = await runTransaction(db, async transaction => {
+        const latestSnap = await transaction.get(sRef);
+        if (!latestSnap.exists()) throw new Error('학생 계정을 찾지 못했습니다.');
 
-      if (currency === 'diamond') {
-        batch.update(sRef, { diamonds: walletDia - amount, bankDiamond: curDep + amount });
-      } else {
-        batch.update(sRef, { gold: walletGold - amount, bankGold: curDep + amount });
-      }
-      batch.set(doc(collection(db, 'bankLogs')), {
-        studentId: docId, studentCode: student.studentCode, studentName: student.name || student.studentCode,
-        type: 'deposit', currency, amount, newDeposit: curDep + amount, createdAt: serverTimestamp(),
-        classId: scope.classId || null,
-        teacherUid: scope.teacherUid || null,
-        scopeKey: scope.scopeKey || null,
+        const latest = latestSnap.data();
+        const walletField = currency === 'diamond' ? 'diamonds' : 'gold';
+        const bankField = currency === 'diamond' ? 'bankDiamond' : 'bankGold';
+        const depositWeekField = currency === 'diamond' ? 'bankDiamondDepositWeek' : 'bankGoldDepositWeek';
+        const latestWallet = toWholeCurrency(latest[walletField]);
+        const latestDeposit = toWholeCurrency(latest[bankField]);
+        if (amount > latestWallet) {
+          throw new Error(`보유 ${currency === 'diamond' ? '다이아' : '골드'}가 부족합니다. (보유: ${latestWallet.toLocaleString()})`);
+        }
+
+        const walletAfter = latestWallet - amount;
+        const depositAfter = latestDeposit + amount;
+        transaction.update(sRef, {
+          [walletField]: walletAfter,
+          [bankField]: depositAfter,
+          ...(latestDeposit <= 0 ? { [depositWeekField]: getKoreaWeekKey() } : {}),
+        });
+        transaction.set(doc(collection(db, 'bankLogs')), {
+          studentId: docId,
+          studentCode: latest.studentCode,
+          studentName: latest.name || latest.studentCode,
+          type: 'deposit', currency, amount, newDeposit: depositAfter, createdAt: serverTimestamp(),
+          classId: latest.classId || scope.classId || null,
+          teacherUid: latest.teacherUid || scope.teacherUid || null,
+          scopeKey: latest.classId || latest.teacherUid || scope.scopeKey || null,
+        });
+        return { walletField, bankField, walletAfter, depositAfter };
       });
-      await batch.commit();
 
       setStudent(prev => ({
         ...prev,
-        diamonds:   currency === 'diamond' ? (prev.diamonds || 0) - amount : prev.diamonds,
-        gold:       currency === 'gold'    ? (prev.gold    || 0) - amount : prev.gold,
-        bankDiamond: currency === 'diamond' ? curDep + amount : prev.bankDiamond,
-        bankGold:    currency === 'gold'    ? curDep + amount : prev.bankGold,
+        [result.walletField]: result.walletAfter,
+        [result.bankField]: result.depositAfter,
       }));
       setLogs(prev => [{
         id: `t${Date.now()}`, type: 'deposit', currency, amount,
-        newDeposit: curDep + amount, createdAt: { seconds: Date.now() / 1000 },
+        newDeposit: result.depositAfter, createdAt: { seconds: Date.now() / 1000 },
       }, ...prev]);
       if (currency === 'diamond') setDiaDeposit(''); else setGoldDeposit('');
       showToast('예치 완료! 💰');
     } catch (err) {
       console.error(err);
-      showToast('예치 중 오류가 발생했습니다.', 'error');
+      showToast(
+        err?.code === 'resource-exhausted'
+          ? 'Firebase 일일 읽기 한도가 소진되어 지금은 예치할 수 없습니다. 잔액은 변경되지 않았습니다.'
+          : (err.message || '예치 중 오류가 발생했습니다.'),
+        'error',
+      );
     } finally {
       setIsBusy(false);
     }
@@ -175,39 +294,52 @@ function ClassBank({ studentCode }) {
 
     setIsBusy(true);
     try {
-      const batch = writeBatch(db);
-      const sRef  = doc(db, 'students', docId);
+      const sRef = doc(db, 'students', docId);
+      const result = await runTransaction(db, async transaction => {
+        const latestSnap = await transaction.get(sRef);
+        if (!latestSnap.exists()) throw new Error('학생 계정을 찾지 못했습니다.');
 
-      if (currency === 'diamond') {
-        batch.update(sRef, { diamonds: walletDia + amount, bankDiamond: curDep - amount });
-      } else {
-        batch.update(sRef, { gold: walletGold + amount, bankGold: curDep - amount });
-      }
-      batch.set(doc(collection(db, 'bankLogs')), {
-        studentId: docId, studentCode: student.studentCode, studentName: student.name || student.studentCode,
-        type: 'withdraw', currency, amount, newDeposit: curDep - amount, createdAt: serverTimestamp(),
-        classId: scope.classId || null,
-        teacherUid: scope.teacherUid || null,
-        scopeKey: scope.scopeKey || null,
+        const latest = latestSnap.data();
+        const walletField = currency === 'diamond' ? 'diamonds' : 'gold';
+        const bankField = currency === 'diamond' ? 'bankDiamond' : 'bankGold';
+        const latestWallet = toWholeCurrency(latest[walletField]);
+        const latestDeposit = toWholeCurrency(latest[bankField]);
+        if (amount > latestDeposit) throw new Error('예치금보다 많은 금액은 출금할 수 없습니다.');
+
+        const walletAfter = latestWallet + amount;
+        const depositAfter = latestDeposit - amount;
+        transaction.update(sRef, { [walletField]: walletAfter, [bankField]: depositAfter });
+        transaction.set(doc(collection(db, 'bankLogs')), {
+          studentId: docId,
+          studentCode: latest.studentCode,
+          studentName: latest.name || latest.studentCode,
+          type: 'withdraw', currency, amount, newDeposit: depositAfter, createdAt: serverTimestamp(),
+          classId: latest.classId || scope.classId || null,
+          teacherUid: latest.teacherUid || scope.teacherUid || null,
+          scopeKey: latest.classId || latest.teacherUid || scope.scopeKey || null,
+        });
+        return { walletField, bankField, walletAfter, depositAfter };
       });
-      await batch.commit();
 
       setStudent(prev => ({
         ...prev,
-        diamonds:   currency === 'diamond' ? (prev.diamonds || 0) + amount : prev.diamonds,
-        gold:       currency === 'gold'    ? (prev.gold    || 0) + amount : prev.gold,
-        bankDiamond: currency === 'diamond' ? curDep - amount : prev.bankDiamond,
-        bankGold:    currency === 'gold'    ? curDep - amount : prev.bankGold,
+        [result.walletField]: result.walletAfter,
+        [result.bankField]: result.depositAfter,
       }));
       setLogs(prev => [{
         id: `t${Date.now()}`, type: 'withdraw', currency, amount,
-        newDeposit: curDep - amount, createdAt: { seconds: Date.now() / 1000 },
+        newDeposit: result.depositAfter, createdAt: { seconds: Date.now() / 1000 },
       }, ...prev]);
       if (currency === 'diamond') setDiaWithdraw(''); else setGoldWithdraw('');
       showToast('출금 완료!');
     } catch (err) {
       console.error(err);
-      showToast('출금 중 오류가 발생했습니다.', 'error');
+      showToast(
+        err?.code === 'resource-exhausted'
+          ? 'Firebase 일일 읽기 한도가 소진되어 지금은 출금할 수 없습니다. 잔액은 변경되지 않았습니다.'
+          : (err.message || '출금 중 오류가 발생했습니다.'),
+        'error',
+      );
     } finally {
       setIsBusy(false);
     }
@@ -269,7 +401,7 @@ function ClassBank({ studentCode }) {
                 <span className="text-sm ml-2 opacity-80">🪙 골드</span>
               </div>
             </div>
-            <div className="text-xs opacity-60 mt-2">선생님이 매주 이자를 지급합니다 · 복리 적용</div>
+            <div className="text-xs opacity-70 mt-2">{settings.autoInterestEnabled !== false ? '매주 월요일 자동 지급 · 늦게 접속해도 누락 주차 정산 · 복리 적용' : '자동 이자 지급이 잠시 꺼져 있습니다'}</div>
           </div>
 
           {/* 💎 다이아 계좌 */}
@@ -349,6 +481,9 @@ function ClassBank({ studentCode }) {
                       {LOG_TYPE_LABEL[log.type]} {log.currency === 'diamond' ? '💎' : '🪙'}
                       {log.type === 'interest' && log.rate && (
                         <span className="text-xs text-slate-400 font-normal ml-1">({(log.rate * 100).toFixed(1)}%)</span>
+                      )}
+                      {log.type === 'interest' && Number(log.weeks) > 1 && (
+                        <span className="text-xs text-emerald-600 font-bold ml-1">{log.weeks}주 자동 정산</span>
                       )}
                     </div>
                     <div className="text-xs text-slate-400">{fmtDate(log.createdAt)}</div>

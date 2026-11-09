@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
-import { collection, getDocs, doc, getDoc, updateDoc, writeBatch, serverTimestamp, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, updateDoc, writeBatch, serverTimestamp, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
 import LevelUpEffect from '../../components/LevelUpEffect';
 import { applyClassQuickSetup, QUICK_SETUP_VERSION } from '../../utils/classQuickSetup';
@@ -79,16 +79,24 @@ function AICoursewareCard({ teacherUid, onNavigate }) {
     (async () => {
       try {
         const today = new Date(); today.setHours(0, 0, 0, 0);
-        const [setsSnap, progressSnap] = await Promise.all([
-          getDocs(query(collection(db, 'aiCourseSets'), where('teacherUid', '==', teacherUid))),
-          getDocs(query(collection(db, 'aiCourseProgress'), where('completedAt', '>=', Timestamp.fromDate(today)))),
-        ]);
+        const setsSnap = await getDocs(query(collection(db, 'aiCourseSets'), where('teacherUid', '==', teacherUid)));
         const allSets = setsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         const publishedIds = new Set(allSets.filter(s => s.status === 'published').map(s => s.id));
         const draftCount   = allSets.filter(s => s.status === 'draft').length;
         const publishedCount = publishedIds.size;
 
-        const todayProgress = progressSnap.docs.map(d => d.data()).filter(p => publishedIds.has(p.courseSetId));
+        const publishedChunks = [];
+        const publishedList = [...publishedIds];
+        for (let index = 0; index < publishedList.length; index += 30) {
+          publishedChunks.push(publishedList.slice(index, index + 30));
+        }
+        const progressSnaps = await Promise.all(publishedChunks.map(ids => getDocs(query(
+          collection(db, 'aiCourseProgress'),
+          where('courseSetId', 'in', ids),
+          limit(200),
+        ))));
+        const todayProgress = progressSnaps.flatMap(snap => snap.docs.map(d => d.data()))
+          .filter(progress => toDate(progress.completedAt) >= today);
         const todayDone     = todayProgress.filter(p => p.status === 'completed').length;
         const scores        = todayProgress.filter(p => p.score != null).map(p => p.score);
         const avgScore      = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
@@ -344,7 +352,16 @@ function TeacherDashboard({
       todayStart.setHours(0, 0, 0, 0);
       const weekStart = new Date(todayStart);
       weekStart.setDate(weekStart.getDate() - 7);
-      const weekTs = Timestamp.fromDate(weekStart);
+      const studentIdList = (currentStudents || []).map(student => student.id).filter(Boolean);
+      const studentIdChunks = [];
+      for (let index = 0; index < studentIdList.length; index += 30) {
+        studentIdChunks.push(studentIdList.slice(index, index + 30));
+      }
+      const quizPromise = Promise.all(studentIdChunks.map(ids => getDocs(query(
+        collection(db, 'quizResults'),
+        where('studentId', 'in', ids),
+        limit(300),
+      )))).then(snaps => ({ docs: snaps.flatMap(snap => snap.docs) }));
 
       const [notesSnap, quizSnap, writingSnap] = await Promise.all([
         // 배움노트 pending 건수
@@ -353,11 +370,8 @@ function TeacherDashboard({
           where('teacherUid', '==', teacherUid),
           where('status', '==', 'pending')
         )),
-        // 최근 7일 퀴즈 결과
-        getDocs(query(
-          collection(db, 'quizResults'),
-          where('completedAt', '>=', weekTs)
-        )),
+        // Restrict reads to this class before filtering the recent period.
+        quizPromise,
         getDocs(query(
           collection(db, 'writingSubmissions'),
           where('teacherUid', '==', teacherUid)
@@ -757,7 +771,11 @@ function TeacherDashboard({
     }
   };
 
-  const filteredStudents = students.filter(s => s.studentCode.includes(searchQuery));
+  const normalizedStudentSearch = searchQuery.trim().toLowerCase();
+  const filteredStudents = students.filter(student => !normalizedStudentSearch
+    || String(student.studentCode || '').toLowerCase().includes(normalizedStudentSearch)
+    || String(student.name || '').toLowerCase().includes(normalizedStudentSearch)
+    || String(getSeatNum(student.studentCode)) === normalizedStudentSearch);
   const aiActionItems = aiSummary ? [
     aiSummary.pendingQuestRewards > 0 && {
       id: 'questRewards',
@@ -879,25 +897,33 @@ function TeacherDashboard({
   const dashboardBg = isDark ? 'bg-slate-950' : 'bg-slate-100';
   const mainSurface = 'dashboard-light-surface teacher-dashboard-surface border-slate-200 bg-white text-slate-900 shadow-xl shadow-black/10';
   const mutedText = 'text-slate-600';
-
+  const todayLabel = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', weekday: 'long',
+  }).format(new Date());
+  const classLabel = [
+    selectedClass?.schoolName,
+    selectedClass?.grade ? `${selectedClass.grade}학년` : '',
+    selectedClass?.classNumber ? `${selectedClass.classNumber}반` : '',
+  ].filter(Boolean).join(' · ') || '선택된 학급';
+  const activeTodayCount = students.filter(isStudentActiveToday).length;
+  const totalPendingCount = aiSummary
+    ? aiSummary.pendingNotes + aiSummary.pendingTopicWritings + aiSummary.pendingQuestRewards
+    : null;
   return (
     <div className={`teacher-dashboard-page ${isDark ? 'teacher-dashboard-dark-mode' : 'teacher-dashboard-light-mode'} min-h-screen px-4 md:px-8 pt-5 pb-8 relative ${dashboardBg}`}>
-      <div className={`teacher-dashboard-hero mb-5 overflow-hidden rounded-2xl border p-6 shadow-xl ${
-        isDark
-          ? 'border-indigo-300/25 bg-gradient-to-br from-indigo-600 via-violet-600 to-sky-600 text-white shadow-indigo-950/30'
-          : 'border-indigo-100 bg-gradient-to-br from-white via-indigo-50 to-sky-50 text-slate-900'
-      }`}>
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
+      <div className="teacher-dashboard-hero relative mb-4 overflow-hidden rounded-3xl border border-indigo-300/20 bg-gradient-to-br from-indigo-700 via-violet-700 to-sky-600 p-5 text-white shadow-xl shadow-indigo-950/20 sm:p-7">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-60 w-60 rounded-full bg-white/10 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-52 w-52 rounded-full bg-sky-300/15 blur-2xl" />
+        <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
         <div>
-          <div className={`mb-2 inline-flex rounded-full px-3 py-1 text-xs font-black ${
-            isDark ? 'bg-white/15 text-indigo-50' : 'bg-indigo-100 text-indigo-700'
-          }`}>
-            교사용 운영 홈
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-black text-indigo-100">
+            <span className="rounded-full bg-white/15 px-3 py-1">교사용 운영 홈</span>
+            <span>{todayLabel}</span>
           </div>
-          <h1 className={`text-4xl font-extrabold flex items-center ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            학급 전체 대시보드
+          <h1 className="flex items-center text-2xl font-black tracking-tight text-white sm:text-4xl">
+            {classLabel}
           </h1>
-          <p className={`mt-2 max-w-xl text-base font-semibold leading-relaxed ${isDark ? 'text-indigo-50/90' : 'text-slate-600'}`}>
+          <p className="mt-2 max-w-xl text-sm font-semibold leading-relaxed text-indigo-50/90 sm:text-base">
             {showOnboardingChecklist
               ? '아래 3단계만 끝내면 기본 학급 운영을 바로 시작할 수 있습니다.'
               : '오늘 필요한 학급 운영과 보상 처리를 빠르게 확인합니다.'}
@@ -906,12 +932,12 @@ function TeacherDashboard({
         
         <div className="flex flex-wrap justify-start gap-2 md:justify-end">
           <button onClick={() => openModal('add')}
-            className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm transition-colors">
-            지급하기
+            className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-emerald-600">
+            ＋ 재화 지급
           </button>
           <button onClick={() => openModal('sub')}
-            className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm transition-colors">
-            차감하기
+            className="flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/15 px-4 py-2.5 text-sm font-black text-white shadow-sm backdrop-blur transition hover:bg-white/25">
+            － 재화 차감
           </button>
           {canUseBossRaidDemo && (
             <button
@@ -925,15 +951,17 @@ function TeacherDashboard({
           <button
             type="button"
             onClick={() => setShowHeaderTools(value => !value)}
-            className={`px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-base border ${
-              isDark
-                ? 'border-white/20 bg-white/15 text-white hover:bg-white/25'
-                : 'border-slate-300 bg-slate-900 text-white hover:bg-slate-800'
-            }`}
+            className="rounded-xl border border-white/20 bg-white/15 px-4 py-2.5 text-sm font-black text-white shadow-sm backdrop-blur transition hover:bg-white/25"
           >
             운영 도구 {showHeaderTools ? '접기 ▲' : '더보기 ▼'}
           </button>
         </div>
+        </div>
+
+        <div className="relative mt-5 grid grid-cols-3 gap-2 border-t border-white/15 pt-4 sm:gap-3">
+          <div className="rounded-2xl bg-white/10 px-3 py-3 backdrop-blur"><div className="text-xl font-black sm:text-2xl">{students.length}<span className="ml-0.5 text-xs text-indigo-100">명</span></div><div className="mt-0.5 text-[11px] font-bold text-indigo-100">전체 학생</div></div>
+          <button onClick={() => setIsAccessStatusOpen(true)} className="rounded-2xl bg-white/10 px-3 py-3 text-left backdrop-blur transition hover:bg-white/20"><div className="text-xl font-black sm:text-2xl">{activeTodayCount}<span className="ml-0.5 text-xs text-indigo-100">명</span></div><div className="mt-0.5 text-[11px] font-bold text-indigo-100">오늘 접속 ›</div></button>
+          <div className="rounded-2xl bg-white/10 px-3 py-3 backdrop-blur"><div className="text-xl font-black sm:text-2xl">{totalPendingCount ?? '—'}<span className="ml-0.5 text-xs text-indigo-100">{totalPendingCount !== null ? '건' : ''}</span></div><div className="mt-0.5 text-[11px] font-bold text-indigo-100">승인·보상 대기</div></div>
         </div>
 
         {showHeaderTools && (
@@ -1106,7 +1134,7 @@ function TeacherDashboard({
         </div>
       )}
 
-      {!extensionBannerHidden && (
+      {quickSetupInfo && !quickSetupInfo.completed && !extensionBannerHidden && (
         <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-violet-300 bg-gradient-to-r from-indigo-700 via-violet-700 to-fuchsia-700 p-5 text-white shadow-lg">
           <div className="flex items-start justify-between gap-3">
             <div>

@@ -87,6 +87,7 @@ const NavigationBar = ({ changeView, currentView, classInfo, hiddenMenuIds = [],
       subMenus: [
         { title: '자유 게시판', id: 'freeBoard' },
         { title: '📊 학급 투표', id: 'classVote' },
+        { title: '📝 설문지', id: 'survey' },
       ]
     },
     {

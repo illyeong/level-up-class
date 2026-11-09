@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  collection, doc, getDocs, onSnapshot, query, runTransaction, serverTimestamp, where,
+  collection, doc, documentId, getDoc, getDocs, limit, onSnapshot, orderBy, query,
+  runTransaction, serverTimestamp, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
-import { getClassOperationAttack, getLocalDateKey, getRemainingDays } from '../../utils/classOperation';
+import {
+  getClassOperationAttack,
+  getClassOperationDailySummary,
+  getEquippedEquipmentItemIds,
+  getLocalDateKey,
+  getRemainingDays,
+} from '../../utils/classOperation';
 import { fireProjectile } from '../../utils/projectile';
 import { getClassOperationErrorMessage, playOptionalClassOperationEffect } from '../../utils/classOperationFeedback';
 
@@ -13,6 +20,16 @@ const formatNumber = value => Math.max(0, Number(value) || 0).toLocaleString('ko
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const CLASS_OPERATION_PROJECTILE_TYPES = ['magic', 'fire', 'ice', 'arrow', 'energy'];
 const EMPTY_ATTACKS = [];
+
+const loadEquippedEquipmentItems = async students => {
+  const itemIds = getEquippedEquipmentItemIds(students);
+  if (itemIds.length === 0) return [];
+  const snapshots = await Promise.all(
+    Array.from({ length: Math.ceil(itemIds.length / 30) }, (_, index) => itemIds.slice(index * 30, index * 30 + 30))
+      .map(ids => getDocs(query(collection(db, 'equipmentItems'), where(documentId(), 'in', ids)))),
+  );
+  return snapshots.flatMap(snapshot => snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+};
 
 const getRandomClassOperationProjectileType = () =>
   CLASS_OPERATION_PROJECTILE_TYPES[Math.floor(Math.random() * CLASS_OPERATION_PROJECTILE_TYPES.length)];
@@ -65,12 +82,18 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
     catch { return true; }
   });
   const [dateKey, setDateKey] = useState(getLocalDateKey);
-  const attacks = attackHistory.operationId === operation?.id ? attackHistory.items : EMPTY_ATTACKS;
-  const historyLoading = attackHistory.operationId !== operation?.id || attackHistory.dateKey !== dateKey
-    || attackHistory.all !== showAllAttacks || attackHistory.reloadKey !== reloadKey;
+  const dailySummary = useMemo(() => getClassOperationDailySummary(operation, dateKey), [operation, dateKey]);
+  const attacks = showAllAttacks
+    ? attackHistory.operationId === operation?.id ? attackHistory.items : EMPTY_ATTACKS
+    : dailySummary.lastAttacks;
+  const historyLoading = showAllAttacks && (
+    attackHistory.operationId !== operation?.id || attackHistory.reloadKey !== reloadKey
+  );
   const reconnect = () => { setIsLoading(true); setMessage(''); setReloadKey(key => key + 1); };
-  const hasAttackedToday = todayAttack?.operationId === operation?.id
-    && todayAttack?.studentId === student?.id && todayAttack?.dateKey === dateKey && todayAttack?.exists;
+  const hasAttackedToday = dailySummary.participantIds.includes(String(student?.id || '')) || (
+    todayAttack?.operationId === operation?.id
+      && todayAttack?.studentId === student?.id && todayAttack?.dateKey === dateKey && todayAttack?.exists
+  );
   const characterCardRef = useRef(null);
   const bossTargetRef = useRef(null);
 
@@ -98,8 +121,8 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
           return;
         }
         const teacherOperationQuery = classId
-          ? query(collection(db, 'classOperations'), where('classId', '==', classId))
-          : query(collection(db, 'classOperations'), where('teacherUid', '==', teacherUid));
+          ? query(collection(db, 'classOperations'), where('classId', '==', classId), where('status', '==', 'active'))
+          : query(collection(db, 'classOperations'), where('teacherUid', '==', teacherUid), where('status', '==', 'active'));
         unsubscribeOperation = onSnapshot(
           teacherOperationQuery,
           snapshot => {
@@ -118,10 +141,7 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
         setIsLoading(false);
         return;
       }
-      const [studentSnap, equipmentSnap] = await Promise.all([
-        getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode))),
-        getDocs(collection(db, 'equipmentItems')),
-      ]);
+      const studentSnap = await getDocs(query(collection(db, 'students'), where('studentCode', '==', studentCode)));
       if (!mounted) return;
       const studentDoc = studentSnap.docs[0];
       if (!studentDoc) {
@@ -129,8 +149,10 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
         return;
       }
       const studentData = { id: studentDoc.id, ...studentDoc.data() };
+      const equippedItems = await loadEquippedEquipmentItems([studentData]);
+      if (!mounted) return;
       setStudent(studentData);
-      setEquipmentItems(equipmentSnap.docs.map(item => ({ id: item.id, ...item.data() })));
+      setEquipmentItems(equippedItems);
 
       const classId = studentData.classId;
       const teacherUid = studentData.teacherUid;
@@ -139,8 +161,8 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
         return;
       }
       const operationQuery = classId
-        ? query(collection(db, 'classOperations'), where('classId', '==', classId))
-        : query(collection(db, 'classOperations'), where('teacherUid', '==', teacherUid));
+        ? query(collection(db, 'classOperations'), where('classId', '==', classId), where('status', '==', 'active'))
+        : query(collection(db, 'classOperations'), where('teacherUid', '==', teacherUid), where('status', '==', 'active'));
       unsubscribeOperation = onSnapshot(
         operationQuery,
         snapshot => {
@@ -162,28 +184,40 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
     };
   }, [studentCode, isTeacher, selectedClass?.id, selectedClass?.classId, selectedClass?.teacherUid, reloadKey]);
 
-  // By default read only today's attacks, not months of history on every student's device.
-  // Full cumulative history is still available on explicit request.
+  // 기본 화면은 대작전 문서 안의 요약을 사용합니다. 전체 기록은 사용자가 직접 요청할 때만 300건까지 한 번 읽습니다.
   useEffect(() => {
-    if (!operation?.id) return;
-    return onSnapshot(
-      showAllAttacks ? collection(db, 'classOperations', operation.id, 'attacks')
-        : query(collection(db, 'classOperations', operation.id, 'attacks'), where('dateKey', '==', dateKey)),
-      snapshot => {
-        setAttackHistory({ operationId: operation.id, dateKey, all: showAllAttacks, reloadKey, items: snapshot.docs.map(item => ({ id: item.id, ...item.data() }))
-          .sort((a, b) => (b.attackedAt?.seconds || 0) - (a.attackedAt?.seconds || 0)) });
-      },
-      error => { console.error('대작전 공격 기록 조회 실패:', error); setMessage(getClassOperationErrorMessage(error)); },
-    );
-  }, [operation?.id, dateKey, showAllAttacks, reloadKey]);
+    if (!operation?.id || !showAllAttacks) return;
+    let mounted = true;
+    getDocs(query(
+      collection(db, 'classOperations', operation.id, 'attacks'),
+      orderBy('attackedAt', 'desc'),
+      limit(300),
+    )).then(snapshot => {
+      if (!mounted) return;
+      setAttackHistory({
+        operationId: operation.id,
+        reloadKey,
+        items: snapshot.docs.map(item => ({ id: item.id, ...item.data() })),
+      });
+    }).catch(error => {
+      console.error('대작전 누적 기록 조회 실패:', error);
+      if (mounted) setMessage(getClassOperationErrorMessage(error));
+    });
+    return () => { mounted = false; };
+  }, [operation?.id, showAllAttacks, reloadKey]);
 
   useEffect(() => {
     if (isTeacher || !student?.id || !operation?.id) return;
-    return onSnapshot(
-      doc(db, 'classOperations', operation.id, 'attacks', `${student.id}_${dateKey}`),
-      snapshot => setTodayAttack({ operationId: operation.id, studentId: student.id, dateKey, exists: snapshot.exists() }),
-      error => { console.error('대작전 오늘 공격 조회 실패:', error); setMessage(getClassOperationErrorMessage(error)); },
-    );
+    let mounted = true;
+    getDoc(doc(db, 'classOperations', operation.id, 'attacks', `${student.id}_${dateKey}`))
+      .then(snapshot => {
+        if (mounted) setTodayAttack({ operationId: operation.id, studentId: student.id, dateKey, exists: snapshot.exists() });
+      })
+      .catch(error => {
+        console.error('대작전 오늘 공격 확인 실패:', error);
+        if (mounted) setMessage(getClassOperationErrorMessage(error));
+      });
+    return () => { mounted = false; };
   }, [operation?.id, student?.id, isTeacher, dateKey, reloadKey]);
 
   const attackStats = useMemo(
@@ -201,6 +235,9 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
     : '예상 완료일 경과 · HP가 0이 될 때까지 계속';
   const canAttack = !isTeacher && !historyLoading && operation?.status === 'active' && !hasAttackedToday && currentHP > 0;
   const contributionRows = useMemo(() => {
+    if (!showAllAttacks) {
+      return [...dailySummary.contributions].sort((a, b) => (Number(b.damage) || 0) - (Number(a.damage) || 0));
+    }
     const rows = new Map();
     attacks.forEach(attackItem => {
       const key = attackItem.studentId || attackItem.studentCode;
@@ -210,13 +247,17 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
       rows.set(key, current);
     });
     return [...rows.values()].sort((a, b) => b.damage - a.damage);
-  }, [attacks]);
+  }, [attacks, dailySummary.contributions, showAllAttacks]);
   const todayAttacks = useMemo(
     () => attacks.filter(attackItem => attackItem.dateKey === dateKey),
     [attacks, dateKey],
   );
-  const comboBonusPercent = Math.min(20, Math.floor(todayAttacks.length / 5) * 5);
-  const todayParticipantCount = new Set(todayAttacks.map(attackItem => attackItem.studentId || attackItem.studentCode)).size;
+  const todayAttackCount = Math.max(dailySummary.attackCount, todayAttacks.length);
+  const comboBonusPercent = Math.min(20, Math.floor(todayAttackCount / 5) * 5);
+  const todayParticipantCount = Math.max(
+    dailySummary.participantCount,
+    new Set(todayAttacks.map(attackItem => attackItem.studentId || attackItem.studentCode)).size,
+  );
   const fullParticipation = Number(operation?.studentCountAtCreation) > 0 && todayParticipantCount >= Number(operation.studentCountAtCreation);
   const hpPercent = Math.max(0, Math.min(100, (currentHP / maxHP) * 100));
   const bossPhase = hpPercent <= 25 ? 3 : hpPercent <= 50 ? 2 : hpPercent <= 75 ? 1 : 0;
@@ -251,6 +292,33 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
         const beforeHP = Math.max(0, Number(operationData.currentHP) || 0);
         const appliedDamage = Math.min(beforeHP, rolledDamage);
         const nextHP = Math.max(0, beforeHP - appliedDamage);
+        const previousDaily = getClassOperationDailySummary(operationData, attackDateKey);
+        const participantId = String(student.id);
+        const participantIds = previousDaily.participantIds.includes(participantId)
+          ? previousDaily.participantIds
+          : [...previousDaily.participantIds, participantId];
+        const existingContribution = previousDaily.contributions.find(item => String(item.studentId) === participantId);
+        const nextContribution = {
+          studentId: participantId,
+          studentCode: student.studentCode || studentCode,
+          name: student.name || student.studentCode || '학생',
+          damage: (Number(existingContribution?.damage) || 0) + appliedDamage,
+          count: (Number(existingContribution?.count) || 0) + 1,
+        };
+        const contributions = [
+          ...previousDaily.contributions.filter(item => String(item.studentId) !== participantId),
+          nextContribution,
+        ];
+        const summaryAttack = {
+          id: attackId,
+          studentId: participantId,
+          studentCode: student.studentCode || studentCode,
+          studentName: student.name || student.studentCode || '학생',
+          damage: appliedDamage,
+          critical,
+          dateKey: attackDateKey,
+          attackedAtMs: Date.now(),
+        };
         transaction.set(attackRef, {
           studentId: student.id,
           studentCode: student.studentCode || studentCode,
@@ -271,6 +339,14 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
           totalAttackCount: (Number(operationData.totalAttackCount) || 0) + 1,
           status: nextHP === 0 ? 'cleared' : 'active',
           clearedAt: nextHP === 0 ? serverTimestamp() : null,
+          dailyAttackSummary: {
+            dateKey: attackDateKey,
+            attackCount: previousDaily.attackCount + 1,
+            participantIds,
+            participantCount: participantIds.length,
+            lastAttacks: [summaryAttack, ...previousDaily.lastAttacks.filter(item => item.id !== attackId)].slice(0, 12),
+            contributions,
+          },
           updatedAt: serverTimestamp(),
         });
         return { appliedDamage, critical, cleared: nextHP === 0 };
@@ -348,7 +424,7 @@ export default function ClassOperation({ studentCode, isTeacher = false, selecte
         </p>}
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 backdrop-blur-md">
-          <div><div className="text-[10px] font-bold text-white/45">오늘의 협동 콤보</div><div className="text-lg font-black text-amber-300">{todayAttacks.length} HIT {comboBonusPercent > 0 && <span className="ml-1 text-xs text-emerald-300">공격 +{comboBonusPercent}%</span>} {fullParticipation && <span className="ml-1 text-xs text-sky-300">✨ 전원 참여!</span>}</div></div>
+          <div><div className="text-[10px] font-bold text-white/45">오늘의 협동 콤보</div><div className="text-lg font-black text-amber-300">{todayAttackCount} HIT {comboBonusPercent > 0 && <span className="ml-1 text-xs text-emerald-300">공격 +{comboBonusPercent}%</span>} {fullParticipation && <span className="ml-1 text-xs text-sky-300">✨ 전원 참여!</span>}</div></div>
           <div className="flex -space-x-2">
             {todayAttacks.slice(0, 10).map(attackItem => (
               <div key={attackItem.id} title={attackItem.studentName || attackItem.studentCode} className="grid h-9 w-9 place-items-center overflow-hidden rounded-full border-2 border-slate-800 bg-indigo-900 text-xs font-black shadow-lg">

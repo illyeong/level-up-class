@@ -1,8 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   collection, getDocs, doc, writeBatch, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { adjustPublicStats } from '../../utils/publicStats';
 
 /* ─── 학생 목록 조회 헬퍼 ─────────────────────────────── */
 const fetchStudents = async (selectedClass) => {
@@ -288,6 +289,24 @@ export default function DataReset({ selectedClass, onClassDeleted }) {
       await batchDelete(boardSnap.docs.map(d => d.ref));
     }
 
+    // 설문과 학생 응답 (새 설문은 classId 기준으로 학급 간 데이터가 섞이지 않게 삭제)
+    const surveySnap = selectedClass.id
+      ? await getDocs(query(collection(db, 'surveys'), where('classId', '==', selectedClass.id)))
+      : teacherUid
+        ? await getDocs(query(collection(db, 'surveys'), where('teacherUid', '==', teacherUid)))
+        : null;
+    if (surveySnap && !surveySnap.empty) {
+      const surveyIds = surveySnap.docs.map(d => d.id);
+      for (let i = 0; i < surveyIds.length; i += 30) {
+        const responseSnap = await getDocs(query(
+          collection(db, 'surveyResponses'),
+          where('surveyId', 'in', surveyIds.slice(i, i + 30)),
+        ));
+        await batchDelete(responseSnap.docs.map(d => d.ref));
+      }
+      await batchDelete(surveySnap.docs.map(d => d.ref));
+    }
+
     // quests (classId 또는 teacherUid 기준)
     let questsSnap;
     if (selectedClass.id) {
@@ -301,7 +320,10 @@ export default function DataReset({ selectedClass, onClassDeleted }) {
 
     if (selectedClass?.id) {
       await batchDelete([doc(db, 'classes', selectedClass.id)]);
+      await adjustPublicStats({ classDelta: -1, studentDelta: -students.length });
       addLog('학급 문서 삭제 완료', 'info');
+    } else if (students.length > 0) {
+      await adjustPublicStats({ studentDelta: -students.length });
     }
     addLog('학급 삭제 완료', 'success');
     if (onClassDeleted) onClassDeleted();

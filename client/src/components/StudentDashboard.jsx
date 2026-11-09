@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  collection, getDocs, doc, setDoc, deleteDoc, runTransaction,
-  query, where, serverTimestamp,
+  collection, getDocs, getDoc, doc, setDoc, deleteDoc, runTransaction,
+  query, where, limit, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { applyExpDelta, getMaxExpForLevel } from '../utils/leveling';
@@ -9,7 +9,6 @@ import AttendanceCheck from '../pages/student/AttendanceCheck';
 import HallOfFame from '../pages/student/HallOfFame';
 import LevelUpEffect from './LevelUpEffect';
 import StudentAIGrowthCoach from './StudentAIGrowthCoach';
-import iconDashboard from '../assets/images/icon-dashboard.png';
 import { getEffectiveCosmeticStyles, getHallOfFameBadgeText } from '../data/avatarCosmetics';
 
 // ── 오늘의 퀘스트 위젯 ────────────────────────────────────────
@@ -56,9 +55,8 @@ function TodayQuestWidget({ studentId, teacherUid, onYesterdayLog, onStudentRewa
 
         const cMap = {};
         await Promise.all(list.map(async q => {
-          const cSnap = await getDocs(collection(db, 'quests', q.id, 'completions'));
-          const mine  = cSnap.docs.find(d => d.id === studentId);
-          if (mine) cMap[q.id] = mine.data();
+          const mine = await getDoc(doc(db, 'quests', q.id, 'completions', studentId));
+          if (mine.exists()) cMap[q.id] = mine.data();
         }));
 
         // 매일반복 퀘스트: 어제 미보상 completion 삭제 (대시보드 자정 초기화)
@@ -280,7 +278,7 @@ function RewardLogWidget({ studentId }) {
           getDocs(query(collection(db, 'quizResults'), where('studentId', '==', studentId))),
           getDocs(query(collection(db, 'arenaLogs'), where('studentId', '==', studentId))),
           getDocs(query(collection(db, 'transactions'), where('targetIds', 'array-contains', studentId))),
-          getDocs(query(collection(db, 'worldBossRaids'), where('status', '==', 'cleared'))),
+          getDocs(query(collection(db, 'worldBossRaids'), where('status', '==', 'cleared'), limit(100))),
         ]);
 
         const merged = [];
@@ -394,22 +392,29 @@ function RewardLogWidget({ studentId }) {
   );
 }
 
-function RewardLogModalWidget({ studentId }) {
+function RewardLogModalWidget({ studentId, classId, teacherUid }) {
   const [logs, setLogs] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    if (!studentId) { setLogs([]); setIsLoading(false); return; }
+    // Reward history is optional. Do not spend four Firestore reads on every
+    // dashboard visit when the student never opens the modal.
+    if (!isOpen || !studentId) return;
     let mounted = true;
     (async () => {
       setIsLoading(true);
       try {
+        const bossQuery = classId
+          ? query(collection(db, 'worldBossRaids'), where('classId', '==', classId), limit(100))
+          : teacherUid
+          ? query(collection(db, 'worldBossRaids'), where('teacherUid', '==', teacherUid), limit(100))
+          : null;
         const [quizSnap, arenaSnap, txSnap, bossSnap] = await Promise.all([
-          getDocs(query(collection(db, 'quizResults'), where('studentId', '==', studentId))),
-          getDocs(query(collection(db, 'arenaLogs'), where('studentId', '==', studentId))),
-          getDocs(query(collection(db, 'transactions'), where('targetIds', 'array-contains', studentId))),
-          getDocs(query(collection(db, 'worldBossRaids'), where('status', '==', 'cleared'))),
+          getDocs(query(collection(db, 'quizResults'), where('studentId', '==', studentId), limit(100))),
+          getDocs(query(collection(db, 'arenaLogs'), where('studentId', '==', studentId), limit(100))),
+          getDocs(query(collection(db, 'transactions'), where('targetIds', 'array-contains', studentId), limit(100))),
+          bossQuery ? getDocs(bossQuery) : Promise.resolve({ docs: [] }),
         ]);
 
         const merged = [];
@@ -461,7 +466,7 @@ function RewardLogModalWidget({ studentId }) {
 
         bossSnap.docs.forEach((d) => {
           const r = d.data();
-          if (!r.rewardsPaid) return;
+          if (r.status !== 'cleared' || !r.rewardsPaid) return;
           if (!r.participants?.[studentId]) return;
           const gold = r.rewards?.gold || 0;
           const exp = r.rewards?.exp || 0;
@@ -486,7 +491,7 @@ function RewardLogModalWidget({ studentId }) {
       }
     })();
     return () => { mounted = false; };
-  }, [studentId]);
+  }, [isOpen, studentId, classId, teacherUid]);
 
   return (
     <>
@@ -685,7 +690,13 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
   const expPct   = Math.min(100, Math.round((exp / maxExp) * 100));
   const cosmeticStyles = getEffectiveCosmeticStyles(studentData);
   const hallBadgeText = getHallOfFameBadgeText(studentData);
-
+  const currentHour = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul', hour: '2-digit', hourCycle: 'h23',
+  }).format(new Date()));
+  const greeting = currentHour < 12 ? '좋은 아침이에요' : currentHour < 18 ? '오늘도 힘내요' : '오늘 하루도 수고했어요';
+  const todayLabel = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', weekday: 'short',
+  }).format(new Date());
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-64 gap-3">
@@ -739,38 +750,43 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
         </div>
       </div>
     )}
-    <div className={`min-h-screen p-6 md:p-8 ${themeMode === 'dark' ? '' : 'bg-slate-50'}`}>
-      <div className="max-w-7xl mx-auto flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <h1 className={`text-3xl font-bold flex items-center gap-2 ${themeMode === 'dark' ? 'text-white' : 'text-slate-800'}`}>
-          <img src={iconDashboard} alt="대시보드" className="w-8 h-8 object-contain" />
-          학생 대시보드
-        </h1>
-        <div className="flex items-center gap-3 flex-wrap">
+    <div className={`min-h-screen px-3 py-5 sm:px-6 md:px-8 md:py-8 ${themeMode === 'dark' ? '' : 'bg-slate-50'}`}>
+      <section className="relative mx-auto mb-4 max-w-7xl overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 via-violet-700 to-fuchsia-600 p-5 text-white shadow-xl sm:p-7">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-white/10 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-44 w-44 rounded-full bg-sky-300/15 blur-2xl" />
+        <div className="relative flex flex-col justify-between gap-5 md:flex-row md:items-center">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-xs font-black text-indigo-100"><span>{todayLabel}</span><span className="h-1 w-1 rounded-full bg-indigo-200" /><span>Lv. {level}</span></div>
+            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{greeting}, {name}!</h1>
+            <p className="mt-1 text-sm font-semibold text-indigo-100/90">오늘의 성장 목표를 하나씩 완료해 보세요.</p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleAppInstallClick}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 border border-indigo-700 text-white font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm"
+            className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/15 px-3.5 py-2 text-xs font-extrabold text-white backdrop-blur transition hover:bg-white/25"
           >
-            앱 설치하기
+            ＋ 앱 설치
           </button>
           {!installPrompt && isIOS && (
-            <div className="text-xs text-slate-500 font-semibold">
+            <div className="text-xs font-semibold text-white/70">
               iOS는 Safari 공유 버튼에서 홈 화면에 추가를 눌러 주세요.
             </div>
           )}
           {yesterdayLog?.length > 0 && (
             <button onClick={() => setShowYesterdayPopup(true)}
-              className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm">
-              📋 어제 완료한 퀘스트 목록 보기 <span className="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded-full">{yesterdayLog.length}</span>
+              className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/15 px-3.5 py-2 text-xs font-extrabold text-white backdrop-blur transition hover:bg-white/25">
+              어제 퀘스트 <span className="rounded-full bg-white px-2 py-0.5 text-[10px] text-indigo-700">{yesterdayLog.length}</span>
             </button>
           )}
           {newApprovedCount > 0 && (
             <button onClick={() => onChangeView?.('learningNote')}
-              className="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-extrabold text-sm px-4 py-2 rounded-2xl transition-colors shadow-sm animate-pulse">
-              📚 배움노트 {newApprovedCount}개 승인됨! <span className="bg-emerald-600 text-white text-xs px-2 py-0.5 rounded-full">{newApprovedCount}</span>
+              className="flex items-center gap-2 rounded-xl border border-emerald-200/50 bg-emerald-400/25 px-3.5 py-2 text-xs font-extrabold text-white backdrop-blur transition hover:bg-emerald-400/35">
+              배움노트 승인 <span className="rounded-full bg-white px-2 py-0.5 text-[10px] text-emerald-700">{newApprovedCount}</span>
             </button>
           )}
+          </div>
         </div>
-      </div>
+      </section>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)] items-start gap-6">
         {/* 캐릭터 카드 */}
@@ -835,6 +851,7 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
               <p className="font-extrabold text-lg text-amber-600">🪙 {gold.toLocaleString()}</p>
             </div>
           </div>
+          <button onClick={() => onChangeView?.('myCharacter')} className="mt-3 w-full rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-black text-indigo-700 transition hover:bg-indigo-100">내 캐릭터 꾸미기 →</button>
         </div>
 
         {/* 우측: 출석 체크 + 퀘스트 안내 */}
@@ -853,7 +870,11 @@ const StudentDashboard = ({ studentCode, onChangeView, themeMode = 'dark' }) => 
           </div>
 
           <div className="min-w-0">
-            <RewardLogModalWidget studentId={studentData?.id} />
+            <RewardLogModalWidget
+              studentId={studentData?.id}
+              classId={studentData?.classId}
+              teacherUid={studentData?.teacherUid}
+            />
           </div>
 
           {/* 오늘의 퀘스트 */}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc,
-  doc, serverTimestamp, query, where, orderBy, arrayUnion,
+  doc, serverTimestamp, query, where, orderBy, arrayUnion, limit, onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -140,6 +140,8 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
   const teacherLightModeClass = themeMode === 'light' ? 'teacher-board-light' : '';
   const [boards, setBoards]         = useState([]);
   const [isLoading, setIsLoading]   = useState(true);
+  const [boardSearch, setBoardSearch] = useState('');
+  const [boardStatus, setBoardStatus] = useState('all');
 
   // creation
   const [showCreate, setShowCreate] = useState(false);
@@ -167,6 +169,7 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
   const [isRenamingSheet, setIsRenamingSheet] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [hasNewPosts, setHasNewPosts] = useState(false);
+  const [postSearch, setPostSearch] = useState('');
   const latestPostIdRef = useRef(null);
   const [commentDrafts, setCommentDrafts] = useState({});
   const [commentSavingId, setCommentSavingId] = useState(null);
@@ -243,8 +246,9 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
   };
 
   const toggleActive = async (board) => {
-    await updateDoc(doc(db, 'boards', board.id), { active: !board.active });
-    setBoards(prev => prev.map(b => b.id === board.id ? { ...b, active: !b.active } : b));
+    const nextActive = board.active === false;
+    await updateDoc(doc(db, 'boards', board.id), { active: nextActive });
+    setBoards(prev => prev.map(b => b.id === board.id ? { ...b, active: nextActive } : b));
   };
 
   const beginBoardTitleEdit = (board) => {
@@ -314,6 +318,7 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
     setSelectedSheetId(nextSheets[0]?.id || null);
     setEditingSheetId(null);
     setEditingSheetTitle('');
+    setPostSearch('');
     latestPostIdRef.current = null;
     setHasNewPosts(false);
     await loadBoardPosts(board);
@@ -690,22 +695,19 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
 
   useEffect(() => {
     if (!selectedBoard?.id) return;
-    const timer = setInterval(async () => {
-      if (loadingPosts) return;
-      try {
-        const snap = await getDocs(
-          query(collection(db, 'boards', selectedBoard.id, 'posts'), orderBy('createdAt', 'desc'))
-        );
-        const latestId = snap.docs[0]?.id || null;
-        if (latestPostIdRef.current && latestId && latestId !== latestPostIdRef.current) {
-          setHasNewPosts(true);
-        }
-      } catch (e) {
-        console.error(e);
+    const latestPostQuery = query(
+      collection(db, 'boards', selectedBoard.id, 'posts'),
+      orderBy('createdAt', 'desc'),
+      limit(1),
+    );
+    const unsubscribe = onSnapshot(latestPostQuery, (snap) => {
+      const latestId = snap.docs[0]?.id || null;
+      if (latestPostIdRef.current && latestId && latestId !== latestPostIdRef.current) {
+        setHasNewPosts(true);
       }
-    }, 20000);
-    return () => clearInterval(timer);
-  }, [selectedBoard?.id, loadingPosts]);
+    }, (error) => console.error('최신 게시글 감지 오류:', error));
+    return unsubscribe;
+  }, [selectedBoard?.id]);
 
   // ── PostCard ──────────────────────────────────────────────────
   const PostCard = ({ post, idx }) => (
@@ -859,10 +861,25 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
   );
 
   // ── layout renderers ──────────────────────────────────────────
-  const filteredBySheet = selectedSheetId
+  const normalizedPostSearch = postSearch.trim().toLocaleLowerCase('ko-KR');
+  const filteredBySheet = (selectedSheetId
     ? posts.filter((p) => (p.sheetId || 'sheet_1') === selectedSheetId)
-    : posts;
+    : posts)
+    .filter(post => !normalizedPostSearch
+      || String(post.title || '').toLocaleLowerCase('ko-KR').includes(normalizedPostSearch)
+      || String(post.content || '').toLocaleLowerCase('ko-KR').includes(normalizedPostSearch)
+      || String(post.studentName || '').toLocaleLowerCase('ko-KR').includes(normalizedPostSearch));
   const sorted = [...filteredBySheet].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+  const normalizedBoardSearch = boardSearch.trim().toLocaleLowerCase('ko-KR');
+  const visibleManagedBoards = boards.filter(board => {
+    const matchesSearch = !normalizedBoardSearch
+      || String(board.title || '').toLocaleLowerCase('ko-KR').includes(normalizedBoardSearch)
+      || String(board.description || '').toLocaleLowerCase('ko-KR').includes(normalizedBoardSearch);
+    const matchesStatus = boardStatus === 'all'
+      || (boardStatus === 'active' && board.active !== false)
+      || (boardStatus === 'hidden' && board.active === false);
+    return matchesSearch && matchesStatus;
+  });
 
   const renderContent = () => {
     const type = selectedBoard?.boardType || 'wall';
@@ -1593,9 +1610,10 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
                 )}
               </div>
               {hasNewPosts && (
-                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-extrabold text-amber-700 border border-amber-200 shrink-0">
-                  새 글이 올라왔어요
-                </span>
+                <button type="button" onClick={() => loadBoardPosts()}
+                  className="shrink-0 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[11px] font-extrabold text-amber-700 hover:bg-amber-200">
+                  새 글 보기
+                </button>
               )}
               <button
                 type="button"
@@ -1607,9 +1625,15 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
               </button>
               <span className="text-xs text-slate-400 font-medium shrink-0 dark:text-slate-500">게시물 {sorted.length}개</span>
             </div>
-            {/* 시트 탭 줄 */}
-            <div className="px-4 pb-2">
-              <SheetTabs />
+            {/* 시트·게시물 찾기 */}
+            <div className="flex flex-col gap-2 px-4 pb-3 sm:flex-row sm:items-center">
+              <div className="min-w-0 flex-1"><SheetTabs /></div>
+              <label className="relative w-full shrink-0 sm:w-64">
+                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-slate-400">⌕</span>
+                <input value={postSearch} onChange={e => setPostSearch(e.target.value)} placeholder="제목·내용·작성자 검색"
+                  className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:bg-white dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+                {postSearch && <button type="button" onClick={() => setPostSearch('')} aria-label="검색어 지우기" className="absolute inset-y-0 right-3 text-xs font-bold text-slate-400 hover:text-slate-700">✕</button>}
+              </label>
             </div>
           </div>
         )}
@@ -1630,8 +1654,8 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
             setWritePageId(pages[0]?.id || null);
             setShowWrite(true);
             setTimeout(() => textRef.current?.focus(), 50);
-          }} className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-xl text-2xl flex items-center justify-center z-10 transition-colors">
-            ✏️
+          }} className="fixed bottom-6 right-6 z-10 flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-extrabold text-white shadow-xl transition-all hover:-translate-y-0.5 hover:bg-indigo-700">
+            ✏️ 새 글 작성
           </button>
         )}
 
@@ -1663,18 +1687,48 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
 
   // ── board list ────────────────────────────────────────────────
   return (
-    <div className={`min-h-screen bg-slate-100 p-8 dark:bg-slate-950 ${teacherLightModeClass}`}>
-      <div className="max-w-5xl mx-auto">
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex justify-between items-center mb-6 dark:bg-slate-900 dark:border-slate-700">
-          <div>
-            <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">📋 공유 게시판</h1>
-            <p className="text-slate-500 text-sm mt-0.5 dark:text-slate-400">학생들이 학습 결과를 카드 형태로 자유롭게 공유하는 게시판</p>
+    <div className={`min-h-screen bg-slate-100 p-4 sm:p-6 lg:p-8 dark:bg-slate-950 ${teacherLightModeClass}`}>
+      <div className="mx-auto max-w-6xl">
+        <section className="relative mb-5 overflow-hidden rounded-[28px] bg-gradient-to-br from-indigo-700 via-violet-700 to-fuchsia-600 p-5 text-white shadow-xl shadow-indigo-950/20 sm:p-7">
+          <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-sky-300/10 blur-2xl" />
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-extrabold ring-1 ring-white/20">교사용 게시판 관리</span>
+              <h1 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">공유 게시판</h1>
+              <p className="mt-2 max-w-xl text-sm font-medium leading-6 text-indigo-100">수업 결과와 생각을 나눌 공간을 만들고, 공개 여부와 게시글을 한곳에서 관리하세요.</p>
+            </div>
+            <button onClick={() => setShowCreate(true)}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-indigo-700 shadow-lg transition hover:-translate-y-0.5 hover:bg-indigo-50">
+              <span className="text-lg">＋</span> 새 게시판 만들기
+            </button>
           </div>
-          <button onClick={() => setShowCreate(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
-            + 게시판 만들기
-          </button>
-        </div>
+          <div className="relative mt-5 grid grid-cols-3 gap-2 border-t border-white/15 pt-4">
+            <div className="rounded-2xl bg-white/10 px-3 py-3"><strong className="block text-xl font-black sm:text-2xl">{boards.length}</strong><span className="text-[11px] font-bold text-indigo-100">전체</span></div>
+            <div className="rounded-2xl bg-white/10 px-3 py-3"><strong className="block text-xl font-black sm:text-2xl">{boards.filter(board => board.active !== false).length}</strong><span className="text-[11px] font-bold text-indigo-100">학생 공개</span></div>
+            <div className="rounded-2xl bg-white/10 px-3 py-3"><strong className="block text-xl font-black sm:text-2xl">{boards.filter(board => board.active === false).length}</strong><span className="text-[11px] font-bold text-indigo-100">숨김</span></div>
+          </div>
+        </section>
+
+        {!isLoading && boards.length > 0 && (
+          <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:p-4 dark:border-slate-800 dark:bg-slate-900">
+            <label className="relative min-w-0 flex-1">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">⌕</span>
+              <input value={boardSearch} onChange={e => setBoardSearch(e.target.value)} placeholder="게시판 이름이나 설명 검색"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-9 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:bg-white dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+              {boardSearch && <button type="button" onClick={() => setBoardSearch('')} aria-label="검색어 지우기" className="absolute inset-y-0 right-3 text-xs font-bold text-slate-400 hover:text-slate-700">✕</button>}
+            </label>
+            <div className="grid grid-cols-3 rounded-xl bg-slate-100 p-1 dark:bg-slate-950">
+              {[[ 'all', '전체' ], [ 'active', '공개' ], [ 'hidden', '숨김' ]].map(([value, label]) => (
+                <button type="button" key={value} onClick={() => setBoardStatus(value)}
+                  className={`rounded-lg px-3 py-2 text-xs font-extrabold transition-colors ${boardStatus === value ? 'bg-white text-indigo-700 shadow-sm dark:bg-indigo-600 dark:text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="shrink-0 text-xs font-bold text-slate-400">{visibleManagedBoards.length}개 표시</span>
+          </div>
+        )}
 
         {isLoading
           ? <div className="flex items-center justify-center gap-2.5 py-20">
@@ -1689,8 +1743,10 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
                 <p className="text-sm text-slate-400 mt-1">위의 버튼을 눌러 첫 번째 게시판을 만들어보세요!</p>
               </div>
             )
-            : <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {boards.map((board, boardIndex) => {
+            : visibleManagedBoards.length === 0
+              ? <div className="rounded-3xl border border-dashed border-slate-300 bg-white py-16 text-center dark:border-slate-700 dark:bg-slate-900"><p className="text-4xl">🔎</p><p className="mt-3 font-extrabold text-slate-700 dark:text-slate-200">조건에 맞는 게시판이 없습니다.</p><button type="button" onClick={() => { setBoardSearch(''); setBoardStatus('all'); }} className="mt-3 rounded-xl bg-indigo-50 px-4 py-2 text-xs font-extrabold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">필터 초기화</button></div>
+              : <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {visibleManagedBoards.map((board, boardIndex) => {
                   const typeInfo = BOARD_TYPES.find(t => t.id === board.boardType);
                   const stripColor = getBoardCardStrip(board, boardIndex);
                   const fmtCreatedAt = board.createdAt?.toDate
@@ -1700,15 +1756,16 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
                       : '날짜 없음';
                   return (
                     <div key={board.id}
-                      className={`bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all cursor-pointer group dark:bg-slate-900
-                        ${board.active ? 'border-slate-200 hover:shadow-lg hover:-translate-y-0.5 dark:border-slate-700 dark:hover:border-slate-600' : 'border-slate-100 opacity-60 dark:border-slate-800'}`}
+                      className={`group overflow-hidden rounded-3xl border bg-white shadow-sm transition-all dark:bg-slate-900
+                        ${board.active !== false ? 'border-slate-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl dark:border-slate-700 dark:hover:border-indigo-500/60' : 'border-slate-200 opacity-70 dark:border-slate-800'}`}
                       onClick={() => openBoard(board)}>
                       {/* 색깔 띠 헤더 */}
-                      <div className={`px-4 py-1.5 text-white text-[10px] font-extrabold flex justify-between items-center ${stripColor}`}>
-                        <span>{typeInfo?.label || '기본형'}</span>
-                        <span>{board.active ? '🟢 공개' : '⏸ 비공개'}</span>
-                      </div>
-                      <div className="p-4">
+                      <div className={`h-2 ${stripColor}`} />
+                      <div className="p-5">
+                        <div className="mb-4 flex items-center justify-between">
+                          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-100 dark:bg-slate-800">{typeInfo?.icon || '📋'}</span>
+                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${board.active !== false ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>{board.active !== false ? '● 학생 공개' : '⏸ 숨김'}</span>
+                        </div>
                         {editingBoardId === board.id ? (
                           <form
                             className="mb-2 flex items-center gap-1.5"
@@ -1750,21 +1807,22 @@ export default function BoardManage({ selectedClass, user, themeMode }) {
                             </button>
                           </div>
                         )}
-                        {board.description && <p className="text-xs text-slate-500 mb-2 line-clamp-2 dark:text-slate-400">{board.description}</p>}
-                        <div className="text-[11px] text-slate-400 mb-3 flex items-center gap-1 dark:text-slate-500">
-                          🗓 {fmtCreatedAt}
+                        <p className="mb-3 min-h-10 line-clamp-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{board.description || '학생들에게 안내할 설명이 없습니다.'}</p>
+                        <div className="mb-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] font-bold text-slate-400 dark:border-slate-800">
+                          <span>{typeInfo?.label || '기본형'} · 시트 {(board.sheets || []).length || 1}개</span><span>{fmtCreatedAt}</span>
                         </div>
-                        <div className="flex gap-2 mt-1" onClick={e => e.stopPropagation()}>
+                        <div className="grid grid-cols-[1fr_auto_auto] gap-2" onClick={e => e.stopPropagation()}>
                           <button onClick={() => openBoard(board)}
-                            className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors">
-                            열기
+                            className="rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-extrabold text-white transition-colors hover:bg-indigo-700">
+                            관리하기
                           </button>
                           <button onClick={() => toggleActive(board)}
-                            className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl border border-slate-200 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
-                            {board.active ? '숨기기' : '공개'}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">
+                            {board.active !== false ? '숨김' : '공개'}
                           </button>
                           <button onClick={() => deleteBoard(board)}
-                            className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-500 font-bold text-xs rounded-xl border border-rose-200">삭제</button>
+                            aria-label={`${board.title} 삭제`} title="삭제"
+                            className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-100">🗑</button>
                         </div>
                       </div>
                     </div>

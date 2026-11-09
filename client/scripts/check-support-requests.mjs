@@ -89,4 +89,17 @@ assert.equal(currentQuestCompletion({ type: 'daily' }, old, now), old);
 assert.equal(questPeriodStart(weekly, now).toISOString(), '2026-08-30T15:00:00.000Z');
 assert.equal(currentQuestCompletion(weekly, old, now), old);
 assert.equal(currentQuestCompletion(daily, { ...old, checkedAt: { seconds: now.getTime() / 1000 } }, now)?.rewarded, true);
-console.log('PASS: review without reward, recoverable deletion, stale bulk approval, concurrent payment, class isolation, content restrictions, KST daily/weekly reset. No production access.');
+
+const topicWritingManageSource = await readFile('src/pages/teacher/TopicWritingManage.jsx', 'utf8');
+assert.match(topicWritingManageSource, /setSelectedSubmission\(null\);\s*await loadData\(\);/);
+assert.match(topicWritingManageSource, /selectedSubmission\.status === 'reviewed' \|\| selectedSubmission\.rewardDecision === 'withheld'/);
+const [appSource, teacherLoginSource, teacherLayoutSource] = await Promise.all([
+  readFile('src/App.jsx', 'utf8'),
+  readFile('src/pages/teacher/TeacherLogin.jsx', 'utf8'),
+  readFile('src/pages/teacher/TeacherLayout.jsx', 'utf8'),
+]);
+assert.match(appSource, /<TeacherLogin[\s\S]{0,300}teacherUser=\{teacherUser\}/);
+assert.match(teacherLoginSource, /user=\{teacherUser \|\| \{ email: teacherEmail \}\}/);
+assert.match(teacherLayoutSource, /user\?\.uid \|\| currentTeacherEmail \|\| selectedClass\?\.teacherUid/);
+assert.match(teacherLayoutSource, /levelup_teacher_update_seen:/);
+console.log('PASS: review without reward, recoverable deletion, stale bulk approval, concurrent payment, class isolation, content restrictions, KST daily/weekly reset, teacher update popup identity. No production access.');

@@ -1,13 +1,27 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch,
-  onSnapshot, serverTimestamp, query, where,
+  onSnapshot, serverTimestamp, query, where, documentId,
 } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg as resolveBossBackground } from '../../data/monsterData';
 import SpriteMonster from '../../components/SpriteMonster';
 import { applyExpDelta } from '../../utils/leveling';
 import AILessonQuizSetBuilder from '../../components/AILessonQuizSetBuilder';
+
+const loadStudentsByIds = async (studentIds) => {
+  const chunks = [];
+  for (let i = 0; i < studentIds.length; i += 30) chunks.push(studentIds.slice(i, i + 30));
+  const snapshots = await Promise.all(chunks.map(ids => getDocs(query(
+    collection(db, 'students'),
+    where(documentId(), 'in', ids),
+  ))));
+  const students = {};
+  snapshots.forEach(snapshot => snapshot.docs.forEach(studentDoc => {
+    students[studentDoc.id] = studentDoc.data();
+  }));
+  return students;
+};
 
 // ── 퀴즈셋 선택 피커 (스크롤형 인라인) ────────────────────────────
 const DIFF_LABEL_SM = { easy: '쉬움', normal: '보통', hard: '어려움' };
@@ -825,9 +839,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
       async () => {
         setIsPaying(true);
         try {
-          const snap = await getDocs(collection(db, 'students'));
-          const all  = {};
-          snap.docs.forEach(d => { all[d.id] = d.data(); });
+          const all = await loadStudentsByIds(pIds);
 
           const batch = writeBatch(db);
           let count = 0;
@@ -872,9 +884,7 @@ export default function BossRaidManage({ selectedClass, onViewLobby, initialQuiz
         }
 
         setIsPaying(true);
-        const snap = await getDocs(collection(db, 'students'));
-        const all  = {};
-        snap.docs.forEach(d => { all[d.id] = d.data(); });
+        const all = await loadStudentsByIds(pIds);
 
         const batch = writeBatch(db);
         pIds.forEach(sid => {

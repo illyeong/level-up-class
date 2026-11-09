@@ -14,7 +14,7 @@ const cleanExplanation = (text) => {
 };
 import {
   collection, doc, updateDoc, onSnapshot,
-  serverTimestamp, getDoc, getDocs, deleteField, writeBatch, query, where, setDoc, runTransaction, addDoc, increment,
+  serverTimestamp, getDoc, getDocs, deleteField, writeBatch, query, where, setDoc, runTransaction, addDoc, increment, documentId,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { MONSTERS_DB, resolveBossBg as resolveBossBackground } from '../../data/monsterData';
@@ -22,6 +22,20 @@ import SpriteMonster from '../../components/SpriteMonster';
 import { applyExpDelta } from '../../utils/leveling';
 import { renderMath, TableRenderer, stripOptionPrefix } from '../../utils/renderMath';
 import ShapeRenderer from '../../components/ShapeRenderer';
+
+const loadStudentsByIds = async (studentIds) => {
+  const chunks = [];
+  for (let i = 0; i < studentIds.length; i += 30) chunks.push(studentIds.slice(i, i + 30));
+  const snapshots = await Promise.all(chunks.map(ids => getDocs(query(
+    collection(db, 'students'),
+    where(documentId(), 'in', ids),
+  ))));
+  const students = {};
+  snapshots.forEach(snapshot => snapshot.docs.forEach(studentDoc => {
+    students[studentDoc.id] = studentDoc.data();
+  }));
+  return students;
+};
 
 const LEGACY_BOSS_ID_ALIASES = {
   highdemon: 'demon03',
@@ -1786,6 +1800,13 @@ export default function BossRaid({
   const [resolvedStudentDocId, setResolvedStudentDocId] = useState(null);
   const studentDocId = studentDocIdProp || resolvedStudentDocId;
   const [raid, setRaid]           = useState(undefined); // undefined=로딩, null=없음
+  const [entryError, setEntryError] = useState('');
+  const [entryRetry, setEntryRetry] = useState(0);
+  useEffect(() => {
+    if (raid !== undefined) return;
+    const timer = setTimeout(() => setEntryError('레이드 연결이 지연되고 있습니다. 네트워크를 확인하고 다시 시도해 주세요.'), 20000);
+    return () => clearTimeout(timer);
+  }, [raid, entryRetry]);
   const [studentData, setStudentData] = useState(null);
   const activeRaidParticipantId = findParticipantIdByStudentCode(raid?.participants, normalizedStudentCode);
   const activeStudentId = activeRaidParticipantId || studentDocId;
@@ -1836,9 +1857,10 @@ export default function BossRaid({
         const snap = await getDocs(query(collection(db, 'students'), where('studentCode', 'in', codeAliases)));
         if (cancelled) return;
         setResolvedStudentDocId(snap.empty ? null : snap.docs[0].id);
+        if (snap.empty) setEntryError('학생 계정을 찾을 수 없습니다. 로그인 정보를 확인해 주세요.');
       } catch (error) {
         console.error('Boss raid student lookup failed:', error);
-        if (!cancelled) setResolvedStudentDocId(null);
+        if (!cancelled) { setResolvedStudentDocId(null); setEntryError('학생 정보를 불러오지 못했습니다. 다시 시도해 주세요.'); }
       }
     };
 
@@ -1846,21 +1868,25 @@ export default function BossRaid({
     return () => {
       cancelled = true;
     };
-  }, [studentDocIdProp, normalizedStudentCode]);
+  }, [studentDocIdProp, normalizedStudentCode, entryRetry]);
 
   // 학생 데이터 로드
   useEffect(() => {
     if (!studentDocId) return;
+    let cancelled = false;
     getDoc(doc(db, 'students', studentDocId)).then(snap => {
-      if (!snap.exists()) return;
+      if (cancelled) return;
+      if (!snap.exists()) { setEntryError('학생 계정을 찾을 수 없습니다.'); return; }
       const data = { id: snap.id, ...snap.data() };
       setStudentData(data);
       setRaidScope({
         classId: data.classId || null,
         teacherUid: data.teacherUid || null,
       });
-    });
-  }, [studentDocId]);
+      if (!data.classId && !data.teacherUid) setEntryError('학생에게 연결된 학급이 없습니다. 선생님께 확인해 주세요.');
+    }).catch(error => { if (!cancelled) { console.error(error); setEntryError('학급 정보를 불러오지 못했습니다. 다시 시도해 주세요.'); } });
+    return () => { cancelled = true; };
+  }, [studentDocId, entryRetry]);
 
   useEffect(() => {
     if (!isTeacher && !presentationMode) return;
@@ -1963,11 +1989,11 @@ export default function BossRaid({
       : null;
 
     if (!raidQuery) {
-      setRaid(null);
       return () => {};
     }
 
     const unsub = onSnapshot(raidQuery, snap => {
+      setEntryError('');
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .filter(r => !r.presentationTest)
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -1987,9 +2013,9 @@ export default function BossRaid({
           );
 
       setRaid(ended || null);
-    });
+    }, error => { console.error('Boss raid connection failed:', error); setEntryError('레이드 정보를 불러오지 못했습니다. 다시 시도해 주세요.'); });
     return () => unsub();
-  }, [studentDocId, isTeacher, raidScope.classId, raidScope.teacherUid, presentationMode, presentationRaidId]);
+  }, [studentDocId, isTeacher, raidScope.classId, raidScope.teacherUid, presentationMode, presentationRaidId, entryRetry]);
 
   // 대기실 자동 입장 (교사 모드에서는 참가자로 등록 안 함)
   useEffect(() => {
@@ -2009,8 +2035,8 @@ export default function BossRaid({
         lastAnsweredIdx:    -1,
         lastAnsweredCorrect: false,
       },
-    }).catch(() => {});
-  }, [raid?.id, raid?.status, studentDocId, studentData, isTeacher, normalizedStudentCode]);
+    }).catch(error => { console.error('Boss raid join failed:', error); setEntryError('대기실에 입장하지 못했습니다. 다시 시도해 주세요.'); });
+  }, [raid?.id, raid?.status, studentDocId, studentData, isTeacher, normalizedStudentCode, entryRetry]);
 
   useEffect(() => {
     if (!presentationMode || !raid?.id) return;
@@ -2415,9 +2441,7 @@ export default function BossRaid({
           return;
         }
 
-        const studentsSnap = await getDocs(collection(db, 'students'));
-        const allStudents = {};
-        studentsSnap.docs.forEach(s => { allStudents[s.id] = s.data(); });
+        const allStudents = await loadStudentsByIds(participantIds);
 
         const batch = writeBatch(db);
         participantIds.forEach((sid) => {
@@ -2957,7 +2981,7 @@ export default function BossRaid({
     );
   }
 
-  if (showIntro) {
+  if (showIntro && !entryError && raid !== undefined) {
     return (
       <IntroScreen
         raid={isOpen ? raid : null}
@@ -2967,6 +2991,7 @@ export default function BossRaid({
     );
   }
 
+  if (entryError) return <div role="alert" className="min-h-screen bg-slate-950 p-10 text-center text-white"><p>{entryError}</p><button className="mt-4 rounded-xl bg-indigo-600 px-5 py-3 font-bold" onClick={() => { setEntryError(''); setRaid(undefined); setEntryRetry(key => key + 1); }}>다시 시도</button></div>;
   if (raid === undefined) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">

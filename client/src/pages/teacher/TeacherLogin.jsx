@@ -4,6 +4,7 @@ import TeacherLayout from './TeacherLayout';
 function TeacherLogin({
   onStudentTestLogin,
   onLogout,
+  teacherUser,
   teacherEmail,
   selectedClass,
   onChangeClass,
@@ -12,7 +13,7 @@ function TeacherLogin({
 }) {
   return (
     <TeacherLayout
-      user={{ email: teacherEmail }}
+      user={teacherUser || { email: teacherEmail }}
       onLogout={onLogout}
       onStudentTestLogin={onStudentTestLogin}
       selectedClass={selectedClass}

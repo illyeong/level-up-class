@@ -176,6 +176,12 @@ const getMasteryLevel = (score) =>
   score >= 90 ? 'excellent' : score >= 75 ? 'good' : score >= 60 ? 'normal' : 'retry';
 const getMaxExp = getMaxExpForLevel; // leveling.js 통합 공식 사용
 
+const timestampToMs = (value) => {
+  if (typeof value?.toMillis === 'function') return value.toMillis();
+  if (Number.isFinite(value?.seconds)) return value.seconds * 1000;
+  return 0;
+};
+
 // 단원 카드 원형 진행 그래프
 function UnitCircleProgress({ started, done, total, size = 50 }) {
   const cx = size / 2, cy = size / 2, r = size / 2 - 5;
@@ -431,7 +437,6 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   const answerLockRef = useRef(false);
   const [finalResult, setFR]    = useState(null);
   const [saving, setSaving]     = useState(false);
-  const [masteryMap, setMasteryMap]   = useState({});  // lessonKey → mastery 데이터
   const [allMastery, setAllMastery]   = useState({});  // 전체 mastery 캐시 (browse 화면용)
   const [minTimeLeft, setMinTimeLeft] = useState(0);  // 최소 응답 시간 남은 초 (5→0)
   const [loadingElapsed, setLoadingElapsed]  = useState(0);  // 경과 시간(초)
@@ -618,20 +623,6 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         setAllMastery(map);
       });
   }, [studentCode]);
-
-  // ── 차시 목록 진입 시 mastery 데이터 로드 ────────────────────
-  useEffect(() => {
-    if (step !== 'lessons' || !selectedUnit || !studentCode) return;
-    const lessons = (selectedUnit.lessons || []).filter(lesson => isCoursewareLessonAllowed(accessPolicy, selectedUnit, lesson));
-    if (!lessons.length) return;
-    Promise.all(
-      lessons.map(l => getDoc(doc(db, 'aiLessonMastery', `${studentCode}_${lessonKey(selectedUnit, l)}`)))
-    ).then(docs => {
-      const map = {};
-      docs.forEach((d, i) => { if (d.exists()) map[lessonKey(selectedUnit, lessons[i])] = d.data(); });
-      setMasteryMap(map);
-    });
-  }, [step, selectedUnit, studentCode, accessPolicy]);
 
   // ── 차시 목록 진입 시 첫 번째 차시 프리로딩 (컴포넌트 내부 처리) ──
   useEffect(() => {
@@ -1106,7 +1097,6 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         lastScore: score, lastAttemptAt: serverTimestamp(),
       };
       await setDoc(doc(db, 'aiLessonMastery', masteryId), masteryData, { merge: true });
-      setMasteryMap(prev => ({ ...prev, [key]: masteryData }));
       setAllMastery(prev => ({ ...prev, [key]: masteryData }));
 
       const attemptState = await updateQuestionAttemptState({ key, allAns, newAttemptNo: newCount });
@@ -1208,7 +1198,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         masteryLevel: mastLevel,
         masteryAvg,
         scores,
-        rewardLeft: Math.max(0, DAILY_LIMIT - newCount),
+        rewardLeft: Math.max(0, DAILY_LIMIT - (dailyCount + (!alreadyRewarded ? 1 : 0))),
       });
       setStep('result');
     } catch (e) { console.error(e); showToast('저장 오류', 'error'); }
@@ -1216,54 +1206,91 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   };
 
   const backToBrowse = () => { lessonLoadEpoch.current++; setStep('browse'); setUnit(null); setLesson(null); setContent(null); };
-  const backToLessons = () => { setStep('lessons'); setCardIdx(0); setQIdx(0); setAnswers([]); setSelected(null); setShowResult(false); };
+  const backToLessons = () => { lessonLoadEpoch.current++; setStep('lessons'); setCardIdx(0); setQIdx(0); setAnswers([]); setSelected(null); setShowResult(false); };
 
   const publishers = [...new Set(units.map(u => u.publisher).filter(Boolean))];
+  const visibleLearningItems = units.flatMap(unit =>
+    (unit.lessons || [])
+      .filter(lesson => lesson.title !== '단원 도입')
+      .filter(lesson => isCoursewareLessonAllowed(accessPolicy, unit, lesson))
+      .map(lesson => ({ unit, lesson, mastery: allMastery[lessonKey(unit, lesson)] }))
+  );
+  const startedLearningItems = visibleLearningItems.filter(item => item.mastery?.attemptCount > 0);
+  const completedLearningItems = visibleLearningItems.filter(item => item.mastery?.masteryAvg != null);
+  const resumeTarget = [...startedLearningItems]
+    .sort((a, b) => timestampToMs(b.mastery?.lastAttemptAt) - timestampToMs(a.mastery?.lastAttemptAt))[0] || null;
+  const rewardRemaining = Math.max(0, DAILY_LIMIT - dailyCount);
 
   // ══════════════════════════════════════════════════════════════
   // ── 단원 브라우즈 화면 ────────────────────────────────────────
   if (step === 'browse') return (
-    <div className={`min-h-full mx-auto max-w-4xl p-4 sm:p-6 ${isDark ? '' : 'text-slate-800'}`}>
-      <div className={`mb-4 flex flex-col items-stretch gap-3 rounded-3xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${
-        isDark ? 'border-slate-800 bg-slate-900/65' : 'border-slate-200 bg-white shadow-sm'
-      }`}>
-        <div className="flex items-center gap-3">
-          <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-2xl ${isDark ? 'bg-cyan-400/10' : 'bg-cyan-50'}`}>🤖</span>
-          <div>
-            <h1 className={`text-xl font-extrabold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>AI 학습관</h1>
-            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>단원을 선택하면 AI가 개념 카드와 미니퀴즈를 바로 만들어줍니다.</p>
-          </div>
-        </div>
-        {/* 오늘 남은 보상횟수 */}
-        <div className="flex w-full shrink-0 items-center gap-1.5 sm:w-auto">
-          <div className={`w-full min-w-[76px] rounded-2xl border px-3 py-2 text-center sm:w-auto ${
-            dailyCount >= DAILY_LIMIT
-              ? isDark ? 'bg-rose-500/20 border-rose-500/30' : 'bg-rose-50 border-rose-300'
-              : isDark ? 'bg-indigo-500/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-300'
-          }`}>
-            <div className={`text-lg font-extrabold ${
-              dailyCount >= DAILY_LIMIT
-                ? isDark ? 'text-rose-300' : 'text-rose-700'
-                : isDark ? 'text-indigo-300' : 'text-indigo-700'
-            }`}>
-              {DAILY_LIMIT - dailyCount}/{DAILY_LIMIT}
+    <div className={`min-h-full mx-auto max-w-5xl p-4 sm:p-6 ${isDark ? '' : 'text-slate-800'}`}>
+      <section className="relative mb-4 overflow-hidden rounded-[28px] bg-gradient-to-br from-indigo-600 via-violet-600 to-cyan-600 p-5 text-white shadow-xl shadow-indigo-950/20 sm:p-7">
+        <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-white/10 blur-sm" />
+        <div className="pointer-events-none absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-cyan-300/15 blur-2xl" />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-xl">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 text-2xl ring-1 ring-white/25">✦</span>
+              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-extrabold ring-1 ring-white/20">
+                {isTeacher ? '교사 미리보기' : `${filterGrade || student?.grade || '-'}학년 맞춤 학습`}
+              </span>
             </div>
-            <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>오늘 남은 보상횟수</div>
+            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">AI 학습관</h1>
+            <p className="mt-2 text-sm font-medium leading-6 text-indigo-50 sm:text-base">
+              개념을 익히고 5문제에 도전해 보세요. 틀린 문제는 오답노트가 기억해 줍니다.
+            </p>
           </div>
-          {dailyCount > 0 && (
-            <button
-              onClick={() => { if (window.confirm('오늘 보상 횟수를 초기화할까요?')) setDailyCount(0); }}
-              title="보상 횟수 초기화"
-              className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-700/50 text-slate-400 hover:bg-slate-600 hover:text-white text-xs">
-              ↺
-            </button>
+          {!isTeacher && (
+            <div className="min-w-[180px] rounded-2xl bg-slate-950/20 p-4 ring-1 ring-white/20 backdrop-blur-sm">
+              <div className="flex items-end justify-between">
+                <span className="text-xs font-bold text-indigo-100">오늘 보상 기회</span>
+                <strong className="text-2xl font-black">{rewardRemaining}<span className="text-sm text-white/60"> / {DAILY_LIMIT}</span></strong>
+              </div>
+              <div className="mt-3 flex gap-1" aria-label={`오늘 보상 기회 ${rewardRemaining}회 남음`}>
+                {Array.from({ length: DAILY_LIMIT }, (_, index) => (
+                  <span key={index} className={`h-2 flex-1 rounded-full ${index < rewardRemaining ? 'bg-amber-300' : 'bg-white/20'}`} />
+                ))}
+              </div>
+            </div>
           )}
         </div>
+      </section>
+
+      <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
+        {[
+          ['📚', '학습 차시', visibleLearningItems.length],
+          ['🚀', '도전 중', startedLearningItems.length],
+          ['🏅', '숙달 완료', completedLearningItems.length],
+        ].map(([icon, label, value]) => (
+          <div key={label} className={`rounded-2xl border px-3 py-3 sm:px-4 ${isDark ? 'border-slate-800 bg-slate-900/75' : 'border-slate-200 bg-white shadow-sm'}`}>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{icon}</span>
+              <span className={`text-[11px] font-bold sm:text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{label}</span>
+            </div>
+            <p className={`mt-1 text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{value}</p>
+          </div>
+        ))}
       </div>
+
+      {resumeTarget && (
+        <button type="button" onClick={() => openLesson(resumeTarget.unit, resumeTarget.lesson)}
+          className={`group mb-4 flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-lg ${
+            isDark ? 'border-cyan-400/25 bg-gradient-to-r from-cyan-400/10 to-indigo-500/10' : 'border-cyan-200 bg-gradient-to-r from-cyan-50 to-indigo-50'
+          }`}>
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-cyan-500 text-xl text-white shadow-lg shadow-cyan-500/20">▶</span>
+          <span className="min-w-0 flex-1">
+            <span className={`block text-[11px] font-extrabold ${isDark ? 'text-cyan-300' : 'text-cyan-700'}`}>최근 학습 이어하기</span>
+            <span className={`mt-0.5 block truncate text-sm font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>{resumeTarget.lesson.title}</span>
+            <span className={`mt-0.5 block truncate text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{resumeTarget.unit.unitName} · {resumeTarget.mastery.attemptCount}회 도전</span>
+          </span>
+          <span className={`text-sm font-black transition-transform group-hover:translate-x-1 ${isDark ? 'text-cyan-300' : 'text-cyan-700'}`}>계속하기 →</span>
+        </button>
+      )}
 
       {!isTeacher && (
         <button type="button" onClick={loadWrongNotebook} disabled={wrongLoading}
-          className={`mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border p-4 text-left transition-colors ${
+          className={`mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 ${
             isDark ? 'border-amber-400/20 bg-amber-400/10 hover:bg-amber-400/15' : 'border-amber-200 bg-amber-50 hover:bg-amber-100'
           }`}>
           <div>
@@ -1278,23 +1305,44 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         </button>
       )}
 
-      {!isTeacher && <p role="status" className="mb-3 rounded-xl border border-indigo-300/40 bg-indigo-500/10 p-3 text-sm">
-        {accessError || (!accessReady ? '학급 학습 허용 설정 확인 중...' : accessPolicy?.mode && accessPolicy.mode !== 'all'
-          ? '선생님이 지정한 콘텐츠만 표시됩니다.' : '현재 전체 콘텐츠를 학습할 수 있습니다.')}
-      </p>}
+      {!isTeacher && <div role="status" className={`mb-4 flex items-center gap-3 rounded-2xl border p-3.5 text-sm ${
+        isDark ? 'border-indigo-400/20 bg-indigo-400/10 text-indigo-100' : 'border-indigo-200 bg-indigo-50 text-indigo-800'
+      }`}>
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-indigo-500/15">🎯</span>
+        <div>
+          <p className="text-xs font-extrabold">우리 반 학습 범위</p>
+          <p className={`mt-0.5 text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            {accessError || (!accessReady ? '선생님 설정을 확인하고 있어요.' : accessPolicy?.mode && accessPolicy.mode !== 'all'
+              ? '선생님이 지정한 학년·단원·차시만 표시됩니다.' : '현재 전체 콘텐츠를 자유롭게 학습할 수 있어요.')}
+          </p>
+        </div>
+      </div>}
       {/* 필터 */}
-      <div className={`mb-5 grid gap-2 rounded-2xl border p-2 sm:flex sm:items-center ${isDark ? 'border-slate-800 bg-slate-900/75' : 'border-slate-200 bg-white shadow-sm'}`}>
+      <div className={`mb-5 rounded-2xl border p-3 sm:p-4 ${isDark ? 'border-slate-800 bg-slate-900/75' : 'border-slate-200 bg-white shadow-sm'}`}>
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className={`text-sm font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>학습 범위 선택</p>
+            <p className={`text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>학년과 학기를 고르면 단원을 빠르게 찾을 수 있어요.</p>
+          </div>
+          {filterGrade && <span className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold ${isDark ? 'bg-cyan-400/10 text-cyan-300' : 'bg-cyan-50 text-cyan-700'}`}>{units.length}개 단원</span>}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-[auto_1fr_auto] sm:items-end">
         {/* 학년 select */}
-        <select value={filterGrade} onChange={e => { setFG(e.target.value); setFP(''); }}
-          disabled={!accessReady}
-          aria-label="학년 선택"
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-cyan-500 sm:w-auto">
-          <option value="">학년 선택</option>
-          {allowedGrades.map(n => <option key={n} value={n}>{n}학년</option>)}
-        </select>
+        <label className="grid gap-1">
+          <span className={`text-[10px] font-extrabold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>학년</span>
+          <select value={filterGrade} onChange={e => { setFG(e.target.value); setFP(''); }}
+            disabled={!accessReady}
+            aria-label="학년 선택"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-cyan-500 sm:w-auto">
+            <option value="">학년 선택</option>
+            {allowedGrades.map(n => <option key={n} value={n}>{n}학년</option>)}
+          </select>
+        </label>
 
         {/* 학기 — 버튼 3개 */}
-        <div className={`grid grid-cols-3 overflow-hidden rounded-xl border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div>
+          <span className={`mb-1 block text-[10px] font-extrabold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>학기</span>
+          <div className={`grid grid-cols-3 overflow-hidden rounded-xl border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
           {[['','전체학기'],['1','1학기'],['2','2학기']].map(([val, label]) => (
             <button key={val} onClick={() => setFS(val)}
               className={`px-3 py-2.5 text-sm font-bold transition-colors sm:px-4
@@ -1304,15 +1352,20 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
               {label}
             </button>
           ))}
+          </div>
         </div>
 
         {publishers.length > 1 && (
-          <select value={filterPub} onChange={e => setFP(e.target.value)}
-            className="bg-white text-slate-800 border-2 border-slate-300 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500">
-            <option value="">전체 출판사</option>
-            {publishers.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <label className="grid gap-1">
+            <span className={`text-[10px] font-extrabold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>출판사</span>
+            <select value={filterPub} onChange={e => setFP(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500">
+              <option value="">전체 출판사</option>
+              {publishers.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </label>
         )}
+        </div>
       </div>
 
       {!filterGrade ? (
@@ -1499,91 +1552,113 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
 
   // ══════════════════════════════════════════════════════════════
   // ── 차시 목록 화면 ────────────────────────────────────────────
-  if (step === 'lessons' && selectedUnit) return (
-    <div className={`mx-auto min-h-full max-w-2xl p-4 sm:p-6 ${isDark ? '' : 'text-slate-800'}`}>
-      <button onClick={backToBrowse} className={`flex items-center gap-1.5 text-sm font-bold mb-5 ${isDark ? 'text-indigo-400 hover:text-indigo-200' : 'text-indigo-700 hover:text-indigo-900'}`}>
-        ← {filterGrade}학년 수학 단원 목록
-      </button>
-      <div className={`mb-5 rounded-3xl border px-5 py-4 ${isDark ? 'border-cyan-400/25 bg-gradient-to-br from-cyan-400/10 to-indigo-500/10' : 'border-cyan-200 bg-cyan-50 shadow-sm'}`}>
-        <div className={`text-xs font-bold mb-0.5 ${isDark ? 'text-indigo-400' : 'text-indigo-700'}`}>{selectedUnit.grade}학년 {selectedUnit.semester ? `${selectedUnit.semester}학기 ` : ''}수학</div>
-        <h2 className={`text-xl font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>{selectedUnit.unitNumber ? `${selectedUnit.unitNumber}단원 ` : ''}{selectedUnit.unitName}</h2>
-        <p className={`text-xs mt-0.5 ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>{(selectedUnit.lessons || []).filter(lesson => isCoursewareLessonAllowed(accessPolicy, selectedUnit, lesson)).length}개 차시 · 차시를 눌러 AI 학습을 시작하세요</p>
-      </div>
+  if (step === 'lessons' && selectedUnit) {
+    const availableLessons = (selectedUnit.lessons || []).filter(lesson => isCoursewareLessonAllowed(accessPolicy, selectedUnit, lesson));
+    const progressLessons = availableLessons.filter(lesson => lesson.title !== '단원 도입');
+    const unitStarted = progressLessons.filter(lesson => allMastery[lessonKey(selectedUnit, lesson)]?.attemptCount > 0).length;
+    const unitCompleted = progressLessons.filter(lesson => allMastery[lessonKey(selectedUnit, lesson)]?.masteryAvg != null).length;
+    const unitProgress = progressLessons.length ? Math.round((unitCompleted / progressLessons.length) * 100) : 0;
 
-      {/* 차시 목록 — 클릭 즉시 학습 시작 */}
-      <div className="space-y-2">
-        {(selectedUnit.lessons || []).length === 0 ? (
-          <div className="text-center py-10 text-slate-400">
-            <p className="font-bold">이 단원에 등록된 차시가 없습니다</p>
-          </div>
-        ) : (selectedUnit.lessons || []).filter(lesson => isCoursewareLessonAllowed(accessPolicy, selectedUnit, lesson)).map(lesson => (
-          <div key={lesson.no}>
-            <button
-              onClick={() => openLesson(selectedUnit, lesson)}
-              onPointerEnter={() => queueLessonPreload(selectedUnit, lesson)}
-              onFocus={() => queueLessonPreload(selectedUnit, lesson)}
-              onTouchStart={() => queueLessonPreload(selectedUnit, lesson)}
-              className={`group w-full rounded-2xl border px-4 py-4 text-left transition-all ${
-                isDark
-                  ? 'border-slate-700 bg-slate-800/65 hover:border-cyan-500 hover:bg-slate-800'
-                  : 'border-slate-200 bg-white shadow-sm hover:border-cyan-400 hover:bg-cyan-50'
-              }`}>
-              <div className="flex items-center gap-3">
-                <span className="w-14 shrink-0 text-xs font-extrabold text-cyan-400 group-hover:text-cyan-300">
-                  {lesson.no}차시
-                </span>
-                <span className={`text-sm font-bold flex-1 ${isDark ? 'text-slate-200 group-hover:text-white' : 'text-slate-800 group-hover:text-indigo-900'}`}>
-                  {lesson.title}
-                </span>
-                <span className="shrink-0 text-sm font-bold text-cyan-500 group-hover:text-cyan-300">▶</span>
+    return (
+      <div className={`mx-auto min-h-full max-w-3xl p-4 sm:p-6 ${isDark ? '' : 'text-slate-800'}`}>
+        <button onClick={backToBrowse} className={`mb-4 flex items-center gap-1.5 text-sm font-bold ${isDark ? 'text-indigo-300 hover:text-white' : 'text-indigo-700 hover:text-indigo-900'}`}>
+          ← 단원 목록으로
+        </button>
+        <section className="relative mb-5 overflow-hidden rounded-[28px] bg-gradient-to-br from-cyan-600 via-blue-600 to-indigo-700 p-5 text-white shadow-xl sm:p-6">
+          <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10" />
+          <div className="relative">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-extrabold text-cyan-100">{selectedUnit.grade}학년 {selectedUnit.semester ? `${selectedUnit.semester}학기 ` : ''}수학</p>
+                <h2 className="mt-1 text-2xl font-black tracking-tight">{selectedUnit.unitNumber ? `${selectedUnit.unitNumber}. ` : ''}{selectedUnit.unitName}</h2>
+                <p className="mt-2 text-sm font-medium text-blue-100">개념 카드로 익힌 뒤 5문제 미니퀴즈에 도전해요.</p>
               </div>
-              {(lesson.keywords || []).length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1.5 pl-[68px]">
-                  {lesson.keywords.slice(0, 3).map(k => (
-                    <span key={k} className={`text-[10px] px-1.5 py-0.5 rounded-full ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>{k}</span>
-                  ))}
+              <div className="rounded-2xl bg-white/15 px-4 py-3 text-right ring-1 ring-white/20">
+                <p className="text-[10px] font-bold text-blue-100">숙달 완료</p>
+                <p className="text-xl font-black">{unitCompleted}<span className="text-sm text-white/60"> / {progressLessons.length}</span></p>
+              </div>
+            </div>
+            <div className="mt-5">
+              <div className="mb-1.5 flex justify-between text-[11px] font-bold text-blue-100">
+                <span>{unitStarted ? `${unitStarted}개 차시 도전 중` : '첫 차시를 시작해 보세요'}</span>
+                <span>{unitProgress}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-950/20">
+                <div className="h-full rounded-full bg-amber-300 transition-all" style={{ width: `${unitProgress}%` }} />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="mb-3 flex items-end justify-between">
+          <div>
+            <h3 className={`text-base font-extrabold ${isDark ? 'text-white' : 'text-slate-900'}`}>차시 선택</h3>
+            <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>원하는 차시를 누르면 바로 학습을 준비합니다.</p>
+          </div>
+          <span className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{availableLessons.length}개</span>
+        </div>
+
+        <div className="space-y-2.5">
+          {availableLessons.length === 0 ? (
+            <div className={`rounded-3xl border py-12 text-center ${isDark ? 'border-slate-800 bg-slate-900 text-slate-400' : 'border-slate-200 bg-white text-slate-500'}`}>
+              <p className="text-3xl">📭</p>
+              <p className="mt-2 font-bold">이 단원에 학습 가능한 차시가 없습니다.</p>
+            </div>
+          ) : availableLessons.map(lesson => {
+            const mastery = allMastery[lessonKey(selectedUnit, lesson)];
+            const done = mastery?.scores?.length || 0;
+            const masteryCfg = mastery?.masteryAvg != null ? (MASTERY[mastery.masteryLevel] || MASTERY.retry) : null;
+            return (
+              <button key={lesson.no}
+                onClick={() => openLesson(selectedUnit, lesson)}
+                onPointerEnter={() => queueLessonPreload(selectedUnit, lesson)}
+                onFocus={() => queueLessonPreload(selectedUnit, lesson)}
+                onTouchStart={() => queueLessonPreload(selectedUnit, lesson)}
+                className={`group w-full rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-lg ${
+                  isDark ? 'border-slate-700 bg-slate-800/70 hover:border-cyan-400/60' : 'border-slate-200 bg-white shadow-sm hover:border-cyan-400'
+                }`}>
+                <div className="flex items-center gap-3">
+                  <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-sm font-black ${
+                    mastery ? 'bg-cyan-500 text-white' : isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'
+                  }`}>{lesson.no}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block text-sm font-extrabold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>{lesson.title}</span>
+                    {(lesson.keywords || []).length > 0 && (
+                      <span className={`mt-1 block truncate text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{lesson.keywords.slice(0, 3).join(' · ')}</span>
+                    )}
+                  </span>
+                  <span className={`shrink-0 rounded-xl px-3 py-2 text-[11px] font-extrabold ${
+                    mastery ? isDark ? 'bg-cyan-400/10 text-cyan-300' : 'bg-cyan-50 text-cyan-700' : isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-600'
+                  }`}>{mastery ? '다시 학습' : '학습 시작'} →</span>
                 </div>
-              )}
-              {/* mastery 배지 */}
-              {(() => {
-                const m = masteryMap[lessonKey(selectedUnit, lesson)];
-                if (!m) return <div className="mt-1 pl-[68px]"><span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-600'}`}>미도전</span></div>;
-                const done = (m.scores?.length || 0);
-                if (done < MASTERY_ATTEMPTS) {
-                  return (
-                    <div className="flex items-center gap-2 mt-1 pl-[68px] flex-wrap">
-                      <span className="text-[10px] text-slate-500 shrink-0">{done}/{MASTERY_ATTEMPTS} 도전 중</span>
-                      <div className="flex gap-1 items-center">
-                        {(m.scores || []).map((s, i) => (
-                          <span key={i} className={`text-[10px] font-bold px-1.5 py-0.5 rounded
-                            ${s >= 90 ? 'bg-amber-100 text-amber-700' : s >= 75 ? 'bg-sky-100 text-sky-700' : s >= 60 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
-                            {s}
-                          </span>
-                        ))}
-                        {Array.from({ length: MASTERY_ATTEMPTS - done }, (_, i) => (
-                          <span key={`e${i}`} className="text-[10px] text-slate-500 px-1.5 py-0.5 rounded bg-slate-700">?</span>
+                <div className="mt-3 flex items-center gap-2 pl-14">
+                  {!mastery ? (
+                    <span className={`text-[10px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>아직 도전하지 않았어요</span>
+                  ) : masteryCfg ? (
+                    <>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${masteryCfg.cls}`}>{masteryCfg.emoji} {masteryCfg.label}</span>
+                      <span className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>평균 {mastery.masteryAvg}점 · {mastery.attemptCount}회</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className={`text-[10px] font-bold ${isDark ? 'text-cyan-300' : 'text-cyan-700'}`}>숙달까지 {MASTERY_ATTEMPTS - done}회 남음</span>
+                      <div className="flex gap-1">
+                        {Array.from({ length: MASTERY_ATTEMPTS }, (_, index) => (
+                          <span key={index} className={`h-1.5 w-5 rounded-full ${index < done ? 'bg-cyan-400' : isDark ? 'bg-slate-700' : 'bg-slate-200'}`} />
                         ))}
                       </div>
-                    </div>
-                  );
-                }
-                const cfg = MASTERY[m.masteryLevel] || MASTERY.retry;
-                return (
-                  <div className="flex items-center gap-2 mt-1 pl-[68px]">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.emoji} {cfg.label}</span>
-                    <span className="text-[10px] text-slate-400">평균 {m.masteryAvg}점</span>
-                    <span className="text-[10px] text-slate-500">{m.attemptCount}회</span>
-                  </div>
-                );
-              })()}
-            </button>
-          </div>
-        ))}
-      </div>
+                    </>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
 
-      {toast && <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} text-white`} style={{ whiteSpace: 'nowrap' }}>{toast.msg}</div>}
-    </div>
-  );
+        {toast && <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl font-bold text-sm shadow-2xl pointer-events-none ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} text-white`} style={{ whiteSpace: 'nowrap' }}>{toast.msg}</div>}
+      </div>
+    );
+  }
 
   // ── 로딩 화면 ────────────────────────────────────────────────
   if (step === 'loading') return (
@@ -1619,6 +1694,13 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           <span>{loadingElapsed}초 경과</span>
           {loadingElapsed < 3 && <span className="text-xs">(첫 생성은 잠시 걸릴 수 있어요)</span>}
         </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-xs leading-5 text-slate-400">
+          <span className="font-bold text-indigo-200">알고 있나요?</span> 한 번 만든 학습 내용은 저장되어 다음에는 더 빠르게 열립니다.
+        </div>
+        <button type="button" onClick={backToLessons} className="text-sm font-bold text-slate-400 underline-offset-4 hover:text-white hover:underline">
+          취소하고 차시 목록으로
+        </button>
 
       </div>
     </div>
@@ -1733,9 +1815,15 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   if (step === 'concept') return (
     <div className="min-h-screen bg-gradient-to-b from-sky-950 to-slate-900 flex flex-col p-4 md:p-8">
       <div className="max-w-3xl w-full mx-auto flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <button onClick={backToLessons} className="text-white/50 hover:text-white text-sm font-bold">← {selectedLesson.no}차시 목록</button>
-          <span className="text-white/40 text-sm">{cardIdx + 1} / {content.conceptCards.length}</span>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <button onClick={backToLessons} className="text-white/50 hover:text-white text-sm font-bold">← 차시 목록</button>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="rounded-full bg-sky-400/15 px-2.5 py-1 text-[10px] font-extrabold text-sky-200 ring-1 ring-sky-300/20">개념 학습</span>
+              <p className="truncate text-sm font-extrabold text-white">{selectedLesson.title}</p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white/70">{cardIdx + 1} / {content.conceptCards.length}</span>
         </div>
 
         {/* 진행 바 */}
@@ -1746,12 +1834,12 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         </div>
 
         {/* 개념 카드 — 크게 */}
-        <div className="bg-white rounded-3xl shadow-2xl p-8 space-y-6">
+        <div className="bg-white rounded-3xl shadow-2xl p-5 space-y-5 sm:p-8 sm:space-y-6">
           <div className="flex items-center gap-3">
             <span className="text-3xl">📖</span>
-            <h3 className="font-extrabold text-sky-800 text-2xl leading-snug">{currentCard.title}</h3>
+            <h3 className="font-extrabold text-sky-800 text-xl leading-snug sm:text-2xl">{currentCard.title}</h3>
           </div>
-          <p className="text-slate-700 text-lg leading-relaxed">{currentCard.body}</p>
+          <p className="text-slate-700 text-base leading-8 sm:text-lg">{currentCard.body}</p>
           {currentCard.example && (
             <div className="bg-sky-50 border-2 border-sky-200 rounded-2xl px-6 py-5">
               <div className="text-sm font-bold text-sky-600 mb-2">💡 예시</div>
@@ -1771,10 +1859,10 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
         )}
 
         {/* 이전/다음 버튼 */}
-        <div className="flex gap-3">
+        <div className="sticky bottom-3 z-10 flex gap-3 rounded-3xl bg-slate-950/70 p-2 backdrop-blur-md sm:static sm:bg-transparent sm:p-0">
           {cardIdx > 0 && (
             <button onClick={() => setCardIdx(i => i - 1)}
-              className="flex-1 py-5 bg-white/20 hover:bg-white/30 text-white font-bold text-lg rounded-2xl border border-white/30">
+              className="flex-1 py-4 bg-white/20 hover:bg-white/30 text-white font-bold text-base rounded-2xl border border-white/30 sm:py-5 sm:text-lg">
               ← 이전
             </button>
           )}
@@ -1783,7 +1871,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
               if (cardIdx < content.conceptCards.length - 1) setCardIdx(i => i + 1);
               else { setStep('quiz'); setQIdx(0); setSelected(null); setShowResult(false); }
             }}
-            className="flex-1 py-5 bg-sky-500 hover:bg-sky-600 text-white font-extrabold text-xl rounded-2xl shadow-lg">
+            className="flex-1 py-4 bg-sky-500 hover:bg-sky-600 text-white font-extrabold text-lg rounded-2xl shadow-lg sm:py-5 sm:text-xl">
             {cardIdx < content.conceptCards.length - 1 ? '다음 →' : '퀴즈 풀기 →'}
           </button>
         </div>
@@ -1795,6 +1883,13 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   // ── 퀴즈 화면 (2배 크기) ─────────────────────────────────────
   if (step === 'quiz') return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-950 to-slate-900 flex flex-col p-4 md:p-8">
+      <div className="mb-3 flex w-full max-w-3xl items-center justify-between gap-3 self-center">
+        <button type="button" onClick={backToLessons} className="text-sm font-bold text-white/50 hover:text-white">← 차시 목록</button>
+        <div className="min-w-0 text-right">
+          <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-[10px] font-extrabold text-emerald-200 ring-1 ring-emerald-300/20">미니퀴즈</span>
+          <p className="mt-1 max-w-[210px] truncate text-xs font-bold text-white/70 sm:max-w-sm">{selectedLesson.title}</p>
+        </div>
+      </div>
       {/* 진행 바 */}
       <div className="flex items-center gap-2 mb-2 max-w-3xl w-full mx-auto">
         {content.questions.map((_, i) => (
@@ -1802,14 +1897,14 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
             ${i < answers.length ? (answers[i]?.correct ? 'bg-emerald-400' : 'bg-rose-400') : i === qIdx ? 'bg-white/60' : 'bg-white/20'}`} />
         ))}
       </div>
-      <div className="text-white/50 text-sm text-center mb-4">{qIdx + 1} / {content.questions.length}문항</div>
+      <div className="text-white/50 text-sm text-center mb-4">{qIdx + 1} / {content.questions.length}문항 · {Math.round(((qIdx + 1) / content.questions.length) * 100)}%</div>
 
       <div className="max-w-3xl w-full mx-auto flex-1 flex flex-col gap-4">
         {/* 문제 카드 — 크게 */}
-        <div className="bg-white rounded-3xl shadow-2xl p-8 space-y-5">
+        <div className="bg-white rounded-3xl shadow-2xl p-5 space-y-5 sm:p-8">
           <div className="flex items-start gap-3">
             <span className="text-2xl font-extrabold text-emerald-600 shrink-0 mt-0.5">Q{qIdx + 1}.</span>
-            <p className="text-slate-800 font-bold text-2xl leading-snug">{renderMath(currentQ.question)}</p>
+            <p className="text-slate-800 font-bold text-xl leading-8 sm:text-2xl sm:leading-snug">{renderMath(currentQ.question)}</p>
           </div>
           <TableRenderer table={currentQ.table} />
           <ShapeRenderer shape={getRenderableQuestionShape(currentQ, selectedUnit)} />
@@ -1827,7 +1922,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
               } else if (isSelected) cls = 'border-2 border-indigo-500 bg-indigo-50 text-indigo-800 font-extrabold';
               return (
                 <button key={oi} onClick={() => !showResult && setSelected(oi)}
-                  className={`w-full text-left px-6 py-4 rounded-2xl text-lg transition-all ${cls}`}>
+                  className={`w-full min-h-14 text-left px-4 py-3.5 rounded-2xl text-base transition-all sm:px-6 sm:py-4 sm:text-lg ${cls}`}>
                   <span className="text-slate-400 mr-2 font-bold">{['①','②','③','④'][oi]}</span>
                   {renderMath(stripOptionPrefix(opt))}
                 </button>
@@ -1869,30 +1964,33 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
           )}
         </div>
 
-        {/* 확인/다음 버튼 */}
-        {!showResult ? (
-          <button
-            onClick={confirmAnswer}
-            disabled={selected === null || minTimeLeft > 0}
-            className={`w-full py-5 font-extrabold text-xl rounded-2xl shadow-lg transition-all
-              ${minTimeLeft > 0
-                ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
-                : selected === null
-                  ? 'bg-emerald-500 text-white opacity-40'
-                  : 'bg-emerald-500 hover:bg-emerald-600 text-white'}`}>
-            {minTimeLeft > 0
-              ? `문제를 읽어보세요 (${minTimeLeft}초)`
-              : '정답 확인'}
-          </button>
-        ) : (
-          <>
+        {/* 모바일에서도 선택 후 바로 누를 수 있는 고정 액션 영역 */}
+        <div className="sticky bottom-3 z-10 rounded-3xl bg-slate-950/75 p-2 backdrop-blur-md sm:static sm:bg-transparent sm:p-0">
+          {!showResult ? (
+            <>
+              {minTimeLeft <= 0 && selected === null && <p className="mb-2 text-center text-xs font-bold text-white/60">답을 하나 선택해 주세요.</p>}
+              <button
+                onClick={confirmAnswer}
+                disabled={selected === null || minTimeLeft > 0}
+                className={`w-full py-4 font-extrabold text-lg rounded-2xl shadow-lg transition-all sm:py-5 sm:text-xl
+                  ${minTimeLeft > 0
+                    ? 'bg-slate-700 text-slate-300 cursor-not-allowed'
+                    : selected === null
+                      ? 'bg-emerald-500 text-white opacity-40'
+                      : 'bg-emerald-500 hover:bg-emerald-600 text-white'}`}>
+                {minTimeLeft > 0
+                  ? `문제를 천천히 읽어보세요 · ${minTimeLeft}초`
+                  : selected === null ? '답을 선택해 주세요' : '선택한 답 확인하기'}
+              </button>
+            </>
+          ) : (
             <button onClick={nextQuestion} disabled={saving}
-              className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xl rounded-2xl disabled:opacity-40 shadow-lg">
-              {saving ? '저장 중...'
-                : qIdx < content.questions.length - 1 ? '다음 문제 →' : '결과 보기 →'}
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-lg rounded-2xl disabled:opacity-40 shadow-lg sm:py-5 sm:text-xl">
+              {saving ? '학습 기록 저장 중...'
+                : qIdx < content.questions.length - 1 ? '다음 문제 →' : '학습 결과 보기 →'}
             </button>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1902,7 +2000,7 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
   if (step === 'result' && finalResult) return (
     <div className="min-h-screen bg-gradient-to-b from-violet-950 to-slate-900 flex items-center justify-center p-6">
       {finalResult.score >= 60 && <ConfettiCanvas />}
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className={`px-6 py-8 text-center ${finalResult.score >= 80 ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : finalResult.score >= 60 ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gradient-to-r from-slate-600 to-slate-700'}`}>
           <div className="text-5xl mb-2">{finalResult.score >= 80 ? '🏆' : finalResult.score >= 60 ? '👍' : '💪'}</div>
           <div className="text-4xl font-extrabold text-white mb-1">{finalResult.score}점</div>
@@ -2010,13 +2108,20 @@ export default function AICourseware({ studentCode, isTeacher = false, teacherUi
             })}
           </div>
 
-          <div className="flex gap-3">
+          {finalResult.correctCount < finalResult.total && !isTeacher && (
+            <button type="button" onClick={loadWrongNotebook} disabled={wrongLoading}
+              className="w-full rounded-2xl border border-amber-200 bg-amber-50 py-3 text-sm font-extrabold text-amber-800 hover:bg-amber-100 disabled:opacity-50">
+              📒 틀린 문제 오답노트에서 복습하기
+            </button>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
             <button onClick={backToLessons}
-              className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-sm">
+              className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-sm">
               다른 차시 보기
             </button>
             <button onClick={startLearning}
-              className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-sm">
+              className="py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-sm">
               다시 풀기
             </button>
           </div>

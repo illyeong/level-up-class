@@ -1,0 +1,8 @@
+.venv/
+build/
+dist/
+dist-v*/
+__pycache__/
+*.spec
+qa-*.png
+packaged-check.json

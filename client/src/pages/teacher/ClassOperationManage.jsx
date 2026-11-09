@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where,
+  addDoc, collection, deleteDoc, doc, documentId, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where,
 } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { getClassOperationErrorMessage } from '../../utils/classOperationFeedback';
@@ -9,7 +9,7 @@ import SpriteMonster from '../../components/SpriteMonster';
 import ClassOperation from '../student/ClassOperation';
 import {
   calculateClassOperationMaxHP, DEFAULT_CLASS_OPERATION_BOSS_ID, DEFAULT_CLASS_OPERATION_DAYS,
-  getRemainingDays,
+  getEquippedEquipmentItemIds, getLocalDateKey, getRemainingDays,
 } from '../../utils/classOperation';
 
 const BOSSES = Object.values(MONSTERS_DB).filter(monster => monster.tier === 'boss');
@@ -40,8 +40,16 @@ export default function ClassOperationManage({ selectedClass }) {
   const [isStudentsLoading, setIsStudentsLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [showStudentView, setShowStudentView] = useState(false);
+  const [dateKey, setDateKey] = useState(getLocalDateKey);
   const classId = selectedClass?.id || selectedClass?.classId || null;
   const teacherUid = selectedClass?.teacherUid || auth.currentUser?.uid || null;
+
+  useEffect(() => {
+    const refreshDay = () => setDateKey(getLocalDateKey());
+    const timer = window.setInterval(refreshDay, 60_000);
+    window.addEventListener('focus', refreshDay);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', refreshDay); };
+  }, []);
 
   useEffect(() => {
     if (!classId && !teacherUid) return () => {};
@@ -56,14 +64,12 @@ export default function ClassOperationManage({ selectedClass }) {
     const loadStudents = async () => {
       setIsStudentsLoading(true);
       try {
-        const equipmentPromise = getDocs(collection(db, 'equipmentItems'));
         let studentSnap = classId
           ? await getDocs(query(collection(db, 'students'), where('classId', '==', classId)))
           : null;
         if ((!studentSnap || studentSnap.empty) && teacherUid) {
           studentSnap = await getDocs(query(collection(db, 'students'), where('teacherUid', '==', teacherUid)));
         }
-        const equipmentSnap = await equipmentPromise;
         let studentRows = studentSnap?.docs.map(item => ({ id: item.id, ...item.data() })) || [];
         const configuredCount = Math.max(0, Number(selectedClass?.studentCount) || 0);
         if (configuredCount > 0 && studentRows.length > configuredCount) {
@@ -72,8 +78,13 @@ export default function ClassOperationManage({ selectedClass }) {
         if (studentRows.length === 0 && configuredCount > 0) {
           studentRows = Array.from({ length: configuredCount }, (_, index) => ({ id: `preview_${index}`, level: 5 }));
         }
+        const equipmentItemIds = getEquippedEquipmentItemIds(studentRows);
+        const equipmentSnapshots = await Promise.all(
+          Array.from({ length: Math.ceil(equipmentItemIds.length / 30) }, (_, index) => equipmentItemIds.slice(index * 30, index * 30 + 30))
+            .map(ids => getDocs(query(collection(db, 'equipmentItems'), where(documentId(), 'in', ids)))),
+        );
         setStudents(studentRows);
-        setEquipmentItems(equipmentSnap.docs.map(item => ({ id: item.id, ...item.data() })));
+        setEquipmentItems(equipmentSnapshots.flatMap(snapshot => snapshot.docs.map(item => ({ id: item.id, ...item.data() }))));
       } catch (error) {
         console.error('우리반 대작전 설정 로딩 실패:', error);
         setMessage(getClassOperationErrorMessage(error));
@@ -110,11 +121,11 @@ export default function ClassOperationManage({ selectedClass }) {
       return () => {};
     }
     return onSnapshot(
-      collection(db, 'classOperations', activeOperation.id, 'attacks'),
+      query(collection(db, 'classOperations', activeOperation.id, 'attacks'), where('dateKey', '==', dateKey)),
       snapshot => setAttacks(snapshot.docs.map(item => ({ id: item.id, ...item.data() })).sort((a, b) => (b.attackedAt?.seconds || 0) - (a.attackedAt?.seconds || 0))),
       error => setMessage(getClassOperationErrorMessage(error)),
     );
-  }, [activeOperation?.id]);
+  }, [activeOperation?.id, dateKey]);
 
   const createOperation = async () => {
     if (!teacherUid || !goal.trim() || !isDurationValid || activeOperation || isCreating) {
@@ -139,6 +150,14 @@ export default function ClassOperationManage({ selectedClass }) {
         durationDays: parsedDuration,
         studentCountAtCreation: students.length,
         totalAttackCount: 0,
+        dailyAttackSummary: {
+          dateKey: getLocalDateKey(),
+          attackCount: 0,
+          participantIds: [],
+          participantCount: 0,
+          lastAttacks: [],
+          contributions: [],
+        },
         status: 'active',
         classId: classId || null,
         teacherUid,
@@ -353,7 +372,7 @@ export default function ClassOperationManage({ selectedClass }) {
             <div>
               <h2 className="font-extrabold text-slate-800">최근 공격 기록</h2>
               <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
-                {attacks.length === 0 ? <p className="text-xs text-slate-400">공격 기록이 없습니다.</p> : attacks.slice(0, 20).map(attackItem => (
+                {attacks.length === 0 ? <p className="text-xs text-slate-400">오늘 공격 기록이 없습니다.</p> : attacks.slice(0, 20).map(attackItem => (
                   <div key={attackItem.id} className="flex items-center justify-between rounded-xl bg-rose-50 px-4 py-3 text-sm"><span className="font-bold text-slate-700">{attackItem.studentName || attackItem.studentCode}</span><strong className={attackItem.critical ? 'text-amber-600' : 'text-rose-600'}>{attackItem.critical ? '💥 크리티컬 ' : ''}-{formatNumber(attackItem.damage)} HP</strong></div>
                 ))}
               </div>

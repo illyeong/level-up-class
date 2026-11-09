@@ -310,12 +310,13 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
         id: selectedSubmission.id, teacherUid, classId, teacherScore, teacherComment,
       });
       setSubmissions(prev => prev.map(item => item.id === selectedSubmission.id ? { ...item, ...updates } : item));
-      setSelectedSubmission(prev => prev ? { ...prev, ...updates } : prev);
+      setSelectedSubmission(null);
+      await loadData();
       showToast('보상 없이 확인했습니다. 일괄 보상 대상에서도 제외됩니다.');
       await onApprovalBadgeRefresh?.();
     } catch (err) {
       console.error('[TopicWritingManage] save review failed:', err);
-      showToast('저장에 실패했습니다.', 'error');
+      showToast(err.message || '저장에 실패했습니다.', 'error');
     } finally {
       setProcessing(false);
     }
@@ -863,6 +864,20 @@ export default function TopicWritingManage({ selectedClass, onApprovalBadgeRefre
                   {selectedSubmission.deleted ? <p className="text-sm text-rose-700">삭제된 글입니다. 복구 후 확인할 수 있습니다.</p> : selectedSubmission.rewardsPaid ? (
                     <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-black text-emerald-700">
                       이미 보상이 지급되었습니다.
+                    </div>
+                  ) : selectedSubmission.status === 'reviewed' || selectedSubmission.rewardDecision === 'withheld' ? (
+                    <div className="space-y-2">
+                      <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm font-black text-indigo-700">
+                        보상 없이 확인 완료 · 일괄 보상 대상에서 제외됨
+                      </div>
+                      <button
+                        type="button"
+                        onClick={payReward}
+                        disabled={processing || bulkApproving}
+                        className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-40"
+                      >
+                        보상 지급으로 변경
+                      </button>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
